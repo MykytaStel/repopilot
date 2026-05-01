@@ -21,6 +21,8 @@ fn scan_directory(path: &Path, summary: &mut ScanSummary) -> io::Result<()> {
 
         if metadata.is_file() {
             summary.files_count += 1;
+            let count_file_lines = count_file_lines(&entry.path())?;
+            summary.total_lines += count_file_lines;
         }
 
         if metadata.is_dir() {
@@ -44,4 +46,9 @@ fn is_ignored_directory(path: &Path) -> bool {
     };
 
     IGNORED_DIRECTORIES.contains(&directory_name)
+}
+
+fn count_file_lines(path: &Path) -> io::Result<usize> {
+    let content = fs::read_to_string(path)?;
+    Ok(content.lines().count())
 }

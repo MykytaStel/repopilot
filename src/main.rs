@@ -39,4 +39,5 @@ fn main() {
 fn print_summary(summary: &ScanSummary) {
     println!("Files analyzed: {}", summary.files_count);
     println!("Directories analyzed: {}", summary.directories_count);
+    println!("Total lines of code: {}", summary.total_lines);
 }
