@@ -3,4 +3,5 @@ pub struct ScanSummary {
     pub files_count: usize,
     pub directories_count: usize,
     pub total_lines: usize,
+    pub text_files_count: usize,
 }
