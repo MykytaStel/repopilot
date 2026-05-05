@@ -57,3 +57,17 @@ Architecture notes:
 - scan_directory traverses the filesystem
 - count_file_lines reads one file and returns line count
 - ScanSummary is becoming an accumulator for scan metrics
+
+## Slice 5 — Count lines only for supported text files
+
+Today I learned:
+- how to read a file extension from Path
+- how Option appears when file metadata may be missing
+- how to use an allowlist for supported extensions
+- how to avoid reading binary files as text
+- why files_count and text_files_count are different
+
+Architecture notes:
+- file type detection is a policy decision
+- count_file_lines only runs after file type validation
+- scanner now separates traversal from basic filtering rules
