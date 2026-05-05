@@ -21,10 +21,7 @@ impl ProjectAudit for MissingTestFolderAudit {
         }
 
         vec![Finding {
-            id: format!(
-                "testing.missing-test-folder.{}",
-                facts.root_path.display()
-            ),
+            id: format!("testing.missing-test-folder.{}", facts.root_path.display()),
             rule_id: "testing.missing-test-folder".to_string(),
             title: "No test folder found".to_string(),
             description: format!(

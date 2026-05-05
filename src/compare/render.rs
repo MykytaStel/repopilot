@@ -35,14 +35,24 @@ pub fn render_console(summary: &CompareSummary) -> String {
     if !summary.new_findings.is_empty() {
         out.push_str("\n── New findings ──────────────────────────\n");
         for f in &summary.new_findings {
-            out.push_str(&format!("  [{}] {} — {}\n", f.severity_label(), f.rule_id, f.title));
+            out.push_str(&format!(
+                "  [{}] {} — {}\n",
+                f.severity_label(),
+                f.rule_id,
+                f.title
+            ));
         }
     }
 
     if !summary.resolved_findings.is_empty() {
         out.push_str("\n── Resolved findings ─────────────────────\n");
         for f in &summary.resolved_findings {
-            out.push_str(&format!("  [{}] {} — {}\n", f.severity_label(), f.rule_id, f.title));
+            out.push_str(&format!(
+                "  [{}] {} — {}\n",
+                f.severity_label(),
+                f.rule_id,
+                f.title
+            ));
         }
     }
 

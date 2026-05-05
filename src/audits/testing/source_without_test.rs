@@ -86,11 +86,9 @@ fn has_nearby_test(source: &Path, all_paths: &HashSet<PathBuf>) -> bool {
     ];
 
     // Check if any existing path ends with these relative paths
-    tests_candidates.iter().any(|candidate| {
-        all_paths
-            .iter()
-            .any(|p| p.ends_with(candidate.as_path()))
-    })
+    tests_candidates
+        .iter()
+        .any(|candidate| all_paths.iter().any(|p| p.ends_with(candidate.as_path())))
 }
 
 fn build_finding(source: &Path) -> Finding {

@@ -20,7 +20,12 @@ pub fn render(summary: &ScanSummary) -> String {
             let snippet = f
                 .evidence
                 .first()
-                .map(|e| format!("<pre class=\"snippet\">{}</pre>", escape_html(e.snippet.trim())))
+                .map(|e| {
+                    format!(
+                        "<pre class=\"snippet\">{}</pre>",
+                        escape_html(e.snippet.trim())
+                    )
+                })
                 .unwrap_or_default();
 
             let severity_class = f.severity_label().to_lowercase();

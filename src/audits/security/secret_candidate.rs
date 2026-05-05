@@ -42,11 +42,7 @@ impl FileAudit for SecretCandidateAudit {
     }
 }
 
-fn detect_secret_line(
-    line: &str,
-    line_number: usize,
-    path: &std::path::Path,
-) -> Option<Finding> {
+fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) -> Option<Finding> {
     let lower = line.to_lowercase();
 
     let matched_key = SECRET_KEYS.iter().find(|&&key| {
@@ -64,15 +60,22 @@ fn detect_secret_line(
         let is_placeholder = value.is_empty()
             || value.starts_with("${")
             || value.starts_with("{{")
-            || value == "\"\"" || value == "''"
-            || value == "null" || value == "nil"
-            || value == "none" || value == "your_key_here"
+            || value == "\"\""
+            || value == "''"
+            || value == "null"
+            || value == "nil"
+            || value == "none"
+            || value == "your_key_here"
             || value == "changeme";
         !is_placeholder && value.len() > 4
     })?;
 
     Some(Finding {
-        id: format!("security.secret-candidate.{}:{}", path.display(), line_number),
+        id: format!(
+            "security.secret-candidate.{}:{}",
+            path.display(),
+            line_number
+        ),
         rule_id: "security.secret-candidate".to_string(),
         title: "Possible secret detected".to_string(),
         description: format!(

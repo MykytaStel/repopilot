@@ -1,6 +1,8 @@
 use crate::cli::{Cli, Commands, OutputFormatArg};
 use repopilot::compare::diff::diff_summaries;
-use repopilot::compare::render::{render_console as compare_console, render_markdown as compare_markdown};
+use repopilot::compare::render::{
+    render_console as compare_console, render_markdown as compare_markdown,
+};
 use repopilot::output::render_scan_summary;
 use repopilot::report::writer::write_report;
 use repopilot::scan::config::ScanConfig;
@@ -35,14 +37,11 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             output,
         } => {
             let before_summary: ScanSummary =
-                serde_json::from_str(&fs::read_to_string(&before)?).map_err(|e| {
-                    format!("Failed to parse {}: {e}", before.display())
-                })?;
+                serde_json::from_str(&fs::read_to_string(&before)?)
+                    .map_err(|e| format!("Failed to parse {}: {e}", before.display()))?;
 
-            let after_summary: ScanSummary =
-                serde_json::from_str(&fs::read_to_string(&after)?).map_err(|e| {
-                    format!("Failed to parse {}: {e}", after.display())
-                })?;
+            let after_summary: ScanSummary = serde_json::from_str(&fs::read_to_string(&after)?)
+                .map_err(|e| format!("Failed to parse {}: {e}", after.display()))?;
 
             let diff = diff_summaries(&before_summary, &after_summary);
 
@@ -79,4 +78,3 @@ fn build_scan_config(
 
     config
 }
-

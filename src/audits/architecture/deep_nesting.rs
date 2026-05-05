@@ -32,10 +32,7 @@ impl ProjectAudit for DeepNestingAudit {
 
 fn build_finding(deepest_path: PathBuf, depth: usize, threshold: usize) -> Finding {
     Finding {
-        id: format!(
-            "architecture.deep-nesting.{}",
-            deepest_path.display()
-        ),
+        id: format!("architecture.deep-nesting.{}", deepest_path.display()),
         rule_id: "architecture.deep-nesting".to_string(),
         title: "Deeply nested directory structure detected".to_string(),
         description: format!(

@@ -31,10 +31,7 @@ impl ProjectAudit for EnvFileCommittedAudit {
 }
 
 fn build_finding(path: &std::path::Path) -> Finding {
-    let name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or(".env");
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or(".env");
 
     Finding {
         id: format!("security.env-file-committed.{}", path.display()),

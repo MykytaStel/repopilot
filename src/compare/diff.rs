@@ -14,17 +14,11 @@ pub struct CompareSummary {
 }
 
 pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSummary {
-    let before_map: HashMap<&str, &Finding> = before
-        .findings
-        .iter()
-        .map(|f| (f.id.as_str(), f))
-        .collect();
+    let before_map: HashMap<&str, &Finding> =
+        before.findings.iter().map(|f| (f.id.as_str(), f)).collect();
 
-    let after_map: HashMap<&str, &Finding> = after
-        .findings
-        .iter()
-        .map(|f| (f.id.as_str(), f))
-        .collect();
+    let after_map: HashMap<&str, &Finding> =
+        after.findings.iter().map(|f| (f.id.as_str(), f)).collect();
 
     let before_ids: HashSet<&str> = before_map.keys().copied().collect();
     let after_ids: HashSet<&str> = after_map.keys().copied().collect();
