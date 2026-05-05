@@ -1,11 +1,13 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::scan::config::ScanConfig;
 use std::path::Path;
 
-pub const LARGE_FILE_LOC_THRESHOLD: usize = 300;
-const HIGH_SEVERITY_LOC_THRESHOLD: usize = 1000;
-
-pub fn detect_large_file_finding(path: &Path, lines_of_code: usize) -> Option<Finding> {
-    if lines_of_code <= LARGE_FILE_LOC_THRESHOLD {
+pub fn detect_large_file_finding(
+    path: &Path,
+    lines_of_code: usize,
+    config: &ScanConfig,
+) -> Option<Finding> {
+    if lines_of_code <= config.large_file_loc_threshold {
         return None;
     }
 
@@ -14,23 +16,25 @@ pub fn detect_large_file_finding(path: &Path, lines_of_code: usize) -> Option<Fi
         rule_id: "architecture.large-file".to_string(),
         title: "Large file detected".to_string(),
         description: format!(
-            "This file has {lines_of_code} non-empty lines of code, which is above the recommended threshold of {LARGE_FILE_LOC_THRESHOLD}. Consider splitting responsibilities into smaller modules."
+            "This file has {lines_of_code} non-empty lines of code, which is above the configured threshold of {}. Consider splitting responsibilities into smaller modules.",
+            config.large_file_loc_threshold
         ),
         category: FindingCategory::Architecture,
-        severity: severity_for_loc(lines_of_code),
+        severity: severity_for_loc(lines_of_code, config),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: 1,
             line_end: None,
             snippet: format!(
-                "File has {lines_of_code} non-empty lines of code; threshold is {LARGE_FILE_LOC_THRESHOLD}."
+                "File has {lines_of_code} non-empty lines of code; configured threshold is {}.",
+                config.large_file_loc_threshold
             ),
         }],
     })
 }
 
-fn severity_for_loc(lines_of_code: usize) -> Severity {
-    if lines_of_code >= HIGH_SEVERITY_LOC_THRESHOLD {
+fn severity_for_loc(lines_of_code: usize, config: &ScanConfig) -> Severity {
+    if lines_of_code >= config.huge_file_loc_threshold {
         Severity::High
     } else {
         Severity::Medium

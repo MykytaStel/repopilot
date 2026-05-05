@@ -24,6 +24,10 @@ pub enum Commands {
         /// Write report to a file instead of stdout
         #[arg(short, long)]
         output: Option<PathBuf>,
+
+        /// Maximum non-empty LOC before a file is reported as large
+        #[arg(long)]
+        max_file_loc: Option<usize>,
     },
 }
 
