@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Serialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
     pub files_count: usize,
@@ -11,13 +11,13 @@ pub struct ScanSummary {
     pub markers: Vec<CodeMarker>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct LanguageSummary {
     pub name: String,
     pub files_count: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct CodeMarker {
     pub kind: MarkerKind,
     pub path: PathBuf,
@@ -25,7 +25,8 @@ pub struct CodeMarker {
     pub text: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarkerKind {
     Todo,
     Fixme,
