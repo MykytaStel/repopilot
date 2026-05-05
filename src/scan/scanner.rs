@@ -1,4 +1,5 @@
 use crate::audits::architecture::large_file::detect_large_file_finding;
+use crate::scan::config::ScanConfig;
 use crate::scan::language::detect_language;
 use crate::scan::markers::detect_marker_findings;
 use crate::scan::types::{LanguageSummary, ScanSummary};
@@ -10,6 +11,10 @@ use std::io;
 use std::path::Path;
 
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
+    scan_path_with_config(path, &ScanConfig::default())
+}
+
+pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -25,9 +30,9 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
     let mut languages: HashMap<String, usize> = HashMap::new();
 
     if path.is_file() {
-        scan_file(path, &mut summary, &mut languages)?;
+        scan_file(path, &mut summary, &mut languages, config)?;
     } else {
-        scan_directory(path, &mut summary, &mut languages)?;
+        scan_directory(path, &mut summary, &mut languages, config)?;
     }
 
     summary.languages = build_language_summary(languages);
@@ -39,6 +44,7 @@ fn scan_directory(
     path: &Path,
     summary: &mut ScanSummary,
     languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
 ) -> io::Result<()> {
     let walker = WalkBuilder::new(path)
         .hidden(false)
@@ -65,7 +71,7 @@ fn scan_directory(
         }
 
         if file_type.is_file() {
-            scan_file(entry_path, summary, languages)?;
+            scan_file(entry_path, summary, languages, config)?;
         }
     }
 
@@ -76,6 +82,7 @@ fn scan_file(
     path: &Path,
     summary: &mut ScanSummary,
     languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
 ) -> io::Result<()> {
     summary.files_count += 1;
 
@@ -90,7 +97,7 @@ fn scan_file(
     let lines_of_code = count_lines_of_code(&content);
     summary.lines_of_code += lines_of_code;
 
-    if let Some(finding) = detect_large_file_finding(path, lines_of_code) {
+    if let Some(finding) = detect_large_file_finding(path, lines_of_code, config) {
         summary.findings.push(finding);
     }
 
