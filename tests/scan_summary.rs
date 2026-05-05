@@ -25,7 +25,9 @@ fn scans_directory_with_counts_languages_and_markers() {
     assert_eq!(summary.directories_count, 1);
     assert_eq!(summary.files_count, 3);
     assert_eq!(summary.lines_of_code, 4);
-    assert_eq!(summary.markers.len(), 1);
+    assert_eq!(summary.findings.len(), 1);
+    assert_eq!(summary.findings[0].rule_id, "code-marker.todo");
+    assert_eq!(summary.findings[0].evidence[0].line_start, 3);
 
     assert!(
         summary

@@ -36,21 +36,34 @@ pub fn render(summary: &ScanSummary) -> String {
         output.push('\n');
     }
 
-    output.push_str("## Code Markers\n\n");
+    output.push_str("## Findings\n\n");
 
-    if summary.markers.is_empty() {
-        output.push_str("No TODO/FIXME/HACK markers found.\n");
+    if summary.findings.is_empty() {
+        output.push_str("No findings found.\n");
     } else {
-        output.push_str("| Type | File | Line | Evidence |\n");
-        output.push_str("| --- | --- | ---: | --- |\n");
+        output.push_str("| Severity | Rule | Title | Evidence |\n");
+        output.push_str("| --- | --- | --- | --- |\n");
 
-        for marker in &summary.markers {
+        for finding in &summary.findings {
+            let evidence = finding
+                .evidence
+                .first()
+                .map(|evidence| {
+                    format!(
+                        "`{}:{}` — {}",
+                        evidence.path.display(),
+                        evidence.line_start,
+                        evidence.snippet.trim()
+                    )
+                })
+                .unwrap_or_else(|| "No evidence".to_string());
+
             output.push_str(&format!(
                 "| {} | `{}` | {} | {} |\n",
-                marker.kind,
-                marker.path.display(),
-                marker.line_number,
-                escape_table_cell(marker.text.trim())
+                finding.severity_label(),
+                finding.rule_id,
+                escape_table_cell(&finding.title),
+                escape_table_cell(&evidence)
             ));
         }
     }

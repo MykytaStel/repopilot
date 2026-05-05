@@ -26,19 +26,27 @@ pub fn render(summary: &ScanSummary) -> String {
         }
     }
 
-    output.push_str("\nCode markers:\n");
+    output.push_str("\nFindings:\n");
 
-    if summary.markers.is_empty() {
-        output.push_str("  No TODO/FIXME/HACK markers found\n");
+    if summary.findings.is_empty() {
+        output.push_str("  No findings found\n");
     } else {
-        for marker in &summary.markers {
+        for finding in &summary.findings {
             output.push_str(&format!(
-                "  [{}] {}:{} — {}\n",
-                marker.kind,
-                marker.path.display(),
-                marker.line_number,
-                marker.text.trim()
+                "  [{}] {} — {}\n",
+                finding.severity_label(),
+                finding.rule_id,
+                finding.title
             ));
+
+            for evidence in &finding.evidence {
+                output.push_str(&format!(
+                    "    Evidence: {}:{} — {}\n",
+                    evidence.path.display(),
+                    evidence.line_start,
+                    evidence.snippet.trim()
+                ));
+            }
         }
     }
 

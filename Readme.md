@@ -13,9 +13,35 @@ RepoPilot currently supports:
 - counting files and directories
 - counting non-empty lines of code
 - detecting basic languages by file extension
-- detecting TODO/FIXME/HACK markers
+- detecting TODO/FIXME/HACK markers as evidence-backed findings
 - printing console output
 - printing JSON output
+## Findings
+
+RepoPilot uses an evidence-first finding model.
+
+Every finding should include:
+
+- stable rule id
+- title
+- description
+- category
+- severity
+- evidence
+
+Current finding categories:
+
+- architecture
+- code quality
+- testing
+- security
+- performance
+
+Current evidence includes:
+
+- file path
+- line number
+- source snippet
 
 ## Usage
 
