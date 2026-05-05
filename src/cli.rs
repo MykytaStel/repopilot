@@ -35,12 +35,16 @@ pub enum Commands {
         path: PathBuf,
 
         /// Output format
-        #[arg(long, value_enum, default_value = "console")]
-        format: OutputFormatArg,
+        #[arg(long, value_enum)]
+        format: Option<OutputFormatArg>,
 
         /// Write report to a file instead of stdout
         #[arg(short, long)]
         output: Option<PathBuf>,
+
+        /// Path to a RepoPilot config file
+        #[arg(long)]
+        config: Option<PathBuf>,
 
         /// Maximum non-empty LOC before a file is reported as large (default: 300)
         #[arg(long)]
@@ -53,6 +57,17 @@ pub enum Commands {
         /// Maximum directory nesting depth before flagging (default: 5)
         #[arg(long)]
         max_directory_depth: Option<usize>,
+    },
+
+    /// Generate a default repopilot.toml configuration file
+    Init {
+        /// Overwrite an existing config file
+        #[arg(long)]
+        force: bool,
+
+        /// Path where the config file should be written
+        #[arg(long, default_value = "repopilot.toml")]
+        path: PathBuf,
     },
 }
 

@@ -4,8 +4,10 @@ pub mod json;
 pub mod markdown;
 
 use crate::scan::types::ScanSummary;
+use serde::Deserialize;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum OutputFormat {
     Console,
     Html,

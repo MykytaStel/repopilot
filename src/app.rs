@@ -4,6 +4,9 @@ use repopilot::compare::render::{
     render_console as compare_console, render_json as compare_json,
     render_markdown as compare_markdown,
 };
+use repopilot::config::loader::{load_default_config, load_optional_config};
+use repopilot::config::model::RepoPilotConfig;
+use repopilot::config::template::default_config_toml;
 use repopilot::output::render_scan_summary;
 use repopilot::report::writer::write_report;
 use repopilot::scan::config::ScanConfig;
@@ -17,16 +20,43 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             path,
             format,
             output,
+            config,
             max_file_loc,
             max_directory_modules,
             max_directory_depth,
         } => {
-            let config =
-                build_scan_config(max_file_loc, max_directory_modules, max_directory_depth);
-            let summary = scan_path_with_config(&path, &config)?;
-            let rendered_report = render_scan_summary(&summary, format.into())?;
+            let repo_config = match config {
+                Some(config_path) => load_optional_config(&config_path)?,
+                None => load_default_config()?,
+            };
+            let scan_config = build_scan_config(
+                &repo_config,
+                max_file_loc,
+                max_directory_modules,
+                max_directory_depth,
+            );
+            let output_format = format
+                .map(Into::into)
+                .unwrap_or(repo_config.output.default_format);
+            let summary = scan_path_with_config(&path, &scan_config)?;
+            let rendered_report = render_scan_summary(&summary, output_format)?;
 
             write_report(&rendered_report, output.as_deref())?;
+
+            Ok(())
+        }
+
+        Commands::Init { force, path } => {
+            if path.exists() && !force {
+                println!(
+                    "Config already exists at {}. Use `repopilot init --force` to overwrite it.",
+                    path.display()
+                );
+                return Ok(());
+            }
+
+            fs::write(&path, default_config_toml())?;
+            println!("Created RepoPilot config at {}", path.display());
 
             Ok(())
         }
@@ -60,11 +90,12 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn build_scan_config(
+    repo_config: &RepoPilotConfig,
     max_file_loc: Option<usize>,
     max_directory_modules: Option<usize>,
     max_directory_depth: Option<usize>,
 ) -> ScanConfig {
-    let mut config = ScanConfig::default();
+    let mut config = repo_config.to_scan_config();
 
     if let Some(threshold) = max_file_loc {
         config = config.with_large_file_loc_threshold(threshold);

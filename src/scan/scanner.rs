@@ -10,15 +10,12 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const EXCLUDED_DIRECTORY_NAMES: &[&str] =
-    &[".git", ".github", "target", "node_modules", "dist", "build"];
-
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
     scan_path_with_config(path, &ScanConfig::default())
 }
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
-    let facts = collect_scan_facts(path)?;
+    let facts = collect_scan_facts_with_config(path, config)?;
     let findings = run_audits(&facts, config);
 
     Ok(ScanSummary {
@@ -32,6 +29,10 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
 }
 
 pub fn collect_scan_facts(path: &Path) -> io::Result<ScanFacts> {
+    collect_scan_facts_with_config(path, &ScanConfig::default())
+}
+
+pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanFacts> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -49,7 +50,7 @@ pub fn collect_scan_facts(path: &Path) -> io::Result<ScanFacts> {
     if path.is_file() {
         collect_file_facts(path, &mut facts, &mut languages)?;
     } else {
-        collect_directory_facts(path, &mut facts, &mut languages)?;
+        collect_directory_facts(path, &mut facts, &mut languages, config)?;
     }
 
     facts.languages = build_language_summary(languages);
@@ -61,13 +62,16 @@ fn collect_directory_facts(
     path: &Path,
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
 ) -> io::Result<()> {
+    let root = path.to_path_buf();
+    let ignored_paths = config.ignored_paths.clone();
     let walker = WalkBuilder::new(path)
         .hidden(false)
         .git_ignore(true)
         .git_global(true)
         .git_exclude(true)
-        .filter_entry(|entry| !is_excluded_directory(entry.path()))
+        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored_paths))
         .build();
 
     for result in walker {
@@ -95,11 +99,29 @@ fn collect_directory_facts(
     Ok(())
 }
 
-fn is_excluded_directory(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| EXCLUDED_DIRECTORY_NAMES.contains(&name))
-        .unwrap_or(false)
+fn is_ignored_path(path: &Path, root: &Path, ignored_paths: &[String]) -> bool {
+    if path == root {
+        return false;
+    }
+
+    ignored_paths.iter().any(|ignored_path| {
+        let ignored_path = ignored_path.trim_matches('/');
+
+        if ignored_path.is_empty() {
+            return false;
+        }
+
+        path.strip_prefix(root)
+            .ok()
+            .and_then(|relative_path| relative_path.to_str())
+            .map(|relative_path| relative_path == ignored_path)
+            .unwrap_or(false)
+            || path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name == ignored_path)
+                .unwrap_or(false)
+    })
 }
 
 fn collect_file_facts(
