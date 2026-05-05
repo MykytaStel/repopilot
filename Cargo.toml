@@ -1,6 +1,6 @@
 [package]
 name = "repopilot"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Local-first codebase audit CLI with evidence-backed findings"
 license = "MIT"
@@ -13,6 +13,7 @@ clap = { version = "4.5", features = ["derive"] }
 ignore = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "1.1.2+spec-1.1.0"
 
 [dev-dependencies]
 tempfile = "3"

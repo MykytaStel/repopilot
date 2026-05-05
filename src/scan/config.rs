@@ -1,5 +1,11 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use crate::config::defaults::{
+    DEFAULT_HUGE_FILE_LINES, DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_DIRECTORY_DEPTH,
+    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanConfig {
+    pub ignored_paths: Vec<String>,
     pub large_file_loc_threshold: usize,
     pub huge_file_loc_threshold: usize,
     pub max_directory_modules: usize,
@@ -10,11 +16,12 @@ pub struct ScanConfig {
 impl Default for ScanConfig {
     fn default() -> Self {
         Self {
-            large_file_loc_threshold: 300,
-            huge_file_loc_threshold: 1000,
-            max_directory_modules: 20,
-            max_directory_depth: 5,
-            long_function_loc_threshold: 50,
+            ignored_paths: default_ignored_paths(),
+            large_file_loc_threshold: DEFAULT_MAX_FILE_LINES,
+            huge_file_loc_threshold: DEFAULT_HUGE_FILE_LINES,
+            max_directory_modules: DEFAULT_MAX_DIRECTORY_MODULES,
+            max_directory_depth: DEFAULT_MAX_DIRECTORY_DEPTH,
+            long_function_loc_threshold: DEFAULT_LONG_FUNCTION_LINES,
         }
     }
 }

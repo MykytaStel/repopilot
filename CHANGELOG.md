@@ -11,6 +11,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Homebrew tap distribution remains planned after GitHub Release artifacts are available
 
+## [0.2.0] - 2026-05-05
+
+### Added
+
+- Added `repopilot init` for generating a default configuration file.
+- Added `repopilot.toml` support for configurable scan behavior.
+- Added config loading with safe defaults.
+- Added tests for config generation and loading.
+
+### Changed
+
+- `scan` can now use project-level configuration when available.
+
+### Documentation
+
+- Updated README quick start and configuration examples.
+
 ## [0.1.0] - Unreleased
 
 ### Added
@@ -45,5 +62,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Compare matching now uses `rule_id + evidence path + evidence line` as the stable key, with finding `id` as fallback
 - Release workflow now uploads SHA-256 checksum files, runs `cargo publish --dry-run`, and skips crates.io publish for prerelease/test tags
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MykytaStel/repopilot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MykytaStel/repopilot/releases/tag/v0.1.0
