@@ -27,6 +27,7 @@ pub enum Commands {
 pub enum OutputFormatArg {
     Console,
     Json,
+    Markdown,
 }
 
 impl From<OutputFormatArg> for OutputFormat {
@@ -34,6 +35,7 @@ impl From<OutputFormatArg> for OutputFormat {
         match format {
             OutputFormatArg::Console => OutputFormat::Console,
             OutputFormatArg::Json => OutputFormat::Json,
+            OutputFormatArg::Markdown => OutputFormat::Markdown,
         }
     }
 }
