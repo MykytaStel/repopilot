@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "repopilot")]
-#[command(about = "A CLI tool for analyzing codebases", long_about = None)]
+#[command(about = "Local-first codebase audit CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -15,7 +15,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Scan { path: PathBuf },
+    /// Scan a project, folder, or file
+    Scan {
+        /// Path to project, folder, or file
+        path: PathBuf,
+    },
 }
 
 fn main() {
@@ -24,8 +28,6 @@ fn main() {
     match cli.command {
         Commands::Scan { path } => match scan_path(&path) {
             Ok(summary) => {
-                println!("RepoPilot Scan");
-                println!("Path: {}", path.display());
                 print_summary(&summary);
             }
             Err(error) => {
@@ -37,6 +39,37 @@ fn main() {
 }
 
 fn print_summary(summary: &ScanSummary) {
+    println!("RepoPilot Scan");
+    println!("Path: {}", summary.root_path.display());
+    println!();
+
     println!("Files analyzed: {}", summary.files_count);
     println!("Directories analyzed: {}", summary.directories_count);
+    println!("Lines of code: {}", summary.lines_of_code);
+    println!();
+
+    println!("Languages:");
+    if summary.languages.is_empty() {
+        println!("  No languages detected");
+    } else {
+        for language in &summary.languages {
+            println!("  {}: {} files", language.name, language.files_count);
+        }
+    }
+
+    println!();
+    println!("Code markers:");
+    if summary.markers.is_empty() {
+        println!("  No TODO/FIXME/HACK markers found");
+    } else {
+        for marker in &summary.markers {
+            println!(
+                "  [{}] {}:{} — {}",
+                marker.kind,
+                marker.path.display(),
+                marker.line_number,
+                marker.text.trim()
+            );
+        }
+    }
 }
