@@ -9,6 +9,13 @@ use std::io;
 use std::path::Path;
 
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
+    if !path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("path does not exist: {}", path.display()),
+        ));
+    }
+
     let mut summary = ScanSummary {
         root_path: path.to_path_buf(),
         ..ScanSummary::default()
@@ -47,12 +54,16 @@ fn scan_directory(
             continue;
         }
 
-        if entry_path.is_dir() {
+        let Some(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if file_type.is_dir() {
             summary.directories_count += 1;
             continue;
         }
 
-        if entry_path.is_file() {
+        if file_type.is_file() {
             scan_file(entry_path, summary, languages)?;
         }
     }
@@ -94,7 +105,12 @@ fn build_language_summary(languages: HashMap<String, usize>) -> Vec<LanguageSumm
         .map(|(name, files_count)| LanguageSummary { name, files_count })
         .collect();
 
-    summary.sort_by(|left, right| right.files_count.cmp(&left.files_count));
+    summary.sort_by(|left, right| {
+        right
+            .files_count
+            .cmp(&left.files_count)
+            .then_with(|| left.name.cmp(&right.name))
+    });
 
     summary
 }
