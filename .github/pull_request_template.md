@@ -32,6 +32,10 @@
 - [ ] Scanner, audits, output, and report responsibilities remain separated
 - [ ] Findings include evidence where applicable
 
+## Changelog
+
+- [ ] `CHANGELOG.md` updated (skip for CI-only or doc changes with no user-visible effect)
+
 ## Verification
 
 <!-- Paste the commands you ran. -->
