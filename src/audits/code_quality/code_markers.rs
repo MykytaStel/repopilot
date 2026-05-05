@@ -1,7 +1,7 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use std::path::Path;
 
-pub fn detect_marker_findings(path: &Path, content: &str) -> Vec<Finding> {
+pub fn detect_code_marker_findings(path: &Path, content: &str) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     for (index, line) in content.lines().enumerate() {

@@ -1,7 +1,7 @@
-use crate::audits::architecture::large_file::detect_large_file_finding;
+use crate::audits::pipeline::run_audits;
 use crate::scan::config::ScanConfig;
+use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
-use crate::scan::markers::detect_marker_findings;
 use crate::scan::types::{LanguageSummary, ScanSummary};
 
 use ignore::WalkBuilder;
@@ -15,6 +15,20 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
 }
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
+    let facts = collect_scan_facts(path)?;
+    let findings = run_audits(&facts, config);
+
+    Ok(ScanSummary {
+        root_path: facts.root_path,
+        files_count: facts.files_count,
+        directories_count: facts.directories_count,
+        lines_of_code: facts.lines_of_code,
+        languages: facts.languages,
+        findings,
+    })
+}
+
+pub fn collect_scan_facts(path: &Path) -> io::Result<ScanFacts> {
     if !path.exists() {
         return Err(io::Error::new(
             io::ErrorKind::NotFound,
@@ -22,29 +36,28 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         ));
     }
 
-    let mut summary = ScanSummary {
+    let mut facts = ScanFacts {
         root_path: path.to_path_buf(),
-        ..ScanSummary::default()
+        ..ScanFacts::default()
     };
 
     let mut languages: HashMap<String, usize> = HashMap::new();
 
     if path.is_file() {
-        scan_file(path, &mut summary, &mut languages, config)?;
+        collect_file_facts(path, &mut facts, &mut languages)?;
     } else {
-        scan_directory(path, &mut summary, &mut languages, config)?;
+        collect_directory_facts(path, &mut facts, &mut languages)?;
     }
 
-    summary.languages = build_language_summary(languages);
+    facts.languages = build_language_summary(languages);
 
-    Ok(summary)
+    Ok(facts)
 }
 
-fn scan_directory(
+fn collect_directory_facts(
     path: &Path,
-    summary: &mut ScanSummary,
+    facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
-    config: &ScanConfig,
 ) -> io::Result<()> {
     let walker = WalkBuilder::new(path)
         .hidden(false)
@@ -66,28 +79,29 @@ fn scan_directory(
         };
 
         if file_type.is_dir() {
-            summary.directories_count += 1;
+            facts.directories_count += 1;
             continue;
         }
 
         if file_type.is_file() {
-            scan_file(entry_path, summary, languages, config)?;
+            collect_file_facts(entry_path, facts, languages)?;
         }
     }
 
     Ok(())
 }
 
-fn scan_file(
+fn collect_file_facts(
     path: &Path,
-    summary: &mut ScanSummary,
+    facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
-    config: &ScanConfig,
 ) -> io::Result<()> {
-    summary.files_count += 1;
+    facts.files_count += 1;
 
-    if let Some(language) = detect_language(path) {
-        *languages.entry(language.to_string()).or_insert(0) += 1;
+    let language = detect_language(path).map(str::to_string);
+
+    if let Some(language_name) = &language {
+        *languages.entry(language_name.clone()).or_insert(0) += 1;
     }
 
     let Ok(content) = fs::read_to_string(path) else {
@@ -95,15 +109,14 @@ fn scan_file(
     };
 
     let lines_of_code = count_lines_of_code(&content);
-    summary.lines_of_code += lines_of_code;
+    facts.lines_of_code += lines_of_code;
 
-    if let Some(finding) = detect_large_file_finding(path, lines_of_code, config) {
-        summary.findings.push(finding);
-    }
-
-    summary
-        .findings
-        .extend(detect_marker_findings(path, &content));
+    facts.files.push(FileFacts {
+        path: path.to_path_buf(),
+        language,
+        lines_of_code,
+        content,
+    });
 
     Ok(())
 }
