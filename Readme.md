@@ -30,6 +30,13 @@ Markdown output:
 ```bash
 cargo run -- scan . --format markdown
 ```
+Write report to file:
+
+```bash
+cargo run -- scan . --format markdown --output report.md
+cargo run -- scan . --format json --output report.json
+cargo run -- scan . --format console --output report.txt
+```
 
 ```md
 RepoPilot currently supports:
@@ -43,4 +50,5 @@ RepoPilot currently supports:
 - printing console output
 - printing JSON output
 - printing Markdown output
+- writing reports to files with `--output`
 ```

@@ -20,6 +20,10 @@ pub enum Commands {
         /// Output format
         #[arg(long, value_enum, default_value = "console")]
         format: OutputFormatArg,
+
+        /// Write report to a file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
 }
 
