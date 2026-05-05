@@ -1,5 +1,5 @@
 use crate::scan::language::detect_language;
-use crate::scan::markers::detect_markers;
+use crate::scan::markers::detect_marker_findings;
 use crate::scan::types::{LanguageSummary, ScanSummary};
 
 use ignore::WalkBuilder;
@@ -87,7 +87,9 @@ fn scan_file(
     };
 
     summary.lines_of_code += count_lines_of_code(&content);
-    summary.markers.extend(detect_markers(path, &content));
+    summary
+        .findings
+        .extend(detect_marker_findings(path, &content));
 
     Ok(())
 }

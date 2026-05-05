@@ -13,7 +13,7 @@ fn renders_valid_json_scan_summary() {
             name: "Rust".to_string(),
             files_count: 1,
         }],
-        markers: vec![],
+        findings: vec![],
     };
 
     let output =
