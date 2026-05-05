@@ -1,5 +1,5 @@
+use repopilot::audits::code_quality::code_markers::detect_code_marker_findings;
 use repopilot::findings::types::{FindingCategory, Severity};
-use repopilot::scan::markers::detect_marker_findings;
 use std::path::Path;
 
 #[test]
@@ -12,7 +12,7 @@ fn main() {}
 // HACK: temporary workaround
 ";
 
-    let findings = detect_marker_findings(Path::new("src/main.rs"), content);
+    let findings = detect_code_marker_findings(Path::new("src/main.rs"), content);
 
     assert_eq!(findings.len(), 3);
 
