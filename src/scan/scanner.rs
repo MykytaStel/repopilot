@@ -10,6 +10,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+const EXCLUDED_DIRECTORY_NAMES: &[&str] =
+    &[".git", ".github", "target", "node_modules", "dist", "build"];
+
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
     scan_path_with_config(path, &ScanConfig::default())
 }
@@ -64,6 +67,7 @@ fn collect_directory_facts(
         .git_ignore(true)
         .git_global(true)
         .git_exclude(true)
+        .filter_entry(|entry| !is_excluded_directory(entry.path()))
         .build();
 
     for result in walker {
@@ -89,6 +93,13 @@ fn collect_directory_facts(
     }
 
     Ok(())
+}
+
+fn is_excluded_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| EXCLUDED_DIRECTORY_NAMES.contains(&name))
+        .unwrap_or(false)
 }
 
 fn collect_file_facts(

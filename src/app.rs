@@ -1,7 +1,8 @@
-use crate::cli::{Cli, Commands, OutputFormatArg};
+use crate::cli::{Cli, Commands, CompareOutputFormatArg};
 use repopilot::compare::diff::diff_summaries;
 use repopilot::compare::render::{
-    render_console as compare_console, render_markdown as compare_markdown,
+    render_console as compare_console, render_json as compare_json,
+    render_markdown as compare_markdown,
 };
 use repopilot::output::render_scan_summary;
 use repopilot::report::writer::write_report;
@@ -46,9 +47,10 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let diff = diff_summaries(&before_summary, &after_summary);
 
             let rendered = match format {
-                OutputFormatArg::Markdown => compare_markdown(&diff),
-                _ => compare_console(&diff),
-            };
+                CompareOutputFormatArg::Console => Ok(compare_console(&diff)),
+                CompareOutputFormatArg::Json => compare_json(&diff),
+                CompareOutputFormatArg::Markdown => Ok(compare_markdown(&diff)),
+            }?;
 
             write_report(&rendered, output.as_deref())?;
 

@@ -32,6 +32,8 @@ RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a 
 | Severity | `LOW` |
 | Description | A `TODO` comment was found. Review whether it represents outstanding work that should be tracked. |
 
+Markdown files and files under `tests/` or `test/` are skipped to avoid reporting documentation examples and test fixture strings as production debt.
+
 ### `code-marker.fixme`
 
 | Field | Value |
@@ -94,7 +96,9 @@ The *huge* threshold defaults to `max(threshold × 3, threshold + 1)`. When `--m
 |---|---|
 | Category | `TESTING` |
 | Severity | `LOW` |
-| Description | A source file has no detectable test counterpart. Looks for sibling files like `payment_test.rs`, `payment.test.ts`, `payment.spec.ts`, or entries in a `tests/` directory. |
+| Description | A source file has no detectable test counterpart. Looks for sibling files like `payment_test.rs`, `payment.test.ts`, `payment.spec.ts`, entries in a `tests/` directory, or Rust integration tests such as `tests/report_writer.rs` for `src/report/writer.rs`. |
+
+Low-signal wrapper entrypoints such as `mod.rs`, `lib.rs`, and `main.rs` are skipped.
 
 ### `security.secret-candidate`
 
@@ -113,6 +117,8 @@ Skipped for files whose path contains `test`, `fixture`, `example`, or `mock`.
 | Category | `SECURITY` |
 | Severity | `CRITICAL` |
 | Description | A PEM private key header (`-----BEGIN RSA PRIVATE KEY-----`, etc.) was found in a source file. The key content is never included in the evidence. |
+
+Markdown examples under `docs/` are skipped to avoid reporting documented rule examples as committed keys.
 
 ### `security.env-file-committed`
 

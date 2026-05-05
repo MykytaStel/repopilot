@@ -1,5 +1,9 @@
 use super::diff::CompareSummary;
 
+pub fn render_json(summary: &CompareSummary) -> Result<String, serde_json::Error> {
+    serde_json::to_string_pretty(summary)
+}
+
 pub fn render_console(summary: &CompareSummary) -> String {
     let mut out = String::new();
 

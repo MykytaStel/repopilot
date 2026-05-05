@@ -1,8 +1,9 @@
 use crate::findings::types::{Finding, Severity};
 use crate::scan::types::ScanSummary;
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CompareSummary {
     pub new_findings: Vec<Finding>,
     pub resolved_findings: Vec<Finding>,
@@ -14,14 +15,20 @@ pub struct CompareSummary {
 }
 
 pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSummary {
-    let before_map: HashMap<&str, &Finding> =
-        before.findings.iter().map(|f| (f.id.as_str(), f)).collect();
+    let before_map: HashMap<String, &Finding> = before
+        .findings
+        .iter()
+        .map(|f| (stable_finding_key(f), f))
+        .collect();
 
-    let after_map: HashMap<&str, &Finding> =
-        after.findings.iter().map(|f| (f.id.as_str(), f)).collect();
+    let after_map: HashMap<String, &Finding> = after
+        .findings
+        .iter()
+        .map(|f| (stable_finding_key(f), f))
+        .collect();
 
-    let before_ids: HashSet<&str> = before_map.keys().copied().collect();
-    let after_ids: HashSet<&str> = after_map.keys().copied().collect();
+    let before_ids: HashSet<String> = before_map.keys().cloned().collect();
+    let after_ids: HashSet<String> = after_map.keys().cloned().collect();
 
     let new_findings = after_ids
         .difference(&before_ids)
@@ -55,6 +62,21 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
         before_loc: before.lines_of_code,
         after_loc: after.lines_of_code,
     }
+}
+
+fn stable_finding_key(finding: &Finding) -> String {
+    finding
+        .evidence
+        .first()
+        .map(|evidence| {
+            format!(
+                "{}:{}:{}",
+                finding.rule_id,
+                evidence.path.display(),
+                evidence.line_start
+            )
+        })
+        .unwrap_or_else(|| finding.id.clone())
 }
 
 fn severity_rank(s: &Severity) -> u8 {

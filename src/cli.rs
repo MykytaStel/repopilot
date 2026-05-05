@@ -22,7 +22,7 @@ pub enum Commands {
 
         /// Output format
         #[arg(long, value_enum, default_value = "console")]
-        format: OutputFormatArg,
+        format: CompareOutputFormatArg,
 
         /// Write report to a file instead of stdout
         #[arg(short, long)]
@@ -60,6 +60,13 @@ pub enum Commands {
 pub enum OutputFormatArg {
     Console,
     Html,
+    Json,
+    Markdown,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum CompareOutputFormatArg {
+    Console,
     Json,
     Markdown,
 }
