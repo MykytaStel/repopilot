@@ -25,3 +25,22 @@ cargo run -- scan . --format json
 cargo run -- --help
 cargo run -- scan --help
 ```
+Markdown output:
+
+```bash
+cargo run -- scan . --format markdown
+```
+
+```md
+RepoPilot currently supports:
+
+- scanning a file or directory
+- walking files with gitignore-aware rules
+- counting files and directories
+- counting non-empty lines of code
+- detecting basic languages by file extension
+- detecting TODO/FIXME/HACK markers
+- printing console output
+- printing JSON output
+- printing Markdown output
+```
