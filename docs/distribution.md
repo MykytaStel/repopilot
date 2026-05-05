@@ -21,7 +21,7 @@ cargo build --release
 cargo install --git https://github.com/MykytaStel/repopilot.git
 ```
 
-## Planned: crates.io
+## Prepared: crates.io
 
 Once the CLI surface stabilizes at `0.1.0`, RepoPilot will be published to crates.io:
 
@@ -36,7 +36,7 @@ Before publishing:
 
 ## Planned: GitHub Releases (pre-built binaries)
 
-A release workflow will build binaries for the following targets on every version tag:
+The release workflow builds binaries for the following targets on every `v*` tag:
 
 | Target | Platform |
 |---|---|
@@ -46,11 +46,13 @@ A release workflow will build binaries for the following targets on every versio
 | `aarch64-apple-darwin` | macOS Apple Silicon |
 | `x86_64-pc-windows-msvc` | Windows x86-64 |
 
-Binaries will be attached to each GitHub Release. Users will be able to download and run without installing Rust.
+Binaries and `.sha256` checksum files are attached to each GitHub Release. Users can download and run without installing Rust.
+
+Tags containing a hyphen, such as `v0.1.0-test`, are treated as test/prerelease tags for workflow validation and do not publish to crates.io.
 
 ## Planned: Homebrew
 
-A Homebrew formula will be added once the crates.io release is stable. Users will be able to install with:
+A Homebrew formula will be added after GitHub Release artifacts are available. Users will be able to install with:
 
 ```bash
 brew install repopilot

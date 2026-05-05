@@ -13,15 +13,17 @@ The long-term goal is to scan projects, folders, or files and produce evidence-b
 - Language detection by file extension
 - `TODO` / `FIXME` / `HACK` marker detection with per-line evidence
 - Evidence-backed finding model (stable rule IDs, categories, severity, source snippets)
-- `architecture.large-file` finding with configurable LOC threshold
-- Console, JSON, and Markdown output formats
+- Architecture, testing, and security audit rules with configurable thresholds
+- `compare` command for diffing two JSON scan reports
+- Console, JSON, Markdown, and HTML scan output formats
 - `--output` flag to write reports to a file
 
 See [docs/rulesets.md](docs/rulesets.md) for the full list of audit rules and severity levels.
 
 ## Installation
 
-RepoPilot is not yet published to crates.io. Install from source:
+RepoPilot v0.1.0 is prepared for source installs, GitHub Release binaries, and crates.io publishing.
+Until the first release is cut, install from source:
 
 ```bash
 git clone https://github.com/MykytaStel/repopilot.git
@@ -36,7 +38,7 @@ Or install directly with cargo:
 cargo install --git https://github.com/MykytaStel/repopilot.git
 ```
 
-See [docs/distribution.md](docs/distribution.md) for planned distribution channels (crates.io, pre-built binaries, Homebrew).
+See [docs/distribution.md](docs/distribution.md) for distribution channels. Homebrew support is planned after GitHub Release artifacts are available.
 
 ## Usage
 
@@ -44,14 +46,17 @@ See [docs/distribution.md](docs/distribution.md) for planned distribution channe
 cargo run -- scan .
 cargo run -- scan . --format json
 cargo run -- scan . --format markdown
+cargo run -- scan . --format html --output report.html
 cargo run -- --help
 cargo run -- scan --help
 ```
 
-Custom large-file threshold:
+Custom thresholds:
 
 ```bash
 cargo run -- scan . --max-file-loc 500
+cargo run -- scan . --max-directory-modules 25
+cargo run -- scan . --max-directory-depth 6
 ```
 
 Write report to file:
@@ -59,7 +64,18 @@ Write report to file:
 ```bash
 cargo run -- scan . --format markdown --output report.md
 cargo run -- scan . --format json --output report.json
+cargo run -- scan . --format html --output report.html
 cargo run -- scan . --format console --output report.txt
+```
+
+Compare two JSON reports:
+
+```bash
+cargo run -- scan . --format json --output before.json
+cargo run -- scan . --format json --output after.json
+cargo run -- compare before.json after.json
+cargo run -- compare before.json after.json --format markdown
+cargo run -- compare before.json after.json --format json --output diff.json
 ```
 
 ## Findings
@@ -81,8 +97,16 @@ Current rules:
 | `code-marker.fixme` | CODE_QUALITY | MEDIUM |
 | `code-marker.hack` | CODE_QUALITY | MEDIUM |
 | `architecture.large-file` | ARCHITECTURE | MEDIUM / HIGH |
+| `architecture.too-many-modules` | ARCHITECTURE | MEDIUM |
+| `architecture.deep-nesting` | ARCHITECTURE | LOW |
+| `testing.missing-test-folder` | TESTING | MEDIUM |
+| `testing.source-without-test` | TESTING | LOW |
+| `security.secret-candidate` | SECURITY | HIGH |
+| `security.private-key-candidate` | SECURITY | CRITICAL |
+| `security.env-file-committed` | SECURITY | HIGH |
 
 The `architecture.large-file` rule uses a default threshold of 300 non-empty LOC. Override with `--max-file-loc`.
+Directory architecture thresholds default to 20 files per directory and 5 directory levels below the scan root.
 
 See [docs/rulesets.md](docs/rulesets.md) for full rule documentation.
 

@@ -9,6 +9,10 @@ pub struct CodeMarkerAudit;
 
 impl FileAudit for CodeMarkerAudit {
     fn audit(&self, file: &FileFacts, _config: &ScanConfig) -> Vec<Finding> {
+        if should_skip_marker_audit(&file.path) {
+            return vec![];
+        }
+
         detect_markers(&file.path, &file.content)
             .iter()
             .map(build_marker_finding)
@@ -61,4 +65,18 @@ fn marker_severity(marker: &str) -> Severity {
         "todo" => Severity::Low,
         _ => Severity::Info,
     }
+}
+
+fn should_skip_marker_audit(path: &std::path::Path) -> bool {
+    let is_markdown = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"));
+
+    is_markdown || has_component(path, "tests") || has_component(path, "test")
+}
+
+fn has_component(path: &std::path::Path, component: &str) -> bool {
+    path.components()
+        .any(|c| c.as_os_str().to_string_lossy() == component)
 }

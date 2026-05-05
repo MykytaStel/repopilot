@@ -15,6 +15,10 @@ pub struct PrivateKeyCandidateAudit;
 
 impl FileAudit for PrivateKeyCandidateAudit {
     fn audit(&self, file: &FileFacts, _config: &ScanConfig) -> Vec<Finding> {
+        if should_skip_private_key_audit(&file.path) {
+            return vec![];
+        }
+
         file.content
             .lines()
             .enumerate()
@@ -22,11 +26,32 @@ impl FileAudit for PrivateKeyCandidateAudit {
                 let trimmed = line.trim();
                 PRIVATE_KEY_HEADERS
                     .iter()
-                    .find(|&&header| trimmed.contains(header))
+                    .find(|&&header| trimmed.starts_with(header))
                     .map(|header| build_finding(&file.path, index + 1, header))
             })
             .collect()
     }
+}
+
+fn should_skip_private_key_audit(path: &std::path::Path) -> bool {
+    let lower_path = path.to_string_lossy().to_lowercase();
+    if lower_path.contains("test")
+        || lower_path.contains("fixture")
+        || lower_path.contains("example")
+        || lower_path.contains("mock")
+    {
+        return true;
+    }
+
+    let is_markdown = path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"));
+
+    is_markdown
+        && path
+            .components()
+            .any(|c| c.as_os_str().to_string_lossy() == "docs")
 }
 
 fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Finding {
