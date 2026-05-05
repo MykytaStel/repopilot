@@ -2,6 +2,21 @@ use crate::findings::types::Finding;
 use serde::Serialize;
 use std::path::PathBuf;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum MarkerKind {
+    Todo,
+    Fixme,
+    Hack,
+}
+
+#[derive(Debug)]
+pub struct Marker {
+    pub kind: MarkerKind,
+    pub line_number: usize,
+    pub path: PathBuf,
+    pub text: String,
+}
+
 #[derive(Debug, Default, Serialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,

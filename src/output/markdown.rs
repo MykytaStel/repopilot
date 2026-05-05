@@ -39,7 +39,7 @@ pub fn render(summary: &ScanSummary) -> String {
     output.push_str("## Findings\n\n");
 
     if summary.findings.is_empty() {
-        output.push_str("No findings found.\n");
+        output.push_str("No findings found.\n\n");
     } else {
         output.push_str("| Severity | Rule | Title | Evidence |\n");
         output.push_str("| --- | --- | --- | --- |\n");
@@ -65,6 +65,41 @@ pub fn render(summary: &ScanSummary) -> String {
                 escape_table_cell(&finding.title),
                 escape_table_cell(&evidence)
             ));
+        }
+
+        output.push('\n');
+    }
+
+    output.push_str("## Markers\n\n");
+
+    let marker_findings: Vec<_> = summary
+        .findings
+        .iter()
+        .filter(|f| f.rule_id.starts_with("code-marker."))
+        .collect();
+
+    if marker_findings.is_empty() {
+        output.push_str("No TODO/FIXME/HACK markers found.\n");
+    } else {
+        output.push_str("| Type | File | Line | Snippet |\n");
+        output.push_str("| --- | --- | ---: | --- |\n");
+
+        for finding in marker_findings {
+            let kind = finding
+                .rule_id
+                .strip_prefix("code-marker.")
+                .unwrap_or("")
+                .to_uppercase();
+
+            if let Some(ev) = finding.evidence.first() {
+                output.push_str(&format!(
+                    "| {} | `{}` | {} | {} |\n",
+                    kind,
+                    ev.path.display(),
+                    ev.line_start,
+                    escape_table_cell(ev.snippet.trim())
+                ));
+            }
         }
     }
 
