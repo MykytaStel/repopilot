@@ -1,6 +1,6 @@
 mod scan;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use scan::scanner::scan_path;
 use scan::types::ScanSummary;
 use std::path::PathBuf;
@@ -19,17 +19,32 @@ enum Commands {
     Scan {
         /// Path to project, folder, or file
         path: PathBuf,
+
+        /// Output format
+        #[arg(long, value_enum, default_value_t = OutputFormat::Console)]
+        format: OutputFormat,
     },
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+enum OutputFormat {
+    Console,
+    Json,
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Scan { path } => match scan_path(&path) {
-            Ok(summary) => {
-                print_summary(&summary);
-            }
+        Commands::Scan { path, format } => match scan_path(&path) {
+            Ok(summary) => match format {
+                OutputFormat::Console => {
+                    print_summary(&summary);
+                }
+                OutputFormat::Json => {
+                    print_json_summary(&summary);
+                }
+            },
             Err(error) => {
                 eprintln!("Failed to scan path: {error}");
                 std::process::exit(1);
@@ -70,6 +85,16 @@ fn print_summary(summary: &ScanSummary) {
                 marker.line_number,
                 marker.text.trim()
             );
+        }
+    }
+}
+
+fn print_json_summary(summary: &ScanSummary) {
+    match serde_json::to_string_pretty(summary) {
+        Ok(json) => println!("{json}"),
+        Err(error) => {
+            eprintln!("Failed to serialize scan summary to JSON: {error}");
+            std::process::exit(1);
         }
     }
 }

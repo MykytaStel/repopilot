@@ -1,6 +1,7 @@
+use serde::Serialize;
 use std::path::PathBuf;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
     pub files_count: usize,
@@ -10,13 +11,13 @@ pub struct ScanSummary {
     pub markers: Vec<CodeMarker>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LanguageSummary {
     pub name: String,
     pub files_count: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CodeMarker {
     pub kind: MarkerKind,
     pub path: PathBuf,
@@ -24,7 +25,7 @@ pub struct CodeMarker {
     pub text: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum MarkerKind {
     Todo,
     Fixme,
