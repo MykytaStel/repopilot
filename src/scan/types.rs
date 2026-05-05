@@ -1,5 +1,5 @@
 use crate::findings::types::Finding;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub struct Marker {
     pub text: String,
 }
 
-#[derive(Debug, Default, Serialize, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
     pub files_count: usize,
@@ -27,7 +27,7 @@ pub struct ScanSummary {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LanguageSummary {
     pub name: String,
     pub files_count: usize,

@@ -60,6 +60,68 @@ RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a 
 
 The *huge* threshold defaults to `max(threshold × 3, threshold + 1)`. When `--max-file-loc` is set, the huge threshold adjusts automatically.
 
+### `architecture.too-many-modules`
+
+| Field | Value |
+|---|---|
+| Category | `ARCHITECTURE` |
+| Severity | `MEDIUM` |
+| Default threshold | 20 files per directory |
+| Override | `--max-directory-modules <n>` |
+| Description | A directory contains more files than the threshold. Consider splitting it into sub-modules to reduce coupling. |
+
+### `architecture.deep-nesting`
+
+| Field | Value |
+|---|---|
+| Category | `ARCHITECTURE` |
+| Severity | `LOW` |
+| Default threshold | 5 directory levels below the scan root |
+| Override | `--max-directory-depth <n>` |
+| Description | The deepest file in the project exceeds the nesting threshold. Deep hierarchies often indicate over-engineered module structures. |
+
+### `testing.missing-test-folder`
+
+| Field | Value |
+|---|---|
+| Category | `TESTING` |
+| Severity | `MEDIUM` |
+| Description | No test directory (`tests/`, `test/`, `__tests__/`, `spec/`) was found at any level in the scanned tree. |
+
+### `testing.source-without-test`
+
+| Field | Value |
+|---|---|
+| Category | `TESTING` |
+| Severity | `LOW` |
+| Description | A source file has no detectable test counterpart. Looks for sibling files like `payment_test.rs`, `payment.test.ts`, `payment.spec.ts`, or entries in a `tests/` directory. |
+
+### `security.secret-candidate`
+
+| Field | Value |
+|---|---|
+| Category | `SECURITY` |
+| Severity | `HIGH` |
+| Description | A line matches a pattern indicating a hardcoded secret (`api_key`, `password`, `token`, `private_key`, etc.). The evidence snippet **masks the value** — only the key name and first 3 characters are shown. |
+
+Skipped for files whose path contains `test`, `fixture`, `example`, or `mock`.
+
+### `security.private-key-candidate`
+
+| Field | Value |
+|---|---|
+| Category | `SECURITY` |
+| Severity | `CRITICAL` |
+| Description | A PEM private key header (`-----BEGIN RSA PRIVATE KEY-----`, etc.) was found in a source file. The key content is never included in the evidence. |
+
+### `security.env-file-committed`
+
+| Field | Value |
+|---|---|
+| Category | `SECURITY` |
+| Severity | `HIGH` |
+| Description | A `.env`, `.env.local`, `.env.production`, `.env.staging`, or `.env.development` file is present in the scanned tree. Environment files often contain secrets and must not be committed. |
+
 ## Evidence
 
 Every finding includes structured evidence:
