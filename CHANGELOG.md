@@ -7,6 +7,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `FileAudit` and `ProjectAudit` traits — audit rules now implement a trait instead of free functions, making it trivial to add new rules without modifying the pipeline
+- `Markdown ## Markers` section — dedicated table for `TODO`/`FIXME`/`HACK` findings in Markdown reports
+- `ScanConfig` fields: `max_directory_modules`, `max_directory_depth`, `long_function_loc_threshold` — groundwork for upcoming architecture and code-quality rules
+- `Cargo.toml` crates.io metadata: description, license, repository, keywords, categories
+- GitHub Actions release workflow — builds and uploads pre-built binaries for Linux x86_64/ARM64, macOS x86_64/ARM64, and Windows x86_64 on `v*` tags; publishes to crates.io
+
+### Changed
+
+- `code_markers` audit now reuses `scan::markers::detect_markers` instead of duplicating detection logic
+- `scan::markers` module promoted to a first-class scan primitive (`MarkerKind`, `Marker`, `detect_markers`)
+
 ## [0.1.0] - Unreleased
 
 ### Added

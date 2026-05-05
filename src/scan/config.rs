@@ -2,6 +2,9 @@
 pub struct ScanConfig {
     pub large_file_loc_threshold: usize,
     pub huge_file_loc_threshold: usize,
+    pub max_directory_modules: usize,
+    pub max_directory_depth: usize,
+    pub long_function_loc_threshold: usize,
 }
 
 impl Default for ScanConfig {
@@ -9,6 +12,9 @@ impl Default for ScanConfig {
         Self {
             large_file_loc_threshold: 300,
             huge_file_loc_threshold: 1000,
+            max_directory_modules: 20,
+            max_directory_depth: 5,
+            long_function_loc_threshold: 50,
         }
     }
 }
