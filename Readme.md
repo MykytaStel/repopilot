@@ -16,6 +16,8 @@ RepoPilot currently supports:
 - detecting TODO/FIXME/HACK markers as evidence-backed findings
 - printing console output
 - printing JSON output
+- detecting large files as architecture findings
+
 ## Findings
 
 RepoPilot uses an evidence-first finding model.
@@ -42,6 +44,19 @@ Current evidence includes:
 - file path
 - line number
 - source snippet
+
+Current rules:
+
+- `code-marker.todo`
+- `code-marker.fixme`
+- `code-marker.hack`
+- `architecture.large-file`
+
+## Example
+
+```bash
+cargo run -- scan . --format markdown --output report.md
+```
 
 ## Usage
 

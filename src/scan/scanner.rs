@@ -1,3 +1,4 @@
+use crate::audits::architecture::large_file::detect_large_file_finding;
 use crate::scan::language::detect_language;
 use crate::scan::markers::detect_marker_findings;
 use crate::scan::types::{LanguageSummary, ScanSummary};
@@ -86,7 +87,13 @@ fn scan_file(
         return Ok(());
     };
 
-    summary.lines_of_code += count_lines_of_code(&content);
+    let lines_of_code = count_lines_of_code(&content);
+    summary.lines_of_code += lines_of_code;
+
+    if let Some(finding) = detect_large_file_finding(path, lines_of_code) {
+        summary.findings.push(finding);
+    }
+
     summary
         .findings
         .extend(detect_marker_findings(path, &content));
