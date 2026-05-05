@@ -2,6 +2,11 @@
 name = "repopilot"
 version = "0.1.0"
 edition = "2024"
+description = "Local-first codebase audit CLI with evidence-backed findings"
+license = "MIT"
+repository = "https://github.com/MykytaStel/repopilot"
+keywords = ["cli", "audit", "code-quality", "static-analysis"]
+categories = ["development-tools", "command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }

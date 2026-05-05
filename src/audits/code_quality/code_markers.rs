@@ -1,44 +1,55 @@
+use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use std::path::Path;
+use crate::scan::config::ScanConfig;
+use crate::scan::facts::FileFacts;
+use crate::scan::markers::detect_markers;
+use crate::scan::types::{Marker, MarkerKind};
 
-pub fn detect_code_marker_findings(path: &Path, content: &str) -> Vec<Finding> {
-    let mut findings = Vec::new();
+pub struct CodeMarkerAudit;
 
-    for (index, line) in content.lines().enumerate() {
-        if line.contains("TODO") {
-            findings.push(build_marker_finding(path, index, line, "todo"));
-        }
-
-        if line.contains("FIXME") {
-            findings.push(build_marker_finding(path, index, line, "fixme"));
-        }
-
-        if line.contains("HACK") {
-            findings.push(build_marker_finding(path, index, line, "hack"));
-        }
+impl FileAudit for CodeMarkerAudit {
+    fn audit(&self, file: &FileFacts, _config: &ScanConfig) -> Vec<Finding> {
+        detect_markers(&file.path, &file.content)
+            .iter()
+            .map(build_marker_finding)
+            .collect()
     }
-
-    findings
 }
 
-fn build_marker_finding(path: &Path, index: usize, line: &str, marker: &str) -> Finding {
-    let line_number = index + 1;
-    let uppercase_marker = marker.to_uppercase();
+pub fn detect_code_marker_findings(file: &FileFacts) -> Vec<Finding> {
+    detect_markers(&file.path, &file.content)
+        .iter()
+        .map(build_marker_finding)
+        .collect()
+}
+
+fn build_marker_finding(marker: &Marker) -> Finding {
+    let marker_str = match marker.kind {
+        MarkerKind::Todo => "todo",
+        MarkerKind::Fixme => "fixme",
+        MarkerKind::Hack => "hack",
+    };
+    let uppercase = marker_str.to_uppercase();
 
     Finding {
-        id: format!("code-marker.{}.{}:{}", marker, path.display(), line_number),
-        rule_id: format!("code-marker.{marker}"),
-        title: format!("{uppercase_marker} marker found"),
+        id: format!(
+            "code-marker.{}.{}:{}",
+            marker_str,
+            marker.path.display(),
+            marker.line_number
+        ),
+        rule_id: format!("code-marker.{marker_str}"),
+        title: format!("{uppercase} marker found"),
         description: format!(
-            "A {uppercase_marker} marker was found in the codebase and should be reviewed."
+            "A {uppercase} marker was found in the codebase and should be reviewed."
         ),
         category: FindingCategory::CodeQuality,
-        severity: marker_severity(marker),
+        severity: marker_severity(marker_str),
         evidence: vec![Evidence {
-            path: path.to_path_buf(),
-            line_start: line_number,
+            path: marker.path.clone(),
+            line_start: marker.line_number,
             line_end: None,
-            snippet: line.trim().to_string(),
+            snippet: marker.text.trim().to_string(),
         }],
     }
 }

@@ -1,6 +1,18 @@
+use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
+use crate::scan::facts::FileFacts;
 use std::path::Path;
+
+pub struct LargeFileAudit;
+
+impl FileAudit for LargeFileAudit {
+    fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        detect_large_file_finding(&file.path, file.lines_of_code, config)
+            .into_iter()
+            .collect()
+    }
+}
 
 pub fn detect_large_file_finding(
     path: &Path,

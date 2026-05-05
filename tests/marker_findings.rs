@@ -1,6 +1,7 @@
 use repopilot::audits::code_quality::code_markers::detect_code_marker_findings;
 use repopilot::findings::types::{FindingCategory, Severity};
-use std::path::Path;
+use repopilot::scan::facts::FileFacts;
+use std::path::{Path, PathBuf};
 
 #[test]
 fn converts_code_markers_into_evidence_backed_findings() {
@@ -12,7 +13,14 @@ fn main() {}
 // HACK: temporary workaround
 ";
 
-    let findings = detect_code_marker_findings(Path::new("src/main.rs"), content);
+    let file = FileFacts {
+        path: PathBuf::from("src/main.rs"),
+        language: Some("Rust".to_string()),
+        lines_of_code: 5,
+        content: content.to_string(),
+    };
+
+    let findings = detect_code_marker_findings(&file);
 
     assert_eq!(findings.len(), 3);
 
