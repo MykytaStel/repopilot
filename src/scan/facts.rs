@@ -16,5 +16,6 @@ pub struct FileFacts {
     pub path: PathBuf,
     pub language: Option<String>,
     pub lines_of_code: usize,
+    pub branch_count: usize,
     pub content: String,
 }

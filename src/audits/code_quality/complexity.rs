@@ -7,15 +7,14 @@ pub struct ComplexityAudit;
 
 impl FileAudit for ComplexityAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
-        if file.content.is_empty() || file.lines_of_code < 10 {
+        if file.lines_of_code < 10 {
             return vec![];
         }
         if !is_code_language(file.language.as_deref()) {
             return vec![];
         }
 
-        let branch_count = count_branches(&file.content);
-        let density = branch_count.saturating_mul(1000) / file.lines_of_code;
+        let density = file.branch_count.saturating_mul(1000) / file.lines_of_code;
 
         let severity = if density >= config.complexity_high_threshold {
             Severity::High
@@ -47,8 +46,8 @@ impl FileAudit for ComplexityAudit {
                 line_start: 1,
                 line_end: None,
                 snippet: format!(
-                    "branch_count={branch_count}, lines_of_code={}, density={density}",
-                    file.lines_of_code
+                    "branch_count={}, lines_of_code={}, density={density}",
+                    file.branch_count, file.lines_of_code
                 ),
             }],
         }]
@@ -78,7 +77,7 @@ fn is_code_language(language: Option<&str>) -> bool {
 /// Skips comment-only lines. Word-boundary check prevents matching inside identifiers.
 pub fn count_branches(content: &str) -> usize {
     const KEYWORDS: &[&str] = &[
-        "if ", "elif ", "for ", "while ", "match ", "switch ", "case ", "catch ",
+        "if ", "else ", "elif ", "for ", "while ", "match ", "switch ", "case ", "catch ",
     ];
     const OPERATORS: &[&str] = &["&&", "||"];
 

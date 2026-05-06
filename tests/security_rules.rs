@@ -84,6 +84,7 @@ fn file(path: &str, content: &str) -> FileFacts {
         path: PathBuf::from(path),
         language: None,
         lines_of_code: content.lines().count(),
+        branch_count: 0,
         content: content.to_string(),
     }
 }

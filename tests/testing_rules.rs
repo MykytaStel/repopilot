@@ -60,6 +60,7 @@ fn file(path: &str) -> FileFacts {
         path: PathBuf::from(path),
         language: Some("Rust".to_string()),
         lines_of_code: 1,
+        branch_count: 0,
         content: "pub fn value() {}\n".to_string(),
     }
 }
