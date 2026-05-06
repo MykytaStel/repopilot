@@ -6,7 +6,11 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(name = "repopilot")]
-#[command(about = "Local-first codebase audit CLI", long_about = None)]
+#[command(version)]
+#[command(
+    about = "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.",
+    long_about = None
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
