@@ -1,3 +1,4 @@
+use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::pipeline::{build_file_audits, run_project_audits};
 use crate::audits::traits::FileAudit;
 use crate::baseline::key::stable_finding_key;
@@ -122,18 +123,21 @@ fn audit_file_inline(
             path: path.to_path_buf(),
             language,
             lines_of_code: 0,
+            branch_count: 0,
             content: String::new(),
         });
         return Ok(());
     };
 
     let lines_of_code = count_lines_of_code(&content);
+    let branch_count = count_branches(&content);
     facts.lines_of_code += lines_of_code;
 
     let file_facts = FileFacts {
         path: path.to_path_buf(),
         language,
         lines_of_code,
+        branch_count,
         content,
     };
 
@@ -146,6 +150,7 @@ fn audit_file_inline(
         path: file_facts.path,
         language: file_facts.language,
         lines_of_code: file_facts.lines_of_code,
+        branch_count: file_facts.branch_count,
         content: String::new(),
     });
 
@@ -278,6 +283,7 @@ fn collect_file_facts(
         path: path.to_path_buf(),
         language,
         lines_of_code,
+        branch_count: count_branches(&content),
         content,
     });
 

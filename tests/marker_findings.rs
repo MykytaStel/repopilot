@@ -17,6 +17,7 @@ fn main() {}
         path: PathBuf::from("src/main.rs"),
         language: Some("Rust".to_string()),
         lines_of_code: 5,
+        branch_count: 0,
         content: content.to_string(),
     };
 
