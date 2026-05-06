@@ -25,7 +25,12 @@ pub fn run(
         Some(config_path) => load_optional_config(&config_path)?,
         None => load_default_config()?,
     };
-    let scan_config = build_scan_config(&repo_config, max_file_loc, max_directory_modules, max_directory_depth);
+    let scan_config = build_scan_config(
+        &repo_config,
+        max_file_loc,
+        max_directory_modules,
+        max_directory_depth,
+    );
     let output_format = format
         .map(Into::into)
         .unwrap_or(repo_config.output.default_format);

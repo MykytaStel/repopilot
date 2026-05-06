@@ -1,8 +1,8 @@
 use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
-use crate::output::render_helpers::escape_table_cell;
 use crate::output::OutputFormat;
+use crate::output::render_helpers::escape_table_cell;
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use serde::Serialize;
@@ -304,7 +304,6 @@ fn render_ranges(file: &ChangedFile) -> String {
         .collect::<Vec<_>>()
         .join(", ")
 }
-
 
 #[derive(Serialize)]
 struct ReviewJsonReport<'a> {

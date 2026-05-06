@@ -77,7 +77,11 @@ fn clean_path_string(path: &str) -> String {
     let value = collapse_slashes(&value);
     let value = value.trim_start_matches("./");
 
-    if value.is_empty() { ".".to_string() } else { value.to_string() }
+    if value.is_empty() {
+        ".".to_string()
+    } else {
+        value.to_string()
+    }
 }
 
 fn collapse_slashes(s: &str) -> String {

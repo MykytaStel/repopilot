@@ -58,7 +58,14 @@ fn collect_and_audit_inline(
     let mut findings: Vec<Finding> = Vec::new();
 
     if path.is_file() {
-        audit_file_inline(path, &mut facts, &mut languages, file_audits, config, &mut findings)?;
+        audit_file_inline(
+            path,
+            &mut facts,
+            &mut languages,
+            file_audits,
+            config,
+            &mut findings,
+        )?;
     } else {
         let walker = build_walker(path, config);
 

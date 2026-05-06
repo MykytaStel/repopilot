@@ -39,4 +39,3 @@ pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Fi
         .flat_map(|a| a.audit(scan_facts, config))
         .collect()
 }
-

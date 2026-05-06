@@ -15,7 +15,12 @@ impl FileAudit for LongFunctionAudit {
             Some(l) if is_supported(l) => l,
             _ => return vec![],
         };
-        detect_long_functions(&file.content, language, &file.path, config.long_function_loc_threshold)
+        detect_long_functions(
+            &file.content,
+            language,
+            &file.path,
+            config.long_function_loc_threshold,
+        )
     }
 }
 
@@ -73,8 +78,8 @@ fn detect_brace_based(
         let mut opened = false;
         let mut fn_end_idx: Option<usize> = None;
 
-        'scan: for j in i..lines.len() {
-            let line = strip_line_comment(lines[j]);
+        'scan: for (j, &raw_line) in lines.iter().enumerate().skip(i) {
+            let line = strip_line_comment(raw_line);
             for ch in line.chars() {
                 match ch {
                     '{' => {
@@ -106,7 +111,14 @@ fn detect_brace_based(
         let fn_len = fn_end.saturating_sub(i) + 1;
 
         if fn_len > threshold {
-            findings.push(build_finding(path, fn_start_line, fn_end + 1, &fn_name, fn_len, threshold));
+            findings.push(build_finding(
+                path,
+                fn_start_line,
+                fn_end + 1,
+                &fn_name,
+                fn_len,
+                threshold,
+            ));
         }
 
         i = fn_end + 1;
@@ -225,7 +237,14 @@ fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec<Finding> {
                 let (start, _, ref name) = stack.pop().unwrap();
                 let fn_len = line_num - start;
                 if fn_len > threshold {
-                    findings.push(build_finding(path, start, line_num - 1, name, fn_len, threshold));
+                    findings.push(build_finding(
+                        path,
+                        start,
+                        line_num - 1,
+                        name,
+                        fn_len,
+                        threshold,
+                    ));
                 }
             } else {
                 break;

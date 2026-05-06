@@ -1,4 +1,5 @@
 use crate::cli::BaselineCommands;
+use chrono::{SecondsFormat, Utc};
 use repopilot::baseline::key::normalized_relative_path;
 use repopilot::baseline::model::Baseline;
 use repopilot::baseline::writer::{BaselineWriteError, write_baseline};
@@ -6,7 +7,6 @@ use repopilot::config::loader::load_default_config;
 use repopilot::findings::types::Severity;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::ScanSummary;
-use chrono::{SecondsFormat, Utc};
 use std::path::{Path, PathBuf};
 
 pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> {

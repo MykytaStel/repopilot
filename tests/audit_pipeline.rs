@@ -17,8 +17,7 @@ fn scan_pipeline_produces_file_audit_findings() {
 
     fs::write(src.join("large.rs"), content).expect("failed to write file");
 
-    let summary =
-        scan_path_with_config(temp.path(), &ScanConfig::default()).expect("scan failed");
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).expect("scan failed");
 
     assert!(
         summary

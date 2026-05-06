@@ -108,8 +108,8 @@ pub fn count_branches(content: &str) -> usize {
             while let Some(pos) = rest.find(kw) {
                 let abs = offset + pos;
                 let prev_char = trimmed.as_bytes().get(abs.wrapping_sub(1));
-                let good_boundary = abs == 0
-                    || prev_char.map_or(true, |b| !b.is_ascii_alphanumeric() && *b != b'_');
+                let good_boundary =
+                    abs == 0 || prev_char.is_none_or(|b| !b.is_ascii_alphanumeric() && *b != b'_');
                 if good_boundary {
                     count += 1;
                 }

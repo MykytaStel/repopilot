@@ -17,22 +17,22 @@ class Repopilot < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-aarch64-apple-darwin.tar.gz"
+      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-v#{version}-aarch64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_SHA256"
     end
     on_intel do
-      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-x86_64-apple-darwin.tar.gz"
+      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-v#{version}-x86_64-apple-darwin.tar.gz"
       sha256 "PLACEHOLDER_SHA256"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-aarch64-unknown-linux-gnu.tar.gz"
+      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-v#{version}-aarch64-unknown-linux-gnu.tar.gz"
       sha256 "PLACEHOLDER_SHA256"
     end
     on_intel do
-      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-x86_64-unknown-linux-gnu.tar.gz"
+      url "https://github.com/MykytaStel/repopilot/releases/download/v#{version}/repopilot-v#{version}-x86_64-unknown-linux-gnu.tar.gz"
       sha256 "PLACEHOLDER_SHA256"
     end
   end

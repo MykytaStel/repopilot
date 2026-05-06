@@ -68,7 +68,7 @@ echo "Installing repopilot v$VERSION for $TARGET ..."
 
 # ── Download and verify ───────────────────────────────────────────────────────
 
-ARCHIVE="${BINARY}-${TARGET}.${EXT}"
+ARCHIVE="${BINARY}-v${VERSION}-${TARGET}.${EXT}"
 BASE_URL="https://github.com/$REPO/releases/download/v$VERSION"
 
 TMP_DIR="$(mktemp -d)"

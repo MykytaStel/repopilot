@@ -34,7 +34,12 @@ pub fn run(
         Some(config_path) => load_optional_config(&config_path)?,
         None => load_default_config()?,
     };
-    let scan_config = build_scan_config(&repo_config, max_file_loc, max_directory_modules, max_directory_depth);
+    let scan_config = build_scan_config(
+        &repo_config,
+        max_file_loc,
+        max_directory_modules,
+        max_directory_depth,
+    );
     let summary = scan_path_with_config(&path, &scan_config)?;
     let baseline_file = match baseline {
         Some(baseline_path) => Some((read_baseline(&baseline_path)?, baseline_path)),

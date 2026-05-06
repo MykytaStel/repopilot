@@ -133,10 +133,7 @@ pub fn render_markdown(summary: &CompareSummary) -> String {
     out
 }
 
-pub fn render(
-    summary: &CompareSummary,
-    format: OutputFormat,
-) -> Result<String, serde_json::Error> {
+pub fn render(summary: &CompareSummary, format: OutputFormat) -> Result<String, serde_json::Error> {
     match format {
         OutputFormat::Console | OutputFormat::Html => Ok(render_console(summary)),
         OutputFormat::Json => render_json(summary),

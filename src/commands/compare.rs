@@ -12,9 +12,8 @@ pub fn run(
     format: CompareOutputFormatArg,
     output: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let before_summary: ScanSummary =
-        serde_json::from_str(&fs::read_to_string(&before)?)
-            .map_err(|e| format!("Failed to parse {}: {e}", before.display()))?;
+    let before_summary: ScanSummary = serde_json::from_str(&fs::read_to_string(&before)?)
+        .map_err(|e| format!("Failed to parse {}: {e}", before.display()))?;
 
     let after_summary: ScanSummary = serde_json::from_str(&fs::read_to_string(&after)?)
         .map_err(|e| format!("Failed to parse {}: {e}", after.display()))?;

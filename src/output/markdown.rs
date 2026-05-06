@@ -106,4 +106,3 @@ pub fn render(summary: &ScanSummary) -> String {
 
     output
 }
-
