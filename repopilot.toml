@@ -5,6 +5,7 @@
 ignore = [
   ".git",
   ".github",
+  ".repopilot",
   "target",
   "node_modules",
   "dist",

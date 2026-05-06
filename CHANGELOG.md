@@ -11,6 +11,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Homebrew tap distribution remains planned after GitHub Release artifacts are available
 
+## [0.3.0] - 2026-05-06
+
+### Added
+
+- Added `repopilot baseline create` for creating a baseline of existing findings.
+- Added baseline JSON format with stable finding keys.
+- Added `scan --baseline` support for detecting new vs existing findings.
+- Added CI-friendly `--fail-on new-*` thresholds.
+- Added baseline and CI gate documentation.
+- Added tests for baseline creation, loading, stable keys, and CI failure behavior.
+
+### Changed
+
+- Scan output can now include baseline-aware finding status.
+- JSON output can now include baseline summary metadata when a baseline is used.
+- Default scan ignores now include `.repopilot/`.
+
 ## [0.2.0] - 2026-05-05
 
 ### Added
@@ -62,6 +79,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Compare matching now uses `rule_id + evidence path + evidence line` as the stable key, with finding `id` as fallback
 - Release workflow now uploads SHA-256 checksum files, runs `cargo publish --dry-run`, and skips crates.io publish for prerelease/test tags
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MykytaStel/repopilot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MykytaStel/repopilot/releases/tag/v0.1.0

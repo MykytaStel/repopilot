@@ -22,7 +22,7 @@ pub enum FindingCategory {
     Performance,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Severity {
     Info,
@@ -54,6 +54,41 @@ impl Severity {
             Severity::Medium => "MEDIUM",
             Severity::High => "HIGH",
             Severity::Critical => "CRITICAL",
+        }
+    }
+
+    pub fn lowercase_label(&self) -> &'static str {
+        match self {
+            Severity::Info => "info",
+            Severity::Low => "low",
+            Severity::Medium => "medium",
+            Severity::High => "high",
+            Severity::Critical => "critical",
+        }
+    }
+
+    pub fn rank(&self) -> u8 {
+        match self {
+            Severity::Info => 0,
+            Severity::Low => 1,
+            Severity::Medium => 2,
+            Severity::High => 3,
+            Severity::Critical => 4,
+        }
+    }
+
+    pub fn is_at_least(&self, threshold: &Severity) -> bool {
+        self.rank() >= threshold.rank()
+    }
+
+    pub fn from_lowercase_label(value: &str) -> Option<Self> {
+        match value {
+            "info" => Some(Severity::Info),
+            "low" => Some(Severity::Low),
+            "medium" => Some(Severity::Medium),
+            "high" => Some(Severity::High),
+            "critical" => Some(Severity::Critical),
+            _ => None,
         }
     }
 }

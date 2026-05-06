@@ -1,4 +1,5 @@
 pub mod audits;
+pub mod baseline;
 pub mod compare;
 pub mod config;
 pub mod findings;

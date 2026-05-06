@@ -1,3 +1,4 @@
+use crate::baseline::key::stable_finding_key;
 use crate::findings::types::{Finding, Severity};
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
@@ -18,13 +19,13 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
     let before_map: HashMap<String, &Finding> = before
         .findings
         .iter()
-        .map(|f| (stable_finding_key(f), f))
+        .map(|f| (stable_finding_key(f, &before.root_path), f))
         .collect();
 
     let after_map: HashMap<String, &Finding> = after
         .findings
         .iter()
-        .map(|f| (stable_finding_key(f), f))
+        .map(|f| (stable_finding_key(f, &after.root_path), f))
         .collect();
 
     let before_ids: HashSet<String> = before_map.keys().cloned().collect();
@@ -45,8 +46,8 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
         .filter_map(|id| {
             let before_f = before_map[id];
             let after_f = after_map[id];
-            if severity_rank(&after_f.severity) > severity_rank(&before_f.severity) {
-                Some((after_f.clone(), before_f.severity.clone()))
+            if after_f.severity.rank() > before_f.severity.rank() {
+                Some((after_f.clone(), before_f.severity))
             } else {
                 None
             }
@@ -61,30 +62,5 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
         after_files: after.files_count,
         before_loc: before.lines_of_code,
         after_loc: after.lines_of_code,
-    }
-}
-
-fn stable_finding_key(finding: &Finding) -> String {
-    finding
-        .evidence
-        .first()
-        .map(|evidence| {
-            format!(
-                "{}:{}:{}",
-                finding.rule_id,
-                evidence.path.display(),
-                evidence.line_start
-            )
-        })
-        .unwrap_or_else(|| finding.id.clone())
-}
-
-fn severity_rank(s: &Severity) -> u8 {
-    match s {
-        Severity::Info => 0,
-        Severity::Low => 1,
-        Severity::Medium => 2,
-        Severity::High => 3,
-        Severity::Critical => 4,
     }
 }

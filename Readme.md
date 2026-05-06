@@ -4,7 +4,7 @@
 
 RepoPilot is a local-first CLI for auditing codebases.
 
-The long-term goal is to scan projects, folders, or files and produce evidence-backed reports about architecture, code quality, tests, security, and performance. RepoPilot v0.2.0 adds a configurable audit CLI through `repopilot.toml`.
+The long-term goal is to scan projects, folders, or files and produce evidence-backed reports about architecture, code quality, tests, security, and performance. RepoPilot v0.3.0 adds baseline support and CI-friendly failure gates for legacy repositories.
 
 ## Features
 
@@ -17,6 +17,9 @@ The long-term goal is to scan projects, folders, or files and produce evidence-b
 - `init` command for generating a documented `repopilot.toml`
 - Project-level config loading with safe built-in defaults
 - `compare` command for diffing two JSON scan reports
+- `baseline create` command for accepting existing findings as technical debt
+- Baseline-aware scans that distinguish new vs existing findings
+- CI-friendly `--fail-on new-*` thresholds
 - Console, JSON, Markdown, and HTML scan output formats
 - `--output` flag to write reports to a file
 
@@ -100,6 +103,48 @@ cargo run -- compare before.json after.json --format markdown
 cargo run -- compare before.json after.json --format json --output diff.json
 ```
 
+## Baseline workflow
+
+Existing repositories often have findings that cannot all be fixed before adopting a new audit tool. Create a baseline to store accepted existing findings, then scan future changes against it:
+
+```bash
+repopilot baseline create .
+repopilot scan . --baseline .repopilot/baseline.json
+repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+```
+
+By default, `baseline create` writes `.repopilot/baseline.json` and creates the `.repopilot/` directory if needed. Use `--output ./baseline.json` for a custom path. Existing baseline files are not overwritten unless you pass `--force`.
+
+Baseline files store stable finding keys, rule IDs, severity, repo-relative paths, and messages. Future scans mark findings as `new` or `existing`, with console output emphasizing new findings first. Do not blindly refresh a baseline unless the team has accepted the new findings as technical debt.
+
+## CI gate
+
+Use `--fail-on new-high` to fail CI only when new findings at high severity or above are introduced. Supported new-finding thresholds are `new-low`, `new-medium`, `new-high`, and `new-critical`.
+
+Example GitHub Actions workflow:
+
+```yaml
+name: RepoPilot
+
+on:
+  pull_request:
+
+jobs:
+  repopilot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RepoPilot
+        run: cargo install repopilot
+
+      - name: Run RepoPilot
+        run: repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+```
+
+When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. This is useful for strict repositories that want CI to fail on any current finding at or above the chosen threshold.
+
 ## Configuration
 
 Generate a documented project config:
@@ -126,6 +171,7 @@ Example config:
 ignore = [
   ".git",
   ".github",
+  ".repopilot",
   "target",
   "node_modules",
   "dist",
