@@ -16,9 +16,9 @@ Use the current date for the release entry in `CHANGELOG.md`.
 ## 2. Verify locally
 
 ```bash
-cargo fmt --check
+cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test
+cargo test --all
 cargo package --list
 cargo publish --dry-run
 ```
@@ -51,7 +51,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts and runs `cargo publish --dry-run`. It does not publish to crates.io.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, and runs `cargo publish --dry-run`. It does not publish to crates.io.
 
 ## 7. Publish to crates.io
 
@@ -63,7 +63,7 @@ cargo publish
 
 Do not publish from a dirty worktree. Publish from the exact tagged commit.
 
-## 8. Create GitHub Release
+## 8. Review GitHub Release
 
 Title:
 
