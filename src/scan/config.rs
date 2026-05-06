@@ -1,4 +1,5 @@
 use crate::config::defaults::{
+    DEFAULT_COMPLEXITY_HIGH_THRESHOLD, DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
     DEFAULT_HUGE_FILE_LINES, DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_DIRECTORY_DEPTH,
     DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
 };
@@ -11,6 +12,8 @@ pub struct ScanConfig {
     pub max_directory_modules: usize,
     pub max_directory_depth: usize,
     pub long_function_loc_threshold: usize,
+    pub complexity_medium_threshold: usize,
+    pub complexity_high_threshold: usize,
 }
 
 impl Default for ScanConfig {
@@ -22,6 +25,8 @@ impl Default for ScanConfig {
             max_directory_modules: DEFAULT_MAX_DIRECTORY_MODULES,
             max_directory_depth: DEFAULT_MAX_DIRECTORY_DEPTH,
             long_function_loc_threshold: DEFAULT_LONG_FUNCTION_LINES,
+            complexity_medium_threshold: DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
+            complexity_high_threshold: DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
         }
     }
 }

@@ -1,4 +1,7 @@
-use crate::audits::pipeline::run_audits;
+use crate::audits::pipeline::{build_file_audits, run_project_audits};
+use crate::audits::traits::FileAudit;
+use crate::baseline::key::stable_finding_key;
+use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
@@ -15,8 +18,13 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
 }
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
-    let facts = collect_scan_facts_with_config(path, config)?;
-    let findings = run_audits(&facts, config);
+    let file_audits = build_file_audits();
+    let (facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
+    findings.extend(run_project_audits(&facts, config));
+
+    for finding in &mut findings {
+        finding.id = stable_finding_key(finding, path);
+    }
 
     Ok(ScanSummary {
         root_path: facts.root_path,
@@ -27,6 +35,124 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         findings,
     })
 }
+
+/// Collects scan facts while running file audits inline — content is dropped after
+/// each file's audits complete, so only one file's content lives in memory at a time.
+fn collect_and_audit_inline(
+    path: &Path,
+    config: &ScanConfig,
+    file_audits: &[Box<dyn FileAudit>],
+) -> io::Result<(ScanFacts, Vec<Finding>)> {
+    if !path.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("path does not exist: {}", path.display()),
+        ));
+    }
+
+    let mut facts = ScanFacts {
+        root_path: path.to_path_buf(),
+        ..ScanFacts::default()
+    };
+    let mut languages: HashMap<String, usize> = HashMap::new();
+    let mut findings: Vec<Finding> = Vec::new();
+
+    if path.is_file() {
+        audit_file_inline(
+            path,
+            &mut facts,
+            &mut languages,
+            file_audits,
+            config,
+            &mut findings,
+        )?;
+    } else {
+        let walker = build_walker(path, config);
+
+        for result in walker {
+            let entry = result.map_err(io::Error::other)?;
+            let entry_path = entry.path();
+
+            if entry_path == path {
+                continue;
+            }
+
+            let Some(file_type) = entry.file_type() else {
+                continue;
+            };
+
+            if file_type.is_dir() {
+                facts.directories_count += 1;
+            } else if file_type.is_file() {
+                audit_file_inline(
+                    entry_path,
+                    &mut facts,
+                    &mut languages,
+                    file_audits,
+                    config,
+                    &mut findings,
+                )?;
+            }
+        }
+    }
+
+    facts.languages = build_language_summary(languages);
+    Ok((facts, findings))
+}
+
+/// Reads one file, runs all file audits with the content, then stores FileFacts
+/// without content so memory is freed before moving to the next file.
+fn audit_file_inline(
+    path: &Path,
+    facts: &mut ScanFacts,
+    languages: &mut HashMap<String, usize>,
+    file_audits: &[Box<dyn FileAudit>],
+    config: &ScanConfig,
+    findings: &mut Vec<Finding>,
+) -> io::Result<()> {
+    facts.files_count += 1;
+
+    let language = detect_language(path).map(str::to_string);
+    if let Some(language_name) = &language {
+        *languages.entry(language_name.clone()).or_insert(0) += 1;
+    }
+
+    let Ok(content) = fs::read_to_string(path) else {
+        facts.files.push(FileFacts {
+            path: path.to_path_buf(),
+            language,
+            lines_of_code: 0,
+            content: String::new(),
+        });
+        return Ok(());
+    };
+
+    let lines_of_code = count_lines_of_code(&content);
+    facts.lines_of_code += lines_of_code;
+
+    let file_facts = FileFacts {
+        path: path.to_path_buf(),
+        language,
+        lines_of_code,
+        content,
+    };
+
+    for audit in file_audits {
+        findings.extend(audit.audit(&file_facts, config));
+    }
+
+    // Push without content — project audits only need path and line counts
+    facts.files.push(FileFacts {
+        path: file_facts.path,
+        language: file_facts.language,
+        lines_of_code: file_facts.lines_of_code,
+        content: String::new(),
+    });
+
+    Ok(())
+}
+
+// ── Legacy path: collect facts only, keeps content (used by library consumers) ──
 
 pub fn collect_scan_facts(path: &Path) -> io::Result<ScanFacts> {
     collect_scan_facts_with_config(path, &ScanConfig::default())
@@ -64,15 +190,7 @@ fn collect_directory_facts(
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
 ) -> io::Result<()> {
-    let root = path.to_path_buf();
-    let ignored_paths = config.ignored_paths.clone();
-    let walker = WalkBuilder::new(path)
-        .hidden(false)
-        .git_ignore(true)
-        .git_global(true)
-        .git_exclude(true)
-        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored_paths))
-        .build();
+    let walker = build_walker(path, config);
 
     for result in walker {
         let entry = result.map_err(io::Error::other)?;
@@ -97,6 +215,18 @@ fn collect_directory_facts(
     }
 
     Ok(())
+}
+
+fn build_walker(path: &Path, config: &ScanConfig) -> ignore::Walk {
+    let root = path.to_path_buf();
+    let ignored_paths = config.ignored_paths.clone();
+    WalkBuilder::new(path)
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored_paths))
+        .build()
 }
 
 fn is_ignored_path(path: &Path, root: &Path, ignored_paths: &[String]) -> bool {

@@ -24,7 +24,7 @@ pub fn detect_large_file_finding(
     }
 
     Some(Finding {
-        id: format!("architecture.large-file.{}", path.display()),
+        id: String::new(),
         rule_id: "architecture.large-file".to_string(),
         title: "Large file detected".to_string(),
         description: format!(

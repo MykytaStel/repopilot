@@ -1,6 +1,7 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
-use crate::findings::types::Finding;
+use crate::findings::types::{Finding, Severity};
+use crate::output::color;
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
@@ -29,29 +30,8 @@ pub fn render(summary: &ScanSummary) -> String {
         }
     }
 
-    output.push_str("\nFindings:\n");
-
-    if summary.findings.is_empty() {
-        output.push_str("  No findings found\n");
-    } else {
-        for finding in &summary.findings {
-            output.push_str(&format!(
-                "  [{}] {} — {}\n",
-                finding.severity_label(),
-                finding.rule_id,
-                finding.title
-            ));
-
-            for evidence in &finding.evidence {
-                output.push_str(&format!(
-                    "    Evidence: {}:{} — {}\n",
-                    evidence.path.display(),
-                    evidence.line_start,
-                    evidence.snippet.trim()
-                ));
-            }
-        }
-    }
+    output.push('\n');
+    render_findings_section(&mut output, &summary.findings);
 
     output
 }
@@ -96,12 +76,16 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         }
     }
 
-    output.push_str("\nFindings:\n");
+    output.push('\n');
 
     if summary.findings.is_empty() {
-        output.push_str("  No findings found\n");
+        output.push_str("Findings: none\n");
         return output;
     }
+
+    render_severity_summary(&mut output, &summary.findings);
+
+    output.push('\n');
 
     render_findings_group(
         &mut output,
@@ -117,24 +101,86 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     output
 }
 
-fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]) {
-    output.push_str(&format!("  {label}: {}\n", findings.len()));
+fn render_findings_section(output: &mut String, findings: &[Finding]) {
+    if findings.is_empty() {
+        output.push_str("Findings: none\n");
+        return;
+    }
+
+    render_severity_summary(output, findings);
+    output.push('\n');
 
     for finding in findings {
+        let label = color::severity_label(finding.severity_label());
         output.push_str(&format!(
-            "    [{}] {} — {}\n",
-            finding.severity_label(),
-            finding.rule_id,
-            finding.title
+            "  [{}] {} \u{2014} {}\n",
+            label, finding.rule_id, finding.title
         ));
 
         for evidence in &finding.evidence {
             output.push_str(&format!(
-                "      Evidence: {}:{} — {}\n",
+                "    Evidence: {}:{} \u{2014} {}\n",
                 evidence.path.display(),
                 evidence.line_start,
                 evidence.snippet.trim()
             ));
         }
+    }
+}
+
+fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]) {
+    output.push_str(&format!("  {label}: {}\n", findings.len()));
+
+    for finding in findings {
+        let severity = color::severity_label(finding.severity_label());
+        output.push_str(&format!(
+            "    [{}] {} \u{2014} {}\n",
+            severity, finding.rule_id, finding.title
+        ));
+
+        for evidence in &finding.evidence {
+            output.push_str(&format!(
+                "      Evidence: {}:{} \u{2014} {}\n",
+                evidence.path.display(),
+                evidence.line_start,
+                evidence.snippet.trim()
+            ));
+        }
+    }
+}
+
+/// Renders a one-line severity tally: e.g. `Findings: 1 critical · 3 high · 5 medium`
+fn render_severity_summary(output: &mut String, findings: &[Finding]) {
+    // Single pass over findings to count each severity level
+    let mut counts = [0usize; 5];
+    for f in findings {
+        counts[severity_index(f.severity)] += 1;
+    }
+
+    const LEVELS: [Severity; 5] = [
+        Severity::Critical,
+        Severity::High,
+        Severity::Medium,
+        Severity::Low,
+        Severity::Info,
+    ];
+
+    let parts: Vec<String> = LEVELS
+        .iter()
+        .zip(counts.iter())
+        .filter(|(_, n)| **n > 0)
+        .map(|(sev, n)| color::severity_count(*sev, *n))
+        .collect();
+
+    output.push_str(&format!("Findings: {}\n", parts.join(" \u{00b7} ")));
+}
+
+fn severity_index(s: Severity) -> usize {
+    match s {
+        Severity::Critical => 0,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+        Severity::Info => 4,
     }
 }

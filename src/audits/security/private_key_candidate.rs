@@ -56,11 +56,7 @@ fn should_skip_private_key_audit(path: &std::path::Path) -> bool {
 
 fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Finding {
     Finding {
-        id: format!(
-            "security.private-key-candidate.{}:{}",
-            path.display(),
-            line_number
-        ),
+        id: String::new(),
         rule_id: "security.private-key-candidate".to_string(),
         title: "Private key detected in source file".to_string(),
         description: format!(

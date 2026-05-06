@@ -36,12 +36,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
     let uppercase = marker_str.to_uppercase();
 
     Finding {
-        id: format!(
-            "code-marker.{}.{}:{}",
-            marker_str,
-            marker.path.display(),
-            marker.line_number
-        ),
+        id: String::new(),
         rule_id: format!("code-marker.{marker_str}"),
         title: format!("{uppercase} marker found"),
         description: format!(
@@ -60,8 +55,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
 
 fn marker_severity(marker: &str) -> Severity {
     match marker {
-        "fixme" => Severity::Medium,
-        "hack" => Severity::Medium,
+        "fixme" | "hack" => Severity::Medium,
         "todo" => Severity::Low,
         _ => Severity::Info,
     }

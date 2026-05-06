@@ -1,6 +1,8 @@
 use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
+use crate::output::OutputFormat;
+use crate::output::render_helpers::escape_table_cell;
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use serde::Serialize;
@@ -107,6 +109,18 @@ pub fn render_json(
     };
 
     serde_json::to_string_pretty(&output)
+}
+
+pub fn render(
+    report: &ReviewReport,
+    format: OutputFormat,
+    ci_gate: Option<&CiGateResult>,
+) -> Result<String, serde_json::Error> {
+    match format {
+        OutputFormat::Console | OutputFormat::Html => Ok(render_console(report, ci_gate)),
+        OutputFormat::Json => render_json(report, ci_gate),
+        OutputFormat::Markdown => Ok(render_markdown(report, ci_gate)),
+    }
 }
 
 pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
@@ -289,10 +303,6 @@ fn render_ranges(file: &ChangedFile) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ")
-}
-
-fn escape_table_cell(value: &str) -> String {
-    value.replace('|', "\\|").replace('\n', " ")
 }
 
 #[derive(Serialize)]

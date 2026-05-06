@@ -71,11 +71,7 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
     })?;
 
     Some(Finding {
-        id: format!(
-            "security.secret-candidate.{}:{}",
-            path.display(),
-            line_number
-        ),
+        id: String::new(),
         rule_id: "security.secret-candidate".to_string(),
         title: "Possible secret detected".to_string(),
         description: format!(

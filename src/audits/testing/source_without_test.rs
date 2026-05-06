@@ -12,7 +12,15 @@ pub struct SourceWithoutTestAudit;
 
 impl ProjectAudit for SourceWithoutTestAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
-        let all_paths: HashSet<PathBuf> = facts.files.iter().map(|f| f.path.clone()).collect();
+        // Single pass: collect all paths + extract tests/ suffix set simultaneously
+        let mut all_paths: HashSet<PathBuf> = HashSet::with_capacity(facts.files.len());
+        let mut tests_suffixes: HashSet<String> = HashSet::new();
+        for f in &facts.files {
+            if let Some(suffix) = tests_dir_suffix(&f.path) {
+                tests_suffixes.insert(suffix);
+            }
+            all_paths.insert(f.path.clone());
+        }
 
         facts
             .files
@@ -20,10 +28,20 @@ impl ProjectAudit for SourceWithoutTestAudit {
             .filter(|file| is_source_file(&file.path))
             .filter(|file| !is_test_file(&file.path))
             .filter(|file| !is_low_signal_wrapper(&file.path))
-            .filter(|file| !has_nearby_test(&file.path, &all_paths))
+            .filter(|file| !has_nearby_test(&file.path, &all_paths, &tests_suffixes))
             .map(|file| build_finding(&file.path))
             .collect()
     }
+}
+
+/// Returns the path suffix starting at the `tests/` component, normalised to forward slashes.
+fn tests_dir_suffix(path: &Path) -> Option<String> {
+    let components: Vec<_> = path.components().collect();
+    let idx = components
+        .iter()
+        .position(|c| c.as_os_str().to_string_lossy() == "tests")?;
+    let suffix: PathBuf = components[idx..].iter().collect();
+    Some(suffix.to_string_lossy().replace('\\', "/"))
 }
 
 fn is_source_file(path: &Path) -> bool {
@@ -61,7 +79,11 @@ fn is_low_signal_wrapper(path: &Path) -> bool {
     matches!(file_name, "mod.rs" | "lib.rs" | "main.rs")
 }
 
-fn has_nearby_test(source: &Path, all_paths: &HashSet<PathBuf>) -> bool {
+fn has_nearby_test(
+    source: &Path,
+    all_paths: &HashSet<PathBuf>,
+    tests_suffixes: &HashSet<String>,
+) -> bool {
     let stem = source
         .file_stem()
         .and_then(|s| s.to_str())
@@ -90,15 +112,15 @@ fn has_nearby_test(source: &Path, all_paths: &HashSet<PathBuf>) -> bool {
     }
 
     // tests/ directory alongside src/: tests/<stem>.rs, tests/<stem>_test.rs
+    // Uses pre-computed suffix set for O(1) lookup instead of O(n) scan
     let tests_candidates = [
-        PathBuf::from("tests").join(format!("{stem}.{ext}")),
-        PathBuf::from("tests").join(format!("{stem}_test.{ext}")),
+        format!("tests/{stem}.{ext}"),
+        format!("tests/{stem}_test.{ext}"),
     ];
 
-    // Check if any existing path ends with these relative paths
     if tests_candidates
         .iter()
-        .any(|candidate| all_paths.iter().any(|p| p.ends_with(candidate.as_path())))
+        .any(|candidate| tests_suffixes.contains(candidate.as_str()))
     {
         return true;
     }
@@ -106,11 +128,8 @@ fn has_nearby_test(source: &Path, all_paths: &HashSet<PathBuf>) -> bool {
     // Rust integration tests commonly cover a module by feature name:
     // src/report/writer.rs -> tests/report_writer.rs
     if ext == "rs" {
-        let module_candidate =
-            PathBuf::from("tests").join(format!("{}.rs", module_test_name(source)));
-        return all_paths
-            .iter()
-            .any(|p| p.ends_with(module_candidate.as_path()));
+        let module_candidate = format!("tests/{}.rs", module_test_name(source));
+        return tests_suffixes.contains(module_candidate.as_str());
     }
 
     false
@@ -153,7 +172,7 @@ fn build_finding(source: &Path) -> Finding {
     let expected = format!("{stem}_test.{ext}");
 
     Finding {
-        id: format!("testing.source-without-test.{}", source.display()),
+        id: String::new(),
         rule_id: "testing.source-without-test".to_string(),
         title: "Source file has no corresponding test".to_string(),
         description: format!(

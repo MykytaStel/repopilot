@@ -1,3 +1,4 @@
+use crate::output::render_helpers::escape_table_cell;
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
@@ -104,8 +105,4 @@ pub fn render(summary: &ScanSummary) -> String {
     }
 
     output
-}
-
-fn escape_table_cell(value: &str) -> String {
-    value.replace('|', "\\|").replace('\n', " ")
 }

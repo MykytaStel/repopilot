@@ -72,21 +72,36 @@ fn strip_clean_prefix(path: &str, root: &str) -> Option<String> {
 }
 
 fn clean_path_string(path: &str) -> String {
-    let mut value = path.replace('\\', "/");
-
-    while value.contains("//") {
-        value = value.replace("//", "/");
-    }
-
-    while let Some(stripped) = value.strip_prefix("./") {
-        value = stripped.to_string();
-    }
+    // Collapse backslashes and consecutive slashes in one pass, then strip leading ./
+    let value = path.replace('\\', "/");
+    let value = collapse_slashes(&value);
+    let value = value.trim_start_matches("./");
 
     if value.is_empty() {
         ".".to_string()
     } else {
-        value
+        value.to_string()
     }
+}
+
+fn collapse_slashes(s: &str) -> String {
+    if !s.contains("//") {
+        return s.to_string();
+    }
+    let mut result = String::with_capacity(s.len());
+    let mut prev_slash = false;
+    for ch in s.chars() {
+        if ch == '/' {
+            if !prev_slash {
+                result.push(ch);
+            }
+            prev_slash = true;
+        } else {
+            result.push(ch);
+            prev_slash = false;
+        }
+    }
+    result
 }
 
 fn normalize_key_part(value: &str) -> String {

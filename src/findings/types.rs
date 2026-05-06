@@ -19,10 +19,9 @@ pub enum FindingCategory {
     CodeQuality,
     Testing,
     Security,
-    Performance,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Severity {
     Info,
@@ -67,18 +66,8 @@ impl Severity {
         }
     }
 
-    pub fn rank(&self) -> u8 {
-        match self {
-            Severity::Info => 0,
-            Severity::Low => 1,
-            Severity::Medium => 2,
-            Severity::High => 3,
-            Severity::Critical => 4,
-        }
-    }
-
     pub fn is_at_least(&self, threshold: &Severity) -> bool {
-        self.rank() >= threshold.rank()
+        self >= threshold
     }
 
     pub fn from_lowercase_label(value: &str) -> Option<Self> {

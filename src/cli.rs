@@ -182,6 +182,16 @@ pub enum FailOnArg {
     Critical,
 }
 
+impl From<CompareOutputFormatArg> for OutputFormat {
+    fn from(format: CompareOutputFormatArg) -> Self {
+        match format {
+            CompareOutputFormatArg::Console => OutputFormat::Console,
+            CompareOutputFormatArg::Json => OutputFormat::Json,
+            CompareOutputFormatArg::Markdown => OutputFormat::Markdown,
+        }
+    }
+}
+
 impl From<OutputFormatArg> for OutputFormat {
     fn from(format: OutputFormatArg) -> Self {
         match format {
