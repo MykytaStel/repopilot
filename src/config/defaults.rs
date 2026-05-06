@@ -3,6 +3,7 @@ pub const CONFIG_FILE_NAME: &str = "repopilot.toml";
 pub const DEFAULT_IGNORED_PATHS: &[&str] = &[
     ".git",
     ".github",
+    ".repopilot",
     "target",
     "node_modules",
     "dist",

@@ -1,66 +1,108 @@
-# Release Process
+# Release process
 
-RepoPilot follows [Semantic Versioning](https://semver.org/).
+RepoPilot releases are prepared in the repository, verified locally and in CI, tagged from `main`, and published to crates.io manually by the maintainer.
 
-## Versioning policy
+## 1. Prepare the release
 
-| Increment | When to use |
-|---|---|
-| Patch `0.1.x` | Bug fixes, doc corrections, minor CI changes with no user-visible behavior change |
-| Minor `0.x.0` | New findings, new output formats, new flags, non-breaking behavior changes |
-| Major `x.0.0` | Breaking CLI changes, output schema changes, removed flags or features |
+Update:
 
-## Steps to cut a release
+- `Cargo.toml` version
+- `Cargo.lock` package version, if needed
+- `CHANGELOG.md`
+- `README.md` if user-facing behavior changed
 
-### 1. Bump the version
+Use the current date for the release entry in `CHANGELOG.md`.
 
-In `Cargo.toml`, update the `version` field:
-
-```toml
-[package]
-version = "0.1.0"
-```
-
-Run `cargo build` to regenerate `Cargo.lock` with the new version.
-
-### 2. Update `CHANGELOG.md`
-
-- Rename the `[Unreleased]` heading to the release version and date.
-- Add a new empty `[Unreleased]` section at the top.
-- Update the comparison links at the bottom of the file.
-
-### 3. Open a release PR
-
-Title: `chore: release v0.1.0`
-
-Include only the `Cargo.toml`, `Cargo.lock`, and `CHANGELOG.md` changes. CI must pass before merge.
-
-Before merging, run:
+## 2. Verify locally
 
 ```bash
-cargo fmt --all -- --check
+cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all
+cargo test
+cargo package --list
 cargo publish --dry-run
 ```
 
-### 4. Tag after merge
+Review the package contents from `cargo package --list` before publishing.
+
+## 3. Create release branch
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git checkout -b release/vX.Y.Z
 ```
 
-Tag only commits that are on `main`. A tag on an unmerged commit creates confusion.
+## 4. Commit
 
-### 5. Confirm the GitHub Release
+```bash
+git add .
+git commit -m "chore: prepare vX.Y.Z release"
+```
 
-- The release workflow creates the GitHub Release on `v*` tags.
-- Confirm all binary archives and `.sha256` files are attached.
-- Confirm crates.io publish ran only for a real release tag, not a prerelease/test tag containing `-`.
-- Paste or edit the CHANGELOG entry if generated release notes need cleanup.
+## 5. Merge after CI passes
 
-## Notes
+Open a pull request, wait for CI, review the package metadata and docs, then merge into `main`.
 
-- Prerelease/test tags such as `v0.1.0-test` build artifacts but do not publish to crates.io.
-- Do not skip CI (`--no-verify`) or amend published commits.
+## 6. Tag
+
+```bash
+git checkout main
+git pull
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The tag workflow builds GitHub Release artifacts and runs `cargo publish --dry-run`. It does not publish to crates.io.
+
+## 7. Publish to crates.io
+
+After the tag workflow passes and the maintainer has reviewed the release:
+
+```bash
+cargo publish
+```
+
+Do not publish from a dirty worktree. Publish from the exact tagged commit.
+
+## 8. Create GitHub Release
+
+Title:
+
+```text
+RepoPilot vX.Y.Z — short release name
+```
+
+Include:
+
+- highlights;
+- install command;
+- upgrade command;
+- example usage;
+- link to [CHANGELOG.md](../CHANGELOG.md).
+
+Example release body:
+
+````md
+## Highlights
+
+- ...
+
+## Install
+
+```bash
+cargo install repopilot
+```
+
+## Upgrade
+
+```bash
+cargo install repopilot --force
+```
+
+## Example
+
+```bash
+repopilot scan .
+```
+
+See [CHANGELOG.md](https://github.com/MykytaStel/repopilot/blob/main/CHANGELOG.md) for details.
+````
