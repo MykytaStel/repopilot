@@ -33,21 +33,23 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
 
     let new_findings = after_ids
         .difference(&before_ids)
-        .map(|id| after_map[id].clone())
+        .filter_map(|id| after_map.get(id))
+        .map(|f| (*f).clone())
         .collect();
 
     let resolved_findings = before_ids
         .difference(&after_ids)
-        .map(|id| before_map[id].clone())
+        .filter_map(|id| before_map.get(id))
+        .map(|f| (*f).clone())
         .collect();
 
     let severity_increased = after_ids
         .intersection(&before_ids)
         .filter_map(|id| {
-            let before_f = before_map[id];
-            let after_f = after_map[id];
-            if after_f.severity.rank() > before_f.severity.rank() {
-                Some((after_f.clone(), before_f.severity))
+            let before_f = before_map.get(id)?;
+            let after_f = after_map.get(id)?;
+            if after_f.severity > before_f.severity {
+                Some(((*after_f).clone(), before_f.severity))
             } else {
                 None
             }

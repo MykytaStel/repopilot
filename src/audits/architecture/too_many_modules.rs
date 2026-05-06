@@ -27,7 +27,7 @@ impl ProjectAudit for TooManyModulesAudit {
 
 fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
     Finding {
-        id: format!("architecture.too-many-modules.{}", dir.display()),
+        id: String::new(),
         rule_id: "architecture.too-many-modules".to_string(),
         title: "Directory contains too many modules".to_string(),
         description: format!(

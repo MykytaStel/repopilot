@@ -17,6 +17,8 @@ pub const DEFAULT_HUGE_FILE_LINES: usize = 1000;
 pub const DEFAULT_MAX_DIRECTORY_MODULES: usize = 20;
 pub const DEFAULT_MAX_DIRECTORY_DEPTH: usize = 5;
 pub const DEFAULT_LONG_FUNCTION_LINES: usize = 50;
+pub const DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD: usize = 200;
+pub const DEFAULT_COMPLEXITY_HIGH_THRESHOLD: usize = 400;
 
 pub fn default_ignored_paths() -> Vec<String> {
     DEFAULT_IGNORED_PATHS

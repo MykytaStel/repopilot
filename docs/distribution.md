@@ -65,6 +65,30 @@ Before publishing:
 
 See [docs/release.md](release.md) for the full release process.
 
-## Planned: Homebrew
+## Homebrew (via tap)
 
-A Homebrew formula is planned after the release artifact process is stable.
+A formula template lives at [`Formula/repopilot.rb`](../Formula/repopilot.rb) in the repo.
+
+To publish it:
+
+1. Create a new GitHub repo **`MykytaStel/homebrew-repopilot`**.
+2. Copy `Formula/repopilot.rb` into `Formula/repopilot.rb` in that repo.
+3. On each release, update `version` and replace every `PLACEHOLDER_SHA256` with the real
+   value from `repopilot-checksums.txt` attached to the GitHub Release.
+4. Users install with:
+
+```bash
+brew tap mykytastel/repopilot
+brew install repopilot
+```
+
+## Quick install (curl | sh)
+
+An `install.sh` script is provided in the repo root for one-line installs:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | sh
+```
+
+The script detects OS and architecture, downloads the correct pre-built binary from GitHub
+Releases, verifies the SHA256 checksum, and installs to `~/.local/bin`.

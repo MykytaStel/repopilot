@@ -34,7 +34,7 @@ fn build_finding(path: &std::path::Path) -> Finding {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or(".env");
 
     Finding {
-        id: format!("security.env-file-committed.{}", path.display()),
+        id: String::new(),
         rule_id: "security.env-file-committed".to_string(),
         title: "Environment file tracked in repository".to_string(),
         description: format!(
