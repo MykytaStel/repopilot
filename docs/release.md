@@ -101,7 +101,7 @@ cargo install repopilot --force
 ## Example
 
 ```bash
-repopilot scan .
+repopilot review . --base origin/main
 ```
 
 See [CHANGELOG.md](https://github.com/MykytaStel/repopilot/blob/main/CHANGELOG.md) for details.

@@ -9,6 +9,7 @@
 //! ```text
 //! repopilot init
 //! repopilot scan .
+//! repopilot review .
 //! repopilot baseline create .
 //! ```
 
@@ -19,4 +20,5 @@ pub mod config;
 pub mod findings;
 pub mod output;
 pub mod report;
+pub mod review;
 pub mod scan;

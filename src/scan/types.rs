@@ -27,7 +27,7 @@ pub struct ScanSummary {
     pub findings: Vec<Finding>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LanguageSummary {
     pub name: String,
     pub files_count: usize,
