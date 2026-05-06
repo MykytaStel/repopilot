@@ -79,6 +79,53 @@ pub enum Commands {
         max_directory_depth: Option<usize>,
     },
 
+    /// Review findings that touch changed Git diff lines
+    Review {
+        /// Path to project, folder, or file
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Base Git ref for review diff. Without this, review compares the working tree against HEAD
+        #[arg(long)]
+        base: Option<String>,
+
+        /// Head Git ref for review diff. Requires --base and defaults to HEAD when --base is set
+        #[arg(long)]
+        head: Option<String>,
+
+        /// Path to a RepoPilot config file
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        /// Path to a RepoPilot baseline file
+        #[arg(long)]
+        baseline: Option<PathBuf>,
+
+        /// Fail with exit code 1 when in-diff findings meet the selected threshold
+        #[arg(long, value_enum)]
+        fail_on: Option<FailOnArg>,
+
+        /// Output format
+        #[arg(long, value_enum, default_value = "console")]
+        format: CompareOutputFormatArg,
+
+        /// Write report to a file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Maximum non-empty LOC before a file is reported as large (default: 300)
+        #[arg(long)]
+        max_file_loc: Option<usize>,
+
+        /// Maximum number of files in a single directory before flagging (default: 20)
+        #[arg(long)]
+        max_directory_modules: Option<usize>,
+
+        /// Maximum directory nesting depth before flagging (default: 5)
+        #[arg(long)]
+        max_directory_depth: Option<usize>,
+    },
+
     /// Generate a default repopilot.toml configuration file
     Init {
         /// Overwrite an existing config file

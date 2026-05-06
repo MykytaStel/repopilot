@@ -8,10 +8,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
-- Planned Git diff-aware review mode.
 - Planned AI-ready review context export.
 - Planned Change Risk Map.
 - Planned GitHub Action integration.
+
+## [0.4.0] - 2026-05-06
+
+### Added
+
+- Added `repopilot review` for Git diff-aware review of changed lines.
+- Added working tree review against `HEAD`, including staged, unstaged, and untracked files.
+- Added `repopilot review --base <ref> [--head <ref>]` for branch and CI review.
+- Added console, JSON, and Markdown review output with changed files, in-diff findings, out-of-diff findings, severity counts, and baseline status.
+- Added review CI gate support so `--fail-on` evaluates only in-diff findings.
+- Added review diff parser, Git integration, renderer, and CLI tests.
 
 ## [0.3.0] - 2026-05-06
 
@@ -61,7 +71,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MykytaStel/repopilot/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MykytaStel/repopilot/releases/tag/v0.1.0

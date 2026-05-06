@@ -17,6 +17,11 @@ use repopilot::config::template::default_config_toml;
 use repopilot::findings::types::Severity;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::report::writer::write_report;
+use repopilot::review::render::{
+    render_console as review_console, render_json as review_json,
+    render_markdown as review_markdown,
+};
+use repopilot::review::{build_review_report, review_report_for_ci};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::ScanSummary;
@@ -126,6 +131,76 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             let rendered_report = render_scan_summary(&summary, output_format)?;
 
             write_report(&rendered_report, output.as_deref())?;
+
+            Ok(())
+        }
+
+        Commands::Review {
+            path,
+            base,
+            head,
+            config,
+            baseline,
+            fail_on,
+            format,
+            output,
+            max_file_loc,
+            max_directory_modules,
+            max_directory_depth,
+        } => {
+            if base.is_none() && head.is_some() {
+                return Err(Box::new(CliExit {
+                    code: 1,
+                    message: "`repopilot review --head` requires --base".to_string(),
+                }));
+            }
+
+            let repo_config = match config {
+                Some(config_path) => load_optional_config(&config_path)?,
+                None => load_default_config()?,
+            };
+            let scan_config = build_scan_config(
+                &repo_config,
+                max_file_loc,
+                max_directory_modules,
+                max_directory_depth,
+            );
+            let summary = scan_path_with_config(&path, &scan_config)?;
+            let baseline_file = match baseline {
+                Some(baseline_path) => Some((read_baseline(&baseline_path)?, baseline_path)),
+                None => None,
+            };
+            let baseline_ref = baseline_file
+                .as_ref()
+                .map(|(baseline, path)| (baseline, path.clone()));
+            let review_report = build_review_report(
+                summary,
+                &path,
+                base.as_deref(),
+                head.as_deref(),
+                baseline_ref,
+            )?;
+            let ci_report = review_report_for_ci(&review_report);
+            let ci_gate = fail_on
+                .map(Into::into)
+                .map(|fail_on| evaluate_ci_gate(&ci_report, fail_on));
+            let rendered_report = match format {
+                CompareOutputFormatArg::Console => {
+                    Ok(review_console(&review_report, ci_gate.as_ref()))
+                }
+                CompareOutputFormatArg::Json => review_json(&review_report, ci_gate.as_ref()),
+                CompareOutputFormatArg::Markdown => {
+                    Ok(review_markdown(&review_report, ci_gate.as_ref()))
+                }
+            }?;
+
+            write_report(&rendered_report, output.as_deref())?;
+
+            if let Some(ci_gate) = ci_gate
+                && let Some(message) = ci_gate.failure_message()
+            {
+                return Err(Box::new(CliExit { code: 1, message }));
+            }
 
             Ok(())
         }
