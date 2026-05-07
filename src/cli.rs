@@ -161,6 +161,7 @@ pub enum OutputFormatArg {
     Html,
     Json,
     Markdown,
+    Sarif,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -199,6 +200,7 @@ impl From<OutputFormatArg> for OutputFormat {
             OutputFormatArg::Html => OutputFormat::Html,
             OutputFormatArg::Json => OutputFormat::Json,
             OutputFormatArg::Markdown => OutputFormat::Markdown,
+            OutputFormatArg::Sarif => OutputFormat::Sarif,
         }
     }
 }

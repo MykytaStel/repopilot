@@ -18,6 +18,7 @@ pub enum OutputFormat {
     Html,
     Json,
     Markdown,
+    Sarif,
 }
 
 pub fn render_scan_summary(
@@ -29,6 +30,7 @@ pub fn render_scan_summary(
         OutputFormat::Html => Ok(html::render(summary)),
         OutputFormat::Json => json::render(summary),
         OutputFormat::Markdown => Ok(markdown::render(summary)),
+        OutputFormat::Sarif => sarif::render(summary),
     }
 }
 
@@ -42,5 +44,6 @@ pub fn render_baseline_scan_report(
         OutputFormat::Html => Ok(html::render(&report.summary)),
         OutputFormat::Json => json::render_with_baseline(report, ci_gate),
         OutputFormat::Markdown => Ok(markdown::render(&report.summary)),
+        OutputFormat::Sarif => sarif::render(&report.summary),
     }
 }
