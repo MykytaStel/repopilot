@@ -194,7 +194,15 @@ repopilot scan . --format sarif --output repopilot.sarif
 repopilot scan . --format sarif --output repopilot.sarif
 ```
 
-Use SARIF output when integrating RepoPilot with code scanning tools.
+If your installed RepoPilot version does not support `--output`, redirect stdout instead:
+
+```bash
+repopilot scan . --format sarif > repopilot.sarif
+```
+
+Use JSON when custom scripts need to parse RepoPilot results. Use Markdown for human-readable reports. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
+
+See [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) for a copy-paste GitHub Actions workflow, required permissions, and local validation commands.
 
 Compare two JSON reports:
 
@@ -211,6 +219,8 @@ repopilot compare before.json after.json --format json --output diff.json
 Use `--fail-on new-high` to fail CI only when new high or critical findings are introduced. Supported new-finding thresholds are `new-low`, `new-medium`, `new-high`, and `new-critical`.
 
 When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. For baseline-based adoption, commit an accepted baseline and scan against it in CI.
+
+To upload RepoPilot findings to GitHub Code Scanning, generate SARIF and use `github/codeql-action/upload-sarif`. The workflow must include `security-events: write`.
 
 ```yaml
 name: RepoPilot
@@ -242,13 +252,14 @@ These are planned ideas, not current features:
 - Change Risk Map
 - AI-ready review context export
 - Better architecture drift detection
-- GitHub Action integration
+- First-party GitHub Action integration
 
 ## Documentation
 
 | Document | Description |
 |---|---|
 | [docs/rulesets.md](docs/rulesets.md) | Implemented audit rules, categories, and severity levels |
+| [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
 | [docs/github-ruleset.md](docs/github-ruleset.md) | GitHub branch ruleset configuration |
