@@ -39,7 +39,11 @@ fn rust_function_over_threshold_produces_finding() {
     let content = format!("fn long_fn() {{\n{body}}}\n");
     let file = make_file("Rust", &content);
     let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
-    assert_eq!(findings.len(), 1, "expected one finding for a long Rust function");
+    assert_eq!(
+        findings.len(),
+        1,
+        "expected one finding for a long Rust function"
+    );
     assert_eq!(findings[0].rule_id, "code-quality.long-function");
     assert_eq!(findings[0].severity, Severity::Medium);
     assert!(findings[0].title.contains("long_fn"));
@@ -84,7 +88,11 @@ fn python_function_extending_to_eof_is_detected() {
     let content = format!("def eof_fn():\n{body}");
     let file = make_file("Python", &content);
     let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
-    assert_eq!(findings.len(), 1, "EOF-terminated Python function should be detected");
+    assert_eq!(
+        findings.len(),
+        1,
+        "EOF-terminated Python function should be detected"
+    );
     assert!(findings[0].title.contains("eof_fn"));
 }
 

@@ -43,14 +43,20 @@ fn baseline_create_does_not_overwrite_existing_file_without_force() {
         .output()
         .expect("failed to run baseline create");
 
-    assert!(!output.status.success(), "should exit with non-zero when baseline exists and --force is not set");
+    assert!(
+        !output.status.success(),
+        "should exit with non-zero when baseline exists and --force is not set"
+    );
     assert_eq!(
         fs::read_to_string(&baseline_path).expect("failed to read baseline"),
         "sentinel\n",
         "existing baseline file must not be modified"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--force"), "error message should mention --force");
+    assert!(
+        stderr.contains("--force"),
+        "error message should mention --force"
+    );
 }
 
 #[test]
