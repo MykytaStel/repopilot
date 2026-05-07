@@ -127,6 +127,7 @@ pub fn render(
         OutputFormat::Console | OutputFormat::Html => Ok(render_console(report, ci_gate)),
         OutputFormat::Json => render_json(report, ci_gate),
         OutputFormat::Markdown => Ok(render_markdown(report, ci_gate)),
+        OutputFormat::Sarif => render_json(report, ci_gate),
     }
 }
 

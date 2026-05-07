@@ -33,7 +33,7 @@ RepoPilot runs locally and does not upload your repository.
 - Baseline workflow for accepting existing findings in legacy repositories
 - CI-friendly failure thresholds with `--fail-on`
 - Git diff-aware review mode for prioritizing findings introduced by changed lines
-- Console, JSON, Markdown, and HTML scan output
+- Console, JSON, Markdown, HTML, and SARIF scan output
 - Compare mode for diffing two JSON scan reports
 
 See [docs/rulesets.md](docs/rulesets.md) for the implemented rules and severity levels.
@@ -185,7 +185,16 @@ repopilot scan . --format console
 repopilot scan . --format json --output report.json
 repopilot scan . --format markdown --output report.md
 repopilot scan . --format html --output report.html
+repopilot scan . --format sarif --output repopilot.sarif
 ```
+
+### SARIF output
+
+```bash
+repopilot scan . --format sarif --output repopilot.sarif
+```
+
+Use SARIF output when integrating RepoPilot with code scanning tools.
 
 Compare two JSON reports:
 

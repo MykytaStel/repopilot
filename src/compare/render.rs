@@ -138,5 +138,6 @@ pub fn render(summary: &CompareSummary, format: OutputFormat) -> Result<String, 
         OutputFormat::Console | OutputFormat::Html => Ok(render_console(summary)),
         OutputFormat::Json => render_json(summary),
         OutputFormat::Markdown => Ok(render_markdown(summary)),
+        OutputFormat::Sarif => render_json(summary),
     }
 }

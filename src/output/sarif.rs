@@ -90,6 +90,11 @@ pub fn scan_summary_to_sarif(summary: &ScanSummary, root: &Path) -> SarifLog {
     findings_to_sarif(&summary.findings, root)
 }
 
+pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
+    let sarif = scan_summary_to_sarif(summary, &summary.root_path);
+    serde_json::to_string_pretty(&sarif)
+}
+
 pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
     SarifLog {
         version: SARIF_VERSION.to_string(),
