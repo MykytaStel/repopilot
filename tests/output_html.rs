@@ -27,6 +27,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
                 snippet: "API_KEY = \"abc<123>\"".to_string(),
             }],
         }],
+        coupling_graph: None,
     };
 
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");

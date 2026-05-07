@@ -93,6 +93,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             skipped_bytes: report.summary.skipped_bytes,
             languages: report.summary.languages.clone(),
             findings: report.in_diff_findings().into_iter().cloned().collect(),
+            coupling_graph: report.summary.coupling_graph.clone(),
         },
         baseline_path: report.baseline_path.clone(),
         findings,
