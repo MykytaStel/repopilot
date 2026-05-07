@@ -26,6 +26,8 @@ impl RepoPilotConfig {
             ScanConfig::default().with_large_file_loc_threshold(self.architecture.max_file_lines);
         config.ignored_paths = self.scan.ignore.clone();
         config.max_file_bytes = self.scan.max_file_bytes;
+        config.detect_missing_tests = self.testing.detect_missing_tests;
+        config.detect_secret_like_names = self.security.detect_secret_like_names;
         config.huge_file_loc_threshold = self.architecture.huge_file_lines;
         if config.huge_file_loc_threshold <= config.large_file_loc_threshold {
             config.huge_file_loc_threshold = config

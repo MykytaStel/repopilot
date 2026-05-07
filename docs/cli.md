@@ -1,0 +1,331 @@
+# CLI Reference
+
+Complete reference for all RepoPilot commands and flags.
+
+## Synopsis
+
+```
+repopilot <COMMAND> [OPTIONS]
+```
+
+Use `-h` for a short summary or `--help` for the full description and examples.
+
+---
+
+## Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
+| [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
+| [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
+| [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
+| [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
+| [`init`](#init) | — | Generate a default `repopilot.toml` configuration file |
+
+---
+
+## `scan`
+
+Walks the target path and runs all enabled audit rules.
+
+**Categories:**
+
+| Category | What it checks |
+|----------|---------------|
+| Architecture | Oversized files, deep nesting, too many modules per directory |
+| Coupling | Excessive fan-out, high-instability hubs, circular dependencies |
+| Code quality | Cyclomatic complexity, long functions, TODO/FIXME/HACK markers |
+| Security | Hardcoded secret candidates, committed private keys, `.env` files |
+| Testing | Missing test folder, source files without test counterparts |
+
+The scan respects `.gitignore` and built-in ignores for common build directories.
+
+### Synopsis
+
+```
+repopilot scan <PATH> [OPTIONS]
+repopilot s <PATH> [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<PATH>` | Path to project, folder, or file |
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown\|html\|sarif` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
+| `--fail-on` | threshold | — | Exit code 1 when findings meet this threshold (see [Thresholds](#thresholds)) |
+| `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
+| `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
+| `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success (no threshold breach) |
+| `1` | Findings exceed the `--fail-on` threshold, or a runtime error occurred |
+
+### Examples
+
+```bash
+# Basic scan
+repopilot scan .
+repopilot scan src/
+
+# Save report to a file
+repopilot scan . --format json --output report.json
+repopilot scan . --format markdown --output report.md
+repopilot scan . --format html --output report.html
+repopilot scan . --format sarif --output repopilot.sarif
+
+# Use a custom config
+repopilot scan . --config repopilot.toml
+
+# Baseline-aware scan
+repopilot scan . --baseline .repopilot/baseline.json
+
+# Fail CI on new high or critical findings
+repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+
+# Override thresholds at the command line
+repopilot scan . --max-file-loc 500 --max-directory-modules 30 --max-directory-depth 8
+```
+
+---
+
+## `review`
+
+Scans the repository and separates findings into two groups:
+
+- **in-diff** — findings on lines that appear in the current Git diff
+- **out-of-diff** — findings elsewhere in the codebase
+
+When coupling data is available, review also shows **blast radius**: files that import changed files and may need extra attention.
+
+By default, review compares the working tree against `HEAD` (staged, unstaged, and untracked changes). Pass `--base` to review a branch range for CI.
+
+When `--fail-on` is used, the gate evaluates **only in-diff findings** so unrelated pre-existing issues do not block the pipeline.
+
+### Synopsis
+
+```
+repopilot review [PATH] [OPTIONS]
+repopilot r [PATH] [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `[PATH]` | `.` | Path to project, folder, or file |
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--base` | git ref | — | Base ref for the diff; without this, compares working tree to `HEAD` |
+| `--head` | git ref | `HEAD` | Head ref; requires `--base` |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--baseline` | path | — | Path to a baseline file |
+| `--fail-on` | threshold | — | Exit code 1 when **in-diff** findings meet this threshold |
+| `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
+| `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
+| `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success (no threshold breach) |
+| `1` | In-diff findings exceed the `--fail-on` threshold, or a runtime error occurred |
+
+### Examples
+
+```bash
+# Review uncommitted changes (working tree vs HEAD)
+repopilot review .
+
+# Review a branch in CI
+repopilot review . --base origin/main
+repopilot review . --base origin/main --head HEAD
+
+# Save a Markdown review report
+repopilot review . --base origin/main --format markdown --output review.md
+
+# Baseline-aware CI gate on in-diff findings only
+repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
+
+# JSON output for downstream tooling
+repopilot review . --format json --output review.json
+```
+
+---
+
+## `compare`
+
+Diffs two RepoPilot JSON scan reports and shows which findings are new, resolved, or unchanged.
+
+### Synopsis
+
+```
+repopilot compare <BEFORE> <AFTER> [OPTIONS]
+repopilot cmp <BEFORE> <AFTER> [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<BEFORE>` | Path to the earlier scan report (JSON) |
+| `<AFTER>` | Path to the more recent scan report (JSON) |
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+# Capture before/after and compare
+repopilot scan . --format json --output before.json
+# ... make your changes ...
+repopilot scan . --format json --output after.json
+repopilot compare before.json after.json
+
+# Markdown diff report
+repopilot compare before.json after.json --format markdown
+
+# JSON diff for scripting
+repopilot compare before.json after.json --format json --output diff.json
+```
+
+---
+
+## `baseline`
+
+Manages the accepted baseline file. Currently exposes one subcommand: [`baseline create`](#baseline-create).
+
+### Synopsis
+
+```
+repopilot baseline <SUBCOMMAND>
+repopilot bl <SUBCOMMAND>
+```
+
+---
+
+## `baseline create`
+
+Runs a full scan and writes all current findings to a baseline file. Future scans with `--baseline` will mark each matching finding as `existing` and flag only genuinely new findings.
+
+By default writes to `.repopilot/baseline.json` and creates the directory if needed. Existing files are not overwritten unless `--force` is passed.
+
+### Synopsis
+
+```
+repopilot baseline create <PATH> [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<PATH>` | Path to project, folder, or file |
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `-o, --output` | path | `.repopilot/baseline.json` | Write baseline to a custom path |
+| `--force` | flag | — | Overwrite an existing baseline file |
+
+### Examples
+
+```bash
+# Create baseline in the default location
+repopilot baseline create .
+
+# Custom output path
+repopilot baseline create . --output ./baseline.json
+
+# Overwrite existing baseline
+repopilot baseline create . --force
+```
+
+---
+
+## `init`
+
+Writes a `repopilot.toml` with all configurable thresholds at their default values. Edit the file to tune thresholds for your project.
+
+Configuration precedence: CLI flags > `repopilot.toml` > built-in defaults.
+
+### Synopsis
+
+```
+repopilot init [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--force` | flag | — | Overwrite an existing config file |
+| `--path` | path | `repopilot.toml` | Path where the config file should be written |
+
+### Examples
+
+```bash
+repopilot init
+repopilot init --force
+repopilot init --path ./config/repopilot.toml
+```
+
+---
+
+## Thresholds
+
+The `--fail-on` flag accepts the following values:
+
+| Value | Meaning |
+|-------|---------|
+| `new-low` | Fail when any **new** low, medium, high, or critical finding exists |
+| `new-medium` | Fail when any **new** medium, high, or critical finding exists |
+| `new-high` | Fail when any **new** high or critical finding exists |
+| `new-critical` | Fail when any **new** critical finding exists |
+| `low` | Fail when any finding of low severity or higher exists |
+| `medium` | Fail when any finding of medium severity or higher exists |
+| `high` | Fail when any finding of high severity or higher exists |
+| `critical` | Fail when any critical finding exists |
+
+`new-*` thresholds require a `--baseline` to distinguish new from existing findings. Without a baseline, all current findings are treated as new.
+
+For `review`, `--fail-on` evaluates only **in-diff** findings.
+
+---
+
+## Output formats
+
+| Format | Available in | Best for |
+|--------|-------------|----------|
+| `console` | `scan`, `review`, `compare` | Interactive terminal use |
+| `json` | `scan`, `review`, `compare` | Machine consumption, piping to scripts |
+| `markdown` | `scan`, `review`, `compare` | Human-readable reports, PR comments |
+| `html` | `scan` | Standalone visual reports |
+| `sarif` | `scan` | GitHub Code Scanning, CI security tooling |
+
+See [docs/integrations/github-code-scanning.md](integrations/github-code-scanning.md) for the SARIF upload workflow.

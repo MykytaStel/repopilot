@@ -69,7 +69,17 @@ repopilot init
 repopilot scan .
 ```
 
-Useful help commands:
+## Commands
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `repopilot scan <path>` | `s` | Scan a project, folder, or file for findings |
+| `repopilot review [path]` | `r` | Review findings that touch changed Git diff lines |
+| `repopilot compare <before> <after>` | `cmp` | Compare two JSON scan reports and show what changed |
+| `repopilot baseline create <path>` | `bl` | Scan a path and store current findings as accepted debt |
+| `repopilot init` | — | Generate a default `repopilot.toml` configuration file |
+
+Use `--help` on any command for the full description and examples:
 
 ```bash
 repopilot --help
@@ -269,6 +279,8 @@ These are planned ideas, not current features:
 
 | Document | Description |
 |---|---|
+| [docs/cli.md](docs/cli.md) | Complete CLI reference — all commands, flags, and exit codes |
+| [docs/commands.md](docs/commands.md) | Task-oriented command guide and common patterns |
 | [docs/rulesets.md](docs/rulesets.md) | Implemented audit rules, categories, and severity levels |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |

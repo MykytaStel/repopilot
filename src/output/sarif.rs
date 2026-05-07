@@ -1,3 +1,4 @@
+use crate::baseline::diff::BaselineScanReport;
 use crate::findings::types::{Finding, Severity};
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
@@ -60,6 +61,16 @@ pub struct SarifResult {
         skip_serializing_if = "BTreeMap::is_empty"
     )]
     pub partial_fingerprints: BTreeMap<String, String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<SarifResultProperties>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SarifResultProperties {
+    #[serde(rename = "baselineStatus")]
+    pub baseline_status: String,
+    #[serde(rename = "baselineKey")]
+    pub baseline_key: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -101,7 +112,43 @@ pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(&sarif)
 }
 
+pub fn render_with_baseline(report: &BaselineScanReport) -> Result<String, serde_json::Error> {
+    let sarif = findings_to_sarif_with_baseline(report);
+    serde_json::to_string_pretty(&sarif)
+}
+
 pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
+    findings_to_sarif_with_properties(findings, root, Vec::new())
+}
+
+fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
+    let properties = report
+        .summary
+        .findings
+        .iter()
+        .enumerate()
+        .map(|(index, _)| SarifResultProperties {
+            baseline_status: report.finding_status(index).lowercase_label().to_string(),
+            baseline_key: report
+                .findings
+                .get(index)
+                .map(|finding| finding.key.clone())
+                .unwrap_or_default(),
+        })
+        .collect();
+
+    findings_to_sarif_with_properties(
+        &report.summary.findings,
+        &report.summary.root_path,
+        properties,
+    )
+}
+
+fn findings_to_sarif_with_properties(
+    findings: &[Finding],
+    root: &Path,
+    properties: Vec<SarifResultProperties>,
+) -> SarifLog {
     SarifLog {
         version: SARIF_VERSION.to_string(),
         schema: SARIF_SCHEMA.to_string(),
@@ -116,13 +163,18 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
             },
             results: findings
                 .iter()
-                .map(|finding| sarif_result(finding, root))
+                .enumerate()
+                .map(|(index, finding)| sarif_result(finding, root, properties.get(index).cloned()))
                 .collect(),
         }],
     }
 }
 
-fn sarif_result(finding: &Finding, root: &Path) -> SarifResult {
+fn sarif_result(
+    finding: &Finding,
+    root: &Path,
+    properties: Option<SarifResultProperties>,
+) -> SarifResult {
     let locations: Vec<SarifLocation> = finding
         .evidence
         .iter()
@@ -159,6 +211,7 @@ fn sarif_result(finding: &Finding, root: &Path) -> SarifResult {
         },
         locations,
         partial_fingerprints,
+        properties,
     }
 }
 

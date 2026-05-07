@@ -13,6 +13,15 @@ pub enum BaselineStatus {
     Existing,
 }
 
+impl BaselineStatus {
+    pub fn lowercase_label(self) -> &'static str {
+        match self {
+            Self::New => "new",
+            Self::Existing => "existing",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FindingBaselineStatus {
     pub key: String,

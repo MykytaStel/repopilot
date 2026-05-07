@@ -10,6 +10,8 @@ use crate::config::defaults::{
 pub struct ScanConfig {
     pub ignored_paths: Vec<String>,
     pub max_file_bytes: u64,
+    pub detect_missing_tests: bool,
+    pub detect_secret_like_names: bool,
     pub large_file_loc_threshold: usize,
     pub huge_file_loc_threshold: usize,
     pub max_directory_modules: usize,
@@ -27,6 +29,8 @@ impl Default for ScanConfig {
         Self {
             ignored_paths: default_ignored_paths(),
             max_file_bytes: DEFAULT_MAX_FILE_BYTES,
+            detect_missing_tests: true,
+            detect_secret_like_names: true,
             large_file_loc_threshold: DEFAULT_MAX_FILE_LINES,
             huge_file_loc_threshold: DEFAULT_HUGE_FILE_LINES,
             max_directory_modules: DEFAULT_MAX_DIRECTORY_MODULES,
