@@ -14,6 +14,7 @@ pub const DEFAULT_IGNORED_PATHS: &[&str] = &[
 
 pub const DEFAULT_MAX_FILE_LINES: usize = 300;
 pub const DEFAULT_HUGE_FILE_LINES: usize = 1000;
+pub const DEFAULT_MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 pub const DEFAULT_MAX_DIRECTORY_MODULES: usize = 20;
 pub const DEFAULT_MAX_DIRECTORY_DEPTH: usize = 5;
 pub const DEFAULT_LONG_FUNCTION_LINES: usize = 50;

@@ -18,6 +18,7 @@ fn main() {}
         language: Some("Rust".to_string()),
         lines_of_code: 5,
         branch_count: 0,
+        imports: Vec::new(),
         content: content.to_string(),
     };
 

@@ -89,6 +89,8 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             files_count: report.summary.files_count,
             directories_count: report.summary.directories_count,
             lines_of_code: report.summary.lines_of_code,
+            skipped_files_count: report.summary.skipped_files_count,
+            skipped_bytes: report.summary.skipped_bytes,
             languages: report.summary.languages.clone(),
             findings: report.in_diff_findings().into_iter().cloned().collect(),
         },

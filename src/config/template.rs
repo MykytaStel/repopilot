@@ -1,6 +1,6 @@
 use crate::config::defaults::{
     DEFAULT_HUGE_FILE_LINES, DEFAULT_IGNORED_PATHS, DEFAULT_MAX_DIRECTORY_DEPTH,
-    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_LINES,
+    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES,
 };
 
 pub fn default_config_toml() -> String {
@@ -18,6 +18,7 @@ pub fn default_config_toml() -> String {
 ignore = [
 {ignored_paths}
 ]
+max_file_bytes = {DEFAULT_MAX_FILE_BYTES}
 
 [architecture]
 max_file_lines = {DEFAULT_MAX_FILE_LINES}

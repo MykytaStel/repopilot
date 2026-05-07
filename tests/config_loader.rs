@@ -31,6 +31,7 @@ fn valid_config_is_parsed() {
     .expect("valid config should parse");
 
     assert_eq!(config.scan.ignore, vec!["vendor"]);
+    assert_eq!(config.scan.max_file_bytes, 2 * 1024 * 1024);
     assert_eq!(config.architecture.max_file_lines, 42);
     assert_eq!(config.architecture.huge_file_lines, 1000);
     assert_eq!(config.output.default_format, OutputFormat::Json);
@@ -59,4 +60,19 @@ fn explicit_config_path_is_loaded() {
     let config = load_optional_config(&config_path).expect("config should load");
 
     assert_eq!(config.scan.ignore, vec!["generated"]);
+}
+
+#[test]
+fn scan_max_file_bytes_is_parsed() {
+    let config = parse_config(
+        r#"
+        [scan]
+        max_file_bytes = 12345
+        "#,
+        None,
+    )
+    .expect("valid config should parse");
+
+    assert_eq!(config.scan.max_file_bytes, 12345);
+    assert_eq!(config.to_scan_config().max_file_bytes, 12345);
 }

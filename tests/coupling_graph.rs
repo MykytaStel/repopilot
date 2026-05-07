@@ -1,0 +1,282 @@
+use repopilot::graph::{build_coupling_graph, compute_metrics, detect_cycles};
+use repopilot::scan::scanner::collect_scan_facts;
+use std::fs;
+use tempfile::tempdir;
+
+// ── Rust graph ────────────────────────────────────────────────────────────────
+
+#[test]
+fn rust_graph_edge_from_main_to_foo() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir(root.join("src")).unwrap();
+    fs::write(root.join("src/main.rs"), "use crate::foo;\nfn main() {}\n").unwrap();
+    fs::write(root.join("src/foo.rs"), "pub fn bar() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let main_path = root.join("src/main.rs");
+    let foo_path = root.join("src/foo.rs");
+
+    assert!(graph.nodes.contains(&main_path), "main.rs must be a node");
+    assert!(graph.nodes.contains(&foo_path), "foo.rs must be a node");
+
+    let main_edges = graph
+        .edges
+        .get(&main_path)
+        .expect("main.rs must have an edge set");
+    assert!(
+        main_edges.contains(&foo_path),
+        "main.rs must have an edge to foo.rs"
+    );
+}
+
+#[test]
+fn rust_graph_no_spurious_edges() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir(root.join("src")).unwrap();
+    // foo.rs imports nothing
+    fs::write(root.join("src/foo.rs"), "pub fn bar() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let foo_edges = graph
+        .edges
+        .get(&root.join("src/foo.rs"))
+        .map(|s| s.len())
+        .unwrap_or(0);
+    assert_eq!(foo_edges, 0, "foo.rs must have no outgoing edges");
+}
+
+// ── TypeScript graph ──────────────────────────────────────────────────────────
+
+#[test]
+fn ts_graph_edge_from_app_to_format() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    let utils = src.join("utils");
+    fs::create_dir_all(&utils).unwrap();
+
+    fs::write(
+        src.join("App.tsx"),
+        "import { format } from \"./utils/format\";\n",
+    )
+    .unwrap();
+    fs::write(
+        utils.join("format.ts"),
+        "export function format(s: string) { return s; }\n",
+    )
+    .unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let app_path = src.join("App.tsx");
+    let format_path = utils.join("format.ts");
+
+    let app_edges = graph
+        .edges
+        .get(&app_path)
+        .expect("App.tsx must have an edge set");
+    assert!(
+        app_edges.contains(&format_path),
+        "App.tsx must have an edge to utils/format.ts"
+    );
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn metrics_fan_in_and_fan_out() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    // shared.rs is imported by both a.rs and b.rs
+    // b.rs also imports a.rs
+    fs::write(src.join("shared.rs"), "pub fn shared() {}\n").unwrap();
+    fs::write(src.join("a.rs"), "use crate::shared;\npub fn a() {}\n").unwrap();
+    fs::write(
+        src.join("b.rs"),
+        "use crate::shared;\nuse crate::a;\npub fn b() {}\n",
+    )
+    .unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let metrics = compute_metrics(&graph);
+
+    let shared_path = src.join("shared.rs");
+    let a_path = src.join("a.rs");
+    let b_path = src.join("b.rs");
+
+    let shared_m = metrics.iter().find(|m| m.path == shared_path).unwrap();
+    assert_eq!(shared_m.fan_in, 2, "shared.rs imported by a and b");
+    assert_eq!(shared_m.fan_out, 0);
+
+    let a_m = metrics.iter().find(|m| m.path == a_path).unwrap();
+    assert_eq!(a_m.fan_in, 1, "a.rs imported by b");
+    assert_eq!(a_m.fan_out, 1, "a.rs imports shared");
+
+    let b_m = metrics.iter().find(|m| m.path == b_path).unwrap();
+    assert_eq!(b_m.fan_in, 0);
+    assert_eq!(b_m.fan_out, 2, "b.rs imports shared and a");
+}
+
+#[test]
+fn instability_formula_is_correct() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    // stable.rs: fan_in=1, fan_out=0  → instability=0.0
+    // mid.rs:    fan_in=1, fan_out=1  → instability=0.5
+    // unstable.rs: fan_in=0, fan_out=1 → instability=1.0
+    fs::write(src.join("stable.rs"), "pub fn s() {}\n").unwrap();
+    fs::write(src.join("mid.rs"), "use crate::stable;\npub fn m() {}\n").unwrap();
+    fs::write(src.join("unstable.rs"), "use crate::mid;\npub fn u() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let metrics = compute_metrics(&graph);
+
+    let stable_m = metrics
+        .iter()
+        .find(|m| m.path == src.join("stable.rs"))
+        .unwrap();
+    let mid_m = metrics
+        .iter()
+        .find(|m| m.path == src.join("mid.rs"))
+        .unwrap();
+    let unstable_m = metrics
+        .iter()
+        .find(|m| m.path == src.join("unstable.rs"))
+        .unwrap();
+
+    assert!((stable_m.instability - 0.0).abs() < f32::EPSILON);
+    assert!((mid_m.instability - 0.5).abs() < f32::EPSILON);
+    assert!((unstable_m.instability - 1.0).abs() < f32::EPSILON);
+}
+
+// ── Cycle detection ───────────────────────────────────────────────────────────
+
+#[test]
+fn two_node_cycle_is_detected() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    // a.rs ↔ b.rs
+    fs::write(src.join("a.rs"), "use crate::b;\n").unwrap();
+    fs::write(src.join("b.rs"), "use crate::a;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let cycles = detect_cycles(&graph);
+
+    assert!(!cycles.is_empty(), "must detect at least one cycle");
+    let a_path = src.join("a.rs");
+    let b_path = src.join("b.rs");
+    assert!(
+        cycles
+            .iter()
+            .any(|c| c.contains(&a_path) && c.contains(&b_path)),
+        "cycle must include both a.rs and b.rs; got {cycles:?}"
+    );
+}
+
+#[test]
+fn no_cycle_in_acyclic_graph() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    fs::write(src.join("a.rs"), "use crate::b;\n").unwrap();
+    fs::write(src.join("b.rs"), "pub fn b() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let cycles = detect_cycles(&graph);
+
+    assert!(
+        cycles.is_empty(),
+        "acyclic graph must have no cycles: {cycles:?}"
+    );
+}
+
+// ── Isolated file ─────────────────────────────────────────────────────────────
+
+#[test]
+fn isolated_file_has_zero_metrics() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+    fs::write(src.join("standalone.rs"), "pub fn hello() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let metrics = compute_metrics(&graph);
+
+    let m = metrics
+        .iter()
+        .find(|m| m.path == src.join("standalone.rs"))
+        .unwrap();
+    assert_eq!(m.fan_in, 0);
+    assert_eq!(m.fan_out, 0);
+    assert!((m.instability - 0.0).abs() < f32::EPSILON);
+}
+
+#[test]
+fn isolated_file_is_a_graph_node() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+    fs::write(src.join("standalone.rs"), "pub fn hello() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    assert!(graph.nodes.contains(&src.join("standalone.rs")));
+}
+
+// ── Metrics output is stable ──────────────────────────────────────────────────
+
+#[test]
+fn metrics_are_returned_in_path_order() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+    fs::write(src.join("a.rs"), "pub fn a() {}\n").unwrap();
+    fs::write(src.join("b.rs"), "pub fn b() {}\n").unwrap();
+    fs::write(src.join("c.rs"), "pub fn c() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let metrics = compute_metrics(&graph);
+
+    let paths: Vec<_> = metrics.iter().map(|m| &m.path).collect();
+    let mut sorted = paths.clone();
+    sorted.sort();
+    assert_eq!(paths, sorted, "metrics must be in stable path order");
+}

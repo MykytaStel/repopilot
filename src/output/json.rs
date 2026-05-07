@@ -29,6 +29,8 @@ pub fn render_with_baseline(
         files_count: report.summary.files_count,
         directories_count: report.summary.directories_count,
         lines_of_code: report.summary.lines_of_code,
+        skipped_files_count: report.summary.skipped_files_count,
+        skipped_bytes: report.summary.skipped_bytes,
         languages: &report.summary.languages,
         baseline: BaselineJsonMetadata {
             path: report
@@ -51,6 +53,8 @@ struct BaselineJsonReport<'a> {
     files_count: usize,
     directories_count: usize,
     lines_of_code: usize,
+    skipped_files_count: usize,
+    skipped_bytes: u64,
     languages: &'a [LanguageSummary],
     baseline: BaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]

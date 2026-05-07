@@ -11,6 +11,7 @@ fn make_file(lines_of_code: usize, branch_count: usize) -> FileFacts {
         language: Some("Rust".to_string()),
         lines_of_code,
         branch_count,
+        imports: Vec::new(),
         content: String::new(),
     }
 }
@@ -69,6 +70,7 @@ fn skips_unsupported_language() {
         language: Some("Markdown".to_string()),
         lines_of_code: 100,
         branch_count: 50,
+        imports: Vec::new(),
         content: String::new(),
     };
     let findings = ComplexityAudit.audit(&file, &ScanConfig::default());

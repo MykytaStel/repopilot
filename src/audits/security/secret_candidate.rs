@@ -14,9 +14,12 @@ const SECRET_KEYS: &[&str] = &[
     "private_key",
     "auth_token",
     "access_token",
+    "refresh_token",
     "client_secret",
     "signing_key",
     "encryption_key",
+    "bearer",
+    "jwt",
 ];
 
 pub struct SecretCandidateAudit;
@@ -45,7 +48,7 @@ impl FileAudit for SecretCandidateAudit {
 fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) -> Option<Finding> {
     let lower = line.to_lowercase();
 
-    let matched_key = SECRET_KEYS.iter().find(|&&key| {
+    if let Some(matched_key) = SECRET_KEYS.iter().find(|&&key| {
         if !lower.contains(key) {
             return false;
         }
@@ -60,6 +63,7 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         let is_placeholder = value.is_empty()
             || value.starts_with("${")
             || value.starts_with("{{")
+            || value.starts_with("<")
             || value == "\"\""
             || value == "''"
             || value == "null"
@@ -68,9 +72,31 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
             || value == "your_key_here"
             || value == "changeme";
         !is_placeholder && value.len() > 4
-    })?;
+    }) {
+        return Some(build_finding(
+            line_number,
+            path,
+            matched_key,
+            mask_secret_value(line.trim()),
+        ));
+    }
 
-    Some(Finding {
+    let jwt = find_jwt_like_token(line)?;
+    Some(build_finding(
+        line_number,
+        path,
+        "jwt-like token",
+        mask_token_in_line(line.trim(), jwt),
+    ))
+}
+
+fn build_finding(
+    line_number: usize,
+    path: &std::path::Path,
+    matched_key: &str,
+    snippet: String,
+) -> Finding {
+    Finding {
         id: String::new(),
         rule_id: "security.secret-candidate".to_string(),
         title: "Possible secret detected".to_string(),
@@ -84,9 +110,35 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
             path: path.to_path_buf(),
             line_start: line_number,
             line_end: None,
-            snippet: mask_secret_value(line.trim()),
+            snippet,
         }],
-    })
+    }
+}
+
+fn find_jwt_like_token(line: &str) -> Option<&str> {
+    line.split(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_' && c != '.')
+        .find(|candidate| is_jwt_like_token(candidate))
+}
+
+fn is_jwt_like_token(candidate: &str) -> bool {
+    if candidate.len() < 40 || !candidate.starts_with("eyJ") {
+        return false;
+    }
+
+    let parts: Vec<_> = candidate.split('.').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|part| part.len() >= 8 && part.chars().all(is_base64url_char))
+}
+
+fn is_base64url_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || c == '-' || c == '_'
+}
+
+fn mask_token_in_line(line: &str, token: &str) -> String {
+    let visible_prefix = token.chars().take(8).collect::<String>();
+    line.replace(token, &format!("{visible_prefix}...***"))
 }
 
 fn mask_secret_value(line: &str) -> String {

@@ -61,6 +61,7 @@ fn file(path: &str) -> FileFacts {
         language: Some("Rust".to_string()),
         lines_of_code: 1,
         branch_count: 0,
+        imports: Vec::new(),
         content: "pub fn value() {}\n".to_string(),
     }
 }

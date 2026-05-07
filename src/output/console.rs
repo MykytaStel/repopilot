@@ -16,6 +16,12 @@ pub fn render(summary: &ScanSummary) -> String {
         summary.directories_count
     ));
     output.push_str(&format!("Lines of code: {}\n\n", summary.lines_of_code));
+    if summary.skipped_files_count > 0 {
+        output.push_str(&format!(
+            "Files skipped: {} ({} bytes)\n\n",
+            summary.skipped_files_count, summary.skipped_bytes
+        ));
+    }
 
     output.push_str("Languages:\n");
 
@@ -54,6 +60,12 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         summary.directories_count
     ));
     output.push_str(&format!("Lines of code: {}\n\n", summary.lines_of_code));
+    if summary.skipped_files_count > 0 {
+        output.push_str(&format!(
+            "Files skipped: {} ({} bytes)\n\n",
+            summary.skipped_files_count, summary.skipped_bytes
+        ));
+    }
 
     output.push_str(&format!("New findings: {}\n", report.new_count()));
     output.push_str(&format!("Existing findings: {}\n", report.existing_count()));

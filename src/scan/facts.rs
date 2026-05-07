@@ -7,6 +7,8 @@ pub struct ScanFacts {
     pub files_count: usize,
     pub directories_count: usize,
     pub lines_of_code: usize,
+    pub skipped_files_count: usize,
+    pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
 }
@@ -17,5 +19,6 @@ pub struct FileFacts {
     pub language: Option<String>,
     pub lines_of_code: usize,
     pub branch_count: usize,
+    pub imports: Vec<String>,
     pub content: String,
 }

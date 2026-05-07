@@ -1,4 +1,6 @@
+use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path;
+use repopilot::scan::scanner::scan_path_with_config;
 use std::fs;
 use tempfile::tempdir;
 
@@ -53,4 +55,24 @@ fn scans_directory_with_counts_languages_and_markers() {
             .iter()
             .any(|language| language.name == "Markdown" && language.files_count == 1)
     );
+}
+
+#[test]
+fn scan_reports_files_skipped_by_size_guard() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let file_path = temp.path().join("large.rs");
+    let content = "fn large() {}\n".repeat(20);
+    fs::write(&file_path, &content).expect("failed to write large file");
+
+    let config = ScanConfig {
+        max_file_bytes: 16,
+        ..ScanConfig::default()
+    };
+
+    let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
+
+    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.skipped_files_count, 1);
+    assert_eq!(summary.skipped_bytes, content.len() as u64);
+    assert_eq!(summary.lines_of_code, 0);
 }
