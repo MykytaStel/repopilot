@@ -176,7 +176,7 @@ repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD --format markdown
 ```
 
-Review mode still scans the repository with the normal rules, but separates findings into in-diff and out-of-diff groups. When `--fail-on` is used, the CI gate evaluates only in-diff findings.
+Review mode still scans the repository with the normal rules, but separates findings into in-diff and out-of-diff groups. When import coupling data is available, it also shows blast radius: files that import changed files and may need extra review. When `--fail-on` is used, the CI gate evaluates only in-diff findings.
 
 ## Output Formats
 
