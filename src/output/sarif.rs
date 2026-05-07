@@ -1,7 +1,7 @@
 use crate::findings::types::{Finding, Severity};
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
 
 const SARIF_VERSION: &str = "2.1.0";
@@ -31,6 +31,7 @@ pub struct SarifTool {
 #[derive(Debug, Clone, Serialize)]
 pub struct SarifDriver {
     pub name: String,
+    pub version: String,
     #[serde(rename = "informationUri")]
     pub information_uri: String,
     pub rules: Vec<SarifRule>,
@@ -54,6 +55,11 @@ pub struct SarifResult {
     pub message: SarifMessage,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub locations: Vec<SarifLocation>,
+    #[serde(
+        rename = "partialFingerprints",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub partial_fingerprints: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -103,6 +109,7 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
             tool: SarifTool {
                 driver: SarifDriver {
                     name: TOOL_NAME.to_string(),
+                    version: env!("CARGO_PKG_VERSION").to_string(),
                     information_uri: TOOL_INFORMATION_URI.to_string(),
                     rules: sarif_rules(findings),
                 },
@@ -116,44 +123,60 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
 }
 
 fn sarif_result(finding: &Finding, root: &Path) -> SarifResult {
+    let locations: Vec<SarifLocation> = finding
+        .evidence
+        .iter()
+        .filter_map(|evidence| {
+            let uri = sarif_uri(&evidence.path, root)?;
+            Some(SarifLocation {
+                physical_location: SarifPhysicalLocation {
+                    artifact_location: SarifArtifactLocation { uri },
+                    region: (evidence.line_start > 0).then_some(SarifRegion {
+                        start_line: evidence.line_start,
+                    }),
+                },
+            })
+        })
+        .collect();
+
+    let partial_fingerprints = if let Some(first) = finding.evidence.first() {
+        let key = format!(
+            "{}:{}:{}",
+            finding.rule_id,
+            first.path.display(),
+            first.line_start
+        );
+        BTreeMap::from([("primaryLocationLineHash/v1".to_string(), key)])
+    } else {
+        BTreeMap::new()
+    };
+
     SarifResult {
         rule_id: finding.rule_id.clone(),
         level: sarif_level(finding.severity).to_string(),
         message: SarifMessage {
             text: finding_message(finding),
         },
-        locations: finding
-            .evidence
-            .iter()
-            .filter_map(|evidence| {
-                let uri = sarif_uri(&evidence.path, root)?;
-
-                Some(SarifLocation {
-                    physical_location: SarifPhysicalLocation {
-                        artifact_location: SarifArtifactLocation { uri },
-                        region: (evidence.line_start > 0).then_some(SarifRegion {
-                            start_line: evidence.line_start,
-                        }),
-                    },
-                })
-            })
-            .collect(),
+        locations,
+        partial_fingerprints,
     }
 }
 
 fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
-    let rule_ids = findings
-        .iter()
-        .map(|finding| finding.rule_id.as_str())
-        .collect::<BTreeSet<_>>();
+    let mut rule_map: BTreeMap<&str, &str> = BTreeMap::new();
+    for finding in findings {
+        rule_map
+            .entry(finding.rule_id.as_str())
+            .or_insert(finding.description.as_str());
+    }
 
-    rule_ids
+    rule_map
         .into_iter()
-        .map(|rule_id| SarifRule {
+        .map(|(rule_id, description)| SarifRule {
             id: rule_id.to_string(),
             name: rule_id.to_string(),
             short_description: SarifMessage {
-                text: format!("RepoPilot rule {rule_id}"),
+                text: description.to_string(),
             },
             full_description: None,
         })

@@ -234,7 +234,7 @@ fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec<Finding> {
         // Close any functions that have dedented to or past our level
         while let Some(&(_, fn_indent, _)) = stack.last() {
             if indent <= fn_indent {
-                let (start, _, ref name) = stack.pop().unwrap();
+                let Some((start, _, ref name)) = stack.pop() else { break };
                 let fn_len = line_num - start;
                 if fn_len > threshold {
                     findings.push(build_finding(

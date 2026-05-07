@@ -41,7 +41,7 @@ fn build_finding(path: &std::path::Path) -> Finding {
             "`{name}` is present in the scanned tree. Environment files often contain secrets and should be listed in `.gitignore`."
         ),
         category: FindingCategory::Security,
-        severity: Severity::High,
+        severity: Severity::Critical,
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: 1,

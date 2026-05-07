@@ -10,7 +10,28 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Planned AI-ready review context export.
 - Planned Change Risk Map.
-- Planned GitHub Action integration.
+
+## [0.5.0] - 2026-05-07
+
+### Added
+
+- Added `code-quality.long-function` audit detecting function bodies that exceed the configured line threshold across Rust, Go, Python, TypeScript, and JavaScript.
+- Added `architecture.excessive-fan-out` audit for files that import more project-internal files than the configured threshold.
+- Added `architecture.high-instability-hub` audit for files with high fan-in and high fan-out (high instability), which amplify change propagation risk.
+- Added `architecture.circular-dependency` audit for import cycles across Rust, TypeScript, JavaScript, Python, and Go.
+- Added `security.env-file-committed` audit with Critical severity for committed `.env`, `.env.local`, `.env.production`, `.env.staging`, and `.env.development` files.
+- Added multi-language import graph (Rust, TypeScript/JavaScript, Python, Go) used by coupling and circular dependency audits.
+- Added SARIF 2.1.0 output format (`--format sarif`) for `scan`, `review`, and `compare` commands.
+- Added GitHub Code Scanning integration: documentation and copy-paste workflow at `docs/integrations/github-code-scanning.md`.
+- Added blast radius computation in `review` reports: shows which files import changed files and may need extra review.
+- Added `max_function_lines` config key under `[architecture]` in `repopilot.toml` (default: 50).
+- Added `--force` flag to `baseline create` for overwriting an existing baseline file.
+
+### Changed
+
+- Enhanced `code-quality.complex-file` audit with branch-count density calculations for more accurate complexity measurement.
+- Enhanced `review` console output with metadata (path, git root, changed files count) and clearer in-diff vs out-of-diff grouping.
+- Enhanced `compare` console and Markdown output with file/LOC deltas, new findings, resolved findings, and severity changes.
 
 ## [0.4.0] - 2026-05-06
 
@@ -71,7 +92,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/MykytaStel/repopilot/compare/v0.1.0...v0.2.0

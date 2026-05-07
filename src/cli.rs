@@ -19,12 +19,14 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Manage accepted baseline findings
+    #[command(alias = "bl")]
     Baseline {
         #[command(subcommand)]
         command: BaselineCommands,
     },
 
     /// Compare two JSON scan reports and show what changed
+    #[command(alias = "cmp")]
     Compare {
         /// Path to the earlier scan report (JSON)
         before: std::path::PathBuf,
@@ -42,6 +44,7 @@ pub enum Commands {
     },
 
     /// Scan a project, folder, or file
+    #[command(alias = "s")]
     Scan {
         /// Path to project, folder, or file
         path: PathBuf,
@@ -80,6 +83,7 @@ pub enum Commands {
     },
 
     /// Review findings that touch changed Git diff lines
+    #[command(alias = "r")]
     Review {
         /// Path to project, folder, or file
         #[arg(default_value = ".")]
