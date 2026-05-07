@@ -53,6 +53,8 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
         }
     }
 
+    render_blast_radius(&mut output, report);
+
     render_findings_group(&mut output, "In-diff findings", &report.in_diff_findings());
     render_findings_group(
         &mut output,
@@ -91,6 +93,11 @@ pub fn render_json(
         directories_count: report.summary.directories_count,
         lines_of_code: report.summary.lines_of_code,
         changed_files: &report.changed_files,
+        blast_radius: report
+            .blast_radius
+            .iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect(),
         review: ReviewJsonMetadata {
             in_diff_findings: report.in_diff_count(),
             out_of_diff_findings: report.out_of_diff_count(),
@@ -174,6 +181,8 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
         output.push('\n');
     }
 
+    render_markdown_blast_radius(&mut output, report);
+
     render_markdown_findings_group(
         &mut output,
         "In-Diff Findings",
@@ -196,6 +205,34 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
     );
 
     output
+}
+
+fn render_blast_radius(output: &mut String, report: &ReviewReport) {
+    if report.blast_radius.is_empty() {
+        return;
+    }
+
+    output.push_str("\nBlast radius:\n");
+    output.push_str("  The following files import changed files and may need extra review:\n");
+
+    for path in &report.blast_radius {
+        output.push_str(&format!("  - {}\n", path.display()));
+    }
+}
+
+fn render_markdown_blast_radius(output: &mut String, report: &ReviewReport) {
+    if report.blast_radius.is_empty() {
+        return;
+    }
+
+    output.push_str("## Blast Radius\n\n");
+    output.push_str("The following files import changed files and may need extra review:\n\n");
+
+    for path in &report.blast_radius {
+        output.push_str(&format!("- `{}`\n", path.display()));
+    }
+
+    output.push('\n');
 }
 
 fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]) {
@@ -313,6 +350,7 @@ struct ReviewJsonReport<'a> {
     directories_count: usize,
     lines_of_code: usize,
     changed_files: &'a [ChangedFile],
+    blast_radius: Vec<String>,
     review: ReviewJsonMetadata,
     baseline: ReviewBaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]

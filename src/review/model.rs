@@ -11,6 +11,7 @@ pub struct ReviewReport {
     pub repo_root: PathBuf,
     pub baseline_path: Option<PathBuf>,
     pub changed_files: Vec<ChangedFile>,
+    pub blast_radius: Vec<PathBuf>,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

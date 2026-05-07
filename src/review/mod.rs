@@ -12,6 +12,7 @@ use crate::findings::types::Finding;
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::scan::types::ScanSummary;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub fn build_review_report(
@@ -42,6 +43,7 @@ fn classify_findings(
     changed_files: Vec<ChangedFile>,
 ) -> ReviewReport {
     let summary = baseline_report.summary;
+    let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
     let findings = summary
         .findings
         .iter()
@@ -64,8 +66,51 @@ fn classify_findings(
         repo_root,
         baseline_path: baseline_report.baseline_path,
         changed_files,
+        blast_radius,
         findings,
     }
+}
+
+pub fn compute_blast_radius(
+    summary: &ScanSummary,
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+) -> Vec<PathBuf> {
+    let graph = match &summary.coupling_graph {
+        Some(graph) => graph,
+        None => return Vec::new(),
+    };
+
+    let changed_paths: BTreeSet<PathBuf> = changed_files
+        .iter()
+        .map(|file| normalized_review_path(&file.path, repo_root))
+        .collect();
+
+    let mut importers_by_target: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+
+    for (source, targets) in &graph.edges {
+        let source = normalized_review_path(source, repo_root);
+        for target in targets {
+            importers_by_target
+                .entry(normalized_review_path(target, repo_root))
+                .or_default()
+                .insert(source.clone());
+        }
+    }
+
+    let mut impacted = BTreeSet::new();
+
+    for changed in &changed_paths {
+        if let Some(importers) = importers_by_target.get(changed) {
+            for importer in importers {
+                if !changed_paths.contains(importer) {
+                    impacted.insert(importer.clone());
+                }
+            }
+        }
+    }
+
+    impacted.into_iter().collect()
 }
 
 pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
@@ -111,11 +156,28 @@ fn finding_is_in_diff(finding: &Finding, repo_root: &Path, changed_files: &[Chan
 }
 
 fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> {
-    let relative = normalized_relative_path(scan_path, repo_root);
+    let relative = normalized_review_path(scan_path, repo_root)
+        .to_string_lossy()
+        .to_string();
 
     if relative == "." || relative.is_empty() {
         None
     } else {
         Some(relative)
     }
+}
+
+fn normalized_review_path(path: &Path, repo_root: &Path) -> PathBuf {
+    let repo_root = repo_root
+        .canonicalize()
+        .unwrap_or_else(|_| repo_root.to_path_buf());
+
+    let path = if path.is_absolute() {
+        path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+    } else {
+        let repo_path = repo_root.join(path);
+        repo_path.canonicalize().unwrap_or(repo_path)
+    };
+
+    PathBuf::from(normalized_relative_path(&path, &repo_root))
 }
