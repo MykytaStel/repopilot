@@ -135,9 +135,11 @@ pub fn render_markdown(summary: &CompareSummary) -> String {
 
 pub fn render(summary: &CompareSummary, format: OutputFormat) -> Result<String, serde_json::Error> {
     match format {
-        OutputFormat::Console | OutputFormat::Html => Ok(render_console(summary)),
+        OutputFormat::Console => Ok(render_console(summary)),
         OutputFormat::Json => render_json(summary),
         OutputFormat::Markdown => Ok(render_markdown(summary)),
-        OutputFormat::Sarif => render_json(summary),
+        OutputFormat::Html | OutputFormat::Sarif => {
+            unreachable!("HTML and SARIF are not supported for the compare command")
+        }
     }
 }

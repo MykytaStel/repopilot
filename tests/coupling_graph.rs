@@ -280,3 +280,34 @@ fn metrics_are_returned_in_path_order() {
     sorted.sort();
     assert_eq!(paths, sorted, "metrics must be in stable path order");
 }
+
+#[test]
+fn large_acyclic_import_graph_stays_stable() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    const FILE_COUNT: usize = 180;
+    for index in 0..FILE_COUNT {
+        let next_import = if index + 1 < FILE_COUNT {
+            format!("use crate::module_{};\n", index + 1)
+        } else {
+            String::new()
+        };
+        fs::write(
+            src.join(format!("module_{index}.rs")),
+            format!("{next_import}pub fn module_{index}() {{}}\n"),
+        )
+        .unwrap();
+    }
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let metrics = compute_metrics(&graph);
+    let cycles = detect_cycles(&graph);
+
+    assert_eq!(graph.nodes.len(), FILE_COUNT);
+    assert_eq!(metrics.len(), FILE_COUNT);
+    assert!(cycles.is_empty());
+}

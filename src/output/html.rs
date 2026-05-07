@@ -1,10 +1,42 @@
+use crate::baseline::diff::BaselineScanReport;
+use crate::baseline::gate::CiGateResult;
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
     let cards = render_summary_cards(summary);
     let languages_section = render_languages_section(summary);
     let findings_section = render_findings_section(summary);
+    render_document(
+        &summary.root_path.to_string_lossy(),
+        "",
+        &cards,
+        &languages_section,
+        &findings_section,
+    )
+}
 
+pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
+    let cards = render_baseline_summary_cards(report);
+    let languages_section = render_languages_section(&report.summary);
+    let findings_section = render_baseline_findings_section(report);
+    let baseline_meta = render_baseline_meta(report, ci_gate);
+
+    render_document(
+        &report.summary.root_path.to_string_lossy(),
+        &baseline_meta,
+        &cards,
+        &languages_section,
+        &findings_section,
+    )
+}
+
+fn render_document(
+    path: &str,
+    baseline_meta: &str,
+    cards: &str,
+    languages_section: &str,
+    findings_section: &str,
+) -> String {
     format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -31,6 +63,9 @@ pub fn render(summary: &ScanSummary) -> String {
   .badge.medium {{ background: #fffbeb; color: #d97706; }}
   .badge.high {{ background: #fff7ed; color: #ea580c; }}
   .badge.critical {{ background: #fef2f2; color: #dc2626; }}
+  .status {{ font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }}
+  .status.new {{ color: #b91c1c; }}
+  .status.existing {{ color: #166534; }}
   pre.snippet {{ margin: 0.3rem 0 0; font-size: 0.8rem; background: #f5f5f5; padding: 0.4rem 0.6rem; border-radius: 4px; overflow: auto; white-space: pre-wrap; }}
   .empty {{ color: #999; font-style: italic; }}
   .filter-bar {{ display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }}
@@ -41,6 +76,7 @@ pub fn render(summary: &ScanSummary) -> String {
 <body>
 <h1>RepoPilot Scan Report</h1>
 <p class="meta">Path: <code>{path}</code></p>
+{baseline_meta}
 
 <div class="cards">
   {cards}
@@ -76,7 +112,8 @@ pub fn render(summary: &ScanSummary) -> String {
 </script>
 </body>
 </html>"#,
-        path = escape_html(&summary.root_path.to_string_lossy()),
+        path = escape_html(path),
+        baseline_meta = baseline_meta,
         cards = cards,
         languages_section = languages_section,
         findings_section = findings_section,
@@ -96,6 +133,41 @@ fn render_summary_cards(summary: &ScanSummary) -> String {
     }
 
     cards.join("\n  ")
+}
+
+fn render_baseline_summary_cards(report: &BaselineScanReport) -> String {
+    let mut cards = vec![
+        summary_card(report.summary.files_count, "Files"),
+        summary_card(report.summary.directories_count, "Directories"),
+        summary_card(report.summary.lines_of_code, "Lines of Code"),
+        summary_card(report.summary.findings.len(), "Findings"),
+        summary_card(report.new_count(), "New"),
+        summary_card(report.existing_count(), "Existing"),
+    ];
+
+    if report.summary.skipped_files_count > 0 {
+        cards.push(summary_card(report.summary.skipped_files_count, "Skipped"));
+    }
+
+    cards.join("\n  ")
+}
+
+fn render_baseline_meta(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
+    let baseline = match &report.baseline_path {
+        Some(path) => format!(
+            "Baseline: <code>{}</code>",
+            escape_html(&path.to_string_lossy())
+        ),
+        None => "Baseline: none (all findings treated as new)".to_string(),
+    };
+    let gate = ci_gate
+        .map(|ci_gate| {
+            let status = if ci_gate.passed() { "passed" } else { "failed" };
+            format!(" CI gate: {status} ({})", escape_html(&ci_gate.label()))
+        })
+        .unwrap_or_default();
+
+    format!(r#"<p class="meta">{baseline}.{gate}</p>"#)
 }
 
 fn summary_card(value: usize, label: &str) -> String {
@@ -144,6 +216,25 @@ fn render_findings_section(summary: &ScanSummary) -> String {
     )
 }
 
+fn render_baseline_findings_section(report: &BaselineScanReport) -> String {
+    if report.summary.findings.is_empty() {
+        return "<p class=\"empty\">No findings found.</p>".to_string();
+    }
+
+    let rows = report
+        .summary
+        .findings
+        .iter()
+        .enumerate()
+        .map(|(index, finding)| render_baseline_finding_row(finding, report, index))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "<table id=\"findings\"><thead><tr><th>Severity</th><th>Baseline</th><th>Rule</th><th>Title</th><th>Evidence</th></tr></thead><tbody>{rows}</tbody></table>"
+    )
+}
+
 fn render_finding_row(finding: &crate::findings::types::Finding) -> String {
     let evidence = finding.evidence.first();
     let location = evidence
@@ -173,6 +264,47 @@ fn render_finding_row(finding: &crate::findings::types::Finding) -> String {
             <td>{location}{snippet}</td>\
          </tr>",
         escape_html(finding.severity_label()),
+        escape_html(&finding.rule_id),
+        escape_html(&finding.title),
+    )
+}
+
+fn render_baseline_finding_row(
+    finding: &crate::findings::types::Finding,
+    report: &BaselineScanReport,
+    index: usize,
+) -> String {
+    let evidence = finding.evidence.first();
+    let location = evidence
+        .map(|e| {
+            format!(
+                "<code>{}:{}</code>",
+                escape_html(&e.path.to_string_lossy()),
+                e.line_start
+            )
+        })
+        .unwrap_or_default();
+    let snippet = evidence
+        .map(|e| {
+            format!(
+                "<pre class=\"snippet\">{}</pre>",
+                escape_html(e.snippet.trim())
+            )
+        })
+        .unwrap_or_default();
+    let severity_class = finding.severity_label().to_lowercase();
+    let status = report.finding_status(index).lowercase_label();
+
+    format!(
+        "<tr>\
+            <td><span class=\"badge {severity_class}\">{}</span></td>\
+            <td><span class=\"status {status}\">{}</span></td>\
+            <td><code>{}</code></td>\
+            <td>{}</td>\
+            <td>{location}{snippet}</td>\
+         </tr>",
+        escape_html(finding.severity_label()),
+        escape_html(status),
         escape_html(&finding.rule_id),
         escape_html(&finding.title),
     )

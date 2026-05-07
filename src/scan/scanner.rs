@@ -21,7 +21,7 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
 }
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
-    let file_audits = build_file_audits();
+    let file_audits = build_file_audits(config);
     let (facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
     findings.extend(run_project_audits(&facts, config));
     let (coupling_findings, coupling_graph) =
@@ -176,6 +176,11 @@ fn audit_file_inline(
 
 // ── Legacy path: collect facts only, keeps content (used by library consumers) ──
 
+/// Collects scan facts and retains file contents for every readable file.
+///
+/// The CLI scan path uses `scan_path_with_config`, which runs file audits inline
+/// and drops each file's content after auditing. Prefer that path for large
+/// repositories unless callers explicitly need the collected source text.
 pub fn collect_scan_facts(path: &Path) -> io::Result<ScanFacts> {
     collect_scan_facts_with_config(path, &ScanConfig::default())
 }

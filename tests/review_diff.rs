@@ -91,3 +91,22 @@ index 1111111..2222222 100644
     assert_eq!(files[0].ranges[0].start, 5);
     assert_eq!(files[0].ranges[0].end, 5);
 }
+
+#[test]
+fn ignores_zero_line_added_hunks() {
+    let diff = "\
+diff --git a/src/lib.rs b/src/lib.rs
+index 1111111..2222222 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -4,2 +4,0 @@
+-old
+-lines
+";
+
+    let files = parse_diff(diff);
+
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].status, ChangeStatus::Modified);
+    assert!(files[0].ranges.is_empty());
+}

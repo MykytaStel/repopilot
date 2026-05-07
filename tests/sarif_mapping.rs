@@ -87,8 +87,8 @@ fn duplicate_rule_ids_produce_one_sorted_sarif_rule() {
     assert_eq!(rules[0].id, "code-marker.todo");
     assert_eq!(rules[0].name, "code-marker.todo");
     assert_eq!(
-        rules[0].short_description.text,
-        "RepoPilot rule code-marker.todo"
+        rules[0].short_description.text, "Finding description",
+        "rule shortDescription should come from the finding description"
     );
     assert_eq!(rules[1].id, "security.secret-candidate");
 }

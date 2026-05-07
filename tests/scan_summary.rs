@@ -76,3 +76,17 @@ fn scan_reports_files_skipped_by_size_guard() {
     assert_eq!(summary.skipped_bytes, content.len() as u64);
     assert_eq!(summary.lines_of_code, 0);
 }
+
+#[test]
+fn scan_reports_binary_files_as_skipped_without_failing() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let bytes = [0xff, 0xfe, 0xfd, 0x00, 0x61];
+    fs::write(temp.path().join("binary.rs"), bytes).expect("failed to write binary file");
+
+    let summary = scan_path(temp.path()).expect("failed to scan temp project");
+
+    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.skipped_files_count, 1);
+    assert_eq!(summary.skipped_bytes, bytes.len() as u64);
+    assert_eq!(summary.lines_of_code, 0);
+}

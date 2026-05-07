@@ -14,25 +14,33 @@ use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 
-pub fn build_file_audits() -> Vec<Box<dyn FileAudit>> {
-    vec![
+pub fn build_file_audits(config: &ScanConfig) -> Vec<Box<dyn FileAudit>> {
+    let mut audits: Vec<Box<dyn FileAudit>> = vec![
         Box::new(LargeFileAudit),
         Box::new(CodeMarkerAudit),
-        Box::new(SecretCandidateAudit),
         Box::new(PrivateKeyCandidateAudit),
         Box::new(ComplexityAudit),
         Box::new(LongFunctionAudit),
-    ]
+    ];
+
+    if config.detect_secret_like_names {
+        audits.insert(2, Box::new(SecretCandidateAudit));
+    }
+
+    audits
 }
 
 pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
-    let project_audits: Vec<Box<dyn ProjectAudit>> = vec![
+    let mut project_audits: Vec<Box<dyn ProjectAudit>> = vec![
         Box::new(TooManyModulesAudit),
         Box::new(DeepNestingAudit),
-        Box::new(MissingTestFolderAudit),
-        Box::new(SourceWithoutTestAudit),
         Box::new(EnvFileCommittedAudit),
     ];
+
+    if config.detect_missing_tests {
+        project_audits.insert(2, Box::new(SourceWithoutTestAudit));
+        project_audits.insert(2, Box::new(MissingTestFolderAudit));
+    }
 
     project_audits
         .iter()

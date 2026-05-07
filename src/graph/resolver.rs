@@ -122,20 +122,40 @@ fn resolve_go(raw: &str, root: &Path, known_files: &BTreeSet<PathBuf>) -> Option
         return None;
     }
 
-    // Conservative: only attempt resolution when the import starts with the
-    // last path component of root (i.e., looks like an in-repo path).
-    let root_name = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    if root_name.is_empty() {
-        return None;
+    // Prefer go.mod module name so that `github.com/user/project/subpkg`
+    // resolves correctly regardless of the local directory name.
+    if let Some(module_name) = read_go_module_name(root) {
+        if let Some(rest) = raw.strip_prefix(&module_name) {
+            let rel = rest.trim_start_matches('/');
+            if !rel.is_empty() {
+                let base = normalize_path(&root.join(rel));
+                if let Some(p) = probe(&[base.with_extension("go")], known_files) {
+                    return Some(p);
+                }
+            }
+        }
     }
 
-    if let Some(rest) = raw.strip_prefix(root_name) {
-        let rel = rest.trim_start_matches('/');
-        let base = normalize_path(&root.join(rel));
-        return probe(&[base.with_extension("go")], known_files);
+    // Fallback: match against the root directory name for projects without go.mod.
+    let root_name = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    if !root_name.is_empty() {
+        if let Some(rest) = raw.strip_prefix(root_name) {
+            let rel = rest.trim_start_matches('/');
+            let base = normalize_path(&root.join(rel));
+            return probe(&[base.with_extension("go")], known_files);
+        }
     }
 
     None
+}
+
+fn read_go_module_name(root: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(root.join("go.mod")).ok()?;
+    content.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("module ")
+            .map(|m| m.trim().to_string())
+    })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

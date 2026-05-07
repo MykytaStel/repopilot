@@ -41,9 +41,9 @@ pub fn render_baseline_scan_report(
 ) -> Result<String, serde_json::Error> {
     match format {
         OutputFormat::Console => Ok(console::render_with_baseline(report, ci_gate)),
-        OutputFormat::Html => Ok(html::render(&report.summary)),
+        OutputFormat::Html => Ok(html::render_with_baseline(report, ci_gate)),
         OutputFormat::Json => json::render_with_baseline(report, ci_gate),
-        OutputFormat::Markdown => Ok(markdown::render(&report.summary)),
-        OutputFormat::Sarif => sarif::render(&report.summary),
+        OutputFormat::Markdown => Ok(markdown::render_with_baseline(report, ci_gate)),
+        OutputFormat::Sarif => sarif::render_with_baseline(report),
     }
 }

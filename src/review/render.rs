@@ -124,10 +124,12 @@ pub fn render(
     ci_gate: Option<&CiGateResult>,
 ) -> Result<String, serde_json::Error> {
     match format {
-        OutputFormat::Console | OutputFormat::Html => Ok(render_console(report, ci_gate)),
+        OutputFormat::Console => Ok(render_console(report, ci_gate)),
         OutputFormat::Json => render_json(report, ci_gate),
         OutputFormat::Markdown => Ok(render_markdown(report, ci_gate)),
-        OutputFormat::Sarif => render_json(report, ci_gate),
+        OutputFormat::Html | OutputFormat::Sarif => {
+            unreachable!("HTML and SARIF are not supported for the review command")
+        }
     }
 }
 

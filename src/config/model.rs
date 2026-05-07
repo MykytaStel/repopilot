@@ -26,6 +26,8 @@ impl RepoPilotConfig {
             ScanConfig::default().with_large_file_loc_threshold(self.architecture.max_file_lines);
         config.ignored_paths = self.scan.ignore.clone();
         config.max_file_bytes = self.scan.max_file_bytes;
+        config.detect_missing_tests = self.testing.detect_missing_tests;
+        config.detect_secret_like_names = self.security.detect_secret_like_names;
         config.huge_file_loc_threshold = self.architecture.huge_file_lines;
         if config.huge_file_loc_threshold <= config.large_file_loc_threshold {
             config.huge_file_loc_threshold = config
@@ -74,9 +76,6 @@ pub struct ArchitectureSection {
     pub max_fan_out: usize,
     pub instability_hub_min_fan_in: usize,
     pub instability_hub_min_instability_pct: usize,
-    pub detect_empty_directories: bool,
-    pub detect_suspicious_names: bool,
-    pub detect_large_files: bool,
 }
 
 impl Default for ArchitectureSection {
@@ -90,9 +89,6 @@ impl Default for ArchitectureSection {
             max_fan_out: DEFAULT_MAX_FAN_OUT,
             instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
-            detect_empty_directories: true,
-            detect_suspicious_names: true,
-            detect_large_files: true,
         }
     }
 }

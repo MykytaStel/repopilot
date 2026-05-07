@@ -19,12 +19,12 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
             let output_path = output.unwrap_or_else(|| default_baseline_path(&path));
 
             if output_path.exists() && !force {
-                println!(
+                return Err(format!(
                     "Baseline already exists at {}. Use `repopilot baseline create {} --force` to overwrite it.",
                     output_path.display(),
                     path.display()
-                );
-                return Ok(());
+                )
+                .into());
             }
 
             let repo_config = load_default_config()?;
@@ -42,14 +42,12 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
                     print_baseline_create_summary(&path, &output_path, &summary);
                     Ok(())
                 }
-                Err(BaselineWriteError::AlreadyExists { .. }) => {
-                    println!(
-                        "Baseline already exists at {}. Use `repopilot baseline create {} --force` to overwrite it.",
-                        output_path.display(),
-                        path.display()
-                    );
-                    Ok(())
-                }
+                Err(BaselineWriteError::AlreadyExists { .. }) => Err(format!(
+                    "Baseline already exists at {}. Use `repopilot baseline create {} --force` to overwrite it.",
+                    output_path.display(),
+                    path.display()
+                )
+                .into()),
                 Err(error) => Err(Box::new(error)),
             }
         }

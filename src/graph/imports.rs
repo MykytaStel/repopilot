@@ -223,6 +223,17 @@ fn extract_python(content: &str) -> BTreeSet<String> {
                     result.insert(module.to_string());
                 }
             }
+            continue;
+        }
+
+        // import <module> [as alias] [, <module2>]
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            for part in rest.split(',') {
+                let module = part.split(" as ").next().unwrap_or(part).trim();
+                if !module.is_empty() {
+                    result.insert(module.to_string());
+                }
+            }
         }
     }
 

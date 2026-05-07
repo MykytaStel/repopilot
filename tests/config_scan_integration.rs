@@ -62,3 +62,60 @@ fn custom_max_file_lines_from_config_affects_large_file_findings() {
             .any(|finding| finding.rule_id == "architecture.large-file")
     );
 }
+
+#[test]
+fn testing_detection_can_be_disabled_from_config() {
+    let temp = tempdir().expect("failed to create temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("failed to create src dir");
+    fs::write(temp.path().join("src/feature.rs"), "pub fn live() {}\n")
+        .expect("failed to write source file");
+
+    let repo_config = parse_config(
+        r#"
+        [testing]
+        detect_missing_tests = false
+        "#,
+        None,
+    )
+    .expect("valid config should parse");
+
+    let summary = scan_path_with_config(temp.path(), &repo_config.to_scan_config())
+        .expect("failed to scan temp project");
+
+    assert!(
+        summary
+            .findings
+            .iter()
+            .all(|finding| !finding.rule_id.starts_with("testing."))
+    );
+}
+
+#[test]
+fn secret_like_name_detection_can_be_disabled_from_config() {
+    let temp = tempdir().expect("failed to create temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("failed to create src dir");
+    fs::write(
+        temp.path().join("src/config.rs"),
+        "const API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to write source file");
+
+    let repo_config = parse_config(
+        r#"
+        [security]
+        detect_secret_like_names = false
+        "#,
+        None,
+    )
+    .expect("valid config should parse");
+
+    let summary = scan_path_with_config(temp.path(), &repo_config.to_scan_config())
+        .expect("failed to scan temp project");
+
+    assert!(
+        summary
+            .findings
+            .iter()
+            .all(|finding| finding.rule_id != "security.secret-candidate")
+    );
+}
