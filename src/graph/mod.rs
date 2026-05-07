@@ -5,11 +5,13 @@ pub use imports::extract_imports;
 pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 // ── Data structures ───────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CouplingGraph {
     /// Outgoing edges: source file → set of files it imports.
     pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,

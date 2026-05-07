@@ -37,6 +37,7 @@ fn renders_markdown_scan_summary() {
                 snippet: "// TODO: improve architecture".to_string(),
             }],
         }],
+        coupling_graph: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -66,6 +67,7 @@ fn renders_empty_markdown_sections() {
         skipped_bytes: 0,
         languages: vec![],
         findings: vec![],
+        coupling_graph: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)

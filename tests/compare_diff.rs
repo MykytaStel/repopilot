@@ -71,6 +71,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         skipped_bytes: 0,
         languages: vec![],
         findings,
+        coupling_graph: None,
     }
 }
 

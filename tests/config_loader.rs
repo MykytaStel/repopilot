@@ -38,6 +38,25 @@ fn valid_config_is_parsed() {
 }
 
 #[test]
+fn architecture_coupling_thresholds_are_parsed() {
+    let config = parse_config(
+        r#"
+        [architecture]
+        max_fan_out = 9
+        instability_hub_min_fan_in = 3
+        instability_hub_min_instability_pct = 60
+        "#,
+        None,
+    )
+    .expect("valid config should parse");
+    let scan_config = config.to_scan_config();
+
+    assert_eq!(scan_config.max_fan_out, 9);
+    assert_eq!(scan_config.instability_hub_min_fan_in, 3);
+    assert_eq!(scan_config.instability_hub_min_instability_pct, 60);
+}
+
+#[test]
 fn invalid_toml_returns_error() {
     let error = parse_config("[scan", None).expect_err("invalid TOML should fail");
 

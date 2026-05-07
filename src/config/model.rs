@@ -1,8 +1,9 @@
 use crate::config::defaults::{
     DEFAULT_COMPLEXITY_HIGH_THRESHOLD, DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
-    DEFAULT_HUGE_FILE_LINES, DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_DIRECTORY_DEPTH,
-    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES,
-    default_ignored_paths,
+    DEFAULT_HUGE_FILE_LINES, DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
+    DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT, DEFAULT_LONG_FUNCTION_LINES,
+    DEFAULT_MAX_DIRECTORY_DEPTH, DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FAN_OUT,
+    DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
 };
 use crate::output::OutputFormat;
 use crate::scan::config::ScanConfig;
@@ -35,6 +36,10 @@ impl RepoPilotConfig {
         config.max_directory_modules = self.architecture.max_directory_modules;
         config.max_directory_depth = self.architecture.max_directory_depth;
         config.long_function_loc_threshold = self.architecture.max_function_lines;
+        config.max_fan_out = self.architecture.max_fan_out;
+        config.instability_hub_min_fan_in = self.architecture.instability_hub_min_fan_in;
+        config.instability_hub_min_instability_pct =
+            self.architecture.instability_hub_min_instability_pct;
         config.complexity_medium_threshold = self.code_quality.complexity_medium_threshold;
         config.complexity_high_threshold = self.code_quality.complexity_high_threshold;
         config
@@ -66,6 +71,9 @@ pub struct ArchitectureSection {
     pub max_directory_modules: usize,
     pub max_directory_depth: usize,
     pub max_function_lines: usize,
+    pub max_fan_out: usize,
+    pub instability_hub_min_fan_in: usize,
+    pub instability_hub_min_instability_pct: usize,
     pub detect_empty_directories: bool,
     pub detect_suspicious_names: bool,
     pub detect_large_files: bool,
@@ -79,6 +87,9 @@ impl Default for ArchitectureSection {
             max_directory_modules: DEFAULT_MAX_DIRECTORY_MODULES,
             max_directory_depth: DEFAULT_MAX_DIRECTORY_DEPTH,
             max_function_lines: DEFAULT_LONG_FUNCTION_LINES,
+            max_fan_out: DEFAULT_MAX_FAN_OUT,
+            instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
+            instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
             detect_empty_directories: true,
             detect_suspicious_names: true,
             detect_large_files: true,
