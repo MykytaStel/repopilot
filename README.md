@@ -113,6 +113,7 @@ ignore = [
   ".next",
   "coverage"
 ]
+max_file_bytes = 2097152
 
 [architecture]
 max_file_lines = 300

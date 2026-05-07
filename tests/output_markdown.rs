@@ -10,6 +10,8 @@ fn renders_markdown_scan_summary() {
         files_count: 2,
         directories_count: 1,
         lines_of_code: 10,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
         languages: vec![
             LanguageSummary {
                 name: "Rust".to_string(),
@@ -60,6 +62,8 @@ fn renders_empty_markdown_sections() {
         files_count: 0,
         directories_count: 0,
         lines_of_code: 0,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
         languages: vec![],
         findings: vec![],
     };

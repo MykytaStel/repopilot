@@ -9,6 +9,8 @@ fn renders_valid_json_scan_summary() {
         files_count: 1,
         directories_count: 0,
         lines_of_code: 3,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
         languages: vec![LanguageSummary {
             name: "Rust".to_string(),
             files_count: 1,

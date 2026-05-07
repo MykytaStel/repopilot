@@ -23,6 +23,10 @@ pub struct ScanSummary {
     pub files_count: usize,
     pub directories_count: usize,
     pub lines_of_code: usize,
+    #[serde(default)]
+    pub skipped_files_count: usize,
+    #[serde(default)]
+    pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,
     pub findings: Vec<Finding>,
 }

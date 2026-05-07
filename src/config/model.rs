@@ -1,7 +1,8 @@
 use crate::config::defaults::{
     DEFAULT_COMPLEXITY_HIGH_THRESHOLD, DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
     DEFAULT_HUGE_FILE_LINES, DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_DIRECTORY_DEPTH,
-    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
+    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES,
+    default_ignored_paths,
 };
 use crate::output::OutputFormat;
 use crate::scan::config::ScanConfig;
@@ -23,6 +24,7 @@ impl RepoPilotConfig {
         let mut config =
             ScanConfig::default().with_large_file_loc_threshold(self.architecture.max_file_lines);
         config.ignored_paths = self.scan.ignore.clone();
+        config.max_file_bytes = self.scan.max_file_bytes;
         config.huge_file_loc_threshold = self.architecture.huge_file_lines;
         if config.huge_file_loc_threshold <= config.large_file_loc_threshold {
             config.huge_file_loc_threshold = config
@@ -44,12 +46,14 @@ impl RepoPilotConfig {
 pub struct ScanSection {
     #[serde(default = "default_ignored_paths")]
     pub ignore: Vec<String>,
+    pub max_file_bytes: u64,
 }
 
 impl Default for ScanSection {
     fn default() -> Self {
         Self {
             ignore: default_ignored_paths(),
+            max_file_bytes: DEFAULT_MAX_FILE_BYTES,
         }
     }
 }

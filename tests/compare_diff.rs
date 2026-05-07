@@ -67,6 +67,8 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         files_count: 1,
         directories_count: 0,
         lines_of_code: 10,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
         languages: vec![],
         findings,
     }

@@ -3,6 +3,7 @@ use crate::audits::pipeline::{build_file_audits, run_project_audits};
 use crate::audits::traits::FileAudit;
 use crate::baseline::key::stable_finding_key;
 use crate::findings::types::Finding;
+use crate::graph::imports::extract_imports;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
@@ -32,6 +33,8 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         files_count: facts.files_count,
         directories_count: facts.directories_count,
         lines_of_code: facts.lines_of_code,
+        skipped_files_count: facts.skipped_files_count,
+        skipped_bytes: facts.skipped_bytes,
         languages: facts.languages,
         findings,
     })
@@ -118,12 +121,18 @@ fn audit_file_inline(
         *languages.entry(language_name.clone()).or_insert(0) += 1;
     }
 
+    if skip_oversized_file(path, facts, &language, config)? {
+        return Ok(());
+    }
+
     let Ok(content) = fs::read_to_string(path) else {
+        track_skipped_file(path, facts, 0);
         facts.files.push(FileFacts {
             path: path.to_path_buf(),
             language,
             lines_of_code: 0,
             branch_count: 0,
+            imports: Vec::new(),
             content: String::new(),
         });
         return Ok(());
@@ -131,6 +140,7 @@ fn audit_file_inline(
 
     let lines_of_code = count_lines_of_code(&content);
     let branch_count = count_branches(&content);
+    let imports = extract_imports(&content, language.as_deref());
     facts.lines_of_code += lines_of_code;
 
     let file_facts = FileFacts {
@@ -138,6 +148,7 @@ fn audit_file_inline(
         language,
         lines_of_code,
         branch_count,
+        imports,
         content,
     };
 
@@ -151,6 +162,7 @@ fn audit_file_inline(
         language: file_facts.language,
         lines_of_code: file_facts.lines_of_code,
         branch_count: file_facts.branch_count,
+        imports: file_facts.imports,
         content: String::new(),
     });
 
@@ -179,7 +191,7 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
     let mut languages: HashMap<String, usize> = HashMap::new();
 
     if path.is_file() {
-        collect_file_facts(path, &mut facts, &mut languages)?;
+        collect_file_facts(path, &mut facts, &mut languages, config)?;
     } else {
         collect_directory_facts(path, &mut facts, &mut languages, config)?;
     }
@@ -215,7 +227,7 @@ fn collect_directory_facts(
         }
 
         if file_type.is_file() {
-            collect_file_facts(entry_path, facts, languages)?;
+            collect_file_facts(entry_path, facts, languages, config)?;
         }
     }
 
@@ -263,6 +275,7 @@ fn collect_file_facts(
     path: &Path,
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
 ) -> io::Result<()> {
     facts.files_count += 1;
 
@@ -272,7 +285,20 @@ fn collect_file_facts(
         *languages.entry(language_name.clone()).or_insert(0) += 1;
     }
 
+    if skip_oversized_file(path, facts, &language, config)? {
+        return Ok(());
+    }
+
     let Ok(content) = fs::read_to_string(path) else {
+        track_skipped_file(path, facts, 0);
+        facts.files.push(FileFacts {
+            path: path.to_path_buf(),
+            language,
+            lines_of_code: 0,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: String::new(),
+        });
         return Ok(());
     };
 
@@ -281,13 +307,57 @@ fn collect_file_facts(
 
     facts.files.push(FileFacts {
         path: path.to_path_buf(),
+        imports: extract_imports(&content, language.as_deref()),
+        branch_count: count_branches(&content),
         language,
         lines_of_code,
-        branch_count: count_branches(&content),
         content,
     });
 
     Ok(())
+}
+
+fn skip_oversized_file(
+    path: &Path,
+    facts: &mut ScanFacts,
+    language: &Option<String>,
+    config: &ScanConfig,
+) -> io::Result<bool> {
+    if config.max_file_bytes == 0 {
+        return Ok(false);
+    }
+
+    let metadata = fs::metadata(path)?;
+    let file_size = metadata.len();
+
+    if file_size <= config.max_file_bytes {
+        return Ok(false);
+    }
+
+    track_skipped_file(path, facts, file_size);
+    facts.files.push(FileFacts {
+        path: path.to_path_buf(),
+        language: language.clone(),
+        lines_of_code: 0,
+        branch_count: 0,
+        imports: Vec::new(),
+        content: String::new(),
+    });
+
+    Ok(true)
+}
+
+fn track_skipped_file(path: &Path, facts: &mut ScanFacts, skipped_bytes: u64) {
+    facts.skipped_files_count += 1;
+    facts.skipped_bytes = facts.skipped_bytes.saturating_add(skipped_bytes);
+
+    if skipped_bytes > 0 {
+        return;
+    }
+
+    if let Ok(metadata) = fs::metadata(path) {
+        facts.skipped_bytes = facts.skipped_bytes.saturating_add(metadata.len());
+    }
 }
 
 fn count_lines_of_code(content: &str) -> usize {

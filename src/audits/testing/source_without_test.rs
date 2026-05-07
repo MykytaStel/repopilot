@@ -100,39 +100,42 @@ fn has_nearby_test(
 
     let parent = source.parent().unwrap_or(Path::new("."));
 
-    // Sibling test patterns: payment_test.rs, payment.test.ts, payment.spec.ts
-    let sibling_candidates = [
-        parent.join(format!("{stem}_test.{ext}")),
-        parent.join(format!("{stem}.test.{ext}")),
-        parent.join(format!("{stem}.spec.{ext}")),
-    ];
-
-    if sibling_candidates.iter().any(|p| all_paths.contains(p)) {
-        return true;
-    }
-
-    // tests/ directory alongside src/: tests/<stem>.rs, tests/<stem>_test.rs
-    // Uses pre-computed suffix set for O(1) lookup instead of O(n) scan
-    let tests_candidates = [
-        format!("tests/{stem}.{ext}"),
-        format!("tests/{stem}_test.{ext}"),
-    ];
-
-    if tests_candidates
-        .iter()
-        .any(|candidate| tests_suffixes.contains(candidate.as_str()))
+    if has_sibling_test(parent, stem, ext, all_paths)
+        || has_tests_directory_match(stem, ext, tests_suffixes)
+        || has_rust_integration_test(source, ext, tests_suffixes)
     {
         return true;
     }
 
-    // Rust integration tests commonly cover a module by feature name:
-    // src/report/writer.rs -> tests/report_writer.rs
-    if ext == "rs" {
-        let module_candidate = format!("tests/{}.rs", module_test_name(source));
-        return tests_suffixes.contains(module_candidate.as_str());
+    false
+}
+
+fn has_sibling_test(parent: &Path, stem: &str, ext: &str, all_paths: &HashSet<PathBuf>) -> bool {
+    [
+        parent.join(format!("{stem}_test.{ext}")),
+        parent.join(format!("{stem}.test.{ext}")),
+        parent.join(format!("{stem}.spec.{ext}")),
+    ]
+    .iter()
+    .any(|candidate| all_paths.contains(candidate))
+}
+
+fn has_tests_directory_match(stem: &str, ext: &str, tests_suffixes: &HashSet<String>) -> bool {
+    [
+        format!("tests/{stem}.{ext}"),
+        format!("tests/{stem}_test.{ext}"),
+    ]
+    .iter()
+    .any(|candidate| tests_suffixes.contains(candidate.as_str()))
+}
+
+fn has_rust_integration_test(source: &Path, ext: &str, tests_suffixes: &HashSet<String>) -> bool {
+    if ext != "rs" {
+        return false;
     }
 
-    false
+    let module_candidate = format!("tests/{}.rs", module_test_name(source));
+    tests_suffixes.contains(module_candidate.as_str())
 }
 
 fn module_test_name(source: &Path) -> String {

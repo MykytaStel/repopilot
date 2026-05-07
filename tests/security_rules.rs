@@ -31,6 +31,22 @@ fn secret_candidate_skips_test_and_fixture_paths() {
 }
 
 #[test]
+fn secret_candidate_detects_and_masks_jwt_like_tokens() {
+    let token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    let file = file(
+        "src/config.rs",
+        &format!("const TOKEN: &str = \"{token}\";\n"),
+    );
+
+    let findings = SecretCandidateAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "security.secret-candidate");
+    assert!(findings[0].evidence[0].snippet.contains("eyJhbGci...***"));
+    assert!(!findings[0].evidence[0].snippet.contains(token));
+}
+
+#[test]
 fn private_key_candidate_reports_header_without_key_body() {
     let file = file(
         "src/key.pem",
@@ -85,6 +101,7 @@ fn file(path: &str, content: &str) -> FileFacts {
         language: None,
         lines_of_code: content.lines().count(),
         branch_count: 0,
+        imports: Vec::new(),
         content: content.to_string(),
     }
 }

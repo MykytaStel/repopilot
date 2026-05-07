@@ -1,74 +1,9 @@
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
-    let findings_rows = summary
-        .findings
-        .iter()
-        .map(|f| {
-            let ev = f
-                .evidence
-                .first()
-                .map(|e| {
-                    format!(
-                        "<code>{}:{}</code>",
-                        escape_html(&e.path.to_string_lossy()),
-                        e.line_start
-                    )
-                })
-                .unwrap_or_default();
-
-            let snippet = f
-                .evidence
-                .first()
-                .map(|e| {
-                    format!(
-                        "<pre class=\"snippet\">{}</pre>",
-                        escape_html(e.snippet.trim())
-                    )
-                })
-                .unwrap_or_default();
-
-            let severity_class = f.severity_label().to_lowercase();
-
-            format!(
-                "<tr>\
-                    <td><span class=\"badge {severity_class}\">{}</span></td>\
-                    <td><code>{}</code></td>\
-                    <td>{}</td>\
-                    <td>{ev}{snippet}</td>\
-                 </tr>",
-                escape_html(f.severity_label()),
-                escape_html(&f.rule_id),
-                escape_html(&f.title),
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let lang_rows = summary
-        .languages
-        .iter()
-        .map(|l| {
-            format!(
-                "<tr><td>{}</td><td class=\"num\">{}</td></tr>",
-                escape_html(&l.name),
-                l.files_count
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let findings_empty = if summary.findings.is_empty() {
-        "<p class=\"empty\">No findings found.</p>"
-    } else {
-        ""
-    };
-
-    let lang_empty = if summary.languages.is_empty() {
-        "<p class=\"empty\">No languages detected.</p>"
-    } else {
-        ""
-    };
+    let cards = render_summary_cards(summary);
+    let languages_section = render_languages_section(summary);
+    let findings_section = render_findings_section(summary);
 
     format!(
         r#"<!DOCTYPE html>
@@ -108,20 +43,15 @@ pub fn render(summary: &ScanSummary) -> String {
 <p class="meta">Path: <code>{path}</code></p>
 
 <div class="cards">
-  <div class="card"><div class="num">{files}</div><div class="label">Files</div></div>
-  <div class="card"><div class="num">{dirs}</div><div class="label">Directories</div></div>
-  <div class="card"><div class="num">{loc}</div><div class="label">Lines of Code</div></div>
-  <div class="card"><div class="num">{finding_count}</div><div class="label">Findings</div></div>
+  {cards}
 </div>
 
 <h2>Languages</h2>
-{lang_empty}
-{lang_table}
+{languages_section}
 
 <h2>Findings</h2>
-{findings_empty}
 <div class="filter-bar" id="filter-bar"></div>
-{findings_table}
+{findings_section}
 
 <script>
   const rows = document.querySelectorAll('table#findings tbody tr');
@@ -147,26 +77,104 @@ pub fn render(summary: &ScanSummary) -> String {
 </body>
 </html>"#,
         path = escape_html(&summary.root_path.to_string_lossy()),
-        files = summary.files_count,
-        dirs = summary.directories_count,
-        loc = summary.lines_of_code,
-        finding_count = summary.findings.len(),
-        lang_empty = lang_empty,
-        lang_table = if summary.languages.is_empty() {
-            String::new()
-        } else {
+        cards = cards,
+        languages_section = languages_section,
+        findings_section = findings_section,
+    )
+}
+
+fn render_summary_cards(summary: &ScanSummary) -> String {
+    let mut cards = vec![
+        summary_card(summary.files_count, "Files"),
+        summary_card(summary.directories_count, "Directories"),
+        summary_card(summary.lines_of_code, "Lines of Code"),
+        summary_card(summary.findings.len(), "Findings"),
+    ];
+
+    if summary.skipped_files_count > 0 {
+        cards.push(summary_card(summary.skipped_files_count, "Skipped"));
+    }
+
+    cards.join("\n  ")
+}
+
+fn summary_card(value: usize, label: &str) -> String {
+    format!(
+        r#"<div class="card"><div class="num">{value}</div><div class="label">{label}</div></div>"#
+    )
+}
+
+fn render_languages_section(summary: &ScanSummary) -> String {
+    if summary.languages.is_empty() {
+        return "<p class=\"empty\">No languages detected.</p>".to_string();
+    }
+
+    let rows = summary
+        .languages
+        .iter()
+        .map(|language| {
             format!(
-                "<table><thead><tr><th>Language</th><th class=\"num\">Files</th></tr></thead><tbody>{lang_rows}</tbody></table>"
+                "<tr><td>{}</td><td class=\"num\">{}</td></tr>",
+                escape_html(&language.name),
+                language.files_count
             )
-        },
-        findings_empty = findings_empty,
-        findings_table = if summary.findings.is_empty() {
-            String::new()
-        } else {
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "<table><thead><tr><th>Language</th><th class=\"num\">Files</th></tr></thead><tbody>{rows}</tbody></table>"
+    )
+}
+
+fn render_findings_section(summary: &ScanSummary) -> String {
+    if summary.findings.is_empty() {
+        return "<p class=\"empty\">No findings found.</p>".to_string();
+    }
+
+    let rows = summary
+        .findings
+        .iter()
+        .map(render_finding_row)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "<table id=\"findings\"><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>Evidence</th></tr></thead><tbody>{rows}</tbody></table>"
+    )
+}
+
+fn render_finding_row(finding: &crate::findings::types::Finding) -> String {
+    let evidence = finding.evidence.first();
+    let location = evidence
+        .map(|e| {
             format!(
-                "<table id=\"findings\"><thead><tr><th>Severity</th><th>Rule</th><th>Title</th><th>Evidence</th></tr></thead><tbody>{findings_rows}</tbody></table>"
+                "<code>{}:{}</code>",
+                escape_html(&e.path.to_string_lossy()),
+                e.line_start
             )
-        },
+        })
+        .unwrap_or_default();
+    let snippet = evidence
+        .map(|e| {
+            format!(
+                "<pre class=\"snippet\">{}</pre>",
+                escape_html(e.snippet.trim())
+            )
+        })
+        .unwrap_or_default();
+    let severity_class = finding.severity_label().to_lowercase();
+
+    format!(
+        "<tr>\
+            <td><span class=\"badge {severity_class}\">{}</span></td>\
+            <td><code>{}</code></td>\
+            <td>{}</td>\
+            <td>{location}{snippet}</td>\
+         </tr>",
+        escape_html(finding.severity_label()),
+        escape_html(&finding.rule_id),
+        escape_html(&finding.title),
     )
 }
 

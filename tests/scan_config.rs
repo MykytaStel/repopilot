@@ -6,6 +6,7 @@ fn default_scan_config_uses_expected_thresholds() {
 
     assert_eq!(config.large_file_loc_threshold, 300);
     assert_eq!(config.huge_file_loc_threshold, 1000);
+    assert_eq!(config.max_file_bytes, 2 * 1024 * 1024);
 }
 
 #[test]

@@ -10,6 +10,8 @@ fn html_output_escapes_snippets_and_renders_summary() {
         files_count: 1,
         directories_count: 1,
         lines_of_code: 3,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
         languages: vec![],
         findings: vec![Finding {
             id: "finding-1".to_string(),
