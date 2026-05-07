@@ -4,6 +4,7 @@ pub mod html;
 pub mod json;
 pub mod markdown;
 pub(crate) mod render_helpers;
+pub mod sarif;
 
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
