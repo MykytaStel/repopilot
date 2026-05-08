@@ -23,6 +23,7 @@ cargo run -- scan . --format sarif --output repopilot.sarif
 ## GitHub Actions
 
 Copy [`.github/workflows/repopilot-sarif.yml.example`](../../.github/workflows/repopilot-sarif.yml.example) to `.github/workflows/repopilot-sarif.yml` in a repository where you want RepoPilot findings uploaded to GitHub Code Scanning.
+For baseline-aware gating plus SARIF upload, copy [`.github/workflows/repopilot-baseline-sarif.yml.example`](../../.github/workflows/repopilot-baseline-sarif.yml.example).
 
 ```yaml
 name: RepoPilot SARIF

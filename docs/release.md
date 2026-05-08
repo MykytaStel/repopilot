@@ -8,6 +8,7 @@ Update:
 
 - `Cargo.toml` version
 - `Cargo.lock` package version, if needed
+- `package.json` version
 - `CHANGELOG.md`
 - `README.md` if user-facing behavior changed
 
@@ -21,6 +22,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 cargo package --list
 cargo publish --dry-run
+npm run test:npm
+npm pack --dry-run
 ```
 
 Review the package contents from `cargo package --list` before publishing.
@@ -51,7 +54,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, and runs `cargo publish --dry-run`. It does not publish to crates.io.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, and publishes the npm package when `NPM_TOKEN` is configured. It does not publish to crates.io.
 
 ## 7. Publish to crates.io
 
@@ -74,9 +77,10 @@ RepoPilot vX.Y.Z — short release name
 Include:
 
 - highlights;
-- install command;
+- install commands for npm, cargo, and quick install;
 - upgrade command;
 - example usage;
+- React Native example when relevant;
 - link to [CHANGELOG.md](../CHANGELOG.md).
 
 Example release body:
@@ -89,12 +93,14 @@ Example release body:
 ## Install
 
 ```bash
+npm install -g repopilot
 cargo install repopilot
 ```
 
 ## Upgrade
 
 ```bash
+npm update -g repopilot
 cargo install repopilot --force
 ```
 

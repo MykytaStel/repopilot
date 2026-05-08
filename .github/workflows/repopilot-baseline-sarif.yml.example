@@ -1,0 +1,31 @@
+name: RepoPilot
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  repopilot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install RepoPilot
+        run: npm install -g repopilot
+
+      - name: Run baseline-aware scan
+        run: repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+
+      - name: Generate SARIF
+        if: always()
+        run: repopilot scan . --format sarif --output repopilot.sarif
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: repopilot.sarif

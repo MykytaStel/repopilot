@@ -36,10 +36,12 @@ Walks the target path and runs all enabled audit rules.
 | Architecture | Oversized files, deep nesting, too many modules per directory |
 | Coupling | Excessive fan-out, high-instability hubs, circular dependencies |
 | Code quality | Cyclomatic complexity, long functions, TODO/FIXME/HACK markers |
+| Framework | JavaScript, React, React Native, Expo, New Architecture, Hermes, Codegen |
 | Security | Hardcoded secret candidates, committed private keys, `.env` files |
 | Testing | Missing test folder, source files without test counterparts |
 
 The scan respects `.gitignore` and built-in ignores for common build directories.
+For React Native and Expo projects, JSON/Markdown/HTML summaries include architecture profile metadata; see [React Native Analysis](react-native.md).
 
 ### Synopsis
 

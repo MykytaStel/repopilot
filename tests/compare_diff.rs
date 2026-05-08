@@ -72,6 +72,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         languages: vec![],
         findings,
         detected_frameworks: vec![],
+        framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
     }

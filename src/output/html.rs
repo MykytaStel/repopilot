@@ -206,9 +206,13 @@ fn render_languages_section(summary: &ScanSummary) -> String {
 }
 
 fn render_frameworks_section(summary: &ScanSummary) -> String {
-    if summary.detected_frameworks.is_empty() {
+    if summary.detected_frameworks.is_empty()
+        && summary.framework_projects.is_empty()
+        && summary.react_native.is_none()
+    {
         return String::new();
     }
+
     let labels: Vec<String> = summary
         .detected_frameworks
         .iter()
@@ -219,10 +223,54 @@ fn render_frameworks_section(summary: &ScanSummary) -> String {
             )
         })
         .collect();
-    format!(
-        "<h2>Frameworks</h2><p class=\"meta\">{}</p>\n",
-        labels.join(" ")
-    )
+    let mut output = String::from("<h2>Frameworks</h2>");
+    if !labels.is_empty() {
+        output.push_str(&format!("<p class=\"meta\">{}</p>\n", labels.join(" ")));
+    }
+
+    let nested_projects: Vec<_> = summary
+        .framework_projects
+        .iter()
+        .filter(|project| project.path.as_path() != std::path::Path::new("."))
+        .collect();
+    if !nested_projects.is_empty() {
+        output.push_str("<table><thead><tr><th>Path</th><th>Frameworks</th></tr></thead><tbody>");
+        for project in nested_projects {
+            let frameworks = project
+                .frameworks
+                .iter()
+                .map(|f| escape_html(&f.label()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            output.push_str(&format!(
+                "<tr><td><code>{}</code></td><td>{}</td></tr>",
+                escape_html(&project.path.to_string_lossy()),
+                frameworks
+            ));
+        }
+        output.push_str("</tbody></table>");
+    }
+
+    if let Some(rn) = &summary.react_native {
+        output.push_str(&format!(
+            "<p class=\"meta\">React Native: version {}, Android New Architecture {}, iOS New Architecture {}, Hermes {}, Codegen {}</p>\n",
+            escape_html(rn.react_native_version.as_deref().unwrap_or("unknown")),
+            escape_html(format_tristate(rn.android_new_arch_enabled)),
+            escape_html(format_tristate(rn.ios_new_arch_enabled)),
+            escape_html(format_tristate(rn.hermes_enabled)),
+            if rn.has_codegen_config { "found" } else { "missing" }
+        ));
+    }
+
+    output
+}
+
+fn format_tristate(value: Option<bool>) -> &'static str {
+    match value {
+        Some(true) => "enabled",
+        Some(false) => "disabled",
+        None => "unknown",
+    }
 }
 
 fn render_findings_section(summary: &ScanSummary) -> String {

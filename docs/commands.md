@@ -11,11 +11,19 @@ repopilot init        # generate repopilot.toml
 repopilot scan .      # scan the current directory
 ```
 
+For React Native or Expo projects:
+
+```bash
+repopilot scan . --format markdown --output repopilot-report.md
+repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
+```
+
 ---
 
 ## Scanning a project
 
 `repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
+For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
 
 ```bash
 repopilot scan .

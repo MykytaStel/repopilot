@@ -39,6 +39,7 @@ fn renders_markdown_scan_summary() {
             }],
         }],
         detected_frameworks: vec![],
+        framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
     };
@@ -71,6 +72,7 @@ fn renders_empty_markdown_sections() {
         languages: vec![],
         findings: vec![],
         detected_frameworks: vec![],
+        framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
     };
@@ -97,6 +99,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
         languages: vec![],
         findings: vec![],
         detected_frameworks: vec![],
+        framework_projects: vec![],
         react_native: Some(ReactNativeArchitectureProfile {
             detected: true,
             react_native_version: Some("0.73.0".to_string()),
@@ -110,6 +113,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
             hermes_enabled: Some(true),
             android_gradle_properties_found: true,
             ios_podfile_found: false,
+            ..ReactNativeArchitectureProfile::default()
         }),
         coupling_graph: None,
     };

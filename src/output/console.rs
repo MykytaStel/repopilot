@@ -2,6 +2,7 @@ use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
 use crate::scan::types::ScanSummary;
@@ -40,6 +41,7 @@ pub fn render(summary: &ScanSummary) -> String {
 
     output.push('\n');
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.framework_projects);
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
@@ -96,6 +98,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
     output.push('\n');
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.framework_projects);
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
@@ -215,21 +218,49 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
     output.push_str(&format!("Frameworks: {}\n\n", labels.join(" \u{00b7} ")));
 }
 
+fn render_framework_projects_section(output: &mut String, projects: &[FrameworkProject]) {
+    let nested_projects: Vec<_> = projects
+        .iter()
+        .filter(|project| project.path.as_path() != std::path::Path::new("."))
+        .collect();
+    if nested_projects.is_empty() {
+        return;
+    }
+
+    output.push_str("Framework projects:\n");
+    for project in nested_projects {
+        let labels: Vec<String> = project.frameworks.iter().map(|f| f.label()).collect();
+        output.push_str(&format!(
+            "  {}: {}\n",
+            project.path.display(),
+            labels.join(" \u{00b7} ")
+        ));
+    }
+    output.push('\n');
+}
+
 fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitectureProfile) {
     let version = rn.react_native_version.as_deref().unwrap_or("unknown");
     let ios = if rn.has_ios { "yes" } else { "no" };
     let android = if rn.has_android { "yes" } else { "no" };
     let new_arch_android = tristate_label(rn.android_new_arch_enabled);
     let new_arch_ios = tristate_label(rn.ios_new_arch_enabled);
+    let new_arch_expo = tristate_label(rn.expo_new_arch_enabled);
     let hermes = tristate_label(rn.hermes_enabled);
     let codegen = if rn.has_codegen_config { "yes" } else { "no" };
+    let package_manager = rn.package_manager.as_deref().unwrap_or("unknown");
 
     output.push_str("React Native:\n");
     output.push_str(&format!(
-        "  Version: {version}  iOS: {ios}  Android: {android}\n"
+        "  Version: {version}  Kind: {:?}  Package manager: {package_manager}\n",
+        rn.project_kind
     ));
     output.push_str(&format!(
-        "  New Arch (Android): {new_arch_android}  New Arch (iOS): {new_arch_ios}\n"
+        "  iOS: {ios}  Android: {android}  Expo config: {}\n",
+        if rn.has_expo_config { "yes" } else { "no" }
+    ));
+    output.push_str(&format!(
+        "  New Arch (Android): {new_arch_android}  New Arch (iOS): {new_arch_ios}  New Arch (Expo): {new_arch_expo}\n"
     ));
     output.push_str(&format!("  Hermes: {hermes}  Codegen: {codegen}\n\n"));
 }

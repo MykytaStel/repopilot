@@ -7,8 +7,9 @@ use crate::audits::code_quality::long_function::LongFunctionAudit;
 use crate::audits::framework::js_common::{ConsoleLogAudit, VarDeclarationAudit};
 use crate::audits::framework::react::{ReactClassComponentAudit, ReactPropTypesAudit};
 use crate::audits::framework::react_native::{
-    AsyncStorageFromCoreAudit, DirectStateMutationAudit, HermesDisabledAudit,
-    ReactNativeOldArchAudit, ReactNavigationV4Audit,
+    AsyncStorageFromCoreAudit, DirectStateMutationAudit, HermesDisabledAudit, HermesMismatchAudit,
+    ReactNativeArchitectureMismatchAudit, ReactNativeCodegenMissingAudit, ReactNativeOldArchAudit,
+    ReactNavigationV4Audit,
 };
 use crate::audits::security::env_file_committed::EnvFileCommittedAudit;
 use crate::audits::security::private_key_candidate::PrivateKeyCandidateAudit;
@@ -59,17 +60,29 @@ pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Findi
     let has_rn = facts
         .detected_frameworks
         .iter()
-        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }));
+        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
+        || facts.framework_projects.iter().any(|project| {
+            project
+                .frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
+        });
     let has_react = facts
         .detected_frameworks
         .iter()
-        .any(|f| matches!(f, DetectedFramework::React { .. }));
+        .any(|f| matches!(f, DetectedFramework::React { .. }))
+        || facts.framework_projects.iter().any(|project| {
+            project
+                .frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::React { .. }))
+        });
     // React web audits run only when React is present but React Native is not —
     // RN projects always declare `react` as a peer dep, so without this guard
     // web-focused checks (class components, prop-types) would run on every RN project.
     let has_react_only = has_react && !has_rn;
 
-    let has_js = facts.detected_frameworks.iter().any(|f| {
+    let is_js_framework = |f: &DetectedFramework| {
         matches!(
             f,
             DetectedFramework::ReactNative { .. }
@@ -82,14 +95,22 @@ pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Findi
                 | DetectedFramework::NestJs { .. }
                 | DetectedFramework::Express { .. }
         )
-    });
+    };
+    let has_js = facts.detected_frameworks.iter().any(is_js_framework)
+        || facts
+            .framework_projects
+            .iter()
+            .any(|project| project.frameworks.iter().any(is_js_framework));
 
     let mut findings = Vec::new();
 
     if has_rn {
         findings.extend(ReactNativeOldArchAudit.audit(facts, config));
+        findings.extend(ReactNativeArchitectureMismatchAudit.audit(facts, config));
         findings.extend(AsyncStorageFromCoreAudit.audit(facts, config));
         findings.extend(HermesDisabledAudit.audit(facts, config));
+        findings.extend(HermesMismatchAudit.audit(facts, config));
+        findings.extend(ReactNativeCodegenMissingAudit.audit(facts, config));
         findings.extend(ReactNavigationV4Audit.audit(facts, config));
         findings.extend(DirectStateMutationAudit.audit(facts, config));
     }
