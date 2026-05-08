@@ -92,7 +92,7 @@ fn extract_version(s: &str) -> Option<String> {
     {
         return None;
     }
-    let stripped = s.trim_start_matches(|c: char| matches!(c, '^' | '~' | '=' | '>'));
+    let stripped = s.trim_start_matches(['^', '~', '=', '>']);
     Some(stripped.to_string())
 }
 

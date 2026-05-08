@@ -143,10 +143,11 @@ fn find_async_storage_from_core(content: &str) -> Option<usize> {
         let trimmed = lines[i].trim();
 
         // Single-line: import { ..., AsyncStorage, ... } from 'react-native'
-        if trimmed.starts_with("import") && is_from_rn_core(trimmed) {
-            if trimmed.contains("AsyncStorage") {
-                return Some(i + 1);
-            }
+        if trimmed.starts_with("import")
+            && is_from_rn_core(trimmed)
+            && trimmed.contains("AsyncStorage")
+        {
+            return Some(i + 1);
         }
 
         // Multi-line: import { starts here, accumulate until the `from 'react-native'` line

@@ -163,7 +163,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("Comp.jsx");
         let mut f = std::fs::File::create(&file_path).unwrap();
-        write!(f, "import PropTypes from 'prop-types';\n").unwrap();
+        writeln!(f, "import PropTypes from 'prop-types';").unwrap();
 
         let mut facts = ScanFacts {
             root_path: dir.path().to_path_buf(),
@@ -188,7 +188,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("Comp.tsx");
         let mut f = std::fs::File::create(&file_path).unwrap();
-        write!(f, "import PropTypes from 'prop-types';\n").unwrap();
+        writeln!(f, "import PropTypes from 'prop-types';").unwrap();
 
         let mut facts = ScanFacts {
             root_path: dir.path().to_path_buf(),

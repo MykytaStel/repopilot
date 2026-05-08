@@ -135,7 +135,7 @@ pub fn is_test_path(path: &std::path::Path) -> bool {
     path.components().any(|c| {
         c.as_os_str()
             .to_str()
-            .map(|s| TEST_PATH_SEGMENTS.iter().any(|seg| s == *seg))
+            .map(|s| TEST_PATH_SEGMENTS.contains(&s))
             .unwrap_or(false)
     })
 }
@@ -228,7 +228,7 @@ mod tests {
         let test_dir = dir.path().join("__tests__");
         std::fs::create_dir(&test_dir).unwrap();
         let file_path = test_dir.join("utils.test.ts");
-        write!(std::fs::File::create(&file_path).unwrap(), "var x = 1;\n").unwrap();
+        writeln!(std::fs::File::create(&file_path).unwrap(), "var x = 1;").unwrap();
         let mut facts = ScanFacts {
             root_path: dir.path().to_path_buf(),
             ..ScanFacts::default()
