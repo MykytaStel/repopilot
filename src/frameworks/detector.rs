@@ -114,15 +114,19 @@ mod tests {
         .unwrap();
 
         let frameworks = detect_frameworks(dir.path());
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::ReactNative { version: Some(v) } if v == "0.74.0")));
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::Expo { version: Some(v) } if v == "51.0.0")));
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::React { .. })));
+        assert!(frameworks.iter().any(
+            |f| matches!(f, DetectedFramework::ReactNative { version: Some(v) } if v == "0.74.0")
+        ));
+        assert!(
+            frameworks.iter().any(
+                |f| matches!(f, DetectedFramework::Expo { version: Some(v) } if v == "51.0.0")
+            )
+        );
+        assert!(
+            frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::React { .. }))
+        );
     }
 
     #[test]
@@ -143,12 +147,16 @@ mod tests {
         .unwrap();
 
         let frameworks = detect_frameworks(dir.path());
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::ReactNative { version: None })));
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::React { version: None })));
+        assert!(
+            frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::ReactNative { version: None }))
+        );
+        assert!(
+            frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::React { version: None }))
+        );
     }
 
     #[test]
@@ -156,14 +164,22 @@ mod tests {
         let dir = tempdir().unwrap();
         let pkg = dir.path().join("package.json");
         let mut f = std::fs::File::create(&pkg).unwrap();
-        write!(f, r#"{{"dependencies": {{"next": "14.0.0", "react": "18.0.0"}}}}"#).unwrap();
+        write!(
+            f,
+            r#"{{"dependencies": {{"next": "14.0.0", "react": "18.0.0"}}}}"#
+        )
+        .unwrap();
 
         let frameworks = detect_frameworks(dir.path());
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::NextJs { .. })));
-        assert!(frameworks
-            .iter()
-            .any(|f| matches!(f, DetectedFramework::React { .. })));
+        assert!(
+            frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::NextJs { .. }))
+        );
+        assert!(
+            frameworks
+                .iter()
+                .any(|f| matches!(f, DetectedFramework::React { .. }))
+        );
     }
 }

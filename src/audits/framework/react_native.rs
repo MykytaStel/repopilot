@@ -309,11 +309,7 @@ impl ProjectAudit for DirectStateMutationAudit {
         let mut findings = Vec::new();
 
         for file in &facts.files {
-            let ext = file
-                .path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+            let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" {
                 continue;
             }
@@ -409,9 +405,13 @@ mod tests {
     #[test]
     fn old_arch_flagged_when_no_app_json() {
         let dir = tempdir().unwrap();
-        let findings = ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        let findings =
+            ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].rule_id, "framework.react-native.old-architecture");
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.old-architecture"
+        );
     }
 
     #[test]
@@ -422,19 +422,21 @@ mod tests {
             r#"{{"expo": {{"newArchEnabled": true}}}}"#
         )
         .unwrap();
-        let findings = ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        let findings =
+            ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
         assert!(findings.is_empty());
     }
 
     #[test]
     fn old_arch_not_flagged_when_enabled_in_rn_config() {
         let dir = tempdir().unwrap();
-        write!(
+        writeln!(
             std::fs::File::create(dir.path().join("react-native.config.js")).unwrap(),
-            "module.exports = {{ newArchEnabled: true }};\n"
+            "module.exports = {{ newArchEnabled: true }};"
         )
         .unwrap();
-        let findings = ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        let findings =
+            ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
         assert!(findings.is_empty());
     }
 
@@ -451,7 +453,10 @@ mod tests {
         ));
         let findings = AsyncStorageFromCoreAudit.audit(&facts, &ScanConfig::default());
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].rule_id, "framework.react-native.async-storage-from-core");
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.async-storage-from-core"
+        );
         assert_eq!(findings[0].severity, Severity::High);
     }
 
@@ -495,7 +500,10 @@ mod tests {
         ));
         let findings = ReactNavigationV4Audit.audit(&facts, &ScanConfig::default());
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].rule_id, "framework.react-native.old-react-navigation");
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.old-react-navigation"
+        );
         assert_eq!(findings[0].severity, Severity::Medium);
     }
 
@@ -525,7 +533,10 @@ mod tests {
         ));
         let findings = DirectStateMutationAudit.audit(&facts, &ScanConfig::default());
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].rule_id, "framework.react-native.direct-state-mutation");
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.direct-state-mutation"
+        );
         assert_eq!(findings[0].severity, Severity::High);
     }
 

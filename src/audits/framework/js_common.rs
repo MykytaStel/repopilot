@@ -5,7 +5,13 @@ use crate::scan::facts::ScanFacts;
 
 pub const JS_EXTENSIONS: &[&str] = &["ts", "tsx", "js", "jsx"];
 const TEST_PATH_SEGMENTS: &[&str] = &[
-    "test", "__tests__", "spec", "fixture", "fixtures", "mock", "mocks",
+    "test",
+    "__tests__",
+    "spec",
+    "fixture",
+    "fixtures",
+    "mock",
+    "mocks",
 ];
 
 // ── VarDeclarationAudit ───────────────────────────────────────────────────────
@@ -184,7 +190,10 @@ mod tests {
             "var x = 1;\nconst y = 2;\n"
         )
         .unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(make_file_facts(file_path));
         let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
         assert_eq!(findings.len(), 1);
@@ -201,10 +210,16 @@ mod tests {
             "const typeVar = 1;\nconst localStorage = {{}};\nconst varName = 3;\n"
         )
         .unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(make_file_facts(file_path));
         let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
-        assert!(findings.is_empty(), "identifiers containing 'var' must not be flagged");
+        assert!(
+            findings.is_empty(),
+            "identifiers containing 'var' must not be flagged"
+        );
     }
 
     #[test]
@@ -214,7 +229,10 @@ mod tests {
         std::fs::create_dir(&test_dir).unwrap();
         let file_path = test_dir.join("utils.test.ts");
         write!(std::fs::File::create(&file_path).unwrap(), "var x = 1;\n").unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(make_file_facts(file_path));
         let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
         assert!(findings.is_empty());
@@ -229,7 +247,10 @@ mod tests {
             "const x = 1;\nlet y = 2;\n"
         )
         .unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(make_file_facts(file_path));
         let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
         assert!(findings.is_empty());
@@ -246,7 +267,10 @@ mod tests {
             "const x = 1;\nconsole.log(x);\n"
         )
         .unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(FileFacts {
             path: file_path,
             language: Some("TypeScript React".to_string()),
@@ -269,7 +293,10 @@ mod tests {
             "// console.log(debug)\nconst x = 1;\n"
         )
         .unwrap();
-        let mut facts = ScanFacts { root_path: dir.path().to_path_buf(), ..ScanFacts::default() };
+        let mut facts = ScanFacts {
+            root_path: dir.path().to_path_buf(),
+            ..ScanFacts::default()
+        };
         facts.files.push(make_file_facts(file_path));
         let findings = ConsoleLogAudit.audit(&facts, &ScanConfig::default());
         assert!(findings.is_empty());

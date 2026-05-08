@@ -13,11 +13,7 @@ impl ProjectAudit for ReactClassComponentAudit {
         let mut findings = Vec::new();
 
         for file in &facts.files {
-            let ext = file
-                .path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+            let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" {
                 continue;
             }
@@ -70,9 +66,10 @@ pub struct ReactPropTypesAudit;
 
 impl ProjectAudit for ReactPropTypesAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
-        let has_typescript = facts.languages.iter().any(|l| {
-            l.name == "TypeScript" || l.name == "TypeScript React"
-        });
+        let has_typescript = facts
+            .languages
+            .iter()
+            .any(|l| l.name == "TypeScript" || l.name == "TypeScript React");
         if !has_typescript {
             return vec![];
         }
@@ -80,11 +77,7 @@ impl ProjectAudit for ReactPropTypesAudit {
         let mut findings = Vec::new();
 
         for file in &facts.files {
-            let ext = file
-                .path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+            let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" && ext != "ts" && ext != "js" {
                 continue;
             }
@@ -141,7 +134,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("App.tsx");
         let mut f = std::fs::File::create(&file_path).unwrap();
-        write!(f, "class MyComp extends React.Component {{\n  render() {{ return null; }}\n}}\n").unwrap();
+        write!(
+            f,
+            "class MyComp extends React.Component {{\n  render() {{ return null; }}\n}}\n"
+        )
+        .unwrap();
 
         let mut facts = ScanFacts {
             root_path: dir.path().to_path_buf(),

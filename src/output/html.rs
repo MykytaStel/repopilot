@@ -212,7 +212,12 @@ fn render_frameworks_section(summary: &ScanSummary) -> String {
     let labels: Vec<String> = summary
         .detected_frameworks
         .iter()
-        .map(|f| format!("<span class=\"badge low\">{}</span>", escape_html(&f.label())))
+        .map(|f| {
+            format!(
+                "<span class=\"badge low\">{}</span>",
+                escape_html(&f.label())
+            )
+        })
         .collect();
     format!(
         "<h2>Frameworks</h2><p class=\"meta\">{}</p>\n",

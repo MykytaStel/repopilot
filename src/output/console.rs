@@ -205,8 +205,5 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
         return;
     }
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
-    output.push_str(&format!(
-        "Frameworks: {}\n\n",
-        labels.join(" \u{00b7} ")
-    ));
+    output.push_str(&format!("Frameworks: {}\n\n", labels.join(" \u{00b7} ")));
 }
