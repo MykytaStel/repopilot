@@ -1,5 +1,6 @@
 use crate::findings::types::Finding;
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::graph::CouplingGraph;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -33,6 +34,8 @@ pub struct ScanSummary {
     pub findings: Vec<Finding>,
     #[serde(default)]
     pub detected_frameworks: Vec<DetectedFramework>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub react_native: Option<ReactNativeArchitectureProfile>,
     #[serde(default)]
     pub coupling_graph: Option<CouplingGraph>,
 }

@@ -2,6 +2,7 @@ use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
 use crate::scan::types::ScanSummary;
 
@@ -39,6 +40,9 @@ pub fn render(summary: &ScanSummary) -> String {
 
     output.push('\n');
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    if let Some(rn) = &summary.react_native {
+        render_react_native_section(&mut output, rn);
+    }
     render_findings_section(&mut output, &summary.findings);
 
     output
@@ -92,6 +96,9 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
     output.push('\n');
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    if let Some(rn) = &summary.react_native {
+        render_react_native_section(&mut output, rn);
+    }
 
     if summary.findings.is_empty() {
         output.push_str("Findings: none\n");
@@ -206,4 +213,31 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
     }
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
     output.push_str(&format!("Frameworks: {}\n\n", labels.join(" \u{00b7} ")));
+}
+
+fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitectureProfile) {
+    let version = rn.react_native_version.as_deref().unwrap_or("unknown");
+    let ios = if rn.has_ios { "yes" } else { "no" };
+    let android = if rn.has_android { "yes" } else { "no" };
+    let new_arch_android = tristate_label(rn.android_new_arch_enabled);
+    let new_arch_ios = tristate_label(rn.ios_new_arch_enabled);
+    let hermes = tristate_label(rn.hermes_enabled);
+    let codegen = if rn.has_codegen_config { "yes" } else { "no" };
+
+    output.push_str("React Native:\n");
+    output.push_str(&format!(
+        "  Version: {version}  iOS: {ios}  Android: {android}\n"
+    ));
+    output.push_str(&format!(
+        "  New Arch (Android): {new_arch_android}  New Arch (iOS): {new_arch_ios}\n"
+    ));
+    output.push_str(&format!("  Hermes: {hermes}  Codegen: {codegen}\n\n"));
+}
+
+fn tristate_label(value: Option<bool>) -> &'static str {
+    match value {
+        Some(true) => "enabled",
+        Some(false) => "disabled",
+        None => "unknown",
+    }
 }

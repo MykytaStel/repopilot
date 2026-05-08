@@ -1,4 +1,5 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use std::path::PathBuf;
@@ -38,6 +39,7 @@ fn renders_markdown_scan_summary() {
             }],
         }],
         detected_frameworks: vec![],
+        react_native: None,
         coupling_graph: None,
     };
 
@@ -69,6 +71,7 @@ fn renders_empty_markdown_sections() {
         languages: vec![],
         findings: vec![],
         detected_frameworks: vec![],
+        react_native: None,
         coupling_graph: None,
     };
 
@@ -78,4 +81,62 @@ fn renders_empty_markdown_sections() {
     assert!(output.contains("No languages detected."));
     assert!(output.contains("No findings found."));
     assert!(output.contains("No TODO/FIXME/HACK markers found."));
+    // Non-RN project must not render the React Native architecture section
+    assert!(!output.contains("### React Native"));
+}
+
+#[test]
+fn renders_react_native_architecture_section_when_profile_present() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("rn-project"),
+        files_count: 5,
+        directories_count: 2,
+        lines_of_code: 100,
+        skipped_files_count: 0,
+        skipped_bytes: 0,
+        languages: vec![],
+        findings: vec![],
+        detected_frameworks: vec![],
+        react_native: Some(ReactNativeArchitectureProfile {
+            detected: true,
+            react_native_version: Some("0.73.0".to_string()),
+            has_ios: true,
+            has_android: true,
+            has_metro_config: false,
+            has_react_native_config: false,
+            has_codegen_config: false,
+            android_new_arch_enabled: Some(false),
+            ios_new_arch_enabled: None,
+            hermes_enabled: Some(true),
+            android_gradle_properties_found: true,
+            ios_podfile_found: false,
+        }),
+        coupling_graph: None,
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render markdown summary");
+
+    assert!(output.contains("### React Native"));
+    assert!(output.contains("0.73.0"));
+    assert!(output.contains("**iOS:** detected"));
+    assert!(output.contains("**Android:** detected"));
+    assert!(output.contains("**Android New Architecture:** disabled"));
+    assert!(output.contains("**iOS New Architecture:** unknown"));
+    assert!(output.contains("**Hermes:** enabled"));
+    assert!(output.contains("**Codegen config:** missing"));
+}
+
+#[test]
+fn react_native_section_absent_when_profile_is_none() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("web-project"),
+        react_native: None,
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render markdown summary");
+
+    assert!(!output.contains("### React Native"));
 }

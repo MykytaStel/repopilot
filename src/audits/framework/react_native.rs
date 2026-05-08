@@ -207,6 +207,7 @@ impl ProjectAudit for HermesDisabledAudit {
             }
         }
 
+        // Legacy location (< RN 0.70): android/app/build.gradle
         let gradle = facts.root_path.join("android/app/build.gradle");
         if let Ok(content) = std::fs::read_to_string(&gradle) {
             if content.contains("enableHermes: false") || content.contains("enableHermes : false") {
@@ -214,8 +215,39 @@ impl ProjectAudit for HermesDisabledAudit {
             }
         }
 
+        // Modern location (>= RN 0.70): android/gradle.properties
+        let gradle_props = facts.root_path.join("android/gradle.properties");
+        if let Ok(content) = std::fs::read_to_string(&gradle_props) {
+            if gradle_properties_hermes_disabled(&content) {
+                findings.push(hermes_finding(gradle_props, "hermesEnabled=false"));
+            }
+        }
+
         findings
     }
+}
+
+/// Returns true when gradle.properties explicitly disables Hermes.
+/// Tolerates spaces around `=` and ignores inline comments.
+fn gradle_properties_hermes_disabled(content: &str) -> bool {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some((key, rest)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key != "hermesEnabled" && key != "enableHermes" {
+            continue;
+        }
+        let value = rest.split_once('#').map(|(v, _)| v).unwrap_or(rest).trim();
+        if value == "false" {
+            return true;
+        }
+    }
+    false
 }
 
 fn hermes_finding(path: PathBuf, snippet: &str) -> Finding {
@@ -552,5 +584,56 @@ mod tests {
         ));
         let findings = DirectStateMutationAudit.audit(&facts, &ScanConfig::default());
         assert!(findings.is_empty());
+    }
+
+    // ── Hermes disabled via gradle.properties ─────────────────────────────────
+
+    #[test]
+    fn hermes_disabled_in_gradle_properties_is_flagged() {
+        let dir = tempdir().unwrap();
+        let android = dir.path().join("android");
+        std::fs::create_dir(&android).unwrap();
+        write!(
+            std::fs::File::create(android.join("gradle.properties")).unwrap(),
+            "hermesEnabled=false\nnewArchEnabled=true\n"
+        )
+        .unwrap();
+
+        let findings = HermesDisabledAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.hermes-disabled"
+        );
+    }
+
+    #[test]
+    fn hermes_enabled_in_gradle_properties_is_not_flagged() {
+        let dir = tempdir().unwrap();
+        let android = dir.path().join("android");
+        std::fs::create_dir(&android).unwrap();
+        writeln!(
+            std::fs::File::create(android.join("gradle.properties")).unwrap(),
+            "hermesEnabled=true"
+        )
+        .unwrap();
+
+        let findings = HermesDisabledAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn hermes_disabled_gradle_properties_with_inline_comment_is_flagged() {
+        let dir = tempdir().unwrap();
+        let android = dir.path().join("android");
+        std::fs::create_dir(&android).unwrap();
+        writeln!(
+            std::fs::File::create(android.join("gradle.properties")).unwrap(),
+            "hermesEnabled=false   # JSC is faster for our use case"
+        )
+        .unwrap();
+
+        let findings = HermesDisabledAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        assert_eq!(findings.len(), 1);
     }
 }

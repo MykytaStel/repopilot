@@ -1,6 +1,7 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::render_helpers::escape_table_cell;
 use crate::scan::types::ScanSummary;
 
@@ -47,6 +48,9 @@ pub fn render(summary: &ScanSummary) -> String {
     }
 
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    if let Some(rn) = &summary.react_native {
+        render_react_native_section(&mut output, rn);
+    }
 
     output.push_str("## Findings\n\n");
 
@@ -176,6 +180,9 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     }
 
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    if let Some(rn) = &summary.react_native {
+        render_react_native_section(&mut output, rn);
+    }
 
     output.push_str("## Findings\n\n");
 
@@ -240,6 +247,58 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     }
 
     output
+}
+
+fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitectureProfile) {
+    output.push_str("### React Native\n\n");
+
+    let version = rn.react_native_version.as_deref().unwrap_or("unknown");
+    output.push_str(&format!("- **Version:** {version}\n"));
+
+    output.push_str(&format!(
+        "- **iOS:** {}\n",
+        if rn.has_ios {
+            "detected"
+        } else {
+            "not detected"
+        }
+    ));
+    output.push_str(&format!(
+        "- **Android:** {}\n",
+        if rn.has_android {
+            "detected"
+        } else {
+            "not detected"
+        }
+    ));
+    output.push_str(&format!(
+        "- **Android New Architecture:** {}\n",
+        format_tristate(rn.android_new_arch_enabled)
+    ));
+    output.push_str(&format!(
+        "- **iOS New Architecture:** {}\n",
+        format_tristate(rn.ios_new_arch_enabled)
+    ));
+    output.push_str(&format!(
+        "- **Hermes:** {}\n",
+        format_tristate(rn.hermes_enabled)
+    ));
+    output.push_str(&format!(
+        "- **Codegen config:** {}\n\n",
+        if rn.has_codegen_config {
+            "found"
+        } else {
+            "missing"
+        }
+    ));
+}
+
+fn format_tristate(value: Option<bool>) -> &'static str {
+    match value {
+        Some(true) => "enabled",
+        Some(false) => "disabled",
+        None => "unknown",
+    }
 }
 
 fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramework]) {
