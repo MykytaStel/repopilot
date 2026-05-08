@@ -138,6 +138,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             skipped_bytes: report.summary.skipped_bytes,
             languages: report.summary.languages.clone(),
             detected_frameworks: report.summary.detected_frameworks.clone(),
+            react_native: report.summary.react_native.clone(),
             findings: report.in_diff_findings().into_iter().cloned().collect(),
             coupling_graph: report.summary.coupling_graph.clone(),
         },

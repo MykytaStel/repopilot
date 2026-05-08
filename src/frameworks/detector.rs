@@ -80,7 +80,7 @@ pub fn detect_frameworks(root: &Path) -> Vec<DetectedFramework> {
 
 /// Extracts a displayable version string from a package.json version field.
 /// Returns None for non-version specifiers: workspace:*, file:…, *, or empty.
-fn extract_version(s: &str) -> Option<String> {
+pub(crate) fn extract_version(s: &str) -> Option<String> {
     if s.is_empty()
         || s == "*"
         || s.starts_with("workspace:")
