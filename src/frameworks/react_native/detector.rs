@@ -117,10 +117,8 @@ fn parse_gradle_properties(content: &str) -> (Option<bool>, Option<bool>) {
         };
         match key {
             "newArchEnabled" => new_arch = parsed,
-            "hermesEnabled" | "enableHermes" => {
-                if hermes.is_none() {
-                    hermes = parsed;
-                }
+            "hermesEnabled" | "enableHermes" if hermes.is_none() => {
+                hermes = parsed;
             }
             _ => {}
         }
