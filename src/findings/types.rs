@@ -19,6 +19,7 @@ pub enum FindingCategory {
     CodeQuality,
     Testing,
     Security,
+    Framework,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

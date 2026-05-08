@@ -13,6 +13,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         skipped_files_count: 0,
         skipped_bytes: 0,
         languages: vec![],
+        detected_frameworks: vec![],
         findings: vec![Finding {
             id: "finding-1".to_string(),
             rule_id: "security.secret-candidate".to_string(),

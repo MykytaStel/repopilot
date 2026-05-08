@@ -1,9 +1,10 @@
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::code_quality::complexity::count_branches;
-use crate::audits::pipeline::{build_file_audits, run_project_audits};
+use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
 use crate::audits::traits::FileAudit;
 use crate::baseline::key::stable_finding_key;
 use crate::findings::types::Finding;
+use crate::frameworks::detect_frameworks;
 use crate::graph::imports::extract_imports;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -22,8 +23,12 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
     let file_audits = build_file_audits(config);
-    let (facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
+    let (mut facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
+
+    facts.detected_frameworks = detect_frameworks(&facts.root_path);
+
     findings.extend(run_project_audits(&facts, config));
+    findings.extend(run_framework_audits(&facts, config));
     let (coupling_findings, coupling_graph) =
         ImportCouplingAudit.audit_with_graph(&facts, config, path);
     findings.extend(coupling_findings);
@@ -40,6 +45,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         skipped_files_count: facts.skipped_files_count,
         skipped_bytes: facts.skipped_bytes,
         languages: facts.languages,
+        detected_frameworks: facts.detected_frameworks,
         findings,
         coupling_graph: Some(coupling_graph),
     })

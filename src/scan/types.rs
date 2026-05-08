@@ -1,4 +1,5 @@
 use crate::findings::types::Finding;
+use crate::frameworks::DetectedFramework;
 use crate::graph::CouplingGraph;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -30,6 +31,8 @@ pub struct ScanSummary {
     pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,
     pub findings: Vec<Finding>,
+    #[serde(default)]
+    pub detected_frameworks: Vec<DetectedFramework>,
     #[serde(default)]
     pub coupling_graph: Option<CouplingGraph>,
 }

@@ -1,3 +1,4 @@
+use crate::frameworks::DetectedFramework;
 use crate::scan::types::LanguageSummary;
 use std::path::PathBuf;
 
@@ -11,6 +12,7 @@ pub struct ScanFacts {
     pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
+    pub detected_frameworks: Vec<DetectedFramework>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
