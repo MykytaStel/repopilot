@@ -11,6 +11,7 @@ RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a 
 | Testing | `TESTING` | Test coverage or quality gaps |
 | Security | `SECURITY` | Potential vulnerabilities |
 | Performance | `PERFORMANCE` | Performance-related concerns |
+| Framework | `FRAMEWORK` | Framework-specific configuration, migration, or runtime concerns |
 
 ## Severity levels
 
@@ -185,6 +186,72 @@ Instability is computed as `fan_out / (fan_in + fan_out)` expressed as a percent
 | Description | A cycle of project-internal imports was detected. Circular dependencies prevent files from being compiled or tested in isolation, complicate dependency injection, and are a strong signal of tangled module boundaries. |
 
 Cycles are deduplicated and reported once per unique set of files involved. Supported languages: Rust, TypeScript, JavaScript, Python, Go.
+
+### `framework.react-native.old-architecture`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Description | React Native New Architecture is not enabled by any detected Android, iOS, or Expo configuration signal. |
+
+### `framework.react-native.architecture-mismatch`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Description | Android, iOS, or Expo New Architecture settings disagree. Align the settings before release so all builds use the same runtime. |
+
+### `framework.react-native.hermes-disabled`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Description | Hermes is explicitly disabled in native React Native configuration. |
+
+### `framework.react-native.hermes-mismatch`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Description | Hermes settings differ between Android and iOS. This can create platform-specific runtime and performance behavior. |
+
+### `framework.react-native.codegen-missing`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Description | Turbo Module or Fabric-like usage was detected but `package.json` does not define `codegenConfig`. |
+
+### `framework.react-native.async-storage-from-core`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Description | `AsyncStorage` is imported from `react-native` core instead of `@react-native-async-storage/async-storage`. |
+
+### `framework.react-native.old-react-navigation`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Description | Legacy `react-navigation` v4 import was detected. Prefer the scoped `@react-navigation/*` packages. |
+
+### `framework.react-native.direct-state-mutation`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Description | A class component mutates `this.state` directly instead of using `setState`. |
+
+See [React Native Analysis](react-native.md) for supported project shapes, profile fields, and limitations.
 
 ## Evidence
 

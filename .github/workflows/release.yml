@@ -107,6 +107,8 @@ jobs:
       - build
       - verify-crates-package
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download packaged artifacts
         uses: actions/download-artifact@v4
         with:
@@ -121,4 +123,33 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/*.sha256
+          body_path: .github/release_template.md
           generate_release_notes: true
+
+  publish-npm:
+    name: Publish npm package
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    permissions:
+      contents: read
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Test npm wrapper
+        run: npm run test:npm
+
+      - name: Verify npm package
+        run: npm pack --dry-run
+
+      - name: Publish to npm
+        if: ${{ env.NODE_AUTH_TOKEN != '' }}
+        run: npm publish

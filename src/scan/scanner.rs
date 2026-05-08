@@ -4,7 +4,10 @@ use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_proje
 use crate::audits::traits::FileAudit;
 use crate::baseline::key::stable_finding_key;
 use crate::findings::types::Finding;
-use crate::frameworks::{DetectedFramework, detect_frameworks, detect_react_native_architecture};
+use crate::frameworks::{
+    DetectedFramework, detect_framework_projects, detect_frameworks,
+    detect_react_native_architecture,
+};
 use crate::graph::imports::extract_imports;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -26,6 +29,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     let (mut facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
 
     facts.detected_frameworks = detect_frameworks(&facts.root_path);
+    facts.framework_projects = detect_framework_projects(&facts.root_path);
 
     let react_native_profile = if facts
         .detected_frameworks
@@ -41,6 +45,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     } else {
         None
     };
+    facts.react_native = react_native_profile.clone();
 
     findings.extend(run_project_audits(&facts, config));
     findings.extend(run_framework_audits(&facts, config));
@@ -61,6 +66,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         skipped_bytes: facts.skipped_bytes,
         languages: facts.languages,
         detected_frameworks: facts.detected_frameworks,
+        framework_projects: facts.framework_projects,
         react_native: react_native_profile,
         findings,
         coupling_graph: Some(coupling_graph),

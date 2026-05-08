@@ -28,3 +28,14 @@ jobs:
 
       - name: Test
         run: cargo test --all
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Test npm wrapper
+        run: npm run test:npm
+
+      - name: Verify npm package
+        run: npm pack --dry-run

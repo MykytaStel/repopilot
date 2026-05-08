@@ -18,6 +18,23 @@ cargo install repopilot --force
 
 Crate page: <https://crates.io/crates/repopilot>
 
+## Current: npm
+
+RepoPilot is also packaged as an npm CLI wrapper around the native Rust binary:
+
+```bash
+npm install -g repopilot
+```
+
+The npm package downloads the matching GitHub Release binary during `postinstall`, verifies the `.sha256` checksum, and exposes the `repopilot` command through the package `bin` entry.
+
+Environment overrides:
+
+- `REPOPILOT_BINARY_PATH=/path/to/repopilot` uses an existing binary.
+- `REPOPILOT_SKIP_DOWNLOAD=1` skips the postinstall download.
+
+Package page: <https://www.npmjs.com/package/repopilot>
+
 ## Current: source build
 
 ```bash
@@ -54,12 +71,14 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 
 ## Publishing Policy
 
-The release workflow runs `cargo publish --dry-run` for release tags, but crates.io publishing is manual.
+The release workflow runs `cargo publish --dry-run` for release tags. npm publishing is automated when `NPM_TOKEN` is configured. crates.io publishing remains manual.
 
 Before publishing:
 
 - confirm `Cargo.toml` metadata;
+- confirm `package.json` metadata and version;
 - review `cargo package --list`;
+- run `npm pack --dry-run`;
 - run `cargo publish --dry-run`;
 - publish from the exact tagged commit.
 

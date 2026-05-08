@@ -1,5 +1,7 @@
 use crate::frameworks::detector::extract_version;
-use crate::frameworks::react_native::profile::ReactNativeArchitectureProfile;
+use crate::frameworks::react_native::profile::{
+    ReactNativeArchitectureProfile, ReactNativeProjectKind,
+};
 use std::path::Path;
 
 pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureProfile {
@@ -31,10 +33,12 @@ pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureP
         .and_then(|v| v.as_str())
         .and_then(extract_version);
 
+    let has_expo_dependency = deps.contains_key("expo");
     let has_codegen_config = value.get("codegenConfig").is_some();
 
     let has_ios = root.join("ios").is_dir();
     let has_android = root.join("android").is_dir();
+    let project_kind = project_kind(has_expo_dependency, has_ios, has_android);
 
     let has_metro_config = ["metro.config.js", "metro.config.cjs", "metro.config.mjs"]
         .iter()
@@ -43,6 +47,8 @@ pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureP
     let has_react_native_config = ["react-native.config.js", "react-native.config.ts"]
         .iter()
         .any(|name| root.join(name).is_file());
+
+    let (has_expo_config, expo_new_arch_enabled) = detect_expo_config(root);
 
     let gradle_path = root.join("android").join("gradle.properties");
     let android_gradle_properties_found = gradle_path.is_file();
@@ -57,7 +63,7 @@ pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureP
 
     let podfile_path = root.join("ios").join("Podfile");
     let ios_podfile_found = podfile_path.is_file();
-    let (ios_new_arch_enabled, ios_hermes) = if ios_podfile_found {
+    let (podfile_new_arch, ios_hermes) = if ios_podfile_found {
         match std::fs::read_to_string(&podfile_path) {
             Ok(c) => parse_podfile(&c),
             Err(_) => (None, None),
@@ -66,8 +72,25 @@ pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureP
         (None, None)
     };
 
-    // Prefer None when android and iOS hermes signals conflict.
-    // TODO: emit a mismatch finding in a future audit when platforms disagree.
+    let podfile_properties_path = root.join("ios").join("Podfile.properties.json");
+    let ios_podfile_properties_found = podfile_properties_path.is_file();
+    let podfile_properties_new_arch = if ios_podfile_properties_found {
+        std::fs::read_to_string(&podfile_properties_path)
+            .ok()
+            .and_then(|content| parse_podfile_properties_json(&content))
+    } else {
+        None
+    };
+    let ios_new_arch_enabled = podfile_new_arch.or(podfile_properties_new_arch);
+
+    let architecture_mismatch = has_bool_mismatch([
+        android_new_arch_enabled,
+        ios_new_arch_enabled,
+        expo_new_arch_enabled,
+    ]);
+    let hermes_mismatch = has_bool_mismatch([android_hermes, ios_hermes, None]);
+
+    // Prefer None when Android and iOS Hermes signals conflict.
     let hermes_enabled = match (android_hermes, ios_hermes) {
         (Some(a), Some(b)) if a == b => Some(a),
         (Some(_), Some(_)) => None,
@@ -78,17 +101,75 @@ pub fn detect_react_native_architecture(root: &Path) -> ReactNativeArchitectureP
     ReactNativeArchitectureProfile {
         detected: true,
         react_native_version,
+        project_kind,
         has_ios,
         has_android,
         has_metro_config,
         has_react_native_config,
+        has_expo_config,
         has_codegen_config,
+        expo_new_arch_enabled,
         android_new_arch_enabled,
         ios_new_arch_enabled,
+        android_hermes_enabled: android_hermes,
+        ios_hermes_enabled: ios_hermes,
         hermes_enabled,
+        architecture_mismatch,
+        hermes_mismatch,
+        package_manager: detect_package_manager(root),
         android_gradle_properties_found,
         ios_podfile_found,
+        ios_podfile_properties_found,
     }
+}
+
+fn project_kind(
+    has_expo_dependency: bool,
+    has_ios: bool,
+    has_android: bool,
+) -> ReactNativeProjectKind {
+    match (has_expo_dependency, has_ios || has_android) {
+        (true, true) => ReactNativeProjectKind::ExpoPrebuild,
+        (true, false) => ReactNativeProjectKind::ExpoManaged,
+        (false, true) => ReactNativeProjectKind::Bare,
+        (false, false) => ReactNativeProjectKind::Unknown,
+    }
+}
+
+fn detect_package_manager(root: &Path) -> Option<String> {
+    [
+        ("pnpm-lock.yaml", "pnpm"),
+        ("yarn.lock", "yarn"),
+        ("package-lock.json", "npm"),
+        ("npm-shrinkwrap.json", "npm"),
+        ("bun.lock", "bun"),
+        ("bun.lockb", "bun"),
+    ]
+    .iter()
+    .find_map(|(file, manager)| root.join(file).is_file().then(|| (*manager).to_string()))
+}
+
+fn detect_expo_config(root: &Path) -> (bool, Option<bool>) {
+    let app_json = root.join("app.json");
+    if let Ok(content) = std::fs::read_to_string(&app_json) {
+        let parsed = serde_json::from_str::<serde_json::Value>(&content)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("expo")
+                    .and_then(|expo| expo.get("newArchEnabled"))
+                    .and_then(|v| v.as_bool())
+            });
+        return (true, parsed);
+    }
+
+    for name in ["app.config.js", "app.config.ts"] {
+        if let Ok(content) = std::fs::read_to_string(root.join(name)) {
+            return (true, parse_js_bool_property(&content, "newArchEnabled"));
+        }
+    }
+
+    (false, None)
 }
 
 fn parse_gradle_properties(content: &str) -> (Option<bool>, Option<bool>) {
@@ -174,6 +255,46 @@ fn parse_podfile(content: &str) -> (Option<bool>, Option<bool>) {
     (new_arch, hermes)
 }
 
+fn parse_podfile_properties_json(content: &str) -> Option<bool> {
+    serde_json::from_str::<serde_json::Value>(content)
+        .ok()
+        .and_then(|value| match value.get("newArchEnabled") {
+            Some(serde_json::Value::Bool(v)) => Some(*v),
+            Some(serde_json::Value::String(v)) if v == "true" => Some(true),
+            Some(serde_json::Value::String(v)) if v == "false" => Some(false),
+            _ => None,
+        })
+}
+
+fn parse_js_bool_property(content: &str, property: &str) -> Option<bool> {
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("//") {
+            continue;
+        }
+        if !line.contains(property) {
+            continue;
+        }
+        if line.contains("true") {
+            return Some(true);
+        }
+        if line.contains("false") {
+            return Some(false);
+        }
+    }
+    None
+}
+
+fn has_bool_mismatch(values: [Option<bool>; 3]) -> bool {
+    let mut seen_true = false;
+    let mut seen_false = false;
+    for value in values.into_iter().flatten() {
+        seen_true |= value;
+        seen_false |= !value;
+    }
+    seen_true && seen_false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,6 +322,7 @@ mod tests {
         assert_eq!(profile.react_native_version, Some("0.73.0".to_string()));
         assert!(profile.has_ios);
         assert!(profile.has_android);
+        assert_eq!(profile.project_kind, ReactNativeProjectKind::Bare);
     }
 
     #[test]
@@ -219,6 +341,7 @@ mod tests {
         let profile = detect_react_native_architecture(root);
 
         assert_eq!(profile.android_new_arch_enabled, Some(true));
+        assert_eq!(profile.android_hermes_enabled, Some(true));
         assert_eq!(profile.hermes_enabled, Some(true));
         assert!(profile.android_gradle_properties_found);
     }
@@ -278,8 +401,47 @@ mod tests {
         let profile = detect_react_native_architecture(root);
 
         assert_eq!(profile.ios_new_arch_enabled, Some(true));
+        assert_eq!(profile.ios_hermes_enabled, Some(true));
         assert_eq!(profile.hermes_enabled, Some(true));
         assert!(profile.ios_podfile_found);
+    }
+
+    #[test]
+    fn detects_expo_config_and_project_kind() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        let mut f = fs::File::create(root.join("package.json")).unwrap();
+        write!(
+            f,
+            r#"{{"dependencies": {{"react-native": "0.76.0", "expo": "53.0.0"}}}}"#
+        )
+        .unwrap();
+        let mut app = fs::File::create(root.join("app.json")).unwrap();
+        write!(app, r#"{{"expo": {{"newArchEnabled": true}}}}"#).unwrap();
+
+        let profile = detect_react_native_architecture(root);
+
+        assert_eq!(profile.project_kind, ReactNativeProjectKind::ExpoManaged);
+        assert!(profile.has_expo_config);
+        assert_eq!(profile.expo_new_arch_enabled, Some(true));
+    }
+
+    #[test]
+    fn detects_podfile_properties_json() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        let mut f = fs::File::create(root.join("package.json")).unwrap();
+        write!(f, r#"{{"dependencies": {{"react-native": "0.76.0"}}}}"#).unwrap();
+        fs::create_dir(root.join("ios")).unwrap();
+        let mut props = fs::File::create(root.join("ios/Podfile.properties.json")).unwrap();
+        write!(props, r#"{{"newArchEnabled": "true"}}"#).unwrap();
+
+        let profile = detect_react_native_architecture(root);
+
+        assert!(profile.ios_podfile_properties_found);
+        assert_eq!(profile.ios_new_arch_enabled, Some(true));
     }
 
     #[test]
@@ -348,6 +510,36 @@ mod tests {
         let profile = detect_react_native_architecture(root);
 
         assert_eq!(profile.hermes_enabled, None);
+        assert!(profile.hermes_mismatch);
+    }
+
+    #[test]
+    fn detects_architecture_mismatch_and_package_manager() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        let mut f = fs::File::create(root.join("package.json")).unwrap();
+        write!(
+            f,
+            r#"{{"dependencies": {{"react-native": "0.76.0", "expo": "53.0.0"}}}}"#
+        )
+        .unwrap();
+        fs::File::create(root.join("pnpm-lock.yaml")).unwrap();
+        fs::create_dir(root.join("android")).unwrap();
+        let mut gp = fs::File::create(root.join("android/gradle.properties")).unwrap();
+        writeln!(gp, "newArchEnabled=false").unwrap();
+        let mut app = fs::File::create(root.join("app.config.js")).unwrap();
+        writeln!(
+            app,
+            "export default {{ expo: {{ newArchEnabled: true }} }};"
+        )
+        .unwrap();
+
+        let profile = detect_react_native_architecture(root);
+
+        assert_eq!(profile.project_kind, ReactNativeProjectKind::ExpoPrebuild);
+        assert!(profile.architecture_mismatch);
+        assert_eq!(profile.package_manager, Some("pnpm".to_string()));
     }
 
     #[test]

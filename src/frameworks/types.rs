@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+use crate::frameworks::react_native::ReactNativeArchitectureProfile;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "name", rename_all = "SCREAMING_SNAKE_CASE")]
@@ -12,6 +15,14 @@ pub enum DetectedFramework {
     Svelte { version: Option<String> },
     NestJs { version: Option<String> },
     Express { version: Option<String> },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FrameworkProject {
+    pub path: PathBuf,
+    pub frameworks: Vec<DetectedFramework>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub react_native: Option<ReactNativeArchitectureProfile>,
 }
 
 impl DetectedFramework {

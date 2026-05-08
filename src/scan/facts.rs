@@ -1,4 +1,6 @@
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::FrameworkProject;
+use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::scan::types::LanguageSummary;
 use std::path::PathBuf;
 
@@ -13,6 +15,8 @@ pub struct ScanFacts {
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
     pub detected_frameworks: Vec<DetectedFramework>,
+    pub framework_projects: Vec<FrameworkProject>,
+    pub react_native: Option<ReactNativeArchitectureProfile>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -18,6 +18,7 @@ fn renders_valid_json_scan_summary() {
         }],
         findings: vec![],
         detected_frameworks: vec![],
+        framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
     };
@@ -48,12 +49,17 @@ fn react_native_profile_appears_in_json_when_present() {
             has_android: true,
             has_metro_config: true,
             has_react_native_config: false,
+            has_expo_config: true,
             has_codegen_config: true,
+            expo_new_arch_enabled: Some(true),
             android_new_arch_enabled: Some(true),
             ios_new_arch_enabled: None,
+            android_hermes_enabled: Some(true),
             hermes_enabled: Some(true),
+            package_manager: Some("npm".to_string()),
             android_gradle_properties_found: true,
             ios_podfile_found: false,
+            ..ReactNativeArchitectureProfile::default()
         }),
         ..ScanSummary::default()
     };
@@ -70,7 +76,9 @@ fn react_native_profile_appears_in_json_when_present() {
     assert_eq!(rn["has_ios"], true);
     assert_eq!(rn["has_android"], true);
     assert_eq!(rn["android_new_arch_enabled"], true);
+    assert_eq!(rn["expo_new_arch_enabled"], true);
     assert!(rn["ios_new_arch_enabled"].is_null());
     assert_eq!(rn["hermes_enabled"], true);
+    assert_eq!(rn["package_manager"], "npm");
     assert_eq!(rn["has_codegen_config"], true);
 }

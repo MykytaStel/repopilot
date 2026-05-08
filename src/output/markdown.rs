@@ -1,6 +1,7 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
 use crate::frameworks::DetectedFramework;
+use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::render_helpers::escape_table_cell;
 use crate::scan::types::ScanSummary;
@@ -48,6 +49,7 @@ pub fn render(summary: &ScanSummary) -> String {
     }
 
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.framework_projects);
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
@@ -180,6 +182,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     }
 
     render_frameworks_section(&mut output, &summary.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.framework_projects);
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
@@ -254,6 +257,11 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
 
     let version = rn.react_native_version.as_deref().unwrap_or("unknown");
     output.push_str(&format!("- **Version:** {version}\n"));
+    output.push_str(&format!("- **Project kind:** `{:?}`\n", rn.project_kind));
+    output.push_str(&format!(
+        "- **Package manager:** {}\n",
+        rn.package_manager.as_deref().unwrap_or("unknown")
+    ));
 
     output.push_str(&format!(
         "- **iOS:** {}\n",
@@ -278,6 +286,10 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     output.push_str(&format!(
         "- **iOS New Architecture:** {}\n",
         format_tristate(rn.ios_new_arch_enabled)
+    ));
+    output.push_str(&format!(
+        "- **Expo New Architecture:** {}\n",
+        format_tristate(rn.expo_new_arch_enabled)
     ));
     output.push_str(&format!(
         "- **Hermes:** {}\n",
@@ -308,6 +320,29 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
     output.push_str("## Frameworks\n\n");
     output.push_str(&format!("{}\n\n", labels.join(" · ")));
+}
+
+fn render_framework_projects_section(output: &mut String, projects: &[FrameworkProject]) {
+    let nested_projects: Vec<_> = projects
+        .iter()
+        .filter(|project| project.path.as_path() != std::path::Path::new("."))
+        .collect();
+    if nested_projects.is_empty() {
+        return;
+    }
+
+    output.push_str("## Framework Projects\n\n");
+    output.push_str("| Path | Frameworks |\n");
+    output.push_str("| --- | --- |\n");
+    for project in nested_projects {
+        let labels: Vec<String> = project.frameworks.iter().map(|f| f.label()).collect();
+        output.push_str(&format!(
+            "| `{}` | {} |\n",
+            project.path.display(),
+            escape_table_cell(&labels.join(", "))
+        ));
+    }
+    output.push('\n');
 }
 
 fn render_evidence(finding: &crate::findings::types::Finding) -> String {

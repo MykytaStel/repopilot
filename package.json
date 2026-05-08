@@ -1,0 +1,38 @@
+{
+  "name": "repopilot",
+  "version": "0.6.0",
+  "description": "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MykytaStel/repopilot.git"
+  },
+  "homepage": "https://github.com/MykytaStel/repopilot#readme",
+  "bugs": {
+    "url": "https://github.com/MykytaStel/repopilot/issues"
+  },
+  "bin": {
+    "repopilot": "bin/repopilot.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "test:npm": "node --test tests/npm_wrapper.test.js"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "cli",
+    "audit",
+    "code-review",
+    "static-analysis",
+    "architecture",
+    "react-native"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -11,6 +11,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Planned AI-ready review context export.
 - Planned Change Risk Map.
 
+## [0.6.0] - 2026-05-08
+
+### Added
+
+- Added JavaScript, React, and React Native framework audits.
+- Added React Native architecture profiling for project kind, Expo config, Android/iOS New Architecture, Hermes, Codegen, package manager, and platform mismatch signals.
+- Added framework project detection for JavaScript workspaces through `package.json` workspaces.
+- Added React Native findings for architecture mismatch, Hermes mismatch, missing Codegen config, AsyncStorage from core, old React Navigation imports, and direct state mutation.
+- Added npm package wrapper for installing RepoPilot as a Node CLI package.
+- Added React Native documentation, sample report, baseline + SARIF workflow example, release template, labels metadata, and v0.7 roadmap notes.
+
+### Changed
+
+- React Native old-architecture detection now uses the shared architecture profile instead of duplicate config string checks.
+- Release workflow now validates npm packaging and can publish the npm package when `NPM_TOKEN` is configured.
+
 ## [0.5.0] - 2026-05-07
 
 ### Added
@@ -92,7 +108,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...v0.3.0

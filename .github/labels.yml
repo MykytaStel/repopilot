@@ -1,0 +1,15 @@
+- name: react-native
+  color: "61dafb"
+  description: React Native and Expo framework analysis
+- name: framework-analysis
+  color: "0e8a16"
+  description: Framework detection, profile, and audit behavior
+- name: release
+  color: "5319e7"
+  description: Release process, packaging, and distribution
+- name: docs
+  color: "0075ca"
+  description: Documentation and examples
+- name: good-first-issue
+  color: "7057ff"
+  description: Small, well-scoped issue suitable for new contributors

@@ -1,6 +1,7 @@
 use crate::audits::framework::js_common::{is_comment_line, is_js_file};
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 use std::path::PathBuf;
@@ -11,11 +12,15 @@ pub struct ReactNativeOldArchAudit;
 
 impl ProjectAudit for ReactNativeOldArchAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
-        if check_new_arch_enabled(&facts.root_path) {
+        let Some(profile) = &facts.react_native else {
+            return vec![];
+        };
+
+        if any_new_arch_enabled(profile) && !any_new_arch_disabled(profile) {
             return vec![];
         }
 
-        let (evidence_path, snippet) = config_file_evidence(&facts.root_path);
+        let (evidence_path, snippet) = profile_config_evidence(&facts.root_path, profile);
 
         vec![Finding {
             id: String::new(),
@@ -39,43 +44,146 @@ impl ProjectAudit for ReactNativeOldArchAudit {
     }
 }
 
-fn check_new_arch_enabled(root: &std::path::Path) -> bool {
-    // Check both Expo (app.json/app.config.*) and bare RN (react-native.config.js)
-    for name in [
-        "app.json",
-        "app.config.js",
-        "app.config.ts",
-        "react-native.config.js",
-    ] {
-        if let Ok(content) = std::fs::read_to_string(root.join(name)) {
-            if content.contains("\"newArchEnabled\": true")
-                || content.contains("\"newArchEnabled\":true")
-                || content.contains("newArchEnabled: true")
-            {
-                return true;
-            }
-        }
-    }
-    false
+fn any_new_arch_enabled(profile: &ReactNativeArchitectureProfile) -> bool {
+    [
+        profile.android_new_arch_enabled,
+        profile.ios_new_arch_enabled,
+        profile.expo_new_arch_enabled,
+    ]
+    .into_iter()
+    .any(|value| value == Some(true))
 }
 
-fn config_file_evidence(root: &std::path::Path) -> (PathBuf, String) {
-    for name in [
-        "app.json",
-        "app.config.js",
-        "app.config.ts",
-        "react-native.config.js",
-    ] {
-        let path = root.join(name);
-        if path.exists() {
-            return (path, format!("newArchEnabled not set to true in {name}"));
+fn any_new_arch_disabled(profile: &ReactNativeArchitectureProfile) -> bool {
+    [
+        profile.android_new_arch_enabled,
+        profile.ios_new_arch_enabled,
+        profile.expo_new_arch_enabled,
+    ]
+    .into_iter()
+    .any(|value| value == Some(false))
+}
+
+fn profile_config_evidence(
+    root: &std::path::Path,
+    profile: &ReactNativeArchitectureProfile,
+) -> (PathBuf, String) {
+    if profile.android_gradle_properties_found {
+        return (
+            root.join("android/gradle.properties"),
+            "newArchEnabled is not enabled for Android".to_string(),
+        );
+    }
+    if profile.ios_podfile_properties_found {
+        return (
+            root.join("ios/Podfile.properties.json"),
+            "newArchEnabled is not enabled for iOS".to_string(),
+        );
+    }
+    if profile.ios_podfile_found {
+        return (
+            root.join("ios/Podfile"),
+            "new_arch_enabled is not enabled for iOS".to_string(),
+        );
+    }
+    for name in ["app.json", "app.config.js", "app.config.ts"] {
+        if root.join(name).exists() {
+            return (
+                root.join(name),
+                format!("newArchEnabled not set to true in {name}"),
+            );
         }
     }
+
     (
         root.to_path_buf(),
-        "No app.json / app.config.js / react-native.config.js found; newArchEnabled not configured"
-            .to_string(),
+        "No React Native New Architecture configuration found".to_string(),
     )
+}
+
+// ── Architecture mismatch ────────────────────────────────────────────────────
+
+pub struct ReactNativeArchitectureMismatchAudit;
+
+impl ProjectAudit for ReactNativeArchitectureMismatchAudit {
+    fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
+        let Some(profile) = &facts.react_native else {
+            return vec![];
+        };
+        if !profile.architecture_mismatch {
+            return vec![];
+        }
+
+        vec![Finding {
+            id: String::new(),
+            rule_id: "framework.react-native.architecture-mismatch".to_string(),
+            title: "React Native New Architecture settings differ by platform".to_string(),
+            description: concat!(
+                "Android, iOS, or Expo configuration disagree about React Native New Architecture. ",
+                "Align these settings so local builds, CI builds, and release builds run the same runtime."
+            )
+            .to_string(),
+            category: FindingCategory::Framework,
+            severity: Severity::High,
+            evidence: vec![Evidence {
+                path: profile_config_evidence(&facts.root_path, profile).0,
+                line_start: 1,
+                line_end: None,
+                snippet: format!(
+                    "android={}; ios={}; expo={}",
+                    format_bool(profile.android_new_arch_enabled),
+                    format_bool(profile.ios_new_arch_enabled),
+                    format_bool(profile.expo_new_arch_enabled)
+                ),
+            }],
+        }]
+    }
+}
+
+// ── Hermes mismatch ──────────────────────────────────────────────────────────
+
+pub struct HermesMismatchAudit;
+
+impl ProjectAudit for HermesMismatchAudit {
+    fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
+        let Some(profile) = &facts.react_native else {
+            return vec![];
+        };
+        if !profile.hermes_mismatch {
+            return vec![];
+        }
+
+        vec![Finding {
+            id: String::new(),
+            rule_id: "framework.react-native.hermes-mismatch".to_string(),
+            title: "Hermes settings differ between Android and iOS".to_string(),
+            description: concat!(
+                "Hermes is configured differently across platforms. ",
+                "Align Android and iOS Hermes settings to avoid platform-specific runtime and performance behavior."
+            )
+            .to_string(),
+            category: FindingCategory::Framework,
+            severity: Severity::Medium,
+            evidence: vec![Evidence {
+                path: facts.root_path.clone(),
+                line_start: 1,
+                line_end: None,
+                snippet: format!(
+                    "android={}; ios={}",
+                    format_bool(profile.android_hermes_enabled),
+                    format_bool(profile.ios_hermes_enabled)
+                ),
+            }],
+        }]
+    }
+}
+
+fn format_bool(value: Option<bool>) -> &'static str {
+    match value {
+        Some(true) => "enabled",
+        Some(false) => "disabled",
+        None => "unknown",
+    }
 }
 
 // ── AsyncStorage from core ────────────────────────────────────────────────────
@@ -225,6 +333,57 @@ impl ProjectAudit for HermesDisabledAudit {
 
         findings
     }
+}
+
+// ── Codegen missing ───────────────────────────────────────────────────────────
+
+pub struct ReactNativeCodegenMissingAudit;
+
+impl ProjectAudit for ReactNativeCodegenMissingAudit {
+    fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
+        let Some(profile) = &facts.react_native else {
+            return vec![];
+        };
+        if profile.has_codegen_config || !has_codegen_usage_signal(facts) {
+            return vec![];
+        }
+
+        vec![Finding {
+            id: String::new(),
+            rule_id: "framework.react-native.codegen-missing".to_string(),
+            title: "React Native Codegen config is missing".to_string(),
+            description: concat!(
+                "This project appears to use Turbo Native Modules or Fabric components, ",
+                "but package.json does not define codegenConfig. ",
+                "Add codegenConfig so React Native can generate native interfaces consistently."
+            )
+            .to_string(),
+            category: FindingCategory::Framework,
+            severity: Severity::Medium,
+            evidence: vec![Evidence {
+                path: facts.root_path.join("package.json"),
+                line_start: 1,
+                line_end: None,
+                snippet: "codegenConfig missing while Codegen usage was detected".to_string(),
+            }],
+        }]
+    }
+}
+
+fn has_codegen_usage_signal(facts: &ScanFacts) -> bool {
+    facts
+        .files
+        .iter()
+        .filter(|file| is_js_file(&file.path))
+        .any(|file| {
+            std::fs::read_to_string(&file.path)
+                .map(|content| {
+                    content.contains("TurboModuleRegistry")
+                        || content.contains("codegenNativeComponent")
+                        || (content.contains("TurboModule") && content.contains("react-native"))
+                })
+                .unwrap_or(false)
+        })
 }
 
 /// Returns true when gradle.properties explicitly disables Hermes.
@@ -416,6 +575,10 @@ mod tests {
     fn facts_for(root: &std::path::Path) -> ScanFacts {
         ScanFacts {
             root_path: root.to_path_buf(),
+            react_native: Some(ReactNativeArchitectureProfile {
+                detected: true,
+                ..ReactNativeArchitectureProfile::default()
+            }),
             ..ScanFacts::default()
         }
     }
@@ -455,8 +618,14 @@ mod tests {
             r#"{{"expo": {{"newArchEnabled": true}}}}"#
         )
         .unwrap();
-        let findings =
-            ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            has_expo_config: true,
+            expo_new_arch_enabled: Some(true),
+            ..ReactNativeArchitectureProfile::default()
+        });
+        let findings = ReactNativeOldArchAudit.audit(&facts, &ScanConfig::default());
         assert!(findings.is_empty());
     }
 
@@ -468,8 +637,101 @@ mod tests {
             "module.exports = {{ newArchEnabled: true }};"
         )
         .unwrap();
-        let findings =
-            ReactNativeOldArchAudit.audit(&facts_for(dir.path()), &ScanConfig::default());
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            expo_new_arch_enabled: Some(true),
+            ..ReactNativeArchitectureProfile::default()
+        });
+        let findings = ReactNativeOldArchAudit.audit(&facts, &ScanConfig::default());
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn architecture_mismatch_is_flagged() {
+        let dir = tempdir().unwrap();
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            android_new_arch_enabled: Some(false),
+            ios_new_arch_enabled: Some(true),
+            architecture_mismatch: true,
+            ..ReactNativeArchitectureProfile::default()
+        });
+
+        let findings = ReactNativeArchitectureMismatchAudit.audit(&facts, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.architecture-mismatch"
+        );
+        assert_eq!(findings[0].severity, Severity::High);
+    }
+
+    #[test]
+    fn hermes_mismatch_is_flagged() {
+        let dir = tempdir().unwrap();
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            android_hermes_enabled: Some(true),
+            ios_hermes_enabled: Some(false),
+            hermes_mismatch: true,
+            ..ReactNativeArchitectureProfile::default()
+        });
+
+        let findings = HermesMismatchAudit.audit(&facts, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.hermes-mismatch"
+        );
+        assert_eq!(findings[0].severity, Severity::Medium);
+    }
+
+    #[test]
+    fn codegen_missing_is_flagged_when_turbo_module_signal_exists() {
+        let dir = tempdir().unwrap();
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            has_codegen_config: false,
+            ..ReactNativeArchitectureProfile::default()
+        });
+        facts.files.push(jsx_file(
+            &dir,
+            "NativeLocalStorage.ts",
+            "import type { TurboModule } from 'react-native';\nexport interface Spec extends TurboModule {}\n",
+        ));
+
+        let findings = ReactNativeCodegenMissingAudit.audit(&facts, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].rule_id,
+            "framework.react-native.codegen-missing"
+        );
+    }
+
+    #[test]
+    fn codegen_missing_is_skipped_when_config_exists() {
+        let dir = tempdir().unwrap();
+        let mut facts = facts_for(dir.path());
+        facts.react_native = Some(ReactNativeArchitectureProfile {
+            detected: true,
+            has_codegen_config: true,
+            ..ReactNativeArchitectureProfile::default()
+        });
+        facts.files.push(jsx_file(
+            &dir,
+            "NativeLocalStorage.ts",
+            "import type { TurboModule } from 'react-native';\nexport interface Spec extends TurboModule {}\n",
+        ));
+
+        let findings = ReactNativeCodegenMissingAudit.audit(&facts, &ScanConfig::default());
+
         assert!(findings.is_empty());
     }
 
