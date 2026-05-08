@@ -18,6 +18,7 @@ pub mod baseline;
 pub mod compare;
 pub mod config;
 pub mod findings;
+pub mod frameworks;
 pub mod graph;
 pub mod output;
 pub mod report;

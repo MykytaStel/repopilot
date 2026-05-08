@@ -1,6 +1,7 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::{Finding, Severity};
+use crate::frameworks::DetectedFramework;
 use crate::output::color;
 use crate::scan::types::ScanSummary;
 
@@ -37,6 +38,7 @@ pub fn render(summary: &ScanSummary) -> String {
     }
 
     output.push('\n');
+    render_frameworks_section(&mut output, &summary.detected_frameworks);
     render_findings_section(&mut output, &summary.findings);
 
     output
@@ -89,6 +91,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     }
 
     output.push('\n');
+    render_frameworks_section(&mut output, &summary.detected_frameworks);
 
     if summary.findings.is_empty() {
         output.push_str("Findings: none\n");
@@ -195,4 +198,12 @@ fn severity_index(s: Severity) -> usize {
         Severity::Low => 3,
         Severity::Info => 4,
     }
+}
+
+fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramework]) {
+    if frameworks.is_empty() {
+        return;
+    }
+    let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
+    output.push_str(&format!("Frameworks: {}\n\n", labels.join(" \u{00b7} ")));
 }

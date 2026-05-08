@@ -1,5 +1,6 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
+use crate::frameworks::DetectedFramework;
 use crate::output::render_helpers::escape_table_cell;
 use crate::scan::types::ScanSummary;
 
@@ -44,6 +45,8 @@ pub fn render(summary: &ScanSummary) -> String {
 
         output.push('\n');
     }
+
+    render_frameworks_section(&mut output, &summary.detected_frameworks);
 
     output.push_str("## Findings\n\n");
 
@@ -172,6 +175,8 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         output.push('\n');
     }
 
+    render_frameworks_section(&mut output, &summary.detected_frameworks);
+
     output.push_str("## Findings\n\n");
 
     if summary.findings.is_empty() {
@@ -235,6 +240,15 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     }
 
     output
+}
+
+fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramework]) {
+    if frameworks.is_empty() {
+        return;
+    }
+    let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
+    output.push_str("## Frameworks\n\n");
+    output.push_str(&format!("{}\n\n", labels.join(" · ")));
 }
 
 fn render_evidence(finding: &crate::findings::types::Finding) -> String {

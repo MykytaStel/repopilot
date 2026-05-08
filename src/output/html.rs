@@ -5,12 +5,14 @@ use crate::scan::types::ScanSummary;
 pub fn render(summary: &ScanSummary) -> String {
     let cards = render_summary_cards(summary);
     let languages_section = render_languages_section(summary);
+    let frameworks_section = render_frameworks_section(summary);
     let findings_section = render_findings_section(summary);
     render_document(
         &summary.root_path.to_string_lossy(),
         "",
         &cards,
         &languages_section,
+        &frameworks_section,
         &findings_section,
     )
 }
@@ -18,6 +20,7 @@ pub fn render(summary: &ScanSummary) -> String {
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
     let cards = render_baseline_summary_cards(report);
     let languages_section = render_languages_section(&report.summary);
+    let frameworks_section = render_frameworks_section(&report.summary);
     let findings_section = render_baseline_findings_section(report);
     let baseline_meta = render_baseline_meta(report, ci_gate);
 
@@ -26,6 +29,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         &baseline_meta,
         &cards,
         &languages_section,
+        &frameworks_section,
         &findings_section,
     )
 }
@@ -35,6 +39,7 @@ fn render_document(
     baseline_meta: &str,
     cards: &str,
     languages_section: &str,
+    frameworks_section: &str,
     findings_section: &str,
 ) -> String {
     format!(
@@ -84,7 +89,7 @@ fn render_document(
 
 <h2>Languages</h2>
 {languages_section}
-
+{frameworks_section}
 <h2>Findings</h2>
 <div class="filter-bar" id="filter-bar"></div>
 {findings_section}
@@ -116,6 +121,7 @@ fn render_document(
         baseline_meta = baseline_meta,
         cards = cards,
         languages_section = languages_section,
+        frameworks_section = frameworks_section,
         findings_section = findings_section,
     )
 }
@@ -196,6 +202,26 @@ fn render_languages_section(summary: &ScanSummary) -> String {
 
     format!(
         "<table><thead><tr><th>Language</th><th class=\"num\">Files</th></tr></thead><tbody>{rows}</tbody></table>"
+    )
+}
+
+fn render_frameworks_section(summary: &ScanSummary) -> String {
+    if summary.detected_frameworks.is_empty() {
+        return String::new();
+    }
+    let labels: Vec<String> = summary
+        .detected_frameworks
+        .iter()
+        .map(|f| {
+            format!(
+                "<span class=\"badge low\">{}</span>",
+                escape_html(&f.label())
+            )
+        })
+        .collect();
+    format!(
+        "<h2>Frameworks</h2><p class=\"meta\">{}</p>\n",
+        labels.join(" ")
     )
 }
 

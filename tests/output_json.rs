@@ -16,6 +16,7 @@ fn renders_valid_json_scan_summary() {
             files_count: 1,
         }],
         findings: vec![],
+        detected_frameworks: vec![],
         coupling_graph: None,
     };
 
