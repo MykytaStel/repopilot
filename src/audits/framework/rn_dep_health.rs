@@ -198,7 +198,11 @@ fn read_all_deps(root: &std::path::Path) -> Option<serde_json::Map<String, serde
             }
         }
     }
-    if merged.is_empty() { None } else { Some(merged) }
+    if merged.is_empty() {
+        None
+    } else {
+        Some(merged)
+    }
 }
 
 /// Parse a semver-like version string into (major, minor, patch).
@@ -210,7 +214,12 @@ fn parse_version(s: &str) -> Option<(u64, u64, u64)> {
         .trim();
     let parts: Vec<&str> = s.splitn(4, '.').collect();
     let major = parts.first()?.parse::<u64>().ok()?;
-    let minor = parts.get(1).unwrap_or(&"0").parse::<u64>().ok().unwrap_or(0);
+    let minor = parts
+        .get(1)
+        .unwrap_or(&"0")
+        .parse::<u64>()
+        .ok()
+        .unwrap_or(0);
     let patch = parts
         .get(2)
         .map(|p| p.split('-').next().unwrap_or("0"))

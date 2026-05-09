@@ -111,7 +111,11 @@ fn package_name_from_path(path: &Path) -> Option<String> {
         .and_then(|p| p.get("name"))
         .and_then(|n| n.as_str())
         .map(str::to_string)
-        .or_else(|| path.file_name().and_then(|n| n.to_str()).map(str::to_string))
+        .or_else(|| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .map(str::to_string)
+        })
 }
 
 fn workspace_glob_patterns(value: &serde_json::Value) -> Vec<String> {
@@ -178,8 +182,12 @@ fn packages_from_patterns(root: &Path, patterns: &[String]) -> Vec<WorkspacePack
 
         for dir in dirs {
             if dir.join("package.json").is_file() {
-                let name = npm_package_name(&dir)
-                    .unwrap_or_else(|| dir.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                let name = npm_package_name(&dir).unwrap_or_else(|| {
+                    dir.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned()
+                });
                 packages.push(WorkspacePackage { name, root: dir });
             }
         }
@@ -190,7 +198,10 @@ fn packages_from_patterns(root: &Path, patterns: &[String]) -> Vec<WorkspacePack
 fn npm_package_name(path: &Path) -> Option<String> {
     let content = std::fs::read_to_string(path.join("package.json")).ok()?;
     let value: serde_json::Value = serde_json::from_str(&content).ok()?;
-    value.get("name").and_then(|n| n.as_str()).map(str::to_string)
+    value
+        .get("name")
+        .and_then(|n| n.as_str())
+        .map(str::to_string)
 }
 
 fn child_dirs(path: &Path) -> Vec<PathBuf> {
