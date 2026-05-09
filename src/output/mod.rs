@@ -1,8 +1,10 @@
 pub mod color;
 pub mod console;
+pub mod harden;
 pub mod html;
 pub mod json;
 pub mod markdown;
+pub mod prompt;
 pub(crate) mod render_helpers;
 pub mod sarif;
 pub mod vibe;

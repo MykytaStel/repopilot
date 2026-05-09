@@ -8,11 +8,11 @@ branding:
 
 inputs:
   command:
-    description: "Command to run: scan | review | compare"
+    description: "Command to run: scan | review | compare | vibe | harden | prompt"
     required: false
     default: "scan"
   format:
-    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare."
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare; vibe/harden/prompt emit Markdown and accept auto/markdown."
     required: false
     default: "auto"
   args:
@@ -47,7 +47,11 @@ runs:
         COMMAND="${{ inputs.command }}"
         ARGS="${{ inputs.args }}"
         FORMAT="${{ inputs.format }}"
-        if [[ "$COMMAND" == "scan" && -z "$ARGS" ]]; then
+        if [[ "$COMMAND" != "scan" && "$COMMAND" != "review" && "$COMMAND" != "compare" && "$COMMAND" != "vibe" && "$COMMAND" != "harden" && "$COMMAND" != "prompt" ]]; then
+          echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, vibe, harden, or prompt."
+          exit 1
+        fi
+        if [[ ("$COMMAND" == "scan" || "$COMMAND" == "vibe" || "$COMMAND" == "harden" || "$COMMAND" == "prompt") && -z "$ARGS" ]]; then
           ARGS="."
         fi
         if [[ "$FORMAT" == "auto" ]]; then
@@ -58,11 +62,17 @@ runs:
           fi
         fi
         if [[ "$FORMAT" == "sarif" && "$COMMAND" != "scan" ]]; then
-          echo "::error::SARIF output is only supported by 'scan'. Use format=markdown or format=json for '$COMMAND'."
+          echo "::error::SARIF output and upload are only supported by 'scan'. Use format=markdown for '$COMMAND'."
           exit 1
         fi
         OUTFILE="repopilot-results.sarif"
-        if [[ "$FORMAT" == "sarif" ]]; then
+        if [[ "$COMMAND" == "vibe" || "$COMMAND" == "harden" || "$COMMAND" == "prompt" ]]; then
+          if [[ "$FORMAT" != "markdown" ]]; then
+            echo "::error::'$COMMAND' emits Markdown and does not accept --format. Use format=auto or format=markdown."
+            exit 1
+          fi
+          repopilot "$COMMAND" $ARGS
+        elif [[ "$FORMAT" == "sarif" ]]; then
           repopilot "$COMMAND" $ARGS --format sarif --output "$OUTFILE"
           echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
         else

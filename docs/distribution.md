@@ -71,11 +71,13 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 
 ## Publishing Policy
 
-The release workflow runs `cargo publish --dry-run` for release tags. Publishing is automated when the corresponding secrets are configured:
+The release workflow runs `cargo publish --dry-run` for release tags. Publishing is automated when the corresponding channel is configured:
 
 - `CRATES_IO_TOKEN` publishes the crate to crates.io.
-- `NPM_TOKEN` publishes the npm package.
+- `publish-npm.yml` publishes the npm package through npm Trusted Publishing / GitHub OIDC, without an npm token secret.
 - `HOMEBREW_TAP_TOKEN` updates the Homebrew tap formula.
+
+If an optional publishing secret is absent, that channel is skipped without failing the release workflow. The GitHub Release binaries are still built and attached.
 
 Before publishing:
 

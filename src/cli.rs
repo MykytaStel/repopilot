@@ -273,6 +273,75 @@ repopilot vibe . --no-header | pbcopy"
         no_header: bool,
     },
 
+    /// Generate a prioritized remediation plan from scan findings (alias: h)
+    #[command(
+        alias = "h",
+        about = "Generate a prioritized remediation plan from scan findings",
+        long_about = "Scans the repository and formats findings as a deterministic hardening plan.\n\n\
+The output is Markdown with P0/P1/P2/P3 priorities, locations, rule IDs,\n\
+recommendations, and verification commands. It runs fully locally and does not\n\
+call an AI service.",
+        after_help = "EXAMPLES:\n  \
+repopilot harden .\n  \
+repopilot harden . --focus security\n  \
+repopilot harden . --budget 8k\n  \
+repopilot harden . --output harden.md"
+    )]
+    Harden {
+        /// Path to project, folder, or file
+        path: PathBuf,
+
+        /// Path to a RepoPilot config file
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        /// Limit output to a single category: security, arch, architecture, quality, framework, all
+        #[arg(long, value_parser = ["security", "arch", "architecture", "quality", "framework", "all"])]
+        focus: Option<String>,
+
+        /// Target token budget for output: 2k, 4k, 8k, 16k (default: 4k)
+        #[arg(long, value_parser = parse_vibe_budget)]
+        budget: Option<usize>,
+
+        /// Write output to a file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
+    /// Generate an AI-ready remediation prompt from scan findings (alias: p)
+    #[command(
+        alias = "p",
+        about = "Generate an AI-ready remediation prompt from scan findings",
+        long_about = "Scans the repository and emits a Markdown prompt with local RepoPilot context.\n\n\
+Use it when you want to paste a single instruction block into Claude Code,\n\
+Cursor, ChatGPT, or another coding assistant. RepoPilot only generates the\n\
+prompt locally; it does not call an AI service.",
+        after_help = "EXAMPLES:\n  \
+repopilot prompt .\n  \
+repopilot prompt . --focus security --budget 2k\n  \
+repopilot prompt . --output prompt.md"
+    )]
+    Prompt {
+        /// Path to project, folder, or file
+        path: PathBuf,
+
+        /// Path to a RepoPilot config file
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        /// Limit output to a single category: security, arch, architecture, quality, framework, all
+        #[arg(long, value_parser = ["security", "arch", "architecture", "quality", "framework", "all"])]
+        focus: Option<String>,
+
+        /// Target token budget for embedded context: 2k, 4k, 8k, 16k (default: 4k)
+        #[arg(long, value_parser = parse_vibe_budget)]
+        budget: Option<usize>,
+
+        /// Write output to a file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
     /// Generate a default repopilot.toml configuration file
     #[command(
         about = "Generate a default repopilot.toml configuration file",

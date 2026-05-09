@@ -14,6 +14,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   - `--focus security|arch|quality|framework|all` — restrict output to one category.
   - `--budget 2k|4k|8k|16k` — control approximate output token count (default: 4k).
   - `--no-header` — omit the intro block for piping into an LLM API.
+- Added `repopilot harden` command (alias: `h`): scans a project and emits a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, recommendations, and verification commands.
+- Added `repopilot prompt` command (alias: `p`): scans a project and emits a paste-ready Markdown remediation prompt with embedded RepoPilot context.
 - Added `--preset strict|balanced|lenient` flag to `scan` command for one-shot threshold tuning without editing `repopilot.toml`.
   - `strict`: tighter thresholds — catches more issues, suitable for green-field projects.
   - `balanced`: factory defaults.
@@ -22,6 +24,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- First-party GitHub Action now supports `command: vibe`, `command: harden`, and `command: prompt` without passing unsupported `--format` flags.
+- Release publishing keeps npm Trusted Publishing in `publish-npm.yml`; optional crates.io and Homebrew channels are skipped when their secrets are absent.
 - Workspace scans (`--workspace`) now run per-package scans in parallel using rayon, giving roughly 50% speedup on monorepos with ten or more packages.
 - Import deduplication in the coupling graph now uses `HashSet` instead of `BTreeSet`, reducing import extraction time by 3-7% on large TypeScript/Rust projects.
 - Coupling graph construction avoids a redundant `PathBuf` clone per file; `compute_metrics` no longer pre-allocates two full-size maps — both reduce allocations on large graphs.

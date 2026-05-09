@@ -1,6 +1,8 @@
 pub mod baseline;
 pub mod compare;
+pub mod harden;
 pub mod init;
+pub mod prompt;
 pub mod review;
 pub mod scan;
 pub mod vibe;
@@ -81,6 +83,22 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } => compare::run(before, after, format, output),
 
         Commands::Init { force, path } => init::run(force, path),
+
+        Commands::Harden {
+            path,
+            config,
+            focus,
+            budget,
+            output,
+        } => harden::run(path, config, focus, budget, output),
+
+        Commands::Prompt {
+            path,
+            config,
+            focus,
+            budget,
+            output,
+        } => prompt::run(path, config, focus, budget, output),
 
         Commands::Vibe {
             path,
