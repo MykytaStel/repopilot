@@ -60,7 +60,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         finding.id = stable_finding_key(finding, path);
     }
 
-    let scan_duration_ms = start.elapsed().as_millis() as u64;
+    let scan_duration_us = start.elapsed().as_micros() as u64;
 
     Ok(ScanSummary {
         root_path: facts.root_path,
@@ -75,7 +75,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         react_native: react_native_profile,
         findings,
         coupling_graph: Some(coupling_graph),
-        scan_duration_ms,
+        scan_duration_us,
     })
 }
 

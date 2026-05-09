@@ -32,7 +32,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         }],
         react_native: None,
         coupling_graph: None,
-        scan_duration_ms: 0,
+        scan_duration_us: 0,
     };
 
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");

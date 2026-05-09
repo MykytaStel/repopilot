@@ -19,10 +19,10 @@ pub fn render(summary: &ScanSummary) -> String {
         summary.directories_count
     ));
     output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
-    if summary.scan_duration_ms > 0 {
+    if summary.scan_duration_us > 0 {
         output.push_str(&format!(
             "Scan time: {:.2}s\n",
-            summary.scan_duration_ms as f64 / 1000.0
+            summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
     output.push('\n');
@@ -75,10 +75,10 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         summary.directories_count
     ));
     output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
-    if summary.scan_duration_ms > 0 {
+    if summary.scan_duration_us > 0 {
         output.push_str(&format!(
             "Scan time: {:.2}s\n",
-            summary.scan_duration_ms as f64 / 1000.0
+            summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
     output.push('\n');

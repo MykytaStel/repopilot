@@ -36,17 +36,25 @@ fn parallel_scan_matches_sequential_file_counts() {
     );
 }
 
-/// Verifies that scan_duration_ms is recorded and non-zero.
+/// Verifies that scan_duration_us is recorded. Even a trivial scan takes at least
+/// a few microseconds, so the field must be non-zero.
 #[test]
 fn scan_duration_is_recorded() {
     let temp = tempdir().unwrap();
-    fs::write(temp.path().join("main.rs"), "fn main() {}\n").unwrap();
+    // Write enough files that the scan takes a measurable number of microseconds.
+    for i in 0..10 {
+        fs::write(
+            temp.path().join(format!("file_{i}.rs")),
+            format!("fn func_{i}() {{}}\n"),
+        )
+        .unwrap();
+    }
 
     let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
 
     assert!(
-        summary.scan_duration_ms > 0,
-        "scan_duration_ms should be non-zero"
+        summary.scan_duration_us > 0,
+        "scan_duration_us should be non-zero"
     );
 }
 
