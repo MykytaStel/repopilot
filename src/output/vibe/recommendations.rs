@@ -1,5 +1,6 @@
 use crate::findings::types::{Finding, Severity};
 use crate::rules::lookup_rule_metadata;
+use std::cmp::Reverse;
 use std::fmt::Write as FmtWrite;
 
 pub(super) fn render_top_recommendations(out: &mut String, findings: &[&Finding]) {
@@ -15,7 +16,7 @@ pub(super) fn render_top_recommendations(out: &mut String, findings: &[&Finding]
         })
         .collect();
 
-    top.sort_by(|a, b| b.severity.cmp(&a.severity));
+    top.sort_by_key(|finding| Reverse(finding.severity));
     top.dedup_by_key(|f| &f.rule_id);
     let top: Vec<_> = top.into_iter().take(5).collect();
 

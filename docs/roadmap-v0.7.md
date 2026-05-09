@@ -9,9 +9,11 @@ Status: v0.7 scope is implemented and this document is kept as the release plann
 - First-party GitHub Action wrapper.
 - Vibe-coding positioning in README/release messaging without adding new CLI commands.
 
-## Deferred
+## Deferred from v0.7
 
-- `repopilot vibe <path>` as a deterministic wrapper over existing scan data.
+The Vibe Check item below was delivered in v0.8.0; the remaining items are still future work.
+
+- `repopilot vibe <path>` as a deterministic wrapper over existing scan data. Delivered in v0.8.0.
 - `repopilot harden <path>` for prioritized remediation plans.
 - `repopilot prompt` and AI-ready context export.
 - Optional per-platform npm binary packages for faster installs and fewer postinstall downloads.

@@ -1,5 +1,6 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::rules::lookup_rule_metadata;
+use std::cmp::Reverse;
 use std::fmt::Write as FmtWrite;
 
 type CategoryFilter = fn(&FindingCategory) -> bool;
@@ -61,7 +62,7 @@ pub(super) fn render_findings_by_category(
         out.push('\n');
 
         let mut sorted = group.clone();
-        sorted.sort_by(|a, b| b.severity.cmp(&a.severity));
+        sorted.sort_by_key(|finding| Reverse(finding.severity));
 
         let max_per_category = if compact { 3 } else { 5 };
 

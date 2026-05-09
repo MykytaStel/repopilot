@@ -1,3 +1,4 @@
+use crate::commands::CliExit;
 use crate::commands::build_scan_config;
 use crate::commands::scan::{finish_spinner, make_spinner};
 use repopilot::config::loader::{load_default_config, load_optional_config};
@@ -10,7 +11,7 @@ pub fn run(
     path: PathBuf,
     config: Option<PathBuf>,
     focus: Option<String>,
-    budget: Option<String>,
+    budget: Option<usize>,
     output: Option<PathBuf>,
     no_header: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -21,20 +22,18 @@ pub fn run(
     let scan_config = build_scan_config(&repo_config, None, None, None);
 
     let focus_category = match focus.as_deref() {
-        Some(s) => match s.parse::<VibeCategory>() {
-            Ok(c) => Some(c),
-            Err(_) => {
-                eprintln!(
-                    "Warning: unknown focus '{}'. Expected: security, arch, quality, framework, all",
-                    s
-                );
-                None
+        Some(s) => Some(s.parse::<VibeCategory>().map_err(|_| {
+            CliExit {
+                code: 2,
+                message: format!(
+                    "Invalid focus '{s}'. Expected: security, arch, architecture, quality, framework, all"
+                ),
             }
-        },
+        })?),
         None => None,
     };
 
-    let budget_tokens = parse_budget(budget.as_deref()).unwrap_or(4096);
+    let budget_tokens = budget.unwrap_or(4096);
 
     let pb = make_spinner();
     let summary = scan_path_with_config(&path, &scan_config)?;
@@ -50,14 +49,4 @@ pub fn run(
     write_report(&rendered, output.as_deref())?;
 
     Ok(())
-}
-
-fn parse_budget(s: Option<&str>) -> Option<usize> {
-    match s? {
-        "2k" => Some(2048),
-        "4k" => Some(4096),
-        "8k" => Some(8192),
-        "16k" => Some(16384),
-        other => other.parse::<usize>().ok(),
-    }
 }

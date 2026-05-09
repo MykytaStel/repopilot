@@ -75,3 +75,21 @@ fn cli_threshold_overrides_config_threshold() {
             .is_none_or(|rule_id| rule_id != "architecture.large-file")
     }));
 }
+
+#[test]
+fn scan_rejects_unknown_preset() {
+    let temp = tempdir().expect("failed to create temp dir");
+    fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
+
+    let output = repopilot()
+        .args(["scan", ".", "--preset", "strictt"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(!output.status.success());
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be UTF-8");
+    assert!(stderr.contains("invalid value"));
+    assert!(stderr.contains("strict"));
+}

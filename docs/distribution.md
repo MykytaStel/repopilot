@@ -121,12 +121,12 @@ brew test repopilot
 
 If the tap update fails, check that the tap repo exists, the `Formula/` directory exists, `HOMEBREW_TAP_TOKEN` has write permission, and the macOS/Linux `.tar.gz` release artifacts exist.
 
-## Quick install (curl | sh)
+## Quick install (curl | bash)
 
 An `install.sh` script is provided in the repo root for one-line installs:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | bash
 ```
 
 The script detects OS and architecture, downloads the correct pre-built binary from GitHub

@@ -63,6 +63,13 @@ repopilot scan . --max-directory-modules 30
 repopilot scan . --max-directory-depth 8
 ```
 
+Use presets for one-shot tuning without editing config:
+
+```bash
+repopilot scan . --preset strict
+repopilot scan . --preset lenient
+```
+
 ### Filtering by severity
 
 Use `--min-severity` to reduce local report noise while keeping the same rules enabled:
@@ -71,6 +78,27 @@ Use `--min-severity` to reduce local report noise while keeping the same rules e
 repopilot scan . --min-severity high
 repopilot review . --min-severity high
 ```
+
+Use `--verbose` when you need scan and render timing:
+
+```bash
+repopilot scan . --verbose
+```
+
+---
+
+## Vibe Check for LLM workflows
+
+`repopilot vibe` scans the project and emits structured Markdown with risk summary, grouped findings, evidence snippets, recommendations, and an approximate token count.
+
+```bash
+repopilot vibe .
+repopilot vibe . --focus security --budget 2k
+repopilot vibe . --output vibe.md
+repopilot vibe . --no-header | pbcopy
+```
+
+Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
 
 ---
 
@@ -175,7 +203,7 @@ For SARIF upload to GitHub Code Scanning:
   run: repopilot scan . --format sarif --output repopilot.sarif
 
 - name: Upload to GitHub Code Scanning
-  uses: github/codeql-action/upload-sarif@v3
+  uses: github/codeql-action/upload-sarif@v4
   if: always()
   with:
     sarif_file: repopilot.sarif

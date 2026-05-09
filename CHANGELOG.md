@@ -141,7 +141,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.7.0
 [0.6.0]: https://www.npmjs.com/package/repopilot/v/0.6.0
 [0.5.0]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...v0.5.0

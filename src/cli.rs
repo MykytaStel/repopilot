@@ -155,7 +155,7 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30"
         verbose: bool,
 
         /// Apply a threshold preset: strict, balanced (default), lenient
-        #[arg(long)]
+        #[arg(long, value_parser = ["strict", "balanced", "lenient"])]
         preset: Option<String>,
     },
 
@@ -256,13 +256,13 @@ repopilot vibe . --no-header | pbcopy"
         #[arg(long)]
         config: Option<PathBuf>,
 
-        /// Limit output to a single category: security, arch, quality, framework, all
-        #[arg(long)]
+        /// Limit output to a single category: security, arch, architecture, quality, framework, all
+        #[arg(long, value_parser = ["security", "arch", "architecture", "quality", "framework", "all"])]
         focus: Option<String>,
 
         /// Target token budget for output: 2k, 4k, 8k, 16k (default: 4k)
-        #[arg(long)]
-        budget: Option<String>,
+        #[arg(long, value_parser = parse_vibe_budget)]
+        budget: Option<usize>,
 
         /// Write output to a file instead of stdout
         #[arg(short, long)]
@@ -400,4 +400,22 @@ impl From<FailOnArg> for FailOn {
             FailOnArg::Critical => FailOn::Any(Severity::Critical),
         }
     }
+}
+
+fn parse_vibe_budget(value: &str) -> Result<usize, String> {
+    let tokens = match value {
+        "2k" => 2048,
+        "4k" => 4096,
+        "8k" => 8192,
+        "16k" => 16384,
+        other => other
+            .parse::<usize>()
+            .map_err(|_| "expected 2k, 4k, 8k, 16k, or a positive token count".to_string())?,
+    };
+
+    if tokens == 0 {
+        return Err("budget must be greater than zero".to_string());
+    }
+
+    Ok(tokens)
 }

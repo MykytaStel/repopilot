@@ -299,12 +299,16 @@ name: RepoPilot
 on:
   pull_request:
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   repopilot:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -319,7 +323,7 @@ jobs:
         run: repopilot scan . --format sarif --output repopilot.sarif
 
       - name: Upload to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: repopilot.sarif

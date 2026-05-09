@@ -43,10 +43,14 @@ pub fn run(
     if let Some(preset_str) = preset.as_deref() {
         match preset_str.parse::<Preset>() {
             Ok(p) => apply_preset(&mut repo_config, p),
-            Err(_) => eprintln!(
-                "Warning: unknown preset '{}'. Expected: strict, balanced, lenient",
-                preset_str
-            ),
+            Err(_) => {
+                return Err(Box::new(CliExit {
+                    code: 2,
+                    message: format!(
+                        "Invalid preset '{preset_str}'. Expected: strict, balanced, lenient"
+                    ),
+                }));
+            }
         }
     }
 

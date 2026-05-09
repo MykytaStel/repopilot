@@ -2,7 +2,7 @@
 # install.sh — downloads and installs the latest repopilot release binary.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | bash
 #
 # The binary is placed in ~/.local/bin (created if needed). If you want a system-wide
 # install, re-run with sudo and set INSTALL_DIR=/usr/local/bin.
@@ -45,16 +45,26 @@ esac
 # ── Resolve latest version ────────────────────────────────────────────────────
 
 if command -v curl >/dev/null 2>&1; then
-  FETCH="curl -fsSL"
+  fetch_stdout() {
+    curl -fsSL "$1"
+  }
+  download_file() {
+    curl -fsSL "$1" -o "$2"
+  }
 elif command -v wget >/dev/null 2>&1; then
-  FETCH="wget -qO-"
+  fetch_stdout() {
+    wget -qO- "$1"
+  }
+  download_file() {
+    wget -qO "$2" "$1"
+  }
 else
   echo "curl or wget is required" >&2
   exit 1
 fi
 
 VERSION=$(
-  $FETCH "https://api.github.com/repos/$REPO/releases/latest" |
+  fetch_stdout "https://api.github.com/repos/$REPO/releases/latest" |
   grep '"tag_name"' |
   sed 's/.*"tag_name": *"v\([^"]*\)".*/\1/'
 )
@@ -74,13 +84,33 @@ BASE_URL="https://github.com/$REPO/releases/download/v$VERSION"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-$FETCH "$BASE_URL/$ARCHIVE" -o "$TMP_DIR/$ARCHIVE"
+download_file "$BASE_URL/$ARCHIVE" "$TMP_DIR/$ARCHIVE"
 
-if $FETCH "$BASE_URL/$ARCHIVE.sha256" -o "$TMP_DIR/$ARCHIVE.sha256" 2>/dev/null; then
-  (cd "$TMP_DIR" && sha256sum -c "$ARCHIVE.sha256" >/dev/null 2>&1) || {
+verify_checksum() {
+  archive_path="$1"
+  checksum_path="$2"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$(dirname "$archive_path")" && sha256sum -c "$(basename "$checksum_path")" >/dev/null 2>&1)
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    expected="$(awk '{print $1}' "$checksum_path")"
+    actual="$(shasum -a 256 "$archive_path" | awk '{print $1}')"
+    [ "$expected" = "$actual" ]
+    return
+  fi
+
+  echo "No SHA256 tool found; skipping checksum verification." >&2
+  return 0
+}
+
+if download_file "$BASE_URL/$ARCHIVE.sha256" "$TMP_DIR/$ARCHIVE.sha256" 2>/dev/null; then
+  if ! verify_checksum "$TMP_DIR/$ARCHIVE" "$TMP_DIR/$ARCHIVE.sha256"; then
     echo "SHA256 verification failed — aborting." >&2
     exit 1
-  }
+  fi
 fi
 
 # ── Extract and install ───────────────────────────────────────────────────────

@@ -52,26 +52,12 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         if !lower.contains(key) {
             return false;
         }
-        // Must be followed by = or : and a non-empty quoted or unquoted value
-        let after_key = lower.split(key).nth(1).unwrap_or_default().trim_start();
-        let starts_assignment = after_key.starts_with('=') || after_key.starts_with(':');
-        if !starts_assignment {
-            return false;
-        }
-        let value = after_key[1..].trim();
-        // Skip empty values, placeholders, and template vars
-        let is_placeholder = value.is_empty()
-            || value.starts_with("${")
-            || value.starts_with("{{")
-            || value.starts_with("<")
-            || value == "\"\""
-            || value == "''"
-            || value == "null"
-            || value == "nil"
-            || value == "none"
-            || value == "your_key_here"
-            || value == "changeme";
-        !is_placeholder && value.len() > 4
+        let after_key = lower
+            .split_once(key)
+            .map(|(_, after_key)| after_key)
+            .unwrap_or_default()
+            .trim_start();
+        assigned_value_after_key(after_key).is_some_and(is_secret_literal)
     }) {
         return Some(build_finding(
             line_number,
@@ -88,6 +74,45 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         "jwt-like token",
         mask_token_in_line(line.trim(), jwt),
     ))
+}
+
+fn assigned_value_after_key(after_key: &str) -> Option<&str> {
+    let trimmed = after_key.trim_start();
+
+    if let Some(value) = trimmed.strip_prefix('=') {
+        return Some(value.trim_start());
+    }
+
+    let after_colon = trimmed.strip_prefix(':')?.trim_start();
+    if let Some((_, value)) = after_colon.split_once('=') {
+        return Some(value.trim_start());
+    }
+
+    Some(after_colon)
+}
+
+fn is_secret_literal(value: &str) -> bool {
+    let value = value.trim().trim_end_matches([',', ';']).trim();
+    let unquoted = value.trim_matches('"').trim_matches('\'');
+
+    let is_placeholder = unquoted.is_empty()
+        || unquoted.starts_with("${")
+        || unquoted.starts_with("{{")
+        || unquoted.starts_with('<')
+        || matches!(
+            unquoted,
+            "null" | "nil" | "none" | "your_key_here" | "changeme"
+        );
+
+    if is_placeholder || unquoted.len() <= 4 {
+        return false;
+    }
+
+    value.starts_with('"')
+        || value.starts_with('\'')
+        || !unquoted
+            .chars()
+            .any(|c| c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?'))
 }
 
 fn build_finding(
