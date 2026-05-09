@@ -88,15 +88,20 @@ pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
     recommendations::render_top_recommendations(&mut out, &findings);
 
     let content_len = out.len();
-    recommendations::render_footer(&mut out, content_len, opts.budget_tokens, summary.scan_duration_us);
+    recommendations::render_footer(
+        &mut out,
+        content_len,
+        opts.budget_tokens,
+        summary.scan_duration_us,
+    );
 
     out
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{render, VibeCategory, VibeOptions};
     use super::header::risk_level;
+    use super::{VibeCategory, VibeOptions, render};
     use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
     use crate::scan::types::ScanSummary;
     use std::path::PathBuf;

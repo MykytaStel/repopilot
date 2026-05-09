@@ -1,6 +1,7 @@
 use crate::cli::{FailOnArg, OutputFormatArg};
 use crate::commands::{CliExit, build_scan_config};
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
@@ -13,7 +14,6 @@ use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
-use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -150,7 +150,12 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
     // Scan packages in parallel; collect (name, result) pairs then merge sequentially.
     let pkg_results: Vec<(String, Result<_, _>)> = packages
         .par_iter()
-        .map(|pkg| (pkg.name.clone(), scan_path_with_config(&pkg.root, scan_config)))
+        .map(|pkg| {
+            (
+                pkg.name.clone(),
+                scan_path_with_config(&pkg.root, scan_config),
+            )
+        })
         .collect();
 
     for (name, result) in pkg_results {
