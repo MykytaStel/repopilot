@@ -41,6 +41,8 @@ pub struct ScanSummary {
     pub react_native: Option<ReactNativeArchitectureProfile>,
     #[serde(default)]
     pub coupling_graph: Option<CouplingGraph>,
+    #[serde(default)]
+    pub scan_duration_us: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

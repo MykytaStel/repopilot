@@ -43,6 +43,7 @@ fn renders_markdown_scan_summary() {
         framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
+        scan_duration_us: 0,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -76,6 +77,7 @@ fn renders_empty_markdown_sections() {
         framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
+        scan_duration_us: 0,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -117,6 +119,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
             ..ReactNativeArchitectureProfile::default()
         }),
         coupling_graph: None,
+        scan_duration_us: 0,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)

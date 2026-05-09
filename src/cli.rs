@@ -145,6 +145,10 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30"
         /// Scan each workspace package separately and group findings by package
         #[arg(long, short = 'w')]
         workspace: bool,
+
+        /// Only show findings at or above this severity level
+        #[arg(long, value_enum)]
+        min_severity: Option<SeverityArg>,
     },
 
     /// Review findings that touch changed Git diff lines (alias: r)
@@ -212,6 +216,10 @@ repopilot review . --format json --output review.json"
         /// Maximum directory nesting depth before flagging (default: 5)
         #[arg(long)]
         max_directory_depth: Option<usize>,
+
+        /// Only show findings at or above this severity level
+        #[arg(long, value_enum)]
+        min_severity: Option<SeverityArg>,
     },
 
     /// Generate a default repopilot.toml configuration file
@@ -283,6 +291,15 @@ pub enum CompareOutputFormatArg {
     Console,
     Json,
     Markdown,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum SeverityArg {
+    Info,
+    Low,
+    Medium,
+    High,
+    Critical,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

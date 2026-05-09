@@ -4,8 +4,9 @@ pub mod init;
 pub mod review;
 pub mod scan;
 
-use crate::cli::{Cli, Commands};
+use crate::cli::{Cli, Commands, SeverityArg};
 use repopilot::config::model::RepoPilotConfig;
+use repopilot::findings::types::Severity;
 use repopilot::scan::config::ScanConfig;
 use std::fmt;
 
@@ -22,6 +23,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_directory_modules,
             max_directory_depth,
             workspace,
+            min_severity,
         } => scan::run(
             path,
             format,
@@ -33,6 +35,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_directory_modules,
             max_directory_depth,
             workspace,
+            min_severity.map(severity_arg_into),
         ),
 
         Commands::Review {
@@ -47,6 +50,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_file_loc,
             max_directory_modules,
             max_directory_depth,
+            min_severity,
         } => review::run(
             path,
             base,
@@ -59,6 +63,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_file_loc,
             max_directory_modules,
             max_directory_depth,
+            min_severity.map(severity_arg_into),
         ),
 
         Commands::Baseline { command } => baseline::run(command),
@@ -87,6 +92,16 @@ impl fmt::Display for CliExit {
 }
 
 impl std::error::Error for CliExit {}
+
+pub fn severity_arg_into(arg: SeverityArg) -> Severity {
+    match arg {
+        SeverityArg::Info => Severity::Info,
+        SeverityArg::Low => Severity::Low,
+        SeverityArg::Medium => Severity::Medium,
+        SeverityArg::High => Severity::High,
+        SeverityArg::Critical => Severity::Critical,
+    }
+}
 
 pub fn build_scan_config(
     repo_config: &RepoPilotConfig,

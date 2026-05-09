@@ -15,16 +15,19 @@ use crate::scan::language::detect_language;
 use crate::scan::types::{LanguageSummary, ScanSummary};
 
 use ignore::WalkBuilder;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
     scan_path_with_config(path, &ScanConfig::default())
 }
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
+    let start = Instant::now();
     let file_audits = build_file_audits(config);
     let (mut facts, mut findings) = collect_and_audit_inline(path, config, &file_audits)?;
 
@@ -57,6 +60,8 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         finding.id = stable_finding_key(finding, path);
     }
 
+    let scan_duration_us = start.elapsed().as_micros() as u64;
+
     Ok(ScanSummary {
         root_path: facts.root_path,
         files_count: facts.files_count,
@@ -70,11 +75,129 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         react_native: react_native_profile,
         findings,
         coupling_graph: Some(coupling_graph),
+        scan_duration_us,
     })
 }
 
-/// Collects scan facts while running file audits inline — content is dropped after
-/// each file's audits complete, so only one file's content lives in memory at a time.
+// ── Per-file result returned by parallel processing ──────────────────────────
+
+struct PerFileResult {
+    file_facts: FileFacts,
+    findings: Vec<Finding>,
+    language: Option<String>,
+    is_skipped: bool,
+    skipped_bytes: u64,
+}
+
+/// Processes a single file: reads content, runs all file audits, returns findings.
+/// Content is dropped before returning so only one file's content lives at a time
+/// per rayon thread.
+fn process_file(
+    path: &Path,
+    file_audits: &[Box<dyn FileAudit>],
+    config: &ScanConfig,
+) -> io::Result<PerFileResult> {
+    let language = detect_language(path).map(str::to_string);
+
+    if config.max_file_bytes > 0 {
+        let file_size = fs::metadata(path)?.len();
+        if file_size > config.max_file_bytes {
+            return Ok(PerFileResult {
+                file_facts: FileFacts {
+                    path: path.to_path_buf(),
+                    language: language.clone(),
+                    lines_of_code: 0,
+                    branch_count: 0,
+                    imports: Vec::new(),
+                    content: String::new(),
+                },
+                findings: Vec::new(),
+                language,
+                is_skipped: true,
+                skipped_bytes: file_size,
+            });
+        }
+    }
+
+    let Ok(content) = fs::read_to_string(path) else {
+        let skipped_bytes = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        return Ok(PerFileResult {
+            file_facts: FileFacts {
+                path: path.to_path_buf(),
+                language: language.clone(),
+                lines_of_code: 0,
+                branch_count: 0,
+                imports: Vec::new(),
+                content: String::new(),
+            },
+            findings: Vec::new(),
+            language,
+            is_skipped: true,
+            skipped_bytes,
+        });
+    };
+
+    let lines_of_code = count_lines_of_code(&content);
+    let branch_count = count_branches(&content);
+    let full_facts = FileFacts {
+        path: path.to_path_buf(),
+        language: language.clone(),
+        lines_of_code,
+        branch_count,
+        imports: extract_imports(&content, language.as_deref()),
+        content,
+    };
+
+    let mut findings = Vec::new();
+    for audit in file_audits {
+        findings.extend(audit.audit(&full_facts, config));
+    }
+
+    Ok(PerFileResult {
+        file_facts: FileFacts {
+            content: String::new(),
+            ..full_facts
+        },
+        findings,
+        language,
+        is_skipped: false,
+        skipped_bytes: 0,
+    })
+}
+
+// ── Phase 1: collect paths ────────────────────────────────────────────────────
+
+fn collect_paths(path: &Path, config: &ScanConfig) -> io::Result<(Vec<PathBuf>, usize)> {
+    let mut file_paths = Vec::new();
+    let mut dirs_count = 0usize;
+
+    for result in build_walker(path, config) {
+        let entry = result.map_err(io::Error::other)?;
+        let entry_path = entry.path();
+
+        if entry_path == path {
+            continue;
+        }
+
+        let Some(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if file_type.is_dir() {
+            dirs_count += 1;
+        } else if file_type.is_file() {
+            file_paths.push(entry_path.to_path_buf());
+        }
+    }
+
+    Ok((file_paths, dirs_count))
+}
+
+// ── Main collection: 3-phase parallel pipeline ────────────────────────────────
+
+/// Collects scan facts while running file audits — file contents are dropped after
+/// each file's audits complete. The directory walk is sequential (metadata-only),
+/// while file reads and audits run in parallel via rayon.
 fn collect_and_audit_inline(
     path: &Path,
     config: &ScanConfig,
@@ -91,10 +214,10 @@ fn collect_and_audit_inline(
         root_path: path.to_path_buf(),
         ..ScanFacts::default()
     };
-    let mut languages: HashMap<String, usize> = HashMap::new();
-    let mut findings: Vec<Finding> = Vec::new();
 
     if path.is_file() {
+        let mut languages: HashMap<String, usize> = HashMap::new();
+        let mut findings: Vec<Finding> = Vec::new();
         audit_file_inline(
             path,
             &mut facts,
@@ -103,34 +226,37 @@ fn collect_and_audit_inline(
             config,
             &mut findings,
         )?;
-    } else {
-        let walker = build_walker(path, config);
+        facts.languages = build_language_summary(languages);
+        return Ok((facts, findings));
+    }
 
-        for result in walker {
-            let entry = result.map_err(io::Error::other)?;
-            let entry_path = entry.path();
+    // Phase 1: sequential directory walk — metadata only, no file reads
+    let (file_paths, dirs_count) = collect_paths(path, config)?;
+    facts.directories_count = dirs_count;
 
-            if entry_path == path {
-                continue;
-            }
+    // Phase 2: parallel file processing
+    let results: Vec<io::Result<PerFileResult>> = file_paths
+        .par_iter()
+        .map(|p| process_file(p, file_audits, config))
+        .collect();
 
-            let Some(file_type) = entry.file_type() else {
-                continue;
-            };
+    // Phase 3: sequential merge
+    let mut languages: HashMap<String, usize> = HashMap::new();
+    let mut findings: Vec<Finding> = Vec::new();
 
-            if file_type.is_dir() {
-                facts.directories_count += 1;
-            } else if file_type.is_file() {
-                audit_file_inline(
-                    entry_path,
-                    &mut facts,
-                    &mut languages,
-                    file_audits,
-                    config,
-                    &mut findings,
-                )?;
-            }
+    for result in results {
+        let per_file = result?;
+        facts.files_count += 1;
+        if let Some(ref lang) = per_file.language {
+            *languages.entry(lang.clone()).or_insert(0) += 1;
         }
+        facts.lines_of_code += per_file.file_facts.lines_of_code;
+        if per_file.is_skipped {
+            facts.skipped_files_count += 1;
+            facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
+        }
+        facts.files.push(per_file.file_facts);
+        findings.extend(per_file.findings);
     }
 
     facts.languages = build_language_summary(languages);
@@ -139,6 +265,7 @@ fn collect_and_audit_inline(
 
 /// Reads one file, runs all file audits with the content, then stores FileFacts
 /// without content so memory is freed before moving to the next file.
+/// Used for the single-file scan path only.
 fn audit_file_inline(
     path: &Path,
     facts: &mut ScanFacts,

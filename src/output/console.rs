@@ -18,7 +18,14 @@ pub fn render(summary: &ScanSummary) -> String {
         "Directories analyzed: {}\n",
         summary.directories_count
     ));
-    output.push_str(&format!("Lines of code: {}\n\n", summary.lines_of_code));
+    output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
+    if summary.scan_duration_us > 0 {
+        output.push_str(&format!(
+            "Scan time: {:.2}s\n",
+            summary.scan_duration_us as f64 / 1_000_000.0
+        ));
+    }
+    output.push('\n');
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
             "Files skipped: {} ({} bytes)\n\n",
@@ -67,7 +74,14 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         "Directories analyzed: {}\n",
         summary.directories_count
     ));
-    output.push_str(&format!("Lines of code: {}\n\n", summary.lines_of_code));
+    output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
+    if summary.scan_duration_us > 0 {
+        output.push_str(&format!(
+            "Scan time: {:.2}s\n",
+            summary.scan_duration_us as f64 / 1_000_000.0
+        ));
+    }
+    output.push('\n');
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
             "Files skipped: {} ({} bytes)\n\n",
