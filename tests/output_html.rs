@@ -28,6 +28,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
                 line_end: None,
                 snippet: "API_KEY = \"abc<123>\"".to_string(),
             }],
+            workspace_package: None,
         }],
         react_native: None,
         coupling_graph: None,

@@ -21,6 +21,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_file_loc,
             max_directory_modules,
             max_directory_depth,
+            workspace,
         } => scan::run(
             path,
             format,
@@ -31,6 +32,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_file_loc,
             max_directory_modules,
             max_directory_depth,
+            workspace,
         ),
 
         Commands::Review {

@@ -72,5 +72,6 @@ fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Fi
             // Show only the header line — never the actual key bytes
             snippet: header.to_string(),
         }],
+        workspace_package: None,
     }
 }

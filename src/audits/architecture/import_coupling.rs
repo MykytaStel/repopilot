@@ -82,6 +82,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
                 metric.fan_out
             ),
         }],
+        workspace_package: None,
     }
 }
 
@@ -116,6 +117,7 @@ fn high_instability_hub_finding(
                 instability_pct
             ),
         }],
+        workspace_package: None,
     }
 }
 
@@ -147,6 +149,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
             line_end: None,
             snippet: format!("Cycle ({file_count} files): {cycle_path}."),
         }],
+        workspace_package: None,
     }
 }
 

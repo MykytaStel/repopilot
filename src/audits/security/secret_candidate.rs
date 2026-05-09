@@ -112,6 +112,7 @@ fn build_finding(
             line_end: None,
             snippet,
         }],
+        workspace_package: None,
     }
 }
 

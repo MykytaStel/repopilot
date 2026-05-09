@@ -7,6 +7,7 @@ use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::report::writer::write_report;
 use repopilot::scan::scanner::scan_path_with_config;
+use repopilot::scan::workspace::detect_workspace_packages;
 use std::path::PathBuf;
 
 #[allow(clippy::too_many_arguments)]
@@ -20,6 +21,7 @@ pub fn run(
     max_file_loc: Option<usize>,
     max_directory_modules: Option<usize>,
     max_directory_depth: Option<usize>,
+    workspace: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let repo_config = match config {
         Some(config_path) => load_optional_config(&config_path)?,
@@ -34,7 +36,40 @@ pub fn run(
     let output_format = format
         .map(Into::into)
         .unwrap_or(repo_config.output.default_format);
-    let summary = scan_path_with_config(&path, &scan_config)?;
+
+    let summary = if workspace {
+        let packages = detect_workspace_packages(&path);
+        if packages.is_empty() {
+            eprintln!(
+                "Warning: --workspace specified but no workspace packages found under {}. \
+                 Falling back to single-package scan.",
+                path.display()
+            );
+            scan_path_with_config(&path, &scan_config)?
+        } else {
+            let mut merged = scan_path_with_config(&path, &scan_config)?;
+            for pkg in &packages {
+                match scan_path_with_config(&pkg.root, &scan_config) {
+                    Ok(mut pkg_summary) => {
+                        for finding in &mut pkg_summary.findings {
+                            finding.workspace_package = Some(pkg.name.clone());
+                        }
+                        merged.findings.extend(pkg_summary.findings);
+                        merged.files_count += pkg_summary.files_count;
+                        merged.directories_count += pkg_summary.directories_count;
+                        merged.lines_of_code += pkg_summary.lines_of_code;
+                    }
+                    Err(err) => eprintln!(
+                        "Warning: failed to scan workspace package '{}': {err}",
+                        pkg.name
+                    ),
+                }
+            }
+            merged
+        }
+    } else {
+        scan_path_with_config(&path, &scan_config)?
+    };
 
     if baseline.is_some() || fail_on.is_some() {
         let baseline_report = match baseline {

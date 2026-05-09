@@ -1,0 +1,205 @@
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone)]
+pub struct WorkspacePackage {
+    pub name: String,
+    pub root: PathBuf,
+}
+
+/// Detect workspace packages under `root`.
+///
+/// Checks (in order): npm/yarn workspaces (`package.json`), pnpm workspaces
+/// (`pnpm-workspace.yaml`), Cargo workspace (`Cargo.toml`). Returns the first
+/// non-empty list found. Returns an empty vec when the root is not a workspace.
+pub fn detect_workspace_packages(root: &Path) -> Vec<WorkspacePackage> {
+    let npm = from_npm_workspaces(root);
+    if !npm.is_empty() {
+        return npm;
+    }
+
+    let pnpm = from_pnpm_workspaces(root);
+    if !pnpm.is_empty() {
+        return pnpm;
+    }
+
+    from_cargo_workspace(root)
+}
+
+fn from_npm_workspaces(root: &Path) -> Vec<WorkspacePackage> {
+    let content = match std::fs::read_to_string(root.join("package.json")) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let value: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    let patterns = workspace_glob_patterns(&value);
+    packages_from_patterns(root, &patterns)
+}
+
+fn from_pnpm_workspaces(root: &Path) -> Vec<WorkspacePackage> {
+    let content = match std::fs::read_to_string(root.join("pnpm-workspace.yaml")) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+
+    let patterns = parse_pnpm_packages_yaml(&content);
+    packages_from_patterns(root, &patterns)
+}
+
+fn from_cargo_workspace(root: &Path) -> Vec<WorkspacePackage> {
+    let content = match std::fs::read_to_string(root.join("Cargo.toml")) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let value: toml::Value = match toml::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Vec::new(),
+    };
+
+    let members = value
+        .get("workspace")
+        .and_then(|w| w.get("members"))
+        .and_then(|m| m.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if members.is_empty() {
+        return Vec::new();
+    }
+
+    let mut packages = Vec::new();
+    for member in &members {
+        let trimmed = member.trim_end_matches('/');
+        if trimmed.contains('*') {
+            let prefix = trimmed.trim_end_matches("/*").trim_end_matches("/**");
+            let base = root.join(prefix);
+            let Ok(entries) = std::fs::read_dir(&base) else {
+                continue;
+            };
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                if path.is_dir() && path.join("Cargo.toml").is_file() {
+                    if let Some(name) = package_name_from_path(&path) {
+                        packages.push(WorkspacePackage { name, root: path });
+                    }
+                }
+            }
+        } else {
+            let path = root.join(trimmed);
+            if path.join("Cargo.toml").is_file() {
+                if let Some(name) = package_name_from_path(&path) {
+                    packages.push(WorkspacePackage { name, root: path });
+                }
+            }
+        }
+    }
+    packages
+}
+
+fn package_name_from_path(path: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(path.join("Cargo.toml")).ok()?;
+    let value: toml::Value = toml::from_str(&content).ok()?;
+    value
+        .get("package")
+        .and_then(|p| p.get("name"))
+        .and_then(|n| n.as_str())
+        .map(str::to_string)
+        .or_else(|| path.file_name().and_then(|n| n.to_str()).map(str::to_string))
+}
+
+fn workspace_glob_patterns(value: &serde_json::Value) -> Vec<String> {
+    match value.get("workspaces") {
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|i| i.as_str().map(str::to_string))
+            .collect(),
+        Some(serde_json::Value::Object(obj)) => obj
+            .get("packages")
+            .and_then(|v| v.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|i| i.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn parse_pnpm_packages_yaml(content: &str) -> Vec<String> {
+    let mut patterns = Vec::new();
+    let mut in_packages = false;
+    for line in content.lines() {
+        if line.trim_start().starts_with("packages:") {
+            in_packages = true;
+            continue;
+        }
+        if in_packages {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || (!trimmed.starts_with('-') && !line.starts_with(' ')) {
+                break;
+            }
+            if let Some(stripped) = trimmed.strip_prefix("- ") {
+                let val = stripped.trim_matches('\'').trim_matches('"');
+                if !val.is_empty() {
+                    patterns.push(val.to_string());
+                }
+            }
+        }
+    }
+    patterns
+}
+
+fn packages_from_patterns(root: &Path, patterns: &[String]) -> Vec<WorkspacePackage> {
+    let mut packages = Vec::new();
+    for pattern in patterns {
+        if pattern.contains("node_modules") || pattern.starts_with('!') {
+            continue;
+        }
+        let trimmed = pattern.trim_end_matches('/');
+        let dirs = if let Some(prefix) = trimmed
+            .strip_suffix("/*")
+            .or_else(|| trimmed.strip_suffix("/**"))
+        {
+            child_dirs(&root.join(prefix))
+        } else if trimmed.contains('*') {
+            continue;
+        } else {
+            vec![root.join(trimmed)]
+        };
+
+        for dir in dirs {
+            if dir.join("package.json").is_file() {
+                let name = npm_package_name(&dir)
+                    .unwrap_or_else(|| dir.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                packages.push(WorkspacePackage { name, root: dir });
+            }
+        }
+    }
+    packages
+}
+
+fn npm_package_name(path: &Path) -> Option<String> {
+    let content = std::fs::read_to_string(path.join("package.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+    value.get("name").and_then(|n| n.as_str()).map(str::to_string)
+}
+
+fn child_dirs(path: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect()
+}

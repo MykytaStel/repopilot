@@ -58,6 +58,7 @@ impl ProjectAudit for VarDeclarationAudit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break;
                 }
@@ -112,6 +113,7 @@ impl ProjectAudit for ConsoleLogAudit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break;
                 }

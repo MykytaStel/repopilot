@@ -42,6 +42,7 @@ pub fn detect_large_file_finding(
                 config.large_file_loc_threshold
             ),
         }],
+        workspace_package: None,
     })
 }
 

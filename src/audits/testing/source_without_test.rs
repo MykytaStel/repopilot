@@ -190,5 +190,6 @@ fn build_finding(source: &Path) -> Finding {
             line_end: None,
             snippet: format!("No test found; expected e.g. `{expected}`"),
         }],
+        workspace_package: None,
     }
 }

@@ -59,5 +59,6 @@ fn finding(rule_id: &str, path: &str, line: usize) -> Finding {
             line_end: None,
             snippet: "snippet".to_string(),
         }],
+        workspace_package: None,
     }
 }
