@@ -135,16 +135,38 @@ fn render_findings_section(output: &mut String, findings: &[Finding]) {
     render_severity_summary(output, findings);
     output.push('\n');
 
+    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
+    if has_workspace {
+        let mut groups: Vec<(Option<&str>, Vec<&Finding>)> = Vec::new();
+        for finding in findings {
+            let key = finding.workspace_package.as_deref();
+            if let Some(group) = groups.iter_mut().find(|(k, _)| *k == key) {
+                group.1.push(finding);
+            } else {
+                groups.push((key, vec![finding]));
+            }
+        }
+        for (pkg, group_findings) in &groups {
+            let header = pkg.unwrap_or("(root)");
+            output.push_str(&format!("  [{header}]\n"));
+            render_findings_list(output, group_findings, "    ");
+            output.push('\n');
+        }
+    } else {
+        render_findings_list(output, &findings.iter().collect::<Vec<_>>(), "  ");
+    }
+}
+
+fn render_findings_list(output: &mut String, findings: &[&Finding], indent: &str) {
     for finding in findings {
         let label = color::severity_label(finding.severity_label());
         output.push_str(&format!(
-            "  [{}] {} \u{2014} {}\n",
+            "{indent}[{}] {} \u{2014} {}\n",
             label, finding.rule_id, finding.title
         ));
-
         for evidence in &finding.evidence {
             output.push_str(&format!(
-                "    Evidence: {}:{} \u{2014} {}\n",
+                "{indent}  Evidence: {}:{} \u{2014} {}\n",
                 evidence.path.display(),
                 evidence.line_start,
                 evidence.snippet.trim()

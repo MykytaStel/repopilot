@@ -50,6 +50,7 @@ impl ProjectAudit for ReactClassComponentAudit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break; // one finding per file
                 }
@@ -108,6 +109,7 @@ impl ProjectAudit for ReactPropTypesAudit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break; // one finding per file
                 }

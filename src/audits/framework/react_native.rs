@@ -40,6 +40,7 @@ impl ProjectAudit for ReactNativeOldArchAudit {
                 line_end: None,
                 snippet,
             }],
+            workspace_package: None,
         }]
     }
 }
@@ -136,6 +137,7 @@ impl ProjectAudit for ReactNativeArchitectureMismatchAudit {
                     format_bool(profile.expo_new_arch_enabled)
                 ),
             }],
+            workspace_package: None,
         }]
     }
 }
@@ -174,6 +176,7 @@ impl ProjectAudit for HermesMismatchAudit {
                     format_bool(profile.ios_hermes_enabled)
                 ),
             }],
+            workspace_package: None,
         }]
     }
 }
@@ -229,6 +232,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
                             .trim()
                             .to_string(),
                     }],
+                    workspace_package: None,
                 });
             }
         }
@@ -366,6 +370,7 @@ impl ProjectAudit for ReactNativeCodegenMissingAudit {
                 line_end: None,
                 snippet: "codegenConfig missing while Codegen usage was detected".to_string(),
             }],
+            workspace_package: None,
         }]
     }
 }
@@ -429,6 +434,7 @@ fn hermes_finding(path: PathBuf, snippet: &str) -> Finding {
             line_end: None,
             snippet: snippet.to_string(),
         }],
+        workspace_package: None,
     }
 }
 
@@ -482,6 +488,7 @@ impl ProjectAudit for ReactNavigationV4Audit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break;
                 }
@@ -538,6 +545,7 @@ impl ProjectAudit for DirectStateMutationAudit {
                             line_end: None,
                             snippet: trimmed.to_string(),
                         }],
+                        workspace_package: None,
                     });
                     break;
                 }

@@ -11,6 +11,7 @@ use crate::audits::framework::react_native::{
     ReactNativeArchitectureMismatchAudit, ReactNativeCodegenMissingAudit, ReactNativeOldArchAudit,
     ReactNavigationV4Audit,
 };
+use crate::audits::framework::rn_dep_health::RnDepHealthAudit;
 use crate::audits::security::env_file_committed::EnvFileCommittedAudit;
 use crate::audits::security::private_key_candidate::PrivateKeyCandidateAudit;
 use crate::audits::security::secret_candidate::SecretCandidateAudit;
@@ -113,6 +114,7 @@ pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Findi
         findings.extend(ReactNativeCodegenMissingAudit.audit(facts, config));
         findings.extend(ReactNavigationV4Audit.audit(facts, config));
         findings.extend(DirectStateMutationAudit.audit(facts, config));
+        findings.extend(RnDepHealthAudit.audit(facts, config));
     }
     if has_react_only {
         findings.extend(ReactClassComponentAudit.audit(facts, config));

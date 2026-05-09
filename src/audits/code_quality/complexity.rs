@@ -50,6 +50,7 @@ impl FileAudit for ComplexityAudit {
                     file.branch_count, file.lines_of_code
                 ),
             }],
+            workspace_package: None,
         }]
     }
 }

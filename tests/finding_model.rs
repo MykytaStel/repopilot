@@ -16,6 +16,7 @@ fn finding_contains_evidence() {
             line_end: None,
             snippet: "// TODO: improve this".to_string(),
         }],
+        workspace_package: None,
     };
 
     assert_eq!(finding.rule_id, "code-marker.todo");

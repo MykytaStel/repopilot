@@ -50,6 +50,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
             line_end: None,
             snippet: marker.text.trim().to_string(),
         }],
+        workspace_package: None,
     }
 }
 

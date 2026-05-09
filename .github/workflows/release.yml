@@ -153,3 +153,66 @@ jobs:
       - name: Publish to npm
         if: ${{ env.NODE_AUTH_TOKEN != '' }}
         run: npm publish
+
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish
+        run: cargo publish --token ${{ secrets.CRATES_IO_TOKEN }}
+
+  update-homebrew-tap:
+    name: Update Homebrew tap
+    runs-on: ubuntu-latest
+    needs:
+      - release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Extract checksums
+        run: |
+          V="${{ github.ref_name }}"
+          echo "MACOS_ARM=$(awk '{print $1}' dist/repopilot-${V}-aarch64-apple-darwin.tar.gz.sha256)" >> $GITHUB_ENV
+          echo "MACOS_X86=$(awk '{print $1}' dist/repopilot-${V}-x86_64-apple-darwin.tar.gz.sha256)" >> $GITHUB_ENV
+          echo "LINUX_ARM=$(awk '{print $1}' dist/repopilot-${V}-aarch64-unknown-linux-gnu.tar.gz.sha256)" >> $GITHUB_ENV
+          echo "LINUX_X86=$(awk '{print $1}' dist/repopilot-${V}-x86_64-unknown-linux-gnu.tar.gz.sha256)" >> $GITHUB_ENV
+          echo "VER=${V#v}" >> $GITHUB_ENV
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: MykytaStel/homebrew-repopilot
+          path: tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Write formula
+        run: |
+          sed -e "s/{{VERSION}}/${{ env.VER }}/g" \
+              -e "s/{{MACOS_ARM_SHA}}/${{ env.MACOS_ARM }}/g" \
+              -e "s/{{MACOS_X86_SHA}}/${{ env.MACOS_X86 }}/g" \
+              -e "s/{{LINUX_ARM_SHA}}/${{ env.LINUX_ARM }}/g" \
+              -e "s/{{LINUX_X86_SHA}}/${{ env.LINUX_X86 }}/g" \
+              Formula/repopilot.rb > tap/Formula/repopilot.rb
+
+      - name: Push formula update
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/repopilot.rb
+          git diff --cached --quiet || git commit -m "repopilot ${{ env.VER }}"
+          git push

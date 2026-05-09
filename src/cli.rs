@@ -141,6 +141,10 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30"
         /// Maximum directory nesting depth before flagging (default: 5)
         #[arg(long)]
         max_directory_depth: Option<usize>,
+
+        /// Scan each workspace package separately and group findings by package
+        #[arg(long, short = 'w')]
+        workspace: bool,
     },
 
     /// Review findings that touch changed Git diff lines (alias: r)

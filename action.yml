@@ -1,0 +1,59 @@
+name: RepoPilot
+description: "Run RepoPilot static analysis on your repository"
+author: "MykytaStel"
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  command:
+    description: "Command to run: scan | review | compare"
+    required: false
+    default: "scan"
+  format:
+    description: "Output format: console | json | markdown | sarif"
+    required: false
+    default: "sarif"
+  args:
+    description: "Extra CLI arguments passed verbatim to repopilot"
+    required: false
+    default: ""
+  version:
+    description: "npm version tag to install (e.g. latest, 0.7.0)"
+    required: false
+    default: "latest"
+  upload-sarif:
+    description: "Automatically upload SARIF output to GitHub Code Scanning"
+    required: false
+    default: "true"
+
+outputs:
+  sarif-file:
+    description: "Path to the generated SARIF file (only set when format is sarif)"
+    value: ${{ steps.run.outputs.sarif_file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install repopilot
+      shell: bash
+      run: npm install -g repopilot@${{ inputs.version }}
+
+    - name: Run repopilot
+      id: run
+      shell: bash
+      run: |
+        OUTFILE="repopilot-results.sarif"
+        if [[ "${{ inputs.format }}" == "sarif" ]]; then
+          repopilot ${{ inputs.command }} --format sarif --output "$OUTFILE" ${{ inputs.args }}
+          echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
+        else
+          repopilot ${{ inputs.command }} --format ${{ inputs.format }} ${{ inputs.args }}
+        fi
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: inputs.upload-sarif == 'true' && inputs.format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.run.outputs.sarif_file }}

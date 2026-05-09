@@ -36,6 +36,7 @@ impl ProjectAudit for MissingTestFolderAudit {
                 line_end: None,
                 snippet: "No tests/, test/, __tests__/, or spec/ directory found.".to_string(),
             }],
+            workspace_package: None,
         }]
     }
 }

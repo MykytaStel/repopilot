@@ -6,10 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-08
+
 ### Added
 
-- Planned AI-ready review context export.
-- Planned Change Risk Map.
+- Added per-workspace scans: `--workspace` flag on `scan` command detects npm, yarn, pnpm, and Cargo workspace packages and runs audits scoped to each package root.
+- Added React Native dependency health audits: `framework.rn-navigation-compat`, `framework.rn-async-storage-legacy`, `framework.rn-reanimated-compat`, `framework.rn-gesture-handler-old`, and `framework.rn-new-arch-incompatible-dep`.
+- Added first-party GitHub Action (`action.yml`) for running RepoPilot audits in CI with optional SARIF upload to GitHub Code Scanning.
+- Automated crates.io publishing in the release workflow via `CRATES_IO_TOKEN` secret.
+- Automated Homebrew tap formula updates in the release workflow via `HOMEBREW_TAP_TOKEN` secret.
+
+### Changed
+
+- Version 0.6.0 was published to npm without a matching git tag; v0.7.0 is the first fully tagged release since v0.5.0 and restores version consistency across crates.io, npm, and GitHub Releases.
 
 ## [0.6.0] - 2026-05-08
 
