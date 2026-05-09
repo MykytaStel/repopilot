@@ -5,8 +5,8 @@ pub mod review;
 pub mod scan;
 
 use crate::cli::{Cli, Commands, SeverityArg};
-use repopilot::findings::types::Severity;
 use repopilot::config::model::RepoPilotConfig;
+use repopilot::findings::types::Severity;
 use repopilot::scan::config::ScanConfig;
 use std::fmt;
 

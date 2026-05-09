@@ -1,5 +1,5 @@
-use repopilot::scan::scanner::{collect_scan_facts, scan_path_with_config};
 use repopilot::scan::config::ScanConfig;
+use repopilot::scan::scanner::{collect_scan_facts, scan_path_with_config};
 use std::fs;
 use tempfile::tempdir;
 
@@ -16,11 +16,7 @@ fn parallel_scan_matches_sequential_file_counts() {
         )
         .unwrap();
     }
-    fs::write(
-        temp.path().join("script.ts"),
-        "export const x = 1;\n",
-    )
-    .unwrap();
+    fs::write(temp.path().join("script.ts"), "export const x = 1;\n").unwrap();
 
     let sequential = collect_scan_facts(temp.path()).unwrap();
     let parallel = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
