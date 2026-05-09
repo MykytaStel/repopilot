@@ -3,6 +3,7 @@ pub mod compare;
 pub mod init;
 pub mod review;
 pub mod scan;
+pub mod vibe;
 
 use crate::cli::{Cli, Commands, SeverityArg};
 use repopilot::config::model::RepoPilotConfig;
@@ -24,6 +25,8 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_directory_depth,
             workspace,
             min_severity,
+            verbose,
+            preset,
         } => scan::run(
             path,
             format,
@@ -36,6 +39,8 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             max_directory_depth,
             workspace,
             min_severity.map(severity_arg_into),
+            verbose,
+            preset,
         ),
 
         Commands::Review {
@@ -76,6 +81,15 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } => compare::run(before, after, format, output),
 
         Commands::Init { force, path } => init::run(force, path),
+
+        Commands::Vibe {
+            path,
+            config,
+            focus,
+            budget,
+            output,
+            no_header,
+        } => vibe::run(path, config, focus, budget, output, no_header),
     }
 }
 

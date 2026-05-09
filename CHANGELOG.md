@@ -6,6 +6,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-09
+
+### Added
+
+- Added `repopilot vibe` command (alias: `v`): scans a project and formats findings as LLM-ready markdown for direct use in Claude Code, Cursor, or ChatGPT. Output includes risk level, tech stack summary, findings grouped by category with evidence snippets and fix recommendations, and a token-budget estimate.
+  - `--focus security|arch|quality|framework|all` — restrict output to one category.
+  - `--budget 2k|4k|8k|16k` — control approximate output token count (default: 4k).
+  - `--no-header` — omit the intro block for piping into an LLM API.
+- Added `--preset strict|balanced|lenient` flag to `scan` command for one-shot threshold tuning without editing `repopilot.toml`.
+  - `strict`: tighter thresholds — catches more issues, suitable for green-field projects.
+  - `balanced`: factory defaults.
+  - `lenient`: relaxed thresholds for legacy codebases adopting RepoPilot incrementally.
+- Added `--verbose` flag to `scan` command: prints scan phase timing (engine ms, render ms) to stderr after the report.
+
+### Changed
+
+- Workspace scans (`--workspace`) now run per-package scans in parallel using rayon, giving roughly 50% speedup on monorepos with ten or more packages.
+- Import deduplication in the coupling graph now uses `HashSet` instead of `BTreeSet`, reducing import extraction time by 3-7% on large TypeScript/Rust projects.
+- Coupling graph construction avoids a redundant `PathBuf` clone per file; `compute_metrics` no longer pre-allocates two full-size maps — both reduce allocations on large graphs.
+
 ## [0.7.0] - 2026-05-08
 
 ### Added

@@ -5,6 +5,7 @@ use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline}
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
+use repopilot::config::presets::{Preset, apply_preset};
 use repopilot::findings::types::Severity;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::report::writer::write_report;
@@ -12,10 +13,11 @@ use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
+use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -30,11 +32,24 @@ pub fn run(
     max_directory_depth: Option<usize>,
     workspace: bool,
     min_severity: Option<Severity>,
+    verbose: bool,
+    preset: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let repo_config = match config {
+    let mut repo_config = match config {
         Some(config_path) => load_optional_config(&config_path)?,
         None => load_default_config()?,
     };
+
+    if let Some(preset_str) = preset.as_deref() {
+        match preset_str.parse::<Preset>() {
+            Ok(p) => apply_preset(&mut repo_config, p),
+            Err(_) => eprintln!(
+                "Warning: unknown preset '{}'. Expected: strict, balanced, lenient",
+                preset_str
+            ),
+        }
+    }
+
     let scan_config = build_scan_config(
         &repo_config,
         max_file_loc,
@@ -46,6 +61,7 @@ pub fn run(
         .unwrap_or(repo_config.output.default_format);
 
     let pb = make_spinner();
+    let scan_start = Instant::now();
 
     let mut summary = if workspace {
         scan_workspace(&path, &scan_config)?
@@ -53,6 +69,7 @@ pub fn run(
         scan_path_with_config(&path, &scan_config)?
     };
 
+    let scan_elapsed = scan_start.elapsed();
     finish_spinner(pb);
 
     if let Some(min) = min_severity {
@@ -71,10 +88,22 @@ pub fn run(
         let ci_gate = fail_on
             .map(Into::into)
             .map(|fail_on| evaluate_ci_gate(&baseline_report, fail_on));
+        let render_start = Instant::now();
         let rendered_report =
             render_baseline_scan_report(&baseline_report, output_format, ci_gate.as_ref())?;
+        let render_elapsed = render_start.elapsed();
 
         write_report(&rendered_report, output.as_deref())?;
+
+        if verbose {
+            let internal_us = baseline_report.summary.scan_duration_us;
+            let total_ms = scan_elapsed.as_millis();
+            let render_ms = render_elapsed.as_millis();
+            eprintln!(
+                "\n[verbose] Scan: {total_ms}ms (engine: {:.0}ms) · Render: {render_ms}ms",
+                internal_us as f64 / 1000.0
+            );
+        }
 
         if let Some(ci_gate) = ci_gate
             && let Some(message) = ci_gate.failure_message()
@@ -85,8 +114,21 @@ pub fn run(
         return Ok(());
     }
 
+    let render_start = Instant::now();
     let rendered_report = render_scan_summary(&summary, output_format)?;
+    let render_elapsed = render_start.elapsed();
+
     write_report(&rendered_report, output.as_deref())?;
+
+    if verbose {
+        let internal_us = summary.scan_duration_us;
+        let total_ms = scan_elapsed.as_millis();
+        let render_ms = render_elapsed.as_millis();
+        eprintln!(
+            "\n[verbose] Scan: {total_ms}ms (engine: {:.0}ms) · Render: {render_ms}ms",
+            internal_us as f64 / 1000.0
+        );
+    }
 
     Ok(())
 }
@@ -105,13 +147,16 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
     let root_scan_config = workspace_root_config(scan_config, path, &packages);
     let mut merged = scan_path_with_config(path, &root_scan_config)?;
 
-    for pkg in &packages {
-        match scan_path_with_config(&pkg.root, scan_config) {
-            Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &pkg.name),
-            Err(err) => eprintln!(
-                "Warning: failed to scan workspace package '{}': {err}",
-                pkg.name
-            ),
+    // Scan packages in parallel; collect (name, result) pairs then merge sequentially.
+    let pkg_results: Vec<(String, Result<_, _>)> = packages
+        .par_iter()
+        .map(|pkg| (pkg.name.clone(), scan_path_with_config(&pkg.root, scan_config)))
+        .collect();
+
+    for (name, result) in pkg_results {
+        match result {
+            Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &name),
+            Err(err) => eprintln!("Warning: failed to scan workspace package '{name}': {err}"),
         }
     }
 
@@ -182,7 +227,7 @@ fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<Langu
     *target = merged;
 }
 
-fn make_spinner() -> Option<ProgressBar> {
+pub(crate) fn make_spinner() -> Option<ProgressBar> {
     if !std::io::stderr().is_terminal() {
         return None;
     }
@@ -197,7 +242,7 @@ fn make_spinner() -> Option<ProgressBar> {
     Some(pb)
 }
 
-fn finish_spinner(pb: Option<ProgressBar>) {
+pub(crate) fn finish_spinner(pb: Option<ProgressBar>) {
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }

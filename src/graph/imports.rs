@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 /// Extracts raw import strings from file content based on language.
-/// Returns a sorted, deduplicated list.
+/// Returns a deduplicated list.
 pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
-    let set: BTreeSet<String> = match language {
+    let set: HashSet<String> = match language {
         Some("Rust") => extract_rust(content),
         Some("TypeScript")
         | Some("TypeScript React")
@@ -18,8 +18,8 @@ pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
 
 // ── Rust ─────────────────────────────────────────────────────────────────────
 
-fn extract_rust(content: &str) -> BTreeSet<String> {
-    let mut result = BTreeSet::new();
+fn extract_rust(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
     let mut in_block_comment = false;
     let mut pending: Option<String> = None;
 
@@ -138,8 +138,8 @@ fn rust_use_imports(stmt: &str) -> Vec<String> {
 
 // ── TypeScript / JavaScript ───────────────────────────────────────────────────
 
-fn extract_ts(content: &str) -> BTreeSet<String> {
-    let mut result = BTreeSet::new();
+fn extract_ts(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -205,8 +205,8 @@ fn is_relative(path: &str) -> bool {
 
 // ── Python ────────────────────────────────────────────────────────────────────
 
-fn extract_python(content: &str) -> BTreeSet<String> {
-    let mut result = BTreeSet::new();
+fn extract_python(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -242,8 +242,8 @@ fn extract_python(content: &str) -> BTreeSet<String> {
 
 // ── Go ────────────────────────────────────────────────────────────────────────
 
-fn extract_go(content: &str) -> BTreeSet<String> {
-    let mut result = BTreeSet::new();
+fn extract_go(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
     let mut in_import_block = false;
 
     for line in content.lines() {
