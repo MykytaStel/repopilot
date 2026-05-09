@@ -60,5 +60,6 @@ fn finding(rule_id: &str, path: &str, line: usize) -> Finding {
             snippet: "snippet".to_string(),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

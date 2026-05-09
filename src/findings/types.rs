@@ -12,6 +12,8 @@ pub struct Finding {
     pub evidence: Vec<Evidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_package: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docs_url: Option<String>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]

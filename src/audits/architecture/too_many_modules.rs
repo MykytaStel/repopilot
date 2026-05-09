@@ -42,5 +42,6 @@ fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
             snippet: format!("{file_count} files in directory; threshold is {threshold}."),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

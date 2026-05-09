@@ -47,5 +47,6 @@ fn build_finding(deepest_path: PathBuf, depth: usize, threshold: usize) -> Findi
             snippet: format!("Nesting depth: {depth}; threshold is {threshold}."),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

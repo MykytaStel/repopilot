@@ -15,6 +15,14 @@ pub fn severity_label(label: &str) -> String {
     }
 }
 
+/// Renders text in dim/faint style for secondary information.
+pub fn dim(text: &str) -> String {
+    if !std::io::stdout().is_terminal() {
+        return text.to_string();
+    }
+    format!("\x1b[2m{text}\x1b[0m")
+}
+
 /// Formats `"<n> <label>"` (e.g. `"3 high"`) with the correct severity color.
 pub fn severity_count(severity: Severity, n: usize) -> String {
     let text = format!("{n} {}", severity.lowercase_label());

@@ -113,6 +113,7 @@ fn build_finding(
             snippet,
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }
 

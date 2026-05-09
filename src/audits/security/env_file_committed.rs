@@ -49,5 +49,6 @@ fn build_finding(path: &std::path::Path) -> Finding {
             snippet: format!("`{name}` should not be committed; add it to .gitignore."),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

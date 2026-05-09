@@ -53,6 +53,7 @@ fn sarif_rule_uses_real_description_not_generic() {
             snippet: "let x = 1;".to_string(),
         }],
         workspace_package: None,
+        docs_url: None,
     };
 
     let root = PathBuf::from(".");
@@ -88,6 +89,7 @@ fn sarif_result_includes_partial_fingerprints() {
             snippet: String::new(),
         }],
         workspace_package: None,
+        docs_url: None,
     };
 
     let root = PathBuf::from(".");

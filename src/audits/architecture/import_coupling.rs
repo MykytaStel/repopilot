@@ -48,13 +48,6 @@ impl ImportCouplingAudit {
             }
         }
 
-        findings.sort_by(|left, right| {
-            finding_path(left)
-                .cmp(finding_path(right))
-                .then_with(|| left.rule_id.cmp(&right.rule_id))
-                .then_with(|| left.title.cmp(&right.title))
-        });
-
         (findings, graph)
     }
 }
@@ -83,6 +76,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
             ),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }
 
@@ -118,6 +112,7 @@ fn high_instability_hub_finding(
             ),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }
 
@@ -150,17 +145,10 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
             snippet: format!("Cycle ({file_count} files): {cycle_path}."),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }
 
 fn relative_path(path: &Path, root: &Path) -> PathBuf {
     path.strip_prefix(root).unwrap_or(path).to_path_buf()
-}
-
-fn finding_path(finding: &Finding) -> &Path {
-    finding
-        .evidence
-        .first()
-        .map(|evidence| evidence.path.as_path())
-        .unwrap_or_else(|| Path::new(""))
 }

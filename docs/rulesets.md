@@ -251,11 +251,54 @@ Cycles are deduplicated and reported once per unique set of files involved. Supp
 | Severity | `HIGH` |
 | Description | A class component mutates `this.state` directly instead of using `setState`. |
 
+### `framework.react-native.inline-style`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Docs | https://reactnative.dev/docs/stylesheet |
+| Description | A JSX element uses an inline style object (`style={{ ... }}`). Inline objects are reallocated on every render, defeating memoization. Extract styles with `StyleSheet.create`. |
+
+### `framework.react-native.deprecated-api`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Docs | https://reactnative.dev/docs/out-of-tree-platforms |
+| Description | A React Native core API that was removed in RN 0.65+ was detected (`ViewPagerAndroid`, `ToolbarAndroid`, `DatePickerAndroid`, `TimePickerAndroid`, `MaskedViewIOS`, `ProgressBarAndroid`, `ProgressViewIOS`, `SegmentedControlIOS`, or `CheckBox`). Replace with the corresponding community package. |
+
+### `framework.react-native.flatlist-missing-key`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Docs | https://reactnative.dev/docs/flatlist#keyextractor |
+| Description | A `FlatList` component is missing the `keyExtractor` prop. Without it, React Native falls back to array index keys, breaking list reconciliation when items change order. |
+
 See [React Native Analysis](react-native.md) for supported project shapes, profile fields, and limitations.
+
+## Finding fields
+
+Every finding includes these top-level fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Stable finding ID derived from rule + path + line |
+| `rule_id` | string | Stable rule identifier (e.g. `security.private-key-candidate`) |
+| `title` | string | Short human-readable summary |
+| `description` | string | Full explanation with remediation steps |
+| `category` | string | One of `ARCHITECTURE`, `CODE_QUALITY`, `TESTING`, `SECURITY`, `FRAMEWORK` |
+| `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `docs_url` | string? | Link to official documentation for the rule (omitted when not set) |
+| `workspace_package` | string? | Package name in monorepos (omitted for flat projects) |
+| `evidence` | array | One or more evidence locations (see below) |
 
 ## Evidence
 
-Every finding includes structured evidence:
+Each entry in the `evidence` array contains:
 
 | Field | Type | Description |
 |---|---|---|

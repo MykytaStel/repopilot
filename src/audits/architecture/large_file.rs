@@ -43,6 +43,7 @@ pub fn detect_large_file_finding(
             ),
         }],
         workspace_package: None,
+        docs_url: None,
     })
 }
 
