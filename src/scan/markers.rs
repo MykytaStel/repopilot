@@ -11,7 +11,7 @@ pub fn detect_markers(path: &Path, content: &str) -> Vec<Marker> {
 
         let line_number = index + 1;
 
-        // Emit at most one marker per line — highest severity wins (FIXME = HACK > TODO).
+        // Emit at most one marker per line — highest severity wins (fixme = hack > todo).
         // The full line text is preserved in the snippet so all keywords remain visible.
         let kind = if comment_text.contains("FIXME") {
             MarkerKind::Fixme

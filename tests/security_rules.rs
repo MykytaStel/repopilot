@@ -118,6 +118,23 @@ fn env_file_committed_reports_env_files() {
     assert_eq!(findings[0].rule_id, "security.env-file-committed");
 }
 
+#[test]
+fn secret_candidate_skips_ellipsis_truncated_values() {
+    // Common in documentation and README examples — clearly not real secrets.
+    for line in [
+        r#"const API_KEY = "sk_live_…";"#,
+        r#"const TOKEN = "eyJhbGci...";"#,
+        r#"password = "hunter2...""#,
+    ] {
+        let f = file("src/config.rs", &format!("{line}\n"));
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "ellipsis-truncated value must not be flagged: `{line}` → {findings:?}"
+        );
+    }
+}
+
 fn file(path: &str, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),

@@ -106,6 +106,8 @@ fn is_secret_literal(value: &str) -> bool {
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
         || unquoted.starts_with('[')
+        || unquoted.ends_with('…')
+        || unquoted.ends_with("...")
         || matches!(
             lower.as_str(),
             "null"

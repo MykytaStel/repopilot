@@ -149,7 +149,7 @@ $ repopilot vibe .
 ## Security (2 high)
 1. [HIGH] Possible secret detected — `src/config/api.ts:12`
    ```
-   const API_KEY = "sk_live_51KJ..."
+   const API_KEY = "sk_live_…"
    ```
    > **Fix:** Move to environment variables or a secrets manager.
 
