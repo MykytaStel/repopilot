@@ -21,6 +21,7 @@ fn renders_valid_json_scan_summary() {
         framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
+        scan_duration_ms: 0,
     };
 
     let output =
