@@ -46,6 +46,8 @@ pub struct SarifRule {
     pub short_description: SarifMessage,
     #[serde(rename = "fullDescription", skip_serializing_if = "Option::is_none")]
     pub full_description: Option<SarifMessage>,
+    #[serde(rename = "helpUri", skip_serializing_if = "Option::is_none")]
+    pub help_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -216,22 +218,27 @@ fn sarif_result(
 }
 
 fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
-    let mut rule_map: BTreeMap<&str, &str> = BTreeMap::new();
+    let mut rule_map: BTreeMap<&str, &Finding> = BTreeMap::new();
     for finding in findings {
-        rule_map
-            .entry(finding.rule_id.as_str())
-            .or_insert(finding.description.as_str());
+        rule_map.entry(finding.rule_id.as_str()).or_insert(finding);
     }
 
     rule_map
         .into_iter()
-        .map(|(rule_id, description)| SarifRule {
-            id: rule_id.to_string(),
-            name: rule_id.to_string(),
-            short_description: SarifMessage {
-                text: description.to_string(),
-            },
-            full_description: None,
+        .map(|(rule_id, finding)| {
+            let help_uri = crate::rules::lookup_rule_metadata(rule_id)
+                .and_then(|m| m.docs_url)
+                .map(str::to_owned)
+                .or_else(|| finding.docs_url.clone());
+            SarifRule {
+                id: rule_id.to_string(),
+                name: rule_id.to_string(),
+                short_description: SarifMessage {
+                    text: finding.description.clone(),
+                },
+                full_description: None,
+                help_uri,
+            }
         })
         .collect()
 }

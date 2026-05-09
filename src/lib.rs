@@ -23,4 +23,5 @@ pub mod graph;
 pub mod output;
 pub mod report;
 pub mod review;
+pub mod rules;
 pub mod scan;
