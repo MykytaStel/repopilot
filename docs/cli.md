@@ -18,6 +18,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 |---------|-------|-------------|
 | [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
 | [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
+| [`vibe`](#vibe) | `v` | Generate LLM-ready context from a scan |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
@@ -70,6 +71,8 @@ repopilot s <PATH> [OPTIONS]
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
 | `-w, --workspace` | flag | — | Scan each detected workspace package separately and group findings by package |
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
+| `--verbose` | flag | — | Print scan phase timing breakdown after the report |
+| `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
 
 ### Exit codes
 
@@ -105,6 +108,10 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30 --max-directory-d
 
 # Monorepo scan with less noise
 repopilot scan . --workspace --min-severity medium
+
+# One-shot threshold presets and timing
+repopilot scan . --preset strict
+repopilot scan . --verbose
 ```
 
 ---
@@ -179,6 +186,46 @@ repopilot review . --format json --output review.json
 
 # Focus on high-risk findings only
 repopilot review . --min-severity high
+```
+
+---
+
+## `vibe`
+
+Scans the repository and formats findings as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another LLM assistant.
+
+The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, fix recommendations, and an approximate token count.
+
+### Synopsis
+
+```
+repopilot vibe <PATH> [OPTIONS]
+repopilot v <PATH> [OPTIONS]
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<PATH>` | Path to project, folder, or file |
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit output to a category |
+| `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget |
+| `-o, --output` | path | stdout | Write output to a file instead of stdout |
+| `--no-header` | flag | — | Omit the intro header block |
+
+### Examples
+
+```bash
+repopilot vibe .
+repopilot vibe . --focus security --budget 2k
+repopilot vibe . --output vibe.md
+repopilot vibe . --no-header | pbcopy
 ```
 
 ---

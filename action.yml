@@ -12,15 +12,15 @@ inputs:
     required: false
     default: "scan"
   format:
-    description: "Output format: console | json | markdown | sarif"
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare."
     required: false
-    default: "sarif"
+    default: "auto"
   args:
     description: "Extra CLI arguments passed verbatim to repopilot"
     required: false
     default: ""
   version:
-    description: "npm version tag to install (e.g. latest, 0.7.0)"
+    description: "npm version tag to install (e.g. latest, 0.8.0)"
     required: false
     default: "latest"
   upload-sarif:
@@ -46,19 +46,31 @@ runs:
       run: |
         COMMAND="${{ inputs.command }}"
         ARGS="${{ inputs.args }}"
+        FORMAT="${{ inputs.format }}"
         if [[ "$COMMAND" == "scan" && -z "$ARGS" ]]; then
           ARGS="."
         fi
+        if [[ "$FORMAT" == "auto" ]]; then
+          if [[ "$COMMAND" == "scan" ]]; then
+            FORMAT="sarif"
+          else
+            FORMAT="markdown"
+          fi
+        fi
+        if [[ "$FORMAT" == "sarif" && "$COMMAND" != "scan" ]]; then
+          echo "::error::SARIF output is only supported by 'scan'. Use format=markdown or format=json for '$COMMAND'."
+          exit 1
+        fi
         OUTFILE="repopilot-results.sarif"
-        if [[ "${{ inputs.format }}" == "sarif" ]]; then
+        if [[ "$FORMAT" == "sarif" ]]; then
           repopilot "$COMMAND" $ARGS --format sarif --output "$OUTFILE"
           echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
         else
-          repopilot "$COMMAND" $ARGS --format ${{ inputs.format }}
+          repopilot "$COMMAND" $ARGS --format "$FORMAT"
         fi
 
     - name: Upload SARIF to GitHub Code Scanning
-      if: inputs.upload-sarif == 'true' && inputs.format == 'sarif'
-      uses: github/codeql-action/upload-sarif@v3
+      if: inputs.upload-sarif == 'true' && steps.run.outputs.sarif_file != ''
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: ${{ steps.run.outputs.sarif_file }}

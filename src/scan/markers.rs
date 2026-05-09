@@ -10,30 +10,25 @@ pub fn detect_markers(path: &Path, content: &str) -> Vec<Marker> {
         };
 
         let line_number = index + 1;
-        if comment_text.contains("TODO") {
-            markers.push(Marker {
-                kind: MarkerKind::Todo,
-                line_number,
-                path: path.to_path_buf(),
-                text: line.to_string(),
-            });
-        }
-        if comment_text.contains("FIXME") {
-            markers.push(Marker {
-                kind: MarkerKind::Fixme,
-                line_number,
-                path: path.to_path_buf(),
-                text: line.to_string(),
-            });
-        }
-        if comment_text.contains("HACK") {
-            markers.push(Marker {
-                kind: MarkerKind::Hack,
-                line_number,
-                path: path.to_path_buf(),
-                text: line.to_string(),
-            });
-        }
+
+        // Emit at most one marker per line — highest severity wins (FIXME = HACK > TODO).
+        // The full line text is preserved in the snippet so all keywords remain visible.
+        let kind = if comment_text.contains("FIXME") {
+            MarkerKind::Fixme
+        } else if comment_text.contains("HACK") {
+            MarkerKind::Hack
+        } else if comment_text.contains("TODO") {
+            MarkerKind::Todo
+        } else {
+            continue;
+        };
+
+        markers.push(Marker {
+            kind,
+            line_number,
+            path: path.to_path_buf(),
+            text: line.to_string(),
+        });
     }
 
     markers

@@ -47,6 +47,29 @@ fn secret_candidate_detects_and_masks_jwt_like_tokens() {
 }
 
 #[test]
+fn secret_candidate_does_not_flag_secret_scanner_variable_names() {
+    let file = file(
+        "src/audits/security/secret_candidate.rs",
+        "let jwt = find_jwt_like_token(line)?;\n",
+    );
+
+    let findings = SecretCandidateAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn secret_candidate_detects_secret_named_literals() {
+    let file = file("src/config.rs", "let jwt = \"abc123xyz987\";\n");
+
+    let findings = SecretCandidateAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "security.secret-candidate");
+    assert!(findings[0].evidence[0].snippet.contains("abc...***"));
+}
+
+#[test]
 fn private_key_candidate_reports_header_without_key_body() {
     let file = file(
         "src/key.pem",

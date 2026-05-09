@@ -149,6 +149,14 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30"
         /// Only show findings at or above this severity level
         #[arg(long, value_enum)]
         min_severity: Option<SeverityArg>,
+
+        /// Print scan phase timing breakdown after the report
+        #[arg(long)]
+        verbose: bool,
+
+        /// Apply a threshold preset: strict, balanced (default), lenient
+        #[arg(long, value_parser = ["strict", "balanced", "lenient"])]
+        preset: Option<String>,
     },
 
     /// Review findings that touch changed Git diff lines (alias: r)
@@ -220,6 +228,49 @@ repopilot review . --format json --output review.json"
         /// Only show findings at or above this severity level
         #[arg(long, value_enum)]
         min_severity: Option<SeverityArg>,
+    },
+
+    /// Generate an LLM-ready context from a scan — paste into Claude Code, Cursor, or ChatGPT (alias: v)
+    #[command(
+        alias = "v",
+        about = "Generate an LLM-ready context from a scan",
+        long_about = "Scans the repository and formats findings as structured markdown optimised\n\
+for pasting into Claude Code, Cursor, ChatGPT, or any LLM assistant.\n\n\
+The output includes a risk summary, tech stack detection, findings grouped by\n\
+category (Security, Architecture, Code Quality, Testing, Framework), evidence\n\
+snippets, fix recommendations, and a token-count estimate.\n\n\
+Use `--focus` to limit output to a single category, and `--budget` to control\n\
+how many tokens the output targets.",
+        after_help = "EXAMPLES:\n  \
+repopilot vibe .\n  \
+repopilot vibe . --focus security\n  \
+repopilot vibe . --budget 8k\n  \
+repopilot vibe . --output vibe.md\n  \
+repopilot vibe . --no-header | pbcopy"
+    )]
+    Vibe {
+        /// Path to project, folder, or file
+        path: PathBuf,
+
+        /// Path to a RepoPilot config file
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        /// Limit output to a single category: security, arch, architecture, quality, framework, all
+        #[arg(long, value_parser = ["security", "arch", "architecture", "quality", "framework", "all"])]
+        focus: Option<String>,
+
+        /// Target token budget for output: 2k, 4k, 8k, 16k (default: 4k)
+        #[arg(long, value_parser = parse_vibe_budget)]
+        budget: Option<usize>,
+
+        /// Write output to a file instead of stdout
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Omit the intro header block (useful for piping into an LLM API)
+        #[arg(long)]
+        no_header: bool,
     },
 
     /// Generate a default repopilot.toml configuration file
@@ -349,4 +400,22 @@ impl From<FailOnArg> for FailOn {
             FailOnArg::Critical => FailOn::Any(Severity::Critical),
         }
     }
+}
+
+fn parse_vibe_budget(value: &str) -> Result<usize, String> {
+    let tokens = match value {
+        "2k" => 2048,
+        "4k" => 4096,
+        "8k" => 8192,
+        "16k" => 16384,
+        other => other
+            .parse::<usize>()
+            .map_err(|_| "expected 2k, 4k, 8k, 16k, or a positive token count".to_string())?,
+    };
+
+    if tokens == 0 {
+        return Err("budget must be greater than zero".to_string());
+    }
+
+    Ok(tokens)
 }

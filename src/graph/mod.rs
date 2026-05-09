@@ -33,10 +33,9 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
     let known_files: BTreeSet<PathBuf> = facts.files.iter().map(|f| f.path.clone()).collect();
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
-    let mut nodes: BTreeSet<PathBuf> = BTreeSet::new();
 
     for file in &facts.files {
-        nodes.insert(file.path.clone());
+        // Insert into edges (one clone); nodes is derived from edges keys afterwards.
         let outgoing = edges.entry(file.path.clone()).or_default();
 
         for raw in &file.imports {
@@ -48,24 +47,26 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         }
     }
 
+    // Build nodes from all sources (edge origins + edge targets).
+    let mut nodes: BTreeSet<PathBuf> = edges.keys().cloned().collect();
+    for targets in edges.values() {
+        nodes.extend(targets.iter().cloned());
+    }
+
     CouplingGraph { edges, nodes }
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
 
 pub fn compute_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
-    let mut fan_out: BTreeMap<PathBuf, usize> =
-        graph.nodes.iter().map(|p| (p.clone(), 0)).collect();
-    let mut fan_in: BTreeMap<PathBuf, usize> = graph.nodes.iter().map(|p| (p.clone(), 0)).collect();
+    // Single pass: accumulate fan_out and fan_in from edges without pre-initialising maps.
+    let mut fan_out: BTreeMap<&PathBuf, usize> = BTreeMap::new();
+    let mut fan_in: BTreeMap<&PathBuf, usize> = BTreeMap::new();
 
     for (from, targets) in &graph.edges {
-        if let Some(fo) = fan_out.get_mut(from) {
-            *fo = targets.len();
-        }
+        fan_out.insert(from, targets.len());
         for target in targets {
-            if let Some(fi) = fan_in.get_mut(target) {
-                *fi += 1;
-            }
+            *fan_in.entry(target).or_insert(0) += 1;
         }
     }
 
