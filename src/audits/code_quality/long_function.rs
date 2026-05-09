@@ -305,5 +305,6 @@ fn build_finding(
             snippet: format!("function spans lines {start_line}–{end_line} ({fn_len} lines)"),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

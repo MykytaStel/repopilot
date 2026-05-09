@@ -39,6 +39,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     snippet: "@react-native-community/async-storage is deprecated".to_string(),
                 }],
                 workspace_package: None,
+                docs_url: None,
             });
         }
 
@@ -71,6 +72,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
+                    docs_url: None,
                 });
             }
         }
@@ -105,6 +107,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
+                    docs_url: None,
                 });
             }
         }
@@ -138,6 +141,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
+                    docs_url: None,
                 });
             }
         }
@@ -163,6 +167,7 @@ impl ProjectAudit for RnDepHealthAudit {
                             snippet: format!("{pkg} lacks New Architecture support"),
                         }],
                         workspace_package: None,
+                        docs_url: None,
                     });
                 }
             }

@@ -60,6 +60,22 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         finding.id = stable_finding_key(finding, path);
     }
 
+    findings.sort_by(|a, b| {
+        b.severity
+            .cmp(&a.severity)
+            .then_with(|| a.rule_id.cmp(&b.rule_id))
+            .then_with(|| {
+                let pa = a.evidence.first().map(|e| e.path.as_path());
+                let pb = b.evidence.first().map(|e| e.path.as_path());
+                pa.cmp(&pb)
+            })
+            .then_with(|| {
+                let la = a.evidence.first().map(|e| e.line_start).unwrap_or(0);
+                let lb = b.evidence.first().map(|e| e.line_start).unwrap_or(0);
+                la.cmp(&lb)
+            })
+    });
+
     let scan_duration_us = start.elapsed().as_micros() as u64;
 
     Ok(ScanSummary {

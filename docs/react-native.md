@@ -25,6 +25,9 @@ RepoPilot detects React Native and Expo projects from `package.json` and reports
 | `framework.react-native.async-storage-from-core` | High | `AsyncStorage` is imported from `react-native` core. |
 | `framework.react-native.old-react-navigation` | Medium | Legacy `react-navigation` v4 import was detected. |
 | `framework.react-native.direct-state-mutation` | High | Class component code mutates `this.state` directly. |
+| `framework.react-native.inline-style` | Medium | Inline `style={{ ... }}` objects found in JSX — creates a new object on every render, defeating memoization. |
+| `framework.react-native.deprecated-api` | High | Removed core API detected (`ViewPagerAndroid`, `ToolbarAndroid`, `DatePickerAndroid`, etc.). |
+| `framework.react-native.flatlist-missing-key` | Low | `FlatList` without `keyExtractor` falls back to index-based keys, breaking reconciliation on reorder. |
 
 ## Recommended Commands
 

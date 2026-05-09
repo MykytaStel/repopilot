@@ -186,6 +186,22 @@ fn render_findings_list(output: &mut String, findings: &[&Finding], indent: &str
                 evidence.snippet.trim()
             ));
         }
+        if !finding.description.is_empty() {
+            let hint = first_sentence(&finding.description, 120);
+            output.push_str(&format!("{indent}  {}\n", color::dim(&hint)));
+        }
+        if let Some(url) = &finding.docs_url {
+            output.push_str(&format!("{indent}  Docs: {url}\n"));
+        }
+    }
+}
+
+fn first_sentence(text: &str, max_len: usize) -> String {
+    let sentence = text.split(". ").next().unwrap_or(text);
+    if sentence.len() <= max_len {
+        sentence.to_string()
+    } else {
+        format!("{}…", &sentence[..max_len])
     }
 }
 
@@ -206,6 +222,13 @@ fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]
                 evidence.line_start,
                 evidence.snippet.trim()
             ));
+        }
+        if !finding.description.is_empty() {
+            let hint = first_sentence(&finding.description, 120);
+            output.push_str(&format!("      {}\n", color::dim(&hint)));
+        }
+        if let Some(url) = &finding.docs_url {
+            output.push_str(&format!("      Docs: {url}\n"));
         }
     }
 }

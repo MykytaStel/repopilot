@@ -51,6 +51,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
             snippet: marker.text.trim().to_string(),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }
 

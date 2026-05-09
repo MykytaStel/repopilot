@@ -94,5 +94,6 @@ fn finding(id: &str, rule_id: &str, path: &str, line: usize, severity: Severity)
             snippet: "snippet".to_string(),
         }],
         workspace_package: None,
+        docs_url: None,
     }
 }

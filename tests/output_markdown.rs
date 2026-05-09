@@ -38,6 +38,7 @@ fn renders_markdown_scan_summary() {
                 snippet: "// TODO: improve architecture".to_string(),
             }],
             workspace_package: None,
+            docs_url: None,
         }],
         detected_frameworks: vec![],
         framework_projects: vec![],
