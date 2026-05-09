@@ -73,6 +73,9 @@ fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Fi
             snippet: header.to_string(),
         }],
         workspace_package: None,
-        docs_url: Some("https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html".to_string()),
+        docs_url: Some(
+            "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+                .to_string(),
+        ),
     }
 }

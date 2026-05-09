@@ -641,12 +641,24 @@ impl ProjectAudit for RnInlineStyleAudit {
 const DEPRECATED_RN_APIS: &[(&str, &str)] = &[
     ("ViewPagerAndroid", "react-native-pager-view"),
     ("ToolbarAndroid", "@react-native-community/toolbar-android"),
-    ("DatePickerAndroid", "@react-native-community/datetimepicker"),
-    ("TimePickerAndroid", "@react-native-community/datetimepicker"),
+    (
+        "DatePickerAndroid",
+        "@react-native-community/datetimepicker",
+    ),
+    (
+        "TimePickerAndroid",
+        "@react-native-community/datetimepicker",
+    ),
     ("MaskedViewIOS", "@react-native-masked-view/masked-view"),
-    ("ProgressBarAndroid", "@react-native-community/progress-bar-android"),
+    (
+        "ProgressBarAndroid",
+        "@react-native-community/progress-bar-android",
+    ),
     ("ProgressViewIOS", "@react-native-community/progress-view"),
-    ("SegmentedControlIOS", "@react-native-community/segmented-control"),
+    (
+        "SegmentedControlIOS",
+        "@react-native-community/segmented-control",
+    ),
     ("CheckBox", "@react-native-community/checkbox"),
 ];
 
