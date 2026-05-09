@@ -1,6 +1,6 @@
 # Audit Rulesets
 
-RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a category and carries a fixed severity.
+RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a category and carries a severity policy.
 
 ## Categories
 
@@ -10,7 +10,6 @@ RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a 
 | Code quality | `CODE_QUALITY` | Hygiene and maintainability issues |
 | Testing | `TESTING` | Test coverage or quality gaps |
 | Security | `SECURITY` | Potential vulnerabilities |
-| Performance | `PERFORMANCE` | Performance-related concerns |
 | Framework | `FRAMEWORK` | Framework-specific configuration, migration, or runtime concerns |
 
 ## Severity levels
@@ -277,6 +276,86 @@ Cycles are deduplicated and reported once per unique set of files involved. Supp
 | Severity | `LOW` |
 | Docs | https://reactnative.dev/docs/flatlist#keyextractor |
 | Description | A `FlatList` component is missing the `keyExtractor` prop. Without it, React Native falls back to array index keys, breaking list reconciliation when items change order. |
+
+### `framework.js.var-declaration`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Docs | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/var |
+| Description | A JavaScript or TypeScript file uses `var`. Prefer `const` or `let` for block scoping and clearer reassignment behavior. |
+
+### `framework.js.console-log`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Description | A `console.log` call was found outside test files. Remove debug logging or replace it with a structured logger that respects log levels. |
+
+### `framework.react.class-component`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Docs | https://react.dev/reference/react/Component |
+| Description | A React class component is in use. Function components with hooks are the preferred model for new React code. |
+
+### `framework.react.prop-types`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `LOW` |
+| Docs | https://react.dev/blog/2024/04/25/react-19-upgrade-guide#removed-proptypes |
+| Description | `prop-types` runtime checks were found in a typed React project. Prefer TypeScript or Flow static types and remove the runtime package when possible. |
+
+### `framework.rn-async-storage-legacy`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Docs | https://react-native-async-storage.github.io/async-storage/docs/install |
+| Description | `@react-native-community/async-storage` is installed. Migrate to the maintained `@react-native-async-storage/async-storage` package. |
+
+### `framework.rn-navigation-compat`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Docs | https://reactnavigation.org/docs/getting-started |
+| Description | The installed `@react-navigation/native` version is incompatible with the detected React Native version. Upgrade React Navigation before release. |
+
+### `framework.rn-reanimated-compat`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Docs | https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/installation |
+| Description | The installed `react-native-reanimated` version is incompatible with the detected React Native version. Upgrade to a compatible Reanimated release. |
+
+### `framework.rn-gesture-handler-old`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `HIGH` |
+| Docs | https://docs.swmansion.com/react-native-gesture-handler/docs/installation |
+| Description | `react-native-gesture-handler` v1 is installed with a React Native version that requires a newer gesture-handler line. Upgrade to v2 or later. |
+
+### `framework.rn-new-arch-incompatible-dep`
+
+| Field | Value |
+|---|---|
+| Category | `FRAMEWORK` |
+| Severity | `MEDIUM` |
+| Docs | https://reactnative.dev/docs/new-architecture-intro |
+| Description | A known dependency without React Native New Architecture support is installed. Replace it or verify its migration path before enabling New Architecture. |
 
 See [React Native Analysis](react-native.md) for supported project shapes, profile fields, and limitations.
 

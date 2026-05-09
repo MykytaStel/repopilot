@@ -71,7 +71,11 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 
 ## Publishing Policy
 
-The release workflow runs `cargo publish --dry-run` for release tags. npm publishing is automated when `NPM_TOKEN` is configured. crates.io publishing remains manual.
+The release workflow runs `cargo publish --dry-run` for release tags. Publishing is automated when the corresponding secrets are configured:
+
+- `CRATES_IO_TOKEN` publishes the crate to crates.io.
+- `NPM_TOKEN` publishes the npm package.
+- `HOMEBREW_TAP_TOKEN` updates the Homebrew tap formula.
 
 Before publishing:
 
@@ -80,7 +84,7 @@ Before publishing:
 - review `cargo package --list`;
 - run `npm pack --dry-run`;
 - run `cargo publish --dry-run`;
-- publish from the exact tagged commit.
+- tag from the exact commit that should be published.
 
 See [docs/release.md](release.md) for the full release process.
 
@@ -88,18 +92,34 @@ See [docs/release.md](release.md) for the full release process.
 
 A formula template lives at [`Formula/repopilot.rb`](../Formula/repopilot.rb) in the repo.
 
-To publish it:
+RepoPilot uses a custom Homebrew tap, not `homebrew/core`. Homebrew recommends GitHub tap repositories with the `homebrew-` prefix so users can install them with the short `brew tap user/name` form; see [How to Create and Maintain a Tap](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap).
+
+One-time setup:
 
 1. Create a new GitHub repo **`MykytaStel/homebrew-repopilot`**.
-2. Copy `Formula/repopilot.rb` into `Formula/repopilot.rb` in that repo.
-3. On each release, update `version` and replace every `PLACEHOLDER_SHA256` with the real
-   value from `repopilot-checksums.txt` attached to the GitHub Release.
-4. Users install with:
+2. Add an empty `Formula/` directory to that repo and commit it.
+3. Create a fine-grained GitHub PAT with contents write access to `MykytaStel/homebrew-repopilot`.
+4. Add that token to the main `MykytaStel/repopilot` repository as the `HOMEBREW_TAP_TOKEN` Actions secret.
+
+On each release tag, the `update-homebrew-tap` job downloads the GitHub Release artifacts, extracts their SHA256 checksums, replaces the placeholders in `Formula/repopilot.rb`, writes `tap/Formula/repopilot.rb`, and pushes the formula update to the tap.
+
+Users install with:
 
 ```bash
 brew tap mykytastel/repopilot
 brew install repopilot
 ```
+
+After a release, verify the tap with:
+
+```bash
+brew tap mykytastel/repopilot
+brew install repopilot
+repopilot --version
+brew test repopilot
+```
+
+If the tap update fails, check that the tap repo exists, the `Formula/` directory exists, `HOMEBREW_TAP_TOKEN` has write permission, and the macOS/Linux `.tar.gz` release artifacts exist.
 
 ## Quick install (curl | sh)
 

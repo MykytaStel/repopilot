@@ -148,8 +148,6 @@ fn sarif_finding_without_metadata_serializes_safely() {
 
 #[test]
 fn sarif_registry_rule_overrides_finding_docs_url() {
-    // Even if the finding carries its own docs_url, the registry's authoritative
-    // URL should take precedence.
     let mut finding = make_finding("framework.react-native.inline-style");
     finding.docs_url = Some("https://example.com/wrong-url".to_owned());
     let root = PathBuf::from(".");
@@ -162,4 +160,198 @@ fn sarif_registry_rule_overrides_finding_docs_url() {
         Some("https://reactnative.dev/docs/stylesheet"),
         "registry docs_url must take precedence over finding.docs_url"
     );
+}
+
+// ── Registry coverage: all emitted rule IDs must be registered ────────────────
+
+#[test]
+fn all_architecture_rule_ids_are_registered() {
+    for rule_id in &[
+        "architecture.large-file",
+        "architecture.deep-nesting",
+        "architecture.too-many-modules",
+        "architecture.circular-dependency",
+        "architecture.excessive-fan-out",
+        "architecture.high-instability-hub",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "architecture rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_code_quality_rule_ids_are_registered() {
+    for rule_id in &[
+        "code-quality.complex-file",
+        "code-quality.long-function",
+        "code-marker.todo",
+        "code-marker.fixme",
+        "code-marker.hack",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "code-quality rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_security_rule_ids_are_registered() {
+    for rule_id in &[
+        "security.env-file-committed",
+        "security.private-key-candidate",
+        "security.secret-candidate",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "security rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_testing_rule_ids_are_registered() {
+    for rule_id in &["testing.missing-test-folder", "testing.source-without-test"] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "testing rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_framework_js_react_rule_ids_are_registered() {
+    for rule_id in &[
+        "framework.js.var-declaration",
+        "framework.js.console-log",
+        "framework.react.class-component",
+        "framework.react.prop-types",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "framework JS/React rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_framework_rn_dep_health_rule_ids_are_registered() {
+    for rule_id in &[
+        "framework.rn-async-storage-legacy",
+        "framework.rn-navigation-compat",
+        "framework.rn-reanimated-compat",
+        "framework.rn-gesture-handler-old",
+        "framework.rn-new-arch-incompatible-dep",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "RN dep-health rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn static_rule_metadata_severities_match_emitted_findings() {
+    let expected = [
+        ("architecture.large-file", Severity::Medium),
+        ("architecture.deep-nesting", Severity::Low),
+        ("architecture.too-many-modules", Severity::Medium),
+        ("architecture.circular-dependency", Severity::High),
+        ("architecture.excessive-fan-out", Severity::Medium),
+        ("architecture.high-instability-hub", Severity::High),
+        ("code-quality.complex-file", Severity::Medium),
+        ("code-quality.long-function", Severity::Medium),
+        ("code-marker.todo", Severity::Low),
+        ("code-marker.fixme", Severity::Medium),
+        ("code-marker.hack", Severity::Medium),
+        ("security.env-file-committed", Severity::Critical),
+        ("security.private-key-candidate", Severity::Critical),
+        ("security.secret-candidate", Severity::High),
+        ("testing.missing-test-folder", Severity::Medium),
+        ("testing.source-without-test", Severity::Low),
+        ("framework.js.var-declaration", Severity::Low),
+        ("framework.js.console-log", Severity::Low),
+        ("framework.react.class-component", Severity::Low),
+        ("framework.react.prop-types", Severity::Low),
+        ("framework.react-native.inline-style", Severity::Medium),
+        ("framework.react-native.deprecated-api", Severity::High),
+        ("framework.react-native.flatlist-missing-key", Severity::Low),
+        (
+            "framework.react-native.async-storage-from-core",
+            Severity::High,
+        ),
+        (
+            "framework.react-native.old-react-navigation",
+            Severity::Medium,
+        ),
+        (
+            "framework.react-native.direct-state-mutation",
+            Severity::High,
+        ),
+        ("framework.react-native.old-architecture", Severity::Medium),
+        (
+            "framework.react-native.architecture-mismatch",
+            Severity::High,
+        ),
+        ("framework.react-native.hermes-mismatch", Severity::Medium),
+        ("framework.react-native.hermes-disabled", Severity::Low),
+        ("framework.react-native.codegen-missing", Severity::Medium),
+        ("framework.rn-async-storage-legacy", Severity::Medium),
+        ("framework.rn-navigation-compat", Severity::High),
+        ("framework.rn-reanimated-compat", Severity::High),
+        ("framework.rn-gesture-handler-old", Severity::High),
+        ("framework.rn-new-arch-incompatible-dep", Severity::Medium),
+    ];
+
+    for (rule_id, severity) in expected {
+        let meta = lookup_rule_metadata(rule_id)
+            .unwrap_or_else(|| panic!("rule not registered: {rule_id}"));
+        assert_eq!(
+            meta.default_severity, severity,
+            "registry severity mismatch for {rule_id}"
+        );
+    }
+}
+
+// ── RN stability: metadata completeness ──────────────────────────────────────
+
+#[test]
+fn architecture_mismatch_has_docs_url() {
+    let meta = lookup_rule_metadata("framework.react-native.architecture-mismatch").unwrap();
+    assert!(
+        meta.docs_url.is_some(),
+        "architecture-mismatch must have a docs_url"
+    );
+}
+
+#[test]
+fn all_rn_rules_have_recommendation() {
+    let rn_rule_ids = [
+        "framework.react-native.inline-style",
+        "framework.react-native.deprecated-api",
+        "framework.react-native.flatlist-missing-key",
+        "framework.react-native.async-storage-from-core",
+        "framework.react-native.old-react-navigation",
+        "framework.react-native.direct-state-mutation",
+        "framework.react-native.old-architecture",
+        "framework.react-native.architecture-mismatch",
+        "framework.react-native.hermes-mismatch",
+        "framework.react-native.hermes-disabled",
+        "framework.react-native.codegen-missing",
+        "framework.rn-async-storage-legacy",
+        "framework.rn-navigation-compat",
+        "framework.rn-reanimated-compat",
+        "framework.rn-gesture-handler-old",
+        "framework.rn-new-arch-incompatible-dep",
+    ];
+    for rule_id in &rn_rule_ids {
+        let meta = lookup_rule_metadata(rule_id)
+            .unwrap_or_else(|| panic!("RN rule not in registry: {rule_id}"));
+        assert!(
+            meta.recommendation.is_some(),
+            "RN rule {rule_id} must have a recommendation"
+        );
+    }
 }

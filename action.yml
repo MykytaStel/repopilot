@@ -44,12 +44,17 @@ runs:
       id: run
       shell: bash
       run: |
+        COMMAND="${{ inputs.command }}"
+        ARGS="${{ inputs.args }}"
+        if [[ "$COMMAND" == "scan" && -z "$ARGS" ]]; then
+          ARGS="."
+        fi
         OUTFILE="repopilot-results.sarif"
         if [[ "${{ inputs.format }}" == "sarif" ]]; then
-          repopilot ${{ inputs.command }} --format sarif --output "$OUTFILE" ${{ inputs.args }}
+          repopilot "$COMMAND" $ARGS --format sarif --output "$OUTFILE"
           echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
         else
-          repopilot ${{ inputs.command }} --format ${{ inputs.format }} ${{ inputs.args }}
+          repopilot "$COMMAND" $ARGS --format ${{ inputs.format }}
         fi
 
     - name: Upload SARIF to GitHub Code Scanning

@@ -1,6 +1,6 @@
 # Release process
 
-RepoPilot releases are prepared in the repository, verified locally and in CI, tagged from `main`, and published to crates.io manually by the maintainer.
+RepoPilot releases are prepared in the repository, verified locally and in CI, tagged from `main`, and published by the release workflow when the required secrets are configured.
 
 ## 1. Prepare the release
 
@@ -54,17 +54,24 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, and publishes the npm package when `NPM_TOKEN` is configured. It does not publish to crates.io.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, publishes npm with `NPM_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`.
 
-## 7. Publish to crates.io
+## 7. Verify publishing
 
-After the tag workflow passes and the maintainer has reviewed the release:
+After the tag workflow passes, verify all configured distribution channels:
 
 ```bash
-cargo publish
+cargo install repopilot --force
+npm install -g repopilot@X.Y.Z
+brew tap mykytastel/repopilot
+brew install repopilot
+repopilot --version
+brew test repopilot
 ```
 
-Do not publish from a dirty worktree. Publish from the exact tagged commit.
+If a publishing secret is intentionally absent, publish that channel manually from the exact tagged commit and a clean worktree.
+
+For Homebrew failures, check the custom tap first: `MykytaStel/homebrew-repopilot` must exist, contain a `Formula/` directory, and be writable by `HOMEBREW_TAP_TOKEN`.
 
 ## 8. Review GitHub Release
 

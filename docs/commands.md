@@ -31,6 +31,17 @@ repopilot scan src/payments/
 repopilot scan src/payments/processor.rs
 ```
 
+### Scanning workspaces
+
+Use `--workspace` in npm, Yarn, pnpm, or Cargo monorepos to scan each package root separately and group findings by package. Console and Markdown output include a compact workspace risk summary.
+
+```bash
+repopilot scan . --workspace
+repopilot scan . --workspace --min-severity medium
+```
+
+When no workspace packages are detected, RepoPilot falls back to a normal single-project scan and prints a warning.
+
 ### Saving reports
 
 Use `--output` to write to a file instead of stdout. The format is inferred from `--format`:
@@ -50,6 +61,15 @@ CLI flags override `repopilot.toml` and built-in defaults:
 repopilot scan . --max-file-loc 500
 repopilot scan . --max-directory-modules 30
 repopilot scan . --max-directory-depth 8
+```
+
+### Filtering by severity
+
+Use `--min-severity` to reduce local report noise while keeping the same rules enabled:
+
+```bash
+repopilot scan . --min-severity high
+repopilot review . --min-severity high
 ```
 
 ---
@@ -192,6 +212,12 @@ repopilot scan . --fail-on critical
 
 ```bash
 repopilot review . --base origin/main --format markdown --output review.md
+```
+
+### Scan a monorepo without low-severity noise
+
+```bash
+repopilot scan . --workspace --min-severity medium
 ```
 
 ### Compare before and after a large refactor

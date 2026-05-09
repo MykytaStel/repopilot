@@ -8,10 +8,13 @@ use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::findings::types::Severity;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::report::writer::write_report;
+use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::scan::workspace::detect_workspace_packages;
+use repopilot::scan::types::{LanguageSummary, ScanSummary};
+use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
+use std::collections::BTreeMap;
 use std::io::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[allow(clippy::too_many_arguments)]
@@ -45,35 +48,7 @@ pub fn run(
     let pb = make_spinner();
 
     let mut summary = if workspace {
-        let packages = detect_workspace_packages(&path);
-        if packages.is_empty() {
-            eprintln!(
-                "Warning: --workspace specified but no workspace packages found under {}. \
-                 Falling back to single-package scan.",
-                path.display()
-            );
-            scan_path_with_config(&path, &scan_config)?
-        } else {
-            let mut merged = scan_path_with_config(&path, &scan_config)?;
-            for pkg in &packages {
-                match scan_path_with_config(&pkg.root, &scan_config) {
-                    Ok(mut pkg_summary) => {
-                        for finding in &mut pkg_summary.findings {
-                            finding.workspace_package = Some(pkg.name.clone());
-                        }
-                        merged.findings.extend(pkg_summary.findings);
-                        merged.files_count += pkg_summary.files_count;
-                        merged.directories_count += pkg_summary.directories_count;
-                        merged.lines_of_code += pkg_summary.lines_of_code;
-                    }
-                    Err(err) => eprintln!(
-                        "Warning: failed to scan workspace package '{}': {err}",
-                        pkg.name
-                    ),
-                }
-            }
-            merged
-        }
+        scan_workspace(&path, &scan_config)?
     } else {
         scan_path_with_config(&path, &scan_config)?
     };
@@ -114,6 +89,97 @@ pub fn run(
     write_report(&rendered_report, output.as_deref())?;
 
     Ok(())
+}
+
+fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, std::io::Error> {
+    let packages = detect_workspace_packages(path);
+    if packages.is_empty() {
+        eprintln!(
+            "Warning: --workspace specified but no workspace packages found under {}. \
+             Falling back to single-package scan.",
+            path.display()
+        );
+        return scan_path_with_config(path, scan_config);
+    }
+
+    let root_scan_config = workspace_root_config(scan_config, path, &packages);
+    let mut merged = scan_path_with_config(path, &root_scan_config)?;
+
+    for pkg in &packages {
+        match scan_path_with_config(&pkg.root, scan_config) {
+            Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &pkg.name),
+            Err(err) => eprintln!(
+                "Warning: failed to scan workspace package '{}': {err}",
+                pkg.name
+            ),
+        }
+    }
+
+    Ok(merged)
+}
+
+fn workspace_root_config(
+    scan_config: &ScanConfig,
+    root: &Path,
+    packages: &[WorkspacePackage],
+) -> ScanConfig {
+    let mut config = scan_config.clone();
+    for package in packages {
+        if let Some(relative_path) = workspace_relative_path(root, &package.root) {
+            config.ignored_paths.push(relative_path);
+        }
+    }
+    config
+}
+
+fn workspace_relative_path(root: &Path, package_root: &Path) -> Option<String> {
+    package_root
+        .strip_prefix(root)
+        .ok()
+        .and_then(|path| path.to_str())
+        .filter(|path| !path.is_empty())
+        .map(|path| path.replace('\\', "/"))
+}
+
+fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, package_name: &str) {
+    for finding in &mut package.findings {
+        finding.workspace_package = Some(package_name.to_string());
+    }
+
+    merged.files_count += package.files_count;
+    merged.directories_count += package.directories_count;
+    merged.lines_of_code += package.lines_of_code;
+    merged.skipped_files_count += package.skipped_files_count;
+    merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
+    merged.scan_duration_us = merged
+        .scan_duration_us
+        .saturating_add(package.scan_duration_us);
+    merge_language_summaries(&mut merged.languages, package.languages);
+    merged.findings.extend(package.findings);
+}
+
+fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<LanguageSummary>) {
+    let mut counts: BTreeMap<String, usize> = target
+        .drain(..)
+        .map(|language| (language.name, language.files_count))
+        .collect();
+
+    for language in source {
+        *counts.entry(language.name).or_insert(0) += language.files_count;
+    }
+
+    let mut merged: Vec<_> = counts
+        .into_iter()
+        .map(|(name, files_count)| LanguageSummary { name, files_count })
+        .collect();
+    merged.sort_by(|left, right| {
+        right
+            .files_count
+            .cmp(&left.files_count)
+            .then_with(|| left.name.cmp(&right.name))
+    });
+
+    *target = merged;
 }
 
 fn make_spinner() -> Option<ProgressBar> {

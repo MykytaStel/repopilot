@@ -15,6 +15,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added first-party GitHub Action (`action.yml`) for running RepoPilot audits in CI with optional SARIF upload to GitHub Code Scanning.
 - Automated crates.io publishing in the release workflow via `CRATES_IO_TOKEN` secret.
 - Automated Homebrew tap formula updates in the release workflow via `HOMEBREW_TAP_TOKEN` secret.
+- Complete rule registry: all 36 rule IDs emitted by audits now have `RuleMetadata` entries (title, description, recommendation, docs URL) across architecture, code-quality, security, testing, framework JS/React, React Native, and code-marker categories.
+- SARIF enrichment: `tool.driver.rules[*].help.text` is now populated from the registry's `recommendation` field for every rule that has one; `results[*].properties` now always includes `category` (e.g. `"security"`) and `workspacePackage` (when set).
+- Workspace Risk Summary: `--workspace` scans now render a compact per-package severity breakdown table in console and markdown output.
+- React Native rule metadata completeness: `framework.react-native.architecture-mismatch` now links to the official New Architecture docs; all five `framework.rn-*` dependency-health findings now carry `docs_url`.
 
 ### Changed
 
@@ -117,8 +121,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.6.0
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.7.0
+[0.6.0]: https://www.npmjs.com/package/repopilot/v/0.6.0
 [0.5.0]: https://github.com/MykytaStel/repopilot/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MykytaStel/repopilot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/MykytaStel/repopilot/compare/v0.2.0...v0.3.0

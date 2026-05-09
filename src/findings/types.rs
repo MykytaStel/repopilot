@@ -46,6 +46,18 @@ pub struct Evidence {
     pub snippet: String,
 }
 
+impl FindingCategory {
+    pub fn label(&self) -> &'static str {
+        match self {
+            FindingCategory::Architecture => "architecture",
+            FindingCategory::CodeQuality => "code-quality",
+            FindingCategory::Testing => "testing",
+            FindingCategory::Security => "security",
+            FindingCategory::Framework => "framework",
+        }
+    }
+}
+
 impl Finding {
     pub fn severity_label(&self) -> &'static str {
         self.severity.label()

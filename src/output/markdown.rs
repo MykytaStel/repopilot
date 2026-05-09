@@ -1,10 +1,12 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
+use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::render_helpers::escape_table_cell;
 use crate::scan::types::ScanSummary;
+use std::collections::BTreeMap;
 
 pub fn render(summary: &ScanSummary) -> String {
     let mut output = String::new();
@@ -53,6 +55,7 @@ pub fn render(summary: &ScanSummary) -> String {
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
+    render_workspace_risk_table(&mut output, &summary.findings);
 
     output.push_str("## Findings\n\n");
 
@@ -186,6 +189,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
+    render_workspace_risk_table(&mut output, &summary.findings);
 
     output.push_str("## Findings\n\n");
 
@@ -358,4 +362,51 @@ fn render_evidence(finding: &crate::findings::types::Finding) -> String {
             )
         })
         .unwrap_or_else(|| "No evidence".to_string())
+}
+
+fn render_workspace_risk_table(output: &mut String, findings: &[Finding]) {
+    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
+    if !has_workspace {
+        return;
+    }
+
+    let mut table: BTreeMap<&str, [usize; 5]> = BTreeMap::new();
+    for f in findings {
+        if let Some(pkg) = f.workspace_package.as_deref() {
+            let counts = table.entry(pkg).or_insert([0; 5]);
+            counts[severity_index(f.severity)] += 1;
+        }
+    }
+
+    if table.is_empty() {
+        return;
+    }
+
+    output.push_str("## Workspace Risk Summary\n\n");
+    output.push_str("| Package | Critical | High | Medium | Low | Info | Total |\n");
+    output.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+    for (pkg, counts) in &table {
+        let total: usize = counts.iter().sum();
+        output.push_str(&format!(
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            escape_table_cell(pkg),
+            counts[0],
+            counts[1],
+            counts[2],
+            counts[3],
+            counts[4],
+            total
+        ));
+    }
+    output.push('\n');
+}
+
+fn severity_index(s: Severity) -> usize {
+    match s {
+        Severity::Critical => 0,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+        Severity::Info => 4,
+    }
 }
