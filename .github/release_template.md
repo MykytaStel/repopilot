@@ -1,12 +1,12 @@
 ## Highlights
 
-- Workspace scanning with per-package risk summaries.
-- React Native architecture profile and framework-specific findings.
-- React Native dependency health checks.
-- Complete rule metadata registry and enriched SARIF output.
-- Baseline-aware CI gate for new findings.
-- First-party GitHub Action and SARIF output for GitHub Code Scanning.
-- Local-first safety layer positioning for AI-assisted and vibe-coded changes.
+- `repopilot vibe` generates LLM-ready Markdown from local scan findings.
+- `repopilot harden` generates prioritized P0/P1/P2/P3 remediation plans.
+- `repopilot prompt` generates paste-ready remediation prompts with RepoPilot context.
+- Scan presets (`--preset strict|balanced|lenient`) tune thresholds without editing config.
+- `scan --verbose` prints scan and render timing for local performance checks.
+- First-party GitHub Action can run `scan`, `review`, `compare`, `vibe`, `harden`, and `prompt`.
+- Release publishing is hardened while keeping npm Trusted Publishing separate from the tag workflow.
 - npm, cargo, curl, and GitHub Release binary install paths.
 
 ## Install
@@ -23,6 +23,15 @@ curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.s
 repopilot scan . --format markdown --output repopilot-report.md
 repopilot scan . --workspace --min-severity medium
 repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
+```
+
+## Vibe Example
+
+```bash
+repopilot vibe .
+repopilot vibe . --focus security --budget 2k
+repopilot harden . --focus security
+repopilot prompt . --budget 8k
 ```
 
 ## Links

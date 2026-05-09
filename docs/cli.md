@@ -19,6 +19,8 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
 | [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
 | [`vibe`](#vibe) | `v` | Generate LLM-ready context from a scan |
+| [`harden`](#harden) | `h` | Generate a prioritized remediation plan |
+| [`prompt`](#prompt) | `p` | Generate an AI-ready remediation prompt |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
@@ -195,6 +197,7 @@ repopilot review . --min-severity high
 Scans the repository and formats findings as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another LLM assistant.
 
 The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, fix recommendations, and an approximate token count.
+`vibe` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
 
 ### Synopsis
 
@@ -226,6 +229,70 @@ repopilot vibe .
 repopilot vibe . --focus security --budget 2k
 repopilot vibe . --output vibe.md
 repopilot vibe . --no-header | pbcopy
+```
+
+---
+
+## `harden`
+
+Scans the repository and formats findings as a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, fix recommendations, and verification commands.
+
+`harden` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+
+### Synopsis
+
+```
+repopilot harden <PATH> [OPTIONS]
+repopilot h <PATH> [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit output to a category |
+| `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget |
+| `-o, --output` | path | stdout | Write output to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot harden .
+repopilot harden . --focus security --budget 2k
+repopilot harden . --output harden.md
+```
+
+---
+
+## `prompt`
+
+Scans the repository and emits a Markdown prompt for a coding assistant, including remediation instructions and embedded RepoPilot context.
+
+`prompt` emits Markdown only; it does not call an AI service, accept `--format`, or change JSON/SARIF schemas.
+
+### Synopsis
+
+```
+repopilot prompt <PATH> [OPTIONS]
+repopilot p <PATH> [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit embedded context to a category |
+| `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget for embedded context |
+| `-o, --output` | path | stdout | Write output to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot prompt .
+repopilot prompt . --focus security --budget 2k
+repopilot prompt . --output prompt.md
 ```
 
 ---

@@ -45,9 +45,11 @@ RepoPilot runs locally and does not upload your repository.
 - CI-friendly failure thresholds with `--fail-on`
 - Git diff-aware review mode for prioritizing findings introduced by changed lines
 - Console, JSON, Markdown, HTML, and SARIF (2.1.0) scan output — SARIF includes per-result category and workspace package properties
-- First-party GitHub Action wrapper with optional SARIF upload
+- First-party GitHub Action wrapper for `scan`, `review`, `compare`, `vibe`, `harden`, and `prompt`, with optional SARIF upload for scans
 - Compare mode for diffing two JSON scan reports
 - **`repopilot vibe`** — new in v0.8: formats scan output as LLM-ready markdown, paste into Claude Code or ChatGPT to start remediating
+- **`repopilot harden`** — new in v0.8: turns findings into a prioritized remediation plan
+- **`repopilot prompt`** — new in v0.8: exports an AI-ready remediation prompt with RepoPilot context
 
 See [docs/rulesets.md](docs/rulesets.md) for the full list of rules and severity levels.
 
@@ -123,6 +125,8 @@ RepoPilot is a local-first safety layer for AI-assisted and vibe-coded changes. 
 
 ```bash
 repopilot vibe . --focus security          # get an LLM brief for Claude Code
+repopilot harden . --focus security        # get a prioritized hardening plan
+repopilot prompt . --budget 8k             # generate a paste-ready remediation prompt
 repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
 repopilot scan . --workspace --min-severity medium --format markdown --output repopilot-report.md
 ```
@@ -132,6 +136,8 @@ repopilot scan . --workspace --min-severity medium --format markdown --output re
 | Command | Alias | Description |
 |---------|-------|-------------|
 | `repopilot vibe <path>` | `v` | **New in v0.8** — LLM-ready context from a scan |
+| `repopilot harden <path>` | `h` | **New in v0.8** — prioritized remediation plan |
+| `repopilot prompt <path>` | `p` | **New in v0.8** — AI-ready remediation prompt |
 | `repopilot scan <path>` | `s` | Scan a project, folder, or file for findings |
 | `repopilot review [path]` | `r` | Review findings that touch changed Git diff lines |
 | `repopilot compare <before> <after>` | `cmp` | Compare two JSON scan reports and show what changed |
@@ -292,6 +298,7 @@ Use `--fail-on new-high` to fail CI only when new high or critical findings are 
 When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. For baseline-based adoption, commit an accepted baseline and scan against it in CI.
 
 To upload RepoPilot findings to GitHub Code Scanning, generate SARIF and use `github/codeql-action/upload-sarif`. The workflow must include `security-events: write`.
+The first-party action can also run `command: vibe`, `command: harden`, or `command: prompt`; those commands emit Markdown and do not produce SARIF.
 
 ```yaml
 name: RepoPilot
@@ -333,9 +340,6 @@ jobs:
 
 These are planned ideas, not current features:
 
-- Vibe Check command for AI-assisted codebase readiness
-- Hardening Plan output based on existing findings
-- AI-agent prompt/context export
 - Change Risk Map
 - Better architecture drift detection
 - Optional per-platform npm binary packages for faster installs

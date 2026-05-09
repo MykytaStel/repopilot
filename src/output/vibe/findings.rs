@@ -1,6 +1,5 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::rules::lookup_rule_metadata;
-use std::cmp::Reverse;
 use std::fmt::Write as FmtWrite;
 
 type CategoryFilter = fn(&FindingCategory) -> bool;
@@ -35,8 +34,8 @@ pub(super) fn render_findings_by_category(
             continue;
         }
 
-        if out.len() - start_len > budget_chars * 8 / 10 {
-            let _ = writeln!(out, "\n*[Output truncated to stay within token budget]*");
+        if output_reached_budget(out, start_len, budget_chars) {
+            render_truncation_notice(out);
             break;
         }
 
@@ -62,19 +61,42 @@ pub(super) fn render_findings_by_category(
         out.push('\n');
 
         let mut sorted = group.clone();
-        sorted.sort_by_key(|finding| Reverse(finding.severity));
+        sorted.sort_by(|left, right| {
+            right
+                .severity
+                .cmp(&left.severity)
+                .then_with(|| left.rule_id.cmp(&right.rule_id))
+                .then_with(|| left.title.cmp(&right.title))
+                .then_with(|| finding_location_key(left).cmp(&finding_location_key(right)))
+        });
 
         let max_per_category = if compact { 3 } else { 5 };
+        let mut rendered_count = 0;
+        let mut truncated = false;
 
-        for (i, finding) in sorted.iter().copied().take(max_per_category).enumerate() {
-            render_finding_entry(out, finding, i + 1);
+        for finding in sorted.iter().copied().take(max_per_category) {
+            let mut entry = String::new();
+            render_finding_entry(&mut entry, finding, rendered_count + 1);
+            if rendered_count > 0
+                && out.len().saturating_sub(start_len) + entry.len() > budget_chars
+            {
+                render_truncation_notice(out);
+                truncated = true;
+                break;
+            }
+            out.push_str(&entry);
+            rendered_count += 1;
         }
 
-        if sorted.len() > max_per_category {
+        if truncated {
+            break;
+        }
+
+        if sorted.len() > rendered_count {
             let _ = writeln!(
                 out,
                 "*…and {} more {} findings*\n",
-                sorted.len() - max_per_category,
+                sorted.len() - rendered_count,
                 label.to_lowercase()
             );
         }
@@ -124,4 +146,20 @@ pub(super) fn render_finding_entry(out: &mut String, finding: &Finding, index: u
     }
 
     out.push('\n');
+}
+
+fn output_reached_budget(out: &str, start_len: usize, budget_chars: usize) -> bool {
+    out.len().saturating_sub(start_len) >= budget_chars
+}
+
+fn render_truncation_notice(out: &mut String) {
+    let _ = writeln!(out, "\n*[Output truncated to stay within token budget]*");
+}
+
+fn finding_location_key(finding: &Finding) -> String {
+    finding
+        .evidence
+        .first()
+        .map(|e| format!("{}:{}", e.path.display(), e.line_start))
+        .unwrap_or_default()
 }

@@ -99,6 +99,29 @@ repopilot vibe . --no-header | pbcopy
 ```
 
 Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
+The GitHub Action can run `command: vibe`; it defaults the path to `.` and does not pass `--format` because `vibe` is Markdown-only.
+
+### Hardening plan
+
+Use `harden` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities and includes verification commands.
+
+```bash
+repopilot harden .
+repopilot harden . --focus security --budget 2k
+repopilot harden . --output harden.md
+```
+
+### AI-ready prompt
+
+Use `prompt` when you want one paste-ready instruction block for a coding assistant. It includes remediation constraints and embedded RepoPilot context.
+
+```bash
+repopilot prompt .
+repopilot prompt . --focus security --budget 2k
+repopilot prompt . --output prompt.md
+```
+
+The GitHub Action can also run `command: harden` and `command: prompt`; both commands are Markdown-only.
 
 ---
 

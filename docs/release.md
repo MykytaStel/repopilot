@@ -54,7 +54,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, publishes npm with `NPM_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The separate `publish-npm.yml` workflow publishes npm through npm Trusted Publishing / GitHub OIDC when the GitHub Release is published. Optional secret-backed channels are skipped when their secret is absent.
 
 ## 7. Verify publishing
 

@@ -6,6 +6,95 @@ fn repopilot() -> Command {
     Command::new(env!("CARGO_BIN_EXE_repopilot"))
 }
 
+fn write_sample_project(root: &std::path::Path) {
+    let src = root.join("src");
+    fs::create_dir_all(&src).expect("failed to create src dir");
+    fs::write(
+        src.join("config.rs"),
+        r#"const API_KEY: &str = "sk_live_123456789abcdef";
+"#,
+    )
+    .expect("failed to write config file");
+    fs::write(src.join("todo.rs"), "// TODO: remove this marker\n")
+        .expect("failed to write todo file");
+}
+
+#[test]
+fn vibe_default_output_succeeds() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let output = repopilot()
+        .args(["vibe", "."])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot vibe");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    assert!(stdout.contains("# RepoPilot Vibe Check"));
+    assert!(stdout.contains("Security"));
+    assert!(stdout.contains("Possible secret detected"));
+    assert!(stdout.contains("sk_...***"));
+    assert!(!stdout.contains(&temp.path().display().to_string()));
+}
+
+#[test]
+fn vibe_focus_security_with_budget_succeeds() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let output = repopilot()
+        .args(["vibe", ".", "--focus", "security", "--budget", "2k"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot vibe");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    assert!(stdout.contains("Security"));
+    assert!(stdout.contains("Possible secret detected"));
+    assert!(!stdout.contains("TODO marker"));
+    assert!(!stdout.contains("## Hot Files"));
+}
+
+#[test]
+fn vibe_no_header_succeeds() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let output = repopilot()
+        .args(["vibe", ".", "--no-header"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot vibe");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    assert!(!stdout.contains("# RepoPilot Vibe Check"));
+    assert!(stdout.contains("Security"));
+}
+
+#[test]
+fn vibe_output_file_succeeds() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+    let output_path = temp.path().join("vibe.md");
+
+    let output = repopilot()
+        .args(["vibe", ".", "--output"])
+        .arg(&output_path)
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot vibe");
+
+    assert!(output.status.success());
+    assert!(output.stdout.is_empty());
+    let rendered = fs::read_to_string(output_path).expect("failed to read vibe output");
+    assert!(rendered.contains("# RepoPilot Vibe Check"));
+    assert!(rendered.contains("Possible secret detected"));
+}
+
 #[test]
 fn vibe_rejects_unknown_focus() {
     let temp = tempdir().expect("failed to create temp dir");

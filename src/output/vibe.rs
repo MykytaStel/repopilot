@@ -49,7 +49,7 @@ impl FromStr for VibeCategory {
 }
 
 impl VibeCategory {
-    pub(self) fn matches(&self, category: &crate::findings::types::FindingCategory) -> bool {
+    pub(crate) fn matches(&self, category: &crate::findings::types::FindingCategory) -> bool {
         use crate::findings::types::FindingCategory;
         match self {
             VibeCategory::All => true,
@@ -61,6 +61,10 @@ impl VibeCategory {
             ),
             VibeCategory::Framework => matches!(category, FindingCategory::Framework),
         }
+    }
+
+    fn includes_architecture_context(&self) -> bool {
+        matches!(self, VibeCategory::Architecture | VibeCategory::All)
     }
 }
 
@@ -84,7 +88,13 @@ pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
     }
 
     findings::render_findings_by_category(&mut out, &findings, budget_chars, opts.no_header);
-    hotfiles::render_hot_files(&mut out, summary);
+    if opts
+        .focus
+        .as_ref()
+        .is_none_or(VibeCategory::includes_architecture_context)
+    {
+        hotfiles::render_hot_files(&mut out, summary);
+    }
     recommendations::render_top_recommendations(&mut out, &findings);
 
     let content_len = out.len();
@@ -238,6 +248,30 @@ mod tests {
         let output = render(&summary, &opts);
         assert!(output.contains("Code Quality") || output.contains("Testing"));
         assert!(!output.contains("Security"));
+    }
+
+    #[test]
+    fn small_budget_renders_truncation_notice() {
+        let findings: Vec<Finding> = (0..8)
+            .map(|i| {
+                make_finding(
+                    "security.secret",
+                    &format!("Hardcoded secret {i}"),
+                    Severity::High,
+                    FindingCategory::Security,
+                    &format!("src/auth_{i}.rs"),
+                    i + 1,
+                )
+            })
+            .collect();
+        let summary = make_summary(findings);
+        let opts = VibeOptions {
+            budget_tokens: 20,
+            no_header: true,
+            ..Default::default()
+        };
+        let output = render(&summary, &opts);
+        assert!(output.contains("Output truncated to stay within token budget"));
     }
 
     #[test]
