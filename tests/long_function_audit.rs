@@ -96,6 +96,118 @@ fn python_function_extending_to_eof_is_detected() {
     assert!(findings[0].title.contains("eof_fn"));
 }
 
+// ── Java ──────────────────────────────────────────────────────────────────────
+
+#[test]
+fn java_method_over_threshold_produces_finding() {
+    let body: String = (0..60)
+        .map(|i| format!("        int x{i} = {i};\n"))
+        .collect();
+    let content =
+        format!("public class Foo {{\n    public void bigMethod() {{\n{body}    }}\n}}\n");
+    let file = make_file("Java", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(
+        findings.len(),
+        1,
+        "expected one finding for a long Java method"
+    );
+    assert!(
+        findings[0].title.contains("bigMethod"),
+        "{:?}",
+        findings[0].title
+    );
+}
+
+#[test]
+fn java_constructor_flagged() {
+    let body: String = (0..60)
+        .map(|i| format!("        this.x{i} = {i};\n"))
+        .collect();
+    let content = format!("public class Foo {{\n    public Foo() {{\n{body}    }}\n}}\n");
+    let file = make_file("Java", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(
+        findings.len(),
+        1,
+        "constructor should be detected as a long function"
+    );
+}
+
+#[test]
+fn java_if_block_not_flagged_as_function() {
+    let body: String = (0..60)
+        .map(|i| format!("        int x{i} = {i};\n"))
+        .collect();
+    let content = format!(
+        "public class Foo {{\n    void m() {{\n        if (true) {{\n{body}        }}\n    }}\n}}\n"
+    );
+    let file = make_file("Java", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    // Only the outer method `m` may be flagged if long enough, but the if-block must not add a separate finding
+    assert!(
+        findings.iter().all(|f| !f.title.contains("<anonymous>")),
+        "if-block must not produce a function finding: {:?}",
+        findings
+    );
+}
+
+// ── Kotlin ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn kotlin_fun_over_threshold_produces_finding() {
+    let body: String = (0..60).map(|i| format!("    val x{i} = {i}\n")).collect();
+    let content = format!("fun bigFun() {{\n{body}}}\n");
+    let file = make_file("Kotlin", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(
+        findings.len(),
+        1,
+        "expected one finding for a long Kotlin function"
+    );
+    assert!(
+        findings[0].title.contains("bigFun"),
+        "{:?}",
+        findings[0].title
+    );
+}
+
+#[test]
+fn kotlin_suspend_fun_detected() {
+    let body: String = (0..60).map(|i| format!("    val x{i} = {i}\n")).collect();
+    let content = format!("suspend fun networkCall() {{\n{body}}}\n");
+    let file = make_file("Kotlin", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(
+        findings.len(),
+        1,
+        "suspend modifier must not block detection"
+    );
+    assert!(
+        findings[0].title.contains("networkCall"),
+        "{:?}",
+        findings[0].title
+    );
+}
+
+#[test]
+fn kotlin_private_override_fun_detected() {
+    let body: String = (0..60).map(|i| format!("    val x{i} = {i}\n")).collect();
+    let content = format!("private override fun render() {{\n{body}}}\n");
+    let file = make_file("Kotlin", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(
+        findings.len(),
+        1,
+        "private override modifiers must be stripped"
+    );
+    assert!(
+        findings[0].title.contains("render"),
+        "{:?}",
+        findings[0].title
+    );
+}
+
 // ── Unsupported language ──────────────────────────────────────────────────────
 
 #[test]

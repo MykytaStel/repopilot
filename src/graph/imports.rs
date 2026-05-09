@@ -11,6 +11,8 @@ pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
         | Some("JavaScript React") => extract_ts(content),
         Some("Python") => extract_python(content),
         Some("Go") => extract_go(content),
+        Some("Java") => extract_java(content),
+        Some("Kotlin") => extract_kotlin(content),
         _ => return Vec::new(),
     };
     set.into_iter().collect()
@@ -287,4 +289,49 @@ fn extract_go_import_path(line: &str) -> Option<&str> {
     let rest = &line[start + 1..];
     let end = rest.find('"')?;
     Some(&rest[..end])
+}
+
+// ── Java ──────────────────────────────────────────────────────────────────────
+
+fn extract_java(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with('*') || trimmed.starts_with("/*") {
+            continue;
+        }
+        // import com.example.Foo;  |  import static com.example.Foo.method;
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            let rest = rest
+                .trim_start_matches("static ")
+                .trim_end_matches(';')
+                .trim();
+            // Skip wildcard imports: com.example.*
+            if !rest.is_empty() && !rest.ends_with('*') {
+                result.insert(rest.to_string());
+            }
+        }
+    }
+    result
+}
+
+// ── Kotlin ────────────────────────────────────────────────────────────────────
+
+fn extract_kotlin(content: &str) -> HashSet<String> {
+    let mut result = HashSet::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with('*') {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("import ") {
+            let rest = rest.trim_end_matches(';').trim();
+            // Skip wildcard imports and destructuring aliases
+            let base = rest.split(" as ").next().unwrap_or(rest).trim();
+            if !base.is_empty() && !base.ends_with('*') {
+                result.insert(base.to_string());
+            }
+        }
+    }
+    result
 }

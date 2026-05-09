@@ -2,28 +2,31 @@
 
 [![Crates.io](https://img.shields.io/crates/v/repopilot.svg)](https://crates.io/crates/repopilot)
 [![npm](https://img.shields.io/npm/v/repopilot.svg)](https://www.npmjs.com/package/repopilot)
-[![Docs.rs](https://docs.rs/repopilot/badge.svg)](https://docs.rs/repopilot)
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
 [![GitHub Release](https://img.shields.io/github/v/release/MykytaStel/repopilot)](https://github.com/MykytaStel/repopilot/releases)
 [![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/MykytaStel/repopilot?style=social)](https://github.com/MykytaStel/repopilot)
 
-Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.
+Scan your repo. Paste the result into Claude Code or ChatGPT. Start fixing.
 
-RepoPilot runs on your machine and does not upload your repository. It helps developers understand what changed, what became riskier, and where to review first.
+RepoPilot is a local-first CLI that audits architecture, security, code quality, and framework health — then formats everything as LLM-ready context you can drop directly into an AI assistant. No code leaves your machine.
 
 ## Why RepoPilot?
 
-Modern developers ship more code than they can carefully review, especially with AI-assisted workflows.
+Most linters and audit tools stop at the terminal. RepoPilot bridges the gap to your AI assistant:
 
-RepoPilot helps you understand:
+| | SonarQube / CodeClimate | ESLint / language linters | **RepoPilot** |
+|---|---|---|---|
+| Runs offline | ❌ | ✅ | ✅ |
+| No code upload | ❌ | ✅ | ✅ |
+| Cross-language architecture analysis | ✅ | ❌ | ✅ |
+| LLM-ready output | ❌ | ❌ | ✅ |
+| Fits in a model context window | ❌ | ❌ | ✅ |
+| CI gate on new findings only | ✅ | partial | ✅ |
 
-- what changed;
-- what became riskier;
-- which findings are new;
-- which findings already existed;
-- where to review first.
-
-RepoPilot runs locally and does not upload your repository.
+```bash
+repopilot vibe . | pbcopy   # macOS: paste into Claude Code and start fixing
+```
 
 ## Features
 
@@ -63,6 +66,18 @@ Install with npm:
 
 ```bash
 npm install -g repopilot
+```
+
+Install with Homebrew:
+
+```bash
+brew install MykytaStel/repopilot/repopilot
+```
+
+Install with curl (Linux/macOS):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | sh
 ```
 
 Upgrade:
@@ -118,6 +133,39 @@ repopilot vibe . --output vibe.md
 # Pipe directly into clipboard (macOS)
 repopilot vibe . --no-header | pbcopy
 ```
+
+## Example Output
+
+```
+$ repopilot vibe .
+
+# RepoPilot Vibe Check — my-app
+
+**Risk Level:** 🟠 ELEVATED
+**Tech Stack:** React Native (New Arch), Expo, TypeScript
+**Size:** 94 files · 8,340 LOC · ~42k tokens
+**Health:** 18 findings · 2.2/kloc — 4 high, 9 medium
+
+## Security (2 high)
+1. [HIGH] Possible secret detected — `src/config/api.ts:12`
+   ```
+   const API_KEY = "sk_live_51KJ..."
+   ```
+   > **Fix:** Move to environment variables or a secrets manager.
+
+## Architecture (2 high)
+1. [HIGH] Circular dependency detected — `src/store/index.ts`
+   > **Fix:** Extract shared types to a separate module to break the cycle.
+
+## Top Recommendations
+1. **Move hardcoded API key** (src/config/api.ts:12) — use process.env or a vault
+2. **Break circular dependency** (src/store/index.ts) — extract shared types
+
+---
+*~3.8k tokens (budget: 4k) · scanned in 312ms — paste into Claude Code, Cursor, or ChatGPT*
+```
+
+Paste this into Claude Code and ask: *"Fix all findings."*
 
 ## AI-Assisted Workflow
 

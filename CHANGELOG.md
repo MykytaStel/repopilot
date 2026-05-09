@@ -21,6 +21,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   - `balanced`: factory defaults.
   - `lenient`: relaxed thresholds for legacy codebases adopting RepoPilot incrementally.
 - Added `--verbose` flag to `scan` command: prints scan phase timing (engine ms, render ms) to stderr after the report.
+- Java and Kotlin language support: long function detection, import extraction for the coupling graph, and JVM import resolution supporting Maven and Gradle source-root layouts (`src/main/java`, `src/main/kotlin`, `app/src/main/java`, `app/src/main/kotlin`).
+- Python framework detection: Django, Flask, and FastAPI are detected from `requirements.txt` (with pinned version when present) and included in the tech-stack summary produced by `repopilot vibe`.
+- Go framework detection: Gin, Echo, and Fiber are detected from `go.mod` and included in the tech-stack summary.
 
 ### Changed
 

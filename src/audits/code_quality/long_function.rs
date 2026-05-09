@@ -34,6 +34,8 @@ fn is_supported(language: &str) -> bool {
             | "TypeScript React"
             | "JavaScript"
             | "JavaScript React"
+            | "Java"
+            | "Kotlin"
     )
 }
 
@@ -48,6 +50,36 @@ fn detect_long_functions(
     } else {
         detect_brace_based(content, language, path, threshold)
     }
+}
+
+fn kotlin_strip_modifiers(trimmed: &str) -> &str {
+    let modifiers = [
+        "private ",
+        "public ",
+        "protected ",
+        "internal ",
+        "open ",
+        "override ",
+        "abstract ",
+        "suspend ",
+        "inline ",
+        "operator ",
+        "external ",
+        "tailrec ",
+        "actual ",
+        "expect ",
+    ];
+    let mut s = trimmed;
+    loop {
+        let before = s;
+        for m in modifiers {
+            s = s.strip_prefix(m).unwrap_or(s);
+        }
+        if s == before {
+            break;
+        }
+    }
+    s
 }
 
 // ── Brace-based detection (Rust, Go, TypeScript, JavaScript) ──────────────────
@@ -110,14 +142,21 @@ fn detect_brace_based(
         let fn_end = fn_end_idx.unwrap_or(lines.len().saturating_sub(1));
         let fn_len = fn_end.saturating_sub(i) + 1;
 
-        if fn_len > threshold {
+        // Anonymous functions (callbacks, arrow funcs) get a 2× threshold to reduce noise
+        let effective_threshold = if fn_name.is_empty() {
+            threshold.saturating_mul(2)
+        } else {
+            threshold
+        };
+
+        if fn_len > effective_threshold {
             findings.push(build_finding(
                 path,
                 fn_start_line,
                 fn_end + 1,
                 &fn_name,
                 fn_len,
-                threshold,
+                effective_threshold,
             ));
         }
 
@@ -165,6 +204,23 @@ fn is_function_start(trimmed: &str, language: &str) -> bool {
                 && !trimmed.starts_with("try {");
             has_fn_kw || is_method_like
         }
+        "Java" => {
+            trimmed.contains('(')
+                && (trimmed.ends_with(") {") || trimmed.ends_with("){"))
+                && !trimmed.starts_with("if ")
+                && !trimmed.starts_with("} else")
+                && !trimmed.starts_with("else ")
+                && !trimmed.starts_with("for ")
+                && !trimmed.starts_with("while ")
+                && !trimmed.starts_with("switch ")
+                && !trimmed.starts_with("try {")
+                && !trimmed.starts_with("catch ")
+                && !trimmed.starts_with("synchronized ")
+        }
+        "Kotlin" => {
+            let s = kotlin_strip_modifiers(trimmed);
+            s.starts_with("fun ") && trimmed.contains('(')
+        }
         _ => false,
     }
 }
@@ -192,8 +248,18 @@ fn extract_name(trimmed: &str, language: &str) -> String {
             let end = rest.find('(').unwrap_or(rest.len());
             rest[..end].trim().to_string()
         }
+        "Kotlin" => {
+            let s = kotlin_strip_modifiers(trimmed);
+            if let Some(pos) = s.find("fun ") {
+                let rest = &s[pos + 4..];
+                let end = rest.find('(').unwrap_or(rest.len());
+                rest[..end].trim().to_string()
+            } else {
+                String::new()
+            }
+        }
         _ => {
-            // Generic: word immediately before the first `(`
+            // Generic: word immediately before the first `(` — covers Java and others
             if let Some(paren) = trimmed.find('(') {
                 trimmed[..paren]
                     .split_whitespace()
@@ -282,16 +348,22 @@ fn build_finding(
     fn_len: usize,
     threshold: usize,
 ) -> Finding {
-    let name_display = if fn_name.is_empty() {
-        "<anonymous>".to_string()
+    let (title, name_display) = if fn_name.is_empty() {
+        (
+            "Long inline function".to_string(),
+            "inline function".to_string(),
+        )
     } else {
-        format!("`{fn_name}`")
+        (
+            format!("Long function: `{fn_name}`"),
+            format!("`{fn_name}`"),
+        )
     };
 
     Finding {
         id: String::new(),
         rule_id: "code-quality.long-function".to_string(),
-        title: format!("Long function: {name_display}"),
+        title,
         description: format!(
             "Function {name_display} spans {fn_len} lines, exceeding the {threshold}-line threshold. \
              Long functions are harder to test and reason about — consider extracting helper functions."

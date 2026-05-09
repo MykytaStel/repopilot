@@ -4,6 +4,13 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 pub fn detect_frameworks(root: &Path) -> Vec<DetectedFramework> {
+    let mut frameworks = detect_js_frameworks(root);
+    frameworks.extend(detect_python_frameworks(root));
+    frameworks.extend(detect_go_frameworks(root));
+    frameworks
+}
+
+fn detect_js_frameworks(root: &Path) -> Vec<DetectedFramework> {
     let pkg_path = root.join("package.json");
     let content = match std::fs::read_to_string(&pkg_path) {
         Ok(c) => c,
@@ -75,6 +82,80 @@ pub fn detect_frameworks(root: &Path) -> Vec<DetectedFramework> {
         frameworks.push(DetectedFramework::Express {
             version: version_of("express"),
         });
+    }
+
+    frameworks
+}
+
+fn detect_python_frameworks(root: &Path) -> Vec<DetectedFramework> {
+    let content = match std::fs::read_to_string(root.join("requirements.txt")) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let mut frameworks = Vec::new();
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Extract package name: stop at ==, >=, <=, !=, ~=, [, space, #, @
+        let name_end = line
+            .find(|c: char| ['=', '>', '<', '!', '~', '[', ' ', '#', '@'].contains(&c))
+            .unwrap_or(line.len());
+        let pkg = line[..name_end].trim().to_lowercase();
+        // Extract pinned version after ==, if present
+        let version = line
+            .find("==")
+            .map(|pos| {
+                line[pos + 2..]
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            })
+            .filter(|v| !v.is_empty());
+
+        match pkg.as_str() {
+            "django" => frameworks.push(DetectedFramework::Django { version }),
+            "flask" => frameworks.push(DetectedFramework::Flask { version }),
+            "fastapi" => frameworks.push(DetectedFramework::FastApi { version }),
+            _ => {}
+        }
+    }
+
+    frameworks
+}
+
+fn detect_go_frameworks(root: &Path) -> Vec<DetectedFramework> {
+    let content = match std::fs::read_to_string(root.join("go.mod")) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+
+    let mut frameworks = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("//") {
+            continue;
+        }
+        // Strip optional "require " prefix, then parse "module/path vX.Y.Z"
+        let entry = trimmed.trim_start_matches("require ").trim();
+        let version = entry
+            .split_whitespace()
+            .nth(1)
+            .map(|v| v.trim_start_matches('v').to_string())
+            .filter(|v| !v.is_empty());
+
+        if trimmed.contains("gin-gonic/gin") {
+            frameworks.push(DetectedFramework::Gin { version });
+        } else if trimmed.contains("labstack/echo") {
+            frameworks.push(DetectedFramework::Echo { version });
+        } else if trimmed.contains("gofiber/fiber") {
+            frameworks.push(DetectedFramework::Fiber { version });
+        }
     }
 
     frameworks

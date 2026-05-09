@@ -160,6 +160,88 @@ fn go_import_block_with_alias() {
     assert!(imports.contains(&"fmt".to_string()), "{imports:?}");
 }
 
+// ── Java ──────────────────────────────────────────────────────────────────────
+
+#[test]
+fn java_single_import() {
+    let code = "import com.example.Foo;\n";
+    let imports = extract_imports(code, Some("Java"));
+    assert!(
+        imports.contains(&"com.example.Foo".to_string()),
+        "{imports:?}"
+    );
+}
+
+#[test]
+fn java_static_import() {
+    let code = "import static com.example.Foo.method;\n";
+    let imports = extract_imports(code, Some("Java"));
+    assert!(
+        imports.contains(&"com.example.Foo.method".to_string()),
+        "{imports:?}"
+    );
+}
+
+#[test]
+fn java_wildcard_skipped() {
+    let code = "import com.example.*;\n";
+    let imports = extract_imports(code, Some("Java"));
+    assert!(
+        imports.is_empty(),
+        "wildcard import must be skipped: {imports:?}"
+    );
+}
+
+#[test]
+fn java_comment_not_extracted() {
+    let code = "// import com.example.Foo;\n";
+    let imports = extract_imports(code, Some("Java"));
+    assert!(imports.is_empty(), "{imports:?}");
+}
+
+// ── Kotlin ────────────────────────────────────────────────────────────────────
+
+#[test]
+fn kotlin_single_import() {
+    let code = "import com.example.Foo\n";
+    let imports = extract_imports(code, Some("Kotlin"));
+    assert!(
+        imports.contains(&"com.example.Foo".to_string()),
+        "{imports:?}"
+    );
+}
+
+#[test]
+fn kotlin_import_with_alias() {
+    let code = "import com.example.Foo as Bar\n";
+    let imports = extract_imports(code, Some("Kotlin"));
+    assert!(
+        imports.contains(&"com.example.Foo".to_string()),
+        "alias import should yield the base path: {imports:?}"
+    );
+    assert!(
+        !imports.iter().any(|i| i.contains("Bar")),
+        "alias name must not appear in imports: {imports:?}"
+    );
+}
+
+#[test]
+fn kotlin_wildcard_skipped() {
+    let code = "import com.example.*\n";
+    let imports = extract_imports(code, Some("Kotlin"));
+    assert!(
+        imports.is_empty(),
+        "wildcard import must be skipped: {imports:?}"
+    );
+}
+
+#[test]
+fn kotlin_comment_not_extracted() {
+    let code = "// import com.example.Foo\n";
+    let imports = extract_imports(code, Some("Kotlin"));
+    assert!(imports.is_empty(), "{imports:?}");
+}
+
 // ── Unknown language ──────────────────────────────────────────────────────────
 
 #[test]
