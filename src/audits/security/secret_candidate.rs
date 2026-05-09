@@ -46,6 +46,11 @@ impl FileAudit for SecretCandidateAudit {
 }
 
 fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) -> Option<Finding> {
+    // Skip PEM headers — PrivateKeyCandidateAudit handles these (avoids double-reporting)
+    if line.trim_start().starts_with("-----BEGIN") {
+        return None;
+    }
+
     let lower = line.to_lowercase();
 
     if let Some(matched_key) = SECRET_KEYS.iter().find(|&&key| {
@@ -94,17 +99,39 @@ fn assigned_value_after_key(after_key: &str) -> Option<&str> {
 fn is_secret_literal(value: &str) -> bool {
     let value = value.trim().trim_end_matches([',', ';']).trim();
     let unquoted = value.trim_matches('"').trim_matches('\'');
+    let lower = unquoted.to_lowercase();
 
     let is_placeholder = unquoted.is_empty()
         || unquoted.starts_with("${")
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
+        || unquoted.starts_with('[')
         || matches!(
-            unquoted,
-            "null" | "nil" | "none" | "your_key_here" | "changeme"
+            lower.as_str(),
+            "null"
+                | "nil"
+                | "none"
+                | "your_key_here"
+                | "changeme"
+                | "replace_me"
+                | "placeholder"
+                | "todo"
+                | "xxx"
+                | "your_secret"
+                | "your_token"
+                | "your_api_key"
+                | "insert_here"
+                | "set_me"
+                | "fixme"
         );
 
-    if is_placeholder || unquoted.len() <= 4 {
+    // Known non-secret values: algorithm names, auth scheme keywords, etc.
+    const NON_SECRET_VALUES: &[&str] = &[
+        "bearer", "rs256", "hs256", "es256", "rs512", "hs512", "es512", "sha256", "sha512", "md5",
+        "aes", "aes256", "rsa", "hmac", "basic", "digest", "oauth", "oauth2", "true", "false",
+    ];
+
+    if is_placeholder || NON_SECRET_VALUES.contains(&lower.as_str()) || unquoted.len() <= 6 {
         return false;
     }
 
