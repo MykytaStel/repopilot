@@ -48,6 +48,8 @@ pub struct SarifRule {
     pub full_description: Option<SarifMessage>,
     #[serde(rename = "helpUri", skip_serializing_if = "Option::is_none")]
     pub help_uri: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help: Option<SarifMessage>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -69,10 +71,13 @@ pub struct SarifResult {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SarifResultProperties {
-    #[serde(rename = "baselineStatus")]
-    pub baseline_status: String,
-    #[serde(rename = "baselineKey")]
-    pub baseline_key: String,
+    #[serde(rename = "baselineStatus", skip_serializing_if = "Option::is_none")]
+    pub baseline_status: Option<String>,
+    #[serde(rename = "baselineKey", skip_serializing_if = "Option::is_none")]
+    pub baseline_key: Option<String>,
+    #[serde(rename = "workspacePackage", skip_serializing_if = "Option::is_none")]
+    pub workspace_package: Option<String>,
+    pub category: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -120,7 +125,16 @@ pub fn render_with_baseline(report: &BaselineScanReport) -> Result<String, serde
 }
 
 pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
-    findings_to_sarif_with_properties(findings, root, Vec::new())
+    let properties = findings
+        .iter()
+        .map(|f| SarifResultProperties {
+            baseline_status: None,
+            baseline_key: None,
+            workspace_package: f.workspace_package.clone(),
+            category: f.category.label().to_string(),
+        })
+        .collect();
+    findings_to_sarif_with_properties(findings, root, properties)
 }
 
 fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
@@ -129,13 +143,17 @@ fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
         .findings
         .iter()
         .enumerate()
-        .map(|(index, _)| SarifResultProperties {
-            baseline_status: report.finding_status(index).lowercase_label().to_string(),
-            baseline_key: report
-                .findings
-                .get(index)
-                .map(|finding| finding.key.clone())
-                .unwrap_or_default(),
+        .map(|(index, finding)| SarifResultProperties {
+            baseline_status: Some(report.finding_status(index).lowercase_label().to_string()),
+            baseline_key: Some(
+                report
+                    .findings
+                    .get(index)
+                    .map(|f| f.key.clone())
+                    .unwrap_or_default(),
+            ),
+            workspace_package: finding.workspace_package.clone(),
+            category: finding.category.label().to_string(),
         })
         .collect();
 
@@ -226,10 +244,14 @@ fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
     rule_map
         .into_iter()
         .map(|(rule_id, finding)| {
-            let help_uri = crate::rules::lookup_rule_metadata(rule_id)
+            let meta = crate::rules::lookup_rule_metadata(rule_id);
+            let help_uri = meta
                 .and_then(|m| m.docs_url)
                 .map(str::to_owned)
                 .or_else(|| finding.docs_url.clone());
+            let help = meta.and_then(|m| m.recommendation).map(|rec| SarifMessage {
+                text: rec.to_string(),
+            });
             SarifRule {
                 id: rule_id.to_string(),
                 name: rule_id.to_string(),
@@ -238,6 +260,7 @@ fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
                 },
                 full_description: None,
                 help_uri,
+                help,
             }
         })
         .collect()

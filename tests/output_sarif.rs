@@ -4,6 +4,25 @@ use repopilot::output::{OutputFormat, render_scan_summary};
 use repopilot::scan::types::ScanSummary;
 use std::path::PathBuf;
 
+fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
+    Finding {
+        id: String::new(),
+        rule_id: rule_id.to_owned(),
+        title: "Test".to_owned(),
+        description: "desc".to_owned(),
+        category: FindingCategory::Security,
+        severity: Severity::High,
+        evidence: vec![Evidence {
+            path: PathBuf::from("src/main.rs"),
+            line_start: 1,
+            line_end: None,
+            snippet: String::new(),
+        }],
+        workspace_package: pkg.map(str::to_owned),
+        docs_url: None,
+    }
+}
+
 #[test]
 fn renders_valid_sarif_scan_summary() {
     let summary = ScanSummary {
@@ -104,5 +123,50 @@ fn sarif_result_includes_partial_fingerprints() {
     assert!(
         fingerprints["primaryLocationLineHash/v1"].is_string(),
         "primaryLocationLineHash/v1 key should be present"
+    );
+}
+
+#[test]
+fn sarif_result_properties_include_category() {
+    let finding = make_finding_with_package("security.secret-candidate", None);
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let category = &value["runs"][0]["results"][0]["properties"]["category"];
+    assert_eq!(
+        category.as_str(),
+        Some("security"),
+        "result properties must include the finding category label"
+    );
+}
+
+#[test]
+fn sarif_result_properties_include_workspace_package() {
+    let finding = make_finding_with_package("security.env-file-committed", Some("web"));
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let pkg = &value["runs"][0]["results"][0]["properties"]["workspacePackage"];
+    assert_eq!(
+        pkg.as_str(),
+        Some("web"),
+        "workspacePackage must be serialized in result properties"
+    );
+}
+
+#[test]
+fn sarif_rule_help_text_from_registry() {
+    let finding = make_finding_with_package("security.secret-candidate", None);
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let help_text = &value["runs"][0]["tool"]["driver"]["rules"][0]["help"]["text"];
+    assert!(
+        help_text.is_string(),
+        "rule help.text must be present for a rule with a recommendation"
+    );
+    assert!(
+        !help_text.as_str().unwrap().is_empty(),
+        "rule help.text must not be empty"
     );
 }

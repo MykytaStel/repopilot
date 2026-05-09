@@ -68,6 +68,8 @@ repopilot s <PATH> [OPTIONS]
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
+| `-w, --workspace` | flag | — | Scan each detected workspace package separately and group findings by package |
+| `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
 
 ### Exit codes
 
@@ -100,6 +102,9 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 
 # Override thresholds at the command line
 repopilot scan . --max-file-loc 500 --max-directory-modules 30 --max-directory-depth 8
+
+# Monorepo scan with less noise
+repopilot scan . --workspace --min-severity medium
 ```
 
 ---
@@ -144,6 +149,7 @@ repopilot r [PATH] [OPTIONS]
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
+| `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
 
 ### Exit codes
 
@@ -170,6 +176,9 @@ repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
 
 # JSON output for downstream tooling
 repopilot review . --format json --output review.json
+
+# Focus on high-risk findings only
+repopilot review . --min-severity high
 ```
 
 ---
@@ -317,6 +326,8 @@ The `--fail-on` flag accepts the following values:
 `new-*` thresholds require a `--baseline` to distinguish new from existing findings. Without a baseline, all current findings are treated as new.
 
 For `review`, `--fail-on` evaluates only **in-diff** findings.
+
+The `--min-severity` flag filters rendered findings before baseline or CI gate evaluation. Use it when a local report is too noisy, for example `--min-severity high` during fast review or `--workspace --min-severity medium` in monorepos.
 
 ---
 

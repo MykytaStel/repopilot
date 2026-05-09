@@ -6,6 +6,7 @@ use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
 use crate::scan::types::ScanSummary;
+use std::collections::BTreeMap;
 
 pub fn render(summary: &ScanSummary) -> String {
     let mut output = String::new();
@@ -52,6 +53,7 @@ pub fn render(summary: &ScanSummary) -> String {
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
+    workspace_risk_table(&mut output, &summary.findings);
     render_findings_section(&mut output, &summary.findings);
 
     output
@@ -231,6 +233,62 @@ fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]
             output.push_str(&format!("      Docs: {url}\n"));
         }
     }
+}
+
+fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
+    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
+    if !has_workspace {
+        return;
+    }
+
+    // Aggregate counts per package: [critical, high, medium, low, info]
+    let mut table: BTreeMap<&str, [usize; 5]> = BTreeMap::new();
+    for f in findings {
+        if let Some(pkg) = f.workspace_package.as_deref() {
+            let counts = table.entry(pkg).or_insert([0; 5]);
+            counts[severity_index(f.severity)] += 1;
+        }
+    }
+
+    if table.is_empty() {
+        return;
+    }
+
+    // Measure column widths
+    let name_width = table.keys().map(|k| k.len()).max().unwrap_or(7).max(7);
+
+    output.push_str("Workspace Risk Summary:\n");
+    output.push_str(&format!(
+        "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}\n",
+        "Package",
+        "Crit",
+        "High",
+        "Med",
+        "Low",
+        "Info",
+        "Total",
+        width = name_width
+    ));
+    output.push_str(&format!(
+        "  {:-<width$}  -----  -----  -----  -----  -----  -----\n",
+        "",
+        width = name_width
+    ));
+    for (pkg, counts) in &table {
+        let total: usize = counts.iter().sum();
+        output.push_str(&format!(
+            "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}\n",
+            pkg,
+            counts[0],
+            counts[1],
+            counts[2],
+            counts[3],
+            counts[4],
+            total,
+            width = name_width
+        ));
+    }
+    output.push('\n');
 }
 
 /// Renders a one-line severity tally: e.g. `Findings: 1 critical · 3 high · 5 medium`

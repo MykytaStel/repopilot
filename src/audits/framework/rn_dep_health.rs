@@ -39,7 +39,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     snippet: "@react-native-community/async-storage is deprecated".to_string(),
                 }],
                 workspace_package: None,
-                docs_url: None,
+                docs_url: Some("https://react-native-async-storage.github.io/async-storage/docs/install".to_string()),
             });
         }
 
@@ -72,7 +72,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
-                    docs_url: None,
+                    docs_url: Some("https://reactnavigation.org/docs/getting-started".to_string()),
                 });
             }
         }
@@ -107,7 +107,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
-                    docs_url: None,
+                    docs_url: Some("https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/installation".to_string()),
                 });
             }
         }
@@ -141,7 +141,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                     }],
                     workspace_package: None,
-                    docs_url: None,
+                    docs_url: Some("https://docs.swmansion.com/react-native-gesture-handler/docs/installation".to_string()),
                 });
             }
         }
@@ -167,7 +167,7 @@ impl ProjectAudit for RnDepHealthAudit {
                             snippet: format!("{pkg} lacks New Architecture support"),
                         }],
                         workspace_package: None,
-                        docs_url: None,
+                        docs_url: Some("https://reactnative.dev/docs/new-architecture-intro".to_string()),
                     });
                 }
             }

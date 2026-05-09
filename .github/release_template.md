@@ -1,8 +1,12 @@
 ## Highlights
 
+- Workspace scanning with per-package risk summaries.
 - React Native architecture profile and framework-specific findings.
+- React Native dependency health checks.
+- Complete rule metadata registry and enriched SARIF output.
 - Baseline-aware CI gate for new findings.
-- SARIF output for GitHub Code Scanning.
+- First-party GitHub Action and SARIF output for GitHub Code Scanning.
+- Local-first safety layer positioning for AI-assisted and vibe-coded changes.
 - npm, cargo, curl, and GitHub Release binary install paths.
 
 ## Install
@@ -17,6 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.s
 
 ```bash
 repopilot scan . --format markdown --output repopilot-report.md
+repopilot scan . --workspace --min-severity medium
 repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
 ```
 
