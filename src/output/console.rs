@@ -26,6 +26,11 @@ pub fn render(summary: &ScanSummary) -> String {
             summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
+    output.push_str(&format!(
+        "Health score: {}/100 {}\n",
+        summary.health_score,
+        health_score_bar(summary.health_score)
+    ));
     output.push('\n');
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
@@ -83,6 +88,11 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
             summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
+    output.push_str(&format!(
+        "Health score: {}/100 {}\n",
+        summary.health_score,
+        health_score_bar(summary.health_score)
+    ));
     output.push('\n');
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
@@ -387,5 +397,15 @@ fn tristate_label(value: Option<bool>) -> &'static str {
         Some(true) => "enabled",
         Some(false) => "disabled",
         None => "unknown",
+    }
+}
+
+fn health_score_bar(score: u8) -> &'static str {
+    match score {
+        90..=100 => "[##########] Excellent",
+        75..=89 => "[########  ] Good",
+        60..=74 => "[######    ] Fair",
+        40..=59 => "[####      ] Poor",
+        _ => "[##        ] Critical",
     }
 }

@@ -1,13 +1,14 @@
+v0.8 brings AI-first analysis to RepoPilot. Run `repopilot vibe .`, paste the output into Claude Code or ChatGPT, and start fixing — no code leaves your machine.
+
 ## Highlights
 
-- `repopilot vibe` generates LLM-ready Markdown from local scan findings.
-- `repopilot harden` generates prioritized P0/P1/P2/P3 remediation plans.
-- `repopilot prompt` generates paste-ready remediation prompts with RepoPilot context.
-- Scan presets (`--preset strict|balanced|lenient`) tune thresholds without editing config.
-- `scan --verbose` prints scan and render timing for local performance checks.
-- First-party GitHub Action can run `scan`, `review`, `compare`, `vibe`, `harden`, and `prompt`.
-- Release publishing is hardened while keeping npm Trusted Publishing separate from the tag workflow.
-- npm, cargo, curl, and GitHub Release binary install paths.
+- **`repopilot vibe`** — scans your repo and formats findings as LLM-ready Markdown. Paste directly into Claude Code, Cursor, or ChatGPT to start remediating.
+- **`repopilot harden`** — emits a prioritized P0/P1/P2/P3 remediation plan with locations, rule IDs, and verification commands.
+- **`repopilot prompt`** — generates a paste-ready AI remediation prompt with full RepoPilot context.
+- Scan presets (`--preset strict|balanced|lenient`) tune all thresholds in one flag without touching config.
+- `scan --verbose` prints scan and render timing to stderr.
+- First-party GitHub Action supports `vibe`, `harden`, and `prompt` commands.
+- npm, cargo, Homebrew, curl, and GitHub Release binary install paths.
 
 ## Install
 

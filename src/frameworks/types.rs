@@ -15,6 +15,14 @@ pub enum DetectedFramework {
     Svelte { version: Option<String> },
     NestJs { version: Option<String> },
     Express { version: Option<String> },
+    // Python frameworks
+    Django { version: Option<String> },
+    Flask { version: Option<String> },
+    FastApi { version: Option<String> },
+    // Go frameworks
+    Gin { version: Option<String> },
+    Echo { version: Option<String> },
+    Fiber { version: Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -37,6 +45,12 @@ impl DetectedFramework {
             DetectedFramework::Svelte { version } => ("Svelte", version.as_deref()),
             DetectedFramework::NestJs { version } => ("NestJS", version.as_deref()),
             DetectedFramework::Express { version } => ("Express", version.as_deref()),
+            DetectedFramework::Django { version } => ("Django", version.as_deref()),
+            DetectedFramework::Flask { version } => ("Flask", version.as_deref()),
+            DetectedFramework::FastApi { version } => ("FastAPI", version.as_deref()),
+            DetectedFramework::Gin { version } => ("Gin", version.as_deref()),
+            DetectedFramework::Echo { version } => ("Echo", version.as_deref()),
+            DetectedFramework::Fiber { version } => ("Fiber", version.as_deref()),
         };
         match version {
             Some(v) => format!("{name} {v}"),

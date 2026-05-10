@@ -24,6 +24,7 @@ repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail
 
 `repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
 For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
+Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`); Go projects for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot vibe`.
 
 ```bash
 repopilot scan .

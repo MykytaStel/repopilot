@@ -106,6 +106,8 @@ fn is_secret_literal(value: &str) -> bool {
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
         || unquoted.starts_with('[')
+        || unquoted.ends_with('…')
+        || unquoted.ends_with("...")
         || matches!(
             lower.as_str(),
             "null"
@@ -135,11 +137,36 @@ fn is_secret_literal(value: &str) -> bool {
         return false;
     }
 
+    // Low-entropy strings (repetitive English words) are not real secrets.
+    // Real API keys/tokens have high character diversity (entropy > 3.0 bits/char).
+    if unquoted.len() >= 8 && shannon_entropy(unquoted) < 3.0 {
+        return false;
+    }
+
     value.starts_with('"')
         || value.starts_with('\'')
         || !unquoted
             .chars()
             .any(|c| c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?'))
+}
+
+/// Computes Shannon entropy in bits per character.
+fn shannon_entropy(s: &str) -> f64 {
+    if s.is_empty() {
+        return 0.0;
+    }
+    let len = s.len() as f64;
+    let mut freq = [0u32; 256];
+    for &b in s.as_bytes() {
+        freq[b as usize] += 1;
+    }
+    freq.iter()
+        .filter(|&&c| c > 0)
+        .map(|&c| {
+            let p = c as f64 / len;
+            -p * p.log2()
+        })
+        .sum()
 }
 
 fn build_finding(

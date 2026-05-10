@@ -18,6 +18,8 @@ pub fn resolve_import(
         }
         "py" => resolve_python(raw_import, from_file, known_files),
         "go" => resolve_go(raw_import, root, known_files),
+        "java" => resolve_jvm(raw_import, root, known_files, &["java"]),
+        "kt" | "kts" => resolve_jvm(raw_import, root, known_files, &["kt", "java"]),
         _ => None,
     }
 }
@@ -146,6 +148,40 @@ fn resolve_go(raw: &str, root: &Path, known_files: &BTreeSet<PathBuf>) -> Option
         }
     }
 
+    None
+}
+
+// ── JVM (Java / Kotlin) ───────────────────────────────────────────────────────
+
+/// Resolves a fully-qualified JVM class name (`com.example.Foo`) to a source
+/// file. Tries the standard Maven/Gradle source-root layout first, then falls
+/// back to bare `src/`.
+fn resolve_jvm(
+    raw: &str,
+    root: &Path,
+    known_files: &BTreeSet<PathBuf>,
+    extensions: &[&str],
+) -> Option<PathBuf> {
+    let rel = raw.replace('.', "/");
+
+    const SOURCE_ROOTS: &[&str] = &[
+        "src/main/java",
+        "src/main/kotlin",
+        "src",
+        "app/src/main/java",
+        "app/src/main/kotlin",
+    ];
+
+    for src_root in SOURCE_ROOTS {
+        let base = normalize_path(&root.join(src_root).join(&rel));
+        let candidates: Vec<PathBuf> = extensions
+            .iter()
+            .map(|ext| base.with_extension(ext))
+            .collect();
+        if let Some(p) = probe(&candidates, known_files) {
+            return Some(p);
+        }
+    }
     None
 }
 
