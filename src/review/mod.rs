@@ -128,6 +128,9 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         })
         .collect();
 
+    let in_diff_findings: Vec<_> = report.in_diff_findings().into_iter().cloned().collect();
+    let health_score =
+        ScanSummary::compute_health_score(&in_diff_findings, report.summary.lines_of_code);
     BaselineScanReport {
         summary: ScanSummary {
             root_path: report.summary.root_path.clone(),
@@ -140,9 +143,10 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             detected_frameworks: report.summary.detected_frameworks.clone(),
             framework_projects: report.summary.framework_projects.clone(),
             react_native: report.summary.react_native.clone(),
-            findings: report.in_diff_findings().into_iter().cloned().collect(),
+            findings: in_diff_findings,
             coupling_graph: report.summary.coupling_graph.clone(),
             scan_duration_us: report.summary.scan_duration_us,
+            health_score,
         },
         baseline_path: report.baseline_path.clone(),
         findings,

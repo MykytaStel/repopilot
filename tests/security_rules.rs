@@ -135,6 +135,40 @@ fn secret_candidate_skips_ellipsis_truncated_values() {
     }
 }
 
+#[test]
+fn secret_candidate_skips_low_entropy_values() {
+    // Low-entropy strings (repetitive English words) look like secrets by keyword alone
+    // but their character diversity is too low to be real credentials.
+    for line in [
+        r#"const SECRET = "testtest";"#,
+        r#"password = "aaaaaaaa";"#,
+        r#"api_key = "abcabcab";"#,
+    ] {
+        let f = file("src/config.rs", &format!("{line}\n"));
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "low-entropy value must not be flagged: `{line}` → {findings:?}"
+        );
+    }
+}
+
+#[test]
+fn secret_candidate_flags_high_entropy_values() {
+    // High-entropy strings (mixed case + digits + symbols) are real credentials.
+    for line in [
+        r#"api_key = "xK9mQ2pL8rT5vN3wY7";"#,
+        r#"secret_key = "Zj4Hn8Qw2Kp6Mv9Rs";"#,
+    ] {
+        let f = file("src/config.rs", &format!("{line}\n"));
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            !findings.is_empty(),
+            "high-entropy value must be flagged: `{line}`"
+        );
+    }
+}
+
 fn file(path: &str, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),

@@ -78,6 +78,8 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
 
     let scan_duration_us = start.elapsed().as_micros() as u64;
 
+    let health_score = ScanSummary::compute_health_score(&findings, facts.lines_of_code);
+
     Ok(ScanSummary {
         root_path: facts.root_path,
         files_count: facts.files_count,
@@ -92,6 +94,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         findings,
         coupling_graph: Some(coupling_graph),
         scan_duration_us,
+        health_score,
     })
 }
 
