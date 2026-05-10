@@ -1,4 +1,4 @@
-use crate::output::vibe::{VibeCategory, VibeOptions, render as render_vibe};
+use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory, VibeOptions, render as render_vibe};
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
@@ -11,7 +11,7 @@ impl Default for PromptOptions {
     fn default() -> Self {
         Self {
             focus: None,
-            budget_tokens: 4096,
+            budget_tokens: DEFAULT_TOKEN_BUDGET,
         }
     }
 }
@@ -27,15 +27,28 @@ pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
     let _ = writeln!(out, "# RepoPilot Remediation Prompt - {project_name}\n");
     let _ = writeln!(
         out,
-        "You are an AI coding assistant working inside this repository. Use the RepoPilot context below to make a small, reviewable remediation plan, then implement the highest-risk fixes first."
+        "You are an AI coding assistant working inside this repository. Use the RepoPilot context below as evidence, then make the smallest safe code changes that reduce the highest repository risk first."
+    );
+    render_scope(&mut out, opts);
+    let _ = writeln!(
+        out,
+        "\n## Operating Rules\n\n- Work from the existing code style and module boundaries.\n- Do not upload source code or call external services.\n- Do not rewrite unrelated files or revert user changes.\n- Preserve public APIs, serialized formats, CLI flags, and documented behavior unless a finding explicitly requires changing them.\n- Prefer narrow, reviewable edits over broad rewrites.\n- Add or update tests whenever behavior changes or a regression is plausible."
     );
     let _ = writeln!(
         out,
-        "\nConstraints:\n- Do not call external services or upload source code.\n- Preserve public APIs unless a finding explicitly requires a change.\n- Prefer tests for changed behavior.\n- After edits, run the narrowest relevant checks first, then the full project checks when practical."
+        "\n## Triage Order\n\n1. Fix Critical findings first.\n2. Fix High security findings next.\n3. Fix High architecture or framework findings that increase blast radius.\n4. Fix Medium maintainability findings only when they are local, obvious, or unblock higher-risk work.\n5. Leave low-signal cleanup for a separate change unless it is already touched by the fix."
     );
     let _ = writeln!(
         out,
-        "\nExpected response:\n1. State the top risks you will fix.\n2. Make the code changes.\n3. Summarize changed files and verification results.\n"
+        "\n## Implementation Loop\n\n1. Inspect the cited files and nearby tests before editing.\n2. State the concrete fixes you will make and the behavior each fix protects.\n3. Make the code changes.\n4. Run the narrowest relevant tests or checks first.\n5. Run broader checks when practical.\n6. If a finding is a false positive, explain why and add a focused regression test when possible."
+    );
+    let _ = writeln!(
+        out,
+        "\n## Verification Contract\n\n- Report exact commands run and whether they passed.\n- If a command was skipped, explain the blocker.\n- Re-run `repopilot scan .` or the relevant focused scan when the fix targets RepoPilot findings."
+    );
+    let _ = writeln!(
+        out,
+        "\n## Final Response Format\n\n- Top risks addressed.\n- Files changed and why.\n- Verification results.\n- Remaining risk or follow-up, if any.\n"
     );
     let _ = writeln!(out, "## RepoPilot Context\n");
 
@@ -49,4 +62,27 @@ pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
     );
     out.push_str(&vibe);
     out
+}
+
+fn render_scope(out: &mut String, opts: &PromptOptions) {
+    let focus = opts
+        .focus
+        .as_ref()
+        .map(focus_label)
+        .unwrap_or("all RepoPilot findings");
+    let _ = writeln!(
+        out,
+        "\n## Scope\n\n- Focus: {focus}.\n- Token budget: approximately {} tokens for the embedded RepoPilot context.",
+        opts.budget_tokens
+    );
+}
+
+fn focus_label(focus: &VibeCategory) -> &'static str {
+    match focus {
+        VibeCategory::Security => "security findings",
+        VibeCategory::Architecture => "architecture findings",
+        VibeCategory::Quality => "code quality and testing findings",
+        VibeCategory::Framework => "framework findings",
+        VibeCategory::All => "all RepoPilot findings",
+    }
 }

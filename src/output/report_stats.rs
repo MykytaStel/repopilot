@@ -1,8 +1,11 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::scan::types::ScanSummary;
+use counts::{CountWithSeverity, category_counts_from_map, increment, top_counts_from_map};
 use std::collections::BTreeMap;
 
 pub(crate) const TOOL_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+mod counts;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct ReportStats {
@@ -177,58 +180,6 @@ pub(crate) fn first_location(finding: &Finding) -> Option<String> {
     })
 }
 
-fn category_counts_from_map(map: BTreeMap<&'static str, CountWithSeverity>) -> Vec<NamedCount> {
-    let mut counts = map
-        .into_iter()
-        .map(|(label, count)| NamedCount {
-            label: label.to_string(),
-            count: count.count,
-            severity: count.severity,
-        })
-        .collect::<Vec<_>>();
-    counts.sort_by(|left, right| {
-        category_label_rank(&left.label)
-            .cmp(&category_label_rank(&right.label))
-            .then_with(|| left.label.cmp(&right.label))
-    });
-    counts
-}
-
-fn top_counts_from_map(map: BTreeMap<String, CountWithSeverity>, limit: usize) -> Vec<NamedCount> {
-    let mut counts = map
-        .into_iter()
-        .map(|(label, count)| NamedCount {
-            label,
-            count: count.count,
-            severity: count.severity,
-        })
-        .collect::<Vec<_>>();
-    counts.sort_by(|left, right| {
-        right
-            .count
-            .cmp(&left.count)
-            .then_with(|| right.severity.cmp(&left.severity))
-            .then_with(|| left.label.cmp(&right.label))
-    });
-    counts.truncate(limit);
-    counts
-}
-
-#[derive(Default)]
-struct CountWithSeverity {
-    count: usize,
-    severity: Option<Severity>,
-}
-
-fn increment(count: &mut CountWithSeverity, severity: Severity) {
-    count.count += 1;
-    count.severity = Some(
-        count
-            .severity
-            .map_or(severity, |current| current.max(severity)),
-    );
-}
-
 pub(crate) fn risk_label_for_counts(
     severity_counts: &[usize; 5],
     total_findings: usize,
@@ -255,17 +206,6 @@ fn category_rank(category: &FindingCategory) -> usize {
         FindingCategory::Framework => 2,
         FindingCategory::CodeQuality => 3,
         FindingCategory::Testing => 4,
-    }
-}
-
-fn category_label_rank(label: &str) -> usize {
-    match label {
-        "security" => 0,
-        "architecture" => 1,
-        "framework" => 2,
-        "code-quality" => 3,
-        "testing" => 4,
-        _ => usize::MAX,
     }
 }
 

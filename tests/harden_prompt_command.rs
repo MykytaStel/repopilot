@@ -108,6 +108,10 @@ fn prompt_default_output_succeeds() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("# RepoPilot Remediation Prompt"));
     assert!(stdout.contains("You are an AI coding assistant"));
+    assert!(stdout.contains("## Operating Rules"));
+    assert!(stdout.contains("## Triage Order"));
+    assert!(stdout.contains("## Verification Contract"));
+    assert!(stdout.contains("## Final Response Format"));
     assert!(stdout.contains("# RepoPilot Vibe Check"));
     assert!(stdout.contains("Possible secret detected"));
 }

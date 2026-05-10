@@ -2,6 +2,7 @@ pub mod baseline;
 pub mod compare;
 pub mod harden;
 pub mod init;
+mod llm;
 pub mod prompt;
 pub mod review;
 pub mod scan;
@@ -10,9 +11,12 @@ pub mod vibe;
 use crate::cli::{Cli, Commands, SeverityArg};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::findings::types::Severity;
+use repopilot::output::vibe::VibeCategory;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::types::ScanSummary;
 use std::fmt;
+
+pub const VALID_FOCUS_VALUES: &str = "security, arch, architecture, quality, framework, all";
 
 pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
@@ -141,6 +145,20 @@ pub fn severity_arg_into(arg: SeverityArg) -> Severity {
         SeverityArg::Medium => Severity::Medium,
         SeverityArg::High => Severity::High,
         SeverityArg::Critical => Severity::Critical,
+    }
+}
+
+pub fn parse_focus_category(
+    focus: Option<&str>,
+) -> Result<Option<VibeCategory>, Box<dyn std::error::Error>> {
+    match focus {
+        Some(value) => Ok(Some(value.parse::<VibeCategory>().map_err(|_| {
+            CliExit {
+                code: 2,
+                message: format!("Invalid focus '{value}'. Expected: {VALID_FOCUS_VALUES}"),
+            }
+        })?)),
+        None => Ok(None),
     }
 }
 

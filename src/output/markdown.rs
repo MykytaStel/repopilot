@@ -1,13 +1,17 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
-use crate::findings::types::{Finding, FindingCategory, Severity};
+use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::render_helpers::escape_table_cell;
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
-    findings_for_rule, first_location, rule_ids_for_findings, severity_order,
+    findings_for_rule, first_location, rule_ids_for_findings,
+};
+use crate::output::report_text::{
+    category_label_rank, category_title, first_sentence, markdown_severity_counts_text,
+    named_counts_text,
 };
 use crate::scan::types::ScanSummary;
 use std::collections::BTreeMap;
@@ -118,7 +122,7 @@ fn render_risk_summary(output: &mut String, summary: &ScanSummary, stats: &Repor
 
     output.push_str(&format!(
         "- **Severity:** {}\n",
-        severity_counts_text(stats)
+        markdown_severity_counts_text(stats)
     ));
     output.push_str(&format!(
         "- **Categories:** {}\n",
@@ -488,64 +492,6 @@ fn grouped_index_rows(
             .then_with(|| left.rule_id.cmp(&right.rule_id))
     });
     rows
-}
-
-fn severity_counts_text(stats: &ReportStats) -> String {
-    let parts = severity_order()
-        .iter()
-        .filter_map(|severity| {
-            let count = stats.severity_count(*severity);
-            (count > 0).then(|| format!("{} {}", count, severity.lowercase_label()))
-        })
-        .collect::<Vec<_>>();
-
-    if parts.is_empty() {
-        "none".to_string()
-    } else {
-        parts.join(", ")
-    }
-}
-
-fn named_counts_text(counts: &[crate::output::report_stats::NamedCount]) -> String {
-    if counts.is_empty() {
-        return "none".to_string();
-    }
-
-    counts
-        .iter()
-        .map(|count| format!("{} ({})", count.label, count.count))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn category_title(category: &FindingCategory) -> &'static str {
-    match category {
-        FindingCategory::Security => "Security",
-        FindingCategory::Architecture => "Architecture",
-        FindingCategory::Framework => "Framework",
-        FindingCategory::CodeQuality => "Code Quality",
-        FindingCategory::Testing => "Testing",
-    }
-}
-
-fn category_label_rank(label: &str) -> usize {
-    match label {
-        "security" => 0,
-        "architecture" => 1,
-        "framework" => 2,
-        "code-quality" => 3,
-        "testing" => 4,
-        _ => usize::MAX,
-    }
-}
-
-fn first_sentence(text: &str, max_len: usize) -> String {
-    let sentence = text.split(". ").next().unwrap_or(text);
-    if sentence.len() <= max_len {
-        sentence.to_string()
-    } else {
-        format!("{}...", &sentence[..max_len])
-    }
 }
 
 fn inline_snippet(snippet: &str) -> String {

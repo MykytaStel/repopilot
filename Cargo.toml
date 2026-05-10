@@ -2,7 +2,7 @@
 name = "repopilot"
 version = "0.8.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.87"
 description = "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
