@@ -12,6 +12,7 @@ use crate::graph::imports::extract_imports;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
+use crate::scan::path_classification::is_low_signal_audit_path;
 use crate::scan::types::{LanguageSummary, ScanSummary};
 
 use ignore::WalkBuilder;
@@ -82,10 +83,13 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
 
     Ok(ScanSummary {
         root_path: facts.root_path,
+        files_discovered: facts.files_discovered,
         files_count: facts.files_count,
         directories_count: facts.directories_count,
         lines_of_code: facts.lines_of_code,
         skipped_files_count: facts.skipped_files_count,
+        files_skipped_low_signal: facts.files_skipped_low_signal,
+        binary_files_skipped: facts.binary_files_skipped,
         skipped_bytes: facts.skipped_bytes,
         languages: facts.languages,
         detected_frameworks: facts.detected_frameworks,
@@ -104,8 +108,16 @@ struct PerFileResult {
     file_facts: FileFacts,
     findings: Vec<Finding>,
     language: Option<String>,
-    is_skipped: bool,
+    skip_reason: SkipReason,
     skipped_bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SkipReason {
+    None,
+    LargeFile,
+    Binary,
+    LowSignal,
 }
 
 /// Processes a single file: reads content, runs all file audits, returns findings.
@@ -128,15 +140,34 @@ fn process_file(
                     lines_of_code: 0,
                     branch_count: 0,
                     imports: Vec::new(),
-                    content: String::new(),
+                    content: None,
                     has_inline_tests: false,
                 },
                 findings: Vec::new(),
                 language,
-                is_skipped: true,
+                skip_reason: SkipReason::LargeFile,
                 skipped_bytes: file_size,
             });
         }
+    }
+
+    if !config.include_low_signal && is_low_signal_audit_path(path) {
+        let skipped_bytes = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        return Ok(PerFileResult {
+            file_facts: FileFacts {
+                path: path.to_path_buf(),
+                language: language.clone(),
+                lines_of_code: 0,
+                branch_count: 0,
+                imports: Vec::new(),
+                content: None,
+                has_inline_tests: false,
+            },
+            findings: Vec::new(),
+            language,
+            skip_reason: SkipReason::LowSignal,
+            skipped_bytes,
+        });
     }
 
     let Ok(content) = fs::read_to_string(path) else {
@@ -148,12 +179,12 @@ fn process_file(
                 lines_of_code: 0,
                 branch_count: 0,
                 imports: Vec::new(),
-                content: String::new(),
+                content: None,
                 has_inline_tests: false,
             },
             findings: Vec::new(),
             language,
-            is_skipped: true,
+            skip_reason: SkipReason::Binary,
             skipped_bytes,
         });
     };
@@ -168,7 +199,7 @@ fn process_file(
         branch_count,
         imports: extract_imports(&content, language.as_deref()),
         has_inline_tests,
-        content,
+        content: Some(content),
     };
 
     let mut findings = Vec::new();
@@ -178,12 +209,12 @@ fn process_file(
 
     Ok(PerFileResult {
         file_facts: FileFacts {
-            content: String::new(),
+            content: None,
             ..full_facts
         },
         findings,
         language,
-        is_skipped: false,
+        skip_reason: SkipReason::None,
         skipped_bytes: 0,
     })
 }
@@ -239,6 +270,7 @@ fn collect_and_audit_inline(
     };
 
     if path.is_file() {
+        facts.files_discovered = 1;
         let mut languages: HashMap<String, usize> = HashMap::new();
         let mut findings: Vec<Finding> = Vec::new();
         audit_file_inline(
@@ -254,7 +286,11 @@ fn collect_and_audit_inline(
     }
 
     // Phase 1: sequential directory walk — metadata only, no file reads
-    let (file_paths, dirs_count) = collect_paths(path, config)?;
+    let (mut file_paths, dirs_count) = collect_paths(path, config)?;
+    facts.files_discovered = file_paths.len();
+    if let Some(max) = config.max_files {
+        file_paths.truncate(max);
+    }
     facts.directories_count = dirs_count;
 
     // Phase 2: parallel file processing
@@ -269,14 +305,26 @@ fn collect_and_audit_inline(
 
     for result in results {
         let per_file = result?;
-        facts.files_count += 1;
-        if let Some(ref lang) = per_file.language {
-            *languages.entry(lang.clone()).or_insert(0) += 1;
+        if per_file.skip_reason == SkipReason::None {
+            facts.files_count += 1;
+            if let Some(ref lang) = per_file.language {
+                *languages.entry(lang.clone()).or_insert(0) += 1;
+            }
         }
         facts.lines_of_code += per_file.file_facts.lines_of_code;
-        if per_file.is_skipped {
-            facts.skipped_files_count += 1;
-            facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
+        match per_file.skip_reason {
+            SkipReason::LargeFile => {
+                facts.skipped_files_count += 1;
+                facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
+            }
+            SkipReason::Binary => {
+                facts.binary_files_skipped += 1;
+                facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
+            }
+            SkipReason::LowSignal => {
+                facts.files_skipped_low_signal += 1;
+            }
+            SkipReason::None => {}
         }
         facts.files.push(per_file.file_facts);
         findings.extend(per_file.findings);
@@ -297,30 +345,44 @@ fn audit_file_inline(
     config: &ScanConfig,
     findings: &mut Vec<Finding>,
 ) -> io::Result<()> {
-    facts.files_count += 1;
-
     let language = detect_language(path).map(str::to_string);
-    if let Some(language_name) = &language {
-        *languages.entry(language_name.clone()).or_insert(0) += 1;
-    }
 
     if skip_oversized_file(path, facts, &language, config)? {
         return Ok(());
     }
 
-    let Ok(content) = fs::read_to_string(path) else {
-        track_skipped_file(path, facts, 0);
+    if !config.include_low_signal && is_low_signal_audit_path(path) {
+        facts.files_skipped_low_signal += 1;
         facts.files.push(FileFacts {
             path: path.to_path_buf(),
             language,
             lines_of_code: 0,
             branch_count: 0,
             imports: Vec::new(),
-            content: String::new(),
+            content: None,
+            has_inline_tests: false,
+        });
+        return Ok(());
+    }
+
+    let Ok(content) = fs::read_to_string(path) else {
+        track_binary_file(path, facts, 0);
+        facts.files.push(FileFacts {
+            path: path.to_path_buf(),
+            language,
+            lines_of_code: 0,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: None,
             has_inline_tests: false,
         });
         return Ok(());
     };
+
+    facts.files_count += 1;
+    if let Some(language_name) = &language {
+        *languages.entry(language_name.clone()).or_insert(0) += 1;
+    }
 
     let lines_of_code = count_lines_of_code(&content);
     let branch_count = count_branches(&content);
@@ -335,7 +397,7 @@ fn audit_file_inline(
         branch_count,
         imports,
         has_inline_tests,
-        content,
+        content: Some(content),
     };
 
     for audit in file_audits {
@@ -350,7 +412,7 @@ fn audit_file_inline(
         branch_count: file_facts.branch_count,
         imports: file_facts.imports,
         has_inline_tests: file_facts.has_inline_tests,
-        content: String::new(),
+        content: None,
     });
 
     Ok(())
@@ -383,6 +445,7 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
     let mut languages: HashMap<String, usize> = HashMap::new();
 
     if path.is_file() {
+        facts.files_discovered = 1;
         collect_file_facts(path, &mut facts, &mut languages, config)?;
     } else {
         collect_directory_facts(path, &mut facts, &mut languages, config)?;
@@ -400,6 +463,7 @@ fn collect_directory_facts(
     config: &ScanConfig,
 ) -> io::Result<()> {
     let walker = build_walker(path, config);
+    let mut files_discovered = 0usize;
 
     for result in walker {
         let entry = result.map_err(io::Error::other)?;
@@ -419,21 +483,30 @@ fn collect_directory_facts(
         }
 
         if file_type.is_file() {
+            files_discovered += 1;
             collect_file_facts(entry_path, facts, languages, config)?;
         }
     }
 
+    facts.files_discovered = files_discovered;
     Ok(())
 }
 
 fn build_walker(path: &Path, config: &ScanConfig) -> ignore::Walk {
     let root = path.to_path_buf();
-    let ignored_paths = config.ignored_paths.clone();
+    let mut ignored_paths = config.ignored_paths.clone();
+    ignored_paths.extend(
+        config
+            .exclude_patterns
+            .iter()
+            .map(|pattern| pattern.trim_end_matches("/**").to_string()),
+    );
     WalkBuilder::new(path)
         .hidden(false)
         .git_ignore(true)
         .git_global(true)
         .git_exclude(true)
+        .add_custom_ignore_filename(".repopilotignore")
         .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored_paths))
         .build()
 }
@@ -469,31 +542,44 @@ fn collect_file_facts(
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
 ) -> io::Result<()> {
-    facts.files_count += 1;
-
     let language = detect_language(path).map(str::to_string);
-
-    if let Some(language_name) = &language {
-        *languages.entry(language_name.clone()).or_insert(0) += 1;
-    }
 
     if skip_oversized_file(path, facts, &language, config)? {
         return Ok(());
     }
 
-    let Ok(content) = fs::read_to_string(path) else {
-        track_skipped_file(path, facts, 0);
+    if !config.include_low_signal && is_low_signal_audit_path(path) {
+        facts.files_skipped_low_signal += 1;
         facts.files.push(FileFacts {
             path: path.to_path_buf(),
             language,
             lines_of_code: 0,
             branch_count: 0,
             imports: Vec::new(),
-            content: String::new(),
+            content: None,
+            has_inline_tests: false,
+        });
+        return Ok(());
+    }
+
+    let Ok(content) = fs::read_to_string(path) else {
+        track_binary_file(path, facts, 0);
+        facts.files.push(FileFacts {
+            path: path.to_path_buf(),
+            language,
+            lines_of_code: 0,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: None,
             has_inline_tests: false,
         });
         return Ok(());
     };
+
+    facts.files_count += 1;
+    if let Some(language_name) = &language {
+        *languages.entry(language_name.clone()).or_insert(0) += 1;
+    }
 
     let lines_of_code = count_lines_of_code(&content);
     facts.lines_of_code += lines_of_code;
@@ -506,7 +592,7 @@ fn collect_file_facts(
         language,
         lines_of_code,
         has_inline_tests,
-        content,
+        content: Some(content),
     });
 
     Ok(())
@@ -536,7 +622,7 @@ fn skip_oversized_file(
         lines_of_code: 0,
         branch_count: 0,
         imports: Vec::new(),
-        content: String::new(),
+        content: None,
         has_inline_tests: false,
     });
 
@@ -545,6 +631,19 @@ fn skip_oversized_file(
 
 fn track_skipped_file(path: &Path, facts: &mut ScanFacts, skipped_bytes: u64) {
     facts.skipped_files_count += 1;
+    facts.skipped_bytes = facts.skipped_bytes.saturating_add(skipped_bytes);
+
+    if skipped_bytes > 0 {
+        return;
+    }
+
+    if let Ok(metadata) = fs::metadata(path) {
+        facts.skipped_bytes = facts.skipped_bytes.saturating_add(metadata.len());
+    }
+}
+
+fn track_binary_file(path: &Path, facts: &mut ScanFacts, skipped_bytes: u64) {
+    facts.binary_files_skipped += 1;
     facts.skipped_bytes = facts.skipped_bytes.saturating_add(skipped_bytes);
 
     if skipped_bytes > 0 {

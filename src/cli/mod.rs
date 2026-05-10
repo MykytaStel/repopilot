@@ -1,7 +1,8 @@
 mod args;
 
 pub use args::{
-    CompareOutputFormatArg, FailOnArg, OutputFormatArg, SeverityArg, parse_vibe_budget,
+    CompareOutputFormatArg, FailOnArg, OutputFormatArg, SeverityArg, parse_byte_size,
+    parse_vibe_budget,
 };
 
 use clap::{Parser, Subcommand};
@@ -88,7 +89,9 @@ Coupling      — excessive fan-out, high-instability hubs, circular dependencie
 Code quality  — cyclomatic complexity, long functions, TODO/FIXME/HACK markers\n  \
 Security      — hardcoded secret candidates, committed private keys, .env files\n  \
 Testing       — missing test folder, source files without test counterparts\n\n\
-The scan respects .gitignore and built-in ignore rules for common build directories.\n\n\
+The scan respects .gitignore, .repopilotignore, built-in ignores, and --exclude.\n\
+Low-signal test, fixture, example, generated, and benchmark paths are skipped by\n\
+default unless --include-low-signal is passed.\n\n\
 Use `--baseline` to mark findings as new or existing. Use `--fail-on` to set a\n\
 CI failure threshold. Use `--format sarif` to upload results to GitHub Code Scanning.",
         after_help = "EXAMPLES:\n  \
@@ -100,7 +103,8 @@ repopilot scan . --format html --output report.html\n  \
 repopilot scan . --config repopilot.toml\n  \
 repopilot scan . --baseline .repopilot/baseline.json\n  \
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high\n  \
-repopilot scan . --max-file-loc 500 --max-directory-modules 30"
+repopilot scan . --max-file-loc 500 --max-directory-modules 30\n  \
+repopilot scan . --exclude generated --max-file-size 1mb --max-files 1000"
     )]
     Scan {
         path: PathBuf,
@@ -120,6 +124,18 @@ repopilot scan . --max-file-loc 500 --max-directory-modules 30"
         max_directory_modules: Option<usize>,
         #[arg(long)]
         max_directory_depth: Option<usize>,
+        /// Exclude a path or file/directory name after gitignore processing; repeatable
+        #[arg(long, value_name = "PATH_OR_NAME")]
+        exclude: Vec<String>,
+        /// Analyze test, fixture, example, generated, and benchmark paths that are skipped by default
+        #[arg(long)]
+        include_low_signal: bool,
+        /// Skip files larger than SIZE (bytes, kb, mb, or gb; 0 disables the guard)
+        #[arg(long, value_name = "SIZE", value_parser = parse_byte_size)]
+        max_file_size: Option<u64>,
+        /// Analyze at most N discovered files after ignore and exclude filters
+        #[arg(long, value_name = "N")]
+        max_files: Option<usize>,
         #[arg(long, short = 'w')]
         workspace: bool,
         #[arg(long, value_enum)]

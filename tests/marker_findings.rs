@@ -19,7 +19,7 @@ fn main() {}
         lines_of_code: 5,
         branch_count: 0,
         imports: Vec::new(),
-        content: content.to_string(),
+        content: Some(content.to_string()),
         has_inline_tests: false,
     };
 

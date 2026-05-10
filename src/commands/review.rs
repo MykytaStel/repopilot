@@ -1,5 +1,5 @@
 use crate::cli::{CompareOutputFormatArg, FailOnArg};
-use crate::commands::{CliExit, apply_min_severity_filter, build_scan_config};
+use crate::commands::{CliExit, ScanConfigOverrides, apply_min_severity_filter, build_scan_config};
 use indicatif::{ProgressBar, ProgressStyle};
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
@@ -41,9 +41,12 @@ pub fn run(
     };
     let scan_config = build_scan_config(
         &repo_config,
-        max_file_loc,
-        max_directory_modules,
-        max_directory_depth,
+        ScanConfigOverrides {
+            max_file_loc,
+            max_directory_modules,
+            max_directory_depth,
+            ..ScanConfigOverrides::default()
+        },
     );
 
     let pb = make_spinner();

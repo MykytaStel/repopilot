@@ -43,7 +43,7 @@ mod tests {
             lines_of_code: content.lines().count(),
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         }
     }

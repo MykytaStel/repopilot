@@ -71,10 +71,16 @@ repopilot s <PATH> [OPTIONS]
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
+| `--exclude` | path/name | — | Exclude an exact path relative to the scan root or a file/directory name; repeatable |
+| `--include-low-signal` | flag | — | Analyze test, fixture, example, generated, and benchmark paths that are skipped by default |
+| `--max-file-size` | size | `2097152` | Skip files larger than this size; accepts bytes, `kb`, `mb`, or `gb`; `0` disables the guard |
+| `--max-files` | integer | — | Analyze at most this many discovered files after ignore and exclude filters |
 | `-w, --workspace` | flag | — | Scan each detected workspace package separately and group findings by package |
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
 | `--verbose` | flag | — | Print scan phase timing breakdown after the report |
 | `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
+
+`files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_count` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.
 
 ### Exit codes
 
@@ -107,6 +113,11 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 
 # Override thresholds at the command line
 repopilot scan . --max-file-loc 500 --max-directory-modules 30 --max-directory-depth 8
+
+# Limit scan input
+repopilot scan . --exclude generated --exclude fixtures
+repopilot scan . --max-file-size 1mb --max-files 1000
+repopilot scan . --include-low-signal
 
 # Monorepo scan with less noise
 repopilot scan . --workspace --min-severity medium

@@ -12,7 +12,7 @@ fn make_file(lines_of_code: usize, branch_count: usize) -> FileFacts {
         lines_of_code,
         branch_count,
         imports: Vec::new(),
-        content: String::new(),
+        content: None,
         has_inline_tests: false,
     }
 }
@@ -81,7 +81,7 @@ fn skips_unsupported_language() {
         lines_of_code: 100,
         branch_count: 50,
         imports: Vec::new(),
-        content: String::new(),
+        content: None,
         has_inline_tests: false,
     };
     let findings = ComplexityAudit.audit(&file, &ScanConfig::default());

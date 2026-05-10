@@ -20,6 +20,8 @@ impl FileAudit for PrivateKeyCandidateAudit {
         }
 
         file.content
+            .as_deref()
+            .unwrap_or("")
             .lines()
             .enumerate()
             .filter_map(|(index, line)| {

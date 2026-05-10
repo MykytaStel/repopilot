@@ -179,7 +179,7 @@ mod tests {
             lines_of_code: 2,
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         }
     }
@@ -282,7 +282,7 @@ mod tests {
             lines_of_code: 2,
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         });
         let findings = ConsoleLogAudit.audit(&facts, &ScanConfig::default());

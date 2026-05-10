@@ -25,6 +25,7 @@ repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail
 `repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
 For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
 Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`); Go projects for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot vibe`.
+The walker respects gitignore, `.repopilotignore`, and built-in ignores for common build, cache, vendor, and platform directories, including `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.nuxt`, `.cache`, `coverage`, `vendor`, `Pods`, and `DerivedData`.
 
 ```bash
 repopilot scan .
@@ -70,6 +71,20 @@ Use presets for one-shot tuning without editing config:
 repopilot scan . --preset strict
 repopilot scan . --preset lenient
 ```
+
+### Limiting scan input
+
+Use `--exclude` for exact relative paths or file/directory names, `--max-file-size` to skip large files, and `--max-files` to cap how many discovered files are analyzed:
+
+```bash
+repopilot scan . --exclude generated --exclude fixtures
+repopilot scan . --max-file-size 1mb
+repopilot scan . --max-files 1000
+```
+
+Size values accept raw bytes plus `kb`, `mb`, and `gb` suffixes. By default, low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks are skipped; pass `--include-low-signal` to analyze them.
+
+JSON reports expose this accounting with `files_discovered`, `files_count` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `skipped_files_count`, and `skipped_bytes`.
 
 ### Filtering by severity
 

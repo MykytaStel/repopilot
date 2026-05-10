@@ -7,10 +7,13 @@ use std::path::PathBuf;
 fn html_output_escapes_snippets_and_renders_summary() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
+        files_discovered: 0,
         files_count: 1,
         directories_count: 1,
         lines_of_code: 3,
         skipped_files_count: 0,
+        files_skipped_low_signal: 0,
+        binary_files_skipped: 0,
         skipped_bytes: 0,
         languages: vec![],
         detected_frameworks: vec![],

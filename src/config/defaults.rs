@@ -9,7 +9,12 @@ pub const DEFAULT_IGNORED_PATHS: &[&str] = &[
     "dist",
     "build",
     ".next",
+    ".nuxt",
+    ".cache",
     "coverage",
+    "vendor",
+    "Pods",
+    "DerivedData",
 ];
 
 pub const DEFAULT_MAX_FILE_LINES: usize = 300;

@@ -13,7 +13,7 @@ impl FileAudit for CodeMarkerAudit {
             return vec![];
         }
 
-        detect_markers(&file.path, &file.content)
+        detect_markers(&file.path, file.content.as_deref().unwrap_or(""))
             .iter()
             .map(build_marker_finding)
             .collect()
@@ -21,7 +21,7 @@ impl FileAudit for CodeMarkerAudit {
 }
 
 pub fn detect_code_marker_findings(file: &FileFacts) -> Vec<Finding> {
-    detect_markers(&file.path, &file.content)
+    detect_markers(&file.path, file.content.as_deref().unwrap_or(""))
         .iter()
         .map(build_marker_finding)
         .collect()

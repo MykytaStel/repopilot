@@ -81,7 +81,7 @@ fn large_file_audit_skips_non_code_files() {
             lines_of_code: 5_000,
             branch_count: 0,
             imports: Vec::new(),
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         };
 
@@ -102,7 +102,7 @@ fn large_file_audit_skips_test_and_fixture_paths() {
             lines_of_code: 5_000,
             branch_count: 0,
             imports: Vec::new(),
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         };
 

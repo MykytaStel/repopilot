@@ -1,5 +1,5 @@
 use crate::cli::{FailOnArg, OutputFormatArg};
-use crate::commands::{CliExit, apply_min_severity_filter, build_scan_config};
+use crate::commands::{CliExit, ScanConfigOverrides, apply_min_severity_filter, build_scan_config};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
@@ -30,6 +30,10 @@ pub fn run(
     max_file_loc: Option<usize>,
     max_directory_modules: Option<usize>,
     max_directory_depth: Option<usize>,
+    exclude: Vec<String>,
+    include_low_signal: bool,
+    max_file_size: Option<u64>,
+    max_files: Option<usize>,
     workspace: bool,
     min_severity: Option<Severity>,
     verbose: bool,
@@ -56,9 +60,15 @@ pub fn run(
 
     let scan_config = build_scan_config(
         &repo_config,
-        max_file_loc,
-        max_directory_modules,
-        max_directory_depth,
+        ScanConfigOverrides {
+            max_file_loc,
+            max_directory_modules,
+            max_directory_depth,
+            exclude_patterns: exclude,
+            include_low_signal,
+            max_file_size,
+            max_files,
+        },
     );
     let output_format = format
         .map(Into::into)
@@ -201,9 +211,12 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
     }
 
     merged.files_count += package.files_count;
+    merged.files_discovered += package.files_discovered;
     merged.directories_count += package.directories_count;
     merged.lines_of_code += package.lines_of_code;
     merged.skipped_files_count += package.skipped_files_count;
+    merged.files_skipped_low_signal += package.files_skipped_low_signal;
+    merged.binary_files_skipped += package.binary_files_skipped;
     merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
     merged.scan_duration_us = merged
         .scan_duration_us
