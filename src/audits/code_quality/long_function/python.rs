@@ -51,7 +51,9 @@ pub(super) fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec
     for (start, _, name) in stack {
         let fn_len = total + 1 - start;
         if fn_len > threshold {
-            findings.push(super::build_finding(path, start, total, &name, fn_len, threshold));
+            findings.push(super::build_finding(
+                path, start, total, &name, fn_len, threshold,
+            ));
         }
     }
 

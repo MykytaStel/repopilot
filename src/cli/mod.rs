@@ -1,7 +1,7 @@
 mod args;
 
 pub use args::{
-    parse_vibe_budget, CompareOutputFormatArg, FailOnArg, OutputFormatArg, SeverityArg,
+    CompareOutputFormatArg, FailOnArg, OutputFormatArg, SeverityArg, parse_vibe_budget,
 };
 
 use clap::{Parser, Subcommand};
