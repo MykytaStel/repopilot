@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added scan input controls on `repopilot scan`: `--exclude`, `--include-low-signal`, `--max-file-size`, and `--max-files`.
+- Added JSON scan accounting fields: `files_discovered`, `files_skipped_low_signal`, and `binary_files_skipped`.
+- Added default ignores for `.nuxt`, `.cache`, `vendor`, `Pods`, and `DerivedData`.
+
+### Changed
+
+- `files_count` now represents analyzed text files; skipped large, binary, low-signal, and capped files are tracked separately.
+- Console scan input reporting now labels files skipped by `--max-files` as limit-skipped instead of ignore-skipped.
+
 ## [0.8.0] - 2026-05-09
 
 ### Added

@@ -54,6 +54,8 @@ impl FileAudit for SecretCandidateAudit {
         }
 
         file.content
+            .as_deref()
+            .unwrap_or("")
             .lines()
             .enumerate()
             .filter_map(|(index, line)| detect_secret_line(line, index + 1, &file.path))

@@ -24,11 +24,21 @@ pub struct Marker {
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
+    /// Files found after gitignore, `.repopilotignore`, built-in ignores, and
+    /// `--exclude` path/name filters are applied.
+    #[serde(default)]
+    pub files_discovered: usize,
+    /// Text files actually analyzed. Skipped large, binary, low-signal, and
+    /// `--max-files` capped files are not included.
     pub files_count: usize,
     pub directories_count: usize,
     pub lines_of_code: usize,
     #[serde(default)]
     pub skipped_files_count: usize,
+    #[serde(default)]
+    pub files_skipped_low_signal: usize,
+    #[serde(default)]
+    pub binary_files_skipped: usize,
     #[serde(default)]
     pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,

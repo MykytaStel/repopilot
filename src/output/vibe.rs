@@ -145,6 +145,7 @@ mod tests {
     fn make_summary(findings: Vec<Finding>) -> ScanSummary {
         ScanSummary {
             root_path: PathBuf::from("/my-project"),
+            files_discovered: 0,
             files_count: 42,
             lines_of_code: 3000,
             directories_count: 10,

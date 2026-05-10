@@ -193,7 +193,7 @@ fn file(path: &str, content: &str) -> FileFacts {
         lines_of_code: content.lines().count(),
         branch_count: 0,
         imports: Vec::new(),
-        content: content.to_string(),
+        content: Some(content.to_string()),
         has_inline_tests: false,
     }
 }

@@ -73,7 +73,8 @@ fn scan_reports_files_skipped_by_size_guard() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.files_count, 0);
+    assert_eq!(summary.files_discovered, 1);
     assert_eq!(summary.skipped_files_count, 1);
     assert_eq!(summary.skipped_bytes, content.len() as u64);
     assert_eq!(summary.lines_of_code, 0);
@@ -87,8 +88,10 @@ fn scan_reports_binary_files_as_skipped_without_failing() {
 
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_count, 1);
-    assert_eq!(summary.skipped_files_count, 1);
+    assert_eq!(summary.files_count, 0);
+    assert_eq!(summary.files_discovered, 1);
+    assert_eq!(summary.skipped_files_count, 0);
+    assert_eq!(summary.binary_files_skipped, 1);
     assert_eq!(summary.skipped_bytes, bytes.len() as u64);
     assert_eq!(summary.lines_of_code, 0);
 }

@@ -154,7 +154,7 @@ mod tests {
             lines_of_code: 3,
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         });
 
@@ -180,7 +180,7 @@ mod tests {
             lines_of_code: 1,
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         });
         // no TypeScript in languages list
@@ -210,7 +210,7 @@ mod tests {
             lines_of_code: 1,
             branch_count: 0,
             imports: vec![],
-            content: String::new(),
+            content: None,
             has_inline_tests: false,
         });
 

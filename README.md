@@ -31,7 +31,7 @@ repopilot vibe . | pbcopy   # macOS: paste into Claude Code and start fixing
 ## Features
 
 - Repository scanning for projects, folders, and individual files
-- Gitignore-aware walking with built-in ignores for common build and service directories
+- Gitignore-aware walking with built-in ignores for common build, cache, vendor, and native platform directories
 - Architecture findings: oversized files, deep nesting, too many modules per directory
 - Coupling analysis: excessive fan-out, high-instability hubs, circular dependencies
 - Code quality findings: cyclomatic complexity density, long functions, TODO/FIXME/HACK markers
@@ -114,7 +114,10 @@ Reduce scan noise while iterating:
 ```bash
 repopilot scan . --min-severity high
 repopilot scan . --workspace --min-severity medium
+repopilot scan . --exclude fixtures --max-file-size 1mb --max-files 500
 ```
+
+By default, RepoPilot skips low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks. Use `--include-low-signal` when you want those paths analyzed too.
 
 ## Vibe Check (new in v0.8)
 
@@ -238,7 +241,12 @@ ignore = [
   "dist",
   "build",
   ".next",
-  "coverage"
+  ".nuxt",
+  ".cache",
+  "coverage",
+  "vendor",
+  "Pods",
+  "DerivedData"
 ]
 max_file_bytes = 2097152
 
@@ -268,7 +276,15 @@ CLI threshold overrides:
 repopilot scan . --max-file-loc 500
 repopilot scan . --max-directory-modules 25
 repopilot scan . --max-directory-depth 6
+repopilot scan . --max-file-size 1mb
+repopilot scan . --max-files 1000
+repopilot scan . --exclude generated
+repopilot scan . --include-low-signal
 ```
+
+`--max-file-size` accepts raw bytes or `kb`, `mb`, and `gb` suffixes. `--exclude` matches an exact path relative to the scan root or a file/directory name; repeat it for multiple paths.
+
+JSON output includes scan input accounting fields: `files_discovered` for files found after ignore/exclude filters, `files_count` for analyzed text files, `files_skipped_low_signal` for default low-signal skips, and `binary_files_skipped` for unreadable/binary files.
 
 ## Baseline Workflow
 

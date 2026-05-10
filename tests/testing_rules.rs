@@ -223,7 +223,7 @@ fn python_init_and_infra_not_flagged() {
                 lines_of_code: 1,
                 branch_count: 0,
                 imports: Vec::new(),
-                content: String::new(),
+                content: None,
                 has_inline_tests: false,
             }],
             files_count: 1,
@@ -264,7 +264,7 @@ fn ts_file(path: &str) -> FileFacts {
         lines_of_code: 1,
         branch_count: 0,
         imports: Vec::new(),
-        content: String::new(),
+        content: None,
         has_inline_tests: false,
     }
 }
@@ -276,7 +276,7 @@ fn file(path: &str) -> FileFacts {
         lines_of_code: 1,
         branch_count: 0,
         imports: Vec::new(),
-        content: "pub fn value() {}\n".to_string(),
+        content: Some("pub fn value() {}\n".to_string()),
         has_inline_tests: false,
     }
 }

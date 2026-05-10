@@ -9,7 +9,10 @@ use crate::config::defaults::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScanConfig {
     pub ignored_paths: Vec<String>,
+    pub exclude_patterns: Vec<String>,
     pub max_file_bytes: u64,
+    pub include_low_signal: bool,
+    pub max_files: Option<usize>,
     pub detect_missing_tests: bool,
     pub detect_secret_like_names: bool,
     pub large_file_loc_threshold: usize,
@@ -28,7 +31,10 @@ impl Default for ScanConfig {
     fn default() -> Self {
         Self {
             ignored_paths: default_ignored_paths(),
+            exclude_patterns: Vec::new(),
             max_file_bytes: DEFAULT_MAX_FILE_BYTES,
+            include_low_signal: false,
+            max_files: None,
             detect_missing_tests: true,
             detect_secret_like_names: true,
             large_file_loc_threshold: DEFAULT_MAX_FILE_LINES,

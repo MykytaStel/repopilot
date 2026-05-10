@@ -1,6 +1,6 @@
 use crate::commands::CliExit;
-use crate::commands::build_scan_config;
 use crate::commands::scan::{finish_spinner, make_spinner};
+use crate::commands::{ScanConfigOverrides, build_scan_config};
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::output::harden::{HardenOptions, render as render_harden};
 use repopilot::output::vibe::VibeCategory;
@@ -19,7 +19,7 @@ pub fn run(
         Some(config_path) => load_optional_config(&config_path)?,
         None => load_default_config()?,
     };
-    let scan_config = build_scan_config(&repo_config, None, None, None);
+    let scan_config = build_scan_config(&repo_config, ScanConfigOverrides::default());
     let focus_category = parse_focus(focus.as_deref())?;
 
     let pb = make_spinner();

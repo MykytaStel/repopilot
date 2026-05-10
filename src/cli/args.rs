@@ -94,3 +94,31 @@ pub fn parse_vibe_budget(value: &str) -> Result<usize, String> {
 
     Ok(tokens)
 }
+
+pub fn parse_byte_size(value: &str) -> Result<u64, String> {
+    let s = value.to_lowercase();
+    if let Some(n) = s.strip_suffix("gb") {
+        return n
+            .trim()
+            .parse::<u64>()
+            .map(|n| n << 30)
+            .map_err(|_| format!("invalid: {value}"));
+    }
+    if let Some(n) = s.strip_suffix("mb") {
+        return n
+            .trim()
+            .parse::<u64>()
+            .map(|n| n << 20)
+            .map_err(|_| format!("invalid: {value}"));
+    }
+    if let Some(n) = s.strip_suffix("kb") {
+        return n
+            .trim()
+            .parse::<u64>()
+            .map(|n| n << 10)
+            .map_err(|_| format!("invalid: {value}"));
+    }
+    value
+        .parse::<u64>()
+        .map_err(|_| "expected bytes, e.g. 512, 1mb, 2gb".to_string())
+}

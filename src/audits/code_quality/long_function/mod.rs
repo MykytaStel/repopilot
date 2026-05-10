@@ -15,7 +15,8 @@ impl FileAudit for LongFunctionAudit {
         if is_low_signal_audit_path(&file.path) {
             return vec![];
         }
-        if file.content.is_empty() {
+        let content = file.content.as_deref().unwrap_or("");
+        if content.is_empty() {
             return vec![];
         }
         let language = match file.language.as_deref() {
@@ -23,7 +24,7 @@ impl FileAudit for LongFunctionAudit {
             _ => return vec![],
         };
         detect_long_functions(
-            &file.content,
+            content,
             language,
             &file.path,
             config.long_function_loc_threshold,

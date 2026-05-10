@@ -134,10 +134,13 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
     BaselineScanReport {
         summary: ScanSummary {
             root_path: report.summary.root_path.clone(),
+            files_discovered: report.summary.files_discovered,
             files_count: report.summary.files_count,
             directories_count: report.summary.directories_count,
             lines_of_code: report.summary.lines_of_code,
             skipped_files_count: report.summary.skipped_files_count,
+            files_skipped_low_signal: report.summary.files_skipped_low_signal,
+            binary_files_skipped: report.summary.binary_files_skipped,
             skipped_bytes: report.summary.skipped_bytes,
             languages: report.summary.languages.clone(),
             detected_frameworks: report.summary.detected_frameworks.clone(),

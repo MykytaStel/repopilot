@@ -7,6 +7,7 @@ use std::path::PathBuf;
 fn console_output_includes_versioned_summary_and_grouped_findings() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
+        files_discovered: 0,
         files_count: 1,
         directories_count: 1,
         lines_of_code: 100,
@@ -41,4 +42,23 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
     assert!(output.contains("Security:"));
     assert!(output.contains("security.secret-candidate (1)"));
     assert!(output.contains("src/config.rs:7"));
+}
+
+#[test]
+fn console_output_labels_max_files_remainder_as_limit_skipped() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        files_discovered: 3,
+        files_count: 1,
+        directories_count: 1,
+        lines_of_code: 10,
+        health_score: 100,
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Console)
+        .expect("failed to render console report");
+
+    assert!(output.contains("Files skipped (limit):"));
+    assert!(!output.contains("Files skipped (ignore):"));
 }

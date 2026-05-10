@@ -80,22 +80,61 @@ fn render_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats
         stats.total_findings, stats.finding_density
     ));
     output.push_str(&format!(
-        "Files analyzed: {} | Directories analyzed: {} | Lines of code: {}\n",
-        summary.files_count, summary.directories_count, summary.lines_of_code
+        "Directories analyzed: {} | Lines of code: {}\n",
+        summary.directories_count, summary.lines_of_code
     ));
+    render_scan_input(output, summary);
     if summary.scan_duration_us > 0 {
         output.push_str(&format!(
             "Scan time: {:.2}s\n",
             summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
-    if summary.skipped_files_count > 0 {
+    output.push('\n');
+}
+
+fn render_scan_input(output: &mut String, summary: &ScanSummary) {
+    let skipped_by_limit = summary.files_discovered.saturating_sub(
+        summary
+            .files_count
+            .saturating_add(summary.skipped_files_count)
+            .saturating_add(summary.binary_files_skipped)
+            .saturating_add(summary.files_skipped_low_signal),
+    );
+
+    output.push_str("Scan input:\n");
+    output.push_str(&format!(
+        "  Files discovered:       {:>7}\n",
+        summary.files_discovered
+    ));
+    if skipped_by_limit > 0 {
         output.push_str(&format!(
-            "Files skipped: {} ({} bytes)\n",
-            summary.skipped_files_count, summary.skipped_bytes
+            "  Files skipped (limit):  {:>7}\n",
+            skipped_by_limit
         ));
     }
-    output.push('\n');
+    output.push_str(&format!(
+        "  Files analyzed:         {:>7}\n",
+        summary.files_count
+    ));
+    if summary.skipped_files_count > 0 {
+        output.push_str(&format!(
+            "  Large files skipped:    {:>7}\n",
+            summary.skipped_files_count
+        ));
+    }
+    if summary.binary_files_skipped > 0 {
+        output.push_str(&format!(
+            "  Binary files skipped:   {:>7}\n",
+            summary.binary_files_skipped
+        ));
+    }
+    if summary.files_skipped_low_signal > 0 {
+        output.push_str(&format!(
+            "  Low-signal files skipped:{:>7}\n",
+            summary.files_skipped_low_signal
+        ));
+    }
 }
 
 fn render_risk_summary(output: &mut String, stats: &ReportStats) {

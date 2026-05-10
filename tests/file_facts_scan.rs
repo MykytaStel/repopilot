@@ -26,7 +26,7 @@ fn scanner_collects_file_facts_without_running_rules_directly() {
     assert_eq!(file.path, file_path);
     assert_eq!(file.language.as_deref(), Some("Rust"));
     assert_eq!(file.lines_of_code, 2);
-    assert!(file.content.contains("TODO"));
+    assert!(file.content.as_deref().unwrap_or("").contains("TODO"));
 }
 
 #[test]
@@ -44,9 +44,9 @@ fn collector_reports_files_skipped_by_size_guard() {
     let facts =
         collect_scan_facts_with_config(temp.path(), &config).expect("failed to collect scan facts");
 
-    assert_eq!(facts.files_count, 1);
+    assert_eq!(facts.files_count, 0);
     assert_eq!(facts.skipped_files_count, 1);
     assert_eq!(facts.skipped_bytes, content.len() as u64);
     assert_eq!(facts.files.len(), 1);
-    assert!(facts.files[0].content.is_empty());
+    assert!(facts.files[0].content.is_none());
 }

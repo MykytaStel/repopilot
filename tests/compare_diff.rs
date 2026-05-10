@@ -64,10 +64,13 @@ fn compare_json_renders_valid_json() {
 fn summary(findings: Vec<Finding>) -> ScanSummary {
     ScanSummary {
         root_path: PathBuf::from("demo"),
+        files_discovered: 0,
         files_count: 1,
         directories_count: 0,
         lines_of_code: 10,
         skipped_files_count: 0,
+        files_skipped_low_signal: 0,
+        binary_files_skipped: 0,
         skipped_bytes: 0,
         languages: vec![],
         findings,
