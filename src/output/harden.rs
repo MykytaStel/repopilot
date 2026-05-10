@@ -1,8 +1,9 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
-use crate::output::vibe::VibeCategory;
-use crate::rules::lookup_rule_metadata;
+use crate::output::finding_helpers::{
+    RuleCluster, category_rank, clusters_by_rule, example_locations, finding_recommendation,
+};
+use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory};
 use crate::scan::types::ScanSummary;
-use std::collections::BTreeMap;
 use std::fmt::Write as FmtWrite;
 
 pub struct HardenOptions {
@@ -14,7 +15,7 @@ impl Default for HardenOptions {
     fn default() -> Self {
         Self {
             focus: None,
-            budget_tokens: 4096,
+            budget_tokens: DEFAULT_TOKEN_BUDGET,
         }
     }
 }
@@ -36,7 +37,8 @@ pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
                 .is_none_or(|focus| focus.matches(&finding.category))
         })
         .collect();
-    let clusters = finding_clusters(&findings);
+    let mut clusters = clusters_by_rule(&findings);
+    sort_harden_clusters(&mut clusters);
 
     let mut out = String::new();
     let _ = writeln!(out, "# RepoPilot Harden Plan - {project_name}\n");
@@ -56,7 +58,7 @@ pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
     let content_start = out.len();
 
     for (index, cluster) in clusters.iter().enumerate() {
-        let priority = priority_label(cluster.priority);
+        let priority = priority_label(cluster_priority(cluster));
         if current_priority != Some(priority) {
             let _ = writeln!(out, "\n## {priority}");
             current_priority = Some(priority);
@@ -96,7 +98,7 @@ fn render_summary(out: &mut String, findings: &[&Finding]) {
     );
 }
 
-fn render_cluster_plan(out: &mut String, cluster: &FindingCluster<'_>, index: usize) {
+fn render_cluster_plan(out: &mut String, cluster: &RuleCluster<'_>, index: usize) {
     let count_note = if cluster.findings.len() > 1 {
         format!(" ({} findings)", cluster.findings.len())
     } else {
@@ -161,108 +163,30 @@ fn priority_rank(finding: &Finding) -> u8 {
     }
 }
 
-fn category_rank(category: &FindingCategory) -> u8 {
-    match category {
-        FindingCategory::Security => 0,
-        FindingCategory::Architecture => 1,
-        FindingCategory::Framework => 2,
-        FindingCategory::CodeQuality => 3,
-        FindingCategory::Testing => 4,
-    }
-}
-
-fn finding_recommendation(finding: &Finding) -> Option<&str> {
-    lookup_rule_metadata(&finding.rule_id)
-        .and_then(|meta| meta.recommendation)
-        .or(if finding.description.is_empty() {
-            None
-        } else {
-            Some(finding.description.as_str())
-        })
-}
-
-fn finding_location(finding: &Finding) -> Option<String> {
-    finding.evidence.first().map(|evidence| {
-        let path = evidence.path.display().to_string();
-        if evidence.line_start > 0 {
-            format!("{path}:{}", evidence.line_start)
-        } else {
-            path
-        }
-    })
-}
-
-struct FindingCluster<'a> {
-    title: &'a str,
-    rule_id: &'a str,
-    severity: Severity,
-    priority: u8,
-    category_rank: u8,
-    findings: Vec<&'a Finding>,
-}
-
-fn finding_clusters<'a>(findings: &'a [&'a Finding]) -> Vec<FindingCluster<'a>> {
-    let mut by_rule: BTreeMap<&str, Vec<&Finding>> = BTreeMap::new();
-    for finding in findings.iter().copied() {
-        by_rule.entry(&finding.rule_id).or_default().push(finding);
-    }
-
-    let mut clusters = by_rule
-        .into_values()
-        .filter_map(|mut group| {
-            group.sort_by(|left, right| {
-                right
-                    .severity
-                    .cmp(&left.severity)
-                    .then_with(|| finding_location(left).cmp(&finding_location(right)))
-            });
-            let first = group.first().copied()?;
-            let title = cluster_title(first, group.len());
-            Some(FindingCluster {
-                title,
-                rule_id: first.rule_id.as_str(),
-                severity: group
-                    .iter()
-                    .map(|finding| finding.severity)
-                    .max()
-                    .unwrap_or(first.severity),
-                priority: group
-                    .iter()
-                    .map(|finding| priority_rank(finding))
-                    .min()
-                    .unwrap_or_else(|| priority_rank(first)),
-                category_rank: category_rank(&first.category),
-                findings: group,
-            })
-        })
-        .collect::<Vec<_>>();
-
+fn sort_harden_clusters(clusters: &mut [RuleCluster<'_>]) {
     clusters.sort_by(|left, right| {
-        left.priority
-            .cmp(&right.priority)
+        cluster_priority(left)
+            .cmp(&cluster_priority(right))
             .then_with(|| right.severity.cmp(&left.severity))
-            .then_with(|| left.category_rank.cmp(&right.category_rank))
+            .then_with(|| cluster_category_rank(left).cmp(&cluster_category_rank(right)))
             .then_with(|| right.findings.len().cmp(&left.findings.len()))
             .then_with(|| left.rule_id.cmp(right.rule_id))
     });
-    clusters
 }
 
-fn cluster_title(finding: &Finding, count: usize) -> &str {
-    if count > 1 {
-        lookup_rule_metadata(&finding.rule_id)
-            .map(|metadata| metadata.title)
-            .unwrap_or(finding.rule_id.as_str())
-    } else {
-        finding.title.as_str()
-    }
-}
-
-fn example_locations(findings: &[&Finding], limit: usize) -> Vec<String> {
-    findings
+fn cluster_priority(cluster: &RuleCluster<'_>) -> u8 {
+    cluster
+        .findings
         .iter()
-        .filter_map(|finding| finding_location(finding))
-        .take(limit)
-        .map(|location| format!("`{location}`"))
-        .collect()
+        .map(|finding| priority_rank(finding))
+        .min()
+        .unwrap_or(3)
+}
+
+fn cluster_category_rank(cluster: &RuleCluster<'_>) -> u8 {
+    cluster
+        .findings
+        .first()
+        .map(|finding| category_rank(&finding.category))
+        .unwrap_or(u8::MAX)
 }

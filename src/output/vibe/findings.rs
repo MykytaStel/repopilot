@@ -1,5 +1,7 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
-use crate::rules::lookup_rule_metadata;
+use crate::output::finding_helpers::{
+    finding_location, finding_location_key, finding_recommendation,
+};
 use std::fmt::Write as FmtWrite;
 
 type CategoryFilter = fn(&FindingCategory) -> bool;
@@ -106,14 +108,7 @@ pub(super) fn render_findings_by_category(
 pub(super) fn render_finding_entry(out: &mut String, finding: &Finding, index: usize) {
     let sev = finding.severity.label();
 
-    let location = finding.evidence.first().map(|e| {
-        let path = e.path.display().to_string();
-        if e.line_start > 0 {
-            format!("{path}:{}", e.line_start)
-        } else {
-            path
-        }
-    });
+    let location = finding_location(finding);
 
     let loc_str = location
         .as_deref()
@@ -129,15 +124,7 @@ pub(super) fn render_finding_entry(out: &mut String, finding: &Finding, index: u
         }
     }
 
-    let recommendation = lookup_rule_metadata(&finding.rule_id)
-        .and_then(|m| m.recommendation)
-        .or(if finding.description.is_empty() {
-            None
-        } else {
-            Some(finding.description.as_str())
-        });
-
-    if let Some(rec) = recommendation {
+    if let Some(rec) = finding_recommendation(finding) {
         let _ = writeln!(out, "> **Fix:** {rec}");
     }
 
@@ -154,12 +141,4 @@ fn output_reached_budget(out: &str, start_len: usize, budget_chars: usize) -> bo
 
 fn render_truncation_notice(out: &mut String) {
     let _ = writeln!(out, "\n*[Output truncated to stay within token budget]*");
-}
-
-fn finding_location_key(finding: &Finding) -> String {
-    finding
-        .evidence
-        .first()
-        .map(|e| format!("{}:{}", e.path.display(), e.line_start))
-        .unwrap_or_default()
 }
