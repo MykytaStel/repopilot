@@ -19,6 +19,25 @@ fn write_sample_project(root: &std::path::Path) {
         .expect("failed to write todo file");
 }
 
+fn write_medium_signal_project(root: &std::path::Path) {
+    let src = root.join("src");
+    fs::create_dir_all(&src).expect("failed to create src dir");
+    let content = (0..20)
+        .map(|index| format!("pub fn function_{index}() {{}}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(src.join("large_a.rs"), &content).expect("failed to write large_a");
+    fs::write(src.join("large_b.rs"), &content).expect("failed to write large_b");
+    fs::write(
+        root.join("repopilot.toml"),
+        r#"
+        [architecture]
+        max_file_lines = 10
+        "#,
+    )
+    .expect("failed to write config");
+}
+
 #[test]
 fn harden_default_output_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
@@ -53,6 +72,25 @@ fn harden_focus_security_excludes_quality_findings() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("Possible secret detected"));
     assert!(!stdout.contains("TODO marker"));
+}
+
+#[test]
+fn harden_groups_repeated_medium_findings_by_rule() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_medium_signal_project(temp.path());
+
+    let output = repopilot()
+        .args(["harden", "."])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot harden");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    assert!(stdout.contains("File exceeds recommended size (2 findings)"));
+    assert!(stdout.contains("Rule: `architecture.large-file`"));
+    assert!(stdout.contains("`./src/large_a.rs:1`"));
+    assert!(stdout.contains("`./src/large_b.rs:1`"));
 }
 
 #[test]

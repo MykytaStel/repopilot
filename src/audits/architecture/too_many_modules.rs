@@ -2,6 +2,7 @@ use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use crate::scan::path_classification::is_low_signal_audit_path;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -12,6 +13,9 @@ impl ProjectAudit for TooManyModulesAudit {
         let mut dir_file_counts: HashMap<PathBuf, usize> = HashMap::new();
 
         for file in &facts.files {
+            if is_low_signal_audit_path(&file.path) {
+                continue;
+            }
             if let Some(parent) = file.path.parent() {
                 *dir_file_counts.entry(parent.to_path_buf()).or_insert(0) += 1;
             }

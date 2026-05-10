@@ -40,7 +40,18 @@ fn html_output_escapes_snippets_and_renders_summary() {
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");
 
     assert!(html.contains("RepoPilot Scan Report"));
-    assert!(html.contains("<div class=\"num\">1</div><div class=\"label\">Files</div>"));
+    assert!(html.contains(&format!(
+        "RepoPilot version: <strong>{}</strong>",
+        env!("CARGO_PKG_VERSION")
+    )));
+    assert!(html.contains("<div class=\"label\">Risk</div>"));
+    assert!(html.contains("<h2>Risk Summary</h2>"));
+    assert!(html.contains("<h2>Top Rules</h2>"));
+    assert!(html.contains("data-filter-type=\"severity\""));
+    assert!(html.contains("data-filter-type=\"category\""));
+    assert!(html.contains("data-filter-type=\"rule\""));
+    assert!(html.contains("class=\"finding-group\""));
+    assert!(html.contains("class=\"finding-card\""));
     assert!(html.contains("security.secret-candidate"));
     assert!(html.contains("API_KEY = &quot;abc&lt;123&gt;&quot;"));
     assert!(!html.contains("API_KEY = \"abc<123>\""));

@@ -93,3 +93,64 @@ fn scan_rejects_unknown_preset() {
     assert!(stderr.contains("invalid value"));
     assert!(stderr.contains("strict"));
 }
+
+#[test]
+fn min_severity_recomputes_health_score_for_json_output() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let content = (0..20)
+        .map(|index| format!("pub fn function_{index}() {{}}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(temp.path().join("large.rs"), content).expect("failed to write source file");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--format",
+            "json",
+            "--max-file-loc",
+            "10",
+            "--min-severity",
+            "high",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
+    assert_eq!(json["findings"].as_array().map(Vec::len), Some(0));
+    assert_eq!(json["health_score"], 100);
+}
+
+#[test]
+fn min_severity_recomputes_health_score_for_markdown_output() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let content = (0..20)
+        .map(|index| format!("pub fn function_{index}() {{}}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(temp.path().join("large.rs"), content).expect("failed to write source file");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--format",
+            "markdown",
+            "--max-file-loc",
+            "10",
+            "--min-severity",
+            "high",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    assert!(stdout.contains("- **Risk:** Clean"));
+    assert!(stdout.contains("- **Health score:** 100/100"));
+    assert!(stdout.contains("- **Findings:** 0 (0.0/kloc)"));
+}

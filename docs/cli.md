@@ -449,10 +449,10 @@ The `--min-severity` flag filters rendered findings before baseline or CI gate e
 
 | Format | Available in | Best for |
 |--------|-------------|----------|
-| `console` | `scan`, `review`, `compare` | Interactive terminal use |
+| `console` | `scan`, `review`, `compare` | Versioned terminal report with risk summary and grouped findings |
 | `json` | `scan`, `review`, `compare` | Machine consumption, piping to scripts |
-| `markdown` | `scan`, `review`, `compare` | Human-readable reports, PR comments |
-| `html` | `scan` | Standalone visual reports |
+| `markdown` | `scan`, `review`, `compare` | Versioned human-readable report with top rules and findings index |
+| `html` | `scan` | Standalone visual report with severity, category, and rule filters |
 | `sarif` | `scan` | GitHub Code Scanning, CI security tooling |
 
 See [docs/integrations/github-code-scanning.md](integrations/github-code-scanning.md) for the SARIF upload workflow.

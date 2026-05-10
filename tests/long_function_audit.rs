@@ -6,13 +6,18 @@ use repopilot::scan::facts::FileFacts;
 use std::path::PathBuf;
 
 fn make_file(language: &str, content: &str) -> FileFacts {
+    make_file_at("src/lib.rs", language, content)
+}
+
+fn make_file_at(path: &str, language: &str, content: &str) -> FileFacts {
     FileFacts {
-        path: PathBuf::from("src/lib.rs"),
+        path: PathBuf::from(path),
         language: Some(language.to_string()),
         lines_of_code: content.lines().count(),
         branch_count: 0,
         imports: Vec::new(),
         content: content.to_string(),
+        has_inline_tests: false,
     }
 }
 
@@ -58,6 +63,19 @@ fn rust_two_functions_only_long_one_flagged() {
     let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
     assert_eq!(findings.len(), 1);
     assert!(findings[0].title.contains("long_fn"));
+}
+
+#[test]
+fn rust_long_function_in_test_path_is_skipped() {
+    let body: String = (0..60).map(|i| format!("    let _{i} = {i};\n")).collect();
+    let content = format!("fn long_test_helper() {{\n{body}}}\n");
+    let file = make_file_at("tests/long_function_audit.rs", "Rust", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+
+    assert!(
+        findings.is_empty(),
+        "test files should not create medium long-function noise"
+    );
 }
 
 // ── Python ────────────────────────────────────────────────────────────────────

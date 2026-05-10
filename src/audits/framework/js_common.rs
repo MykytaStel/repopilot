@@ -180,6 +180,7 @@ mod tests {
             branch_count: 0,
             imports: vec![],
             content: String::new(),
+            has_inline_tests: false,
         }
     }
 
@@ -282,6 +283,7 @@ mod tests {
             branch_count: 0,
             imports: vec![],
             content: String::new(),
+            has_inline_tests: false,
         });
         let findings = ConsoleLogAudit.audit(&facts, &ScanConfig::default());
         assert_eq!(findings.len(), 1);

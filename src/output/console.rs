@@ -1,247 +1,227 @@
-use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
+use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
-use crate::findings::types::{Finding, Severity};
+use crate::findings::types::{Finding, FindingCategory};
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
+use crate::output::report_stats::{
+    ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
+    findings_for_rule, first_location, rule_ids_for_findings, severity_index, severity_order,
+};
 use crate::scan::types::ScanSummary;
 use std::collections::BTreeMap;
 
 pub fn render(summary: &ScanSummary) -> String {
+    let stats = build_report_stats(summary);
     let mut output = String::new();
 
-    output.push_str("RepoPilot Scan\n");
-    output.push_str(&format!("Path: {}\n\n", summary.root_path.display()));
-
-    output.push_str(&format!("Files analyzed: {}\n", summary.files_count));
-    output.push_str(&format!(
-        "Directories analyzed: {}\n",
-        summary.directories_count
-    ));
-    output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
-    if summary.scan_duration_us > 0 {
-        output.push_str(&format!(
-            "Scan time: {:.2}s\n",
-            summary.scan_duration_us as f64 / 1_000_000.0
-        ));
-    }
-    output.push_str(&format!(
-        "Health score: {}/100 {}\n",
-        summary.health_score,
-        health_score_bar(summary.health_score)
-    ));
-    output.push('\n');
-    if summary.skipped_files_count > 0 {
-        output.push_str(&format!(
-            "Files skipped: {} ({} bytes)\n\n",
-            summary.skipped_files_count, summary.skipped_bytes
-        ));
-    }
-
-    output.push_str("Languages:\n");
-
-    if summary.languages.is_empty() {
-        output.push_str("  No languages detected\n");
-    } else {
-        for language in &summary.languages {
-            output.push_str(&format!(
-                "  {}: {} files\n",
-                language.name, language.files_count
-            ));
-        }
-    }
-
-    output.push('\n');
+    render_header(&mut output, summary, &stats);
+    render_risk_summary(&mut output, &stats);
+    render_top_rules(&mut output, &stats);
+    render_languages_section(&mut output, summary);
     render_frameworks_section(&mut output, &summary.detected_frameworks);
     render_framework_projects_section(&mut output, &summary.framework_projects);
     if let Some(rn) = &summary.react_native {
         render_react_native_section(&mut output, rn);
     }
     workspace_risk_table(&mut output, &summary.findings);
-    render_findings_section(&mut output, &summary.findings);
+    render_grouped_findings(&mut output, &summary.findings, |_| None);
 
     output
 }
 
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
     let summary = &report.summary;
+    let stats = build_report_stats(summary);
     let mut output = String::new();
 
-    output.push_str("RepoPilot Scan\n");
-    output.push_str(&format!("Path: {}\n", summary.root_path.display()));
+    render_header(&mut output, summary, &stats);
     match &report.baseline_path {
         Some(path) => output.push_str(&format!("Baseline: {}\n", path.display())),
         None => output.push_str("Baseline: none (all findings treated as new)\n"),
     }
+    output.push_str(&format!("New findings: {}\n", report.new_count()));
+    output.push_str(&format!("Existing findings: {}\n", report.existing_count()));
+    if let Some(ci_gate) = ci_gate {
+        let status = if ci_gate.passed() { "passed" } else { "failed" };
+        output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
+    }
     output.push('\n');
 
-    output.push_str(&format!("Files analyzed: {}\n", summary.files_count));
+    render_risk_summary(&mut output, &stats);
+    render_top_rules(&mut output, &stats);
+    render_languages_section(&mut output, summary);
+    render_frameworks_section(&mut output, &summary.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.framework_projects);
+    if let Some(rn) = &summary.react_native {
+        render_react_native_section(&mut output, rn);
+    }
+    workspace_risk_table(&mut output, &summary.findings);
+    render_grouped_findings(&mut output, &summary.findings, |index| {
+        Some(report.finding_status(index).lowercase_label())
+    });
+
+    output
+}
+
+fn render_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
+    output.push_str("RepoPilot Scan\n");
+    output.push_str(&format!("Version: {TOOL_VERSION}\n"));
+    output.push_str(&format!("Path: {}\n", summary.root_path.display()));
     output.push_str(&format!(
-        "Directories analyzed: {}\n",
-        summary.directories_count
+        "Risk: {} | Health score: {}/100 {}\n",
+        stats.risk_label,
+        stats.health_score,
+        health_score_bar(stats.health_score)
     ));
-    output.push_str(&format!("Lines of code: {}\n", summary.lines_of_code));
+    output.push_str(&format!(
+        "Findings: {} ({:.1}/kloc)\n",
+        stats.total_findings, stats.finding_density
+    ));
+    output.push_str(&format!(
+        "Files analyzed: {} | Directories analyzed: {} | Lines of code: {}\n",
+        summary.files_count, summary.directories_count, summary.lines_of_code
+    ));
     if summary.scan_duration_us > 0 {
         output.push_str(&format!(
             "Scan time: {:.2}s\n",
             summary.scan_duration_us as f64 / 1_000_000.0
         ));
     }
-    output.push_str(&format!(
-        "Health score: {}/100 {}\n",
-        summary.health_score,
-        health_score_bar(summary.health_score)
-    ));
-    output.push('\n');
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
-            "Files skipped: {} ({} bytes)\n\n",
+            "Files skipped: {} ({} bytes)\n",
             summary.skipped_files_count, summary.skipped_bytes
         ));
     }
-
-    output.push_str(&format!("New findings: {}\n", report.new_count()));
-    output.push_str(&format!("Existing findings: {}\n", report.existing_count()));
-
-    if let Some(ci_gate) = ci_gate {
-        let status = if ci_gate.passed() { "passed" } else { "failed" };
-        output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
-    }
-
-    output.push_str("\nLanguages:\n");
-
-    if summary.languages.is_empty() {
-        output.push_str("  No languages detected\n");
-    } else {
-        for language in &summary.languages {
-            output.push_str(&format!(
-                "  {}: {} files\n",
-                language.name, language.files_count
-            ));
-        }
-    }
-
     output.push('\n');
-    render_frameworks_section(&mut output, &summary.detected_frameworks);
-    render_framework_projects_section(&mut output, &summary.framework_projects);
-    if let Some(rn) = &summary.react_native {
-        render_react_native_section(&mut output, rn);
-    }
-
-    if summary.findings.is_empty() {
-        output.push_str("Findings: none\n");
-        return output;
-    }
-
-    render_severity_summary(&mut output, &summary.findings);
-
-    output.push('\n');
-
-    render_findings_group(
-        &mut output,
-        "New findings",
-        &report.findings_with_status(BaselineStatus::New),
-    );
-    render_findings_group(
-        &mut output,
-        "Existing findings",
-        &report.findings_with_status(BaselineStatus::Existing),
-    );
-
-    output
 }
 
-fn render_findings_section(output: &mut String, findings: &[Finding]) {
-    if findings.is_empty() {
-        output.push_str("Findings: none\n");
+fn render_risk_summary(output: &mut String, stats: &ReportStats) {
+    output.push_str("Risk Summary:\n");
+    output.push_str(&format!("  Severity: {}\n", severity_counts_text(stats)));
+    output.push_str(&format!(
+        "  Categories: {}\n",
+        named_counts_text(&stats.category_counts)
+    ));
+    if !stats.top_paths.is_empty() {
+        output.push_str(&format!(
+            "  Top paths: {}\n",
+            named_counts_text(&stats.top_paths)
+        ));
+    }
+    if !stats.top_packages.is_empty() {
+        output.push_str(&format!(
+            "  Top packages: {}\n",
+            named_counts_text(&stats.top_packages)
+        ));
+    }
+    output.push('\n');
+}
+
+fn render_top_rules(output: &mut String, stats: &ReportStats) {
+    output.push_str("Top Rules:\n");
+
+    if stats.top_rules.is_empty() {
+        output.push_str("  No rules triggered\n\n");
         return;
     }
 
-    render_severity_summary(output, findings);
+    for rule in &stats.top_rules {
+        let severity = rule
+            .severity
+            .map(|severity| color::severity_label(severity.label()))
+            .unwrap_or_else(|| color::severity_label("INFO"));
+        output.push_str(&format!(
+            "  {:>4}  [{}] {}\n",
+            rule.count, severity, rule.label
+        ));
+    }
     output.push('\n');
+}
 
-    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
-    if has_workspace {
-        let mut groups: Vec<(Option<&str>, Vec<&Finding>)> = Vec::new();
-        for finding in findings {
-            let key = finding.workspace_package.as_deref();
-            if let Some(group) = groups.iter_mut().find(|(k, _)| *k == key) {
-                group.1.push(finding);
-            } else {
-                groups.push((key, vec![finding]));
+fn render_languages_section(output: &mut String, summary: &ScanSummary) {
+    output.push_str("Languages:\n");
+
+    if summary.languages.is_empty() {
+        output.push_str("  No languages detected\n\n");
+        return;
+    }
+
+    for language in &summary.languages {
+        output.push_str(&format!(
+            "  {}: {} files\n",
+            language.name, language.files_count
+        ));
+    }
+    output.push('\n');
+}
+
+fn render_grouped_findings<F>(output: &mut String, findings: &[Finding], status_for: F)
+where
+    F: Fn(usize) -> Option<&'static str>,
+{
+    output.push_str("Findings:\n");
+
+    if findings.is_empty() {
+        output.push_str("  none\n");
+        return;
+    }
+
+    for category in category_order() {
+        let category_findings = findings_for_category(findings, &category);
+        if category_findings.is_empty() {
+            continue;
+        }
+
+        output.push_str(&format!("  {}:\n", category_title(&category)));
+        let rules = rule_ids_for_findings(&category_findings);
+        for rule_id in rules {
+            let rule_findings = findings_for_rule(&category_findings, &rule_id);
+            output.push_str(&format!("    {} ({})\n", rule_id, rule_findings.len()));
+            for finding in rule_findings {
+                let index = findings
+                    .iter()
+                    .position(|candidate| std::ptr::eq(candidate, finding))
+                    .unwrap_or(0);
+                render_finding(output, finding, status_for(index));
             }
         }
-        for (pkg, group_findings) in &groups {
-            let header = pkg.unwrap_or("(root)");
-            output.push_str(&format!("  [{header}]\n"));
-            render_findings_list(output, group_findings, "    ");
-            output.push('\n');
-        }
-    } else {
-        render_findings_list(output, &findings.iter().collect::<Vec<_>>(), "  ");
+        output.push('\n');
     }
 }
 
-fn render_findings_list(output: &mut String, findings: &[&Finding], indent: &str) {
-    for finding in findings {
-        let label = color::severity_label(finding.severity_label());
+fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) {
+    let severity = color::severity_label(finding.severity_label());
+    output.push_str(&format!("      [{}] {}\n", severity, finding.title));
+    if let Some(status) = status {
+        output.push_str(&format!("        Baseline: {status}\n"));
+    }
+    if let Some(location) = first_location(finding) {
+        output.push_str(&format!("        Location: {location}\n"));
+    }
+    for evidence in &finding.evidence {
+        let location = if evidence.line_start > 0 {
+            format!("{}:{}", evidence.path.display(), evidence.line_start)
+        } else {
+            evidence.path.display().to_string()
+        };
+        let snippet = evidence.snippet.trim();
+        if snippet.is_empty() {
+            output.push_str(&format!("        Evidence: {location}\n"));
+        } else {
+            output.push_str(&format!("        Evidence: {location} - {snippet}\n"));
+        }
+    }
+    if !finding.description.is_empty() {
         output.push_str(&format!(
-            "{indent}[{}] {} \u{2014} {}\n",
-            label, finding.rule_id, finding.title
+            "        {}\n",
+            color::dim(&first_sentence(&finding.description, 120))
         ));
-        for evidence in &finding.evidence {
-            output.push_str(&format!(
-                "{indent}  Evidence: {}:{} \u{2014} {}\n",
-                evidence.path.display(),
-                evidence.line_start,
-                evidence.snippet.trim()
-            ));
-        }
-        if !finding.description.is_empty() {
-            let hint = first_sentence(&finding.description, 120);
-            output.push_str(&format!("{indent}  {}\n", color::dim(&hint)));
-        }
-        if let Some(url) = &finding.docs_url {
-            output.push_str(&format!("{indent}  Docs: {url}\n"));
-        }
     }
-}
-
-fn first_sentence(text: &str, max_len: usize) -> String {
-    let sentence = text.split(". ").next().unwrap_or(text);
-    if sentence.len() <= max_len {
-        sentence.to_string()
-    } else {
-        format!("{}…", &sentence[..max_len])
-    }
-}
-
-fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]) {
-    output.push_str(&format!("  {label}: {}\n", findings.len()));
-
-    for finding in findings {
-        let severity = color::severity_label(finding.severity_label());
-        output.push_str(&format!(
-            "    [{}] {} \u{2014} {}\n",
-            severity, finding.rule_id, finding.title
-        ));
-
-        for evidence in &finding.evidence {
-            output.push_str(&format!(
-                "      Evidence: {}:{} \u{2014} {}\n",
-                evidence.path.display(),
-                evidence.line_start,
-                evidence.snippet.trim()
-            ));
-        }
-        if !finding.description.is_empty() {
-            let hint = first_sentence(&finding.description, 120);
-            output.push_str(&format!("      {}\n", color::dim(&hint)));
-        }
-        if let Some(url) = &finding.docs_url {
-            output.push_str(&format!("      Docs: {url}\n"));
-        }
+    if let Some(url) = &finding.docs_url {
+        output.push_str(&format!("        Docs: {url}\n"));
     }
 }
 
@@ -251,7 +231,6 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
         return;
     }
 
-    // Aggregate counts per package: [critical, high, medium, low, info]
     let mut table: BTreeMap<&str, [usize; 5]> = BTreeMap::new();
     for f in findings {
         if let Some(pkg) = f.workspace_package.as_deref() {
@@ -264,7 +243,6 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
         return;
     }
 
-    // Measure column widths
     let name_width = table.keys().map(|k| k.len()).max().unwrap_or(7).max(7);
 
     output.push_str("Workspace Risk Summary:\n");
@@ -301,39 +279,41 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
     output.push('\n');
 }
 
-/// Renders a one-line severity tally: e.g. `Findings: 1 critical · 3 high · 5 medium`
-fn render_severity_summary(output: &mut String, findings: &[Finding]) {
-    // Single pass over findings to count each severity level
-    let mut counts = [0usize; 5];
-    for f in findings {
-        counts[severity_index(f.severity)] += 1;
-    }
-
-    const LEVELS: [Severity; 5] = [
-        Severity::Critical,
-        Severity::High,
-        Severity::Medium,
-        Severity::Low,
-        Severity::Info,
-    ];
-
-    let parts: Vec<String> = LEVELS
+fn severity_counts_text(stats: &ReportStats) -> String {
+    let parts = severity_order()
         .iter()
-        .zip(counts.iter())
-        .filter(|(_, n)| **n > 0)
-        .map(|(sev, n)| color::severity_count(*sev, *n))
-        .collect();
+        .filter_map(|severity| {
+            let count = stats.severity_count(*severity);
+            (count > 0).then(|| color::severity_count(*severity, count))
+        })
+        .collect::<Vec<_>>();
 
-    output.push_str(&format!("Findings: {}\n", parts.join(" \u{00b7} ")));
+    if parts.is_empty() {
+        "none".to_string()
+    } else {
+        parts.join(" | ")
+    }
 }
 
-fn severity_index(s: Severity) -> usize {
-    match s {
-        Severity::Critical => 0,
-        Severity::High => 1,
-        Severity::Medium => 2,
-        Severity::Low => 3,
-        Severity::Info => 4,
+fn named_counts_text(counts: &[crate::output::report_stats::NamedCount]) -> String {
+    if counts.is_empty() {
+        return "none".to_string();
+    }
+
+    counts
+        .iter()
+        .map(|count| format!("{} ({})", count.label, count.count))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn category_title(category: &FindingCategory) -> &'static str {
+    match category {
+        FindingCategory::Security => "Security",
+        FindingCategory::Architecture => "Architecture",
+        FindingCategory::Framework => "Framework",
+        FindingCategory::CodeQuality => "Code Quality",
+        FindingCategory::Testing => "Testing",
     }
 }
 
@@ -342,7 +322,7 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
         return;
     }
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
-    output.push_str(&format!("Frameworks: {}\n\n", labels.join(" \u{00b7} ")));
+    output.push_str(&format!("Frameworks: {}\n\n", labels.join(" | ")));
 }
 
 fn render_framework_projects_section(output: &mut String, projects: &[FrameworkProject]) {
@@ -360,7 +340,7 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
         output.push_str(&format!(
             "  {}: {}\n",
             project.path.display(),
-            labels.join(" \u{00b7} ")
+            labels.join(" | ")
         ));
     }
     output.push('\n');
@@ -397,6 +377,15 @@ fn tristate_label(value: Option<bool>) -> &'static str {
         Some(true) => "enabled",
         Some(false) => "disabled",
         None => "unknown",
+    }
+}
+
+fn first_sentence(text: &str, max_len: usize) -> String {
+    let sentence = text.split(". ").next().unwrap_or(text);
+    if sentence.len() <= max_len {
+        sentence.to_string()
+    } else {
+        format!("{}...", &sentence[..max_len])
     }
 }
 

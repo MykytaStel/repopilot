@@ -1,5 +1,5 @@
 use crate::cli::{CompareOutputFormatArg, FailOnArg};
-use crate::commands::{CliExit, build_scan_config};
+use crate::commands::{CliExit, apply_min_severity_filter, build_scan_config};
 use indicatif::{ProgressBar, ProgressStyle};
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
@@ -51,7 +51,7 @@ pub fn run(
     finish_spinner(pb);
 
     if let Some(min) = min_severity {
-        summary.findings.retain(|f| f.severity >= min);
+        apply_min_severity_filter(&mut summary, min);
     }
 
     let baseline_file = match baseline {

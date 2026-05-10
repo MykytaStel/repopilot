@@ -27,4 +27,7 @@ pub struct FileFacts {
     pub branch_count: usize,
     pub imports: Vec<String>,
     pub content: String,
+    /// True if the file contains a `#[cfg(test)]` block (Rust inline unit tests).
+    /// Computed while content is available; preserved after content is dropped.
+    pub has_inline_tests: bool,
 }
