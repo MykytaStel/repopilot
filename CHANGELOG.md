@@ -6,18 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-### Added
-
-- Added scan input controls on `repopilot scan`: `--exclude`, `--include-low-signal`, `--max-file-size`, and `--max-files`.
-- Added JSON scan accounting fields: `files_discovered`, `files_skipped_low_signal`, and `binary_files_skipped`.
-- Added default ignores for `.nuxt`, `.cache`, `vendor`, `Pods`, and `DerivedData`.
-
-### Changed
-
-- `files_count` now represents analyzed text files; skipped large, binary, low-signal, and capped files are tracked separately.
-- Console scan input reporting now labels files skipped by `--max-files` as limit-skipped instead of ignore-skipped.
-
-## [0.8.0] - 2026-05-09
+## [0.8.0] - 2026-05-11
 
 ### Added
 
@@ -35,6 +24,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Java and Kotlin language support: long function detection, import extraction for the coupling graph, and JVM import resolution supporting Maven and Gradle source-root layouts (`src/main/java`, `src/main/kotlin`, `app/src/main/java`, `app/src/main/kotlin`).
 - Python framework detection: Django, Flask, and FastAPI are detected from `requirements.txt` (with pinned version when present) and included in the tech-stack summary produced by `repopilot vibe`.
 - Go framework detection: Gin, Echo, and Fiber are detected from `go.mod` and included in the tech-stack summary.
+- Added scan input controls on `repopilot scan`: `--exclude`, `--include-low-signal`, `--max-file-size`, and `--max-files`.
+- Added JSON scan accounting fields: `files_discovered`, `files_skipped_low_signal`, and `binary_files_skipped`.
+- Added default ignores for `.nuxt`, `.cache`, `vendor`, `Pods`, and `DerivedData`.
 
 ### Changed
 
@@ -43,6 +35,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Workspace scans (`--workspace`) now run per-package scans in parallel using rayon, giving roughly 50% speedup on monorepos with ten or more packages.
 - Import deduplication in the coupling graph now uses `HashSet` instead of `BTreeSet`, reducing import extraction time by 3-7% on large TypeScript/Rust projects.
 - Coupling graph construction avoids a redundant `PathBuf` clone per file; `compute_metrics` no longer pre-allocates two full-size maps — both reduce allocations on large graphs.
+- `files_count` now represents analyzed text files; skipped large, binary, low-signal, and capped files are tracked separately.
+- Console scan input reporting now labels files skipped by `--max-files` as limit-skipped instead of ignore-skipped.
 
 ## [0.7.0] - 2026-05-08
 
