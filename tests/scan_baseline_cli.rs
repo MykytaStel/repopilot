@@ -104,9 +104,15 @@ fn scan_with_baseline_markdown_includes_status_counts() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("- **New findings:** 1"));
     assert!(stdout.contains("- **Existing findings:** 1"));
-    assert!(stdout.contains("| Severity | Baseline | Rule | Title | Evidence |"));
-    assert!(stdout.contains("| HIGH | existing | `security.secret-candidate`"));
-    assert!(stdout.contains("| HIGH | new | `security.secret-candidate`"));
+    assert!(stdout.contains("## Findings Index"));
+    assert!(
+        stdout.contains(
+            "| Category | Rule | Max severity | Count | New | Existing | First location |"
+        )
+    );
+    assert!(stdout.contains("| security | `security.secret-candidate` | HIGH | 2 | 1 | 1 |"));
+    assert!(stdout.contains("  - Baseline: existing"));
+    assert!(stdout.contains("  - Baseline: new"));
 }
 
 #[test]
@@ -134,9 +140,9 @@ fn scan_with_baseline_html_includes_status_counts() {
     assert!(stdout.contains("Baseline: <code>.repopilot/baseline.json</code>"));
     assert!(stdout.contains("<div class=\"num\">1</div><div class=\"label\">New</div>"));
     assert!(stdout.contains("<div class=\"num\">1</div><div class=\"label\">Existing</div>"));
-    assert!(stdout.contains("<th>Baseline</th>"));
-    assert!(stdout.contains("<span class=\"status existing\">existing</span>"));
-    assert!(stdout.contains("<span class=\"status new\">new</span>"));
+    assert!(stdout.contains("data-filter-type=\"rule\""));
+    assert!(stdout.contains("<span class=\"status existing\">baseline: existing</span>"));
+    assert!(stdout.contains("<span class=\"status new\">baseline: new</span>"));
 }
 
 #[test]

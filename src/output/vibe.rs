@@ -321,6 +321,24 @@ mod tests {
     }
 
     #[test]
+    fn risk_level_moderate_for_many_medium_findings() {
+        let findings: Vec<Finding> = (0..10)
+            .map(|index| {
+                make_finding(
+                    "architecture.large-file",
+                    "Large file",
+                    Severity::Medium,
+                    FindingCategory::Architecture,
+                    "src/a.rs",
+                    index + 1,
+                )
+            })
+            .collect();
+        let refs: Vec<&Finding> = findings.iter().collect();
+        assert_eq!(risk_level(&refs), "🟡 MODERATE");
+    }
+
+    #[test]
     fn token_estimate_in_footer() {
         let summary = make_summary(vec![]);
         let output = render(&summary, &VibeOptions::default());
@@ -341,6 +359,32 @@ mod tests {
         let summary = make_summary(findings);
         let output = render(&summary, &VibeOptions::default());
         assert!(!output.contains("## Top Recommendations"));
+    }
+
+    #[test]
+    fn top_recommendations_include_medium_clusters_when_no_high_findings() {
+        let findings = vec![
+            make_finding(
+                "architecture.large-file",
+                "Large file detected",
+                Severity::Medium,
+                FindingCategory::Architecture,
+                "src/a.rs",
+                1,
+            ),
+            make_finding(
+                "architecture.large-file",
+                "Large file detected",
+                Severity::Medium,
+                FindingCategory::Architecture,
+                "src/b.rs",
+                1,
+            ),
+        ];
+        let summary = make_summary(findings);
+        let output = render(&summary, &VibeOptions::default());
+        assert!(output.contains("## Top Recommendations"));
+        assert!(output.contains("MEDIUM 2 finding(s)"));
     }
 
     #[test]

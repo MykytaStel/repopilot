@@ -13,6 +13,7 @@ fn make_file(lines_of_code: usize, branch_count: usize) -> FileFacts {
         branch_count,
         imports: Vec::new(),
         content: String::new(),
+        has_inline_tests: false,
     }
 }
 
@@ -47,6 +48,15 @@ fn high_finding_at_high_threshold() {
 }
 
 #[test]
+fn tiny_dense_file_is_capped_at_medium_complexity() {
+    // 12 LOC, 6 branches -> density 500, but tiny helpers should not be high severity.
+    let file = make_file(12, 6);
+    let findings = ComplexityAudit.audit(&file, &ScanConfig::default());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Medium);
+}
+
+#[test]
 fn high_severity_wins_over_medium() {
     // density exactly at high threshold must be High, not Medium
     let file = make_file(100, 40);
@@ -72,6 +82,7 @@ fn skips_unsupported_language() {
         branch_count: 50,
         imports: Vec::new(),
         content: String::new(),
+        has_inline_tests: false,
     };
     let findings = ComplexityAudit.audit(&file, &ScanConfig::default());
     assert!(findings.is_empty());

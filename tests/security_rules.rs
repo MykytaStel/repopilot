@@ -31,6 +31,23 @@ fn secret_candidate_skips_test_and_fixture_paths() {
 }
 
 #[test]
+fn secret_candidate_skips_docs_and_lock_files() {
+    for path in [
+        "README.md",
+        "docs/security.md",
+        "Cargo.lock",
+        "pnpm-lock.yaml",
+    ] {
+        let f = file(path, "API_KEY = \"xK9mQ2pL8rT5vN3wY7\"\n");
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "docs and lock files must not be scanned for secrets: {path}"
+        );
+    }
+}
+
+#[test]
 fn secret_candidate_detects_and_masks_jwt_like_tokens() {
     let token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
     let file = file(
@@ -177,5 +194,6 @@ fn file(path: &str, content: &str) -> FileFacts {
         branch_count: 0,
         imports: Vec::new(),
         content: content.to_string(),
+        has_inline_tests: false,
     }
 }

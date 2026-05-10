@@ -11,6 +11,7 @@ use crate::cli::{Cli, Commands, SeverityArg};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::findings::types::Severity;
 use repopilot::scan::config::ScanConfig;
+use repopilot::scan::types::ScanSummary;
 use std::fmt;
 
 pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -156,4 +157,10 @@ pub fn build_scan_config(
     }
 
     config
+}
+
+pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
+    summary.findings.retain(|finding| finding.severity >= min);
+    summary.health_score =
+        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
 }

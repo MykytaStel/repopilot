@@ -28,6 +28,7 @@ impl ProjectAudit for SourceWithoutTestAudit {
             .filter(|file| is_source_file(&file.path))
             .filter(|file| !is_test_file(&file.path))
             .filter(|file| !is_low_signal_wrapper(&file.path))
+            .filter(|file| !file.has_inline_tests)
             .filter(|file| !has_nearby_test(&file.path, &all_paths, &tests_suffixes))
             .map(|file| build_finding(&file.path))
             .collect()
@@ -49,15 +50,39 @@ fn is_source_file(path: &Path) -> bool {
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or_default();
-    if !SOURCE_EXTENSIONS.contains(&ext) {
-        return false;
-    }
-    // Skip files already inside a test folder
-    !path.components().any(|c| {
+    SOURCE_EXTENSIONS.contains(&ext) && !is_declaration_file(path) && !is_excluded_directory(path)
+}
+
+/// TypeScript/JavaScript declaration files contain only type annotations — no executable code.
+/// `path.extension()` returns "ts" for "foo.d.ts", so we must check the full file name.
+fn is_declaration_file(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    name.ends_with(".d.ts") || name.ends_with(".d.mts") || name.ends_with(".d.cts")
+}
+
+fn is_excluded_directory(path: &Path) -> bool {
+    path.components().any(|c| {
         let name = c.as_os_str().to_string_lossy();
         matches!(
             name.as_ref(),
+            // Test infrastructure
             "tests" | "test" | "__tests__" | "spec" | "fixtures"
+            // Utility / entry-point directories
+            | "bin" | "scripts" | "script" | "tools" | "tool"
+            | "examples" | "example"
+            // Type definition directories — never contain testable logic
+            | "types" | "@types"
+            // Auto-generated code
+            | "generated" | "__generated__" | "gen" | "codegen"
+            // Mock definitions used by tests (not tested themselves)
+            | "mocks" | "__mocks__"
+            // Static assets
+            | "assets" | "public"
+            // DB migrations
+            | "migrations"
         )
     })
 }
@@ -67,16 +92,91 @@ fn is_test_file(path: &Path) -> bool {
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
-    stem.ends_with("_test") || stem.ends_with(".test") || stem.ends_with(".spec")
+    stem == "tests"
+        || stem == "test"
+        || stem.ends_with("_test")
+        || stem.ends_with(".test")
+        || stem.ends_with(".spec")
 }
 
 fn is_low_signal_wrapper(path: &Path) -> bool {
-    let file_name = path
+    let name = path
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or_default();
 
-    matches!(file_name, "mod.rs" | "lib.rs" | "main.rs")
+    // Rust entry points and build-time infrastructure
+    if matches!(name, "mod.rs" | "lib.rs" | "main.rs" | "build.rs") {
+        return true;
+    }
+
+    // Rust stub/mock helper files (never contain testable production logic)
+    if name.ends_with("stub.rs") || name.ends_with("mock.rs") || name.ends_with("fakes.rs") {
+        return true;
+    }
+
+    // Universal barrel files (re-export only, no logic)
+    if matches!(
+        name,
+        "index.ts"
+            | "index.tsx"
+            | "index.js"
+            | "index.jsx"
+            | "main.ts"
+            | "main.tsx"
+            | "main.js"
+            | "main.jsx"
+            | "__init__.py"
+    ) {
+        return true;
+    }
+
+    // TypeScript/JavaScript: well-known constant / type-only filenames
+    if matches!(
+        name,
+        "types.ts"
+            | "types.js"
+            | "constants.ts"
+            | "constants.js"
+            | "tokens.ts"
+            | "tokens.js"
+            | "theme.ts"
+            | "theme.js"
+            | "colors.ts"
+            | "colors.js"
+            | "enums.ts"
+            | "enums.js"
+            | "globals.ts"
+            | "globals.js"
+    ) {
+        return true;
+    }
+
+    // TypeScript/JavaScript compound-suffix patterns (e.g. user.types.ts, api.config.ts)
+    if name.ends_with(".types.ts")
+        || name.ends_with(".type.ts")
+        || name.ends_with(".config.ts")
+        || name.ends_with(".config.tsx")
+        || name.ends_with(".config.js")
+        || name.ends_with(".config.jsx")
+        || name.ends_with(".config.mjs")
+        || name.ends_with(".config.cjs")
+        || name.ends_with(".constants.ts")
+        || name.ends_with(".tokens.ts")
+        || name.ends_with(".d.ts")
+    {
+        return true;
+    }
+
+    // Python: infrastructure files that are not unit-tested themselves
+    if matches!(
+        name,
+        "setup.py" | "settings.py" | "conftest.py" | "__main__.py"
+    ) {
+        return true;
+    }
+
+    false
 }
 
 fn has_nearby_test(
@@ -134,8 +234,34 @@ fn has_rust_integration_test(source: &Path, ext: &str, tests_suffixes: &HashSet<
         return false;
     }
 
+    // 1. Exact module-path match (e.g. tests/audits_security_secret_candidate.rs)
     let module_candidate = format!("tests/{}.rs", module_test_name(source));
-    tests_suffixes.contains(module_candidate.as_str())
+    if tests_suffixes.contains(module_candidate.as_str()) {
+        return true;
+    }
+
+    // 2. Fuzzy stem match: handles test files named after features rather than modules,
+    //    e.g. `import_coupling.rs` is covered by `coupling_audit.rs` because "coupling"
+    //    appears in both. Requires a minimum part length (≥5) to avoid false positives
+    //    on short common words like "file" or "base".
+    let stem = source
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default();
+
+    let stem_parts: Vec<&str> = stem.split('_').filter(|p| p.len() >= 5).collect();
+
+    if stem_parts.is_empty() {
+        return false;
+    }
+
+    tests_suffixes.iter().any(|suffix| {
+        let test_name = std::path::Path::new(suffix)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        stem_parts.iter().any(|part| test_name.contains(part))
+    })
 }
 
 fn module_test_name(source: &Path) -> String {

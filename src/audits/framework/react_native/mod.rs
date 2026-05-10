@@ -44,6 +44,7 @@ mod tests {
             branch_count: 0,
             imports: vec![],
             content: String::new(),
+            has_inline_tests: false,
         }
     }
 

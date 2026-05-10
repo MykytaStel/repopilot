@@ -2,6 +2,7 @@ use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
+use crate::scan::path_classification::is_low_signal_audit_path;
 use std::path::Path;
 
 mod brace;
@@ -11,6 +12,9 @@ pub struct LongFunctionAudit;
 
 impl FileAudit for LongFunctionAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        if is_low_signal_audit_path(&file.path) {
+            return vec![];
+        }
         if file.content.is_empty() {
             return vec![];
         }

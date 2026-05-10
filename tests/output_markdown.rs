@@ -52,16 +52,25 @@ fn renders_markdown_scan_summary() {
         .expect("failed to render markdown summary");
 
     assert!(output.contains("# RepoPilot Scan Report"));
-    assert!(output.contains("## Summary"));
+    assert!(output.contains(&format!(
+        "- **RepoPilot version:** {}",
+        env!("CARGO_PKG_VERSION")
+    )));
+    assert!(output.contains("## Overview"));
+    assert!(output.contains("## Risk Summary"));
+    assert!(output.contains("## Top Rules"));
     assert!(output.contains("## Languages"));
+    assert!(output.contains("## Findings Index"));
     assert!(output.contains("## Findings"));
-    assert!(output.contains("| LOW | `code-marker.todo` | TODO marker found |"));
+    assert!(output.contains("### Code Quality"));
+    assert!(output.contains("#### `code-marker.todo` (1)"));
+    assert!(output.contains("| `code-marker.todo` | 1 | LOW |"));
     assert!(output.contains("`src/main.rs:7`"));
     assert!(output.contains("- **Path:** `demo-project`"));
     assert!(output.contains("- **Files analyzed:** 2"));
     assert!(output.contains("| Rust | 1 |"));
     assert!(output.contains("| TypeScript | 1 |"));
-    assert!(output.contains("| TODO | `src/main.rs` | 7 | // TODO: improve architecture |"));
+    assert!(output.contains("Evidence: `src/main.rs:7` - // TODO: improve architecture"));
 }
 
 #[test]
@@ -88,7 +97,7 @@ fn renders_empty_markdown_sections() {
 
     assert!(output.contains("No languages detected."));
     assert!(output.contains("No findings found."));
-    assert!(output.contains("No TODO/FIXME/HACK markers found."));
+    assert!(output.contains("No rules triggered."));
     // Non-RN project must not render the React Native architecture section
     assert!(!output.contains("### React Native"));
 }

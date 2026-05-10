@@ -28,6 +28,22 @@ impl FileAudit for SecretCandidateAudit {
     fn audit(&self, file: &FileFacts, _config: &ScanConfig) -> Vec<Finding> {
         let lower_path = file.path.to_string_lossy().to_lowercase();
 
+        // Skip documentation — markdown may reference secrets in code samples, not real values
+        let ext = file
+            .path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default();
+        if matches!(ext, "md" | "mdx" | "rst" | "txt") {
+            return vec![];
+        }
+
+        // Skip lock files — they contain high-entropy integrity hashes (sha512, etc.)
+        // that are checksums, not secrets. Covers all major package managers.
+        if is_lock_file(&file.path) {
+            return vec![];
+        }
+
         // Skip test and example files — likely contain fake credentials intentionally
         if lower_path.contains("test")
             || lower_path.contains("fixture")
@@ -43,6 +59,29 @@ impl FileAudit for SecretCandidateAudit {
             .filter_map(|(index, line)| detect_secret_line(line, index + 1, &file.path))
             .collect()
     }
+}
+
+fn is_lock_file(path: &std::path::Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default();
+    if matches!(ext, "lock" | "lockb") {
+        return true;
+    }
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    matches!(
+        name,
+        "package-lock.json"
+            | "pnpm-lock.yaml"
+            | "pnpm-lock.yml"
+            | "go.sum"
+            | "go.work.sum"
+            | "bun.lock"
+    )
 }
 
 fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) -> Option<Finding> {
@@ -145,9 +184,9 @@ fn is_secret_literal(value: &str) -> bool {
 
     value.starts_with('"')
         || value.starts_with('\'')
-        || !unquoted
-            .chars()
-            .any(|c| c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?'))
+        || !unquoted.chars().any(|c| {
+            c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?' | '<' | '>')
+        })
 }
 
 /// Computes Shannon entropy in bits per character.

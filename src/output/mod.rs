@@ -6,6 +6,7 @@ pub mod json;
 pub mod markdown;
 pub mod prompt;
 pub(crate) mod render_helpers;
+pub(crate) mod report_stats;
 pub mod sarif;
 pub mod vibe;
 

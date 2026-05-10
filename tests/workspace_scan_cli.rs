@@ -21,7 +21,7 @@ fn workspace_scan_does_not_duplicate_package_file_findings() {
     fs::write(package_root.join("package.json"), r#"{"name":"app"}"#)
         .expect("failed to write package.json");
     fs::write(
-        package_root.join("src/index.js"),
+        package_root.join("src/user.js"),
         "export const value = 1;\n",
     )
     .expect("failed to write source file");
@@ -49,7 +49,7 @@ fn workspace_scan_does_not_duplicate_package_file_findings() {
             finding["rule_id"] == "testing.source-without-test"
                 && finding["evidence"][0]["path"]
                     .as_str()
-                    .is_some_and(|path| path.ends_with("packages/app/src/index.js"))
+                    .is_some_and(|path| path.ends_with("packages/app/src/user.js"))
         })
         .collect();
 

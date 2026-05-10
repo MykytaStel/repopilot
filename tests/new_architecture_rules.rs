@@ -33,6 +33,35 @@ fn reports_directory_with_too_many_modules() {
 }
 
 #[test]
+fn flat_tests_directory_is_not_reported_as_too_many_modules() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let tests = temp.path().join("tests");
+    fs::create_dir(&tests).expect("failed to create tests dir");
+
+    for index in 0..3 {
+        fs::write(
+            tests.join(format!("case_{index}.rs")),
+            "pub fn test_helper() {}\n",
+        )
+        .expect("failed to write test module");
+    }
+
+    let config = ScanConfig {
+        max_directory_modules: 2,
+        ..ScanConfig::default()
+    };
+
+    let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan");
+
+    assert!(
+        summary
+            .findings
+            .iter()
+            .all(|finding| finding.rule_id != "architecture.too-many-modules")
+    );
+}
+
+#[test]
 fn reports_deep_nesting_only_above_threshold() {
     let temp = tempdir().expect("failed to create temp dir");
     let deep = temp.path().join("src/a/b/c");

@@ -325,7 +325,7 @@ If your installed RepoPilot version does not support `--output`, redirect stdout
 repopilot scan . --format sarif > repopilot.sarif
 ```
 
-Use JSON when custom scripts need to parse RepoPilot results. Use Markdown for human-readable reports. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
+Use JSON when custom scripts need to parse RepoPilot results. Console, Markdown, and HTML reports include the RepoPilot version, risk summary, top rules, and grouped findings for human review. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
 
 See [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) for a copy-paste GitHub Actions workflow, required permissions, and local validation commands.
 

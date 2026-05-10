@@ -1,4 +1,5 @@
 use crate::findings::types::{Finding, Severity};
+use crate::output::report_stats::risk_label_for_findings;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
@@ -78,20 +79,12 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
 }
 
 pub(super) fn risk_level(findings: &[&Finding]) -> &'static str {
-    let has_critical = findings.iter().any(|f| f.severity == Severity::Critical);
-    let high_count = findings
-        .iter()
-        .filter(|f| f.severity == Severity::High)
-        .count();
-
-    if has_critical {
-        "🔴 HIGH"
-    } else if high_count >= 3 {
-        "🟠 ELEVATED"
-    } else if high_count >= 1 {
-        "🟡 MODERATE"
-    } else {
-        "🟢 LOW"
+    match risk_label_for_findings(findings) {
+        "High" => "🔴 HIGH",
+        "Elevated" => "🟠 ELEVATED",
+        "Moderate" => "🟡 MODERATE",
+        "Low" => "🟢 LOW",
+        _ => "🟢 CLEAN",
     }
 }
 

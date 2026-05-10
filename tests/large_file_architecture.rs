@@ -1,7 +1,10 @@
-use repopilot::audits::architecture::large_file::detect_large_file_finding;
+use repopilot::audits::architecture::large_file::{LargeFileAudit, detect_large_file_finding};
+use repopilot::audits::traits::FileAudit;
 use repopilot::findings::types::{FindingCategory, Severity};
 use repopilot::scan::config::ScanConfig;
+use repopilot::scan::facts::FileFacts;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[test]
 fn does_not_create_finding_when_file_is_under_threshold() {
@@ -62,4 +65,51 @@ fn respects_custom_large_file_threshold() {
 
     assert!(below_custom_threshold.is_none());
     assert!(above_custom_threshold.is_some());
+}
+
+#[test]
+fn large_file_audit_skips_non_code_files() {
+    for (path, language) in [
+        ("Cargo.lock", Some("TOML")),
+        ("pnpm-lock.yaml", Some("YAML")),
+        ("README.md", Some("Markdown")),
+        ("data.json", Some("JSON")),
+    ] {
+        let file = FileFacts {
+            path: PathBuf::from(path),
+            language: language.map(str::to_string),
+            lines_of_code: 5_000,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: String::new(),
+            has_inline_tests: false,
+        };
+
+        let findings = LargeFileAudit.audit(&file, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "non-code file must not be flagged as large source: {path}"
+        );
+    }
+}
+
+#[test]
+fn large_file_audit_skips_test_and_fixture_paths() {
+    for path in ["tests/large_scan.rs", "src/fixtures/generated.rs"] {
+        let file = FileFacts {
+            path: PathBuf::from(path),
+            language: Some("Rust".to_string()),
+            lines_of_code: 5_000,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: String::new(),
+            has_inline_tests: false,
+        };
+
+        let findings = LargeFileAudit.audit(&file, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "test and fixture paths must not be flagged as large source: {path}"
+        );
+    }
 }

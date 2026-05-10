@@ -1,5 +1,5 @@
 use crate::cli::{FailOnArg, OutputFormatArg};
-use crate::commands::{CliExit, build_scan_config};
+use crate::commands::{CliExit, apply_min_severity_filter, build_scan_config};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
@@ -77,7 +77,7 @@ pub fn run(
     finish_spinner(pb);
 
     if let Some(min) = min_severity {
-        summary.findings.retain(|f| f.severity >= min);
+        apply_min_severity_filter(&mut summary, min);
     }
 
     if baseline.is_some() || fail_on.is_some() {

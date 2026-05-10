@@ -5,6 +5,8 @@ use crate::scan::facts::FileFacts;
 
 pub struct ComplexityAudit;
 
+const MIN_HIGH_COMPLEXITY_LOC: usize = 25;
+
 impl FileAudit for ComplexityAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
         if file.lines_of_code < 10 {
@@ -16,7 +18,9 @@ impl FileAudit for ComplexityAudit {
 
         let density = file.branch_count.saturating_mul(1000) / file.lines_of_code;
 
-        let severity = if density >= config.complexity_high_threshold {
+        let severity = if density >= config.complexity_high_threshold
+            && file.lines_of_code >= MIN_HIGH_COMPLEXITY_LOC
+        {
             Severity::High
         } else if density >= config.complexity_medium_threshold {
             Severity::Medium

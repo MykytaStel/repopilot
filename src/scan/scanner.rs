@@ -129,6 +129,7 @@ fn process_file(
                     branch_count: 0,
                     imports: Vec::new(),
                     content: String::new(),
+                    has_inline_tests: false,
                 },
                 findings: Vec::new(),
                 language,
@@ -148,6 +149,7 @@ fn process_file(
                 branch_count: 0,
                 imports: Vec::new(),
                 content: String::new(),
+                has_inline_tests: false,
             },
             findings: Vec::new(),
             language,
@@ -158,12 +160,14 @@ fn process_file(
 
     let lines_of_code = count_lines_of_code(&content);
     let branch_count = count_branches(&content);
+    let has_inline_tests = content.contains("#[cfg(test)]");
     let full_facts = FileFacts {
         path: path.to_path_buf(),
         language: language.clone(),
         lines_of_code,
         branch_count,
         imports: extract_imports(&content, language.as_deref()),
+        has_inline_tests,
         content,
     };
 
@@ -313,6 +317,7 @@ fn audit_file_inline(
             branch_count: 0,
             imports: Vec::new(),
             content: String::new(),
+            has_inline_tests: false,
         });
         return Ok(());
     };
@@ -320,6 +325,7 @@ fn audit_file_inline(
     let lines_of_code = count_lines_of_code(&content);
     let branch_count = count_branches(&content);
     let imports = extract_imports(&content, language.as_deref());
+    let has_inline_tests = content.contains("#[cfg(test)]");
     facts.lines_of_code += lines_of_code;
 
     let file_facts = FileFacts {
@@ -328,6 +334,7 @@ fn audit_file_inline(
         lines_of_code,
         branch_count,
         imports,
+        has_inline_tests,
         content,
     };
 
@@ -342,6 +349,7 @@ fn audit_file_inline(
         lines_of_code: file_facts.lines_of_code,
         branch_count: file_facts.branch_count,
         imports: file_facts.imports,
+        has_inline_tests: file_facts.has_inline_tests,
         content: String::new(),
     });
 
@@ -482,12 +490,14 @@ fn collect_file_facts(
             branch_count: 0,
             imports: Vec::new(),
             content: String::new(),
+            has_inline_tests: false,
         });
         return Ok(());
     };
 
     let lines_of_code = count_lines_of_code(&content);
     facts.lines_of_code += lines_of_code;
+    let has_inline_tests = content.contains("#[cfg(test)]");
 
     facts.files.push(FileFacts {
         path: path.to_path_buf(),
@@ -495,6 +505,7 @@ fn collect_file_facts(
         branch_count: count_branches(&content),
         language,
         lines_of_code,
+        has_inline_tests,
         content,
     });
 
@@ -526,6 +537,7 @@ fn skip_oversized_file(
         branch_count: 0,
         imports: Vec::new(),
         content: String::new(),
+        has_inline_tests: false,
     });
 
     Ok(true)

@@ -20,6 +20,7 @@ fn main() {}
         branch_count: 0,
         imports: Vec::new(),
         content: content.to_string(),
+        has_inline_tests: false,
     };
 
     let findings = detect_code_marker_findings(&file);
