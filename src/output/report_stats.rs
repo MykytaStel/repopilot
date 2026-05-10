@@ -123,7 +123,7 @@ pub(crate) fn category_order() -> [FindingCategory; 5] {
     ]
 }
 
-pub(crate) fn sorted_findings<'a>(findings: &'a [Finding]) -> Vec<&'a Finding> {
+pub(crate) fn sorted_findings(findings: &[Finding]) -> Vec<&Finding> {
     let mut sorted = findings.iter().collect::<Vec<_>>();
     sorted.sort_by(|left, right| {
         right

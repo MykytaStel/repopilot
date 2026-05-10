@@ -16,17 +16,18 @@ pub fn render(summary: &ScanSummary) -> String {
     let frameworks_section = render_frameworks_section(summary);
     let filter_bar = render_filter_bar(&stats);
     let findings_section = render_findings_section(summary, |_| None);
-    render_document(
-        &summary.root_path.to_string_lossy(),
-        "",
-        &cards,
-        &risk_section,
-        &top_rules_section,
-        &languages_section,
-        &frameworks_section,
-        &filter_bar,
-        &findings_section,
-    )
+    let path = summary.root_path.to_string_lossy();
+    render_document(DocumentParts {
+        path: &path,
+        baseline_meta: "",
+        cards: &cards,
+        risk_section: &risk_section,
+        top_rules_section: &top_rules_section,
+        languages_section: &languages_section,
+        frameworks_section: &frameworks_section,
+        filter_bar: &filter_bar,
+        findings_section: &findings_section,
+    })
 }
 
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
@@ -42,30 +43,44 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     });
     let baseline_meta = render_baseline_meta(report, ci_gate);
 
-    render_document(
-        &report.summary.root_path.to_string_lossy(),
-        &baseline_meta,
-        &cards,
-        &risk_section,
-        &top_rules_section,
-        &languages_section,
-        &frameworks_section,
-        &filter_bar,
-        &findings_section,
-    )
+    let path = report.summary.root_path.to_string_lossy();
+    render_document(DocumentParts {
+        path: &path,
+        baseline_meta: &baseline_meta,
+        cards: &cards,
+        risk_section: &risk_section,
+        top_rules_section: &top_rules_section,
+        languages_section: &languages_section,
+        frameworks_section: &frameworks_section,
+        filter_bar: &filter_bar,
+        findings_section: &findings_section,
+    })
 }
 
-fn render_document(
-    path: &str,
-    baseline_meta: &str,
-    cards: &str,
-    risk_section: &str,
-    top_rules_section: &str,
-    languages_section: &str,
-    frameworks_section: &str,
-    filter_bar: &str,
-    findings_section: &str,
-) -> String {
+struct DocumentParts<'a> {
+    path: &'a str,
+    baseline_meta: &'a str,
+    cards: &'a str,
+    risk_section: &'a str,
+    top_rules_section: &'a str,
+    languages_section: &'a str,
+    frameworks_section: &'a str,
+    filter_bar: &'a str,
+    findings_section: &'a str,
+}
+
+fn render_document(p: DocumentParts<'_>) -> String {
+    let DocumentParts {
+        path,
+        baseline_meta,
+        cards,
+        risk_section,
+        top_rules_section,
+        languages_section,
+        frameworks_section,
+        filter_bar,
+        findings_section,
+    } = p;
     format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -205,11 +220,11 @@ fn render_document(
 fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -> String {
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
-        summary_card(&format!("{}/100", stats.health_score), "Health"),
+        summary_card(format!("{}/100", stats.health_score), "Health"),
         summary_card(stats.total_findings, "Findings"),
         summary_card(summary.files_count, "Files"),
         summary_card(summary.lines_of_code, "Lines of Code"),
-        summary_card(&format!("{:.1}/kloc", stats.finding_density), "Density"),
+        summary_card(format!("{:.1}/kloc", stats.finding_density), "Density"),
     ];
 
     if summary.skipped_files_count > 0 {
@@ -222,7 +237,7 @@ fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -> String {
 fn render_baseline_summary_cards(report: &BaselineScanReport, stats: &ReportStats) -> String {
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
-        summary_card(&format!("{}/100", stats.health_score), "Health"),
+        summary_card(format!("{}/100", stats.health_score), "Health"),
         summary_card(report.summary.findings.len(), "Findings"),
         summary_card(report.new_count(), "New"),
         summary_card(report.existing_count(), "Existing"),
