@@ -5,6 +5,7 @@ use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::architecture::too_many_modules::TooManyModulesAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
 use crate::audits::code_quality::complexity::ComplexityAudit;
+use crate::audits::code_quality::language_risk::LanguageRiskAudit;
 use crate::audits::code_quality::long_function::LongFunctionAudit;
 use crate::audits::code_quality::rust_panic_risk::RustPanicRiskAudit;
 use crate::audits::framework::js_common::{ConsoleLogAudit, VarDeclarationAudit};
@@ -23,6 +24,7 @@ use crate::audits::testing::source_without_test::SourceWithoutTestAudit;
 use crate::audits::traits::{FileAudit, ProjectAudit};
 use crate::findings::types::Finding;
 use crate::frameworks::DetectedFramework;
+use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 
@@ -34,6 +36,7 @@ pub fn build_file_audits(config: &ScanConfig) -> Vec<Box<dyn FileAudit>> {
         Box::new(ComplexityAudit),
         Box::new(LongFunctionAudit),
         Box::new(RustPanicRiskAudit),
+        Box::new(LanguageRiskAudit),
     ];
 
     if config.detect_secret_like_names {
@@ -57,10 +60,12 @@ pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Fi
         project_audits.insert(2, Box::new(MissingTestFolderAudit));
     }
 
-    project_audits
+    let findings = project_audits
         .iter()
         .flat_map(|a| a.audit(scan_facts, config))
-        .collect()
+        .collect();
+
+    apply_project_decisions(scan_facts, findings)
 }
 
 pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
@@ -134,5 +139,5 @@ pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Findi
         findings.extend(ConsoleLogAudit.audit(facts, config));
     }
 
-    findings
+    apply_project_decisions(facts, findings)
 }

@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added a bundled RepoPilot Knowledge Engine foundation for language, framework, runtime, paradigm, and rule applicability decisions.
+- Added a tiered language corpus covering rule-aware, context-aware, import-aware, and detect-only support levels across common and emerging languages.
+
+### Changed
+
+- Language detection now uses the Knowledge Engine corpus instead of a hardcoded extension table.
+- Context-aware audits can suppress or adjust findings based on file role, runtime, paradigm, test/config/generated status, and rule applicability.
+
 ## [0.8.0] - 2026-05-11
 
 ### Added

@@ -1,5 +1,6 @@
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 
@@ -58,7 +59,11 @@ impl FileAudit for SecretCandidateAudit {
             .unwrap_or("")
             .lines()
             .enumerate()
-            .filter_map(|(index, line)| detect_secret_line(line, index + 1, &file.path))
+            .filter_map(|(index, line)| {
+                detect_secret_line(line, index + 1, &file.path).and_then(|finding| {
+                    apply_file_decision("security.secret-candidate", file, finding, None)
+                })
+            })
             .collect()
     }
 }

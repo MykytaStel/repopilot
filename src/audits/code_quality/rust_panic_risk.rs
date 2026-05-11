@@ -1,6 +1,7 @@
 use crate::audits::context::{FileRole, LanguageKind, RuntimeKind, classify_file};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::decide_for_audit_context;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use crate::scan::path_classification::is_low_signal_audit_path;
@@ -25,26 +26,44 @@ impl FileAudit for RustPanicRiskAudit {
             return vec![];
         };
 
-        content
-            .lines()
-            .enumerate()
-            .filter_map(|(index, line)| {
-                let line_number = index + 1;
-                let trimmed = line.trim();
+        let mut findings = Vec::new();
+        let mut in_block_comment = false;
 
-                if should_skip_line(trimmed) {
-                    return None;
-                }
+        for (index, line) in content.lines().enumerate() {
+            let line_number = index + 1;
+            let trimmed = line.trim();
 
-                let pattern = detect_pattern(trimmed)?;
+            if trimmed.is_empty() {
+                continue;
+            }
 
-                if should_ignore_pattern(&context, pattern) {
-                    return None;
-                }
+            let sanitized = sanitize_rust_line(line, &mut in_block_comment);
+            let Some(pattern) = detect_pattern(sanitized.trim()) else {
+                continue;
+            };
 
-                Some(build_finding(file, line_number, trimmed, pattern, &context))
-            })
-            .collect()
+            let decision = decide_for_audit_context(
+                RULE_ID,
+                &context,
+                pattern.base_severity(),
+                Some(pattern.signal()),
+            );
+
+            if decision.is_suppressed() {
+                continue;
+            }
+
+            findings.push(build_finding(
+                file,
+                line_number,
+                trimmed,
+                pattern,
+                &context,
+                decision.severity,
+            ));
+        }
+
+        findings
     }
 }
 
@@ -67,15 +86,25 @@ impl RustPanicPattern {
             RustPanicPattern::Unimplemented => "unimplemented!",
         }
     }
-}
 
-fn should_skip_line(trimmed: &str) -> bool {
-    trimmed.is_empty()
-        || trimmed.starts_with("//")
-        || trimmed.starts_with("///")
-        || trimmed.starts_with("//!")
-        || trimmed.starts_with("/*")
-        || trimmed.starts_with('*')
+    fn signal(self) -> &'static str {
+        match self {
+            RustPanicPattern::Unwrap => "rust.unwrap",
+            RustPanicPattern::Expect => "rust.expect",
+            RustPanicPattern::Panic => "rust.panic",
+            RustPanicPattern::Todo => "rust.todo",
+            RustPanicPattern::Unimplemented => "rust.unimplemented",
+        }
+    }
+
+    fn base_severity(self) -> Severity {
+        match self {
+            RustPanicPattern::Todo | RustPanicPattern::Unimplemented => Severity::High,
+            RustPanicPattern::Unwrap | RustPanicPattern::Expect | RustPanicPattern::Panic => {
+                Severity::Medium
+            }
+        }
+    }
 }
 
 fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
@@ -102,11 +131,80 @@ fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
     None
 }
 
-fn should_ignore_pattern(
-    context: &crate::audits::context::AuditContext,
-    pattern: RustPanicPattern,
-) -> bool {
-    context.is_test && matches!(pattern, RustPanicPattern::Unwrap | RustPanicPattern::Expect)
+fn sanitize_rust_line(line: &str, in_block_comment: &mut bool) -> String {
+    // Lightweight scanner only; raw strings and nested block comments are a
+    // future parser-level improvement, not a dependency for this audit.
+    let mut output = String::with_capacity(line.len());
+    let mut chars = line.chars().peekable();
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut escaped = false;
+
+    while let Some(character) = chars.next() {
+        if *in_block_comment {
+            if character == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                *in_block_comment = false;
+                output.push(' ');
+                output.push(' ');
+            } else {
+                output.push(' ');
+            }
+            continue;
+        }
+
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            output.push(' ');
+            continue;
+        }
+
+        if in_char {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '\'' {
+                in_char = false;
+            }
+            output.push(' ');
+            continue;
+        }
+
+        if character == '/' && chars.peek() == Some(&'/') {
+            break;
+        }
+
+        if character == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            *in_block_comment = true;
+            output.push(' ');
+            output.push(' ');
+            continue;
+        }
+
+        if character == '"' {
+            in_string = true;
+            output.push(' ');
+            continue;
+        }
+
+        if character == '\'' {
+            in_char = true;
+            output.push(' ');
+            continue;
+        }
+
+        output.push(character);
+    }
+
+    output
 }
 
 fn build_finding(
@@ -115,8 +213,8 @@ fn build_finding(
     snippet: &str,
     pattern: RustPanicPattern,
     context: &crate::audits::context::AuditContext,
+    severity: Severity,
 ) -> Finding {
-    let severity = severity_for(context, pattern);
     let context_label = context_label(context);
     let recommendation = recommendation_for(context, pattern);
 
@@ -141,40 +239,6 @@ fn build_finding(
         workspace_package: None,
         docs_url: None,
     }
-}
-
-fn severity_for(
-    context: &crate::audits::context::AuditContext,
-    pattern: RustPanicPattern,
-) -> Severity {
-    if context.is_test {
-        return Severity::Low;
-    }
-
-    if matches!(
-        pattern,
-        RustPanicPattern::Todo | RustPanicPattern::Unimplemented
-    ) {
-        return Severity::High;
-    }
-
-    if matches!(pattern, RustPanicPattern::Panic) {
-        if context.has_role(FileRole::Domain) || context.has_runtime(RuntimeKind::RustLibrary) {
-            return Severity::High;
-        }
-
-        return Severity::Medium;
-    }
-
-    if context.has_runtime(RuntimeKind::RustCli) {
-        return Severity::Low;
-    }
-
-    if context.has_role(FileRole::Domain) || context.has_runtime(RuntimeKind::RustLibrary) {
-        return Severity::Medium;
-    }
-
-    Severity::Low
 }
 
 fn context_label(context: &crate::audits::context::AuditContext) -> &'static str {
@@ -302,9 +366,82 @@ mod tests {
     fn ignores_commented_panic_patterns() {
         let file = facts(
             "src/lib.rs",
-            "// let value = parse().unwrap();\n// panic!(\"old code\");",
+            "// let value = parse().unwrap();\n/// panic!(\"example\");\n/*\n * value.unwrap()\n */\n// panic!(\"old code\");",
             false,
         );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn ignores_string_literal_panic_patterns() {
+        let file = facts(
+            "src/lib.rs",
+            "let text = \"value.unwrap() and panic!(\\\"example\\\")\";",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn does_not_report_functional_iterator_pipeline_without_panic_risk() {
+        let file = facts(
+            "src/domain/users.rs",
+            "let names = users\n    .iter()\n    .filter(|user| user.is_active)\n    .map(|user| user.name.clone())\n    .collect::<Vec<_>>();\n",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn reports_expect_in_domain_code() {
+        let file = facts(
+            "src/domain/parser.rs",
+            "let value = parse().expect(\"valid domain input\");",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::Medium);
+        assert!(findings[0].title.contains("expect()"));
+        assert!(findings[0].description.contains("Rust domain code"));
+    }
+
+    #[test]
+    fn reports_unimplemented_in_production_code() {
+        let file = facts("src/lib.rs", "unimplemented!(\"missing adapter\");", false);
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::High);
+        assert!(findings[0].title.contains("unimplemented!"));
+    }
+
+    #[test]
+    fn does_not_run_on_non_rust_files() {
+        let mut file = facts("src/app.ts", "panic!(\"not rust\");", false);
+        file.language = Some("TypeScript".to_string());
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn does_not_run_without_file_content() {
+        let mut file = facts("src/lib.rs", "panic!(\"missing content\");", false);
+        file.content = None;
 
         let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
 

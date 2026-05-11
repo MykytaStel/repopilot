@@ -1,6 +1,7 @@
 use crate::audits::context::{AuditContext, FileRole, FrameworkKind, LanguageKind, classify_file};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::decide_for_audit_context;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use crate::scan::path_classification::is_low_signal_audit_path;
@@ -8,6 +9,8 @@ use std::path::Path;
 
 mod brace;
 mod python;
+
+const RULE_ID: &str = "code-quality.long-function";
 
 pub struct LongFunctionAudit;
 
@@ -31,34 +34,22 @@ impl FileAudit for LongFunctionAudit {
             return vec![];
         }
 
-        let language = match file.language.as_deref() {
-            Some(language) if is_supported(language) => language,
-            _ => return vec![],
+        let Some(language) = file.language.as_deref() else {
+            return vec![];
         };
 
         let context = classify_file(file);
-        let policy = long_function_policy(&context, config.long_function_loc_threshold);
+        let decision = decide_for_audit_context(RULE_ID, &context, Severity::Medium, None);
+
+        if decision.is_suppressed() {
+            return vec![];
+        }
+
+        let mut policy = long_function_policy(&context, config.long_function_loc_threshold);
+        policy.severity = decision.severity.min(policy.severity);
 
         detect_long_functions(content, language, &file.path, policy)
     }
-}
-
-fn is_supported(language: &str) -> bool {
-    matches!(
-        language,
-        "Rust"
-            | "Go"
-            | "Python"
-            | "TypeScript"
-            | "TypeScript React"
-            | "JavaScript"
-            | "JavaScript React"
-            | "Java"
-            | "Kotlin"
-            | "CSharp"
-            | "C#"
-            | "CS"
-    )
 }
 
 fn detect_long_functions(
@@ -178,7 +169,7 @@ fn build_finding(
 
     Finding {
         id: String::new(),
-        rule_id: "code-quality.long-function".to_string(),
+        rule_id: RULE_ID.to_string(),
         title,
         description: format!(
             "Function {name_display} spans {fn_len} lines, exceeding the context-aware {threshold}-line threshold for {context_label}. {recommendation}",

@@ -1,18 +1,18 @@
+use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::decide_for_audit_context;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 
 pub struct ComplexityAudit;
 
+const RULE_ID: &str = "code-quality.complex-file";
 const MIN_HIGH_COMPLEXITY_LOC: usize = 25;
 
 impl FileAudit for ComplexityAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
         if file.lines_of_code < 10 {
-            return vec![];
-        }
-        if !is_code_language(file.language.as_deref()) {
             return vec![];
         }
 
@@ -28,6 +28,15 @@ impl FileAudit for ComplexityAudit {
             return vec![];
         };
 
+        let context = classify_file(file);
+        let decision = decide_for_audit_context(RULE_ID, &context, severity, None);
+
+        if decision.is_suppressed() {
+            return vec![];
+        }
+
+        let severity = decision.severity;
+
         let threshold = if severity == Severity::High {
             config.complexity_high_threshold
         } else {
@@ -36,7 +45,7 @@ impl FileAudit for ComplexityAudit {
 
         vec![Finding {
             id: String::new(),
-            rule_id: "code-quality.complex-file".to_string(),
+            rule_id: RULE_ID.to_string(),
             title: "High complexity density".to_string(),
             description: format!(
                 "This file has a complexity density of {density} (branch constructs × 1000 / LOC), \
@@ -58,25 +67,6 @@ impl FileAudit for ComplexityAudit {
             docs_url: None,
         }]
     }
-}
-
-fn is_code_language(language: Option<&str>) -> bool {
-    matches!(
-        language,
-        Some(
-            "Rust"
-                | "Go"
-                | "Python"
-                | "TypeScript"
-                | "TypeScript React"
-                | "JavaScript"
-                | "JavaScript React"
-                | "Java"
-                | "Kotlin"
-                | "C"
-                | "C++"
-        )
-    )
 }
 
 /// Counts branching constructs and logical operators as a heuristic complexity metric.

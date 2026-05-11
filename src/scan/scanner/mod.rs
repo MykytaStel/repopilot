@@ -10,6 +10,7 @@ use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
 };
+use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
 use crate::scan::types::ScanSummary;
 use std::io;
@@ -51,7 +52,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     findings.extend(run_framework_audits(&facts, config));
     let (coupling_findings, coupling_graph) =
         ImportCouplingAudit.audit_with_graph(&facts, config, path);
-    findings.extend(coupling_findings);
+    findings.extend(apply_project_decisions(&facts, coupling_findings));
 
     for finding in &mut findings {
         finding.id = stable_finding_key(finding, path);

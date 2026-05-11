@@ -1,5 +1,6 @@
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use crate::scan::markers::detect_markers;
@@ -15,7 +16,11 @@ impl FileAudit for CodeMarkerAudit {
 
         detect_markers(&file.path, file.content.as_deref().unwrap_or(""))
             .iter()
-            .map(build_marker_finding)
+            .filter_map(|marker| {
+                let finding = build_marker_finding(marker);
+                let rule_id = finding.rule_id.clone();
+                apply_file_decision(&rule_id, file, finding, None)
+            })
             .collect()
     }
 }
@@ -23,7 +28,11 @@ impl FileAudit for CodeMarkerAudit {
 pub fn detect_code_marker_findings(file: &FileFacts) -> Vec<Finding> {
     detect_markers(&file.path, file.content.as_deref().unwrap_or(""))
         .iter()
-        .map(build_marker_finding)
+        .filter_map(|marker| {
+            let finding = build_marker_finding(marker);
+            let rule_id = finding.rule_id.clone();
+            apply_file_decision(&rule_id, file, finding, None)
+        })
         .collect()
 }
 

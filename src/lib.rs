@@ -21,6 +21,7 @@ pub mod doctor;
 pub mod findings;
 pub mod frameworks;
 pub mod graph;
+pub mod knowledge;
 pub mod output;
 pub mod receipt;
 pub mod report;

@@ -1,5 +1,6 @@
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 
@@ -40,7 +41,7 @@ impl ProjectAudit for VarDeclarationAudit {
                 }
 
                 if has_var_declaration(trimmed) {
-                    findings.push(Finding {
+                    let finding = Finding {
                         id: String::new(),
                         rule_id: "framework.js.var-declaration".to_string(),
                         title: "var declaration found".to_string(),
@@ -60,7 +61,12 @@ impl ProjectAudit for VarDeclarationAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
-                    });
+                    };
+                    if let Some(finding) =
+                        apply_file_decision("framework.js.var-declaration", file, finding, None)
+                    {
+                        findings.push(finding);
+                    }
                     break;
                 }
             }
@@ -96,7 +102,7 @@ impl ProjectAudit for ConsoleLogAudit {
                 }
 
                 if trimmed.contains("console.log(") {
-                    findings.push(Finding {
+                    let finding = Finding {
                         id: String::new(),
                         rule_id: "framework.js.console-log".to_string(),
                         title: "console.log found in production source".to_string(),
@@ -116,7 +122,12 @@ impl ProjectAudit for ConsoleLogAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
-                    });
+                    };
+                    if let Some(finding) =
+                        apply_file_decision("framework.js.console-log", file, finding, None)
+                    {
+                        findings.push(finding);
+                    }
                     break;
                 }
             }
