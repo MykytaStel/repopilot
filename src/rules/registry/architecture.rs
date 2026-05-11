@@ -36,6 +36,17 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ),
     },
     RuleMetadata {
+        rule_id: "architecture.barrel-file-risk",
+        title: "Risky barrel file detected",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::Low,
+        docs_url: None,
+        description: "An index file re-exports many modules or relies heavily on wildcard exports. Large barrel files can become unstable module hubs and make dependency boundaries harder to understand.",
+        recommendation: Some(
+            "Split the barrel into smaller feature-level entrypoints or replace wildcard exports with explicit, stable public APIs.",
+        ),
+    },
+    RuleMetadata {
         rule_id: "architecture.too-many-modules",
         title: "Directory contains too many modules",
         category: FindingCategory::Architecture,
