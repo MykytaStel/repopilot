@@ -53,6 +53,7 @@ fn console_output_labels_max_files_remainder_as_limit_skipped() {
         directories_count: 1,
         lines_of_code: 10,
         health_score: 100,
+        files_skipped_by_limit: 2,
         ..ScanSummary::default()
     };
 

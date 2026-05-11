@@ -38,6 +38,9 @@ fn html_output_escapes_snippets_and_renders_summary() {
         coupling_graph: None,
         scan_duration_us: 0,
         health_score: 0,
+        files_skipped_by_limit: 0,
+        files_skipped_repopilotignore: 0,
+        repopilotignore_path: None,
     };
 
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");

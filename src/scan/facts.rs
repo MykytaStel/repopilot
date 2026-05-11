@@ -20,6 +20,9 @@ pub struct ScanFacts {
     pub detected_frameworks: Vec<DetectedFramework>,
     pub framework_projects: Vec<FrameworkProject>,
     pub react_native: Option<ReactNativeArchitectureProfile>,
+    pub files_skipped_by_limit: usize,
+    pub files_skipped_repopilotignore: usize,
+    pub repopilotignore_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

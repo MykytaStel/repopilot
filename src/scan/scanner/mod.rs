@@ -79,5 +79,8 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         coupling_graph: Some(coupling_graph),
         scan_duration_us,
         health_score,
+        files_skipped_by_limit: facts.files_skipped_by_limit,
+        files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
+        repopilotignore_path: facts.repopilotignore_path,
     })
 }

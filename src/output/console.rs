@@ -97,44 +97,50 @@ fn render_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats
 }
 
 fn render_scan_input(output: &mut String, summary: &ScanSummary) {
-    let skipped_by_limit = summary.files_discovered.saturating_sub(
-        summary
-            .files_count
-            .saturating_add(summary.skipped_files_count)
-            .saturating_add(summary.binary_files_skipped)
-            .saturating_add(summary.files_skipped_low_signal),
-    );
-
     output.push_str("Scan input:\n");
-    output.push_str(&format!(
-        "  Files discovered:       {:>7}\n",
-        summary.files_discovered
-    ));
-    if skipped_by_limit > 0 {
+
+    if let Some(path) = &summary.repopilotignore_path {
+        output.push_str(&format!(" .repopilotignore: {}\n", path.display()));
+    }
+
+    if summary.files_skipped_repopilotignore > 0 {
         output.push_str(&format!(
-            "  Files skipped (limit):  {:>7}\n",
-            skipped_by_limit
+            " Files skipped (.repopilotignore): {:>7}\n",
+            summary.files_skipped_repopilotignore
         ));
     }
+
     output.push_str(&format!(
-        "  Files analyzed:         {:>7}\n",
-        summary.files_count
+        " Files discovered: {:>7}\n",
+        summary.files_discovered
     ));
+
+    if summary.files_skipped_by_limit > 0 {
+        output.push_str(&format!(
+            " Files skipped (limit): {:>7}\n",
+            summary.files_skipped_by_limit
+        ));
+    }
+
+    output.push_str(&format!(" Files analyzed: {:>7}\n", summary.files_count));
+
     if summary.skipped_files_count > 0 {
         output.push_str(&format!(
-            "  Large files skipped:    {:>7}\n",
+            " Large files skipped: {:>7}\n",
             summary.skipped_files_count
         ));
     }
+
     if summary.binary_files_skipped > 0 {
         output.push_str(&format!(
-            "  Binary files skipped:   {:>7}\n",
+            " Binary files skipped: {:>7}\n",
             summary.binary_files_skipped
         ));
     }
+
     if summary.files_skipped_low_signal > 0 {
         output.push_str(&format!(
-            "  Low-signal files skipped:{:>7}\n",
+            " Low-signal files skipped:{:>7}\n",
             summary.files_skipped_low_signal
         ));
     }

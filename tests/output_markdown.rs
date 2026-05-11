@@ -49,6 +49,9 @@ fn renders_markdown_scan_summary() {
         coupling_graph: None,
         scan_duration_us: 0,
         health_score: 0,
+        files_skipped_by_limit: 0,
+        files_skipped_repopilotignore: 0,
+        repopilotignore_path: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -96,6 +99,9 @@ fn renders_empty_markdown_sections() {
         coupling_graph: None,
         scan_duration_us: 0,
         health_score: 0,
+        files_skipped_by_limit: 0,
+        files_skipped_repopilotignore: 0,
+        repopilotignore_path: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -142,6 +148,9 @@ fn renders_react_native_architecture_section_when_profile_present() {
         coupling_graph: None,
         scan_duration_us: 0,
         health_score: 0,
+        files_skipped_by_limit: 0,
+        files_skipped_repopilotignore: 0,
+        repopilotignore_path: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)

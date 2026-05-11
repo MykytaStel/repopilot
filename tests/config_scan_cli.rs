@@ -7,6 +7,25 @@ fn repopilot() -> Command {
     Command::new(env!("CARGO_BIN_EXE_repopilot"))
 }
 
+fn assert_console_metric(stdout: &str, label: &str, expected_value: usize) {
+    let expected_value = expected_value.to_string();
+
+    let line = stdout
+        .lines()
+        .find(|line| line.trim_start().starts_with(label))
+        .unwrap_or_else(|| panic!("missing console metric `{label}` in output:\n{stdout}"));
+
+    let actual_value = line
+        .split_whitespace()
+        .last()
+        .unwrap_or_else(|| panic!("console metric `{label}` has no value in line:\n{line}"));
+
+    assert_eq!(
+        actual_value, expected_value,
+        "unexpected value for console metric `{label}` in line:\n{line}"
+    );
+}
+
 #[test]
 fn scan_uses_explicit_config_path_and_default_output_format() {
     let temp = tempdir().expect("failed to create temp dir");
@@ -169,8 +188,9 @@ fn scan_max_files_caps_analyzed_files_and_console_labels_limit() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("Files discovered:             2"));
-    assert!(stdout.contains("Files skipped (limit):        1"));
+    assert_console_metric(&stdout, "Files discovered:", 2);
+    assert_console_metric(&stdout, "Files skipped (limit):", 1);
+    assert_console_metric(&stdout, "Files analyzed:", 1);
     assert!(!stdout.contains("Files skipped (ignore):"));
 }
 
