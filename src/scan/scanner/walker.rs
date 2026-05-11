@@ -56,7 +56,7 @@ fn collect_paths_with_custom_ignore(
 
         if file_type.is_dir() {
             directories_count += 1;
-        } else if file_type.is_file() && !is_repopilotignore_file(entry_path) {
+        } else if file_type.is_file() && !is_repopilot_control_file(entry_path) {
             file_paths.push(entry_path.to_path_buf());
         }
     }
@@ -88,7 +88,7 @@ fn count_files_with_custom_ignore(
             continue;
         };
 
-        if file_type.is_file() && !is_repopilotignore_file(entry_path) {
+        if file_type.is_file() && !is_repopilot_control_file(entry_path) {
             files_count += 1;
         }
     }
@@ -169,9 +169,9 @@ fn is_ignored_path(path: &Path, root: &Path, ignored_paths: &[String]) -> bool {
     })
 }
 
-fn is_repopilotignore_file(path: &Path) -> bool {
+fn is_repopilot_control_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
-        .map(|name| name == REPOPILOT_IGNORE_FILENAME)
+        .map(|name| matches!(name, REPOPILOT_IGNORE_FILENAME | "repopilot.toml"))
         .unwrap_or(false)
 }
