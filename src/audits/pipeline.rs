@@ -1,4 +1,5 @@
 use crate::audits::architecture::deep_nesting::DeepNestingAudit;
+use crate::audits::architecture::deep_relative_imports::DeepRelativeImportsAudit;
 use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::architecture::too_many_modules::TooManyModulesAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
@@ -43,6 +44,7 @@ pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Fi
     let mut project_audits: Vec<Box<dyn ProjectAudit>> = vec![
         Box::new(TooManyModulesAudit),
         Box::new(DeepNestingAudit),
+        Box::new(DeepRelativeImportsAudit),
         Box::new(EnvFileCommittedAudit),
     ];
 
