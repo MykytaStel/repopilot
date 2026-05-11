@@ -22,6 +22,7 @@ pub mod findings;
 pub mod frameworks;
 pub mod graph;
 pub mod output;
+pub mod receipt;
 pub mod report;
 pub mod review;
 pub mod rules;

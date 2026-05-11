@@ -110,18 +110,29 @@ repopilot scan . --exclude generated --max-file-size 1mb --max-files 1000"
         path: PathBuf,
         #[arg(long, value_enum)]
         format: Option<OutputFormatArg>,
+
         #[arg(short, long)]
         output: Option<PathBuf>,
+
+        /// Write a reproducible audit receipt JSON file
+        #[arg(long, value_name = "PATH")]
+        receipt: Option<PathBuf>,
+
         #[arg(long)]
         config: Option<PathBuf>,
+
         #[arg(long)]
         baseline: Option<PathBuf>,
+
         #[arg(long, value_enum)]
         fail_on: Option<FailOnArg>,
+
         #[arg(long)]
         max_file_loc: Option<usize>,
+
         #[arg(long)]
         max_directory_modules: Option<usize>,
+
         #[arg(long)]
         max_directory_depth: Option<usize>,
         /// Exclude a path or file/directory name after gitignore processing; repeatable
