@@ -25,6 +25,17 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ),
     },
     RuleMetadata {
+        rule_id: "architecture.deep-relative-imports",
+        title: "Deep relative import found",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::Low,
+        docs_url: None,
+        description: "A source file imports across three or more parent directories. Deep relative imports are fragile during refactors and often indicate missing module boundaries or aliases.",
+        recommendation: Some(
+            "Introduce a stable module boundary, path alias, or facade module instead of importing through multiple parent directories.",
+        ),
+    },
+    RuleMetadata {
         rule_id: "architecture.too-many-modules",
         title: "Directory contains too many modules",
         category: FindingCategory::Architecture,
