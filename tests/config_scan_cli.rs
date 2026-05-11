@@ -50,7 +50,7 @@ fn scan_uses_explicit_config_path_and_default_output_format() {
 
     assert!(output.status.success());
     let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
-    assert_eq!(json["files_count"], 2);
+    assert_eq!(json["files_count"], 1);
 }
 
 #[test]

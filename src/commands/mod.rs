@@ -1,5 +1,6 @@
 pub mod baseline;
 pub mod compare;
+pub mod doctor;
 pub mod harden;
 pub mod init;
 mod llm;
@@ -121,6 +122,15 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             output,
             no_header,
         } => vibe::run(path, config, focus, budget, output, no_header),
+
+        Commands::Doctor {
+            path,
+            config,
+            format,
+            output,
+            include_low_signal,
+            max_files,
+        } => doctor::run(path, config, format, output, include_low_signal, max_files),
     }
 }
 

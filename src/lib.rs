@@ -17,6 +17,7 @@ pub mod audits;
 pub mod baseline;
 pub mod compare;
 pub mod config;
+pub mod doctor;
 pub mod findings;
 pub mod frameworks;
 pub mod graph;

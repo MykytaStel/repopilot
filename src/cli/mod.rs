@@ -295,6 +295,40 @@ repopilot init --path ./config/repopilot.toml"
         #[arg(long, default_value = "repopilot.toml")]
         path: PathBuf,
     },
+    /// Diagnose RepoPilot audit readiness for a repository
+    #[command(
+        alias = "d",
+        about = "Diagnose RepoPilot audit readiness",
+        long_about = "Runs a lightweight audit readiness check for a repository.\n\n\
+It scans the target path, reports audit scope accounting, checks whether RepoPilot\n\
+configuration, .repopilotignore, baseline, Git, and GitHub workflows are present,\n\
+then recommends the next command to run.",
+        after_help = "EXAMPLES:\n  \
+repopilot doctor .\n  \
+repopilot doctor . --format json\n  \
+repopilot doctor . --format markdown --output doctor.md"
+    )]
+    Doctor {
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        #[arg(long)]
+        config: Option<PathBuf>,
+
+        #[arg(long, value_enum, default_value = "console")]
+        format: CompareOutputFormatArg,
+
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+
+        /// Analyze test, fixture, example, generated, and benchmark paths that are skipped by default
+        #[arg(long)]
+        include_low_signal: bool,
+
+        /// Analyze at most N discovered files after ignore and exclude filters
+        #[arg(long, value_name = "N")]
+        max_files: Option<usize>,
+    },
 }
 
 #[derive(Subcommand)]
