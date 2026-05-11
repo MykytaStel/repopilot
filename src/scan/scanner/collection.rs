@@ -1,6 +1,6 @@
 use super::file::{SkipReason, audit_file_inline, collect_file_facts, process_file};
 use super::summary::build_language_summary;
-use super::walker::{build_walker, collect_paths};
+use super::walker::collect_paths;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
@@ -38,12 +38,15 @@ pub(super) fn collect_and_audit_inline(
         return Ok((facts, findings));
     }
 
-    let (mut file_paths, dirs_count) = collect_paths(path, config)?;
+    let collected = collect_paths(path, config)?;
+    let mut file_paths = collected.file_paths;
+
     facts.files_discovered = file_paths.len();
-    if let Some(max) = config.max_files {
-        file_paths.truncate(max);
-    }
-    facts.directories_count = dirs_count;
+    facts.files_skipped_repopilotignore = collected.files_skipped_repopilotignore;
+    facts.repopilotignore_path = collected.repopilotignore_path;
+    facts.directories_count = collected.directories_count;
+
+    apply_max_files_limit(&mut file_paths, &mut facts, config);
 
     let results: Vec<io::Result<_>> = file_paths
         .par_iter()
@@ -121,33 +124,20 @@ fn collect_directory_facts(
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
 ) -> io::Result<()> {
-    let walker = build_walker(path, config);
-    let mut files_discovered = 0usize;
+    let collected = collect_paths(path, config)?;
+    let mut file_paths = collected.file_paths;
 
-    for result in walker {
-        let entry = result.map_err(io::Error::other)?;
-        let entry_path = entry.path();
+    facts.files_discovered = file_paths.len();
+    facts.files_skipped_repopilotignore = collected.files_skipped_repopilotignore;
+    facts.repopilotignore_path = collected.repopilotignore_path;
+    facts.directories_count = collected.directories_count;
 
-        if entry_path == path {
-            continue;
-        }
+    apply_max_files_limit(&mut file_paths, facts, config);
 
-        let Some(file_type) = entry.file_type() else {
-            continue;
-        };
-
-        if file_type.is_dir() {
-            facts.directories_count += 1;
-            continue;
-        }
-
-        if file_type.is_file() {
-            files_discovered += 1;
-            collect_file_facts(entry_path, facts, languages, config)?;
-        }
+    for entry_path in file_paths {
+        collect_file_facts(&entry_path, facts, languages, config)?;
     }
 
-    facts.files_discovered = files_discovered;
     Ok(())
 }
 
@@ -160,4 +150,21 @@ fn ensure_path_exists(path: &Path) -> io::Result<()> {
         io::ErrorKind::NotFound,
         format!("path does not exist: {}", path.display()),
     ))
+}
+
+fn apply_max_files_limit(
+    file_paths: &mut Vec<std::path::PathBuf>,
+    facts: &mut ScanFacts,
+    config: &ScanConfig,
+) {
+    let Some(max) = config.max_files else {
+        return;
+    };
+
+    if file_paths.len() <= max {
+        return;
+    }
+
+    facts.files_skipped_by_limit = file_paths.len().saturating_sub(max);
+    file_paths.truncate(max);
 }

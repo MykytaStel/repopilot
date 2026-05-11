@@ -56,6 +56,14 @@ pub struct ScanSummary {
     /// 0–100 health score: 100 = no findings, decreases with severity-weighted finding density.
     #[serde(default)]
     pub health_score: u8,
+    #[serde(default)]
+    pub files_skipped_by_limit: usize,
+
+    #[serde(default)]
+    pub files_skipped_repopilotignore: usize,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repopilotignore_path: Option<PathBuf>,
 }
 
 impl ScanSummary {
