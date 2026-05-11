@@ -9,6 +9,7 @@ use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
 use repopilot::findings::types::Severity;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
+use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
@@ -24,6 +25,7 @@ pub fn run(
     path: PathBuf,
     format: Option<OutputFormatArg>,
     output: Option<PathBuf>,
+    receipt: Option<PathBuf>,
     config: Option<PathBuf>,
     baseline: Option<PathBuf>,
     fail_on: Option<FailOnArg>,
@@ -107,6 +109,7 @@ pub fn run(
             render_baseline_scan_report(&baseline_report, output_format, ci_gate.as_ref())?;
         let render_elapsed = render_start.elapsed();
 
+        write_scan_receipt_if_requested(&baseline_report.summary, receipt.as_deref())?;
         write_report(&rendered_report, output.as_deref())?;
 
         if verbose {
@@ -132,6 +135,7 @@ pub fn run(
     let rendered_report = render_scan_summary(&summary, output_format)?;
     let render_elapsed = render_start.elapsed();
 
+    write_scan_receipt_if_requested(&summary, receipt.as_deref())?;
     write_report(&rendered_report, output.as_deref())?;
 
     if verbose {
@@ -217,6 +221,12 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
     merged.skipped_files_count += package.skipped_files_count;
     merged.files_skipped_low_signal += package.files_skipped_low_signal;
     merged.binary_files_skipped += package.binary_files_skipped;
+    merged.files_skipped_by_limit += package.files_skipped_by_limit;
+    merged.files_skipped_repopilotignore += package.files_skipped_repopilotignore;
+
+    if merged.repopilotignore_path.is_none() {
+        merged.repopilotignore_path = package.repopilotignore_path.clone();
+    }
     merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
     merged.scan_duration_us = merged
         .scan_duration_us
@@ -268,4 +278,20 @@ pub(crate) fn finish_spinner(pb: Option<ProgressBar>) {
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }
+}
+
+fn write_scan_receipt_if_requested(
+    summary: &ScanSummary,
+    receipt_path: Option<&Path>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(receipt_path) = receipt_path else {
+        return Ok(());
+    };
+
+    let receipt = build_audit_receipt(summary);
+    let rendered = render_receipt_json(&receipt)?;
+
+    write_report(&rendered, Some(receipt_path))?;
+
+    Ok(())
 }
