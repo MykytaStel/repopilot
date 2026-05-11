@@ -5,7 +5,7 @@ pub(super) fn detect_brace_based(
     content: &str,
     language: &str,
     path: &Path,
-    threshold: usize,
+    policy: super::LongFunctionPolicy,
 ) -> Vec<Finding> {
     let mut findings = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
@@ -61,11 +61,15 @@ pub(super) fn detect_brace_based(
 
         // Anonymous functions (callbacks, arrow funcs) get a 2× threshold to reduce noise
         let effective_threshold = if fn_name.is_empty() {
-            threshold.saturating_mul(2)
+            policy.threshold.saturating_mul(2)
         } else {
-            threshold
+            policy.threshold
         };
 
+        let effective_policy = super::LongFunctionPolicy {
+            threshold: effective_threshold,
+            ..policy
+        };
         if fn_len > effective_threshold {
             findings.push(super::build_finding(
                 path,
@@ -73,7 +77,7 @@ pub(super) fn detect_brace_based(
                 fn_end + 1,
                 &fn_name,
                 fn_len,
-                effective_threshold,
+                effective_policy,
             ));
         }
 
@@ -133,6 +137,21 @@ fn is_function_start(trimmed: &str, language: &str) -> bool {
                 .trim_start_matches("const ")
                 .trim_start_matches("extern ");
             s.starts_with("fn ") && trimmed.contains('(')
+        }
+        "CSharp" | "C#" | "CS" => {
+            trimmed.contains('(')
+                && (trimmed.ends_with(") {") || trimmed.ends_with("){"))
+                && !trimmed.starts_with("if ")
+                && !trimmed.starts_with("} else")
+                && !trimmed.starts_with("else ")
+                && !trimmed.starts_with("for ")
+                && !trimmed.starts_with("foreach ")
+                && !trimmed.starts_with("while ")
+                && !trimmed.starts_with("switch ")
+                && !trimmed.starts_with("try {")
+                && !trimmed.starts_with("catch ")
+                && !trimmed.starts_with("using ")
+                && !trimmed.starts_with("lock ")
         }
         "Go" => trimmed.starts_with("func ") && trimmed.contains('('),
         "TypeScript" | "TypeScript React" | "JavaScript" | "JavaScript React" => {

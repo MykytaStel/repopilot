@@ -1,7 +1,11 @@
 use crate::findings::types::Finding;
 use std::path::Path;
 
-pub(super) fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec<Finding> {
+pub(super) fn detect_python(
+    content: &str,
+    path: &Path,
+    policy: super::LongFunctionPolicy,
+) -> Vec<Finding> {
     let mut findings = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
     let total = lines.len();
@@ -24,14 +28,14 @@ pub(super) fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec
                     break;
                 };
                 let fn_len = line_num - start;
-                if fn_len > threshold {
+                if fn_len > policy.threshold {
                     findings.push(super::build_finding(
                         path,
                         start,
                         line_num - 1,
                         name,
                         fn_len,
-                        threshold,
+                        policy,
                     ));
                 }
             } else {
@@ -50,9 +54,9 @@ pub(super) fn detect_python(content: &str, path: &Path, threshold: usize) -> Vec
     // Flush functions that extend to end of file
     for (start, _, name) in stack {
         let fn_len = total + 1 - start;
-        if fn_len > threshold {
+        if fn_len > policy.threshold {
             findings.push(super::build_finding(
-                path, start, total, &name, fn_len, threshold,
+                path, start, total, &name, fn_len, policy,
             ));
         }
     }
