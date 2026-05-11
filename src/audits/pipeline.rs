@@ -6,6 +6,7 @@ use crate::audits::architecture::too_many_modules::TooManyModulesAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
 use crate::audits::code_quality::complexity::ComplexityAudit;
 use crate::audits::code_quality::long_function::LongFunctionAudit;
+use crate::audits::code_quality::rust_panic_risk::RustPanicRiskAudit;
 use crate::audits::framework::js_common::{ConsoleLogAudit, VarDeclarationAudit};
 use crate::audits::framework::react::{ReactClassComponentAudit, ReactPropTypesAudit};
 use crate::audits::framework::react_native::{
@@ -32,6 +33,7 @@ pub fn build_file_audits(config: &ScanConfig) -> Vec<Box<dyn FileAudit>> {
         Box::new(PrivateKeyCandidateAudit),
         Box::new(ComplexityAudit),
         Box::new(LongFunctionAudit),
+        Box::new(RustPanicRiskAudit),
     ];
 
     if config.detect_secret_like_names {

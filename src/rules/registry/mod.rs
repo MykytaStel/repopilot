@@ -1,6 +1,7 @@
 mod architecture;
 mod code_quality;
 mod framework;
+mod language;
 mod security;
 mod testing;
 
@@ -10,6 +11,7 @@ const RULE_GROUPS: &[&[RuleMetadata]] = &[
     framework::RULES,
     architecture::RULES,
     code_quality::RULES,
+    language::RULES,
     security::RULES,
     testing::RULES,
 ];

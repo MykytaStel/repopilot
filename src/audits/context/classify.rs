@@ -1,4 +1,6 @@
-use crate::audits::context::model::{AuditContext, FileRole, FrameworkKind, LanguageKind};
+use crate::audits::context::model::{
+    AuditContext, FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm, RuntimeKind,
+};
 use crate::scan::facts::FileFacts;
 use std::path::Path;
 
@@ -24,10 +26,25 @@ pub fn classify_file(file: &FileFacts) -> AuditContext {
         roles.push(FileRole::Unknown);
     }
 
+    let mut paradigms = Vec::new();
+    classify_paradigms(
+        &mut paradigms,
+        &file.path,
+        content,
+        language,
+        &frameworks,
+        &roles,
+    );
+
+    let mut runtimes = Vec::new();
+    classify_runtimes(&mut runtimes, &file.path, content, language, &frameworks);
+
     AuditContext {
         language,
         frameworks,
         roles,
+        paradigms,
+        runtimes,
         is_test,
     }
 }
@@ -38,9 +55,9 @@ fn classify_language(file: &FileFacts) -> LanguageKind {
 
         match normalized.as_str() {
             "rust" => return LanguageKind::Rust,
-            "typescript" => return LanguageKind::TypeScript,
-            "javascript" => return LanguageKind::JavaScript,
-            "csharp" | "c#" | "cs" => return LanguageKind::CSharp,
+            "typescript" | "typescript react" | "tsx" => return LanguageKind::TypeScript,
+            "javascript" | "javascript react" | "jsx" => return LanguageKind::JavaScript,
+            "csharp" | "c#" | "cs" | "c sharp" => return LanguageKind::CSharp,
             "python" => return LanguageKind::Python,
             "go" => return LanguageKind::Go,
             _ => {}
@@ -82,7 +99,7 @@ fn classify_frameworks(
         }
 
         if normalized_content.contains("next/")
-            || path_contains_component(path, &["pages", "app"]) && is_tsx_or_jsx_file(path)
+            || (path_contains_component(path, &["pages", "app"]) && is_tsx_or_jsx_file(path))
         {
             push_unique(frameworks, FrameworkKind::NextJs);
         }
@@ -90,6 +107,7 @@ fn classify_frameworks(
         if normalized_content.contains("express")
             || normalized_content.contains("from 'node:")
             || normalized_content.contains("from \"node:")
+            || normalized_content.contains("process.env")
         {
             push_unique(frameworks, FrameworkKind::NodeJs);
         }
@@ -166,6 +184,142 @@ fn classify_roles(
     }
 }
 
+fn classify_paradigms(
+    paradigms: &mut Vec<ProgrammingParadigm>,
+    path: &Path,
+    content: &str,
+    language: LanguageKind,
+    frameworks: &[FrameworkKind],
+    roles: &[FileRole],
+) {
+    let normalized_content = content.to_lowercase();
+
+    if roles.contains(&FileRole::ReactComponent) {
+        push_unique(paradigms, ProgrammingParadigm::DeclarativeUi);
+        push_unique(paradigms, ProgrammingParadigm::Functional);
+    }
+
+    if roles.contains(&FileRole::ReactHook) {
+        push_unique(paradigms, ProgrammingParadigm::Functional);
+        push_unique(paradigms, ProgrammingParadigm::Reactive);
+    }
+
+    if frameworks.contains(&FrameworkKind::Unity) {
+        push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
+        push_unique(paradigms, ProgrammingParadigm::DataOriented);
+    }
+
+    if language == LanguageKind::CSharp
+        && (normalized_content.contains("class ")
+            || normalized_content.contains("interface ")
+            || normalized_content.contains("record "))
+    {
+        push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
+    }
+
+    if language == LanguageKind::Rust {
+        if normalized_content.contains("impl ")
+            || normalized_content.contains("trait ")
+            || normalized_content.contains("struct ")
+            || normalized_content.contains("enum ")
+        {
+            push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
+        }
+
+        if normalized_content.contains(".map(")
+            || normalized_content.contains(".filter(")
+            || normalized_content.contains(".fold(")
+            || normalized_content.contains(".and_then(")
+            || normalized_content.contains(".unwrap_or_else(")
+        {
+            push_unique(paradigms, ProgrammingParadigm::Functional);
+        }
+
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name == "main.rs")
+            .unwrap_or(false)
+        {
+            push_unique(paradigms, ProgrammingParadigm::Procedural);
+        }
+    }
+
+    if is_js_or_ts(language) {
+        if normalized_content.contains("function ")
+            || normalized_content.contains("=>")
+            || normalized_content.contains(".map(")
+            || normalized_content.contains(".filter(")
+            || normalized_content.contains(".reduce(")
+        {
+            push_unique(paradigms, ProgrammingParadigm::Functional);
+        }
+
+        if normalized_content.contains("class ") {
+            push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
+        }
+    }
+
+    if paradigms.len() > 1 {
+        push_unique(paradigms, ProgrammingParadigm::Mixed);
+    }
+
+    if paradigms.is_empty() {
+        push_unique(paradigms, ProgrammingParadigm::Unknown);
+    }
+}
+
+fn classify_runtimes(
+    runtimes: &mut Vec<RuntimeKind>,
+    path: &Path,
+    content: &str,
+    language: LanguageKind,
+    frameworks: &[FrameworkKind],
+) {
+    let normalized_content = content.to_lowercase();
+
+    if frameworks.contains(&FrameworkKind::ReactNative) {
+        push_unique(runtimes, RuntimeKind::ReactNative);
+    } else if frameworks.contains(&FrameworkKind::React)
+        || frameworks.contains(&FrameworkKind::NextJs)
+    {
+        push_unique(runtimes, RuntimeKind::Browser);
+    }
+
+    if frameworks.contains(&FrameworkKind::NodeJs)
+        || normalized_content.contains("process.env")
+        || normalized_content.contains("from 'node:")
+        || normalized_content.contains("from \"node:")
+    {
+        push_unique(runtimes, RuntimeKind::Node);
+    }
+
+    if frameworks.contains(&FrameworkKind::Unity) {
+        push_unique(runtimes, RuntimeKind::Unity);
+    }
+
+    if frameworks.contains(&FrameworkKind::DotNet) {
+        push_unique(runtimes, RuntimeKind::DotNet);
+    }
+
+    if language == LanguageKind::Rust {
+        let file_name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+
+        if file_name == "main.rs" {
+            push_unique(runtimes, RuntimeKind::RustCli);
+        } else {
+            push_unique(runtimes, RuntimeKind::RustLibrary);
+        }
+    }
+
+    if runtimes.is_empty() {
+        push_unique(runtimes, RuntimeKind::Unknown);
+    }
+}
+
 fn is_js_or_ts(language: LanguageKind) -> bool {
     matches!(
         language,
@@ -210,10 +364,12 @@ fn is_react_component_file(path: &Path, content: &str) -> bool {
 
     is_pascal_case(file_stem)
         && (content.contains("return <")
-            || content.contains("return (")
+            || content.contains("</")
             || content.contains("React.FC")
+            || content.contains("React.memo")
             || content.contains("memo(")
-            || content.contains("forwardRef("))
+            || content.contains("forwardRef(")
+            || content.contains("React.createElement"))
 }
 
 fn is_react_hook_file(path: &Path, content: &str) -> bool {
@@ -232,6 +388,7 @@ fn is_react_hook_file(path: &Path, content: &str) -> bool {
             || content.contains("useEffect")
             || content.contains("useMemo")
             || content.contains("useCallback")
+            || content.contains("useReducer")
             || content.contains("function use")
             || content.contains("const use"))
 }
@@ -264,9 +421,9 @@ fn is_dotnet_service(path: &Path, content: &str) -> bool {
         .and_then(|name| name.to_str())
         .map(|name| name.ends_with("Service.cs"))
         .unwrap_or(false)
-        || content.contains("class ")
+        || (content.contains("class ")
             && content.contains("service")
-            && path_contains_component(path, &["services"])
+            && path_contains_component(path, &["services"]))
 }
 
 fn is_config_file(path: &Path) -> bool {
@@ -286,10 +443,8 @@ fn is_config_file(path: &Path) -> bool {
             | "next.config.mjs"
             | "cargo.toml"
             | "cargo.lock"
-            | "appsettings.json"
-            | "appsettings.development.json"
             | "projectsettings.asset"
-    )
+    ) || (file_name.starts_with("appsettings") && file_name.ends_with(".json"))
 }
 
 fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
@@ -304,7 +459,8 @@ fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
         .map(|name| name.to_lowercase())
         .unwrap_or_default();
 
-    path_text.contains("/tests/")
+    path_text.starts_with("tests/")
+        || path_text.contains("/tests/")
         || path_text.contains("\\tests\\")
         || path_text.contains("/__tests__/")
         || path_text.contains("\\__tests__\\")
@@ -370,6 +526,9 @@ mod tests {
         assert_eq!(context.language, LanguageKind::TypeScript);
         assert!(context.has_framework(FrameworkKind::React));
         assert!(context.has_role(FileRole::ReactComponent));
+        assert!(context.has_paradigm(ProgrammingParadigm::DeclarativeUi));
+        assert!(context.has_paradigm(ProgrammingParadigm::Functional));
+        assert!(context.has_runtime(RuntimeKind::Browser));
         assert!(!context.is_test);
     }
 
@@ -387,6 +546,8 @@ mod tests {
         assert_eq!(context.language, LanguageKind::TypeScript);
         assert!(context.has_framework(FrameworkKind::React));
         assert!(context.has_role(FileRole::ReactHook));
+        assert!(context.has_paradigm(ProgrammingParadigm::Functional));
+        assert!(context.has_paradigm(ProgrammingParadigm::Reactive));
     }
 
     #[test]
@@ -403,6 +564,9 @@ mod tests {
         assert_eq!(context.language, LanguageKind::CSharp);
         assert!(context.has_framework(FrameworkKind::Unity));
         assert!(context.has_role(FileRole::UnityMonoBehaviour));
+        assert!(context.has_paradigm(ProgrammingParadigm::ObjectOriented));
+        assert!(context.has_paradigm(ProgrammingParadigm::DataOriented));
+        assert!(context.has_runtime(RuntimeKind::Unity));
     }
 
     #[test]
@@ -419,6 +583,8 @@ mod tests {
         assert_eq!(context.language, LanguageKind::CSharp);
         assert!(context.has_framework(FrameworkKind::DotNet));
         assert!(context.has_role(FileRole::DotNetController));
+        assert!(context.has_paradigm(ProgrammingParadigm::ObjectOriented));
+        assert!(context.has_runtime(RuntimeKind::DotNet));
     }
 
     #[test]
@@ -435,6 +601,7 @@ mod tests {
         assert_eq!(context.language, LanguageKind::CSharp);
         assert!(context.has_framework(FrameworkKind::DotNet));
         assert!(context.has_role(FileRole::DotNetService));
+        assert!(context.has_runtime(RuntimeKind::DotNet));
     }
 
     #[test]
@@ -451,7 +618,24 @@ mod tests {
         assert_eq!(context.language, LanguageKind::Rust);
         assert!(context.has_role(FileRole::RustTest));
         assert!(context.has_role(FileRole::Test));
+        assert!(context.has_runtime(RuntimeKind::RustLibrary));
         assert!(context.is_test);
+    }
+
+    #[test]
+    fn classifies_rust_main_as_cli_runtime() {
+        let file = facts(
+            "src/main.rs",
+            Some("Rust"),
+            "fn main() { println!(\"hello\"); }\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Rust);
+        assert!(context.has_runtime(RuntimeKind::RustCli));
+        assert!(context.has_paradigm(ProgrammingParadigm::Procedural));
     }
 
     #[test]
@@ -466,6 +650,7 @@ mod tests {
         let context = classify_file(&file);
 
         assert!(context.has_role(FileRole::Config));
+        assert!(context.has_runtime(RuntimeKind::Unknown));
         assert!(!context.is_production_code());
     }
 
