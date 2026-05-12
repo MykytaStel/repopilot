@@ -4,6 +4,7 @@ pub mod doctor;
 pub mod explain;
 pub mod harden;
 pub mod init;
+pub mod knowledge;
 mod llm;
 pub mod prompt;
 pub mod review;
@@ -61,7 +62,11 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             verbose,
             preset,
         ),
-
+        Commands::Knowledge {
+            section,
+            format,
+            output,
+        } => knowledge::run(section, format, output),
         Commands::Review {
             path,
             base,
