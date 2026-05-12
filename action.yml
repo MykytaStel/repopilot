@@ -8,15 +8,55 @@ branding:
 
 inputs:
   command:
-    description: "Command to run: scan | review | compare | vibe | harden | prompt"
+    description: "Command to run: scan | review | compare | ai-context | ai-plan | ai-prompt"
     required: false
     default: "scan"
   format:
-    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare; vibe/harden/prompt emit Markdown and accept auto/markdown."
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare; AI commands emit Markdown."
     required: false
     default: "auto"
+  path:
+    description: "Path passed to scan, review, or AI commands."
+    required: false
+    default: "."
+  config:
+    description: "Optional repopilot.toml path."
+    required: false
+    default: ""
+  baseline:
+    description: "Optional baseline path for scan/review."
+    required: false
+    default: ""
+  fail-on:
+    description: "Optional scan/review failure threshold, e.g. new-high."
+    required: false
+    default: ""
+  min-severity:
+    description: "Optional minimum rendered severity, e.g. high."
+    required: false
+    default: ""
+  base:
+    description: "Optional Git base ref for review."
+    required: false
+    default: ""
+  head:
+    description: "Optional Git head ref for review; requires base."
+    required: false
+    default: ""
+  focus:
+    description: "Optional AI focus: security | arch | architecture | quality | framework | all."
+    required: false
+    default: ""
+  budget:
+    description: "Optional AI token budget: 2k | 4k | 8k | 16k or a positive integer."
+    required: false
+    default: ""
+  output:
+    description: "Optional output path for commands that write reports."
+    required: false
+    default: ""
   args:
-    description: "Extra CLI arguments passed verbatim to repopilot"
+    description: "Advanced extra CLI arguments appended after typed inputs. Prefer typed inputs for CI workflows."
     required: false
     default: ""
   version:
@@ -44,16 +84,39 @@ runs:
       id: run
       shell: bash
       run: |
+        set -euo pipefail
         COMMAND="${{ inputs.command }}"
-        ARGS="${{ inputs.args }}"
         FORMAT="${{ inputs.format }}"
-        if [[ "$COMMAND" != "scan" && "$COMMAND" != "review" && "$COMMAND" != "compare" && "$COMMAND" != "vibe" && "$COMMAND" != "harden" && "$COMMAND" != "prompt" ]]; then
-          echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, vibe, harden, or prompt."
+        PATH_INPUT="${{ inputs.path }}"
+        CONFIG="${{ inputs.config }}"
+        BASELINE="${{ inputs.baseline }}"
+        FAIL_ON="${{ inputs.fail-on }}"
+        MIN_SEVERITY="${{ inputs.min-severity }}"
+        BASE="${{ inputs.base }}"
+        HEAD="${{ inputs.head }}"
+        FOCUS="${{ inputs.focus }}"
+        BUDGET="${{ inputs.budget }}"
+        OUTPUT="${{ inputs.output }}"
+        ARGS="${{ inputs.args }}"
+
+        case "$COMMAND" in
+          scan) RUN_ARGS=(scan "$PATH_INPUT") ;;
+          review) RUN_ARGS=(review "$PATH_INPUT") ;;
+          compare) RUN_ARGS=(compare) ;;
+          ai-context|vibe) RUN_ARGS=(ai context "$PATH_INPUT") ;;
+          ai-plan|harden) RUN_ARGS=(ai plan "$PATH_INPUT") ;;
+          ai-prompt|prompt) RUN_ARGS=(ai prompt "$PATH_INPUT") ;;
+          *)
+          echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, ai-context, ai-plan, or ai-prompt."
           exit 1
+          ;;
+        esac
+
+        IS_AI="false"
+        if [[ "$COMMAND" == "ai-context" || "$COMMAND" == "ai-plan" || "$COMMAND" == "ai-prompt" || "$COMMAND" == "vibe" || "$COMMAND" == "harden" || "$COMMAND" == "prompt" ]]; then
+          IS_AI="true"
         fi
-        if [[ ("$COMMAND" == "scan" || "$COMMAND" == "vibe" || "$COMMAND" == "harden" || "$COMMAND" == "prompt") && -z "$ARGS" ]]; then
-          ARGS="."
-        fi
+
         if [[ "$FORMAT" == "auto" ]]; then
           if [[ "$COMMAND" == "scan" ]]; then
             FORMAT="sarif"
@@ -65,18 +128,36 @@ runs:
           echo "::error::SARIF output and upload are only supported by 'scan'. Use format=markdown for '$COMMAND'."
           exit 1
         fi
-        OUTFILE="repopilot-results.sarif"
-        if [[ "$COMMAND" == "vibe" || "$COMMAND" == "harden" || "$COMMAND" == "prompt" ]]; then
+
+        if [[ -n "$CONFIG" && "$COMMAND" != "compare" ]]; then RUN_ARGS+=(--config "$CONFIG"); fi
+        if [[ "$COMMAND" == "scan" || "$COMMAND" == "review" ]]; then
+          if [[ -n "$BASELINE" ]]; then RUN_ARGS+=(--baseline "$BASELINE"); fi
+          if [[ -n "$FAIL_ON" ]]; then RUN_ARGS+=(--fail-on "$FAIL_ON"); fi
+          if [[ -n "$MIN_SEVERITY" ]]; then RUN_ARGS+=(--min-severity "$MIN_SEVERITY"); fi
+        fi
+        if [[ "$COMMAND" == "review" && -n "$BASE" ]]; then RUN_ARGS+=(--base "$BASE"); fi
+        if [[ "$COMMAND" == "review" && -n "$HEAD" ]]; then RUN_ARGS+=(--head "$HEAD"); fi
+        if [[ "$IS_AI" == "true" && -n "$FOCUS" ]]; then RUN_ARGS+=(--focus "$FOCUS"); fi
+        if [[ "$IS_AI" == "true" && -n "$BUDGET" ]]; then RUN_ARGS+=(--budget "$BUDGET"); fi
+        if [[ -n "$OUTPUT" && "$FORMAT" != "sarif" ]]; then RUN_ARGS+=(--output "$OUTPUT"); fi
+
+        if [[ -n "$ARGS" ]]; then
+          read -r -a EXTRA_ARGS <<< "$ARGS"
+          RUN_ARGS+=("${EXTRA_ARGS[@]}")
+        fi
+
+        OUTFILE="${OUTPUT:-repopilot-results.sarif}"
+        if [[ "$IS_AI" == "true" ]]; then
           if [[ "$FORMAT" != "markdown" ]]; then
             echo "::error::'$COMMAND' emits Markdown and does not accept --format. Use format=auto or format=markdown."
             exit 1
           fi
-          repopilot "$COMMAND" $ARGS
+          repopilot "${RUN_ARGS[@]}"
         elif [[ "$FORMAT" == "sarif" ]]; then
-          repopilot "$COMMAND" $ARGS --format sarif --output "$OUTFILE"
+          repopilot "${RUN_ARGS[@]}" --format sarif --output "$OUTFILE"
           echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
         else
-          repopilot "$COMMAND" $ARGS --format "$FORMAT"
+          repopilot "${RUN_ARGS[@]}" --format "$FORMAT"
         fi
 
     - name: Upload SARIF to GitHub Code Scanning

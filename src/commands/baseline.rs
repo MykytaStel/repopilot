@@ -11,11 +11,10 @@ use std::path::{Path, PathBuf};
 
 pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
-        BaselineCommands::Create {
-            path,
-            output,
-            force,
-        } => {
+        BaselineCommands::Create(options) => {
+            let path = options.path;
+            let output = options.output;
+            let force = options.force;
             let output_path = output.unwrap_or_else(|| default_baseline_path(&path));
 
             if output_path.exists() && !force {

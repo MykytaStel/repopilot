@@ -18,12 +18,15 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 |---------|-------|-------------|
 | [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
 | [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
-| [`vibe`](#vibe) | `v` | Generate LLM-ready context from a scan |
-| [`harden`](#harden) | `h` | Generate a prioritized remediation plan |
-| [`prompt`](#prompt) | `p` | Generate an AI-ready remediation prompt |
+| [`ai context`](#ai-context) | — | Generate LLM-ready context from a scan |
+| [`ai plan`](#ai-plan) | — | Generate a prioritized remediation plan |
+| [`ai prompt`](#ai-prompt) | — | Generate an AI-ready remediation prompt |
+| [`inspect explain`](#inspect-explain) | — | Explain file classification and rule decisions |
+| [`inspect knowledge`](#inspect-knowledge) | — | Inspect bundled Knowledge Engine data |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
+| [`doctor`](#doctor) | `d` | Diagnose audit readiness |
 | [`init`](#init) | — | Generate a default `repopilot.toml` configuration file |
 
 ---
@@ -87,7 +90,9 @@ repopilot s <PATH> [OPTIONS]
 | Code | Meaning |
 |------|---------|
 | `0` | Success (no threshold breach) |
-| `1` | Findings exceed the `--fail-on` threshold, or a runtime error occurred |
+| `1` | Findings exceed the `--fail-on` threshold |
+| `2` | Invalid CLI/config/user input |
+| `3` | Runtime or environment failure |
 
 ### Examples
 
@@ -176,7 +181,9 @@ repopilot r [PATH] [OPTIONS]
 | Code | Meaning |
 |------|---------|
 | `0` | Success (no threshold breach) |
-| `1` | In-diff findings exceed the `--fail-on` threshold, or a runtime error occurred |
+| `1` | In-diff findings exceed the `--fail-on` threshold |
+| `2` | Invalid CLI/config/user input |
+| `3` | Runtime or environment failure |
 
 ### Examples
 
@@ -203,18 +210,19 @@ repopilot review . --min-severity high
 
 ---
 
-## `vibe`
+## `ai context`
 
 Scans the repository and formats findings as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another LLM assistant.
 
 The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, fix recommendations, and an approximate token count.
-`vibe` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+`ai context` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+
+The legacy `repopilot vibe` command still works in 0.x for compatibility, but `repopilot ai context` is the stable command shape.
 
 ### Synopsis
 
 ```
-repopilot vibe <PATH> [OPTIONS]
-repopilot v <PATH> [OPTIONS]
+repopilot ai context <PATH> [OPTIONS]
 ```
 
 ### Arguments
@@ -236,25 +244,26 @@ repopilot v <PATH> [OPTIONS]
 ### Examples
 
 ```bash
-repopilot vibe .
-repopilot vibe . --focus security --budget 2k
-repopilot vibe . --output vibe.md
-repopilot vibe . --no-header | pbcopy
+repopilot ai context .
+repopilot ai context . --focus security --budget 2k
+repopilot ai context . --output vibe.md
+repopilot ai context . --no-header | pbcopy
 ```
 
 ---
 
-## `harden`
+## `ai plan`
 
 Scans the repository and formats findings as a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, fix recommendations, and verification commands.
 
-`harden` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+`ai plan` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+
+The legacy `repopilot harden` command still works in 0.x for compatibility, but `repopilot ai plan` is the stable command shape.
 
 ### Synopsis
 
 ```
-repopilot harden <PATH> [OPTIONS]
-repopilot h <PATH> [OPTIONS]
+repopilot ai plan <PATH> [OPTIONS]
 ```
 
 ### Options
@@ -269,24 +278,25 @@ repopilot h <PATH> [OPTIONS]
 ### Examples
 
 ```bash
-repopilot harden .
-repopilot harden . --focus security --budget 2k
-repopilot harden . --output harden.md
+repopilot ai plan .
+repopilot ai plan . --focus security --budget 2k
+repopilot ai plan . --output harden.md
 ```
 
 ---
 
-## `prompt`
+## `ai prompt`
 
 Scans the repository and emits a Markdown prompt for a coding assistant, including remediation instructions and embedded RepoPilot context.
 
-`prompt` emits Markdown only; it does not call an AI service, accept `--format`, or change JSON/SARIF schemas.
+`ai prompt` emits Markdown only; it does not call an AI service, accept `--format`, or change JSON/SARIF schemas.
+
+The legacy `repopilot prompt` command still works in 0.x for compatibility, but `repopilot ai prompt` is the stable command shape.
 
 ### Synopsis
 
 ```
-repopilot prompt <PATH> [OPTIONS]
-repopilot p <PATH> [OPTIONS]
+repopilot ai prompt <PATH> [OPTIONS]
 ```
 
 ### Options
@@ -301,9 +311,71 @@ repopilot p <PATH> [OPTIONS]
 ### Examples
 
 ```bash
-repopilot prompt .
-repopilot prompt . --focus security --budget 2k
-repopilot prompt . --output prompt.md
+repopilot ai prompt .
+repopilot ai prompt . --focus security --budget 2k
+repopilot ai prompt . --output prompt.md
+```
+
+---
+
+## `inspect explain`
+
+Explains how RepoPilot classifies a single file before applying audits. This is an advanced diagnostic command for rule authors, false-positive debugging, and context-model development.
+
+The legacy `repopilot explain` command still works in 0.x for compatibility, but `repopilot inspect explain` is the stable command shape.
+
+### Synopsis
+
+```
+repopilot inspect explain <PATH> [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--rule` | rule ID | — | Evaluate a rule against the file context |
+| `--signal` | signal | — | Optional rule signal, for example `rust.unwrap` |
+| `--severity` | severity | `medium` | Base severity before Knowledge Engine overrides |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect explain src/main.rs
+repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap
+repopilot inspect explain src/App.tsx --format markdown --output explain.md
+```
+
+---
+
+## `inspect knowledge`
+
+Prints the bundled Knowledge Engine catalog: languages, frameworks, runtimes, paradigms, and rule applicability records. This is an advanced diagnostic command rather than a normal audit workflow.
+
+The legacy `repopilot knowledge` command still works in 0.x for compatibility, but `repopilot inspect knowledge` is the stable command shape.
+
+### Synopsis
+
+```
+repopilot inspect knowledge [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--section` | `all\|languages\|frameworks\|runtimes\|paradigms\|rules` | `all` | Catalog section to render |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect knowledge
+repopilot inspect knowledge --section languages
+repopilot inspect knowledge --section rules --format json
 ```
 
 ---
@@ -400,6 +472,37 @@ repopilot baseline create . --output ./baseline.json
 
 # Overwrite existing baseline
 repopilot baseline create . --force
+```
+
+---
+
+## `doctor`
+
+Runs a lightweight audit-readiness check for a repository. It reports scan scope accounting, checks for config, `.repopilotignore`, baseline, Git, and GitHub workflows, then recommends the next command to run.
+
+### Synopsis
+
+```
+repopilot doctor [PATH] [OPTIONS]
+repopilot d [PATH] [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+| `--include-low-signal` | flag | — | Analyze low-signal paths skipped by default |
+| `--max-files` | integer | — | Analyze at most this many discovered files |
+
+### Examples
+
+```bash
+repopilot doctor .
+repopilot doctor . --format json
+repopilot doctor . --format markdown --output doctor.md
 ```
 
 ---

@@ -1,14 +1,11 @@
 use crate::findings::types::{Finding, Severity};
 use crate::output::report_stats::risk_label_for_findings;
+use crate::output::vibe::project_name;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
 pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &[&Finding]) {
-    let project_name = summary
-        .root_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("project");
+    let project_name = project_name(summary);
 
     let _ = writeln!(out, "# RepoPilot Vibe Check — {project_name}");
     out.push('\n');

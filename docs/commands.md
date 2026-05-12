@@ -24,7 +24,7 @@ repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail
 
 `repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
 For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
-Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`); Go projects for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot vibe`.
+Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`); Go projects for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot ai context`.
 The walker respects gitignore, `.repopilotignore`, and built-in ignores for common build, cache, vendor, and platform directories, including `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.nuxt`, `.cache`, `coverage`, `vendor`, `Pods`, and `DerivedData`.
 
 ```bash
@@ -103,41 +103,53 @@ repopilot scan . --verbose
 
 ---
 
-## Vibe Check for LLM workflows
+## AI workflows
 
-`repopilot vibe` scans the project and emits structured Markdown with risk summary, grouped findings, evidence snippets, recommendations, and an approximate token count.
+`repopilot ai context` scans the project and emits structured Markdown with risk summary, grouped findings, evidence snippets, recommendations, and an approximate token count.
 
 ```bash
-repopilot vibe .
-repopilot vibe . --focus security --budget 2k
-repopilot vibe . --output vibe.md
-repopilot vibe . --no-header | pbcopy
+repopilot ai context .
+repopilot ai context . --focus security --budget 2k
+repopilot ai context . --output vibe.md
+repopilot ai context . --no-header | pbcopy
 ```
 
 Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
-The GitHub Action can run `command: vibe`; it defaults the path to `.` and does not pass `--format` because `vibe` is Markdown-only.
+The legacy `repopilot vibe` command still works in 0.x, but `repopilot ai context` is the stable command shape. The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
 
 ### Hardening plan
 
-Use `harden` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities and includes verification commands.
+Use `ai plan` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities and includes verification commands.
 
 ```bash
-repopilot harden .
-repopilot harden . --focus security --budget 2k
-repopilot harden . --output harden.md
+repopilot ai plan .
+repopilot ai plan . --focus security --budget 2k
+repopilot ai plan . --output harden.md
 ```
 
 ### AI-ready prompt
 
-Use `prompt` when you want one paste-ready instruction block for a coding assistant. It includes remediation constraints and embedded RepoPilot context.
+Use `ai prompt` when you want one paste-ready instruction block for a coding assistant. It includes remediation constraints and embedded RepoPilot context.
 
 ```bash
-repopilot prompt .
-repopilot prompt . --focus security --budget 2k
-repopilot prompt . --output prompt.md
+repopilot ai prompt .
+repopilot ai prompt . --focus security --budget 2k
+repopilot ai prompt . --output prompt.md
 ```
 
-The GitHub Action can also run `command: harden` and `command: prompt`; both commands are Markdown-only.
+The GitHub Action can also run `command: ai-plan` and `command: ai-prompt`; both commands are Markdown-only.
+
+---
+
+## Command surface policy
+
+Before v1, new user-facing behavior should fit the existing command families:
+
+- New detectors and checks become rules under `scan`.
+- New AI-ready outputs become `ai` subcommands or flags.
+- New debugging and rule-author tools become `inspect` subcommands.
+
+Top-level commands should stay focused on stable workflows: audit, review, baseline, compare, AI assistance, inspection, initialization, and readiness diagnostics.
 
 ---
 

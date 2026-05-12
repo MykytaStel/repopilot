@@ -73,7 +73,12 @@ fn has_rust_integration_test(source: &Path, ext: &str, tests_suffixes: &HashSet<
         .and_then(|s| s.to_str())
         .unwrap_or_default();
 
-    let stem_parts: Vec<&str> = stem.split('_').filter(|p| p.len() >= 5).collect();
+    let module_parts = rust_module_parts(source);
+    let stem_parts: Vec<&str> = stem
+        .split('_')
+        .chain(module_parts.iter().map(String::as_str))
+        .filter(|p| p.len() >= 4)
+        .collect();
 
     if stem_parts.is_empty() {
         return false;
@@ -110,4 +115,23 @@ fn module_test_name(source: &Path) -> String {
         })
         .collect::<Vec<_>>()
         .join("_")
+}
+
+fn rust_module_parts(source: &Path) -> Vec<String> {
+    let Some(src_index) = source
+        .components()
+        .position(|c| c.as_os_str().to_string_lossy() == "src")
+    else {
+        return Vec::new();
+    };
+
+    source
+        .components()
+        .skip(src_index + 1)
+        .filter_map(|c| {
+            let value = c.as_os_str().to_string_lossy();
+            let value = value.strip_suffix(".rs").unwrap_or(value.as_ref());
+            (!matches!(value, "mod" | "lib" | "main")).then(|| value.to_string())
+        })
+        .collect()
 }

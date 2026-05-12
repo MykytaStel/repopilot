@@ -26,7 +26,7 @@ RepoPilot is also packaged as an npm CLI wrapper around the native Rust binary:
 npm install -g repopilot
 ```
 
-The npm package downloads the matching GitHub Release binary during `postinstall`, verifies the `.sha256` checksum, and exposes the `repopilot` command through the package `bin` entry.
+The npm package downloads the matching GitHub Release binary during `postinstall`, verifies the `.sha256` checksum, and exposes the `repopilot` command through the package `bin` entry. This network access happens only during package installation; normal `repopilot` CLI execution is local-first and does not upload source code or call external services.
 
 Environment overrides:
 
@@ -68,6 +68,16 @@ The release workflow builds binaries for the following targets on every `v*` tag
 | `x86_64-pc-windows-msvc` | Windows x86-64 |
 
 Binaries and `.sha256` checksum files are attached to GitHub Releases.
+
+## Runtime and Artifact Security Model
+
+- Runtime scans read files from disk and write reports to stdout or an explicit `--output` path.
+- Runtime commands do not call AI providers, telemetry endpoints, or RepoPilot servers.
+- AI workflow commands (`ai context`, `ai plan`, `ai prompt`) only format local scan findings as Markdown.
+- npm installation downloads a GitHub Release artifact and verifies its SHA256 checksum before placing the binary in `vendor/`.
+- `REPOPILOT_BINARY_PATH` can point the npm wrapper at a user-managed binary when download policy is restricted.
+
+Before v1, the preferred hardening path is per-platform npm packages or signed/provenance-backed artifacts in addition to the current checksum verification.
 
 ## Publishing Policy
 

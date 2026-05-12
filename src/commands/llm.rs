@@ -1,4 +1,4 @@
-use crate::commands::scan::{finish_spinner, make_spinner};
+use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::{ScanConfigOverrides, build_scan_config, parse_focus_category};
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory};
@@ -30,7 +30,7 @@ where
     let focus_category = parse_focus_category(args.focus.as_deref())?;
     let budget_tokens = args.budget.unwrap_or(DEFAULT_TOKEN_BUDGET);
 
-    let pb = make_spinner();
+    let pb = make_spinner("Scanning...");
     let summary = scan_path_with_config(&args.path, &scan_config)?;
     finish_spinner(pb);
 
