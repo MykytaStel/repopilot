@@ -34,6 +34,25 @@ fn source_without_test_recognizes_integration_test_counterpart() {
 }
 
 #[test]
+fn source_without_test_recognizes_subsystem_integration_tests() {
+    let facts = ScanFacts {
+        root_path: PathBuf::from("demo"),
+        files: vec![
+            file("src/explain/render.rs"),
+            file("src/output/markdown.rs"),
+            file("tests/explain_cli.rs"),
+            file("tests/output_markdown.rs"),
+        ],
+        files_count: 4,
+        ..ScanFacts::default()
+    };
+
+    let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
 fn source_without_test_reports_uncovered_source_and_ignores_wrappers() {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),

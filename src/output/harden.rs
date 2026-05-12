@@ -2,7 +2,7 @@ use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::finding_helpers::{
     RuleCluster, category_rank, clusters_by_rule, example_locations, finding_recommendation,
 };
-use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory};
+use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory, project_name};
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
@@ -21,11 +21,7 @@ impl Default for HardenOptions {
 }
 
 pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
-    let project_name = summary
-        .root_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("project");
+    let project_name = project_name(summary);
     let budget_chars = opts.budget_tokens.saturating_mul(4);
 
     let findings: Vec<&Finding> = summary

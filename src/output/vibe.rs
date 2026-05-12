@@ -5,6 +5,7 @@ mod recommendations;
 
 use crate::findings::types::Finding;
 use crate::scan::types::ScanSummary;
+use std::path::Path;
 use std::str::FromStr;
 
 pub const DEFAULT_TOKEN_BUDGET: usize = 4096;
@@ -108,6 +109,24 @@ pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
     );
 
     out
+}
+
+pub(crate) fn project_name(summary: &ScanSummary) -> String {
+    path_name(&summary.root_path)
+        .or_else(|| {
+            (summary.root_path == Path::new("."))
+                .then(|| std::env::current_dir().ok())
+                .flatten()
+                .and_then(|path| path_name(&path))
+        })
+        .unwrap_or_else(|| "project".to_string())
+}
+
+fn path_name(path: &Path) -> Option<String> {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty() && *name != ".")
+        .map(str::to_string)
 }
 
 #[cfg(test)]

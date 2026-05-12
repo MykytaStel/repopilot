@@ -1,4 +1,6 @@
-use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory, VibeOptions, render as render_vibe};
+use crate::output::vibe::{
+    DEFAULT_TOKEN_BUDGET, VibeCategory, VibeOptions, project_name, render as render_vibe,
+};
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
@@ -17,11 +19,7 @@ impl Default for PromptOptions {
 }
 
 pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
-    let project_name = summary
-        .root_path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("project");
+    let project_name = project_name(summary);
 
     let mut out = String::new();
     let _ = writeln!(out, "# RepoPilot Remediation Prompt - {project_name}\n");

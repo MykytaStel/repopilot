@@ -14,11 +14,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `repopilot knowledge` to inspect the bundled Knowledge Engine catalog.
 - Added section filtering for languages, frameworks, runtimes, paradigms, and rule applicability records.
 - Added JSON and Markdown output support for the knowledge catalog.
+- Added stable AI command family: `repopilot ai context`, `repopilot ai plan`, and `repopilot ai prompt`.
+- Added advanced inspection command family: `repopilot inspect explain` and `repopilot inspect knowledge`.
+- Added CLI stabilization tests covering help surface, legacy AI/inspect compatibility, exit codes, and high-severity self-audit cleanliness.
 
 ### Changed
 
 - Language detection now uses the Knowledge Engine corpus instead of a hardcoded extension table.
 - Context-aware audits can suppress or adjust findings based on file role, runtime, paradigm, test/config/generated status, and rule applicability.
+- Top-level `vibe`, `harden`, `prompt`, `explain`, and `knowledge` commands are hidden from primary help while remaining available as 0.x compatibility commands.
+- CLI runtime errors now exit with code 3, invalid user input uses code 2, and findings threshold failures use code 1.
+- GitHub Action inputs now prefer typed arguments for common scan, review, and AI workflow options while retaining `args` for advanced use.
 
 ## [0.8.0] - 2026-05-11
 

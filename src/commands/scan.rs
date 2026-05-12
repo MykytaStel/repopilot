@@ -1,13 +1,15 @@
-use crate::cli::{FailOnArg, OutputFormatArg};
-use crate::commands::{CliExit, ScanConfigOverrides, apply_min_severity_filter, build_scan_config};
-use indicatif::{ProgressBar, ProgressStyle};
+use crate::cli::ScanOptions;
+use crate::commands::progress::{finish_spinner, make_spinner};
+use crate::commands::{
+    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_severity_filter,
+    build_scan_config, scan_options_min_severity,
+};
 use rayon::prelude::*;
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
-use repopilot::findings::types::Severity;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
@@ -16,42 +18,22 @@ use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
 use std::collections::BTreeMap;
-use std::io::IsTerminal;
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::path::Path;
+use std::time::Instant;
 
-#[allow(clippy::too_many_arguments)]
-pub fn run(
-    path: PathBuf,
-    format: Option<OutputFormatArg>,
-    output: Option<PathBuf>,
-    receipt: Option<PathBuf>,
-    config: Option<PathBuf>,
-    baseline: Option<PathBuf>,
-    fail_on: Option<FailOnArg>,
-    max_file_loc: Option<usize>,
-    max_directory_modules: Option<usize>,
-    max_directory_depth: Option<usize>,
-    exclude: Vec<String>,
-    include_low_signal: bool,
-    max_file_size: Option<u64>,
-    max_files: Option<usize>,
-    workspace: bool,
-    min_severity: Option<Severity>,
-    verbose: bool,
-    preset: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut repo_config = match config {
-        Some(config_path) => load_optional_config(&config_path)?,
+pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let min_severity = scan_options_min_severity(&options);
+    let mut repo_config = match &options.config {
+        Some(config_path) => load_optional_config(config_path)?,
         None => load_default_config()?,
     };
 
-    if let Some(preset_str) = preset.as_deref() {
+    if let Some(preset_str) = options.preset.as_deref() {
         match preset_str.parse::<Preset>() {
             Ok(p) => apply_preset(&mut repo_config, p),
             Err(_) => {
                 return Err(Box::new(CliExit {
-                    code: 2,
+                    code: EXIT_USAGE,
                     message: format!(
                         "Invalid preset '{preset_str}'. Expected: strict, balanced, lenient"
                     ),
@@ -63,26 +45,27 @@ pub fn run(
     let scan_config = build_scan_config(
         &repo_config,
         ScanConfigOverrides {
-            max_file_loc,
-            max_directory_modules,
-            max_directory_depth,
-            exclude_patterns: exclude,
-            include_low_signal,
-            max_file_size,
-            max_files,
+            max_file_loc: options.max_file_loc,
+            max_directory_modules: options.max_directory_modules,
+            max_directory_depth: options.max_directory_depth,
+            exclude_patterns: options.exclude.clone(),
+            include_low_signal: options.include_low_signal,
+            max_file_size: options.max_file_size,
+            max_files: options.max_files,
         },
     );
-    let output_format = format
+    let output_format = options
+        .format
         .map(Into::into)
         .unwrap_or(repo_config.output.default_format);
 
-    let pb = make_spinner();
+    let pb = make_spinner("Scanning...");
     let scan_start = Instant::now();
 
-    let mut summary = if workspace {
-        scan_workspace(&path, &scan_config)?
+    let mut summary = if options.workspace {
+        scan_workspace(&options.path, &scan_config)?
     } else {
-        scan_path_with_config(&path, &scan_config)?
+        scan_path_with_config(&options.path, &scan_config)?
     };
 
     let scan_elapsed = scan_start.elapsed();
@@ -92,8 +75,8 @@ pub fn run(
         apply_min_severity_filter(&mut summary, min);
     }
 
-    if baseline.is_some() || fail_on.is_some() {
-        let baseline_report = match baseline {
+    if options.baseline.is_some() || options.fail_on.is_some() {
+        let baseline_report = match options.baseline.clone() {
             Some(baseline_path) => {
                 let baseline_file = read_baseline(&baseline_path)?;
                 diff_summary_against_baseline(summary, &baseline_file, baseline_path)
@@ -101,7 +84,8 @@ pub fn run(
             None => all_findings_new(summary),
         };
 
-        let ci_gate = fail_on
+        let ci_gate = options
+            .fail_on
             .map(Into::into)
             .map(|fail_on| evaluate_ci_gate(&baseline_report, fail_on));
         let render_start = Instant::now();
@@ -109,10 +93,10 @@ pub fn run(
             render_baseline_scan_report(&baseline_report, output_format, ci_gate.as_ref())?;
         let render_elapsed = render_start.elapsed();
 
-        write_scan_receipt_if_requested(&baseline_report.summary, receipt.as_deref())?;
-        write_report(&rendered_report, output.as_deref())?;
+        write_scan_receipt_if_requested(&baseline_report.summary, options.receipt.as_deref())?;
+        write_report(&rendered_report, options.output.as_deref())?;
 
-        if verbose {
+        if options.verbose {
             let internal_us = baseline_report.summary.scan_duration_us;
             let total_ms = scan_elapsed.as_millis();
             let render_ms = render_elapsed.as_millis();
@@ -125,7 +109,10 @@ pub fn run(
         if let Some(ci_gate) = ci_gate
             && let Some(message) = ci_gate.failure_message()
         {
-            return Err(Box::new(CliExit { code: 1, message }));
+            return Err(Box::new(CliExit {
+                code: EXIT_FINDINGS,
+                message,
+            }));
         }
 
         return Ok(());
@@ -135,10 +122,10 @@ pub fn run(
     let rendered_report = render_scan_summary(&summary, output_format)?;
     let render_elapsed = render_start.elapsed();
 
-    write_scan_receipt_if_requested(&summary, receipt.as_deref())?;
-    write_report(&rendered_report, output.as_deref())?;
+    write_scan_receipt_if_requested(&summary, options.receipt.as_deref())?;
+    write_report(&rendered_report, options.output.as_deref())?;
 
-    if verbose {
+    if options.verbose {
         let internal_us = summary.scan_duration_us;
         let total_ms = scan_elapsed.as_millis();
         let render_ms = render_elapsed.as_millis();
@@ -257,27 +244,6 @@ fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<Langu
     });
 
     *target = merged;
-}
-
-pub(crate) fn make_spinner() -> Option<ProgressBar> {
-    if !std::io::stderr().is_terminal() {
-        return None;
-    }
-    let pb = ProgressBar::new_spinner();
-    pb.set_style(
-        ProgressStyle::with_template("{spinner:.cyan} {msg}")
-            .unwrap()
-            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-    );
-    pb.set_message("Scanning...");
-    pb.enable_steady_tick(Duration::from_millis(80));
-    Some(pb)
-}
-
-pub(crate) fn finish_spinner(pb: Option<ProgressBar>) {
-    if let Some(pb) = pb {
-        pb.finish_and_clear();
-    }
 }
 
 fn write_scan_receipt_if_requested(

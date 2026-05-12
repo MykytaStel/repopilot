@@ -6,12 +6,15 @@ pub mod harden;
 pub mod init;
 pub mod knowledge;
 mod llm;
+mod progress;
 pub mod prompt;
 pub mod review;
 pub mod scan;
 pub mod vibe;
 
-use crate::cli::{Cli, Commands, SeverityArg};
+use crate::cli::{
+    AiCommands, Cli, Commands, InspectCommands, ReviewOptions, ScanOptions, SeverityArg,
+};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::findings::types::Severity;
 use repopilot::output::vibe::VibeCategory;
@@ -20,134 +23,108 @@ use repopilot::scan::types::ScanSummary;
 use std::fmt;
 
 pub const VALID_FOCUS_VALUES: &str = "security, arch, architecture, quality, framework, all";
+pub const EXIT_FINDINGS: i32 = 1;
+pub const EXIT_USAGE: i32 = 2;
+pub const EXIT_RUNTIME: i32 = 3;
 
 pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
-        Commands::Scan {
-            path,
-            format,
-            output,
-            receipt,
-            config,
-            baseline,
-            fail_on,
-            max_file_loc,
-            max_directory_modules,
-            max_directory_depth,
-            exclude,
-            include_low_signal,
-            max_file_size,
-            max_files,
-            workspace,
-            min_severity,
-            verbose,
-            preset,
-        } => scan::run(
-            path,
-            format,
-            output,
-            receipt,
-            config,
-            baseline,
-            fail_on,
-            max_file_loc,
-            max_directory_modules,
-            max_directory_depth,
-            exclude,
-            include_low_signal,
-            max_file_size,
-            max_files,
-            workspace,
-            min_severity.map(severity_arg_into),
-            verbose,
-            preset,
+        Commands::Scan(options) => scan::run(options),
+        Commands::Review(options) => review::run(options),
+        Commands::Baseline(options) => baseline::run(options.command),
+        Commands::Compare(options) => compare::run(
+            options.before,
+            options.after,
+            options.format,
+            options.output,
         ),
-        Commands::Knowledge {
-            section,
-            format,
-            output,
-        } => knowledge::run(section, format, output),
-        Commands::Review {
-            path,
-            base,
-            head,
-            config,
-            baseline,
-            fail_on,
-            format,
-            output,
-            max_file_loc,
-            max_directory_modules,
-            max_directory_depth,
-            min_severity,
-        } => review::run(
-            path,
-            base,
-            head,
-            config,
-            baseline,
-            fail_on,
-            format,
-            output,
-            max_file_loc,
-            max_directory_modules,
-            max_directory_depth,
-            min_severity.map(severity_arg_into),
+        Commands::Ai(options) => run_ai(options.command),
+        Commands::Inspect(options) => run_inspect(options.command),
+        Commands::Init(options) => init::run(options.force, options.path),
+        Commands::Doctor(options) => doctor::run(
+            options.path,
+            options.config,
+            options.format,
+            options.output,
+            options.include_low_signal,
+            options.max_files,
         ),
+        Commands::Vibe(options) => vibe::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+            options.no_header,
+        ),
+        Commands::Harden(options) => harden::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+        ),
+        Commands::Prompt(options) => prompt::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+        ),
+        Commands::Explain(options) => explain::run(
+            options.path,
+            options.rule,
+            options.signal,
+            options.severity,
+            options.format,
+            options.output,
+        ),
+        Commands::Knowledge(options) => {
+            knowledge::run(options.section, options.format, options.output)
+        }
+    }
+}
 
-        Commands::Baseline { command } => baseline::run(command),
+fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
+    match command {
+        AiCommands::Context(options) => vibe::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+            options.no_header,
+        ),
+        AiCommands::Plan(options) => harden::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+        ),
+        AiCommands::Prompt(options) => prompt::run(
+            options.path,
+            options.config,
+            options.focus,
+            options.budget,
+            options.output,
+        ),
+    }
+}
 
-        Commands::Compare {
-            before,
-            after,
-            format,
-            output,
-        } => compare::run(before, after, format, output),
-
-        Commands::Init { force, path } => init::run(force, path),
-
-        Commands::Harden {
-            path,
-            config,
-            focus,
-            budget,
-            output,
-        } => harden::run(path, config, focus, budget, output),
-
-        Commands::Prompt {
-            path,
-            config,
-            focus,
-            budget,
-            output,
-        } => prompt::run(path, config, focus, budget, output),
-
-        Commands::Explain {
-            path,
-            rule,
-            signal,
-            severity,
-            format,
-            output,
-        } => explain::run(path, rule, signal, severity, format, output),
-
-        Commands::Vibe {
-            path,
-            config,
-            focus,
-            budget,
-            output,
-            no_header,
-        } => vibe::run(path, config, focus, budget, output, no_header),
-
-        Commands::Doctor {
-            path,
-            config,
-            format,
-            output,
-            include_low_signal,
-            max_files,
-        } => doctor::run(path, config, format, output, include_low_signal, max_files),
+fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error>> {
+    match command {
+        InspectCommands::Explain(options) => explain::run(
+            options.path,
+            options.rule,
+            options.signal,
+            options.severity,
+            options.format,
+            options.output,
+        ),
+        InspectCommands::Knowledge(options) => {
+            knowledge::run(options.section, options.format, options.output)
+        }
     }
 }
 
@@ -181,7 +158,7 @@ pub fn parse_focus_category(
     match focus {
         Some(value) => Ok(Some(value.parse::<VibeCategory>().map_err(|_| {
             CliExit {
-                code: 2,
+                code: EXIT_USAGE,
                 message: format!("Invalid focus '{value}'. Expected: {VALID_FOCUS_VALUES}"),
             }
         })?)),
@@ -232,4 +209,12 @@ pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
     summary.findings.retain(|finding| finding.severity >= min);
     summary.health_score =
         ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+}
+
+pub fn scan_options_min_severity(options: &ScanOptions) -> Option<Severity> {
+    options.min_severity.map(severity_arg_into)
+}
+
+pub fn review_options_min_severity(options: &ReviewOptions) -> Option<Severity> {
+    options.min_severity.map(severity_arg_into)
 }

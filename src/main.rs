@@ -14,6 +14,6 @@ fn main() {
         }
 
         eprintln!("RepoPilot failed: {error}");
-        std::process::exit(1);
+        std::process::exit(commands::EXIT_RUNTIME);
     }
 }

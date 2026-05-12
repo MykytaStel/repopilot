@@ -25,7 +25,7 @@ Most linters and audit tools stop at the terminal. RepoPilot bridges the gap to 
 | CI gate on new findings only | ✅ | partial | ✅ |
 
 ```bash
-repopilot vibe . | pbcopy   # macOS: paste into Claude Code and start fixing
+repopilot ai context . | pbcopy   # macOS: paste into Claude Code and start fixing
 ```
 
 ## Features
@@ -48,11 +48,11 @@ repopilot vibe . | pbcopy   # macOS: paste into Claude Code and start fixing
 - CI-friendly failure thresholds with `--fail-on`
 - Git diff-aware review mode for prioritizing findings introduced by changed lines
 - Console, JSON, Markdown, HTML, and SARIF (2.1.0) scan output — SARIF includes per-result category and workspace package properties
-- First-party GitHub Action wrapper for `scan`, `review`, `compare`, `vibe`, `harden`, and `prompt`, with optional SARIF upload for scans
+- First-party GitHub Action wrapper for `scan`, `review`, `compare`, and `ai` workflows, with optional SARIF upload for scans
 - Compare mode for diffing two JSON scan reports
-- **`repopilot vibe`** — new in v0.8: formats scan output as LLM-ready markdown, paste into Claude Code or ChatGPT to start remediating
-- **`repopilot harden`** — new in v0.8: turns findings into a prioritized remediation plan
-- **`repopilot prompt`** — new in v0.8: exports an AI-ready remediation prompt with RepoPilot context
+- **`repopilot ai context`** — formats scan output as LLM-ready markdown, paste into Claude Code or ChatGPT to start remediating
+- **`repopilot ai plan`** — turns findings into a prioritized remediation plan
+- **`repopilot ai prompt`** — exports an AI-ready remediation prompt with RepoPilot context
 
 See [docs/rulesets.md](docs/rulesets.md) for the full list of rules and severity levels.
 
@@ -119,28 +119,28 @@ repopilot scan . --exclude fixtures --max-file-size 1mb --max-files 500
 
 By default, RepoPilot skips low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks. Use `--include-low-signal` when you want those paths analyzed too.
 
-## Vibe Check (new in v0.8)
+## AI Context
 
-`repopilot vibe` scans a project and formats all findings as structured markdown ready to paste into Claude Code, Cursor, ChatGPT, or any LLM assistant. It includes a risk level, tech stack summary, findings grouped by category with evidence snippets and fix recommendations, and a token-count estimate.
+`repopilot ai context` scans a project and formats all findings as structured markdown ready to paste into Claude Code, Cursor, ChatGPT, or any LLM assistant. It includes a risk level, tech stack summary, findings grouped by category with evidence snippets and fix recommendations, and a token-count estimate.
 
 ```bash
 # Paste into Claude Code or ChatGPT
-repopilot vibe .
+repopilot ai context .
 
 # Focus on security only, keep it short
-repopilot vibe . --focus security --budget 2k
+repopilot ai context . --focus security --budget 2k
 
 # Save to file
-repopilot vibe . --output vibe.md
+repopilot ai context . --output vibe.md
 
 # Pipe directly into clipboard (macOS)
-repopilot vibe . --no-header | pbcopy
+repopilot ai context . --no-header | pbcopy
 ```
 
 ## Example Output
 
 ```
-$ repopilot vibe .
+$ repopilot ai context .
 
 # RepoPilot Vibe Check — my-app
 
@@ -175,9 +175,9 @@ Paste this into Claude Code and ask: *"Fix all findings."*
 RepoPilot is a local-first safety layer for AI-assisted and vibe-coded changes. Run it after generating or refactoring code to catch newly introduced high-risk findings, workspace hotspots, missing tests, and architecture drift without uploading source code to an external service.
 
 ```bash
-repopilot vibe . --focus security          # get an LLM brief for Claude Code
-repopilot harden . --focus security        # get a prioritized hardening plan
-repopilot prompt . --budget 8k             # generate a paste-ready remediation prompt
+repopilot ai context . --focus security    # get an LLM brief for Claude Code
+repopilot ai plan . --focus security       # get a prioritized hardening plan
+repopilot ai prompt . --budget 8k          # generate a paste-ready remediation prompt
 repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
 repopilot scan . --workspace --min-severity medium --format markdown --output repopilot-report.md
 ```
@@ -186,13 +186,14 @@ repopilot scan . --workspace --min-severity medium --format markdown --output re
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `repopilot vibe <path>` | `v` | **New in v0.8** — LLM-ready context from a scan |
-| `repopilot harden <path>` | `h` | **New in v0.8** — prioritized remediation plan |
-| `repopilot prompt <path>` | `p` | **New in v0.8** — AI-ready remediation prompt |
 | `repopilot scan <path>` | `s` | Scan a project, folder, or file for findings |
 | `repopilot review [path]` | `r` | Review findings that touch changed Git diff lines |
+| `repopilot ai context <path>` | — | LLM-ready context from a scan |
+| `repopilot ai plan <path>` | — | Prioritized remediation plan |
+| `repopilot ai prompt <path>` | — | AI-ready remediation prompt |
 | `repopilot compare <before> <after>` | `cmp` | Compare two JSON scan reports and show what changed |
 | `repopilot baseline create <path>` | `bl` | Scan a path and store current findings as accepted debt |
+| `repopilot doctor [path]` | `d` | Diagnose audit readiness |
 | `repopilot init` | — | Generate a default `repopilot.toml` configuration file |
 
 Use `--help` on any command for the full description and examples:
@@ -362,7 +363,7 @@ Use `--fail-on new-high` to fail CI only when new high or critical findings are 
 When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. For baseline-based adoption, commit an accepted baseline and scan against it in CI.
 
 To upload RepoPilot findings to GitHub Code Scanning, generate SARIF and use `github/codeql-action/upload-sarif`. The workflow must include `security-events: write`.
-The first-party action can also run `command: vibe`, `command: harden`, or `command: prompt`; those commands emit Markdown and do not produce SARIF.
+The first-party action can also run `command: ai-context`, `command: ai-plan`, or `command: ai-prompt`; those commands emit Markdown and do not produce SARIF. Prefer typed action inputs such as `path`, `config`, `baseline`, `fail-on`, `focus`, `budget`, and `output`; `args` remains available for advanced flags.
 
 ```yaml
 name: RepoPilot

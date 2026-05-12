@@ -36,13 +36,17 @@ cargo build --release
 echo "==> Verify built binary"
 ./target/release/repopilot --version
 ./target/release/repopilot scan . --format markdown --output /tmp/repopilot-release-scan.md
-./target/release/repopilot vibe . --focus security --budget 2k --output /tmp/repopilot-release-vibe.md
-./target/release/repopilot harden . --focus all --budget 4k --output /tmp/repopilot-release-harden.md
-./target/release/repopilot prompt . --focus quality --budget 4k --output /tmp/repopilot-release-prompt.md
+./target/release/repopilot doctor . --format markdown --output /tmp/repopilot-release-doctor.md
+./target/release/repopilot ai context . --focus security --budget 2k --output /tmp/repopilot-release-vibe.md
+./target/release/repopilot ai plan . --focus all --budget 4k --output /tmp/repopilot-release-harden.md
+./target/release/repopilot ai prompt . --focus quality --budget 4k --output /tmp/repopilot-release-prompt.md
+./target/release/repopilot inspect knowledge --section rules --format markdown --output /tmp/repopilot-release-knowledge.md
 
 test -s /tmp/repopilot-release-scan.md
+test -s /tmp/repopilot-release-doctor.md
 test -s /tmp/repopilot-release-vibe.md
 test -s /tmp/repopilot-release-harden.md
 test -s /tmp/repopilot-release-prompt.md
+test -s /tmp/repopilot-release-knowledge.md
 
 echo "==> Release verification passed"
