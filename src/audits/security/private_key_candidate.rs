@@ -1,5 +1,6 @@
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 
@@ -29,7 +30,14 @@ impl FileAudit for PrivateKeyCandidateAudit {
                 PRIVATE_KEY_HEADERS
                     .iter()
                     .find(|&&header| trimmed.starts_with(header))
-                    .map(|header| build_finding(&file.path, index + 1, header))
+                    .and_then(|header| {
+                        apply_file_decision(
+                            "security.private-key-candidate",
+                            file,
+                            build_finding(&file.path, index + 1, header),
+                            None,
+                        )
+                    })
             })
             .collect()
     }

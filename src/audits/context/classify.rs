@@ -1,6 +1,7 @@
 use crate::audits::context::model::{
     AuditContext, FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm, RuntimeKind,
 };
+use crate::knowledge::language::language_kind_for_file;
 use crate::scan::facts::FileFacts;
 use std::path::Path;
 
@@ -50,35 +51,7 @@ pub fn classify_file(file: &FileFacts) -> AuditContext {
 }
 
 fn classify_language(file: &FileFacts) -> LanguageKind {
-    if let Some(language) = &file.language {
-        let normalized = normalize(language);
-
-        match normalized.as_str() {
-            "rust" => return LanguageKind::Rust,
-            "typescript" | "typescript react" | "tsx" => return LanguageKind::TypeScript,
-            "javascript" | "javascript react" | "jsx" => return LanguageKind::JavaScript,
-            "csharp" | "c#" | "cs" | "c sharp" => return LanguageKind::CSharp,
-            "python" => return LanguageKind::Python,
-            "go" => return LanguageKind::Go,
-            _ => {}
-        }
-    }
-
-    match file
-        .path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(normalize)
-        .as_deref()
-    {
-        Some("rs") => LanguageKind::Rust,
-        Some("ts") | Some("tsx") | Some("mts") => LanguageKind::TypeScript,
-        Some("js") | Some("jsx") | Some("mjs") | Some("cjs") => LanguageKind::JavaScript,
-        Some("cs") => LanguageKind::CSharp,
-        Some("py") => LanguageKind::Python,
-        Some("go") => LanguageKind::Go,
-        _ => LanguageKind::Unknown,
-    }
+    language_kind_for_file(file)
 }
 
 fn classify_frameworks(
@@ -94,6 +67,14 @@ fn classify_frameworks(
             push_unique(frameworks, FrameworkKind::ReactNative);
         }
 
+        if normalized_content.contains("from 'expo")
+            || normalized_content.contains("from \"expo")
+            || normalized_content.contains("expo-status-bar")
+            || normalized_content.contains("expo-router")
+        {
+            push_unique(frameworks, FrameworkKind::Expo);
+        }
+
         if is_react_file(path, &normalized_content) {
             push_unique(frameworks, FrameworkKind::React);
         }
@@ -104,10 +85,36 @@ fn classify_frameworks(
             push_unique(frameworks, FrameworkKind::NextJs);
         }
 
+        if normalized_content.contains("from 'vue'")
+            || normalized_content.contains("from \"vue\"")
+            || normalized_content.contains("@vue/")
+        {
+            push_unique(frameworks, FrameworkKind::Vue);
+        }
+
+        if normalized_content.contains("@angular/") {
+            push_unique(frameworks, FrameworkKind::Angular);
+        }
+
+        if normalized_content.contains("from 'svelte")
+            || normalized_content.contains("from \"svelte")
+        {
+            push_unique(frameworks, FrameworkKind::Svelte);
+        }
+
+        if normalized_content.contains("@nestjs/") {
+            push_unique(frameworks, FrameworkKind::NestJs);
+        }
+
+        if normalized_content.contains("express") {
+            push_unique(frameworks, FrameworkKind::Express);
+        }
+
         if normalized_content.contains("express")
             || normalized_content.contains("from 'node:")
             || normalized_content.contains("from \"node:")
             || normalized_content.contains("process.env")
+            || normalized_content.contains("process.exit")
         {
             push_unique(frameworks, FrameworkKind::NodeJs);
         }
@@ -121,6 +128,51 @@ fn classify_frameworks(
         if is_dotnet_file(path, &normalized_content) {
             push_unique(frameworks, FrameworkKind::DotNet);
         }
+    }
+
+    if language == LanguageKind::Python {
+        if normalized_content.contains("django") {
+            push_unique(frameworks, FrameworkKind::Django);
+        }
+        if normalized_content.contains("flask") {
+            push_unique(frameworks, FrameworkKind::Flask);
+        }
+        if normalized_content.contains("fastapi") {
+            push_unique(frameworks, FrameworkKind::FastApi);
+        }
+    }
+
+    if language == LanguageKind::Go {
+        if normalized_content.contains("github.com/gin-gonic/gin") {
+            push_unique(frameworks, FrameworkKind::Gin);
+        }
+        if normalized_content.contains("github.com/labstack/echo") {
+            push_unique(frameworks, FrameworkKind::Echo);
+        }
+        if normalized_content.contains("github.com/gofiber/fiber") {
+            push_unique(frameworks, FrameworkKind::Fiber);
+        }
+    }
+
+    if matches!(language, LanguageKind::Java | LanguageKind::Kotlin) {
+        if normalized_content.contains("org.springframework")
+            || normalized_content.contains("@springbootapplication")
+        {
+            push_unique(frameworks, FrameworkKind::Spring);
+        }
+        if normalized_content.contains("android.")
+            || normalized_content.contains("androidx.")
+            || path_contains_component(path, &["android"])
+        {
+            push_unique(frameworks, FrameworkKind::Android);
+        }
+    }
+
+    if language == LanguageKind::Dart
+        && (normalized_content.contains("package:flutter")
+            || path_contains_component(path, &["lib", "widgets"]))
+    {
+        push_unique(frameworks, FrameworkKind::Flutter);
     }
 }
 
@@ -138,6 +190,10 @@ fn classify_roles(
         push_unique(roles, FileRole::Config);
     }
 
+    if is_generated_file(path, &normalized_content) {
+        push_unique(roles, FileRole::Generated);
+    }
+
     if is_test {
         push_unique(roles, FileRole::Test);
 
@@ -149,10 +205,12 @@ fn classify_roles(
     if is_js_or_ts(language) {
         if is_react_hook_file(path, content) {
             push_unique(roles, FileRole::ReactHook);
+            push_unique(roles, FileRole::FrameworkHook);
         }
 
         if frameworks.contains(&FrameworkKind::React) && is_react_component_file(path, content) {
             push_unique(roles, FileRole::ReactComponent);
+            push_unique(roles, FileRole::FrameworkComponent);
         }
     }
 
@@ -165,11 +223,23 @@ fn classify_roles(
 
         if is_dotnet_controller(path, &normalized_content) {
             push_unique(roles, FileRole::DotNetController);
+            push_unique(roles, FileRole::FrameworkController);
         }
 
         if is_dotnet_service(path, &normalized_content) {
             push_unique(roles, FileRole::DotNetService);
+            push_unique(roles, FileRole::FrameworkService);
         }
+    }
+
+    if is_app_entrypoint(path, content, language) {
+        push_unique(roles, FileRole::AppEntrypoint);
+    }
+
+    if matches!(language, LanguageKind::Python | LanguageKind::Go)
+        && path_contains_component(path, &["cmd", "bin", "scripts"])
+    {
+        push_unique(roles, FileRole::Script);
     }
 
     if path_contains_component(
@@ -260,6 +330,24 @@ fn classify_paradigms(
         }
     }
 
+    if matches!(language, LanguageKind::Python | LanguageKind::Go)
+        && (normalized_content.contains("def main(")
+            || normalized_content.contains("func main(")
+            || path_contains_component(path, &["cmd", "scripts"]))
+    {
+        push_unique(paradigms, ProgrammingParadigm::Procedural);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::Java | LanguageKind::Kotlin | LanguageKind::CSharp
+    ) && (normalized_content.contains("class ")
+        || normalized_content.contains("interface ")
+        || normalized_content.contains("record "))
+    {
+        push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
+    }
+
     if paradigms.len() > 1 {
         push_unique(paradigms, ProgrammingParadigm::Mixed);
     }
@@ -278,10 +366,14 @@ fn classify_runtimes(
 ) {
     let normalized_content = content.to_lowercase();
 
-    if frameworks.contains(&FrameworkKind::ReactNative) {
+    if frameworks.contains(&FrameworkKind::ReactNative) || frameworks.contains(&FrameworkKind::Expo)
+    {
         push_unique(runtimes, RuntimeKind::ReactNative);
     } else if frameworks.contains(&FrameworkKind::React)
         || frameworks.contains(&FrameworkKind::NextJs)
+        || frameworks.contains(&FrameworkKind::Vue)
+        || frameworks.contains(&FrameworkKind::Angular)
+        || frameworks.contains(&FrameworkKind::Svelte)
     {
         push_unique(runtimes, RuntimeKind::Browser);
     }
@@ -313,6 +405,36 @@ fn classify_runtimes(
         } else {
             push_unique(runtimes, RuntimeKind::RustLibrary);
         }
+    }
+
+    if language == LanguageKind::Python {
+        push_unique(runtimes, RuntimeKind::Python);
+    }
+
+    if language == LanguageKind::Go {
+        push_unique(runtimes, RuntimeKind::Go);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::Java | LanguageKind::Kotlin | LanguageKind::Scala
+    ) {
+        push_unique(runtimes, RuntimeKind::Jvm);
+    }
+
+    if language == LanguageKind::Shell || language == LanguageKind::PowerShell {
+        push_unique(runtimes, RuntimeKind::Shell);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::C | LanguageKind::Cpp | LanguageKind::CHeader | LanguageKind::Swift
+    ) {
+        push_unique(runtimes, RuntimeKind::Native);
+    }
+
+    if frameworks.contains(&FrameworkKind::Android) {
+        push_unique(runtimes, RuntimeKind::Android);
     }
 
     if runtimes.is_empty() {
@@ -444,7 +566,59 @@ fn is_config_file(path: &Path) -> bool {
             | "cargo.toml"
             | "cargo.lock"
             | "projectsettings.asset"
+            | "dockerfile"
+            | "containerfile"
+            | "go.mod"
+            | "go.sum"
+            | "pyproject.toml"
+            | "requirements.txt"
+            | "build.gradle"
+            | "settings.gradle"
+            | "pom.xml"
     ) || (file_name.starts_with("appsettings") && file_name.ends_with(".json"))
+}
+
+fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(normalize)
+        .unwrap_or_default();
+    let normalized_content = content.to_lowercase();
+
+    matches!(
+        file_name.as_str(),
+        "main.rs"
+            | "main.go"
+            | "main.py"
+            | "app.py"
+            | "program.cs"
+            | "main.java"
+            | "main.kt"
+            | "index.ts"
+            | "index.js"
+            | "main.ts"
+            | "main.js"
+    ) || (language == LanguageKind::Python
+        && normalized_content.contains("if __name__ == \"__main__\""))
+        || (language == LanguageKind::Go && normalized_content.contains("func main("))
+        || (language == LanguageKind::Rust && normalized_content.contains("fn main("))
+}
+
+fn is_generated_file(path: &Path, content: &str) -> bool {
+    path_contains_component(
+        path,
+        &[
+            "generated",
+            "__generated__",
+            "gen",
+            "codegen",
+            "target",
+            "build",
+        ],
+    ) || content.contains("@generated")
+        || content.contains("code generated")
+        || content.contains("generated by")
 }
 
 fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
@@ -474,6 +648,14 @@ fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
         || file_name.ends_with(".spec.jsx")
         || file_name.ends_with("_test.rs")
         || file_name.ends_with("_test.go")
+        || file_name.ends_with("_test.py")
+        || file_name.starts_with("test_")
+        || file_name.ends_with("test.java")
+        || file_name.ends_with("tests.java")
+        || file_name.ends_with("test.kt")
+        || file_name.ends_with("tests.kt")
+        || file_name.ends_with("test.cs")
+        || file_name.ends_with("tests.cs")
 }
 
 fn path_contains_component(path: &Path, targets: &[&str]) -> bool {
@@ -548,6 +730,7 @@ mod tests {
         assert!(context.has_role(FileRole::ReactHook));
         assert!(context.has_paradigm(ProgrammingParadigm::Functional));
         assert!(context.has_paradigm(ProgrammingParadigm::Reactive));
+        assert!(context.has_runtime(RuntimeKind::Browser));
     }
 
     #[test]
@@ -636,6 +819,132 @@ mod tests {
         assert_eq!(context.language, LanguageKind::Rust);
         assert!(context.has_runtime(RuntimeKind::RustCli));
         assert!(context.has_paradigm(ProgrammingParadigm::Procedural));
+    }
+
+    #[test]
+    fn classifies_rust_lib_as_library_runtime() {
+        let file = facts("src/lib.rs", Some("Rust"), "pub fn parse() {}\n", false);
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Rust);
+        assert!(context.has_runtime(RuntimeKind::RustLibrary));
+        assert!(!context.is_test);
+    }
+
+    #[test]
+    fn classifies_rust_domain_file_role() {
+        let file = facts(
+            "src/domain/user.rs",
+            Some("Rust"),
+            "pub struct User { id: String }\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Rust);
+        assert!(context.has_role(FileRole::Domain));
+        assert!(context.has_runtime(RuntimeKind::RustLibrary));
+    }
+
+    #[test]
+    fn classifies_rust_test_path() {
+        let file = facts(
+            "tests/parser_test.rs",
+            Some("Rust"),
+            "#[test]\nfn parses() {}\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Rust);
+        assert!(context.has_role(FileRole::Test));
+        assert!(context.has_role(FileRole::RustTest));
+        assert!(context.is_test);
+    }
+
+    #[test]
+    fn classifies_rust_iterator_pipeline_as_functional_without_marking_it_bad() {
+        let file = facts(
+            "src/domain/users.rs",
+            Some("Rust"),
+            "let names = users.iter().filter(|user| user.is_active).map(|user| user.name.clone()).collect::<Vec<_>>();\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Rust);
+        assert!(context.is_functional_code());
+        assert!(!context.has_role(FileRole::Config));
+    }
+
+    #[test]
+    fn classifies_node_runtime_from_process_env_and_node_imports() {
+        for content in [
+            "const value = process.env.NODE_ENV;\n",
+            "import fs from \"node:fs\";\n",
+            "import path from 'node:path';\n",
+        ] {
+            let file = facts("src/server.ts", Some("TypeScript"), content, false);
+
+            let context = classify_file(&file);
+
+            assert!(context.has_framework(FrameworkKind::NodeJs));
+            assert!(context.has_runtime(RuntimeKind::Node));
+        }
+    }
+
+    #[test]
+    fn classifies_python_go_and_jvm_contexts() {
+        let python = classify_file(&facts(
+            "app/views.py",
+            Some("Python"),
+            "from fastapi import FastAPI\napp = FastAPI()\n",
+            false,
+        ));
+        assert_eq!(python.language, LanguageKind::Python);
+        assert!(python.has_framework(FrameworkKind::FastApi));
+        assert!(python.has_runtime(RuntimeKind::Python));
+
+        let go = classify_file(&facts(
+            "cmd/server/main.go",
+            Some("Go"),
+            "package main\nimport \"github.com/gin-gonic/gin\"\nfunc main() {}\n",
+            false,
+        ));
+        assert_eq!(go.language, LanguageKind::Go);
+        assert!(go.has_framework(FrameworkKind::Gin));
+        assert!(go.has_runtime(RuntimeKind::Go));
+        assert!(go.has_role(FileRole::Script));
+
+        let java = classify_file(&facts(
+            "src/main/java/com/acme/UserService.java",
+            Some("Java"),
+            "import org.springframework.stereotype.Service;\npublic class UserService {}\n",
+            false,
+        ));
+        assert_eq!(java.language, LanguageKind::Java);
+        assert!(java.has_framework(FrameworkKind::Spring));
+        assert!(java.has_paradigm(ProgrammingParadigm::ObjectOriented));
+        assert!(java.has_runtime(RuntimeKind::Jvm));
+    }
+
+    #[test]
+    fn classifies_generated_files_as_non_production() {
+        let file = facts(
+            "src/generated/schema.rs",
+            Some("Rust"),
+            "// generated by schema tool\npub fn value() {}\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert!(context.has_role(FileRole::Generated));
+        assert!(!context.is_production_code());
     }
 
     #[test]

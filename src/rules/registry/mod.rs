@@ -20,6 +20,11 @@ pub fn lookup_rule_metadata(rule_id: &str) -> Option<&'static RuleMetadata> {
     all_rules().find(|rule| rule.rule_id == rule_id)
 }
 
+#[cfg(test)]
+pub(crate) fn all_rule_metadata() -> impl Iterator<Item = &'static RuleMetadata> {
+    all_rules()
+}
+
 fn all_rules() -> impl Iterator<Item = &'static RuleMetadata> {
     RULE_GROUPS.iter().flat_map(|rules| rules.iter())
 }
@@ -37,6 +42,17 @@ mod tests {
         assert_eq!(meta.rule_id, "framework.react-native.inline-style");
         assert_eq!(meta.category, FindingCategory::Framework);
         assert_eq!(meta.default_severity, Severity::Medium);
+    }
+
+    #[test]
+    fn rust_panic_risk_rule_returns_metadata() {
+        let meta = lookup_rule_metadata("language.rust.panic-risk").unwrap();
+
+        assert_eq!(meta.rule_id, "language.rust.panic-risk");
+        assert_eq!(meta.category, FindingCategory::CodeQuality);
+        assert_eq!(meta.default_severity, Severity::Medium);
+        assert!(!meta.title.is_empty());
+        assert!(!meta.description.is_empty());
     }
 
     #[test]

@@ -1,49 +1,19 @@
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
-use crate::scan::path_classification::is_low_signal_audit_path;
 use std::path::Path;
 
 pub struct LargeFileAudit;
 
 impl FileAudit for LargeFileAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
-        if is_low_signal_audit_path(&file.path) {
-            return vec![];
-        }
-        if !is_code_file(file.language.as_deref()) {
-            return vec![];
-        }
         detect_large_file_finding(&file.path, file.lines_of_code, config)
+            .and_then(|finding| apply_file_decision("architecture.large-file", file, finding, None))
             .into_iter()
             .collect()
     }
-}
-
-/// Only applies the size limit to actual programming-language source files.
-/// Documentation, config, and data formats (Markdown, YAML, JSON, TOML…)
-/// are not subject to this rule because their length is driven by content, not code complexity.
-fn is_code_file(language: Option<&str>) -> bool {
-    matches!(
-        language,
-        Some(
-            "Rust"
-                | "Go"
-                | "Python"
-                | "TypeScript"
-                | "TypeScript React"
-                | "JavaScript"
-                | "JavaScript React"
-                | "Java"
-                | "Kotlin"
-                | "Swift"
-                | "C#"
-                | "C++"
-                | "C"
-                | "C/C++ Header"
-        )
-    )
 }
 
 pub fn detect_large_file_finding(

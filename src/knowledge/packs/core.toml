@@ -1,0 +1,901 @@
+[[languages]]
+id = "rust"
+name = "Rust"
+aliases = ["rust"]
+extensions = ["rs"]
+support = "rule-aware"
+
+[[languages]]
+id = "typescript-react"
+name = "TypeScript React"
+aliases = ["tsx", "typescript react"]
+extensions = ["tsx"]
+support = "context-aware"
+
+[[languages]]
+id = "typescript"
+name = "TypeScript"
+aliases = ["ts", "mts"]
+extensions = ["ts", "mts"]
+support = "rule-aware"
+
+[[languages]]
+id = "javascript-react"
+name = "JavaScript React"
+aliases = ["jsx", "javascript react"]
+extensions = ["jsx"]
+support = "context-aware"
+
+[[languages]]
+id = "javascript"
+name = "JavaScript"
+aliases = ["js", "mjs", "cjs"]
+extensions = ["js", "mjs", "cjs"]
+support = "rule-aware"
+
+[[languages]]
+id = "python"
+name = "Python"
+extensions = ["py"]
+support = "rule-aware"
+
+[[languages]]
+id = "go"
+name = "Go"
+extensions = ["go"]
+support = "rule-aware"
+
+[[languages]]
+id = "java"
+name = "Java"
+extensions = ["java"]
+support = "rule-aware"
+
+[[languages]]
+id = "kotlin"
+name = "Kotlin"
+extensions = ["kt", "kts"]
+support = "rule-aware"
+
+[[languages]]
+id = "csharp"
+name = "C#"
+aliases = ["csharp", "cs", "c sharp"]
+extensions = ["cs"]
+support = "rule-aware"
+
+[[languages]]
+id = "c"
+name = "C"
+extensions = ["c"]
+support = "rule-aware"
+
+[[languages]]
+id = "cpp"
+name = "C++"
+aliases = ["cxx", "cc"]
+extensions = ["cpp", "cc", "cxx", "hpp", "hh", "hxx"]
+support = "rule-aware"
+
+[[languages]]
+id = "c-header"
+name = "C/C++ Header"
+extensions = ["h"]
+support = "import-aware"
+
+[[languages]]
+id = "swift"
+name = "Swift"
+extensions = ["swift"]
+support = "context-aware"
+
+[[languages]]
+id = "php"
+name = "PHP"
+extensions = ["php"]
+support = "context-aware"
+
+[[languages]]
+id = "ruby"
+name = "Ruby"
+extensions = ["rb"]
+support = "context-aware"
+
+[[languages]]
+id = "dart"
+name = "Dart"
+extensions = ["dart"]
+support = "context-aware"
+
+[[languages]]
+id = "scala"
+name = "Scala"
+extensions = ["scala", "sc"]
+support = "context-aware"
+
+[[languages]]
+id = "shell"
+name = "Shell"
+aliases = ["bash", "sh", "zsh"]
+extensions = ["sh", "bash", "zsh"]
+support = "context-aware"
+
+[[languages]]
+id = "powershell"
+name = "PowerShell"
+extensions = ["ps1", "psm1"]
+support = "context-aware"
+
+[[languages]]
+id = "sql"
+name = "SQL"
+extensions = ["sql"]
+support = "context-aware"
+
+[[languages]]
+id = "html"
+name = "HTML"
+extensions = ["html", "htm"]
+support = "context-aware"
+
+[[languages]]
+id = "css"
+name = "CSS"
+extensions = ["css"]
+support = "context-aware"
+
+[[languages]]
+id = "scss"
+name = "SCSS"
+extensions = ["scss", "sass"]
+support = "context-aware"
+
+[[languages]]
+id = "elixir"
+name = "Elixir"
+extensions = ["ex", "exs"]
+support = "detect-only"
+
+[[languages]]
+id = "erlang"
+name = "Erlang"
+extensions = ["erl", "hrl"]
+support = "detect-only"
+
+[[languages]]
+id = "haskell"
+name = "Haskell"
+extensions = ["hs", "lhs"]
+support = "detect-only"
+
+[[languages]]
+id = "ocaml"
+name = "OCaml"
+extensions = ["ml", "mli"]
+support = "detect-only"
+
+[[languages]]
+id = "fsharp"
+name = "F#"
+aliases = ["fsharp"]
+extensions = ["fs", "fsx"]
+support = "detect-only"
+
+[[languages]]
+id = "r"
+name = "R"
+extensions = ["r", "R"]
+support = "detect-only"
+
+[[languages]]
+id = "julia"
+name = "Julia"
+extensions = ["jl"]
+support = "detect-only"
+
+[[languages]]
+id = "lua"
+name = "Lua"
+extensions = ["lua"]
+support = "detect-only"
+
+[[languages]]
+id = "perl"
+name = "Perl"
+extensions = ["pl", "pm"]
+support = "detect-only"
+
+[[languages]]
+id = "zig"
+name = "Zig"
+extensions = ["zig"]
+support = "detect-only"
+
+[[languages]]
+id = "solidity"
+name = "Solidity"
+extensions = ["sol"]
+support = "detect-only"
+
+[[languages]]
+id = "objective-c"
+name = "Objective-C"
+aliases = ["objc"]
+extensions = ["m", "mm"]
+support = "detect-only"
+
+[[languages]]
+id = "terraform"
+name = "Terraform"
+aliases = ["hcl"]
+extensions = ["tf", "hcl"]
+support = "detect-only"
+
+[[languages]]
+id = "dockerfile"
+name = "Dockerfile"
+filenames = ["Dockerfile", "Containerfile"]
+support = "detect-only"
+
+[[languages]]
+id = "nix"
+name = "Nix"
+extensions = ["nix"]
+support = "detect-only"
+
+[[languages]]
+id = "yaml"
+name = "YAML"
+extensions = ["yaml", "yml"]
+support = "detect-only"
+
+[[languages]]
+id = "toml"
+name = "TOML"
+extensions = ["toml"]
+support = "detect-only"
+
+[[languages]]
+id = "json"
+name = "JSON"
+extensions = ["json"]
+support = "detect-only"
+
+[[languages]]
+id = "markdown"
+name = "Markdown"
+aliases = ["md"]
+extensions = ["md", "markdown"]
+support = "detect-only"
+
+[[frameworks]]
+id = "react"
+name = "React"
+
+[[frameworks]]
+id = "react-native"
+name = "React Native"
+
+[[frameworks]]
+id = "nextjs"
+name = "Next.js"
+
+[[frameworks]]
+id = "expo"
+name = "Expo"
+
+[[frameworks]]
+id = "nodejs"
+name = "Node.js"
+
+[[frameworks]]
+id = "vue"
+name = "Vue"
+
+[[frameworks]]
+id = "angular"
+name = "Angular"
+
+[[frameworks]]
+id = "svelte"
+name = "Svelte"
+
+[[frameworks]]
+id = "nestjs"
+name = "NestJS"
+
+[[frameworks]]
+id = "express"
+name = "Express"
+
+[[frameworks]]
+id = "dotnet"
+name = ".NET"
+
+[[frameworks]]
+id = "unity"
+name = "Unity"
+
+[[frameworks]]
+id = "django"
+name = "Django"
+
+[[frameworks]]
+id = "flask"
+name = "Flask"
+
+[[frameworks]]
+id = "fastapi"
+name = "FastAPI"
+
+[[frameworks]]
+id = "gin"
+name = "Gin"
+
+[[frameworks]]
+id = "echo"
+name = "Echo"
+
+[[frameworks]]
+id = "fiber"
+name = "Fiber"
+
+[[frameworks]]
+id = "spring"
+name = "Spring"
+
+[[frameworks]]
+id = "android"
+name = "Android"
+
+[[frameworks]]
+id = "flutter"
+name = "Flutter"
+
+[[runtimes]]
+id = "browser"
+name = "Browser"
+
+[[runtimes]]
+id = "node"
+name = "Node.js"
+
+[[runtimes]]
+id = "react-native"
+name = "React Native"
+
+[[runtimes]]
+id = "dotnet"
+name = ".NET"
+
+[[runtimes]]
+id = "unity"
+name = "Unity"
+
+[[runtimes]]
+id = "rust-cli"
+name = "Rust CLI"
+
+[[runtimes]]
+id = "rust-library"
+name = "Rust library"
+
+[[runtimes]]
+id = "python"
+name = "Python"
+
+[[runtimes]]
+id = "go"
+name = "Go"
+
+[[runtimes]]
+id = "jvm"
+name = "JVM"
+
+[[runtimes]]
+id = "android"
+name = "Android"
+
+[[runtimes]]
+id = "ios"
+name = "iOS"
+
+[[runtimes]]
+id = "shell"
+name = "Shell"
+
+[[runtimes]]
+id = "native"
+name = "Native"
+
+[[paradigms]]
+id = "functional"
+name = "Functional"
+
+[[paradigms]]
+id = "object-oriented"
+name = "Object-oriented"
+
+[[paradigms]]
+id = "procedural"
+name = "Procedural"
+
+[[paradigms]]
+id = "declarative-ui"
+name = "Declarative UI"
+
+[[paradigms]]
+id = "reactive"
+name = "Reactive"
+
+[[paradigms]]
+id = "data-oriented"
+name = "Data-oriented"
+
+[[paradigms]]
+id = "mixed"
+name = "Mixed"
+
+[[rules]]
+rule_id = "language.rust.panic-risk"
+minimum_support = "rule-aware"
+languages = ["rust"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+signal = "rust.unwrap"
+role = "test"
+action = "suppress"
+reason = "Rust unwrap in tests is usually assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.expect"
+role = "test"
+action = "suppress"
+reason = "Rust expect in tests is usually assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.panic"
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+signal = "rust.todo"
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+signal = "rust.unimplemented"
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+signal = "rust.unwrap"
+runtime = "rust-cli"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+signal = "rust.expect"
+runtime = "rust-cli"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+signal = "rust.panic"
+runtime = "rust-cli"
+action = "apply"
+severity = "MEDIUM"
+
+[[rules.overrides]]
+signal = "rust.panic"
+role = "domain"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules.overrides]]
+signal = "rust.panic"
+runtime = "rust-library"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules.overrides]]
+signal = "rust.todo"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules.overrides]]
+signal = "rust.unimplemented"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules]]
+rule_id = "language.go.panic-exit-risk"
+minimum_support = "rule-aware"
+languages = ["go"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "suppress"
+
+[[rules.overrides]]
+role = "script"
+signal = "go.os-exit"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "app-entrypoint"
+signal = "go.os-exit"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "script"
+signal = "go.log-fatal"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "app-entrypoint"
+signal = "go.log-fatal"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "domain"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules]]
+rule_id = "language.python.exception-risk"
+minimum_support = "rule-aware"
+languages = ["python"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "script"
+signal = "python.assert"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "app-entrypoint"
+signal = "python.assert"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "domain"
+signal = "python.not-implemented"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules]]
+rule_id = "language.javascript.runtime-exit-risk"
+minimum_support = "context-aware"
+languages = ["typescript", "typescript-react", "javascript", "javascript-react"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "suppress"
+
+[[rules.overrides]]
+runtime = "node"
+role = "script"
+signal = "js.process-exit"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+runtime = "node"
+role = "app-entrypoint"
+signal = "js.process-exit"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "domain"
+signal = "js.throw-error"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules]]
+rule_id = "language.managed.fatal-exception-risk"
+minimum_support = "rule-aware"
+languages = ["java", "kotlin", "csharp"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "domain"
+action = "upgrade"
+severity = "HIGH"
+
+[[rules]]
+rule_id = "code-quality.long-function"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "csharp"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "react-component"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "react-hook"
+action = "downgrade"
+severity = "LOW"
+
+[[rules]]
+rule_id = "architecture.large-file"
+minimum_support = "import-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "c-header", "php", "ruby", "dart", "scala", "shell", "powershell", "sql", "html", "css", "scss"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "suppress"
+
+[[rules]]
+rule_id = "architecture.deep-nesting"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.too-many-modules"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.deep-relative-imports"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.barrel-file-risk"
+minimum_support = "rule-aware"
+languages = ["typescript", "typescript-react", "javascript", "javascript-react"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.circular-dependency"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.excessive-fan-out"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "architecture.high-instability-hub"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "code-marker.todo"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules]]
+rule_id = "code-marker.fixme"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules]]
+rule_id = "code-marker.hack"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
+
+[[rules]]
+rule_id = "security.env-file-committed"
+
+[[rules]]
+rule_id = "security.private-key-candidate"
+suppress_low_signal = true
+
+[[rules]]
+rule_id = "security.secret-candidate"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "testing.missing-test-folder"
+minimum_support = "context-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "php", "ruby", "dart", "scala"]
+
+[[rules]]
+rule_id = "testing.source-without-test"
+minimum_support = "context-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "php", "ruby", "dart", "scala"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.inline-style"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.deprecated-api"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.flatlist-missing-key"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.async-storage-from-core"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.old-react-navigation"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.direct-state-mutation"
+frameworks = ["react-native", "expo"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react-native.old-architecture"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.react-native.architecture-mismatch"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.react-native.hermes-mismatch"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.react-native.hermes-disabled"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.react-native.codegen-missing"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.js.var-declaration"
+minimum_support = "context-aware"
+languages = ["typescript", "typescript-react", "javascript", "javascript-react"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "suppress"
+
+[[rules]]
+rule_id = "framework.js.console-log"
+minimum_support = "context-aware"
+languages = ["typescript", "typescript-react", "javascript", "javascript-react"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "suppress"
+
+[[rules.overrides]]
+runtime = "node"
+action = "downgrade"
+severity = "LOW"
+
+[[rules]]
+rule_id = "framework.react.class-component"
+frameworks = ["react", "nextjs"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.react.prop-types"
+frameworks = ["react", "nextjs"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "framework.rn-async-storage-legacy"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.rn-navigation-compat"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.rn-reanimated-compat"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.rn-gesture-handler-old"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "framework.rn-new-arch-incompatible-dep"
+frameworks = ["react-native", "expo"]
+
+[[rules]]
+rule_id = "code-quality.complex-file"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "c", "cpp", "csharp"]
+suppress_low_signal = true
+suppress_config = true
+suppress_generated = true
+
+[[rules.overrides]]
+role = "test"
+action = "downgrade"
+severity = "LOW"
