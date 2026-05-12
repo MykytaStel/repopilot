@@ -1,6 +1,7 @@
 pub mod baseline;
 pub mod compare;
 pub mod doctor;
+pub mod explain;
 pub mod harden;
 pub mod init;
 mod llm;
@@ -115,6 +116,15 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             budget,
             output,
         } => prompt::run(path, config, focus, budget, output),
+
+        Commands::Explain {
+            path,
+            rule,
+            signal,
+            severity,
+            format,
+            output,
+        } => explain::run(path, rule, signal, severity, format, output),
 
         Commands::Vibe {
             path,

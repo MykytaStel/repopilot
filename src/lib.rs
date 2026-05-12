@@ -18,6 +18,7 @@ pub mod baseline;
 pub mod compare;
 pub mod config;
 pub mod doctor;
+pub mod explain;
 pub mod findings;
 pub mod frameworks;
 pub mod graph;

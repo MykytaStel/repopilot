@@ -288,6 +288,44 @@ repopilot prompt . --output prompt.md"
         output: Option<PathBuf>,
     },
 
+    /// Explain RepoPilot context classification and knowledge rule decisions (alias: e)
+    #[command(
+        alias = "e",
+        about = "Explain file context classification and rule decisions",
+        long_about = "Explains how RepoPilot classifies a single file before applying audits.\n\n\
+The output shows detected language, language support level, frameworks, file roles,\n\
+programming paradigms, runtimes, test/production context, and optionally the\n\
+Knowledge Engine decision for a specific rule.\n\n\
+Use this when improving rules, debugging false positives, or learning why a pattern\n\
+is acceptable in one paradigm/runtime but risky in another.",
+        after_help = "EXAMPLES:\n  \
+repopilot explain src/main.rs\n  \
+repopilot explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap\n  \
+repopilot explain src/domain/user.rs --rule language.rust.panic-risk --signal rust.panic --format json\n  \
+repopilot explain src/App.tsx --format markdown --output explain.md"
+    )]
+    Explain {
+        path: PathBuf,
+
+        /// Rule ID to evaluate against the file context
+        #[arg(long)]
+        rule: Option<String>,
+
+        /// Optional rule signal, for example rust.unwrap or rust.panic
+        #[arg(long)]
+        signal: Option<String>,
+
+        /// Base severity used before Knowledge Engine overrides
+        #[arg(long, value_enum, default_value = "medium")]
+        severity: SeverityArg,
+
+        #[arg(long, value_enum, default_value = "console")]
+        format: CompareOutputFormatArg,
+
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
     /// Generate a default repopilot.toml configuration file
     #[command(
         about = "Generate a default repopilot.toml configuration file",
