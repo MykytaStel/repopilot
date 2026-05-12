@@ -1,8 +1,8 @@
 mod args;
 
 pub use args::{
-    CompareOutputFormatArg, FailOnArg, OutputFormatArg, SeverityArg, parse_byte_size,
-    parse_vibe_budget,
+    CompareOutputFormatArg, FailOnArg, KnowledgeSectionArg, OutputFormatArg, SeverityArg,
+    parse_byte_size, parse_vibe_budget,
 };
 
 use clap::{Parser, Subcommand};
@@ -325,7 +325,31 @@ repopilot explain src/App.tsx --format markdown --output explain.md"
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Inspect bundled language, framework, runtime, paradigm, and rule knowledge (alias: k)
+    #[command(
+        alias = "k",
+        about = "Inspect RepoPilot bundled knowledge",
+        long_about = "Prints the bundled RepoPilot Knowledge Engine catalog.\n\n\
+The catalog shows known languages, support levels, frameworks, runtimes, paradigms, \
+and rule applicability records. Use this to discover rule IDs for `repopilot explain --rule`, \
+understand what RepoPilot can classify, and debug knowledge coverage gaps.",
+        after_help = "EXAMPLES:\n  \
+repopilot knowledge\n  \
+repopilot knowledge --section languages\n  \
+repopilot knowledge --section rules\n  \
+repopilot knowledge --format json\n  \
+repopilot knowledge --format markdown --output knowledge.md"
+    )]
+    Knowledge {
+        #[arg(long, value_enum, default_value = "all")]
+        section: KnowledgeSectionArg,
 
+        #[arg(long, value_enum, default_value = "console")]
+        format: CompareOutputFormatArg,
+
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
     /// Generate a default repopilot.toml configuration file
     #[command(
         about = "Generate a default repopilot.toml configuration file",

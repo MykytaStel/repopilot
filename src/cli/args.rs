@@ -29,6 +29,16 @@ pub enum SeverityArg {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum KnowledgeSectionArg {
+    All,
+    Languages,
+    Frameworks,
+    Runtimes,
+    Paradigms,
+    Rules,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum FailOnArg {
     NewLow,
     NewMedium,

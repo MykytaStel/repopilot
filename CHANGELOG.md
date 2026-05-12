@@ -11,6 +11,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a bundled RepoPilot Knowledge Engine foundation for language, framework, runtime, paradigm, and rule applicability decisions.
 - Added a tiered language corpus covering rule-aware, context-aware, import-aware, and detect-only support levels across common and emerging languages.
 - Added `repopilot explain` for inspecting file context classification and optional Knowledge Engine rule decisions.
+- Added `repopilot knowledge` to inspect the bundled Knowledge Engine catalog.
+- Added section filtering for languages, frameworks, runtimes, paradigms, and rule applicability records.
+- Added JSON and Markdown output support for the knowledge catalog.
 
 ### Changed
 
