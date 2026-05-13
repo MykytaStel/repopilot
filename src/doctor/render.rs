@@ -30,6 +30,10 @@ fn render_console(report: &DoctorReport) -> String {
         format_list(&report.project.frameworks)
     ));
     output.push_str(&format!(
+        " Package managers: {}\n",
+        format_list(&report.project.package_managers)
+    ));
+    output.push_str(&format!(
         " React Native: {}\n\n",
         if report.project.react_native_detected {
             "detected"
@@ -78,6 +82,12 @@ fn render_console(report: &DoctorReport) -> String {
         output.push_str(&format!(" - {recommendation}\n"));
     }
 
+    output.push_str("\nSuggested next steps:\n");
+    for (index, step) in report.next_steps.iter().enumerate() {
+        output.push_str(&format!(" {}. {}\n", index + 1, step.command));
+        output.push_str(&format!("    {}\n", step.reason));
+    }
+
     output.push_str("\nRecommended next command:\n");
     output.push_str(&format!(" {}\n", report.next_command));
 
@@ -96,6 +106,10 @@ fn render_markdown(report: &DoctorReport) -> String {
     output.push_str(&format!(
         "- **Frameworks:** {}\n",
         markdown_list(&report.project.frameworks)
+    ));
+    output.push_str(&format!(
+        "- **Package managers:** {}\n",
+        markdown_list(&report.project.package_managers)
     ));
     output.push_str(&format!(
         "- **React Native:** {}\n\n",
@@ -150,6 +164,12 @@ fn render_markdown(report: &DoctorReport) -> String {
     output.push_str("\n## Recommendations\n\n");
     for recommendation in &report.recommendations {
         output.push_str(&format!("- {recommendation}\n"));
+    }
+
+    output.push_str("\n## Suggested next steps\n\n");
+    for (index, step) in report.next_steps.iter().enumerate() {
+        output.push_str(&format!("{}. `{}`\n", index + 1, step.command));
+        output.push_str(&format!("   - {}\n", step.reason));
     }
 
     output.push_str("\n## Recommended next command\n\n");

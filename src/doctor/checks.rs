@@ -1,5 +1,5 @@
 use crate::doctor::model::{
-    DoctorCheck, DoctorProject, DoctorReport, DoctorScanScope, DoctorStatus,
+    DoctorCheck, DoctorNextStep, DoctorProject, DoctorReport, DoctorScanScope, DoctorStatus,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::scanner::scan_path_with_config;
@@ -30,6 +30,8 @@ pub fn build_doctor_report(
     let has_repopilotignore = summary.repopilotignore_path.is_some();
     let has_baseline = baseline_path.is_file();
     let has_github_workflows = has_github_workflows(&github_workflows_dir);
+    let has_ci_config = has_ci_config(&root, &github_workflows_dir);
+    let package_managers = detect_package_managers(&root);
 
     let project = DoctorProject {
         languages: summary
@@ -40,8 +42,9 @@ pub fn build_doctor_report(
         frameworks: summary
             .detected_frameworks
             .iter()
-            .map(|framework| format!("{framework:?}"))
+            .map(|framework| framework.label())
             .collect(),
+        package_managers,
         react_native_detected: summary.react_native.is_some(),
     };
 
@@ -60,7 +63,7 @@ pub fn build_doctor_report(
         check_config(config_path.as_deref()),
         check_repopilotignore(has_repopilotignore, summary.files_skipped_repopilotignore),
         check_baseline(has_baseline),
-        check_github_workflows(has_github_workflows),
+        check_ci_config(has_ci_config, has_github_workflows),
         check_scan_scope(summary.files_count),
         check_scan_limit(summary.files_skipped_by_limit),
     ];
@@ -69,10 +72,22 @@ pub fn build_doctor_report(
         config_path.is_some(),
         has_repopilotignore,
         has_baseline,
-        has_github_workflows,
+        has_ci_config,
         summary.files_count,
         summary.files_skipped_by_limit,
     );
+
+    let next_steps = build_next_steps(
+        path,
+        config_path.is_some(),
+        has_baseline,
+        has_ci_config,
+        summary.files_count,
+    );
+    let next_command = next_steps
+        .first()
+        .map(|step| step.command.clone())
+        .unwrap_or_else(|| build_next_command(path, has_baseline));
 
     Ok(DoctorReport {
         root_path: root.display().to_string(),
@@ -80,7 +95,8 @@ pub fn build_doctor_report(
         scan,
         checks,
         recommendations,
-        next_command: build_next_command(path, has_baseline),
+        next_steps,
+        next_command,
     })
 }
 
@@ -156,22 +172,27 @@ fn check_baseline(has_baseline: bool) -> DoctorCheck {
     }
 }
 
-fn check_github_workflows(has_github_workflows: bool) -> DoctorCheck {
-    if has_github_workflows {
-        DoctorCheck {
-            id: "github_workflows".to_string(),
+fn check_ci_config(has_ci_config: bool, has_github_workflows: bool) -> DoctorCheck {
+    match (has_ci_config, has_github_workflows) {
+        (true, true) => DoctorCheck {
+            id: "ci".to_string(),
             status: DoctorStatus::Pass,
-            title: "GitHub workflows found".to_string(),
+            title: "CI workflow detected".to_string(),
             detail: "Repository has GitHub Actions workflow files.".to_string(),
-        }
-    } else {
-        DoctorCheck {
-            id: "github_workflows".to_string(),
+        },
+        (true, false) => DoctorCheck {
+            id: "ci".to_string(),
+            status: DoctorStatus::Pass,
+            title: "CI config detected".to_string(),
+            detail: "Repository has a CI configuration file outside GitHub Actions.".to_string(),
+        },
+        (false, _) => DoctorCheck {
+            id: "ci".to_string(),
             status: DoctorStatus::Warn,
-            title: "GitHub workflows missing".to_string(),
+            title: "CI config missing".to_string(),
             detail: "Add a RepoPilot workflow when you are ready to enforce scan/review checks."
                 .to_string(),
-        }
+        },
     }
 }
 
@@ -216,7 +237,7 @@ fn build_recommendations(
     has_config: bool,
     has_repopilotignore: bool,
     has_baseline: bool,
-    has_github_workflows: bool,
+    has_ci_config: bool,
     files_analyzed: usize,
     files_skipped_by_limit: usize,
 ) -> Vec<String> {
@@ -241,10 +262,9 @@ fn build_recommendations(
         );
     }
 
-    if !has_github_workflows {
-        recommendations.push(
-            "Add a GitHub Actions workflow for `repopilot scan` or `repopilot review`.".to_string(),
-        );
+    if !has_ci_config {
+        recommendations
+            .push("Add a CI workflow for `repopilot scan` or `repopilot review`.".to_string());
     }
 
     if files_analyzed == 0 {
@@ -281,6 +301,70 @@ fn build_next_command(path: &Path, has_baseline: bool) -> String {
     }
 }
 
+fn build_next_steps(
+    path: &Path,
+    has_config: bool,
+    has_baseline: bool,
+    has_ci_config: bool,
+    files_analyzed: usize,
+) -> Vec<DoctorNextStep> {
+    let path = command_path(path);
+    let mut steps = Vec::new();
+
+    if !has_config {
+        steps.push(DoctorNextStep {
+            command: "repopilot init".to_string(),
+            reason: "Create an explicit repopilot.toml before tuning thresholds or CI gates."
+                .to_string(),
+        });
+    }
+
+    if files_analyzed == 0 {
+        steps.push(DoctorNextStep {
+            command: format!("repopilot doctor {path} --include-low-signal"),
+            reason: "Re-run readiness diagnostics with low-signal paths included because the current scan scope is empty."
+                .to_string(),
+        });
+    }
+
+    steps.push(DoctorNextStep {
+        command: format!("repopilot scan {path} --format markdown --output repopilot-report.md"),
+        reason: "Generate a human-readable first audit report.".to_string(),
+    });
+
+    steps.push(DoctorNextStep {
+        command: format!("repopilot ai context {path} --budget 4k --output repopilot-context.md"),
+        reason: "Create AI-ready remediation context without uploading source code.".to_string(),
+    });
+
+    if has_baseline {
+        steps.push(DoctorNextStep {
+            command: format!(
+                "repopilot review {path} --base origin/main --baseline .repopilot/baseline.json --fail-on new-high"
+            ),
+            reason: "Review only changed-code findings against the accepted baseline.".to_string(),
+        });
+    } else {
+        steps.push(DoctorNextStep {
+            command: format!("repopilot baseline create {path}"),
+            reason:
+                "Accept existing findings as technical debt before enabling new-finding CI gates."
+                    .to_string(),
+        });
+    }
+
+    if !has_ci_config {
+        steps.push(DoctorNextStep {
+            command: format!(
+                "repopilot scan {path} --baseline .repopilot/baseline.json --fail-on new-high"
+            ),
+            reason: "Use this command in CI after committing a baseline.".to_string(),
+        });
+    }
+
+    steps
+}
+
 fn command_path(path: &Path) -> String {
     let value = path.display().to_string();
 
@@ -311,6 +395,67 @@ fn find_upward(start: &Path, name: &str) -> Option<PathBuf> {
     }
 }
 
+fn detect_package_managers(root: &Path) -> Vec<String> {
+    let mut managers = Vec::new();
+
+    if root.join("Cargo.toml").is_file() {
+        managers.push("Cargo".to_string());
+    }
+
+    if root.join("package.json").is_file() {
+        if root.join("pnpm-lock.yaml").is_file() {
+            managers.push("pnpm".to_string());
+        } else if root.join("yarn.lock").is_file() {
+            managers.push("Yarn".to_string());
+        } else if root.join("bun.lockb").is_file() || root.join("bun.lock").is_file() {
+            managers.push("Bun".to_string());
+        } else if root.join("package-lock.json").is_file() {
+            managers.push("npm".to_string());
+        } else {
+            managers.push("Node package.json".to_string());
+        }
+    }
+
+    if root.join("pyproject.toml").is_file() {
+        managers.push("Python pyproject".to_string());
+    } else if root.join("requirements.txt").is_file() {
+        managers.push("pip requirements".to_string());
+    }
+
+    if root.join("go.mod").is_file() {
+        managers.push("Go modules".to_string());
+    }
+
+    if root.join("Gemfile").is_file() {
+        managers.push("Bundler".to_string());
+    }
+
+    if root.join("composer.json").is_file() {
+        managers.push("Composer".to_string());
+    }
+
+    if root.join("pom.xml").is_file()
+        || root.join("build.gradle").is_file()
+        || root.join("build.gradle.kts").is_file()
+    {
+        managers.push("JVM build".to_string());
+    }
+
+    if root.join("Package.swift").is_file() {
+        managers.push("Swift Package Manager".to_string());
+    }
+
+    managers
+}
+
+fn has_ci_config(root: &Path, github_workflows_dir: &Path) -> bool {
+    has_github_workflows(github_workflows_dir)
+        || root.join(".gitlab-ci.yml").is_file()
+        || root.join("azure-pipelines.yml").is_file()
+        || root.join(".circleci").join("config.yml").is_file()
+        || root.join("Jenkinsfile").is_file()
+}
+
 fn has_github_workflows(workflows_dir: &Path) -> bool {
     let Ok(entries) = fs::read_dir(workflows_dir) else {
         return false;
@@ -325,4 +470,58 @@ fn has_github_workflows(workflows_dir: &Path) -> bool {
                 .and_then(|extension| extension.to_str())
                 .is_some_and(|extension| matches!(extension, "yml" | "yaml"))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn detects_pnpm_package_manager() {
+        let dir = tempdir().expect("tempdir should be created");
+        fs::write(dir.path().join("package.json"), "{}").expect("package.json should be written");
+        fs::write(dir.path().join("pnpm-lock.yaml"), "lockfileVersion: 9")
+            .expect("pnpm lockfile should be written");
+
+        let managers = detect_package_managers(dir.path());
+
+        assert_eq!(managers, vec!["pnpm"]);
+    }
+
+    #[test]
+    fn detects_github_actions_as_ci_config() {
+        let dir = tempdir().expect("tempdir should be created");
+        let workflows = dir.path().join(".github").join("workflows");
+        fs::create_dir_all(&workflows).expect("workflow dir should be created");
+        fs::write(workflows.join("ci.yml"), "name: CI").expect("workflow should be written");
+
+        assert!(has_ci_config(dir.path(), &workflows));
+    }
+
+    #[test]
+    fn next_steps_start_with_init_when_config_is_missing() {
+        let steps = build_next_steps(Path::new("."), false, false, false, 1);
+
+        assert_eq!(
+            steps.first().map(|step| step.command.as_str()),
+            Some("repopilot init")
+        );
+        assert!(
+            steps
+                .iter()
+                .any(|step| step.command == "repopilot baseline create .")
+        );
+    }
+
+    #[test]
+    fn next_steps_use_review_when_baseline_exists() {
+        let steps = build_next_steps(Path::new("."), true, true, true, 1);
+
+        assert!(steps.iter().any(|step| {
+            step.command
+                == "repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high"
+        }));
+    }
 }
