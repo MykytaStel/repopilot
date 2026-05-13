@@ -57,3 +57,87 @@ jobs:
 
       - name: Verify npm package
         run: npm pack --dry-run
+
+  security:
+    name: Security and maintenance checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust security tools
+        run: |
+          cargo install cargo-audit --locked
+          cargo install cargo-deny --locked
+
+      - name: Rust dependency security audit
+        run: cargo audit
+
+      - name: Cargo dependency policy
+        run: cargo deny check advisories licenses
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Shell script validation
+        shell: bash
+        run: |
+          scripts=()
+          if [[ -f install.sh ]]; then
+            scripts+=(install.sh)
+          fi
+          if [[ -d scripts ]]; then
+            while IFS= read -r -d '' script; do
+              scripts+=("$script")
+            done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print0)
+          fi
+
+          if ((${#scripts[@]} == 0)); then
+            echo "No shell scripts found."
+            exit 0
+          fi
+
+          shellcheck "${scripts[@]}"
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.x'
+
+      - name: Install actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: GitHub Actions validation
+        shell: bash
+        run: |
+          workflows=()
+          if [[ -d .github/workflows ]]; then
+            while IFS= read -r -d '' workflow; do
+              workflows+=("$workflow")
+            done < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
+          fi
+
+          if ((${#workflows[@]} == 0)); then
+            echo "No GitHub Actions workflows found."
+            exit 0
+          fi
+
+          actionlint "${workflows[@]}"
+
+      - name: Install Node.js
+        if: ${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: npm vulnerability audit
+        if: ${{ hashFiles('package-lock.json', 'npm-shrinkwrap.json') != '' }}
+        run: npm audit --audit-level=high
