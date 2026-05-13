@@ -107,6 +107,7 @@ fn health_score_decreases_with_severity() {
         Finding {
             id: String::new(),
             rule_id: "test".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("test"),
             title: String::new(),
             description: String::new(),
             category: FindingCategory::Security,
@@ -134,6 +135,7 @@ fn health_score_is_clamped_at_zero_for_catastrophic_repos() {
         .map(|_| Finding {
             id: String::new(),
             rule_id: "test".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("test"),
             title: String::new(),
             description: String::new(),
             category: FindingCategory::Security,

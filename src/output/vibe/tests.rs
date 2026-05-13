@@ -15,6 +15,7 @@ fn make_finding(
     Finding {
         id: rule_id.to_string(),
         rule_id: rule_id.to_string(),
+        recommendation: Finding::recommendation_for_rule_id(rule_id),
         title: title.to_string(),
         description: format!("Description for {title}"),
         category,

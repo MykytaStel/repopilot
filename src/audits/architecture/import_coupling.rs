@@ -58,6 +58,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
     Finding {
         id: String::new(),
         rule_id: "architecture.excessive-fan-out".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.excessive-fan-out"),
         title: "File imports too many project files".to_string(),
         description: format!(
             "This file imports {} project files, exceeding the configured fan-out threshold of {threshold}.",
@@ -93,6 +94,7 @@ fn high_instability_hub_finding(
     Finding {
         id: String::new(),
         rule_id: "architecture.high-instability-hub".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.high-instability-hub"),
         title: "Highly unstable import hub".to_string(),
         description: format!(
             "This file is imported by {} files while also importing {} files, making it a highly unstable hub.",
@@ -134,6 +136,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "architecture.circular-dependency".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.circular-dependency"),
         title: "Circular dependency detected".to_string(),
         description: format!(
             "A circular dependency was detected across {file_count} project files."

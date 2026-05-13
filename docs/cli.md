@@ -214,8 +214,8 @@ repopilot review . --min-severity high
 
 Scans the repository and formats findings as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another LLM assistant.
 
-The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, fix recommendations, and an approximate token count.
-`ai context` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, finding recommendations, and an approximate token count.
+`ai context` emits Markdown only and does not accept `--format`.
 
 The legacy `repopilot vibe` command still works in 0.x for compatibility, but `repopilot ai context` is the stable command shape.
 
@@ -254,9 +254,9 @@ repopilot ai context . --no-header | pbcopy
 
 ## `ai plan`
 
-Scans the repository and formats findings as a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, fix recommendations, and verification commands.
+Scans the repository and formats findings as a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, finding recommendations, and verification commands.
 
-`ai plan` emits Markdown only; it does not accept `--format` and does not change JSON or SARIF schemas.
+`ai plan` emits Markdown only and does not accept `--format`.
 
 The legacy `repopilot harden` command still works in 0.x for compatibility, but `repopilot ai plan` is the stable command shape.
 
@@ -289,7 +289,7 @@ repopilot ai plan . --output harden.md
 
 Scans the repository and emits a Markdown prompt for a coding assistant, including remediation instructions and embedded RepoPilot context.
 
-`ai prompt` emits Markdown only; it does not call an AI service, accept `--format`, or change JSON/SARIF schemas.
+`ai prompt` emits Markdown only; it does not call an AI service or accept `--format`.
 
 The legacy `repopilot prompt` command still works in 0.x for compatibility, but `repopilot ai prompt` is the stable command shape.
 

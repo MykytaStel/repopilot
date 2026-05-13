@@ -124,9 +124,7 @@ pub(super) fn render_finding_entry(out: &mut String, finding: &Finding, index: u
         }
     }
 
-    if let Some(rec) = finding_recommendation(finding) {
-        let _ = writeln!(out, "> **Fix:** {rec}");
-    }
+    let _ = writeln!(out, "> **Fix:** {}", finding_recommendation(finding));
 
     if let Some(url) = &finding.docs_url {
         let _ = writeln!(out, "> **Docs:** {url}");

@@ -83,6 +83,7 @@ fn make_finding(rule_id: &str) -> Finding {
     Finding {
         id: String::new(),
         rule_id: rule_id.to_owned(),
+        recommendation: Finding::recommendation_for_rule_id(rule_id),
         title: "Test finding".to_owned(),
         description: "A test description.".to_owned(),
         category: FindingCategory::Framework,

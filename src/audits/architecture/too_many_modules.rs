@@ -33,6 +33,7 @@ fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "architecture.too-many-modules".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.too-many-modules"),
         title: "Directory contains too many modules".to_string(),
         description: format!(
             "This directory has {file_count} files, exceeding the threshold of {threshold}. Consider splitting into sub-modules to reduce coupling."

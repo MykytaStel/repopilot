@@ -119,9 +119,7 @@ fn render_cluster_plan(out: &mut String, cluster: &RuleCluster<'_>, index: usize
         let _ = writeln!(out, "- Why: {}", first.description);
     }
 
-    if let Some(fix) = finding_recommendation(first) {
-        let _ = writeln!(out, "- Fix: {fix}");
-    }
+    let _ = writeln!(out, "- Fix: {}", finding_recommendation(first));
 }
 
 fn render_verification(out: &mut String) {

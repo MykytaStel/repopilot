@@ -304,6 +304,10 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
             first_sentence(&finding.description, 180)
         ));
     }
+    output.push_str(&format!(
+        "  - Recommendation: {}\n",
+        first_sentence(finding.recommendation_or_default(), 220)
+    ));
     if let Some(url) = &finding.docs_url {
         output.push_str(&format!("  - Docs: {url}\n"));
     }

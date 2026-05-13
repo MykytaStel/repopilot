@@ -1,5 +1,4 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
-use crate::rules::lookup_rule_metadata;
 use std::collections::BTreeMap;
 
 pub(crate) struct RuleCluster<'a> {
@@ -49,14 +48,8 @@ pub(crate) fn category_rank(category: &FindingCategory) -> u8 {
     }
 }
 
-pub(crate) fn finding_recommendation(finding: &Finding) -> Option<&str> {
-    lookup_rule_metadata(&finding.rule_id)
-        .and_then(|meta| meta.recommendation)
-        .or(if finding.description.is_empty() {
-            None
-        } else {
-            Some(finding.description.as_str())
-        })
+pub(crate) fn finding_recommendation(finding: &Finding) -> &str {
+    finding.recommendation_or_default()
 }
 
 pub(crate) fn finding_location(finding: &Finding) -> Option<String> {
@@ -89,7 +82,7 @@ pub(crate) fn example_locations(findings: &[&Finding], limit: usize) -> Vec<Stri
 
 fn cluster_title(finding: &Finding, count: usize) -> &str {
     if count > 1 {
-        lookup_rule_metadata(&finding.rule_id)
+        crate::rules::lookup_rule_metadata(&finding.rule_id)
             .map(|metadata| metadata.title)
             .unwrap_or(finding.rule_id.as_str())
     } else {

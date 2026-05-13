@@ -36,6 +36,7 @@ fn build_finding(path: &std::path::Path) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "security.env-file-committed".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("security.env-file-committed"),
         title: "Environment file tracked in repository".to_string(),
         description: format!(
             "`{name}` is present in the scanned tree. Environment files often contain secrets and should be listed in `.gitignore`."

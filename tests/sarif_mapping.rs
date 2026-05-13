@@ -87,8 +87,13 @@ fn duplicate_rule_ids_produce_one_sorted_sarif_rule() {
     assert_eq!(rules[0].id, "code-marker.todo");
     assert_eq!(rules[0].name, "code-marker.todo");
     assert_eq!(
-        rules[0].short_description.text, "Finding description",
-        "rule shortDescription should come from the finding description"
+        rules[0].short_description.text, "Finding title",
+        "rule shortDescription should come from the finding title"
+    );
+    assert_eq!(
+        rules[0].full_description.as_ref().unwrap().text,
+        "Finding description",
+        "rule fullDescription should come from the finding description"
     );
     assert_eq!(rules[1].id, "security.secret-candidate");
 }
@@ -140,6 +145,7 @@ fn finding(rule_id: &str, severity: Severity, path: Option<&str>, line_start: us
     Finding {
         id: format!("{rule_id}:1"),
         rule_id: rule_id.to_string(),
+        recommendation: Finding::recommendation_for_rule_id(rule_id),
         title: "Finding title".to_string(),
         description: "Finding description".to_string(),
         category: FindingCategory::Architecture,

@@ -368,7 +368,8 @@ Every finding includes these top-level fields:
 | `id` | string | Stable finding ID derived from rule + path + line |
 | `rule_id` | string | Stable rule identifier (e.g. `security.private-key-candidate`) |
 | `title` | string | Short human-readable summary |
-| `description` | string | Full explanation with remediation steps |
+| `description` | string | Why the finding matters |
+| `recommendation` | string | Explicit remediation guidance describing what to do next. Older JSON reports without this field still deserialize, but new reports always include it. |
 | `category` | string | One of `ARCHITECTURE`, `CODE_QUALITY`, `TESTING`, `SECURITY`, `FRAMEWORK` |
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
 | `confidence` | string | One of `LOW`, `MEDIUM`, `HIGH`; omitted values in old JSON reports are read as `MEDIUM` |

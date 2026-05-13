@@ -35,6 +35,7 @@ impl ProjectAudit for ReactNavigationV4Audit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.react-native.old-react-navigation".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.old-react-navigation"),
                         title: "React Navigation v4 (unscoped package) detected".to_string(),
                         description: concat!(
                             "`react-navigation` (v4) is no longer maintained and incompatible with React Native 0.70+. ",
@@ -95,6 +96,7 @@ impl ProjectAudit for DirectStateMutationAudit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.react-native.direct-state-mutation".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.direct-state-mutation"),
                         title: "Direct mutation of this.state detected".to_string(),
                         description: concat!(
                             "Directly assigning to `this.state` bypasses React's change detection — ",

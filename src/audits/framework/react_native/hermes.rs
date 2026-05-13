@@ -52,6 +52,9 @@ impl ProjectAudit for ReactNativeCodegenMissingAudit {
         vec![Finding {
             id: String::new(),
             rule_id: "framework.react-native.codegen-missing".to_string(),
+            recommendation: Finding::recommendation_for_rule_id(
+                "framework.react-native.codegen-missing",
+            ),
             title: "React Native Codegen config is missing".to_string(),
             description: concat!(
                 "This project appears to use Turbo Native Modules or Fabric components, ",
@@ -101,6 +104,7 @@ fn hermes_finding(path: PathBuf, snippet: &str) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "framework.react-native.hermes-disabled".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.hermes-disabled"),
         title: "Hermes JavaScript engine is disabled".to_string(),
         description: concat!(
             "Hermes is explicitly disabled in this project. ",

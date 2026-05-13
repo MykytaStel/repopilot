@@ -115,6 +115,7 @@ fn build_finding(file: &FileFacts, stats: BarrelStats) -> Finding {
     Finding {
         id: String::new(),
         rule_id: RULE_ID.to_string(),
+        recommendation: Finding::recommendation_for_rule_id(RULE_ID),
         title: "Risky barrel file detected".to_string(),
         description: format!(
             "This index file re-exports {} modules, including {} wildcard exports. Large barrel files create unstable module hubs and can make dependency boundaries harder to understand.",

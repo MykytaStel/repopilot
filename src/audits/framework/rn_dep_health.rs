@@ -24,6 +24,7 @@ impl ProjectAudit for RnDepHealthAudit {
             findings.push(Finding {
                 id: String::new(),
                 rule_id: "framework.rn-async-storage-legacy".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.rn-async-storage-legacy"),
                 title: "Deprecated async-storage package in use".to_string(),
                 description: concat!(
                     "`@react-native-community/async-storage` is unmaintained. ",
@@ -54,6 +55,7 @@ impl ProjectAudit for RnDepHealthAudit {
                 findings.push(Finding {
                     id: String::new(),
                     rule_id: "framework.rn-navigation-compat".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.rn-navigation-compat"),
                     title: "React Navigation version is incompatible with this React Native version"
                         .to_string(),
                     description: format!(
@@ -89,6 +91,7 @@ impl ProjectAudit for RnDepHealthAudit {
                 findings.push(Finding {
                     id: String::new(),
                     rule_id: "framework.rn-reanimated-compat".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.rn-reanimated-compat"),
                     title:
                         "react-native-reanimated version is incompatible with this React Native version"
                             .to_string(),
@@ -125,6 +128,7 @@ impl ProjectAudit for RnDepHealthAudit {
                 findings.push(Finding {
                     id: String::new(),
                     rule_id: "framework.rn-gesture-handler-old".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.rn-gesture-handler-old"),
                     title: "react-native-gesture-handler v1 is incompatible with this React Native version"
                         .to_string(),
                     description: format!(
@@ -157,6 +161,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.rn-new-arch-incompatible-dep".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.rn-new-arch-incompatible-dep"),
                         title: format!("`{pkg}` does not support React Native New Architecture"),
                         description: format!(
                             "`{pkg}` has no New Architecture support. \

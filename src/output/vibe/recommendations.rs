@@ -22,7 +22,7 @@ pub(super) fn render_top_recommendations(out: &mut String, findings: &[&Finding]
         let recommendation = cluster
             .findings
             .first()
-            .and_then(|finding| finding_recommendation(finding))
+            .map(|finding| finding_recommendation(finding))
             .unwrap_or_default();
         let examples = example_locations(&cluster.findings, 3);
         let examples = if examples.is_empty() {
@@ -50,13 +50,7 @@ fn recommendation_clusters<'a>(
 ) -> Vec<RuleCluster<'a>> {
     let mut clusters = clusters_by_rule(findings)
         .into_iter()
-        .filter(|cluster| {
-            cluster.severity >= min_severity
-                && cluster
-                    .findings
-                    .first()
-                    .is_some_and(|finding| finding_recommendation(finding).is_some())
-        })
+        .filter(|cluster| cluster.severity >= min_severity && !cluster.findings.is_empty())
         .collect::<Vec<_>>();
 
     clusters.sort_by(|left, right| {

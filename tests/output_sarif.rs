@@ -8,6 +8,7 @@ fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
     Finding {
         id: String::new(),
         rule_id: rule_id.to_owned(),
+        recommendation: Finding::recommendation_for_rule_id(rule_id),
         title: "Test".to_owned(),
         description: "desc".to_owned(),
         category: FindingCategory::Security,
@@ -58,10 +59,11 @@ fn sarif_driver_includes_version() {
 }
 
 #[test]
-fn sarif_rule_uses_real_description_not_generic() {
+fn sarif_rule_uses_title_and_full_description() {
     let finding = Finding {
         id: String::new(),
         rule_id: "test.rule".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("test.rule"),
         title: "Test finding".to_string(),
         description: "A real description for this rule.".to_string(),
         category: FindingCategory::CodeQuality,
@@ -81,15 +83,21 @@ fn sarif_rule_uses_real_description_not_generic() {
     let sarif = findings_to_sarif(&[finding], &root);
     let serialized = serde_json::to_value(&sarif).unwrap();
 
-    let rule_desc =
+    let short_desc =
         &serialized["runs"][0]["tool"]["driver"]["rules"][0]["shortDescription"]["text"];
+    let full_desc = &serialized["runs"][0]["tool"]["driver"]["rules"][0]["fullDescription"]["text"];
     assert_eq!(
-        rule_desc.as_str().unwrap(),
+        short_desc.as_str().unwrap(),
+        "Test finding",
+        "rule shortDescription should use the finding title"
+    );
+    assert_eq!(
+        full_desc.as_str().unwrap(),
         "A real description for this rule.",
-        "rule shortDescription should use the actual finding description"
+        "rule fullDescription should use the actual finding description"
     );
     assert!(
-        !rule_desc.as_str().unwrap().starts_with("RepoPilot rule"),
+        !full_desc.as_str().unwrap().starts_with("RepoPilot rule"),
         "should not use the generic fallback description"
     );
 }
@@ -99,6 +107,7 @@ fn sarif_result_includes_partial_fingerprints() {
     let finding = Finding {
         id: String::new(),
         rule_id: "test.rule".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("test.rule"),
         title: "Test".to_string(),
         description: "desc".to_string(),
         category: FindingCategory::CodeQuality,
@@ -154,6 +163,21 @@ fn sarif_result_properties_include_confidence() {
         confidence.as_str(),
         Some("MEDIUM"),
         "result properties must include the finding confidence label"
+    );
+}
+
+#[test]
+fn sarif_result_properties_include_recommendation() {
+    let finding = make_finding_with_package("security.secret-candidate", None);
+    let expected = finding.recommendation.clone();
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let recommendation = &value["runs"][0]["results"][0]["properties"]["recommendation"];
+    assert_eq!(
+        recommendation.as_str(),
+        Some(expected.as_str()),
+        "result properties must include the finding recommendation"
     );
 }
 

@@ -180,12 +180,12 @@ fn build_finding(
     Finding {
         id: String::new(),
         rule_id: RULE_ID.to_string(),
+        recommendation: policy.recommendation.to_string(),
         title,
         description: format!(
-            "Function {name_display} spans {fn_len} lines, exceeding the context-aware {threshold}-line threshold for {context_label}. {recommendation}",
+            "Function {name_display} spans {fn_len} lines, exceeding the context-aware {threshold}-line threshold for {context_label}. Large functions are harder to review, test, and safely change.",
             threshold = policy.threshold,
             context_label = policy.context_label,
-            recommendation = policy.recommendation,
         ),
         category: FindingCategory::CodeQuality,
         severity: policy.severity,

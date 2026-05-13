@@ -34,6 +34,7 @@ fn build_finding(deepest_path: PathBuf, depth: usize, threshold: usize) -> Findi
     Finding {
         id: String::new(),
         rule_id: "architecture.deep-nesting".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.deep-nesting"),
         title: "Deeply nested directory structure detected".to_string(),
         description: format!(
             "The project contains files nested {depth} levels deep, exceeding the threshold of {threshold}. Deep nesting often indicates over-engineered module hierarchies."

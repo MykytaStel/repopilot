@@ -35,6 +35,7 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
             workspace_package: f.workspace_package.clone(),
             category: f.category.label().to_string(),
             confidence: f.confidence.label().to_string(),
+            recommendation: f.recommendation_or_default().to_string(),
         })
         .collect();
     findings_to_sarif_with_properties(findings, root, properties)
@@ -58,6 +59,7 @@ fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
             workspace_package: finding.workspace_package.clone(),
             category: finding.category.label().to_string(),
             confidence: finding.confidence.label().to_string(),
+            recommendation: finding.recommendation_or_default().to_string(),
         })
         .collect();
 
@@ -153,16 +155,18 @@ fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
                 .and_then(|m| m.docs_url)
                 .map(str::to_owned)
                 .or_else(|| finding.docs_url.clone());
-            let help = meta.and_then(|m| m.recommendation).map(|rec| SarifMessage {
-                text: rec.to_string(),
+            let help = Some(SarifMessage {
+                text: finding.recommendation_or_default().to_string(),
             });
             SarifRule {
                 id: rule_id.to_string(),
                 name: rule_id.to_string(),
                 short_description: SarifMessage {
-                    text: finding.description.clone(),
+                    text: finding.title.clone(),
                 },
-                full_description: None,
+                full_description: Some(SarifMessage {
+                    text: finding.description.clone(),
+                }),
                 help_uri,
                 help,
             }

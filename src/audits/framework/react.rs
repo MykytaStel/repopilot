@@ -35,6 +35,7 @@ impl ProjectAudit for ReactClassComponentAudit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.react.class-component".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react.class-component"),
                         title: "Class component found".to_string(),
                         description: concat!(
                             "This file uses a class-based React component (`extends React.Component` or `React.PureComponent`). ",
@@ -97,6 +98,7 @@ impl ProjectAudit for ReactPropTypesAudit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.react.prop-types".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react.prop-types"),
                         title: "PropTypes used in TypeScript project".to_string(),
                         description: concat!(
                             "This project already uses TypeScript, which provides static type checking at compile time. ",

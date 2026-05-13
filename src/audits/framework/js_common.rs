@@ -44,6 +44,7 @@ impl ProjectAudit for VarDeclarationAudit {
                     let finding = Finding {
                         id: String::new(),
                         rule_id: "framework.js.var-declaration".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.js.var-declaration"),
                         title: "var declaration found".to_string(),
                         description: concat!(
                             "`var` has function-level scope and is hoisted to the top of its function, ",
@@ -106,6 +107,7 @@ impl ProjectAudit for ConsoleLogAudit {
                     let finding = Finding {
                         id: String::new(),
                         rule_id: "framework.js.console-log".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.js.console-log"),
                         title: "console.log found in production source".to_string(),
                         description: concat!(
                             "`console.log` statements left in production code expose internal state and data to the device console, ",
