@@ -15,14 +15,46 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "==> Rust tests"
 cargo test --all
 
-echo "==> Installer syntax"
-bash -n install.sh
+echo "==> Rust dependency security audit"
+cargo audit
 
-if command -v shellcheck >/dev/null 2>&1; then
-  echo "==> Installer shellcheck"
-  shellcheck install.sh
+echo "==> Cargo dependency policy"
+cargo deny check advisories licenses
+
+echo "==> Shell script syntax"
+scripts=()
+if [[ -f install.sh ]]; then
+  scripts+=(install.sh)
+fi
+if [[ -d scripts ]]; then
+  while IFS= read -r -d '' script; do
+    scripts+=("$script")
+  done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print0)
+fi
+
+if ((${#scripts[@]} > 0)); then
+  for script in "${scripts[@]}"; do
+    bash -n "$script"
+  done
+
+  echo "==> ShellCheck"
+  shellcheck "${scripts[@]}"
 else
-  echo "==> shellcheck not installed; skipping installer lint"
+  echo "==> No shell scripts found"
+fi
+
+echo "==> GitHub Actions validation"
+workflows=()
+if [[ -d .github/workflows ]]; then
+  while IFS= read -r -d '' workflow; do
+    workflows+=("$workflow")
+  done < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
+fi
+
+if ((${#workflows[@]} > 0)); then
+  actionlint "${workflows[@]}"
+else
+  echo "==> No GitHub Actions workflows found"
 fi
 
 echo "==> CLI release smoke tests"

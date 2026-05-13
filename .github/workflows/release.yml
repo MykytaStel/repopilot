@@ -58,12 +58,12 @@ jobs:
           BINARY_NAME=repopilot
           ASSET_NAME="${BINARY_NAME}-${{ github.ref_name }}-${{ matrix.target }}"
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/${BINARY_NAME} dist/
+          cp "target/${{ matrix.target }}/release/${BINARY_NAME}" dist/
           cd dist
-          tar -czf "${ASSET_NAME}.tar.gz" ${BINARY_NAME}
+          tar -czf "${ASSET_NAME}.tar.gz" "${BINARY_NAME}"
           shasum -a 256 "${ASSET_NAME}.tar.gz" > "${ASSET_NAME}.tar.gz.sha256"
-          echo "ASSET=dist/${ASSET_NAME}.tar.gz" >> $GITHUB_ENV
-          echo "CHECKSUM=dist/${ASSET_NAME}.tar.gz.sha256" >> $GITHUB_ENV
+          echo "ASSET=dist/${ASSET_NAME}.tar.gz" >> "$GITHUB_ENV"
+          echo "CHECKSUM=dist/${ASSET_NAME}.tar.gz.sha256" >> "$GITHUB_ENV"
 
       - name: Package (Windows)
         if: matrix.archive == 'zip'
@@ -176,11 +176,17 @@ jobs:
         if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         run: |
           V="${{ github.ref_name }}"
-          echo "MACOS_ARM=$(awk '{print $1}' dist/repopilot-${V}-aarch64-apple-darwin.tar.gz.sha256)" >> $GITHUB_ENV
-          echo "MACOS_X86=$(awk '{print $1}' dist/repopilot-${V}-x86_64-apple-darwin.tar.gz.sha256)" >> $GITHUB_ENV
-          echo "LINUX_ARM=$(awk '{print $1}' dist/repopilot-${V}-aarch64-unknown-linux-gnu.tar.gz.sha256)" >> $GITHUB_ENV
-          echo "LINUX_X86=$(awk '{print $1}' dist/repopilot-${V}-x86_64-unknown-linux-gnu.tar.gz.sha256)" >> $GITHUB_ENV
-          echo "VER=${V#v}" >> $GITHUB_ENV
+          MACOS_ARM="$(awk '{print $1}' "dist/repopilot-${V}-aarch64-apple-darwin.tar.gz.sha256")"
+          MACOS_X86="$(awk '{print $1}' "dist/repopilot-${V}-x86_64-apple-darwin.tar.gz.sha256")"
+          LINUX_ARM="$(awk '{print $1}' "dist/repopilot-${V}-aarch64-unknown-linux-gnu.tar.gz.sha256")"
+          LINUX_X86="$(awk '{print $1}' "dist/repopilot-${V}-x86_64-unknown-linux-gnu.tar.gz.sha256")"
+          {
+            echo "MACOS_ARM=${MACOS_ARM}"
+            echo "MACOS_X86=${MACOS_X86}"
+            echo "LINUX_ARM=${LINUX_ARM}"
+            echo "LINUX_X86=${LINUX_X86}"
+            echo "VER=${V#v}"
+          } >> "$GITHUB_ENV"
 
       - name: Checkout homebrew tap
         if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}

@@ -20,15 +20,21 @@ Use the current date for the release entry in `CHANGELOG.md`.
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
+cargo audit
+cargo deny check advisories licenses
 cargo package --list
 cargo publish --dry-run
-bash -n install.sh
-if command -v shellcheck >/dev/null; then shellcheck install.sh; fi
+mapfile -d '' shell_scripts < <({ [[ -f install.sh ]] && printf '%s\0' install.sh; [[ -d scripts ]] && find scripts -maxdepth 1 -type f -name '*.sh' -print0; })
+((${#shell_scripts[@]} == 0)) || bash -n "${shell_scripts[@]}"
+((${#shell_scripts[@]} == 0)) || shellcheck "${shell_scripts[@]}"
+mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
+((${#workflows[@]} == 0)) || actionlint "${workflows[@]}"
 npm run test:npm
 npm pack --dry-run
 ```
 
 Review the package contents from `cargo package --list` before publishing.
+Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
 
 ## 3. Create release branch
 
