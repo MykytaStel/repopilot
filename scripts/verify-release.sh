@@ -15,6 +15,16 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "==> Rust tests"
 cargo test --all
 
+echo "==> Installer syntax"
+bash -n install.sh
+
+if command -v shellcheck >/dev/null 2>&1; then
+  echo "==> Installer shellcheck"
+  shellcheck install.sh
+else
+  echo "==> shellcheck not installed; skipping installer lint"
+fi
+
 echo "==> CLI release smoke tests"
 cargo test --test cli_release_smoke
 
