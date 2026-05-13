@@ -7,6 +7,7 @@ pub struct DoctorReport {
     pub scan: DoctorScanScope,
     pub checks: Vec<DoctorCheck>,
     pub recommendations: Vec<String>,
+    pub next_steps: Vec<DoctorNextStep>,
     pub next_command: String,
 }
 
@@ -14,6 +15,7 @@ pub struct DoctorReport {
 pub struct DoctorProject {
     pub languages: Vec<String>,
     pub frameworks: Vec<String>,
+    pub package_managers: Vec<String>,
     pub react_native_detected: bool,
 }
 
@@ -34,6 +36,12 @@ pub struct DoctorCheck {
     pub status: DoctorStatus,
     pub title: String,
     pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DoctorNextStep {
+    pub command: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
