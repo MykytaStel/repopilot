@@ -17,6 +17,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added stable AI command family: `repopilot ai context`, `repopilot ai plan`, and `repopilot ai prompt`.
 - Added advanced inspection command family: `repopilot inspect explain` and `repopilot inspect knowledge`.
 - Added CLI stabilization tests covering help surface, legacy AI/inspect compatibility, exit codes, and high-severity self-audit cleanliness.
+- Added `scripts/smoke-product.sh` for product-readiness smoke checks across first-run, scan, review, AI, inspect, and legacy compatibility flows.
+- Added `docs/product-readiness.md` to document release gates, CLI stability expectations, CI behavior, local-first guarantees, and distribution checks.
 
 ### Changed
 
@@ -25,6 +27,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Top-level `vibe`, `harden`, `prompt`, `explain`, and `knowledge` commands are hidden from primary help while remaining available as 0.x compatibility commands.
 - CLI runtime errors now exit with code 3, invalid user input uses code 2, and findings threshold failures use code 1.
 - GitHub Action inputs now prefer typed arguments for common scan, review, and AI workflow options while retaining `args` for advanced use.
+- Release verification now delegates end-to-end binary smoke checks to the product-readiness smoke suite.
 
 ## [0.8.0] - 2026-05-11
 

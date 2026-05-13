@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::ffi::OsStr;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 fn repopilot_bin() -> &'static str {
@@ -134,14 +134,15 @@ fn scan_writes_valid_json_report() {
 }
 
 #[test]
-fn vibe_writes_llm_ready_markdown() {
+fn stable_ai_context_writes_llm_ready_markdown() {
     let project = create_demo_project();
-    let output_path = project.path().join("vibe.md");
+    let output_path = project.path().join("ai-context.md");
 
     run_ok(
         project.path(),
         [
-            "vibe",
+            "ai",
+            "context",
             ".",
             "--focus",
             "security",
@@ -156,7 +157,7 @@ fn vibe_writes_llm_ready_markdown() {
 
     assert!(
         content.contains("RepoPilot") || content.contains("Vibe"),
-        "vibe output should identify RepoPilot/vibe context\n{}",
+        "ai context output should identify RepoPilot context\n{}",
         content
     );
 
@@ -165,20 +166,21 @@ fn vibe_writes_llm_ready_markdown() {
             || content.contains("Security")
             || content.contains("API_TOKEN")
             || content.contains("token"),
-        "vibe output should include security-focused context\n{}",
+        "ai context output should include security-focused context\n{}",
         content
     );
 }
 
 #[test]
-fn harden_writes_prioritized_remediation_plan() {
+fn stable_ai_plan_writes_prioritized_remediation_plan() {
     let project = create_demo_project();
-    let output_path = project.path().join("harden.md");
+    let output_path = project.path().join("ai-plan.md");
 
     run_ok(
         project.path(),
         [
-            "harden",
+            "ai",
+            "plan",
             ".",
             "--focus",
             "all",
@@ -196,19 +198,20 @@ fn harden_writes_prioritized_remediation_plan() {
             || content.contains("P1")
             || content.contains("Priority")
             || content.contains("Remediation"),
-        "harden output should look like a remediation plan\n{}",
+        "ai plan output should look like a remediation plan\n{}",
         content
     );
 }
 
 #[test]
-fn prompt_writes_ai_ready_prompt() {
+fn stable_ai_prompt_writes_ai_ready_prompt() {
     let project = create_demo_project();
-    let output_path: PathBuf = project.path().join("prompt.md");
+    let output_path = project.path().join("ai-prompt.md");
 
     run_ok(
         project.path(),
         [
+            "ai",
             "prompt",
             ".",
             "--focus",
@@ -230,4 +233,120 @@ fn prompt_writes_ai_ready_prompt() {
         "prompt output should include AI remediation context\n{}",
         content
     );
+}
+
+#[test]
+fn inspect_knowledge_writes_valid_json() {
+    let project = create_demo_project();
+    let output_path = project.path().join("knowledge.json");
+
+    run_ok(
+        project.path(),
+        [
+            "inspect",
+            "knowledge",
+            "--section",
+            "languages",
+            "--format",
+            "json",
+            "--output",
+            output_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+
+    let content = read_non_empty(&output_path);
+    let json: Value =
+        serde_json::from_str(&content).expect("knowledge output should be valid JSON");
+
+    assert!(
+        json["languages"].is_array(),
+        "knowledge JSON should include languages array\n{}",
+        content
+    );
+}
+
+#[test]
+fn inspect_explain_writes_valid_json() {
+    let project = create_demo_project();
+    let output_path = project.path().join("explain.json");
+
+    run_ok(
+        project.path(),
+        [
+            "inspect",
+            "explain",
+            "src/index.ts",
+            "--format",
+            "json",
+            "--output",
+            output_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+
+    let content = read_non_empty(&output_path);
+    let json: Value = serde_json::from_str(&content).expect("explain output should be valid JSON");
+
+    assert!(
+        json["source"].is_object(),
+        "explain JSON should include source object\n{}",
+        content
+    );
+    assert!(
+        json["context"].is_object(),
+        "explain JSON should include context object\n{}",
+        content
+    );
+}
+
+#[test]
+fn legacy_ai_commands_remain_available_for_compatibility() {
+    let project = create_demo_project();
+
+    let vibe_path = project.path().join("legacy-vibe.md");
+    run_ok(
+        project.path(),
+        [
+            "vibe",
+            ".",
+            "--focus",
+            "security",
+            "--budget",
+            "2k",
+            "--output",
+            vibe_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+    assert!(read_non_empty(&vibe_path).contains("RepoPilot"));
+
+    let harden_path = project.path().join("legacy-harden.md");
+    run_ok(
+        project.path(),
+        [
+            "harden",
+            ".",
+            "--focus",
+            "all",
+            "--budget",
+            "2k",
+            "--output",
+            harden_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+    assert!(read_non_empty(&harden_path).contains("RepoPilot"));
+
+    let prompt_path = project.path().join("legacy-prompt.md");
+    run_ok(
+        project.path(),
+        [
+            "prompt",
+            ".",
+            "--focus",
+            "quality",
+            "--budget",
+            "2k",
+            "--output",
+            prompt_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+    assert!(read_non_empty(&prompt_path).contains("RepoPilot"));
 }

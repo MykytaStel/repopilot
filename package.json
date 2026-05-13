@@ -17,7 +17,8 @@
 	"scripts": {
 		"postinstall": "node scripts/install.js",
 		"test:npm": "node --test tests/npm_wrapper.test.js",
-		"release:check": "bash scripts/verify-release.sh"
+		"release:check": "bash scripts/verify-release.sh",
+		"product:smoke": "bash scripts/smoke-product.sh"
 	},
 	"files": [
 		"bin",
