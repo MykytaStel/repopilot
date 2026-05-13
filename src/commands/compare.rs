@@ -70,3 +70,52 @@ impl Error for CompareInputError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::read_summary;
+    use repopilot::output::json;
+    use repopilot::scan::types::ScanSummary;
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
+
+    #[test]
+    fn read_summary_accepts_versioned_json_report() {
+        let summary = ScanSummary {
+            root_path: PathBuf::from("."),
+            files_count: 7,
+            lines_of_code: 42,
+            ..ScanSummary::default()
+        };
+        let rendered = json::render(&summary).expect("json render should succeed");
+        let dir = tempdir().expect("tempdir should be created");
+        let path = dir.path().join("report.json");
+        fs::write(&path, rendered).expect("report should be written");
+
+        let parsed = read_summary(&path).expect("versioned report should parse");
+
+        assert_eq!(parsed.files_count, 7);
+        assert_eq!(parsed.lines_of_code, 42);
+    }
+
+    #[test]
+    fn read_summary_still_accepts_legacy_scan_summary_json() {
+        let summary = ScanSummary {
+            root_path: PathBuf::from("."),
+            files_count: 3,
+            lines_of_code: 21,
+            ..ScanSummary::default()
+        };
+        let rendered =
+            serde_json::to_string_pretty(&summary).expect("legacy json render should succeed");
+        let dir = tempdir().expect("tempdir should be created");
+        let path = dir.path().join("legacy-report.json");
+        fs::write(&path, rendered).expect("report should be written");
+
+        let parsed = read_summary(&path).expect("legacy report should parse");
+
+        assert_eq!(parsed.files_count, 3);
+        assert_eq!(parsed.lines_of_code, 21);
+    }
+}
