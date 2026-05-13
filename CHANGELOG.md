@@ -28,6 +28,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - CLI runtime errors now exit with code 3, invalid user input uses code 2, and findings threshold failures use code 1.
 - GitHub Action inputs now prefer typed arguments for common scan, review, and AI workflow options while retaining `args` for advanced use.
 - Release verification now delegates end-to-end binary smoke checks to the product-readiness smoke suite.
+- The curl installer now fails closed when the release checksum file cannot be downloaded, no SHA256 tool is available, or checksum verification fails.
 
 ## [0.8.0] - 2026-05-11
 

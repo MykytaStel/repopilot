@@ -74,6 +74,7 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 - Runtime scans read files from disk and write reports to stdout or an explicit `--output` path.
 - Runtime commands do not call AI providers, telemetry endpoints, or RepoPilot servers.
 - AI workflow commands (`ai context`, `ai plan`, `ai prompt`) only format local scan findings as Markdown.
+- The curl installer downloads a GitHub Release artifact and its `.sha256` checksum, then fails closed if the checksum file cannot be downloaded, no SHA256 tool is available, or verification fails.
 - npm installation downloads a GitHub Release artifact and verifies its SHA256 checksum before placing the binary in `vendor/`.
 - `REPOPILOT_BINARY_PATH` can point the npm wrapper at a user-managed binary when download policy is restricted.
 
@@ -142,4 +143,6 @@ curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.s
 ```
 
 The script detects OS and architecture, downloads the correct pre-built binary from GitHub
-Releases, verifies the SHA256 checksum, and installs to `~/.local/bin`.
+Releases, verifies the SHA256 checksum, and installs to `~/.local/bin`. The checksum
+file and a local SHA256 tool (`sha256sum` or `shasum`) are required; installation
+aborts for safety if verification cannot be completed.

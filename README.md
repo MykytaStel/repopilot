@@ -77,8 +77,10 @@ brew install MykytaStel/repopilot/repopilot
 Install with curl (Linux/macOS):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | bash
 ```
+
+The curl installer verifies the GitHub Release SHA256 checksum and aborts if the checksum cannot be downloaded or verified.
 
 Upgrade:
 

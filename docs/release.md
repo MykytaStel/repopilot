@@ -22,6 +22,8 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 cargo package --list
 cargo publish --dry-run
+bash -n install.sh
+if command -v shellcheck >/dev/null; then shellcheck install.sh; fi
 npm run test:npm
 npm pack --dry-run
 ```
