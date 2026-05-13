@@ -1,6 +1,6 @@
 {
 	"name": "repopilot",
-	"version": "0.8.0",
+	"version": "0.9.0",
 	"description": "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.",
 	"license": "MIT OR Apache-2.0",
 	"repository": {
@@ -16,6 +16,7 @@
 	},
 	"scripts": {
 		"postinstall": "node scripts/install.js",
+		"test": "npm run test:npm",
 		"test:npm": "node --test tests/npm_wrapper.test.js",
 		"release:check": "bash scripts/verify-release.sh",
 		"product:smoke": "bash scripts/smoke-product.sh"

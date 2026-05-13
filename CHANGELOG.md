@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-13
+
 ### Added
 
 - Added audit registry metadata for file, project, and framework audits so registered audits declare their scope and emitted rule IDs.
@@ -20,6 +22,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added CLI stabilization tests covering help surface, legacy AI/inspect compatibility, exit codes, and high-severity self-audit cleanliness.
 - Added `scripts/smoke-product.sh` for product-readiness smoke checks across first-run, scan, review, AI, inspect, and legacy compatibility flows.
 - Added `docs/product-readiness.md` to document release gates, CLI stability expectations, CI behavior, local-first guarantees, and distribution checks.
+- Added product documentation for installation, security model, AI-assisted workflows, language support, and configuration.
 
 ### Changed
 
@@ -178,7 +181,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.7.0
 [0.6.0]: https://www.npmjs.com/package/repopilot/v/0.6.0

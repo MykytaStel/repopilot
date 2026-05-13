@@ -11,13 +11,14 @@ Update:
 - `package.json` version
 - `CHANGELOG.md`
 - `README.md` if user-facing behavior changed
+- release checklist for the target version, for example `docs/release-checklist-0.9.md`
 
 Use the current date for the release entry in `CHANGELOG.md`.
 
 ## 2. Verify locally
 
 ```bash
-cargo fmt --all -- --check
+cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 cargo audit
@@ -29,12 +30,13 @@ mapfile -d '' shell_scripts < <({ [[ -f install.sh ]] && printf '%s\0' install.s
 ((${#shell_scripts[@]} == 0)) || shellcheck "${shell_scripts[@]}"
 mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
 ((${#workflows[@]} == 0)) || actionlint "${workflows[@]}"
-npm run test:npm
+npm test
 npm pack --dry-run
 ```
 
 Review the package contents from `cargo package --list` before publishing.
 Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
+For a version-specific gate list, use the current release checklist in `docs/release-checklist-*.md`.
 
 ## 3. Create release branch
 

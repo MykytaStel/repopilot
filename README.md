@@ -7,9 +7,13 @@
 [![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/MykytaStel/repopilot?style=social)](https://github.com/MykytaStel/repopilot)
 
-Scan your repo. Paste the result into Claude Code or ChatGPT. Start fixing.
+Audit your repository locally, turn the results into AI-ready remediation context,
+and ship safer changes without sending source code to a hosted scanner.
 
-RepoPilot is a local-first CLI that audits architecture, security, code quality, and framework health — then formats everything as LLM-ready context you can drop directly into an AI assistant. No code leaves your machine.
+RepoPilot is a local-first CLI for architecture, security, code quality, testing,
+and framework health checks. It gives developers useful terminal reports, CI gates,
+SARIF for GitHub Code Scanning, and Markdown briefs that can be pasted into Claude
+Code, ChatGPT, Cursor, or another coding assistant.
 
 ## Why RepoPilot?
 
@@ -25,7 +29,7 @@ Most linters and audit tools stop at the terminal. RepoPilot bridges the gap to 
 | CI gate on new findings only | ✅ | partial | ✅ |
 
 ```bash
-repopilot ai context . | pbcopy   # macOS: paste into Claude Code and start fixing
+repopilot ai context . | pbcopy   # macOS: paste into your coding assistant
 ```
 
 ## Features
@@ -56,7 +60,7 @@ repopilot ai context . | pbcopy   # macOS: paste into Claude Code and start fixi
 
 See [docs/rulesets.md](docs/rulesets.md) for the full list of rules and severity levels.
 
-## Installation
+## Install
 
 ```bash
 cargo install repopilot
@@ -71,7 +75,8 @@ npm install -g repopilot
 Install with Homebrew:
 
 ```bash
-brew install MykytaStel/repopilot/repopilot
+brew tap mykytastel/repopilot
+brew install repopilot
 ```
 
 Install with curl (Linux/macOS):
@@ -87,6 +92,7 @@ Upgrade:
 ```bash
 cargo install repopilot --force
 npm update -g repopilot
+brew update && brew upgrade repopilot
 ```
 
 Build from source:
@@ -102,13 +108,14 @@ cargo build --release
 ```bash
 repopilot init
 repopilot scan .
+repopilot ai context .
+repopilot review . --base origin/main --fail-on new-high
 ```
 
-React Native quick scan:
+Save a shareable report:
 
 ```bash
 repopilot scan . --format markdown --output repopilot-report.md
-repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
 ```
 
 Reduce scan noise while iterating:
@@ -121,7 +128,10 @@ repopilot scan . --exclude fixtures --max-file-size 1mb --max-files 500
 
 By default, RepoPilot skips low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks. Use `--include-low-signal` when you want those paths analyzed too.
 
-## AI Context
+## Local-First AI Workflow
+
+RepoPilot does not call LLM APIs. AI commands scan local files and produce Markdown
+that you decide where to paste.
 
 `repopilot ai context` scans a project and formats all findings as structured markdown ready to paste into Claude Code, Cursor, ChatGPT, or any LLM assistant. It includes a risk level, tech stack summary, findings grouped by category with evidence snippets and fix recommendations, and a token-count estimate.
 
@@ -133,7 +143,7 @@ repopilot ai context .
 repopilot ai context . --focus security --budget 2k
 
 # Save to file
-repopilot ai context . --output vibe.md
+repopilot ai context . --output repopilot-context.md
 
 # Pipe directly into clipboard (macOS)
 repopilot ai context . --no-header | pbcopy
@@ -170,9 +180,11 @@ $ repopilot ai context .
 *~3.8k tokens (budget: 4k) · scanned in 312ms — paste into Claude Code, Cursor, or ChatGPT*
 ```
 
-Paste this into Claude Code and ask: *"Fix all findings."*
+Paste this into a coding assistant and ask for a focused patch. For larger
+repositories, start with one focus area instead of asking for every finding at
+once.
 
-## AI-Assisted Workflow
+## Recommended Remediation Loop
 
 RepoPilot is a local-first safety layer for AI-assisted and vibe-coded changes. Run it after generating or refactoring code to catch newly introduced high-risk findings, workspace hotspots, missing tests, and architecture drift without uploading source code to an external service.
 
@@ -415,12 +427,18 @@ These are planned ideas, not current features:
 
 | Document | Description |
 |---|---|
+| [docs/install.md](docs/install.md) | Installation options for Cargo, npm, Homebrew, curl, and source builds |
+| [docs/ai-workflows.md](docs/ai-workflows.md) | Claude Code, ChatGPT, Cursor, and AI remediation workflows |
+| [docs/security.md](docs/security.md) | Local-first trust model, installer security, and vulnerability reporting |
+| [docs/configuration.md](docs/configuration.md) | `repopilot.toml`, presets, ignore files, and baseline adoption |
+| [docs/language-support.md](docs/language-support.md) | Supported language/framework tiers, rule families, and limitations |
 | [docs/cli.md](docs/cli.md) | Complete CLI reference — all commands, flags, and exit codes |
 | [docs/commands.md](docs/commands.md) | Task-oriented command guide and common patterns |
 | [docs/rulesets.md](docs/rulesets.md) | Implemented audit rules, categories, and severity levels |
 | [docs/react-native.md](docs/react-native.md) | React Native and Expo detection, findings, and limitations |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
+| [docs/release-checklist-0.9.md](docs/release-checklist-0.9.md) | 0.9.0 release readiness checklist |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
 | [docs/github-ruleset.md](docs/github-ruleset.md) | GitHub branch ruleset configuration |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
