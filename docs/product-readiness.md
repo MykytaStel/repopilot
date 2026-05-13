@@ -1,0 +1,247 @@
+# Product Readiness
+
+RepoPilot is moving from an experimental CLI into a product that should be safe to install, easy to understand, stable in CI, and useful after the first five minutes.
+
+This document defines the release gates for product quality.
+
+RepoPilot's product promise:
+
+```text
+local-first repository audit
+→ evidence-based findings
+→ diff-aware review
+→ baseline adoption
+→ AI-ready remediation context
+→ stable CI integration
+```
+
+RepoPilot should not become a random collection of commands or rules. Every release should improve at least one of these product qualities:
+
+- lower false-positive noise;
+- faster scans;
+- clearer findings;
+- more stable CLI behavior;
+- better first-run onboarding;
+- safer CI and release behavior;
+- stronger local-first trust.
+
+---
+
+## Product readiness smoke suite
+
+Run the product smoke suite from the repository root:
+
+```bash
+./scripts/smoke-product.sh
+```
+
+Run it against an already built binary:
+
+```bash
+./scripts/smoke-product.sh --binary ./target/release/repopilot
+```
+
+Run it against a different repository:
+
+```bash
+./scripts/smoke-product.sh --repo /path/to/project
+```
+
+Keep generated smoke artifacts:
+
+```bash
+./scripts/smoke-product.sh --keep-tmp
+```
+
+Skip legacy compatibility checks:
+
+```bash
+./scripts/smoke-product.sh --skip-legacy
+```
+
+The script checks the main product workflows:
+
+```text
+version
+help
+init
+doctor
+scan JSON
+scan Markdown
+review Markdown
+ai context
+ai plan
+ai prompt
+inspect knowledge
+inspect explain
+legacy vibe
+legacy harden
+legacy prompt
+legacy knowledge
+legacy explain
+```
+
+`review` is skipped when the target path is not inside a Git repository.
+
+---
+
+## CLI stability gates
+
+Before a release, these commands must work:
+
+```bash
+repopilot --help
+repopilot --version
+repopilot init --path /tmp/repopilot.toml
+repopilot doctor .
+repopilot scan .
+repopilot scan . --format json --output /tmp/repopilot-scan.json
+repopilot scan . --format markdown --output /tmp/repopilot-scan.md
+repopilot review .
+repopilot ai context .
+repopilot ai plan .
+repopilot ai prompt .
+repopilot inspect knowledge
+repopilot inspect explain src/main.rs
+```
+
+Legacy 0.x commands must continue to work until a documented breaking release:
+
+```bash
+repopilot vibe .
+repopilot harden .
+repopilot prompt .
+repopilot knowledge
+repopilot explain src/main.rs
+```
+
+The primary help surface should prefer the stable command shape:
+
+```text
+repopilot scan
+repopilot review
+repopilot baseline
+repopilot compare
+repopilot doctor
+repopilot ai ...
+repopilot inspect ...
+```
+
+Legacy commands may stay hidden from primary help while still being executable.
+
+---
+
+## Exit code contract
+
+RepoPilot's exit codes are part of the product contract:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Findings exceeded the configured threshold |
+| `2` | Invalid CLI/config/user input |
+| `3` | Runtime or environment failure |
+
+CI users should be able to rely on these codes.
+
+Examples:
+
+```bash
+repopilot scan . --fail-on new-high
+```
+
+Expected behavior:
+
+- exit `0` when there is no threshold breach;
+- exit `1` when new high or critical findings are present;
+- exit `2` for invalid CLI input;
+- exit `3` for runtime/environment failures.
+
+---
+
+## Local-first trust gates
+
+RepoPilot runtime commands must stay local-first:
+
+- scans read files from disk;
+- reports write to stdout or explicit output paths;
+- no source code is uploaded;
+- no telemetry is sent;
+- AI commands do not call AI providers;
+- `ai context`, `ai plan`, and `ai prompt` only format local scan output as Markdown.
+
+The npm installer is allowed to download a matching GitHub Release binary during `postinstall`, but this must stay documented and controllable:
+
+```bash
+REPOPILOT_SKIP_DOWNLOAD=1 npm install -g repopilot
+REPOPILOT_BINARY_PATH=/path/to/repopilot npm install -g repopilot
+```
+
+The installer must verify the release checksum before using a downloaded binary.
+
+---
+
+## CI readiness gates
+
+Before release, verify:
+
+- `cargo fmt --all -- --check` passes;
+- `cargo clippy --all-targets --all-features -- -D warnings` passes;
+- `cargo test --all` passes;
+- `cargo package --list` looks correct;
+- `cargo publish --dry-run` passes;
+- `npm run test:npm` passes;
+- `npm pack --dry-run` looks correct;
+- `scripts/smoke-product.sh` passes against the release binary.
+
+The GitHub Action should support:
+
+```yaml
+with:
+  command: scan
+```
+
+```yaml
+with:
+  command: review
+```
+
+```yaml
+with:
+  command: ai-context
+```
+
+Legacy action command names may remain available for compatibility:
+
+```yaml
+with:
+  command: vibe
+```
+
+---
+
+## What should not block a release
+
+Do not block a release only because RepoPilot does not yet have more rules.
+
+Rules are useful only when they produce low-noise, evidence-backed findings.
+
+For a product-quality release, prefer:
+
+```text
+stable CLI
+fast scan
+clear docs
+predictable CI
+low false positives
+safe distribution
+```
+
+over:
+
+```text
+more commands
+more rules
+more output formats
+more internal abstractions
+```
