@@ -95,7 +95,7 @@ fn validate_unique<'a>(
 fn validate_refs(
     kind: &'static str,
     rule_id: &str,
-    values: &[String],
+    values: &HashSet<String>,
     known: &HashSet<String>,
 ) -> Result<(), KnowledgeValidationError> {
     for value in values {

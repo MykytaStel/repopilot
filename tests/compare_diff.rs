@@ -83,6 +83,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         files_skipped_by_limit: 0,
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,
+        scan_timings: None,
     }
 }
 

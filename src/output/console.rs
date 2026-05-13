@@ -5,15 +5,15 @@ use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
+use crate::output::render_helpers::workspace_package_counts;
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
-    findings_for_rule, first_location, rule_ids_for_findings, severity_index,
+    findings_for_rule, first_location, rule_ids_for_findings,
 };
 use crate::output::report_text::{
     category_title, console_severity_counts_text, first_sentence, named_counts_text, tristate_label,
 };
 use crate::scan::types::ScanSummary;
-use std::collections::BTreeMap;
 
 pub fn render(summary: &ScanSummary) -> String {
     let stats = build_report_stats(summary);
@@ -281,18 +281,7 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
 }
 
 fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
-    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
-    if !has_workspace {
-        return;
-    }
-
-    let mut table: BTreeMap<&str, [usize; 5]> = BTreeMap::new();
-    for f in findings {
-        if let Some(pkg) = f.workspace_package.as_deref() {
-            let counts = table.entry(pkg).or_insert([0; 5]);
-            counts[severity_index(f.severity)] += 1;
-        }
-    }
+    let table = workspace_package_counts(findings);
 
     if table.is_empty() {
         return;

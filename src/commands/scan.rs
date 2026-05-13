@@ -15,9 +15,10 @@ use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
+use repopilot::findings::types::Finding;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::time::Instant;
 
@@ -75,6 +76,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         apply_min_severity_filter(&mut summary, min);
     }
 
+    if !options.rule.is_empty() {
+        apply_rule_filter(&mut summary, &options.rule);
+    }
+
     if options.baseline.is_some() || options.fail_on.is_some() {
         let baseline_report = match options.baseline.clone() {
             Some(baseline_path) => {
@@ -106,6 +111,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
+        if options.timing {
+            print_timing_breakdown(&baseline_report.summary);
+        }
+
         if let Some(ci_gate) = ci_gate
             && let Some(message) = ci_gate.failure_message()
         {
@@ -133,6 +142,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             "\n[verbose] Scan: {total_ms}ms (engine: {:.0}ms) · Render: {render_ms}ms",
             internal_us as f64 / 1000.0
         );
+    }
+
+    if options.timing {
+        print_timing_breakdown(&summary);
     }
 
     Ok(())
@@ -171,6 +184,7 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
         }
     }
 
+    deduplicate_workspace_findings(&mut merged.findings);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
     Ok(merged)
 }
@@ -221,6 +235,24 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
     merged.findings.extend(package.findings);
 }
 
+fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
+    summary
+        .findings
+        .retain(|f| rules.iter().any(|r| r == &f.rule_id));
+}
+
+fn deduplicate_workspace_findings(findings: &mut Vec<Finding>) {
+    let mut seen: HashSet<(String, std::path::PathBuf, usize)> = HashSet::new();
+    findings.retain(|f| {
+        let key = f
+            .evidence
+            .first()
+            .map(|e| (f.rule_id.clone(), e.path.clone(), e.line_start))
+            .unwrap_or_else(|| (f.rule_id.clone(), std::path::PathBuf::new(), 0));
+        seen.insert(key)
+    });
+}
+
 fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<LanguageSummary>) {
     let mut counts: HashMap<String, usize> = target
         .drain(..)
@@ -243,6 +275,19 @@ fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<Langu
     });
 
     *target = merged;
+}
+
+fn print_timing_breakdown(summary: &ScanSummary) {
+    if let Some(timings) = &summary.scan_timings {
+        let total = timings.file_scan_us + timings.framework_detection_us + timings.post_scan_audits_us;
+        eprintln!(
+            "\n[timing] File scan: {}ms · Framework detection: {}ms · Post-scan audits: {}ms · Engine total: {}ms",
+            timings.file_scan_us / 1000,
+            timings.framework_detection_us / 1000,
+            timings.post_scan_audits_us / 1000,
+            total / 1000,
+        );
+    }
 }
 
 fn write_scan_receipt_if_requested(

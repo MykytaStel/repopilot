@@ -75,3 +75,108 @@ fn finding_matches(
         FailOn::Any(threshold) => finding.severity.is_at_least(&threshold),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
+    use crate::findings::types::{Evidence, Finding, Severity};
+    use crate::scan::types::ScanSummary;
+    use std::path::PathBuf;
+
+    fn make_finding(severity: Severity) -> Finding {
+        Finding {
+            id: "test-id".to_string(),
+            rule_id: "test.rule".to_string(),
+            title: "Test finding".to_string(),
+            severity,
+            evidence: vec![Evidence {
+                path: PathBuf::from("src/main.rs"),
+                line_start: 1,
+                line_end: None,
+                snippet: String::new(),
+            }],
+            ..Default::default()
+        }
+    }
+
+    fn make_report(findings: Vec<Finding>, statuses: Vec<BaselineStatus>) -> BaselineScanReport {
+        let finding_statuses = findings
+            .iter()
+            .zip(statuses)
+            .map(|(f, status)| FindingBaselineStatus {
+                key: f.rule_id.clone(),
+                status,
+            })
+            .collect();
+
+        BaselineScanReport {
+            summary: ScanSummary {
+                root_path: PathBuf::from("."),
+                findings,
+                ..Default::default()
+            },
+            baseline_path: Some(PathBuf::from(".repopilot/baseline.json")),
+            findings: finding_statuses,
+        }
+    }
+
+    #[test]
+    fn gate_passes_when_no_findings_exceed_threshold() {
+        let report = make_report(
+            vec![make_finding(Severity::Low)],
+            vec![BaselineStatus::New],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::New(Severity::High));
+
+        assert!(result.passed());
+    }
+
+    #[test]
+    fn gate_fails_on_new_high_finding() {
+        let report = make_report(
+            vec![make_finding(Severity::High)],
+            vec![BaselineStatus::New],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::New(Severity::High));
+
+        assert!(!result.passed());
+        assert_eq!(result.failed_findings, 1);
+    }
+
+    #[test]
+    fn gate_passes_when_high_finding_is_existing() {
+        let report = make_report(
+            vec![make_finding(Severity::High)],
+            vec![BaselineStatus::Existing],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::New(Severity::High));
+
+        assert!(result.passed());
+    }
+
+    #[test]
+    fn gate_any_mode_fails_on_existing_finding_above_threshold() {
+        let report = make_report(
+            vec![make_finding(Severity::Critical)],
+            vec![BaselineStatus::Existing],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::Any(Severity::High));
+
+        assert!(!result.passed());
+        assert_eq!(result.failed_findings, 1);
+    }
+
+    #[test]
+    fn gate_passes_with_no_findings() {
+        let report = make_report(vec![], vec![]);
+
+        let result = evaluate_ci_gate(&report, FailOn::New(Severity::Low));
+
+        assert!(result.passed());
+    }
+}

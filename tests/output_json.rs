@@ -30,6 +30,7 @@ fn renders_valid_json_scan_summary() {
         files_skipped_by_limit: 0,
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,
+        scan_timings: None,
     };
 
     let output =
