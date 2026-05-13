@@ -11,7 +11,7 @@ Update:
 - `package.json` version
 - `CHANGELOG.md`
 - `README.md` if user-facing behavior changed
-- release checklist for the target version, for example `docs/release-checklist-0.9.md`
+- release checklist for the target version, for example `docs/release-checklist-0.10.md`
 
 Use the current date for the release entry in `CHANGELOG.md`.
 
@@ -25,6 +25,7 @@ cargo audit
 cargo deny check advisories licenses
 cargo package --list
 cargo publish --dry-run
+./scripts/smoke-product.sh --binary ./target/release/repopilot --repo . --tmp-dir /tmp/repopilot-release-smoke
 mapfile -d '' shell_scripts < <({ [[ -f install.sh ]] && printf '%s\0' install.sh; [[ -d scripts ]] && find scripts -maxdepth 1 -type f -name '*.sh' -print0; })
 ((${#shell_scripts[@]} == 0)) || bash -n "${shell_scripts[@]}"
 ((${#shell_scripts[@]} == 0)) || shellcheck "${shell_scripts[@]}"
@@ -37,6 +38,7 @@ npm pack --dry-run
 Review the package contents from `cargo package --list` before publishing.
 Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
 For a version-specific gate list, use the current release checklist in `docs/release-checklist-*.md`.
+The product smoke suite validates the adoption flow, including receipt generation.
 
 ## 3. Create release branch
 

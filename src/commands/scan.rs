@@ -17,7 +17,7 @@ use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::path::Path;
 use std::time::Instant;
 
@@ -101,8 +101,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             let total_ms = scan_elapsed.as_millis();
             let render_ms = render_elapsed.as_millis();
             eprintln!(
-                "\n[verbose] Scan: {total_ms}ms (engine: {:.0}ms) · Render: {render_ms}ms",
-                internal_us as f64 / 1000.0
+                "\n[verbose] Scan: {total_ms}ms (engine: {}ms) · Render: {render_ms}ms",
+                internal_us / 1000
             );
         }
 
@@ -149,10 +149,11 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
         return scan_path_with_config(path, scan_config);
     }
 
+    let wall_start = Instant::now();
+
     let root_scan_config = workspace_root_config(scan_config, path, &packages);
     let mut merged = scan_path_with_config(path, &root_scan_config)?;
 
-    // Scan packages in parallel; collect (name, result) pairs then merge sequentially.
     let pkg_results: Vec<(String, Result<_, _>)> = packages
         .par_iter()
         .map(|pkg| {
@@ -170,6 +171,7 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
         }
     }
 
+    merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
     Ok(merged)
 }
 
@@ -215,15 +217,12 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
         merged.repopilotignore_path = package.repopilotignore_path.clone();
     }
     merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
-    merged.scan_duration_us = merged
-        .scan_duration_us
-        .saturating_add(package.scan_duration_us);
     merge_language_summaries(&mut merged.languages, package.languages);
     merged.findings.extend(package.findings);
 }
 
 fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<LanguageSummary>) {
-    let mut counts: BTreeMap<String, usize> = target
+    let mut counts: HashMap<String, usize> = target
         .drain(..)
         .map(|language| (language.name, language.files_count))
         .collect();

@@ -69,6 +69,58 @@ For RepoPilot's own repository or another Rust project where installing from cra
 
 Keep the SARIF file name consistent between the scan step and the upload step. The examples above write and upload `repopilot.sarif`.
 
+## First-party action with receipt artifact
+
+The first-party action can generate SARIF and a compact audit receipt from the
+same scan. `receipt` is only valid with `command: scan`.
+
+```yaml
+name: RepoPilot
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  repopilot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run RepoPilot
+        id: repopilot
+        uses: MykytaStel/repopilot@v0.10.0
+        with:
+          command: scan
+          baseline: .repopilot/baseline.json
+          fail-on: new-high
+          receipt: repopilot-receipt.json
+
+      - name: Upload audit receipt
+        uses: actions/upload-artifact@v4
+        if: always() && steps.repopilot.outputs.receipt-file != ''
+        with:
+          name: repopilot-receipt
+          path: ${{ steps.repopilot.outputs.receipt-file }}
+```
+
+For review-only gates, use `command: review` without `receipt`:
+
+```yaml
+      - name: RepoPilot review gate
+        uses: MykytaStel/repopilot@v0.10.0
+        with:
+          command: review
+          base: origin/main
+          baseline: .repopilot/baseline.json
+          fail-on: new-high
+          upload-sarif: "false"
+```
+
 ## Choosing an output format
 
 Use JSON when a script or service will parse RepoPilot results directly.

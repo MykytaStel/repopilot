@@ -55,12 +55,16 @@ inputs:
     description: "Optional output path for commands that write reports."
     required: false
     default: ""
+  receipt:
+    description: "Optional audit receipt JSON path for scan."
+    required: false
+    default: ""
   args:
     description: "Advanced extra CLI arguments appended after typed inputs. Prefer typed inputs for CI workflows."
     required: false
     default: ""
   version:
-    description: "npm version tag to install (e.g. latest, 0.9.0)"
+    description: "npm version tag to install (e.g. latest, 0.10.0)"
     required: false
     default: "latest"
   upload-sarif:
@@ -72,6 +76,9 @@ outputs:
   sarif-file:
     description: "Path to the generated SARIF file (only set when format is sarif)"
     value: ${{ steps.run.outputs.sarif_file }}
+  receipt-file:
+    description: "Path to the generated audit receipt JSON file (only set when receipt is provided for scan)"
+    value: ${{ steps.run.outputs.receipt_file }}
 
 runs:
   using: composite
@@ -97,6 +104,7 @@ runs:
         FOCUS="${{ inputs.focus }}"
         BUDGET="${{ inputs.budget }}"
         OUTPUT="${{ inputs.output }}"
+        RECEIPT="${{ inputs.receipt }}"
         ARGS="${{ inputs.args }}"
 
         case "$COMMAND" in
@@ -128,6 +136,10 @@ runs:
           echo "::error::SARIF output and upload are only supported by 'scan'. Use format=markdown for '$COMMAND'."
           exit 1
         fi
+        if [[ -n "$RECEIPT" && "$COMMAND" != "scan" ]]; then
+          echo "::error::Receipt output is only supported by 'scan'. Remove receipt or use command=scan."
+          exit 1
+        fi
 
         if [[ -n "$CONFIG" && "$COMMAND" != "compare" ]]; then RUN_ARGS+=(--config "$CONFIG"); fi
         if [[ "$COMMAND" == "scan" || "$COMMAND" == "review" ]]; then
@@ -140,6 +152,7 @@ runs:
         if [[ "$IS_AI" == "true" && -n "$FOCUS" ]]; then RUN_ARGS+=(--focus "$FOCUS"); fi
         if [[ "$IS_AI" == "true" && -n "$BUDGET" ]]; then RUN_ARGS+=(--budget "$BUDGET"); fi
         if [[ -n "$OUTPUT" && "$FORMAT" != "sarif" ]]; then RUN_ARGS+=(--output "$OUTPUT"); fi
+        if [[ -n "$RECEIPT" ]]; then RUN_ARGS+=(--receipt "$RECEIPT"); fi
 
         if [[ -n "$ARGS" ]]; then
           read -r -a EXTRA_ARGS <<< "$ARGS"
@@ -147,18 +160,32 @@ runs:
         fi
 
         OUTFILE="${OUTPUT:-repopilot-results.sarif}"
+        RUN_STATUS=0
         if [[ "$IS_AI" == "true" ]]; then
           if [[ "$FORMAT" != "markdown" ]]; then
             echo "::error::'$COMMAND' emits Markdown and does not accept --format. Use format=auto or format=markdown."
             exit 1
           fi
+          set +e
           repopilot "${RUN_ARGS[@]}"
+          RUN_STATUS=$?
+          set -e
         elif [[ "$FORMAT" == "sarif" ]]; then
+          set +e
           repopilot "${RUN_ARGS[@]}" --format sarif --output "$OUTFILE"
-          echo "sarif_file=$OUTFILE" >> $GITHUB_OUTPUT
+          RUN_STATUS=$?
+          set -e
+          echo "sarif_file=$OUTFILE" >> "$GITHUB_OUTPUT"
         else
+          set +e
           repopilot "${RUN_ARGS[@]}" --format "$FORMAT"
+          RUN_STATUS=$?
+          set -e
         fi
+        if [[ -n "$RECEIPT" ]]; then
+          echo "receipt_file=$RECEIPT" >> "$GITHUB_OUTPUT"
+        fi
+        exit "$RUN_STATUS"
 
     - name: Upload SARIF to GitHub Code Scanning
       if: inputs.upload-sarif == 'true' && steps.run.outputs.sarif_file != ''

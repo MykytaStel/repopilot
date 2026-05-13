@@ -66,7 +66,7 @@ version
 help
 init
 doctor
-scan JSON
+scan JSON + receipt
 scan Markdown
 review Markdown
 ai context
@@ -96,6 +96,7 @@ repopilot init --path /tmp/repopilot.toml
 repopilot doctor .
 repopilot scan .
 repopilot scan . --format json --output /tmp/repopilot-scan.json
+repopilot scan . --format json --output /tmp/repopilot-scan.json --receipt /tmp/repopilot-receipt.json
 repopilot scan . --format markdown --output /tmp/repopilot-scan.md
 repopilot review .
 repopilot ai context .
@@ -165,6 +166,7 @@ RepoPilot runtime commands must stay local-first:
 
 - scans read files from disk;
 - reports write to stdout or explicit output paths;
+- scan receipts write only to explicit local paths;
 - no source code is uploaded;
 - no telemetry is sent;
 - AI commands do not call AI providers;
@@ -199,6 +201,7 @@ The GitHub Action should support:
 ```yaml
 with:
   command: scan
+  receipt: repopilot-receipt.json
 ```
 
 ```yaml
@@ -217,6 +220,9 @@ Legacy action command names may remain available for compatibility:
 with:
   command: vibe
 ```
+
+Receipt output is scan-only. The action should fail clearly when `receipt` is
+provided with `review`, `compare`, or AI commands.
 
 ---
 

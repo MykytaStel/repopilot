@@ -50,11 +50,15 @@ pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
     );
     let _ = writeln!(out, "## RepoPilot Context\n");
 
+    const PROMPT_PREFIX_OVERHEAD_TOKENS: usize = 200;
+    let vibe_budget = opts
+        .budget_tokens
+        .saturating_sub(PROMPT_PREFIX_OVERHEAD_TOKENS);
     let vibe = render_vibe(
         summary,
         &VibeOptions {
             focus: opts.focus.clone(),
-            budget_tokens: opts.budget_tokens,
+            budget_tokens: vibe_budget,
             no_header: false,
         },
     );

@@ -7,8 +7,9 @@ Task-oriented guide to RepoPilot commands. For a complete flag reference see [do
 ## Quick start
 
 ```bash
-repopilot init        # generate repopilot.toml
-repopilot scan .      # scan the current directory
+repopilot init          # generate repopilot.toml
+repopilot doctor .      # check adoption readiness
+repopilot scan .        # scan the current directory
 ```
 
 For React Native or Expo projects:
@@ -53,7 +54,12 @@ repopilot scan . --format json --output report.json
 repopilot scan . --format markdown --output report.md
 repopilot scan . --format html --output report.html
 repopilot scan . --format sarif --output repopilot.sarif
+repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
 ```
+
+Use `--receipt` when you need compact JSON evidence for CI artifacts or release
+records. The receipt includes schema version, RepoPilot version, git state, scan
+scope, finding counts, language counts, and health score.
 
 ### Overriding thresholds
 

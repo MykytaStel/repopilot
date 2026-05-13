@@ -68,6 +68,7 @@ repopilot s <PATH> [OPTIONS]
 |------|------|---------|-------------|
 | `--format` | `console\|json\|markdown\|html\|sarif` | `console` | Output format |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
+| `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Exit code 1 when findings meet this threshold (see [Thresholds](#thresholds)) |
@@ -106,6 +107,7 @@ repopilot scan . --format json --output report.json
 repopilot scan . --format markdown --output report.md
 repopilot scan . --format html --output report.html
 repopilot scan . --format sarif --output repopilot.sarif
+repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
 
 # Use a custom config
 repopilot scan . --config repopilot.toml
@@ -478,7 +480,7 @@ repopilot baseline create . --force
 
 ## `doctor`
 
-Runs a lightweight audit-readiness check for a repository. It reports scan scope accounting, checks for config, `.repopilotignore`, baseline, Git, and GitHub workflows, then recommends the next command to run.
+Runs an audit-readiness check for a repository. It reports scan scope accounting, checks for config, `.repopilotignore`, baseline, Git, generic CI, RepoPilot-specific CI gates, and report/receipt output readiness, then recommends the next adoption command to run.
 
 ### Synopsis
 
@@ -504,6 +506,10 @@ repopilot doctor .
 repopilot doctor . --format json
 repopilot doctor . --format markdown --output doctor.md
 ```
+
+Doctor keeps its JSON shape additive: new readiness checks appear as extra
+`checks[]` entries such as `config_readable`, `baseline_readable`,
+`repopilot_ci`, and `report_receipt`.
 
 ---
 

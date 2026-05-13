@@ -3,12 +3,13 @@ use std::path::{Path, PathBuf};
 
 const TEST_EXTENSIONS: &[&str] = &["rs", "ts", "tsx", "js", "jsx", "py", "go", "java", "kt"];
 
-/// Returns the path suffix starting at the `tests/` component, normalised to forward slashes.
+/// Returns the path suffix starting at the `tests/` or `__tests__/` component, normalised to forward slashes.
 pub(super) fn tests_dir_suffix(path: &Path) -> Option<String> {
     let components: Vec<_> = path.components().collect();
-    let idx = components
-        .iter()
-        .position(|c| c.as_os_str().to_string_lossy() == "tests")?;
+    let idx = components.iter().position(|c| {
+        let s = c.as_os_str().to_string_lossy();
+        s == "tests" || s == "__tests__"
+    })?;
     let suffix: PathBuf = components[idx..].iter().collect();
     Some(suffix.to_string_lossy().replace('\\', "/"))
 }
@@ -50,12 +51,15 @@ fn has_sibling_test(parent: &Path, stem: &str, ext: &str, all_paths: &HashSet<Pa
 }
 
 fn has_tests_directory_match(stem: &str, ext: &str, tests_suffixes: &HashSet<String>) -> bool {
-    [
-        format!("tests/{stem}.{ext}"),
-        format!("tests/{stem}_test.{ext}"),
-    ]
-    .iter()
-    .any(|candidate| tests_suffixes.contains(candidate.as_str()))
+    const DIRS: &[&str] = &["tests", "__tests__"];
+    const SUFFIXES: &[&str] = &["", "_test", ".test", ".spec"];
+    DIRS.iter()
+        .flat_map(|dir| {
+            SUFFIXES
+                .iter()
+                .map(move |suf| format!("{dir}/{stem}{suf}.{ext}"))
+        })
+        .any(|candidate| tests_suffixes.contains(&candidate))
 }
 
 fn has_rust_integration_test(source: &Path, ext: &str, tests_suffixes: &HashSet<String>) -> bool {
