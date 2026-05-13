@@ -81,7 +81,7 @@ pub(super) fn risk_level(findings: &[&Finding]) -> &'static str {
         "Elevated" => "🟠 ELEVATED",
         "Moderate" => "🟡 MODERATE",
         "Low" => "🟢 LOW",
-        _ => "🟢 CLEAN",
+        "Clean" | _ => "🟢 CLEAN",
     }
 }
 
@@ -93,13 +93,17 @@ fn build_tech_stack(summary: &ScanSummary) -> Vec<String> {
         .collect();
 
     if let Some(rn) = &summary.react_native {
-        let new_arch = match (
+        let archs = [
             rn.android_new_arch_enabled,
             rn.ios_new_arch_enabled,
             rn.expo_new_arch_enabled,
-        ) {
-            (Some(true), _, _) | (_, Some(true), _) | (_, _, Some(true)) => " (New Arch)",
-            (Some(false), _, _) | (_, Some(false), _) => " (Old Arch)",
+        ];
+        let new_count = archs.iter().filter(|v| **v == Some(true)).count();
+        let old_count = archs.iter().filter(|v| **v == Some(false)).count();
+        let new_arch = match (new_count > 0, old_count > 0) {
+            (true, true) => " (Mixed Arch)",
+            (true, false) => " (New Arch)",
+            (false, true) => " (Old Arch)",
             _ => "",
         };
 

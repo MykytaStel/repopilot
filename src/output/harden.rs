@@ -60,13 +60,21 @@ pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
             current_priority = Some(priority);
         }
 
-        let mut item = String::new();
-        render_cluster_plan(&mut item, cluster, index + 1);
-        if index > 0 && out.len().saturating_sub(content_start) + item.len() > budget_chars {
-            let _ = writeln!(out, "\n*[Plan truncated to stay within token budget]*");
+        let len_before = out.len();
+        render_cluster_plan(&mut out, cluster, index + 1);
+        let content_used = out.len().saturating_sub(content_start);
+        if content_used > budget_chars {
+            if index == 0 {
+                let _ = writeln!(
+                    out,
+                    "\n*[Single cluster exceeds token budget — output may be long]*"
+                );
+            } else {
+                out.truncate(len_before);
+                let _ = writeln!(out, "\n*[Plan truncated to stay within token budget]*");
+            }
             break;
         }
-        out.push_str(&item);
     }
 
     render_verification(&mut out);
@@ -87,9 +95,13 @@ fn render_summary(out: &mut String, findings: &[&Finding]) {
         .iter()
         .filter(|finding| finding.severity == Severity::Medium)
         .count();
+    let low = findings
+        .iter()
+        .filter(|finding| finding.severity == Severity::Low)
+        .count();
     let _ = writeln!(
         out,
-        "## Priority Summary\n\n- Total: {} findings\n- Critical: {critical}\n- High: {high}\n- Medium: {medium}",
+        "## Priority Summary\n\n- Total: {} findings\n- Critical: {critical}\n- High: {high}\n- Medium: {medium}\n- Low: {low}",
         findings.len()
     );
 }

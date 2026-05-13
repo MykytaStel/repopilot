@@ -106,3 +106,64 @@ fn doctor_marks_empty_scope_as_failed_check() {
             .any(|check| { check["id"] == "scan_scope" && check["status"] == "fail" })
     );
 }
+
+#[test]
+fn doctor_reports_invalid_config_without_aborting() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+
+    fs::write(root.join("repopilot.toml"), "[scan").expect("write invalid config");
+    fs::write(root.join("main.rs"), "fn main() {}\n").expect("write file");
+
+    let output = repopilot()
+        .args(["doctor", ".", "--format", "json"])
+        .current_dir(root)
+        .output()
+        .expect("run doctor");
+
+    assert!(
+        output.status.success(),
+        "doctor should render diagnostics even with invalid config, stderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json");
+    let checks = json["checks"].as_array().expect("checks array");
+
+    assert!(
+        checks
+            .iter()
+            .any(|check| { check["id"] == "config_readable" && check["status"] == "fail" })
+    );
+}
+
+#[test]
+fn doctor_reports_invalid_baseline() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+
+    fs::write(root.join("main.rs"), "fn main() {}\n").expect("write file");
+    fs::create_dir(root.join(".repopilot")).expect("create repopilot dir");
+    fs::write(root.join(".repopilot").join("baseline.json"), "{").expect("write invalid baseline");
+
+    let output = repopilot()
+        .args(["doctor", ".", "--format", "json"])
+        .current_dir(root)
+        .output()
+        .expect("run doctor");
+
+    assert!(
+        output.status.success(),
+        "doctor should render diagnostics even with invalid baseline, stderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json");
+    let checks = json["checks"].as_array().expect("checks array");
+
+    assert!(
+        checks
+            .iter()
+            .any(|check| { check["id"] == "baseline_readable" && check["status"] == "fail" })
+    );
+}

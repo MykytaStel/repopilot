@@ -1,11 +1,14 @@
 use crate::findings::types::Severity;
 use crate::receipt::git::collect_git_receipt;
-use crate::receipt::model::{AuditReceipt, ReceiptFindings, ReceiptLanguage, ReceiptScope};
+use crate::receipt::model::{
+    AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptFindings, ReceiptLanguage, ReceiptScope,
+};
 use crate::scan::types::ScanSummary;
 use chrono::Utc;
 
 pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
     AuditReceipt {
+        schema_version: AUDIT_RECEIPT_SCHEMA_VERSION,
         tool: "repopilot".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         generated_at: Utc::now().to_rfc3339(),

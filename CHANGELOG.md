@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-14
+
+### Added
+
+- Added doctor adoption checks for readable `repopilot.toml`, readable `.repopilot/baseline.json`, RepoPilot-specific CI gates, and default report/receipt output readiness.
+- Added `schema_version: 1` to audit receipt JSON produced by `repopilot scan --receipt`.
+- Added typed GitHub Action `receipt` input and `receipt-file` output for scan receipt generation.
+- Added `docs/release-checklist-0.10.md` for the adoption UX release.
+
+### Changed
+
+- `repopilot doctor` now distinguishes generic CI from a RepoPilot `--fail-on` gate and recommends an adoption path from config to report, baseline, CI gate, and AI context.
+- `repopilot doctor` now renders diagnostics for invalid config files using built-in scan defaults instead of aborting before the report.
+- Product smoke checks now generate and validate an audit receipt.
+
 ## [0.9.0] - 2026-05-13
 
 ### Added
@@ -181,7 +196,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MykytaStel/repopilot/compare/v0.5.0...v0.7.0

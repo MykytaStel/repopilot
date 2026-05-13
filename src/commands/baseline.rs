@@ -17,15 +17,6 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
             let force = options.force;
             let output_path = output.unwrap_or_else(|| default_baseline_path(&path));
 
-            if output_path.exists() && !force {
-                return Err(format!(
-                    "Baseline already exists at {}. Use `repopilot baseline create {} --force` to overwrite it.",
-                    output_path.display(),
-                    path.display()
-                )
-                .into());
-            }
-
             let repo_config = load_default_config()?;
             let scan_config = repo_config.to_scan_config();
             let summary = scan_path_with_config(&path, &scan_config)?;

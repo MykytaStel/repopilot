@@ -51,8 +51,10 @@ repopilot ai context . | pbcopy   # macOS: paste into your coding assistant
 - Baseline workflow for accepting existing findings in legacy repositories
 - CI-friendly failure thresholds with `--fail-on`
 - Git diff-aware review mode for prioritizing findings introduced by changed lines
+- Doctor adoption guidance for config, baseline, CI gate, report, and receipt readiness
+- Audit receipt JSON from `repopilot scan --receipt` for reproducible scan evidence
 - Console, JSON, Markdown, HTML, and SARIF (2.1.0) scan output — SARIF includes per-result category and workspace package properties
-- First-party GitHub Action wrapper for `scan`, `review`, `compare`, and `ai` workflows, with optional SARIF upload for scans
+- First-party GitHub Action wrapper for `scan`, `review`, `compare`, and `ai` workflows, with optional SARIF upload and receipt output for scans
 - Compare mode for diffing two JSON scan reports
 - **`repopilot ai context`** — formats scan output as LLM-ready markdown, paste into Claude Code or ChatGPT to start remediating
 - **`repopilot ai plan`** — turns findings into a prioritized remediation plan
@@ -107,7 +109,9 @@ cargo build --release
 
 ```bash
 repopilot init
+repopilot doctor .
 repopilot scan .
+repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
 repopilot ai context .
 repopilot review . --base origin/main --fail-on new-high
 ```
@@ -116,6 +120,7 @@ Save a shareable report:
 
 ```bash
 repopilot scan . --format markdown --output repopilot-report.md
+repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
 ```
 
 Reduce scan noise while iterating:
@@ -357,6 +362,7 @@ repopilot scan . --format sarif > repopilot.sarif
 ```
 
 Use JSON when custom scripts need to parse RepoPilot results. Console, Markdown, and HTML reports include the RepoPilot version, risk summary, top rules, and grouped findings for human review. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
+Use `--receipt <path>` with `scan` when CI or release processes need compact evidence of the exact RepoPilot version, git state, scan scope, finding counts, language counts, and health score.
 
 See [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) for a copy-paste GitHub Actions workflow, required permissions, and local validation commands.
 
@@ -377,7 +383,7 @@ Use `--fail-on new-high` to fail CI only when new high or critical findings are 
 When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. For baseline-based adoption, commit an accepted baseline and scan against it in CI.
 
 To upload RepoPilot findings to GitHub Code Scanning, generate SARIF and use `github/codeql-action/upload-sarif`. The workflow must include `security-events: write`.
-The first-party action can also run `command: ai-context`, `command: ai-plan`, or `command: ai-prompt`; those commands emit Markdown and do not produce SARIF. Prefer typed action inputs such as `path`, `config`, `baseline`, `fail-on`, `focus`, `budget`, and `output`; `args` remains available for advanced flags.
+The first-party action can also run `command: ai-context`, `command: ai-plan`, or `command: ai-prompt`; those commands emit Markdown and do not produce SARIF. Prefer typed action inputs such as `path`, `config`, `baseline`, `fail-on`, `focus`, `budget`, `output`, and `receipt`; `args` remains available for advanced flags.
 
 ```yaml
 name: RepoPilot
@@ -403,7 +409,7 @@ jobs:
         run: cargo install repopilot
 
       - name: Run RepoPilot
-        run: repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+        run: repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high --receipt repopilot-receipt.json
 
       - name: Run RepoPilot (SARIF)
         run: repopilot scan . --format sarif --output repopilot.sarif
@@ -413,6 +419,13 @@ jobs:
         if: always()
         with:
           sarif_file: repopilot.sarif
+
+      - name: Upload audit receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repopilot-receipt
+          path: repopilot-receipt.json
 ```
 
 ## Roadmap
@@ -438,6 +451,7 @@ These are planned ideas, not current features:
 | [docs/react-native.md](docs/react-native.md) | React Native and Expo detection, findings, and limitations |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
+| [docs/release-checklist-0.10.md](docs/release-checklist-0.10.md) | 0.10.0 release readiness checklist |
 | [docs/release-checklist-0.9.md](docs/release-checklist-0.9.md) | 0.9.0 release readiness checklist |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
 | [docs/github-ruleset.md](docs/github-ruleset.md) | GitHub branch ruleset configuration |

@@ -190,11 +190,19 @@ fn exit_codes_distinguish_findings_usage_and_runtime_errors() {
 #[test]
 fn self_audit_stays_clean_at_high_severity() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let output = run_ok(&["scan", ".", "--min-severity", "high"], repo);
-    let report = stdout(&output);
-
-    assert!(
-        report.contains("Findings: 0") || report.contains("Findings: 0 "),
-        "self-audit high severity should stay clean\n{report}"
+    let output = run_ok(
+        &["scan", ".", "--min-severity", "high", "--format", "json"],
+        repo,
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("json output from self-audit");
+    let finding_count = json["findings"]
+        .as_array()
+        .map(|a| a.len())
+        .unwrap_or(usize::MAX);
+    assert_eq!(
+        finding_count,
+        0,
+        "self-audit high severity should stay clean\n{}",
+        serde_json::to_string_pretty(&json).unwrap_or_default()
     );
 }

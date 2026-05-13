@@ -1,7 +1,10 @@
 use serde::Serialize;
 
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
+    pub schema_version: u32,
     pub tool: String,
     pub version: String,
     pub generated_at: String,

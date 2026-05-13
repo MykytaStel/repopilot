@@ -16,7 +16,7 @@ Starting with RepoPilot 0.9, JSON scan reports include explicit schema metadata:
 ```json
 {
   "schema_version": "0.9",
-  "repopilot_version": "0.9.0",
+  "repopilot_version": "0.10.0",
   "root_path": ".",
   "files_count": 42,
   "directories_count": 12,
@@ -65,7 +65,7 @@ Example shape:
 ```json
 {
   "schema_version": "0.9",
-  "repopilot_version": "0.9.0",
+  "repopilot_version": "0.10.0",
   "root_path": ".",
   "files_count": 42,
   "baseline": {
@@ -76,6 +76,56 @@ Example shape:
   "findings": []
 }
 ```
+
+## Audit receipt JSON
+
+Use `--receipt` when a CI job, release process, or audit trail needs compact
+evidence of what RepoPilot scanned without storing the full report:
+
+```bash
+repopilot scan . \
+  --format markdown \
+  --output repopilot-report.md \
+  --receipt .repopilot/receipt.json
+```
+
+Receipt JSON is intentionally smaller than a scan report and has its own schema:
+
+```json
+{
+  "schema_version": 1,
+  "tool": "repopilot",
+  "version": "0.10.0",
+  "generated_at": "2026-05-14T00:00:00Z",
+  "root_path": ".",
+  "git": {
+    "is_git_repo": true,
+    "branch": "main",
+    "commit": "abc123",
+    "dirty": false
+  },
+  "scope": {
+    "files_discovered": 42,
+    "files_analyzed": 40,
+    "directories_count": 12,
+    "lines_of_code": 3200
+  },
+  "findings": {
+    "total": 3,
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 0,
+    "info": 0
+  },
+  "languages": [],
+  "health_score": 91
+}
+```
+
+Receipts do not replace reports. Use reports for human review or downstream
+finding details, and receipts for provenance, release evidence, and artifact
+upload.
 
 ## Finding fields
 
