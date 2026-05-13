@@ -122,6 +122,7 @@ fn build_finding(file: &FileFacts, stats: BarrelStats) -> Finding {
         ),
         category: FindingCategory::Architecture,
         severity: severity_for_stats(&stats),
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: file.path.clone(),
             line_start: stats.first_export_line,

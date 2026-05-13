@@ -262,6 +262,7 @@ fn build_finding(
         ),
         category: FindingCategory::CodeQuality,
         severity,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: line_number,

@@ -42,6 +42,7 @@ impl ProjectAudit for RnInlineStyleAudit {
                         .to_string(),
                         category: FindingCategory::Framework,
                         severity: Severity::Medium,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: file.path.clone(),
                             line_start: idx + 1,
@@ -121,6 +122,7 @@ impl ProjectAudit for RnDeprecatedApiAudit {
                             ),
                             category: FindingCategory::Framework,
                             severity: Severity::High,
+                            confidence: Default::default(),
                             evidence: vec![Evidence {
                                 path: file.path.clone(),
                                 line_start: idx + 1,
@@ -184,6 +186,7 @@ impl ProjectAudit for RnFlatListMissingKeyAudit {
                             .to_string(),
                             category: FindingCategory::Framework,
                             severity: Severity::Low,
+                            confidence: Default::default(),
                             evidence: vec![Evidence {
                                 path: file.path.clone(),
                                 line_start: i + 1,

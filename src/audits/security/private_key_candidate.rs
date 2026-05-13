@@ -75,6 +75,7 @@ fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Fi
         ),
         category: FindingCategory::Security,
         severity: Severity::Critical,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: line_number,

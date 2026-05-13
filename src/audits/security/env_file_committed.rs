@@ -42,6 +42,7 @@ fn build_finding(path: &std::path::Path) -> Finding {
         ),
         category: FindingCategory::Security,
         severity: Severity::Critical,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: 1,

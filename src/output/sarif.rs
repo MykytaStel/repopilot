@@ -34,6 +34,7 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
             baseline_key: None,
             workspace_package: f.workspace_package.clone(),
             category: f.category.label().to_string(),
+            confidence: f.confidence.label().to_string(),
         })
         .collect();
     findings_to_sarif_with_properties(findings, root, properties)
@@ -56,6 +57,7 @@ fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
             ),
             workspace_package: finding.workspace_package.clone(),
             category: finding.category.label().to_string(),
+            confidence: finding.confidence.label().to_string(),
         })
         .collect();
 

@@ -39,6 +39,7 @@ fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
         ),
         category: FindingCategory::Architecture,
         severity: Severity::Medium,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: dir,
             line_start: 1,

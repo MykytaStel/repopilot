@@ -21,6 +21,7 @@ pub(super) const STYLE: &str = r#"
   .badge.medium { background: #fffaeb; color: #b54708; }
   .badge.high { background: #fff4ed; color: #c4320a; }
   .badge.critical { background: #fef3f2; color: #b42318; }
+  .badge.confidence { background: #eef1f5; color: #475467; }
   .status { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
   .status.new { color: #b42318; }
   .status.existing { color: #067647; }

@@ -54,6 +54,7 @@ impl FileAudit for ComplexityAudit {
             ),
             category: FindingCategory::CodeQuality,
             severity,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: file.path.clone(),
                 line_start: 1,

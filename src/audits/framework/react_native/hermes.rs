@@ -61,6 +61,7 @@ impl ProjectAudit for ReactNativeCodegenMissingAudit {
             .to_string(),
             category: FindingCategory::Framework,
             severity: Severity::Medium,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: facts.root_path.join("package.json"),
                 line_start: 1,
@@ -110,6 +111,7 @@ fn hermes_finding(path: PathBuf, snippet: &str) -> Finding {
         .to_string(),
         category: FindingCategory::Framework,
         severity: Severity::Low,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path,
             line_start: 1,

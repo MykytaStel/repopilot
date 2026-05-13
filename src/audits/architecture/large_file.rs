@@ -35,6 +35,7 @@ pub fn detect_large_file_finding(
         ),
         category: FindingCategory::Architecture,
         severity: severity_for_loc(lines_of_code, config),
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: 1,

@@ -59,6 +59,7 @@ fn build_finding(source: &Path) -> Finding {
         ),
         category: FindingCategory::Testing,
         severity: Severity::Low,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: source.to_path_buf(),
             line_start: 1,

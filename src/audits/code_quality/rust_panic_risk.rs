@@ -230,6 +230,7 @@ fn build_finding(
         ),
         category: FindingCategory::CodeQuality,
         severity,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: file.path.clone(),
             line_start: line_number,

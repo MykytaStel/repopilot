@@ -32,6 +32,7 @@ impl ProjectAudit for RnDepHealthAudit {
                 ).to_string(),
                 category: FindingCategory::Framework,
                 severity: Severity::Medium,
+                confidence: Default::default(),
                 evidence: vec![Evidence {
                     path: facts.root_path.join("package.json"),
                     line_start: 1,
@@ -62,6 +63,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     ),
                     category: FindingCategory::Framework,
                     severity: Severity::High,
+                    confidence: Default::default(),
                     evidence: vec![Evidence {
                         path: facts.root_path.join("package.json"),
                         line_start: 1,
@@ -97,6 +99,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     ),
                     category: FindingCategory::Framework,
                     severity: Severity::High,
+                    confidence: Default::default(),
                     evidence: vec![Evidence {
                         path: facts.root_path.join("package.json"),
                         line_start: 1,
@@ -131,6 +134,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     ),
                     category: FindingCategory::Framework,
                     severity: Severity::High,
+                    confidence: Default::default(),
                     evidence: vec![Evidence {
                         path: facts.root_path.join("package.json"),
                         line_start: 1,
@@ -160,6 +164,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         ),
                         category: FindingCategory::Framework,
                         severity: Severity::Medium,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: facts.root_path.join("package.json"),
                             line_start: 1,

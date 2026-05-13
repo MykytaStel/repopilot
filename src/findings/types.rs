@@ -9,6 +9,8 @@ pub struct Finding {
     pub description: String,
     pub category: FindingCategory,
     pub severity: Severity,
+    #[serde(default)]
+    pub confidence: Confidence,
     pub evidence: Vec<Evidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_package: Option<String>,
@@ -38,6 +40,15 @@ pub enum Severity {
     Critical,
 }
 
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Confidence {
+    Low,
+    #[default]
+    Medium,
+    High,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Evidence {
     pub path: PathBuf,
@@ -61,6 +72,10 @@ impl FindingCategory {
 impl Finding {
     pub fn severity_label(&self) -> &'static str {
         self.severity.label()
+    }
+
+    pub fn confidence_label(&self) -> &'static str {
+        self.confidence.label()
     }
 }
 
@@ -97,6 +112,24 @@ impl Severity {
             "high" => Some(Severity::High),
             "critical" => Some(Severity::Critical),
             _ => None,
+        }
+    }
+}
+
+impl Confidence {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Confidence::Low => "LOW",
+            Confidence::Medium => "MEDIUM",
+            Confidence::High => "HIGH",
+        }
+    }
+
+    pub fn lowercase_label(&self) -> &'static str {
+        match self {
+            Confidence::Low => "low",
+            Confidence::Medium => "medium",
+            Confidence::High => "high",
         }
     }
 }

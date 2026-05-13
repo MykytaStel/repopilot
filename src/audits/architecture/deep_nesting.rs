@@ -40,6 +40,7 @@ fn build_finding(deepest_path: PathBuf, depth: usize, threshold: usize) -> Findi
         ),
         category: FindingCategory::Architecture,
         severity: Severity::Low,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: deepest_path,
             line_start: 1,

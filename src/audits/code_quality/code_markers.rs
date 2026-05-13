@@ -53,6 +53,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
         ),
         category: FindingCategory::CodeQuality,
         severity: marker_severity(marker_str),
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: marker.path.clone(),
             line_start: marker.line_number,

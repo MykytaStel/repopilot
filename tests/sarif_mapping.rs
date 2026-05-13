@@ -144,6 +144,7 @@ fn finding(rule_id: &str, severity: Severity, path: Option<&str>, line_start: us
         description: "Finding description".to_string(),
         category: FindingCategory::Architecture,
         severity,
+        confidence: Default::default(),
         evidence: path
             .map(|path| {
                 vec![Evidence {

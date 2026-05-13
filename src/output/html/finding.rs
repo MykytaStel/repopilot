@@ -96,18 +96,20 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         .unwrap_or_default();
 
     format!(
-        r#"<article class="finding-card" data-severity="{}" data-category="{}" data-rule="{}">
-  <div class="finding-title"><span class="badge {}">{}</span><strong>{}</strong>{}</div>
+        r#"<article class="finding-card" data-severity="{}" data-confidence="{}" data-category="{}" data-rule="{}">
+  <div class="finding-title"><span class="badge {}">{}</span><span class="badge confidence">confidence {}</span><strong>{}</strong>{}</div>
   <p class="finding-meta"><strong>Rule:</strong> <code>{}</code></p>
   {}
   {}
   {}
 </article>"#,
         finding.severity.lowercase_label(),
+        finding.confidence.lowercase_label(),
         finding.category.label(),
         escape_html(&finding.rule_id),
         finding.severity.lowercase_label(),
         finding.severity.label(),
+        finding.confidence.label(),
         escape_html(&finding.title),
         status,
         escape_html(&finding.rule_id),

@@ -30,6 +30,7 @@ impl ProjectAudit for MissingTestFolderAudit {
             ),
             category: FindingCategory::Testing,
             severity: Severity::Medium,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: facts.root_path.clone(),
                 line_start: 1,

@@ -31,6 +31,7 @@ impl ProjectAudit for ReactNativeOldArchAudit {
             ).to_string(),
             category: FindingCategory::Framework,
             severity: Severity::Medium,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: evidence_path,
                 line_start: 1,
@@ -65,6 +66,7 @@ impl ProjectAudit for ReactNativeArchitectureMismatchAudit {
             .to_string(),
             category: FindingCategory::Framework,
             severity: Severity::High,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: profile_config_evidence(&facts.root_path, profile).0,
                 line_start: 1,
@@ -104,6 +106,7 @@ impl ProjectAudit for HermesMismatchAudit {
             .to_string(),
             category: FindingCategory::Framework,
             severity: Severity::Medium,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: facts.root_path.clone(),
                 line_start: 1,

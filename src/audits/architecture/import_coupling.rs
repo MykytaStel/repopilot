@@ -65,6 +65,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
         ),
         category: FindingCategory::Architecture,
         severity: Severity::Medium,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.clone(),
             line_start: 1,
@@ -99,6 +100,7 @@ fn high_instability_hub_finding(
         ),
         category: FindingCategory::Architecture,
         severity: Severity::High,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.clone(),
             line_start: 1,
@@ -138,6 +140,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
         ),
         category: FindingCategory::Architecture,
         severity: Severity::High,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: evidence_path,
             line_start: 1,

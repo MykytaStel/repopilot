@@ -46,6 +46,7 @@ impl ProjectAudit for ReactNavigationV4Audit {
                         .to_string(),
                         category: FindingCategory::Framework,
                         severity: Severity::Medium,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: file.path.clone(),
                             line_start: idx + 1,
@@ -104,6 +105,7 @@ impl ProjectAudit for DirectStateMutationAudit {
                         .to_string(),
                         category: FindingCategory::Framework,
                         severity: Severity::High,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: file.path.clone(),
                             line_start: idx + 1,
