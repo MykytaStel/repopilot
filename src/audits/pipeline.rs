@@ -29,11 +29,7 @@ use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 
-const CODE_MARKER_RULES: &[&str] = &[
-    "code-marker.todo",
-    "code-marker.fixme",
-    "code-marker.hack",
-];
+const CODE_MARKER_RULES: &[&str] = &["code-marker.todo", "code-marker.fixme", "code-marker.hack"];
 const LANGUAGE_RISK_RULES: &[&str] = &[
     "language.go.panic-exit-risk",
     "language.python.exception-risk",
@@ -372,7 +368,10 @@ pub fn registered_framework_audits(facts: &ScanFacts) -> Vec<FrameworkAuditRegis
                 Box::new(VarDeclarationAudit),
             ),
             FrameworkAuditRegistration::new(
-                framework_metadata("audit.framework.js.console-log", &["framework.js.console-log"]),
+                framework_metadata(
+                    "audit.framework.js.console-log",
+                    &["framework.js.console-log"],
+                ),
                 Box::new(ConsoleLogAudit),
             ),
         ]);
