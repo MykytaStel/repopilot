@@ -94,6 +94,7 @@ fn finding(id: &str, rule_id: &str, path: &str, line: usize, severity: Severity)
         description: "Description".to_string(),
         category: FindingCategory::Architecture,
         severity,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from(path),
             line_start: line,

@@ -34,6 +34,7 @@ fn renders_markdown_scan_summary() {
                 .to_string(),
             category: FindingCategory::CodeQuality,
             severity: Severity::Low,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: PathBuf::from("src/main.rs"),
                 line_start: 7,

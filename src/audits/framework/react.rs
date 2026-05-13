@@ -44,6 +44,7 @@ impl ProjectAudit for ReactClassComponentAudit {
                         ).to_string(),
                         category: FindingCategory::Framework,
                         severity: Severity::Low,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: file.path.clone(),
                             line_start: idx + 1,
@@ -104,6 +105,7 @@ impl ProjectAudit for ReactPropTypesAudit {
                         ).to_string(),
                         category: FindingCategory::Framework,
                         severity: Severity::Low,
+                        confidence: Default::default(),
                         evidence: vec![Evidence {
                             path: file.path.clone(),
                             line_start: idx + 1,

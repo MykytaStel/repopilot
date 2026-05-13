@@ -53,6 +53,7 @@ fn finding(rule_id: &str, path: &str, line: usize) -> Finding {
         description: "Description".to_string(),
         category: FindingCategory::Architecture,
         severity: Severity::High,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from(path),
             line_start: line,

@@ -34,6 +34,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
                     .to_string(),
                     category: FindingCategory::Framework,
                     severity: Severity::High,
+                    confidence: Default::default(),
                     evidence: vec![Evidence {
                         path: file.path.clone(),
                         line_start,

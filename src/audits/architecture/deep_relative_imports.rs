@@ -121,6 +121,7 @@ fn build_finding(file: &FileFacts, line_number: usize, snippet: &str, depth: usi
         ),
         category: FindingCategory::Architecture,
         severity: severity_for_depth(depth),
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: file.path.clone(),
             line_start: line_number,

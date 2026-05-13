@@ -18,6 +18,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
             description: "A real secret may be committed.".to_string(),
             category: FindingCategory::Security,
             severity: Severity::High,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: PathBuf::from("src/config.rs"),
                 line_start: 7,

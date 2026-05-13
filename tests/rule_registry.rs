@@ -87,6 +87,7 @@ fn make_finding(rule_id: &str) -> Finding {
         description: "A test description.".to_owned(),
         category: FindingCategory::Framework,
         severity: Severity::Medium,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/App.tsx"),
             line_start: 5,

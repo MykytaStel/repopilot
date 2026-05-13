@@ -82,8 +82,9 @@ fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]
 
     for finding in findings {
         output.push_str(&format!(
-            "  [{}] {} - {}\n",
+            "  [{} confidence={}] {} - {}\n",
             finding.severity_label(),
+            finding.confidence_label(),
             finding.rule_id,
             finding.title
         ));

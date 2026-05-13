@@ -1,6 +1,6 @@
 use crate::audits::context::{AuditContext, FileRole, FrameworkKind, LanguageKind, classify_file};
 use crate::audits::traits::FileAudit;
-use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::decide_for_audit_context;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -18,6 +18,7 @@ pub struct LongFunctionAudit;
 pub(super) struct LongFunctionPolicy {
     pub threshold: usize,
     pub severity: Severity,
+    pub confidence: Confidence,
     pub context_label: &'static str,
     pub recommendation: &'static str,
 }
@@ -70,6 +71,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: usize::MAX,
             severity: Severity::Info,
+            confidence: Confidence::Low,
             context_label: "configuration file",
             recommendation: "Configuration files are not evaluated with the generic long-function threshold.",
         };
@@ -79,6 +81,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(3),
             severity: Severity::Low,
+            confidence: Confidence::Low,
             context_label: "React component",
             recommendation: "For large React components, prefer extracting child components, hooks, or view-model helpers instead of treating JSX layout as a regular long function.",
         };
@@ -88,6 +91,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(2),
             severity: Severity::Low,
+            confidence: Confidence::Low,
             context_label: "React hook",
             recommendation: "For large hooks, consider splitting state/effect orchestration from data mapping or side-effect helpers.",
         };
@@ -98,6 +102,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(2),
             severity: Severity::Low,
+            confidence: Confidence::Low,
             context_label: "Unity MonoBehaviour",
             recommendation: "For large Unity behaviours, consider moving domain logic out of lifecycle methods and into smaller services or components.",
         };
@@ -107,6 +112,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(2),
             severity: Severity::Low,
+            confidence: Confidence::Low,
             context_label: ".NET controller",
             recommendation: "For large controllers, prefer moving business logic into services, handlers, or application-layer use cases.",
         };
@@ -116,6 +122,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(3) / 2,
             severity: Severity::Medium,
+            confidence: Confidence::High,
             context_label: ".NET service",
             recommendation: "For large services, consider splitting orchestration, validation, persistence, and external integration logic.",
         };
@@ -125,6 +132,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold.saturating_mul(2),
             severity: Severity::Low,
+            confidence: Confidence::Low,
             context_label: "test code",
             recommendation: "For large tests, consider extracting builders, fixtures, or assertion helpers, but test setup can be naturally longer than production logic.",
         };
@@ -134,6 +142,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         return LongFunctionPolicy {
             threshold: base_threshold,
             severity: Severity::Medium,
+            confidence: Confidence::High,
             context_label: "Rust production code",
             recommendation: "Consider extracting smaller functions or methods to isolate parsing, validation, IO, or transformation steps.",
         };
@@ -142,6 +151,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
     LongFunctionPolicy {
         threshold: base_threshold,
         severity: Severity::Medium,
+        confidence: Confidence::High,
         context_label: "generic production code",
         recommendation: "Long functions are harder to test and reason about — consider extracting helper functions.",
     }
@@ -179,6 +189,7 @@ fn build_finding(
         ),
         category: FindingCategory::CodeQuality,
         severity: policy.severity,
+        confidence: policy.confidence,
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: start_line,
@@ -241,6 +252,7 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Low);
+        assert_eq!(findings[0].confidence, Confidence::Low);
         assert!(findings[0].title.contains("React component"));
     }
 
@@ -283,6 +295,7 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Medium);
+        assert_eq!(findings[0].confidence, Confidence::High);
         assert!(findings[0].title.contains("generic production code"));
     }
 

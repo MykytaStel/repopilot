@@ -11,6 +11,7 @@ fn make_finding(pkg: Option<&str>, severity: Severity) -> Finding {
         description: "desc".to_owned(),
         category: FindingCategory::Security,
         severity,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/main.rs"),
             line_start: 1,

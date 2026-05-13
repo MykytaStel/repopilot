@@ -1,3 +1,4 @@
+use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
@@ -44,6 +45,38 @@ fn renders_valid_json_scan_summary() {
     assert_eq!(parsed["languages"][0]["name"], "Rust");
     // react_native must be absent when None
     assert!(parsed.get("react_native").is_none());
+}
+
+#[test]
+fn json_findings_include_confidence() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        findings: vec![Finding {
+            id: "code-quality.long-function:src/lib.rs:1".to_string(),
+            rule_id: "code-quality.long-function".to_string(),
+            title: "Large Rust production function".to_string(),
+            description: "Function spans more lines than the configured threshold.".to_string(),
+            category: FindingCategory::CodeQuality,
+            severity: Severity::Medium,
+            confidence: Confidence::High,
+            evidence: vec![Evidence {
+                path: PathBuf::from("src/lib.rs"),
+                line_start: 1,
+                line_end: Some(80),
+                snippet: "function spans lines 1-80".to_string(),
+            }],
+            workspace_package: None,
+            docs_url: None,
+        }],
+        ..ScanSummary::default()
+    };
+
+    let output =
+        render_scan_summary(&summary, OutputFormat::Json).expect("failed to render json summary");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&output).expect("output should be valid json");
+
+    assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
 }
 
 #[test]

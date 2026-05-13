@@ -246,6 +246,10 @@ where
 fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) {
     let severity = color::severity_label(finding.severity_label());
     output.push_str(&format!("      [{}] {}\n", severity, finding.title));
+    output.push_str(&format!(
+        "        Confidence: {}\n",
+        finding.confidence_label()
+    ));
     if let Some(status) = status {
         output.push_str(&format!("        Baseline: {status}\n"));
     }

@@ -1,4 +1,4 @@
-use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use std::path::PathBuf;
 
 #[test]
@@ -10,6 +10,7 @@ fn finding_contains_evidence() {
         description: "A TODO marker was found.".to_string(),
         category: FindingCategory::CodeQuality,
         severity: Severity::Low,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/main.rs"),
             line_start: 10,
@@ -23,7 +24,30 @@ fn finding_contains_evidence() {
     assert_eq!(finding.rule_id, "code-marker.todo");
     assert_eq!(finding.category, FindingCategory::CodeQuality);
     assert_eq!(finding.severity, Severity::Low);
+    assert_eq!(finding.confidence, Confidence::Medium);
     assert_eq!(finding.severity_label(), "LOW");
+    assert_eq!(finding.confidence_label(), "MEDIUM");
     assert_eq!(finding.evidence.len(), 1);
     assert_eq!(finding.evidence[0].line_start, 10);
+}
+
+#[test]
+fn missing_confidence_deserializes_as_medium() {
+    let finding: Finding = serde_json::from_value(serde_json::json!({
+        "id": "code-marker.todo.src/main.rs:10",
+        "rule_id": "code-marker.todo",
+        "title": "TODO marker found",
+        "description": "A TODO marker was found.",
+        "category": "CODE_QUALITY",
+        "severity": "LOW",
+        "evidence": [{
+            "path": "src/main.rs",
+            "line_start": 10,
+            "line_end": null,
+            "snippet": "// TODO: improve this"
+        }]
+    }))
+    .expect("old finding JSON without confidence should deserialize");
+
+    assert_eq!(finding.confidence, Confidence::Medium);
 }

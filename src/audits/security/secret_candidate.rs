@@ -231,6 +231,7 @@ fn build_finding(
         ),
         category: FindingCategory::Security,
         severity: Severity::High,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: line_number,

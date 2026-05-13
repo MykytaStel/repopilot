@@ -12,6 +12,7 @@ fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
         description: "desc".to_owned(),
         category: FindingCategory::Security,
         severity: Severity::High,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/main.rs"),
             line_start: 1,
@@ -65,6 +66,7 @@ fn sarif_rule_uses_real_description_not_generic() {
         description: "A real description for this rule.".to_string(),
         category: FindingCategory::CodeQuality,
         severity: Severity::Medium,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/main.rs"),
             line_start: 10,
@@ -101,6 +103,7 @@ fn sarif_result_includes_partial_fingerprints() {
         description: "desc".to_string(),
         category: FindingCategory::CodeQuality,
         severity: Severity::Low,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from("src/lib.rs"),
             line_start: 5,
@@ -137,6 +140,20 @@ fn sarif_result_properties_include_category() {
         category.as_str(),
         Some("security"),
         "result properties must include the finding category label"
+    );
+}
+
+#[test]
+fn sarif_result_properties_include_confidence() {
+    let finding = make_finding_with_package("security.secret-candidate", None);
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let confidence = &value["runs"][0]["results"][0]["properties"]["confidence"];
+    assert_eq!(
+        confidence.as_str(),
+        Some("MEDIUM"),
+        "result properties must include the finding confidence label"
     );
 }
 

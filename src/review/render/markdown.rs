@@ -108,8 +108,8 @@ fn render_markdown_findings_group(
         return;
     }
 
-    output.push_str("| Severity | Baseline | Rule | Title | Evidence |\n");
-    output.push_str("| --- | --- | --- | --- | --- |\n");
+    output.push_str("| Severity | Confidence | Baseline | Rule | Title | Evidence |\n");
+    output.push_str("| --- | --- | --- | --- | --- | --- |\n");
 
     for (finding, status) in findings {
         let evidence = finding
@@ -126,8 +126,9 @@ fn render_markdown_findings_group(
             .unwrap_or_else(|| "No evidence".to_string());
 
         output.push_str(&format!(
-            "| {} | {} | `{}` | {} | {} |\n",
+            "| {} | {} | {} | `{}` | {} | {} |\n",
             finding.severity_label(),
+            finding.confidence_label(),
             status
                 .map(|status| format!("{status:?}"))
                 .unwrap_or_else(|| "n/a".to_string()),

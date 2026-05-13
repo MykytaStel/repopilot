@@ -19,6 +19,7 @@ fn make_finding(
         description: format!("Description for {title}"),
         category,
         severity,
+        confidence: Default::default(),
         evidence: vec![Evidence {
             path: PathBuf::from(path),
             line_start: line,

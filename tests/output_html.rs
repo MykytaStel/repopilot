@@ -25,6 +25,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
             description: "description".to_string(),
             category: FindingCategory::Security,
             severity: Severity::High,
+            confidence: Default::default(),
             evidence: vec![Evidence {
                 path: PathBuf::from("src/config.rs"),
                 line_start: 1,

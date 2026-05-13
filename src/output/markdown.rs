@@ -275,6 +275,7 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
         finding.severity_label(),
         finding.title
     ));
+    output.push_str(&format!("  - Confidence: {}\n", finding.confidence_label()));
     if let Some(status) = status {
         output.push_str(&format!("  - Baseline: {status}\n"));
     }

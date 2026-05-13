@@ -69,6 +69,7 @@ pub struct SarifResultProperties {
     #[serde(rename = "workspacePackage", skip_serializing_if = "Option::is_none")]
     pub workspace_package: Option<String>,
     pub category: String,
+    pub confidence: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

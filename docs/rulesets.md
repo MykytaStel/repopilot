@@ -1,6 +1,6 @@
 # Audit Rulesets
 
-RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a category and carries a severity policy.
+RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a category and carries severity and confidence metadata.
 
 ## Categories
 
@@ -371,9 +371,20 @@ Every finding includes these top-level fields:
 | `description` | string | Full explanation with remediation steps |
 | `category` | string | One of `ARCHITECTURE`, `CODE_QUALITY`, `TESTING`, `SECURITY`, `FRAMEWORK` |
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
+| `confidence` | string | One of `LOW`, `MEDIUM`, `HIGH`; omitted values in old JSON reports are read as `MEDIUM` |
 | `docs_url` | string? | Link to official documentation for the rule (omitted when not set) |
 | `workspace_package` | string? | Package name in monorepos (omitted for flat projects) |
 | `evidence` | array | One or more evidence locations (see below) |
+
+Severity and confidence are separate signals:
+
+- `severity` is the expected impact if the finding is true.
+- `confidence` is how certain RepoPilot is that the finding is truly a problem in this context.
+
+Examples:
+
+- A long production function can be `severity: MEDIUM` and `confidence: HIGH` because the impact is moderate and the context strongly suggests maintainability risk.
+- The same pattern in generated, config, fixture, or test-like code can remain `severity: MEDIUM` but use `confidence: LOW` when the context makes the finding more likely to be acceptable noise.
 
 ## Evidence
 
