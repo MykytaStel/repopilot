@@ -81,7 +81,8 @@ pub(super) fn risk_level(findings: &[&Finding]) -> &'static str {
         "Elevated" => "🟠 ELEVATED",
         "Moderate" => "🟡 MODERATE",
         "Low" => "🟢 LOW",
-        "Clean" | _ => "🟢 CLEAN",
+        "Clean" => "🟢 CLEAN",
+        _ => "🟢 CLEAN",
     }
 }
 
