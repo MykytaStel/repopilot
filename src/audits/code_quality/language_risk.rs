@@ -253,12 +253,12 @@ fn build_finding(
     Finding {
         id: String::new(),
         rule_id: pattern.rule_id.to_string(),
+        recommendation: pattern.recommendation.to_string(),
         title: pattern.title.to_string(),
         description: format!(
-            "{} was found in {}. {}",
+            "{} was found in {}. Runtime termination and placeholder exception paths can bypass normal error handling and make failures harder to recover from.",
             pattern.context_label,
             path.display(),
-            pattern.recommendation
         ),
         category: FindingCategory::CodeQuality,
         severity,

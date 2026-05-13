@@ -21,6 +21,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         findings: vec![Finding {
             id: "finding-1".to_string(),
             rule_id: "security.secret-candidate".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
             title: "Possible secret detected".to_string(),
             description: "description".to_string(),
             category: FindingCategory::Security,

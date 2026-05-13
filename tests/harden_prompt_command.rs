@@ -54,6 +54,7 @@ fn harden_default_output_succeeds() {
     assert!(stdout.contains("# RepoPilot Harden Plan"));
     assert!(stdout.contains("P0 - Immediate risk"));
     assert!(stdout.contains("Possible secret detected"));
+    assert!(stdout.contains("Move the value to an environment variable or secrets manager"));
     assert!(stdout.contains("## Verify"));
 }
 
@@ -114,6 +115,7 @@ fn prompt_default_output_succeeds() {
     assert!(stdout.contains("## Final Response Format"));
     assert!(stdout.contains("# RepoPilot Vibe Check"));
     assert!(stdout.contains("Possible secret detected"));
+    assert!(stdout.contains("Move the value to an environment variable or secrets manager"));
 }
 
 #[test]

@@ -23,6 +23,7 @@ impl ProjectAudit for MissingTestFolderAudit {
         vec![Finding {
             id: String::new(),
             rule_id: "testing.missing-test-folder".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("testing.missing-test-folder"),
             title: "No test folder found".to_string(),
             description: format!(
                 "No test directory (tests/, test/, __tests__/, spec/) was found under `{}`. Consider adding tests to improve confidence in refactoring.",

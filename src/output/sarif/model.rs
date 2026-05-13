@@ -70,6 +70,7 @@ pub struct SarifResultProperties {
     pub workspace_package: Option<String>,
     pub category: String,
     pub confidence: String,
+    pub recommendation: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

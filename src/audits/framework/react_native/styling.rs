@@ -33,6 +33,7 @@ impl ProjectAudit for RnInlineStyleAudit {
                     findings.push(Finding {
                         id: String::new(),
                         rule_id: "framework.react-native.inline-style".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.inline-style"),
                         title: "Inline style object in JSX".to_string(),
                         description: concat!(
                             "Inline style objects (`style={{ ... }}`) create a new object on every render, ",
@@ -115,6 +116,7 @@ impl ProjectAudit for RnDeprecatedApiAudit {
                         findings.push(Finding {
                             id: String::new(),
                             rule_id: "framework.react-native.deprecated-api".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.deprecated-api"),
                             title: format!("Deprecated React Native API: {api}"),
                             description: format!(
                                 "`{api}` was removed from React Native core. \
@@ -177,6 +179,7 @@ impl ProjectAudit for RnFlatListMissingKeyAudit {
                         findings.push(Finding {
                             id: String::new(),
                             rule_id: "framework.react-native.flatlist-missing-key".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.flatlist-missing-key"),
                             title: "FlatList is missing keyExtractor".to_string(),
                             description: concat!(
                                 "A `FlatList` without `keyExtractor` falls back to array index keys, ",

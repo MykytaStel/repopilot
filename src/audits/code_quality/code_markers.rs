@@ -47,6 +47,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
     Finding {
         id: String::new(),
         rule_id: format!("code-marker.{marker_str}"),
+        recommendation: Finding::recommendation_for_rule_id(&format!("code-marker.{marker_str}")),
         title: format!("{uppercase} marker found"),
         description: format!(
             "A {uppercase} marker was found in the codebase and should be reviewed."

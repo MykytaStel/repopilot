@@ -55,6 +55,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     findings.extend(apply_project_decisions(&facts, coupling_findings));
 
     for finding in &mut findings {
+        finding.populate_recommendation();
         finding.id = stable_finding_key(finding, path);
     }
     summary::sort_findings(&mut findings);

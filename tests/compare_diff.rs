@@ -90,6 +90,7 @@ fn finding(id: &str, rule_id: &str, path: &str, line: usize, severity: Severity)
     Finding {
         id: id.to_string(),
         rule_id: rule_id.to_string(),
+        recommendation: Finding::recommendation_for_rule_id(rule_id),
         title: "Finding".to_string(),
         description: "Description".to_string(),
         category: FindingCategory::Architecture,

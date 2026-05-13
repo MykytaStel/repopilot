@@ -52,6 +52,7 @@ fn build_finding(source: &Path) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "testing.source-without-test".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("testing.source-without-test"),
         title: "Source file has no corresponding test".to_string(),
         description: format!(
             "`{}` has no nearby test file. Consider adding tests to cover its behaviour.",

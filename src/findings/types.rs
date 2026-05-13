@@ -7,6 +7,8 @@ pub struct Finding {
     pub rule_id: String,
     pub title: String,
     pub description: String,
+    #[serde(default)]
+    pub recommendation: String,
     pub category: FindingCategory,
     pub severity: Severity,
     #[serde(default)]
@@ -70,12 +72,35 @@ impl FindingCategory {
 }
 
 impl Finding {
+    pub const GENERIC_RECOMMENDATION: &'static str = "Review the finding evidence, confirm the risk in context, and make the smallest safe change that addresses the underlying issue.";
+
     pub fn severity_label(&self) -> &'static str {
         self.severity.label()
     }
 
     pub fn confidence_label(&self) -> &'static str {
         self.confidence.label()
+    }
+
+    pub fn populate_recommendation(&mut self) {
+        if self.recommendation.trim().is_empty() {
+            self.recommendation = Self::recommendation_for_rule_id(&self.rule_id);
+        }
+    }
+
+    pub fn recommendation_for_rule_id(rule_id: &str) -> String {
+        crate::rules::lookup_rule_metadata(rule_id)
+            .and_then(|metadata| metadata.recommendation)
+            .unwrap_or(Self::GENERIC_RECOMMENDATION)
+            .to_string()
+    }
+
+    pub fn recommendation_or_default(&self) -> &str {
+        if self.recommendation.trim().is_empty() {
+            Self::GENERIC_RECOMMENDATION
+        } else {
+            self.recommendation.as_str()
+        }
     }
 }
 

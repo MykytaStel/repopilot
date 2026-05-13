@@ -221,12 +221,12 @@ fn build_finding(
     Finding {
         id: String::new(),
         rule_id: RULE_ID.to_string(),
+        recommendation: recommendation.to_string(),
         title: format!("Risky Rust {} usage in {}", pattern.label(), context_label),
         description: format!(
-            "Rust `{}` was found in {}. {}",
+            "Rust `{}` was found in {}. Unhandled panic paths can terminate execution or hide recoverable errors in production code.",
             pattern.label(),
             context_label,
-            recommendation
         ),
         category: FindingCategory::CodeQuality,
         severity,

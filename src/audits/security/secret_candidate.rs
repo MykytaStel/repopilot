@@ -224,6 +224,7 @@ fn build_finding(
     Finding {
         id: String::new(),
         rule_id: "security.secret-candidate".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
         title: "Possible secret detected".to_string(),
         description: format!(
             "Line {line_number} in `{}` looks like it may contain a hardcoded secret (matched key: `{matched_key}`). Review and move to environment variables or a secrets manager.",

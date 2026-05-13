@@ -24,6 +24,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
                 findings.push(Finding {
                     id: String::new(),
                     rule_id: "framework.react-native.async-storage-from-core".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.async-storage-from-core"),
                     title: "AsyncStorage imported from 'react-native' core".to_string(),
                     description: concat!(
                         "`AsyncStorage` was removed from `react-native` core in v0.60 and will throw ",

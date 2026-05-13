@@ -122,6 +122,12 @@ mod tests {
                 "rule {} has empty description",
                 rule.rule_id
             );
+            assert!(
+                rule.recommendation
+                    .is_some_and(|recommendation| !recommendation.trim().is_empty()),
+                "rule {} has empty recommendation",
+                rule.rule_id
+            );
         }
     }
 

@@ -7,6 +7,7 @@ fn make_finding(pkg: Option<&str>, severity: Severity) -> Finding {
     Finding {
         id: String::new(),
         rule_id: "security.secret-candidate".to_owned(),
+        recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
         title: "Test".to_owned(),
         description: "desc".to_owned(),
         category: FindingCategory::Security,

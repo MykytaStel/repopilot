@@ -28,6 +28,7 @@ pub fn detect_large_file_finding(
     Some(Finding {
         id: String::new(),
         rule_id: "architecture.large-file".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.large-file"),
         title: "Large file detected".to_string(),
         description: format!(
             "This file has {lines_of_code} non-empty lines of code, which is above the configured threshold of {}. Consider splitting responsibilities into smaller modules.",

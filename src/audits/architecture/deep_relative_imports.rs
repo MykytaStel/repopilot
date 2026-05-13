@@ -115,6 +115,7 @@ fn build_finding(file: &FileFacts, line_number: usize, snippet: &str, depth: usi
     Finding {
         id: String::new(),
         rule_id: RULE_ID.to_string(),
+        recommendation: Finding::recommendation_for_rule_id(RULE_ID),
         title: "Deep relative import found".to_string(),
         description: format!(
             "This file imports across {depth} parent levels. Deep relative imports make modules fragile during refactors and usually indicate missing boundaries, aliases, or facade modules."

@@ -68,6 +68,7 @@ fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Fi
     Finding {
         id: String::new(),
         rule_id: "security.private-key-candidate".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("security.private-key-candidate"),
         title: "Private key detected in source file".to_string(),
         description: format!(
             "`{}` appears to contain a private key. Private keys must never be committed to version control.",

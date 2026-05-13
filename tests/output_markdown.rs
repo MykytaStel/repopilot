@@ -29,6 +29,7 @@ fn renders_markdown_scan_summary() {
         findings: vec![Finding {
             id: "code-marker.todo.src/main.rs:7".to_string(),
             rule_id: "code-marker.todo".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("code-marker.todo"),
             title: "TODO marker found".to_string(),
             description: "A TODO marker was found in the codebase and should be reviewed."
                 .to_string(),
@@ -78,6 +79,8 @@ fn renders_markdown_scan_summary() {
     assert!(output.contains("| Rust | 1 |"));
     assert!(output.contains("| TypeScript | 1 |"));
     assert!(output.contains("Evidence: `src/main.rs:7` - // TODO: improve architecture"));
+    assert!(output.contains("Recommendation:"));
+    assert!(output.contains("Convert the TODO into a tracked issue"));
 }
 
 #[test]

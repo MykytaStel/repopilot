@@ -54,6 +54,7 @@ fn json_findings_include_confidence() {
         findings: vec![Finding {
             id: "code-quality.long-function:src/lib.rs:1".to_string(),
             rule_id: "code-quality.long-function".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("code-quality.long-function"),
             title: "Large Rust production function".to_string(),
             description: "Function spans more lines than the configured threshold.".to_string(),
             category: FindingCategory::CodeQuality,
@@ -77,6 +78,10 @@ fn json_findings_include_confidence() {
         serde_json::from_str(&output).expect("output should be valid json");
 
     assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
+    assert_eq!(
+        parsed["findings"][0]["recommendation"],
+        Finding::recommendation_for_rule_id("code-quality.long-function")
+    );
 }
 
 #[test]

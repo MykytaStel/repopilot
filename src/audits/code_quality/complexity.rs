@@ -46,6 +46,7 @@ impl FileAudit for ComplexityAudit {
         vec![Finding {
             id: String::new(),
             rule_id: RULE_ID.to_string(),
+            recommendation: Finding::recommendation_for_rule_id(RULE_ID),
             title: "High complexity density".to_string(),
             description: format!(
                 "This file has a complexity density of {density} (branch constructs × 1000 / LOC), \

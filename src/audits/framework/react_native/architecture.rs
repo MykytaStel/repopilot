@@ -22,6 +22,7 @@ impl ProjectAudit for ReactNativeOldArchAudit {
         vec![Finding {
             id: String::new(),
             rule_id: "framework.react-native.old-architecture".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.old-architecture"),
             title: "React Native New Architecture is not enabled".to_string(),
             description: concat!(
                 "This project does not have `newArchEnabled: true` in its app.json / app.config.js / react-native.config.js. ",
@@ -58,6 +59,7 @@ impl ProjectAudit for ReactNativeArchitectureMismatchAudit {
         vec![Finding {
             id: String::new(),
             rule_id: "framework.react-native.architecture-mismatch".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.architecture-mismatch"),
             title: "React Native New Architecture settings differ by platform".to_string(),
             description: concat!(
                 "Android, iOS, or Expo configuration disagree about React Native New Architecture. ",
@@ -98,6 +100,7 @@ impl ProjectAudit for HermesMismatchAudit {
         vec![Finding {
             id: String::new(),
             rule_id: "framework.react-native.hermes-mismatch".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("framework.react-native.hermes-mismatch"),
             title: "Hermes settings differ between Android and iOS".to_string(),
             description: concat!(
                 "Hermes is configured differently across platforms. ",

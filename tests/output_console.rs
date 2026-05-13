@@ -14,6 +14,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
         findings: vec![Finding {
             id: "finding-1".to_string(),
             rule_id: "security.secret-candidate".to_string(),
+            recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
             title: "Possible secret detected".to_string(),
             description: "A real secret may be committed.".to_string(),
             category: FindingCategory::Security,
