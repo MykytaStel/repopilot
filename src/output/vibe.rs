@@ -174,7 +174,12 @@ fn render_internal(summary: &ScanSummary, opts: &VibeOptions) -> (String, Sectio
     // Footer.
     let pre = out.len();
     let content_len = out.len();
-    recommendations::render_footer(&mut out, content_len, opts.budget_tokens, summary.scan_duration_us);
+    recommendations::render_footer(
+        &mut out,
+        content_len,
+        opts.budget_tokens,
+        summary.scan_duration_us,
+    );
     sections.push(BreakdownSection {
         label: "Footer".into(),
         tokens: (out.len() - pre) / 4,
