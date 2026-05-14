@@ -2,7 +2,8 @@ use crate::audits::metadata::{AuditKind, AuditMetadata};
 use crate::audits::traits::{FileAudit, ProjectAudit};
 use crate::findings::types::FindingCategory;
 
-pub const CODE_MARKER_RULES: &[&str] = &["code-marker.todo", "code-marker.fixme", "code-marker.hack"];
+pub const CODE_MARKER_RULES: &[&str] =
+    &["code-marker.todo", "code-marker.fixme", "code-marker.hack"];
 pub const LANGUAGE_RISK_RULES: &[&str] = &[
     "language.go.panic-exit-risk",
     "language.python.exception-risk",

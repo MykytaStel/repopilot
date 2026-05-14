@@ -51,7 +51,15 @@ fn detect_language_risks(
             continue;
         }
 
-        emit_findings_for_line(language_id, trimmed, path, raw_line, line_index, file, &mut findings);
+        emit_findings_for_line(
+            language_id,
+            trimmed,
+            path,
+            raw_line,
+            line_index,
+            file,
+            &mut findings,
+        );
     }
 
     findings
@@ -76,7 +84,13 @@ fn emit_findings_for_line(
                     Some($pattern.signal()),
                 );
                 if !decision.is_suppressed() {
-                    findings.push(build_finding(path, line_index + 1, raw_line.trim(), $pattern, decision.severity));
+                    findings.push(build_finding(
+                        path,
+                        line_index + 1,
+                        raw_line.trim(),
+                        $pattern,
+                        decision.severity,
+                    ));
                 }
             }
         };
@@ -162,9 +176,15 @@ impl GoRiskPattern {
 
     fn recommendation(self) -> &'static str {
         match self {
-            Self::Panic => "Return an error from reusable Go code and let the caller decide how to recover.",
-            Self::LogFatal => "Use returned errors outside the narrow CLI boundary so libraries remain recoverable.",
-            Self::OsExit => "Centralise process exits at the CLI entrypoint and return errors elsewhere.",
+            Self::Panic => {
+                "Return an error from reusable Go code and let the caller decide how to recover."
+            }
+            Self::LogFatal => {
+                "Use returned errors outside the narrow CLI boundary so libraries remain recoverable."
+            }
+            Self::OsExit => {
+                "Centralise process exits at the CLI entrypoint and return errors elsewhere."
+            }
         }
     }
 
@@ -231,8 +251,12 @@ impl PythonRiskPattern {
     fn recommendation(self) -> &'static str {
         match self {
             Self::BroadExcept => "Catch specific exceptions so unrelated failures are not hidden.",
-            Self::Assert => "Use explicit runtime validation for production invariants because asserts can be disabled.",
-            Self::NotImplemented => "Replace placeholders before production release or guard them behind explicit feature flags.",
+            Self::Assert => {
+                "Use explicit runtime validation for production invariants because asserts can be disabled."
+            }
+            Self::NotImplemented => {
+                "Replace placeholders before production release or guard them behind explicit feature flags."
+            }
         }
     }
 
@@ -258,7 +282,9 @@ impl JsRiskPattern {
     fn matches(self, trimmed: &str, path: &Path) -> bool {
         match self {
             Self::ProcessExit => trimmed.contains("process.exit("),
-            Self::ThrowError => trimmed.contains("throw new Error(") && is_library_boundary_path(path),
+            Self::ThrowError => {
+                trimmed.contains("throw new Error(") && is_library_boundary_path(path)
+            }
         }
     }
 
@@ -289,8 +315,12 @@ impl JsRiskPattern {
 
     fn recommendation(self) -> &'static str {
         match self {
-            Self::ProcessExit => "Keep process exits at a CLI boundary and return errors from reusable modules.",
-            Self::ThrowError => "Prefer typed errors or actionable error messages at reusable package boundaries.",
+            Self::ProcessExit => {
+                "Keep process exits at a CLI boundary and return errors from reusable modules."
+            }
+            Self::ThrowError => {
+                "Prefer typed errors or actionable error messages at reusable package boundaries."
+            }
         }
     }
 
@@ -360,8 +390,12 @@ impl ManagedRiskPattern {
 
     fn recommendation(self) -> &'static str {
         match self {
-            Self::FatalException { .. } => "Use domain-specific exception or result types when callers need precise recovery behaviour.",
-            Self::NotImplemented => "Replace placeholders before production release or isolate unfinished paths clearly.",
+            Self::FatalException { .. } => {
+                "Use domain-specific exception or result types when callers need precise recovery behaviour."
+            }
+            Self::NotImplemented => {
+                "Replace placeholders before production release or isolate unfinished paths clearly."
+            }
         }
     }
 

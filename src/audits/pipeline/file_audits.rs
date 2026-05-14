@@ -1,12 +1,12 @@
 use super::registration::{
     CODE_MARKER_RULES, FileAuditRegistration, LANGUAGE_RISK_RULES, file_metadata,
 };
+use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
 use crate::audits::code_quality::complexity::ComplexityAudit;
 use crate::audits::code_quality::language_risk::LanguageRiskAudit;
 use crate::audits::code_quality::long_function::LongFunctionAudit;
 use crate::audits::code_quality::rust_panic_risk::RustPanicRiskAudit;
-use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::security::private_key_candidate::PrivateKeyCandidateAudit;
 use crate::audits::security::secret_candidate::SecretCandidateAudit;
 use crate::audits::traits::FileAudit;

@@ -123,7 +123,14 @@ pub fn decide_for_audit_context(
     signal: Option<&str>,
 ) -> RuleDecision {
     let language_ids = [context.language_id()];
-    decide_with_context(rule_id, &language_ids, context, false, base_severity, signal)
+    decide_with_context(
+        rule_id,
+        &language_ids,
+        context,
+        false,
+        base_severity,
+        signal,
+    )
 }
 
 pub fn decide_for_file(
@@ -136,7 +143,14 @@ pub fn decide_for_file(
     let mut language_ids = language_ids_for_file(file, &context);
     dedup_static_ids(&mut language_ids);
     let is_low_signal = is_low_signal_audit_path(&file.path) && !context.is_test;
-    decide_with_context(rule_id, &language_ids, &context, is_low_signal, base_severity, signal)
+    decide_with_context(
+        rule_id,
+        &language_ids,
+        &context,
+        is_low_signal,
+        base_severity,
+        signal,
+    )
 }
 
 fn decide_with_context(
