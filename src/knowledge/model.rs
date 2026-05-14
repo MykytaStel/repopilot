@@ -1,5 +1,6 @@
 use crate::findings::types::Severity;
 use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -47,13 +48,13 @@ pub struct RuleApplicability {
     #[serde(default)]
     pub minimum_support: Option<SupportLevel>,
     #[serde(default)]
-    pub languages: Vec<String>,
+    pub languages: HashSet<String>,
     #[serde(default)]
-    pub frameworks: Vec<String>,
+    pub frameworks: HashSet<String>,
     #[serde(default)]
-    pub runtimes: Vec<String>,
+    pub runtimes: HashSet<String>,
     #[serde(default)]
-    pub paradigms: Vec<String>,
+    pub paradigms: HashSet<String>,
     #[serde(default)]
     pub suppress_low_signal: bool,
     #[serde(default)]
@@ -106,16 +107,32 @@ pub struct KnowledgeBase {
     pub runtimes: Vec<RuntimeProfile>,
     pub paradigms: Vec<ParadigmProfile>,
     pub rule_applicability: Vec<RuleApplicability>,
+    rule_index: HashMap<String, usize>,
+}
+
+impl KnowledgeBase {
+    pub fn rule_by_id(&self, rule_id: &str) -> Option<&RuleApplicability> {
+        self.rule_index
+            .get(rule_id)
+            .map(|&idx| &self.rule_applicability[idx])
+    }
 }
 
 impl From<KnowledgePack> for KnowledgeBase {
     fn from(pack: KnowledgePack) -> Self {
+        let rule_applicability = pack.rule_applicability;
+        let rule_index = rule_applicability
+            .iter()
+            .enumerate()
+            .map(|(idx, rule)| (rule.rule_id.clone(), idx))
+            .collect();
         Self {
             languages: pack.languages,
             frameworks: pack.frameworks,
             runtimes: pack.runtimes,
             paradigms: pack.paradigms,
-            rule_applicability: pack.rule_applicability,
+            rule_applicability,
+            rule_index,
         }
     }
 }

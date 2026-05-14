@@ -2,6 +2,7 @@ use crate::knowledge::bundled_knowledge;
 use crate::knowledge::model::SupportLevel;
 use crate::output::OutputFormat;
 use serde::Serialize;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KnowledgeCatalogSection {
@@ -167,10 +168,10 @@ pub fn build_knowledge_catalog_report(
                     .minimum_support
                     .map(support_level_label)
                     .map(str::to_string),
-                languages: rule.languages.clone(),
-                frameworks: rule.frameworks.clone(),
-                runtimes: rule.runtimes.clone(),
-                paradigms: rule.paradigms.clone(),
+                languages: sorted_vec(&rule.languages),
+                frameworks: sorted_vec(&rule.frameworks),
+                runtimes: sorted_vec(&rule.runtimes),
+                paradigms: sorted_vec(&rule.paradigms),
                 suppress_low_signal: rule.suppress_low_signal,
                 suppress_generated: rule.suppress_generated,
                 suppress_config: rule.suppress_config,
@@ -403,4 +404,10 @@ fn markdown_code_list_or_all(values: &[String]) -> String {
     } else {
         markdown_code_list(values)
     }
+}
+
+fn sorted_vec(set: &HashSet<String>) -> Vec<String> {
+    let mut v: Vec<String> = set.iter().cloned().collect();
+    v.sort();
+    v
 }

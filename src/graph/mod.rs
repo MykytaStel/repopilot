@@ -181,3 +181,89 @@ fn dfs(
     stack.pop();
     state[node] = 2;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn graph_from_edges(edges: &[(&str, &str)]) -> CouplingGraph {
+        let mut edge_map: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+        let mut nodes: BTreeSet<PathBuf> = BTreeSet::new();
+
+        for (src, dst) in edges {
+            let src = PathBuf::from(src);
+            let dst = PathBuf::from(dst);
+            nodes.insert(src.clone());
+            nodes.insert(dst.clone());
+            edge_map.entry(src).or_default().insert(dst);
+        }
+
+        CouplingGraph {
+            edges: edge_map,
+            nodes,
+        }
+    }
+
+    #[test]
+    fn detects_simple_two_node_cycle() {
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("b.rs", "a.rs")]);
+
+        let cycles = detect_cycles(&graph);
+
+        assert_eq!(cycles.len(), 1);
+        assert_eq!(cycles[0].len(), 2);
+    }
+
+    #[test]
+    fn detects_three_node_cycle() {
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("b.rs", "c.rs"), ("c.rs", "a.rs")]);
+
+        let cycles = detect_cycles(&graph);
+
+        assert_eq!(cycles.len(), 1);
+        assert_eq!(cycles[0].len(), 3);
+    }
+
+    #[test]
+    fn no_cycle_in_dag() {
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("b.rs", "c.rs"), ("a.rs", "c.rs")]);
+
+        let cycles = detect_cycles(&graph);
+
+        assert!(cycles.is_empty());
+    }
+
+    #[test]
+    fn disconnected_graph_no_cycle() {
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("c.rs", "d.rs")]);
+
+        let cycles = detect_cycles(&graph);
+
+        assert!(cycles.is_empty());
+    }
+
+    #[test]
+    fn compute_metrics_fan_in_and_fan_out() {
+        // a → b → c; a → c
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("a.rs", "c.rs"), ("b.rs", "c.rs")]);
+
+        let metrics = compute_metrics(&graph);
+        let find = |name: &str| -> Option<(usize, usize)> {
+            metrics
+                .iter()
+                .find(|m| m.path == std::path::Path::new(name))
+                .map(|m| (m.fan_in, m.fan_out))
+        };
+
+        let (a_in, a_out) = find("a.rs").expect("a.rs metrics should exist");
+        let (b_in, b_out) = find("b.rs").expect("b.rs metrics should exist");
+        let (c_in, c_out) = find("c.rs").expect("c.rs metrics should exist");
+
+        assert_eq!(a_out, 2);
+        assert_eq!(a_in, 0);
+        assert_eq!(b_out, 1);
+        assert_eq!(b_in, 1);
+        assert_eq!(c_out, 0);
+        assert_eq!(c_in, 2);
+    }
+}

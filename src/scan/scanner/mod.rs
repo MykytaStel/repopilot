@@ -12,7 +12,7 @@ use crate::frameworks::{
 };
 use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
@@ -28,7 +28,9 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     let file_audits = build_file_audits(config);
     let (mut facts, mut findings) =
         collection::collect_and_audit_inline(path, config, &file_audits)?;
+    let file_scan_us = start.elapsed().as_micros() as u64;
 
+    let framework_start = Instant::now();
     facts.detected_frameworks = detect_frameworks(&facts.root_path);
     facts.framework_projects = detect_framework_projects(&facts.root_path);
 
@@ -47,12 +49,22 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         None
     };
     facts.react_native = react_native_profile.clone();
+    let framework_detection_us = framework_start.elapsed().as_micros() as u64;
 
-    findings.extend(run_project_audits(&facts, config));
-    findings.extend(run_framework_audits(&facts, config));
-    let (coupling_findings, coupling_graph) =
-        ImportCouplingAudit.audit_with_graph(&facts, config, path);
+    let post_scan_start = Instant::now();
+    let ((project_findings, framework_findings), (coupling_findings, coupling_graph)) = rayon::join(
+        || {
+            rayon::join(
+                || run_project_audits(&facts, config),
+                || run_framework_audits(&facts, config),
+            )
+        },
+        || ImportCouplingAudit.audit_with_graph(&facts, config, path),
+    );
+    findings.extend(project_findings);
+    findings.extend(framework_findings);
     findings.extend(apply_project_decisions(&facts, coupling_findings));
+    let post_scan_audits_us = post_scan_start.elapsed().as_micros() as u64;
 
     for finding in &mut findings {
         finding.populate_recommendation();
@@ -84,5 +96,10 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         files_skipped_by_limit: facts.files_skipped_by_limit,
         files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
         repopilotignore_path: facts.repopilotignore_path,
+        scan_timings: Some(ScanTimings {
+            file_scan_us,
+            framework_detection_us,
+            post_scan_audits_us,
+        }),
     })
 }

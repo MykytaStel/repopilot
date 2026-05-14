@@ -8,6 +8,9 @@ use crate::audits::code_quality::complexity::ComplexityAudit;
 use crate::audits::code_quality::language_risk::LanguageRiskAudit;
 use crate::audits::code_quality::long_function::LongFunctionAudit;
 use crate::audits::code_quality::rust_panic_risk::RustPanicRiskAudit;
+use crate::audits::framework::django::{
+    DjangoDebugTrueAudit, DjangoEmptyAllowedHostsAudit, DjangoRawSqlAudit,
+};
 use crate::audits::framework::js_common::{ConsoleLogAudit, VarDeclarationAudit};
 use crate::audits::framework::react::{ReactClassComponentAudit, ReactPropTypesAudit};
 use crate::audits::framework::react_native::{
@@ -358,6 +361,32 @@ pub fn registered_framework_audits(facts: &ScanFacts) -> Vec<FrameworkAuditRegis
         ]);
     }
 
+    if scope.has_django {
+        audits.extend([
+            FrameworkAuditRegistration::new(
+                framework_metadata(
+                    "audit.framework.django.debug-true",
+                    &["framework.django.debug-true"],
+                ),
+                Box::new(DjangoDebugTrueAudit),
+            ),
+            FrameworkAuditRegistration::new(
+                framework_metadata(
+                    "audit.framework.django.missing-allowed-hosts",
+                    &["framework.django.missing-allowed-hosts"],
+                ),
+                Box::new(DjangoEmptyAllowedHostsAudit),
+            ),
+            FrameworkAuditRegistration::new(
+                framework_metadata(
+                    "audit.framework.django.raw-sql-query",
+                    &["framework.django.raw-sql-query"],
+                ),
+                Box::new(DjangoRawSqlAudit),
+            ),
+        ]);
+    }
+
     if scope.has_js {
         audits.extend([
             FrameworkAuditRegistration::new(
@@ -394,6 +423,7 @@ struct FrameworkScope {
     has_rn: bool,
     has_react_only: bool,
     has_js: bool,
+    has_django: bool,
 }
 
 fn detect_framework_scope(facts: &ScanFacts) -> FrameworkScope {
@@ -442,10 +472,16 @@ fn detect_framework_scope(facts: &ScanFacts) -> FrameworkScope {
             .iter()
             .any(|project| project.frameworks.iter().any(is_js_framework));
 
+    let has_django = facts
+        .detected_frameworks
+        .iter()
+        .any(|f| matches!(f, DetectedFramework::Django { .. }));
+
     FrameworkScope {
         has_rn,
         has_react_only,
         has_js,
+        has_django,
     }
 }
 

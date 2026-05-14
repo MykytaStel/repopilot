@@ -3,19 +3,13 @@ use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::knowledge::bundled_knowledge;
 use crate::knowledge::language::{language_id_for_name, profile_by_id};
-use crate::knowledge::model::{
-    RuleApplicability, RuleDecision, RuleDecisionAction, RuleMatchContext, RuleOverride,
-};
+use crate::knowledge::model::{RuleDecision, RuleDecisionAction, RuleMatchContext, RuleOverride};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::path_classification::is_low_signal_audit_path;
 use std::collections::HashSet;
 
 pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
-    let Some(rule) = bundled_knowledge()
-        .rule_applicability
-        .iter()
-        .find(|rule| rule.rule_id == context.rule_id)
-    else {
+    let Some(rule) = bundled_knowledge().rule_by_id(context.rule_id) else {
         return RuleDecision::apply(context.base_severity);
     };
 
@@ -23,7 +17,7 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
         && !context
             .languages
             .iter()
-            .any(|language| contains_str(&rule.languages, language))
+            .any(|l| rule.languages.contains(*l))
     {
         return RuleDecision::suppress("rule does not apply to this language");
     }
@@ -38,17 +32,12 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
         && !context
             .frameworks
             .iter()
-            .any(|framework| contains_str(&rule.frameworks, framework))
+            .any(|f| rule.frameworks.contains(*f))
     {
         return RuleDecision::suppress("rule does not apply to this framework");
     }
 
-    if !rule.runtimes.is_empty()
-        && !context
-            .runtimes
-            .iter()
-            .any(|runtime| contains_str(&rule.runtimes, runtime))
-    {
+    if !rule.runtimes.is_empty() && !context.runtimes.iter().any(|r| rule.runtimes.contains(*r)) {
         return RuleDecision::suppress("rule does not apply to this runtime");
     }
 
@@ -56,7 +45,7 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
         && !context
             .paradigms
             .iter()
-            .any(|paradigm| contains_str(&rule.paradigms, paradigm))
+            .any(|p| rule.paradigms.contains(*p))
     {
         return RuleDecision::suppress("rule does not apply to this paradigm");
     }
@@ -289,17 +278,13 @@ fn apply_override(override_rule: &RuleOverride, current: Severity) -> RuleDecisi
     }
 }
 
-fn contains_str(values: &[String], needle: &str) -> bool {
-    values.iter().any(|value| value == needle)
-}
-
 fn language_support_satisfies(
-    rule: &RuleApplicability,
+    rule: &crate::knowledge::model::RuleApplicability,
     context_languages: &[&str],
     minimum_support: crate::knowledge::model::SupportLevel,
 ) -> bool {
     context_languages.iter().any(|language| {
-        (rule.languages.is_empty() || contains_str(&rule.languages, language))
+        (rule.languages.is_empty() || rule.languages.contains(*language))
             && profile_by_id(language).is_some_and(|profile| profile.support >= minimum_support)
     })
 }
@@ -454,6 +439,77 @@ mod tests {
 
         assert_eq!(decision.action, RuleDecisionAction::Apply);
         assert_eq!(decision.severity, Severity::Medium);
+    }
+
+    #[test]
+    fn suppresses_rust_rule_for_python_context() {
+        let context = AuditContext {
+            language: LanguageKind::Python,
+            frameworks: Vec::new(),
+            roles: Vec::new(),
+            paradigms: vec![ProgrammingParadigm::Unknown],
+            runtimes: Vec::new(),
+            is_test: false,
+        };
+
+        let decision =
+            decide_for_audit_context("language.rust.panic-risk", &context, Severity::Medium, None);
+
+        assert!(decision.is_suppressed());
+    }
+
+    #[test]
+    fn suppresses_react_native_rule_for_plain_react_context() {
+        use crate::audits::context::FrameworkKind;
+
+        let context = AuditContext {
+            language: LanguageKind::TypeScript,
+            frameworks: vec![FrameworkKind::React],
+            roles: Vec::new(),
+            paradigms: Vec::new(),
+            runtimes: Vec::new(),
+            is_test: false,
+        };
+
+        let decision = decide_for_audit_context(
+            "framework.react-native.inline-style",
+            &context,
+            Severity::Medium,
+            None,
+        );
+
+        assert!(decision.is_suppressed());
+    }
+
+    #[test]
+    fn applies_rule_when_no_knowledge_entry_exists() {
+        let decision = decide_for_audit_context(
+            "nonexistent.unknown.rule",
+            &rust_context(Vec::new(), Vec::new()),
+            Severity::High,
+            None,
+        );
+
+        assert_eq!(decision.action, RuleDecisionAction::Apply);
+        assert_eq!(decision.severity, Severity::High);
+    }
+
+    #[test]
+    fn suppresses_low_signal_for_rules_with_flag() {
+        let decision = decide(&RuleMatchContext {
+            rule_id: "language.rust.panic-risk",
+            languages: &["rust"],
+            frameworks: &[],
+            roles: &[],
+            paradigms: &[],
+            runtimes: &[],
+            is_test: false,
+            is_low_signal: true,
+            signal: None,
+            base_severity: Severity::Medium,
+        });
+
+        assert!(decision.is_suppressed());
     }
 
     fn rust_context(roles: Vec<FileRole>, runtimes: Vec<RuntimeKind>) -> AuditContext {

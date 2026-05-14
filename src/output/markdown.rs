@@ -4,14 +4,14 @@ use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
-use crate::output::render_helpers::escape_table_cell;
+use crate::output::render_helpers::{escape_table_cell, workspace_package_counts};
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
     findings_for_rule, first_location, rule_ids_for_findings,
 };
 use crate::output::report_text::{
     category_label_rank, category_title, first_sentence, markdown_severity_counts_text,
-    named_counts_text,
+    named_counts_text, tristate_label,
 };
 use crate::scan::types::ScanSummary;
 use std::collections::BTreeMap;
@@ -343,19 +343,19 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     ));
     output.push_str(&format!(
         "- **Android New Architecture:** {}\n",
-        format_tristate(rn.android_new_arch_enabled)
+        tristate_label(rn.android_new_arch_enabled)
     ));
     output.push_str(&format!(
         "- **iOS New Architecture:** {}\n",
-        format_tristate(rn.ios_new_arch_enabled)
+        tristate_label(rn.ios_new_arch_enabled)
     ));
     output.push_str(&format!(
         "- **Expo New Architecture:** {}\n",
-        format_tristate(rn.expo_new_arch_enabled)
+        tristate_label(rn.expo_new_arch_enabled)
     ));
     output.push_str(&format!(
         "- **Hermes:** {}\n",
-        format_tristate(rn.hermes_enabled)
+        tristate_label(rn.hermes_enabled)
     ));
     output.push_str(&format!(
         "- **Codegen config:** {}\n\n",
@@ -365,14 +365,6 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
             "missing"
         }
     ));
-}
-
-fn format_tristate(value: Option<bool>) -> &'static str {
-    match value {
-        Some(true) => "enabled",
-        Some(false) => "disabled",
-        None => "unknown",
-    }
 }
 
 fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramework]) {
@@ -408,18 +400,7 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
 }
 
 fn render_workspace_risk_table(output: &mut String, findings: &[Finding]) {
-    let has_workspace = findings.iter().any(|f| f.workspace_package.is_some());
-    if !has_workspace {
-        return;
-    }
-
-    let mut table: BTreeMap<&str, [usize; 5]> = BTreeMap::new();
-    for f in findings {
-        if let Some(pkg) = f.workspace_package.as_deref() {
-            let counts = table.entry(pkg).or_insert([0; 5]);
-            counts[crate::output::report_stats::severity_index(f.severity)] += 1;
-        }
-    }
+    let table = workspace_package_counts(findings);
 
     if table.is_empty() {
         return;
