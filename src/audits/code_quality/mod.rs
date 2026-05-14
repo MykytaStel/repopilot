@@ -3,3 +3,4 @@ pub mod complexity;
 pub mod language_risk;
 pub mod long_function;
 pub mod rust_panic_risk;
+pub(super) mod sanitize;

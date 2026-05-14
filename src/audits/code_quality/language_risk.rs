@@ -1,3 +1,4 @@
+use crate::audits::code_quality::sanitize::{sanitize_c_style, sanitize_python_line};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::decide_for_file;
@@ -7,16 +8,6 @@ use crate::scan::facts::FileFacts;
 use std::path::Path;
 
 pub struct LanguageRiskAudit;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct LanguageRiskPattern {
-    rule_id: &'static str,
-    signal: &'static str,
-    title: &'static str,
-    context_label: &'static str,
-    recommendation: &'static str,
-    base_severity: Severity,
-}
 
 impl FileAudit for LanguageRiskAudit {
     fn audit(&self, file: &FileFacts, _config: &ScanConfig) -> Vec<Finding> {
@@ -46,218 +37,436 @@ fn detect_language_risks(
     let mut in_block_comment = false;
 
     for (line_index, raw_line) in content.lines().enumerate() {
-        let Some(line) = sanitized_code_line(raw_line, &mut in_block_comment) else {
-            continue;
+        let sanitized = if language_id == "python" {
+            match sanitize_python_line(raw_line) {
+                Some(s) => s,
+                None => continue,
+            }
+        } else {
+            sanitize_c_style(raw_line, &mut in_block_comment)
         };
-        let trimmed = line.trim();
+
+        let trimmed = sanitized.trim();
         if trimmed.is_empty() {
             continue;
         }
 
-        let patterns = patterns_for_line(language_id, trimmed, path);
-        for pattern in patterns {
-            let decision = decide_for_file(
-                pattern.rule_id,
-                file,
-                pattern.base_severity,
-                Some(pattern.signal),
-            );
-            if decision.is_suppressed() {
-                continue;
-            }
-
-            findings.push(build_finding(
-                path,
-                line_index + 1,
-                raw_line.trim(),
-                pattern,
-                decision.severity,
-            ));
-        }
+        emit_findings_for_line(
+            language_id,
+            trimmed,
+            path,
+            raw_line,
+            line_index,
+            file,
+            &mut findings,
+        );
     }
 
     findings
 }
 
-fn patterns_for_line(language_id: &str, trimmed: &str, path: &Path) -> Vec<LanguageRiskPattern> {
+fn emit_findings_for_line(
+    language_id: &str,
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    macro_rules! push_if_matched {
+        ($pattern:expr) => {
+            if $pattern.matches(trimmed, path) {
+                let decision = decide_for_file(
+                    $pattern.rule_id(),
+                    file,
+                    $pattern.base_severity(),
+                    Some($pattern.signal()),
+                );
+                if !decision.is_suppressed() {
+                    findings.push(build_finding(
+                        path,
+                        line_index + 1,
+                        raw_line.trim(),
+                        $pattern,
+                        decision.severity,
+                    ));
+                }
+            }
+        };
+    }
+
     match language_id {
-        "go" => go_patterns(trimmed),
-        "python" => python_patterns(trimmed),
-        "typescript" | "typescript-react" | "javascript" | "javascript-react" => {
-            js_patterns(trimmed, path)
+        "go" => {
+            for p in GoRiskPattern::ALL {
+                push_if_matched!(p);
+            }
         }
-        "java" | "kotlin" | "csharp" => managed_patterns(language_id, trimmed),
-        _ => Vec::new(),
+        "python" => {
+            for p in PythonRiskPattern::ALL {
+                push_if_matched!(p);
+            }
+        }
+        "typescript" | "typescript-react" | "javascript" | "javascript-react" => {
+            for p in JsRiskPattern::ALL {
+                push_if_matched!(p);
+            }
+        }
+        "java" | "kotlin" => {
+            for p in ManagedRiskPattern::JVM_PATTERNS {
+                push_if_matched!(p);
+            }
+        }
+        "csharp" => {
+            for p in ManagedRiskPattern::CSHARP_PATTERNS {
+                push_if_matched!(p);
+            }
+        }
+        _ => {}
     }
 }
 
-fn go_patterns(trimmed: &str) -> Vec<LanguageRiskPattern> {
-    let mut patterns = Vec::new();
-    if trimmed.contains("panic(") {
-        patterns.push(pattern(
-            "language.go.panic-exit-risk",
-            "go.panic",
-            "Risky Go panic usage",
-            "Go panic call",
-            "Return an error from reusable Go code and let the caller decide how to recover.",
-            Severity::Medium,
-        ));
-    }
-    if trimmed.contains("log.Fatal(") || trimmed.contains("log.Fatalf(") {
-        patterns.push(pattern(
-            "language.go.panic-exit-risk",
-            "go.log-fatal",
-            "Risky Go log.Fatal usage",
-            "Go fatal logging call",
-            "Use returned errors outside the narrow CLI boundary so libraries remain recoverable.",
-            Severity::Medium,
-        ));
-    }
-    if trimmed.contains("os.Exit(") {
-        patterns.push(pattern(
-            "language.go.panic-exit-risk",
-            "go.os-exit",
-            "Risky Go os.Exit usage",
-            "Go process exit call",
-            "Centralise process exits at the CLI entrypoint and return errors elsewhere.",
-            Severity::Medium,
-        ));
-    }
-    patterns
+// ── Go ────────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum GoRiskPattern {
+    Panic,
+    LogFatal,
+    OsExit,
 }
 
-fn python_patterns(trimmed: &str) -> Vec<LanguageRiskPattern> {
-    let mut patterns = Vec::new();
-    if is_broad_python_except(trimmed) {
-        patterns.push(pattern(
-            "language.python.exception-risk",
-            "python.broad-except",
-            "Broad Python except handler",
-            "Python broad exception handler",
-            "Catch specific exceptions so unrelated failures are not hidden.",
-            Severity::Medium,
-        ));
+impl GoRiskPattern {
+    const ALL: &'static [Self] = &[Self::Panic, Self::LogFatal, Self::OsExit];
+
+    fn matches(self, trimmed: &str, _path: &Path) -> bool {
+        match self {
+            Self::Panic => trimmed.contains("panic("),
+            Self::LogFatal => trimmed.contains("log.Fatal(") || trimmed.contains("log.Fatalf("),
+            Self::OsExit => trimmed.contains("os.Exit("),
+        }
     }
-    if trimmed.starts_with("assert ") || trimmed.starts_with("assert(") {
-        patterns.push(pattern(
-            "language.python.exception-risk",
-            "python.assert",
-            "Python assert in production path",
-            "Python assert statement",
-            "Use explicit runtime validation for production invariants because asserts can be disabled.",
-            Severity::Medium,
-        ));
+
+    fn rule_id(self) -> &'static str {
+        "language.go.panic-exit-risk"
     }
-    if trimmed.contains("raise NotImplementedError")
-        || trimmed.contains("NotImplementedError(")
-        || trimmed == "raise NotImplementedError"
-    {
-        patterns.push(pattern(
-            "language.python.exception-risk",
-            "python.not-implemented",
-            "Python NotImplementedError placeholder",
-            "Python not-implemented placeholder",
-            "Replace placeholders before production release or guard them behind explicit feature flags.",
-            Severity::High,
-        ));
+
+    fn signal(self) -> &'static str {
+        match self {
+            Self::Panic => "go.panic",
+            Self::LogFatal => "go.log-fatal",
+            Self::OsExit => "go.os-exit",
+        }
     }
-    patterns
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::Panic => "Risky Go panic usage",
+            Self::LogFatal => "Risky Go log.Fatal usage",
+            Self::OsExit => "Risky Go os.Exit usage",
+        }
+    }
+
+    fn context_label(self) -> &'static str {
+        match self {
+            Self::Panic => "Go panic call",
+            Self::LogFatal => "Go fatal logging call",
+            Self::OsExit => "Go process exit call",
+        }
+    }
+
+    fn recommendation(self) -> &'static str {
+        match self {
+            Self::Panic => {
+                "Return an error from reusable Go code and let the caller decide how to recover."
+            }
+            Self::LogFatal => {
+                "Use returned errors outside the narrow CLI boundary so libraries remain recoverable."
+            }
+            Self::OsExit => {
+                "Centralise process exits at the CLI entrypoint and return errors elsewhere."
+            }
+        }
+    }
+
+    fn base_severity(self) -> Severity {
+        Severity::Medium
+    }
 }
 
-fn js_patterns(trimmed: &str, path: &Path) -> Vec<LanguageRiskPattern> {
-    let mut patterns = Vec::new();
-    if trimmed.contains("process.exit(") {
-        patterns.push(pattern(
-            "language.javascript.runtime-exit-risk",
-            "js.process-exit",
-            "JavaScript process.exit usage",
-            "JavaScript process exit call",
-            "Keep process exits at a CLI boundary and return errors from reusable modules.",
-            Severity::Medium,
-        ));
-    }
-    if trimmed.contains("throw new Error(") && is_library_boundary_path(path) {
-        patterns.push(pattern(
-            "language.javascript.runtime-exit-risk",
-            "js.throw-error",
-            "Generic JavaScript error at library boundary",
-            "JavaScript generic thrown error",
-            "Prefer typed errors or actionable error messages at reusable package boundaries.",
-            Severity::Medium,
-        ));
-    }
-    patterns
+// ── Python ────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum PythonRiskPattern {
+    BroadExcept,
+    Assert,
+    NotImplemented,
 }
 
-fn managed_patterns(language_id: &str, trimmed: &str) -> Vec<LanguageRiskPattern> {
-    let mut patterns = Vec::new();
-    let is_csharp = language_id == "csharp";
+impl PythonRiskPattern {
+    const ALL: &'static [Self] = &[Self::BroadExcept, Self::Assert, Self::NotImplemented];
 
-    if trimmed.contains("throw new RuntimeException(")
-        || trimmed.contains("throw new IllegalStateException(")
-        || (is_csharp && trimmed.contains("throw new Exception("))
-    {
-        patterns.push(pattern(
-            "language.managed.fatal-exception-risk",
-            "managed.fatal-exception",
-            "Generic fatal exception in managed code",
-            "JVM/.NET generic fatal exception",
-            "Use domain-specific exception or result types when callers need precise recovery behaviour.",
-            Severity::Medium,
-        ));
+    fn matches(self, trimmed: &str, _path: &Path) -> bool {
+        match self {
+            Self::BroadExcept => {
+                let normalized = trimmed.replace(' ', "");
+                normalized == "except:" || normalized.starts_with("except:#")
+            }
+            Self::Assert => trimmed.starts_with("assert ") || trimmed.starts_with("assert("),
+            Self::NotImplemented => {
+                trimmed.contains("raise NotImplementedError")
+                    || trimmed.contains("NotImplementedError(")
+                    || trimmed == "raise NotImplementedError"
+            }
+        }
     }
 
-    if trimmed.contains("throw new NotImplementedException(")
-        || trimmed.contains("throw new NotImplementedError(")
-        || trimmed.contains("TODO(")
-        || trimmed.contains("TODO()")
-    {
-        patterns.push(pattern(
-            "language.managed.fatal-exception-risk",
-            "managed.not-implemented",
-            "Not-implemented placeholder in managed code",
-            "JVM/.NET placeholder failure",
-            "Replace placeholders before production release or isolate unfinished paths clearly.",
-            Severity::High,
-        ));
+    fn rule_id(self) -> &'static str {
+        "language.python.exception-risk"
     }
 
-    patterns
+    fn signal(self) -> &'static str {
+        match self {
+            Self::BroadExcept => "python.broad-except",
+            Self::Assert => "python.assert",
+            Self::NotImplemented => "python.not-implemented",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::BroadExcept => "Broad Python except handler",
+            Self::Assert => "Python assert in production path",
+            Self::NotImplemented => "Python NotImplementedError placeholder",
+        }
+    }
+
+    fn context_label(self) -> &'static str {
+        match self {
+            Self::BroadExcept => "Python broad exception handler",
+            Self::Assert => "Python assert statement",
+            Self::NotImplemented => "Python not-implemented placeholder",
+        }
+    }
+
+    fn recommendation(self) -> &'static str {
+        match self {
+            Self::BroadExcept => "Catch specific exceptions so unrelated failures are not hidden.",
+            Self::Assert => {
+                "Use explicit runtime validation for production invariants because asserts can be disabled."
+            }
+            Self::NotImplemented => {
+                "Replace placeholders before production release or guard them behind explicit feature flags."
+            }
+        }
+    }
+
+    fn base_severity(self) -> Severity {
+        match self {
+            Self::NotImplemented => Severity::High,
+            _ => Severity::Medium,
+        }
+    }
 }
 
-fn pattern(
-    rule_id: &'static str,
-    signal: &'static str,
-    title: &'static str,
-    context_label: &'static str,
-    recommendation: &'static str,
-    base_severity: Severity,
-) -> LanguageRiskPattern {
-    LanguageRiskPattern {
-        rule_id,
-        signal,
-        title,
-        context_label,
-        recommendation,
-        base_severity,
+// ── JavaScript / TypeScript ───────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum JsRiskPattern {
+    ProcessExit,
+    ThrowError,
+}
+
+impl JsRiskPattern {
+    const ALL: &'static [Self] = &[Self::ProcessExit, Self::ThrowError];
+
+    fn matches(self, trimmed: &str, path: &Path) -> bool {
+        match self {
+            Self::ProcessExit => trimmed.contains("process.exit("),
+            Self::ThrowError => {
+                trimmed.contains("throw new Error(") && is_library_boundary_path(path)
+            }
+        }
+    }
+
+    fn rule_id(self) -> &'static str {
+        "language.javascript.runtime-exit-risk"
+    }
+
+    fn signal(self) -> &'static str {
+        match self {
+            Self::ProcessExit => "js.process-exit",
+            Self::ThrowError => "js.throw-error",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::ProcessExit => "JavaScript process.exit usage",
+            Self::ThrowError => "Generic JavaScript error at library boundary",
+        }
+    }
+
+    fn context_label(self) -> &'static str {
+        match self {
+            Self::ProcessExit => "JavaScript process exit call",
+            Self::ThrowError => "JavaScript generic thrown error",
+        }
+    }
+
+    fn recommendation(self) -> &'static str {
+        match self {
+            Self::ProcessExit => {
+                "Keep process exits at a CLI boundary and return errors from reusable modules."
+            }
+            Self::ThrowError => {
+                "Prefer typed errors or actionable error messages at reusable package boundaries."
+            }
+        }
+    }
+
+    fn base_severity(self) -> Severity {
+        Severity::Medium
     }
 }
+
+// ── Java / Kotlin / C# ───────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy)]
+enum ManagedRiskPattern {
+    FatalException { is_csharp: bool },
+    NotImplemented,
+}
+
+impl ManagedRiskPattern {
+    const JVM_PATTERNS: &'static [Self] = &[
+        Self::FatalException { is_csharp: false },
+        Self::NotImplemented,
+    ];
+    const CSHARP_PATTERNS: &'static [Self] = &[
+        Self::FatalException { is_csharp: true },
+        Self::NotImplemented,
+    ];
+
+    fn matches(self, trimmed: &str, _path: &Path) -> bool {
+        match self {
+            Self::FatalException { is_csharp } => {
+                trimmed.contains("throw new RuntimeException(")
+                    || trimmed.contains("throw new IllegalStateException(")
+                    || (is_csharp && trimmed.contains("throw new Exception("))
+            }
+            Self::NotImplemented => {
+                trimmed.contains("throw new NotImplementedException(")
+                    || trimmed.contains("throw new NotImplementedError(")
+                    || trimmed.contains("TODO(")
+                    || trimmed.contains("TODO()")
+            }
+        }
+    }
+
+    fn rule_id(self) -> &'static str {
+        "language.managed.fatal-exception-risk"
+    }
+
+    fn signal(self) -> &'static str {
+        match self {
+            Self::FatalException { .. } => "managed.fatal-exception",
+            Self::NotImplemented => "managed.not-implemented",
+        }
+    }
+
+    fn title(self) -> &'static str {
+        match self {
+            Self::FatalException { .. } => "Generic fatal exception in managed code",
+            Self::NotImplemented => "Not-implemented placeholder in managed code",
+        }
+    }
+
+    fn context_label(self) -> &'static str {
+        match self {
+            Self::FatalException { .. } => "JVM/.NET generic fatal exception",
+            Self::NotImplemented => "JVM/.NET placeholder failure",
+        }
+    }
+
+    fn recommendation(self) -> &'static str {
+        match self {
+            Self::FatalException { .. } => {
+                "Use domain-specific exception or result types when callers need precise recovery behaviour."
+            }
+            Self::NotImplemented => {
+                "Replace placeholders before production release or isolate unfinished paths clearly."
+            }
+        }
+    }
+
+    fn base_severity(self) -> Severity {
+        match self {
+            Self::NotImplemented => Severity::High,
+            _ => Severity::Medium,
+        }
+    }
+}
+
+// ── Shared ────────────────────────────────────────────────────────────────────
+
+trait RiskPattern {
+    fn matches(&self, trimmed: &str, path: &Path) -> bool;
+    fn rule_id(&self) -> &'static str;
+    fn signal(&self) -> &'static str;
+    fn title(&self) -> &'static str;
+    fn context_label(&self) -> &'static str;
+    fn recommendation(&self) -> &'static str;
+    fn base_severity(&self) -> Severity;
+}
+
+macro_rules! impl_risk_pattern {
+    ($t:ty) => {
+        impl RiskPattern for $t {
+            fn matches(&self, trimmed: &str, path: &Path) -> bool {
+                (*self).matches(trimmed, path)
+            }
+            fn rule_id(&self) -> &'static str {
+                (*self).rule_id()
+            }
+            fn signal(&self) -> &'static str {
+                (*self).signal()
+            }
+            fn title(&self) -> &'static str {
+                (*self).title()
+            }
+            fn context_label(&self) -> &'static str {
+                (*self).context_label()
+            }
+            fn recommendation(&self) -> &'static str {
+                (*self).recommendation()
+            }
+            fn base_severity(&self) -> Severity {
+                (*self).base_severity()
+            }
+        }
+    };
+}
+
+impl_risk_pattern!(GoRiskPattern);
+impl_risk_pattern!(PythonRiskPattern);
+impl_risk_pattern!(JsRiskPattern);
+impl_risk_pattern!(ManagedRiskPattern);
 
 fn build_finding(
     path: &Path,
     line_number: usize,
     snippet: &str,
-    pattern: LanguageRiskPattern,
+    pattern: &dyn RiskPattern,
     severity: Severity,
 ) -> Finding {
     Finding {
         id: String::new(),
-        rule_id: pattern.rule_id.to_string(),
-        recommendation: pattern.recommendation.to_string(),
-        title: pattern.title.to_string(),
+        rule_id: pattern.rule_id().to_string(),
+        recommendation: pattern.recommendation().to_string(),
+        title: pattern.title().to_string(),
         description: format!(
             "{} was found in {}. Runtime termination and placeholder exception paths can bypass normal error handling and make failures harder to recover from.",
-            pattern.context_label,
+            pattern.context_label(),
             path.display(),
         ),
         category: FindingCategory::CodeQuality,
@@ -272,78 +481,6 @@ fn build_finding(
         workspace_package: None,
         docs_url: None,
     }
-}
-
-fn sanitized_code_line(line: &str, in_block_comment: &mut bool) -> Option<String> {
-    let trimmed = line.trim();
-    if *in_block_comment {
-        if trimmed.contains("*/") {
-            *in_block_comment = false;
-        }
-        return None;
-    }
-    if trimmed.starts_with("//")
-        || trimmed.starts_with('#')
-        || trimmed.starts_with("///")
-        || trimmed.starts_with("/*")
-        || trimmed.starts_with('*')
-    {
-        if trimmed.starts_with("/*") && !trimmed.contains("*/") {
-            *in_block_comment = true;
-        }
-        return None;
-    }
-
-    Some(strip_string_literals(line))
-}
-
-fn strip_string_literals(line: &str) -> String {
-    let mut result = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
-    let mut string_delimiter = None;
-    let mut escaped = false;
-
-    while let Some(character) = chars.next() {
-        if let Some(delimiter) = string_delimiter {
-            if escaped {
-                escaped = false;
-                result.push(' ');
-                continue;
-            }
-            if character == '\\' {
-                escaped = true;
-                result.push(' ');
-                continue;
-            }
-            if character == delimiter {
-                string_delimiter = None;
-                result.push(character);
-            } else {
-                result.push(' ');
-            }
-            continue;
-        }
-
-        if character == '/' && chars.peek() == Some(&'/') {
-            break;
-        }
-        if character == '#' {
-            break;
-        }
-        if matches!(character, '"' | '\'' | '`') {
-            string_delimiter = Some(character);
-            result.push(character);
-        } else {
-            result.push(character);
-        }
-    }
-
-    result
-}
-
-fn is_broad_python_except(trimmed: &str) -> bool {
-    let normalized = trimmed.replace(' ', "");
-    normalized == "except:" || normalized.starts_with("except:#")
 }
 
 fn is_library_boundary_path(path: &Path) -> bool {

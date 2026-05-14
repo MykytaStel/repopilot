@@ -107,6 +107,27 @@ fn ts_non_relative_import_skipped() {
 }
 
 #[test]
+fn ts_absolute_path_skipped() {
+    // /foo/bar is an absolute path — not a local relative import
+    let code = r#"import foo from "/absolute/path";"#;
+    let imports = extract_imports(code, Some("TypeScript"));
+    assert!(
+        imports.is_empty(),
+        "absolute path must be skipped: {imports:?}"
+    );
+}
+
+#[test]
+fn ts_scoped_package_skipped() {
+    let code = r#"import { x } from "@scope/package";"#;
+    let imports = extract_imports(code, Some("TypeScript"));
+    assert!(
+        imports.is_empty(),
+        "@-scoped package must be skipped: {imports:?}"
+    );
+}
+
+#[test]
 fn js_import_from_relative() {
     let code = r#"import { fn } from "./helpers";"#;
     let imports = extract_imports(code, Some("JavaScript"));
