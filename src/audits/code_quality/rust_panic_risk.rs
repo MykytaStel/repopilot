@@ -1,3 +1,4 @@
+use crate::audits::code_quality::sanitize::sanitize_c_style;
 use crate::audits::context::{FileRole, LanguageKind, RuntimeKind, classify_file};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
@@ -37,7 +38,7 @@ impl FileAudit for RustPanicRiskAudit {
                 continue;
             }
 
-            let sanitized = sanitize_rust_line(line, &mut in_block_comment);
+            let sanitized = sanitize_c_style(line, &mut in_block_comment);
             let Some(pattern) = detect_pattern(sanitized.trim()) else {
                 continue;
             };
@@ -129,82 +130,6 @@ fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
     }
 
     None
-}
-
-fn sanitize_rust_line(line: &str, in_block_comment: &mut bool) -> String {
-    // Lightweight scanner only; raw strings and nested block comments are a
-    // future parser-level improvement, not a dependency for this audit.
-    let mut output = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
-    let mut in_string = false;
-    let mut in_char = false;
-    let mut escaped = false;
-
-    while let Some(character) = chars.next() {
-        if *in_block_comment {
-            if character == '*' && chars.peek() == Some(&'/') {
-                chars.next();
-                *in_block_comment = false;
-                output.push(' ');
-                output.push(' ');
-            } else {
-                output.push(' ');
-            }
-            continue;
-        }
-
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if character == '\\' {
-                escaped = true;
-            } else if character == '"' {
-                in_string = false;
-            }
-            output.push(' ');
-            continue;
-        }
-
-        if in_char {
-            if escaped {
-                escaped = false;
-            } else if character == '\\' {
-                escaped = true;
-            } else if character == '\'' {
-                in_char = false;
-            }
-            output.push(' ');
-            continue;
-        }
-
-        if character == '/' && chars.peek() == Some(&'/') {
-            break;
-        }
-
-        if character == '/' && chars.peek() == Some(&'*') {
-            chars.next();
-            *in_block_comment = true;
-            output.push(' ');
-            output.push(' ');
-            continue;
-        }
-
-        if character == '"' {
-            in_string = true;
-            output.push(' ');
-            continue;
-        }
-
-        if character == '\'' {
-            in_char = true;
-            output.push(' ');
-            continue;
-        }
-
-        output.push(character);
-    }
-
-    output
 }
 
 fn build_finding(
