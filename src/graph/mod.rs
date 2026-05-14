@@ -251,7 +251,7 @@ mod tests {
         let find = |name: &str| -> Option<(usize, usize)> {
             metrics
                 .iter()
-                .find(|m| m.path == PathBuf::from(name))
+                .find(|m| m.path == name)
                 .map(|m| (m.fan_in, m.fan_out))
         };
 
