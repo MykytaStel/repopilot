@@ -54,16 +54,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
-        AiCommands::Context(options) => vibe::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-            options.no_header,
-            options.no_task,
-            options.show_breakdown,
-        ),
+        AiCommands::Context(options) => vibe::run(options),
         AiCommands::Plan(options) => harden::run(
             options.path,
             options.config,

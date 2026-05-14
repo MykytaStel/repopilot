@@ -1,18 +1,20 @@
+use crate::cli::ai::AiContextOptions;
 use crate::commands::llm::{LlmCommandArgs, run_markdown_command};
 use repopilot::output::vibe::{VibeOptions, render_with_breakdown};
 use std::io::IsTerminal;
-use std::path::PathBuf;
 
-pub fn run(
-    path: PathBuf,
-    config: Option<PathBuf>,
-    focus: Option<String>,
-    budget: Option<usize>,
-    output: Option<PathBuf>,
-    no_header: bool,
-    no_task: bool,
-    show_breakdown: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(options: AiContextOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let AiContextOptions {
+        path,
+        config,
+        focus,
+        budget,
+        output,
+        no_header,
+        no_task,
+        show_breakdown,
+    } = options;
+
     // Show breakdown when explicitly requested or when stdout is a terminal
     // (piping to pbcopy/clip suppresses it automatically).
     let should_show_breakdown = show_breakdown || std::io::stdout().is_terminal();

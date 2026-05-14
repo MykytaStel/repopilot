@@ -78,11 +78,12 @@ impl SectionBreakdown {
             "\n── Token Budget ──────────────────────────────────────"
         );
         for section in &self.sections {
-            let filled = if self.budget_tokens > 0 {
-                (section.tokens * bar_width / self.budget_tokens).min(bar_width)
-            } else {
-                0
-            };
+            let filled = section
+                .tokens
+                .saturating_mul(bar_width)
+                .checked_div(self.budget_tokens)
+                .unwrap_or(0)
+                .min(bar_width);
             let bar: String = "█".repeat(filled) + &"░".repeat(bar_width - filled);
             let label_trunc = if section.label.len() > 26 {
                 &section.label[..26]
