@@ -8,7 +8,7 @@ fn repopilot() -> Command {
 #[test]
 fn knowledge_outputs_catalog_summary_as_json() {
     let output = repopilot()
-        .args(["knowledge", "--format", "json"])
+        .args(["inspect", "knowledge", "--format", "json"])
         .output()
         .expect("run knowledge");
 
@@ -33,7 +33,14 @@ fn knowledge_outputs_catalog_summary_as_json() {
 #[test]
 fn knowledge_can_filter_to_languages() {
     let output = repopilot()
-        .args(["knowledge", "--section", "languages", "--format", "json"])
+        .args([
+            "inspect",
+            "knowledge",
+            "--section",
+            "languages",
+            "--format",
+            "json",
+        ])
         .output()
         .expect("run knowledge languages");
 
@@ -58,7 +65,14 @@ fn knowledge_can_filter_to_languages() {
 #[test]
 fn knowledge_can_filter_to_rules() {
     let output = repopilot()
-        .args(["knowledge", "--section", "rules", "--format", "json"])
+        .args([
+            "inspect",
+            "knowledge",
+            "--section",
+            "rules",
+            "--format",
+            "json",
+        ])
         .output()
         .expect("run knowledge rules");
 

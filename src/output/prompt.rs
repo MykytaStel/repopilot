@@ -60,6 +60,7 @@ pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
             focus: opts.focus.clone(),
             budget_tokens: vibe_budget,
             no_header: false,
+            no_task: true,
         },
     );
     out.push_str(&vibe);

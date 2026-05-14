@@ -14,6 +14,7 @@ use crate::output::report_text::{
     category_title, console_severity_counts_text, first_sentence, named_counts_text, tristate_label,
 };
 use crate::scan::types::ScanSummary;
+use std::fmt::Write;
 
 pub fn render(summary: &ScanSummary) -> String {
     let stats = build_report_stats(summary);
@@ -41,14 +42,14 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
     render_header(&mut output, summary, &stats);
     match &report.baseline_path {
-        Some(path) => output.push_str(&format!("Baseline: {}\n", path.display())),
+        Some(path) => writeln!(output, "Baseline: {}", path.display()).unwrap(),
         None => output.push_str("Baseline: none (all findings treated as new)\n"),
     }
-    output.push_str(&format!("New findings: {}\n", report.new_count()));
-    output.push_str(&format!("Existing findings: {}\n", report.existing_count()));
+    writeln!(output, "New findings: {}", report.new_count()).unwrap();
+    writeln!(output, "Existing findings: {}", report.existing_count()).unwrap();
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
-        output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
+        writeln!(output, "CI gate: {status} ({})", ci_gate.label()).unwrap();
     }
     output.push('\n');
 
@@ -70,28 +71,36 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
 fn render_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
     output.push_str("RepoPilot Scan\n");
-    output.push_str(&format!("Version: {TOOL_VERSION}\n"));
-    output.push_str(&format!("Path: {}\n", summary.root_path.display()));
-    output.push_str(&format!(
-        "Risk: {} | Health score: {}/100 {}\n",
+    writeln!(output, "Version: {TOOL_VERSION}").unwrap();
+    writeln!(output, "Path: {}", summary.root_path.display()).unwrap();
+    writeln!(
+        output,
+        "Risk: {} | Health score: {}/100 {}",
         stats.risk_label,
         stats.health_score,
         health_score_bar(stats.health_score)
-    ));
-    output.push_str(&format!(
-        "Findings: {} ({:.1}/kloc)\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Findings: {} ({:.1}/kloc)",
         stats.total_findings, stats.finding_density
-    ));
-    output.push_str(&format!(
-        "Directories analyzed: {} | Lines of code: {}\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Directories analyzed: {} | Lines of code: {}",
         summary.directories_count, summary.lines_of_code
-    ));
+    )
+    .unwrap();
     render_scan_input(output, summary);
     if summary.scan_duration_us > 0 {
-        output.push_str(&format!(
-            "Scan time: {:.2}s\n",
+        writeln!(
+            output,
+            "Scan time: {:.2}s",
             summary.scan_duration_us as f64 / 1_000_000.0
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -100,73 +109,68 @@ fn render_scan_input(output: &mut String, summary: &ScanSummary) {
     output.push_str("Scan input:\n");
 
     if let Some(path) = &summary.repopilotignore_path {
-        output.push_str(&format!(" .repopilotignore: {}\n", path.display()));
+        writeln!(output, " .repopilotignore: {}", path.display()).unwrap();
     }
 
     if summary.files_skipped_repopilotignore > 0 {
-        output.push_str(&format!(
-            " Files skipped (.repopilotignore): {:>7}\n",
+        writeln!(
+            output,
+            " Files skipped (.repopilotignore): {:>7}",
             summary.files_skipped_repopilotignore
-        ));
+        )
+        .unwrap();
     }
 
-    output.push_str(&format!(
-        " Files discovered: {:>7}\n",
-        summary.files_discovered
-    ));
+    writeln!(output, " Files discovered: {:>7}", summary.files_discovered).unwrap();
 
     if summary.files_skipped_by_limit > 0 {
-        output.push_str(&format!(
-            " Files skipped (limit): {:>7}\n",
+        writeln!(
+            output,
+            " Files skipped (limit): {:>7}",
             summary.files_skipped_by_limit
-        ));
+        )
+        .unwrap();
     }
 
-    output.push_str(&format!(" Files analyzed: {:>7}\n", summary.files_count));
+    writeln!(output, " Files analyzed: {:>7}", summary.files_count).unwrap();
 
     if summary.skipped_files_count > 0 {
-        output.push_str(&format!(
-            " Large files skipped: {:>7}\n",
+        writeln!(
+            output,
+            " Large files skipped: {:>7}",
             summary.skipped_files_count
-        ));
+        )
+        .unwrap();
     }
 
     if summary.binary_files_skipped > 0 {
-        output.push_str(&format!(
-            " Binary files skipped: {:>7}\n",
+        writeln!(
+            output,
+            " Binary files skipped: {:>7}",
             summary.binary_files_skipped
-        ));
+        )
+        .unwrap();
     }
 
     if summary.files_skipped_low_signal > 0 {
-        output.push_str(&format!(
-            " Low-signal files skipped:{:>7}\n",
+        writeln!(
+            output,
+            " Low-signal files skipped:{:>7}",
             summary.files_skipped_low_signal
-        ));
+        )
+        .unwrap();
     }
 }
 
 fn render_risk_summary(output: &mut String, stats: &ReportStats) {
     output.push_str("Risk Summary:\n");
-    output.push_str(&format!(
-        "  Severity: {}\n",
-        console_severity_counts_text(stats)
-    ));
-    output.push_str(&format!(
-        "  Categories: {}\n",
-        named_counts_text(&stats.category_counts)
-    ));
+    writeln!(output, "  Severity: {}", console_severity_counts_text(stats)).unwrap();
+    writeln!(output, "  Categories: {}", named_counts_text(&stats.category_counts)).unwrap();
     if !stats.top_paths.is_empty() {
-        output.push_str(&format!(
-            "  Top paths: {}\n",
-            named_counts_text(&stats.top_paths)
-        ));
+        writeln!(output, "  Top paths: {}", named_counts_text(&stats.top_paths)).unwrap();
     }
     if !stats.top_packages.is_empty() {
-        output.push_str(&format!(
-            "  Top packages: {}\n",
-            named_counts_text(&stats.top_packages)
-        ));
+        writeln!(output, "  Top packages: {}", named_counts_text(&stats.top_packages)).unwrap();
     }
     output.push('\n');
 }
@@ -184,10 +188,7 @@ fn render_top_rules(output: &mut String, stats: &ReportStats) {
             .severity
             .map(|severity| color::severity_label(severity.label()))
             .unwrap_or_else(|| color::severity_label("INFO"));
-        output.push_str(&format!(
-            "  {:>4}  [{}] {}\n",
-            rule.count, severity, rule.label
-        ));
+        writeln!(output, "  {:>4}  [{}] {}", rule.count, severity, rule.label).unwrap();
     }
     output.push('\n');
 }
@@ -201,10 +202,7 @@ fn render_languages_section(output: &mut String, summary: &ScanSummary) {
     }
 
     for language in &summary.languages {
-        output.push_str(&format!(
-            "  {}: {} files\n",
-            language.name, language.files_count
-        ));
+        writeln!(output, "  {}: {} files", language.name, language.files_count).unwrap();
     }
     output.push('\n');
 }
@@ -226,11 +224,11 @@ where
             continue;
         }
 
-        output.push_str(&format!("  {}:\n", category_title(&category)));
+        writeln!(output, "  {}:", category_title(&category)).unwrap();
         let rules = rule_ids_for_findings(&category_findings);
         for rule_id in rules {
             let rule_findings = findings_for_rule(&category_findings, &rule_id);
-            output.push_str(&format!("    {} ({})\n", rule_id, rule_findings.len()));
+            writeln!(output, "    {} ({})", rule_id, rule_findings.len()).unwrap();
             for finding in rule_findings {
                 let index = findings
                     .iter()
@@ -245,16 +243,13 @@ where
 
 fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) {
     let severity = color::severity_label(finding.severity_label());
-    output.push_str(&format!("      [{}] {}\n", severity, finding.title));
-    output.push_str(&format!(
-        "        Confidence: {}\n",
-        finding.confidence_label()
-    ));
+    writeln!(output, "      [{}] {}", severity, finding.title).unwrap();
+    writeln!(output, "        Confidence: {}", finding.confidence_label()).unwrap();
     if let Some(status) = status {
-        output.push_str(&format!("        Baseline: {status}\n"));
+        writeln!(output, "        Baseline: {status}").unwrap();
     }
     if let Some(location) = first_location(finding) {
-        output.push_str(&format!("        Location: {location}\n"));
+        writeln!(output, "        Location: {location}").unwrap();
     }
     for evidence in &finding.evidence {
         let location = if evidence.line_start > 0 {
@@ -264,19 +259,21 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
         };
         let snippet = evidence.snippet.trim();
         if snippet.is_empty() {
-            output.push_str(&format!("        Evidence: {location}\n"));
+            writeln!(output, "        Evidence: {location}").unwrap();
         } else {
-            output.push_str(&format!("        Evidence: {location} - {snippet}\n"));
+            writeln!(output, "        Evidence: {location} - {snippet}").unwrap();
         }
     }
     if !finding.description.is_empty() {
-        output.push_str(&format!(
-            "        {}\n",
+        writeln!(
+            output,
+            "        {}",
             color::dim(&first_sentence(&finding.description, 120))
-        ));
+        )
+        .unwrap();
     }
     if let Some(url) = &finding.docs_url {
-        output.push_str(&format!("        Docs: {url}\n"));
+        writeln!(output, "        Docs: {url}").unwrap();
     }
 }
 
@@ -290,8 +287,9 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
     let name_width = table.keys().map(|k| k.len()).max().unwrap_or(7).max(7);
 
     output.push_str("Workspace Risk Summary:\n");
-    output.push_str(&format!(
-        "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}\n",
+    writeln!(
+        output,
+        "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}",
         "Package",
         "Crit",
         "High",
@@ -300,16 +298,20 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
         "Info",
         "Total",
         width = name_width
-    ));
-    output.push_str(&format!(
-        "  {:-<width$}  -----  -----  -----  -----  -----  -----\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "  {:-<width$}  -----  -----  -----  -----  -----  -----",
         "",
         width = name_width
-    ));
+    )
+    .unwrap();
     for (pkg, counts) in &table {
         let total: usize = counts.iter().sum();
-        output.push_str(&format!(
-            "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}\n",
+        writeln!(
+            output,
+            "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}",
             pkg,
             counts[0],
             counts[1],
@@ -318,7 +320,8 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
             counts[4],
             total,
             width = name_width
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -328,7 +331,7 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
         return;
     }
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
-    output.push_str(&format!("Frameworks: {}\n\n", labels.join(" | ")));
+    writeln!(output, "Frameworks: {}\n", labels.join(" | ")).unwrap();
 }
 
 fn render_framework_projects_section(output: &mut String, projects: &[FrameworkProject]) {
@@ -343,11 +346,7 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
     output.push_str("Framework projects:\n");
     for project in nested_projects {
         let labels: Vec<String> = project.frameworks.iter().map(|f| f.label()).collect();
-        output.push_str(&format!(
-            "  {}: {}\n",
-            project.path.display(),
-            labels.join(" | ")
-        ));
+        writeln!(output, "  {}: {}", project.path.display(), labels.join(" | ")).unwrap();
     }
     output.push('\n');
 }
@@ -364,18 +363,24 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     let package_manager = rn.package_manager.as_deref().unwrap_or("unknown");
 
     output.push_str("React Native:\n");
-    output.push_str(&format!(
-        "  Version: {version}  Kind: {:?}  Package manager: {package_manager}\n",
+    writeln!(
+        output,
+        "  Version: {version}  Kind: {:?}  Package manager: {package_manager}",
         rn.project_kind
-    ));
-    output.push_str(&format!(
-        "  iOS: {ios}  Android: {android}  Expo config: {}\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "  iOS: {ios}  Android: {android}  Expo config: {}",
         if rn.has_expo_config { "yes" } else { "no" }
-    ));
-    output.push_str(&format!(
-        "  New Arch (Android): {new_arch_android}  New Arch (iOS): {new_arch_ios}  New Arch (Expo): {new_arch_expo}\n"
-    ));
-    output.push_str(&format!("  Hermes: {hermes}  Codegen: {codegen}\n\n"));
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "  New Arch (Android): {new_arch_android}  New Arch (iOS): {new_arch_ios}  New Arch (Expo): {new_arch_expo}"
+    )
+    .unwrap();
+    writeln!(output, "  Hermes: {hermes}  Codegen: {codegen}\n").unwrap();
 }
 
 fn health_score_bar(score: u8) -> &'static str {

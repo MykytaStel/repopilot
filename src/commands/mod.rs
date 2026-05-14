@@ -49,39 +49,6 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             options.include_low_signal,
             options.max_files,
         ),
-        Commands::Vibe(options) => vibe::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-            options.no_header,
-        ),
-        Commands::Harden(options) => harden::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-        Commands::Prompt(options) => prompt::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-        Commands::Explain(options) => explain::run(
-            options.path,
-            options.rule,
-            options.signal,
-            options.severity,
-            options.format,
-            options.output,
-        ),
-        Commands::Knowledge(options) => {
-            knowledge::run(options.section, options.format, options.output)
-        }
     }
 }
 
@@ -94,6 +61,8 @@ fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
             options.budget,
             options.output,
             options.no_header,
+            options.no_task,
+            options.show_breakdown,
         ),
         AiCommands::Plan(options) => harden::run(
             options.path,

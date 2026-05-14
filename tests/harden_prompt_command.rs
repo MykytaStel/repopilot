@@ -44,10 +44,10 @@ fn harden_default_output_succeeds() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["harden", "."])
+        .args(["ai", "plan", "."])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot harden");
+        .expect("failed to run repopilot ai plan");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -64,10 +64,10 @@ fn harden_focus_security_excludes_quality_findings() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["harden", ".", "--focus", "security", "--budget", "2k"])
+        .args(["ai", "plan", ".", "--focus", "security", "--budget", "2k"])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot harden");
+        .expect("failed to run repopilot ai plan");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -81,10 +81,10 @@ fn harden_groups_repeated_medium_findings_by_rule() {
     write_medium_signal_project(temp.path());
 
     let output = repopilot()
-        .args(["harden", "."])
+        .args(["ai", "plan", "."])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot harden");
+        .expect("failed to run repopilot ai plan");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -100,10 +100,10 @@ fn prompt_default_output_succeeds() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["prompt", "."])
+        .args(["ai", "prompt", "."])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot prompt");
+        .expect("failed to run repopilot ai prompt");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -126,20 +126,20 @@ fn harden_and_prompt_support_output_files() {
     let prompt_path = temp.path().join("prompt.md");
 
     let harden_output = repopilot()
-        .args(["harden", ".", "--output"])
+        .args(["ai", "plan", ".", "--output"])
         .arg(&harden_path)
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot harden");
+        .expect("failed to run repopilot ai plan");
     assert!(harden_output.status.success());
     assert!(harden_output.stdout.is_empty());
 
     let prompt_output = repopilot()
-        .args(["prompt", ".", "--output"])
+        .args(["ai", "prompt", ".", "--output"])
         .arg(&prompt_path)
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot prompt");
+        .expect("failed to run repopilot ai prompt");
     assert!(prompt_output.status.success());
     assert!(prompt_output.stdout.is_empty());
 

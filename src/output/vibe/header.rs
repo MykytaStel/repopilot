@@ -1,4 +1,4 @@
-use crate::findings::types::{Finding, Severity};
+use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::report_stats::risk_label_for_findings;
 use crate::output::vibe::project_name;
 use crate::scan::types::ScanSummary;
@@ -72,6 +72,87 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
             summary.skipped_files_count
         );
     }
+    out.push('\n');
+}
+
+/// Prepend an AI task instruction block before the findings.
+/// Only rendered when the user will paste the output into an AI assistant.
+pub(super) fn render_task_instruction(
+    out: &mut String,
+    findings: &[&Finding],
+    summary: &ScanSummary,
+) {
+    if findings.is_empty() {
+        return;
+    }
+
+    let project = project_name(summary);
+
+    let critical_sec = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Critical && f.category == FindingCategory::Security)
+        .count();
+    let high_sec = findings
+        .iter()
+        .filter(|f| f.severity == Severity::High && f.category == FindingCategory::Security)
+        .count();
+    let high_arch = findings
+        .iter()
+        .filter(|f| f.severity == Severity::High && f.category == FindingCategory::Architecture)
+        .count();
+    let critical_total = findings
+        .iter()
+        .filter(|f| f.severity == Severity::Critical)
+        .count();
+    let high_total = findings
+        .iter()
+        .filter(|f| f.severity == Severity::High)
+        .count();
+
+    let _ = writeln!(
+        out,
+        "> **Instructions for AI assistant:** RepoPilot scan of `{project}`."
+    );
+
+    let mut step = 1usize;
+
+    if critical_sec + high_sec > 0 {
+        let n = critical_sec + high_sec;
+        let sev = if critical_sec > 0 { "critical" } else { "high-severity" };
+        let _ = writeln!(
+            out,
+            "> {step}. Fix the {n} {sev} security finding(s) with concrete code patches."
+        );
+        step += 1;
+    } else if critical_total + high_total > 0 {
+        let n = critical_total + high_total;
+        let _ = writeln!(
+            out,
+            "> {step}. Fix the {n} critical/high finding(s) with concrete code patches."
+        );
+        step += 1;
+    } else {
+        let n = findings.len();
+        let _ = writeln!(
+            out,
+            "> {step}. Review the {n} finding(s) and suggest targeted improvements."
+        );
+        step += 1;
+    }
+
+    if high_arch > 0 {
+        let _ = writeln!(
+            out,
+            "> {step}. Address the {high_arch} high-severity architecture issue(s)."
+        );
+        step += 1;
+    }
+
+    let _ = writeln!(
+        out,
+        "> {step}. Keep changes minimal and focused — no rewrites unless necessary."
+    );
+
     out.push('\n');
 }
 

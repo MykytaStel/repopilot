@@ -15,6 +15,7 @@ use crate::output::report_text::{
 };
 use crate::scan::types::ScanSummary;
 use std::collections::BTreeMap;
+use std::fmt::Write;
 
 pub fn render(summary: &ScanSummary) -> String {
     let stats = build_report_stats(summary);
@@ -47,20 +48,14 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
     output.push_str("## Baseline\n\n");
     match &report.baseline_path {
-        Some(path) => output.push_str(&format!("- **Baseline:** `{}`\n", path.display())),
+        Some(path) => writeln!(output, "- **Baseline:** `{}`", path.display()).unwrap(),
         None => output.push_str("- **Baseline:** none (all findings treated as new)\n"),
     }
-    output.push_str(&format!("- **New findings:** {}\n", report.new_count()));
-    output.push_str(&format!(
-        "- **Existing findings:** {}\n",
-        report.existing_count()
-    ));
+    writeln!(output, "- **New findings:** {}", report.new_count()).unwrap();
+    writeln!(output, "- **Existing findings:** {}", report.existing_count()).unwrap();
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
-        output.push_str(&format!(
-            "- **CI gate:** {status} (`{}`)\n",
-            ci_gate.label()
-        ));
+        writeln!(output, "- **CI gate:** {status} (`{}`)", ci_gate.label()).unwrap();
     }
     output.push('\n');
 
@@ -83,31 +78,34 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
 
 fn render_overview(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
     output.push_str("## Overview\n\n");
-    output.push_str(&format!("- **RepoPilot version:** {TOOL_VERSION}\n"));
-    output.push_str(&format!("- **Path:** `{}`\n", summary.root_path.display()));
-    output.push_str(&format!("- **Risk:** {}\n", stats.risk_label));
-    output.push_str(&format!("- **Health score:** {}/100\n", stats.health_score));
-    output.push_str(&format!(
-        "- **Findings:** {} ({:.1}/kloc)\n",
+    writeln!(output, "- **RepoPilot version:** {TOOL_VERSION}").unwrap();
+    writeln!(output, "- **Path:** `{}`", summary.root_path.display()).unwrap();
+    writeln!(output, "- **Risk:** {}", stats.risk_label).unwrap();
+    writeln!(output, "- **Health score:** {}/100", stats.health_score).unwrap();
+    writeln!(
+        output,
+        "- **Findings:** {} ({:.1}/kloc)",
         stats.total_findings, stats.finding_density
-    ));
-    output.push_str(&format!("- **Files analyzed:** {}\n", summary.files_count));
-    output.push_str(&format!(
-        "- **Directories analyzed:** {}\n",
-        summary.directories_count
-    ));
-    output.push_str(&format!("- **Lines of code:** {}\n", summary.lines_of_code));
+    )
+    .unwrap();
+    writeln!(output, "- **Files analyzed:** {}", summary.files_count).unwrap();
+    writeln!(output, "- **Directories analyzed:** {}", summary.directories_count).unwrap();
+    writeln!(output, "- **Lines of code:** {}", summary.lines_of_code).unwrap();
     if summary.scan_duration_us > 0 {
-        output.push_str(&format!(
-            "- **Scan time:** {:.2}s\n",
+        writeln!(
+            output,
+            "- **Scan time:** {:.2}s",
             summary.scan_duration_us as f64 / 1_000_000.0
-        ));
+        )
+        .unwrap();
     }
     if summary.skipped_files_count > 0 {
-        output.push_str(&format!(
-            "- **Files skipped:** {} ({} bytes)\n",
+        writeln!(
+            output,
+            "- **Files skipped:** {} ({} bytes)",
             summary.skipped_files_count, summary.skipped_bytes
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -120,25 +118,13 @@ fn render_risk_summary(output: &mut String, summary: &ScanSummary, stats: &Repor
         return;
     }
 
-    output.push_str(&format!(
-        "- **Severity:** {}\n",
-        markdown_severity_counts_text(stats)
-    ));
-    output.push_str(&format!(
-        "- **Categories:** {}\n",
-        named_counts_text(&stats.category_counts)
-    ));
+    writeln!(output, "- **Severity:** {}", markdown_severity_counts_text(stats)).unwrap();
+    writeln!(output, "- **Categories:** {}", named_counts_text(&stats.category_counts)).unwrap();
     if !stats.top_paths.is_empty() {
-        output.push_str(&format!(
-            "- **Top paths:** {}\n",
-            named_counts_text(&stats.top_paths)
-        ));
+        writeln!(output, "- **Top paths:** {}", named_counts_text(&stats.top_paths)).unwrap();
     }
     if !stats.top_packages.is_empty() {
-        output.push_str(&format!(
-            "- **Top packages:** {}\n",
-            named_counts_text(&stats.top_packages)
-        ));
+        writeln!(output, "- **Top packages:** {}", named_counts_text(&stats.top_packages)).unwrap();
     }
     output.push('\n');
 }
@@ -158,12 +144,14 @@ fn render_top_rules(output: &mut String, stats: &ReportStats) {
             .severity
             .map(|severity| severity.label())
             .unwrap_or("INFO");
-        output.push_str(&format!(
-            "| `{}` | {} | {} |\n",
+        writeln!(
+            output,
+            "| `{}` | {} | {} |",
             escape_table_cell(&rule.label),
             rule.count,
             severity
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -179,11 +167,13 @@ fn render_languages_section(output: &mut String, summary: &ScanSummary) {
     output.push_str("| Language | Files |\n");
     output.push_str("| --- | ---: |\n");
     for language in &summary.languages {
-        output.push_str(&format!(
-            "| {} | {} |\n",
+        writeln!(
+            output,
+            "| {} | {} |",
             escape_table_cell(&language.name),
             language.files_count
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -207,8 +197,9 @@ fn render_findings_index(
         );
         output.push_str("| --- | --- | --- | ---: | ---: | ---: | --- |\n");
         for row in rows {
-            output.push_str(&format!(
-                "| {} | `{}` | {} | {} | {} | {} | {} |\n",
+            writeln!(
+                output,
+                "| {} | `{}` | {} | {} | {} | {} | {} |",
                 escape_table_cell(&row.category),
                 escape_table_cell(&row.rule_id),
                 row.severity.label(),
@@ -216,20 +207,23 @@ fn render_findings_index(
                 row.new_count,
                 row.existing_count,
                 escape_table_cell(&row.first_location.unwrap_or_else(|| "n/a".to_string()))
-            ));
+            )
+            .unwrap();
         }
     } else {
         output.push_str("| Category | Rule | Max severity | Count | First location |\n");
         output.push_str("| --- | --- | --- | ---: | --- |\n");
         for row in rows {
-            output.push_str(&format!(
-                "| {} | `{}` | {} | {} | {} |\n",
+            writeln!(
+                output,
+                "| {} | `{}` | {} | {} | {} |",
                 escape_table_cell(&row.category),
                 escape_table_cell(&row.rule_id),
                 row.severity.label(),
                 row.count,
                 escape_table_cell(&row.first_location.unwrap_or_else(|| "n/a".to_string()))
-            ));
+            )
+            .unwrap();
         }
     }
     output.push('\n');
@@ -252,11 +246,11 @@ where
             continue;
         }
 
-        output.push_str(&format!("### {}\n\n", category_title(&category)));
+        writeln!(output, "### {}\n", category_title(&category)).unwrap();
         let rules = rule_ids_for_findings(&category_findings);
         for rule_id in rules {
             let rule_findings = findings_for_rule(&category_findings, &rule_id);
-            output.push_str(&format!("#### `{rule_id}` ({})\n\n", rule_findings.len()));
+            writeln!(output, "#### `{rule_id}` ({})\n", rule_findings.len()).unwrap();
 
             for finding in rule_findings {
                 let index = findings
@@ -270,17 +264,19 @@ where
 }
 
 fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<&str>) {
-    output.push_str(&format!(
-        "- **[{}] {}**\n",
+    writeln!(
+        output,
+        "- **[{}] {}**",
         finding.severity_label(),
         finding.title
-    ));
-    output.push_str(&format!("  - Confidence: {}\n", finding.confidence_label()));
+    )
+    .unwrap();
+    writeln!(output, "  - Confidence: {}", finding.confidence_label()).unwrap();
     if let Some(status) = status {
-        output.push_str(&format!("  - Baseline: {status}\n"));
+        writeln!(output, "  - Baseline: {status}").unwrap();
     }
     if let Some(location) = first_location(finding) {
-        output.push_str(&format!("  - Location: `{location}`\n"));
+        writeln!(output, "  - Location: `{location}`").unwrap();
     }
     for evidence in &finding.evidence {
         let location = if evidence.line_start > 0 {
@@ -290,26 +286,32 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
         };
         let snippet = evidence.snippet.trim();
         if snippet.is_empty() {
-            output.push_str(&format!("  - Evidence: `{location}`\n"));
+            writeln!(output, "  - Evidence: `{location}`").unwrap();
         } else {
-            output.push_str(&format!(
-                "  - Evidence: `{location}` - {}\n",
+            writeln!(
+                output,
+                "  - Evidence: `{location}` - {}",
                 inline_snippet(snippet)
-            ));
+            )
+            .unwrap();
         }
     }
     if !finding.description.is_empty() {
-        output.push_str(&format!(
-            "  - Context: {}\n",
+        writeln!(
+            output,
+            "  - Context: {}",
             first_sentence(&finding.description, 180)
-        ));
+        )
+        .unwrap();
     }
-    output.push_str(&format!(
-        "  - Recommendation: {}\n",
+    writeln!(
+        output,
+        "  - Recommendation: {}",
         first_sentence(finding.recommendation_or_default(), 220)
-    ));
+    )
+    .unwrap();
     if let Some(url) = &finding.docs_url {
-        output.push_str(&format!("  - Docs: {url}\n"));
+        writeln!(output, "  - Docs: {url}").unwrap();
     }
     output.push('\n');
 }
@@ -318,53 +320,57 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     output.push_str("### React Native\n\n");
 
     let version = rn.react_native_version.as_deref().unwrap_or("unknown");
-    output.push_str(&format!("- **Version:** {version}\n"));
-    output.push_str(&format!("- **Project kind:** `{:?}`\n", rn.project_kind));
-    output.push_str(&format!(
-        "- **Package manager:** {}\n",
+    writeln!(output, "- **Version:** {version}").unwrap();
+    writeln!(output, "- **Project kind:** `{:?}`", rn.project_kind).unwrap();
+    writeln!(
+        output,
+        "- **Package manager:** {}",
         rn.package_manager.as_deref().unwrap_or("unknown")
-    ));
+    )
+    .unwrap();
 
-    output.push_str(&format!(
-        "- **iOS:** {}\n",
-        if rn.has_ios {
-            "detected"
-        } else {
-            "not detected"
-        }
-    ));
-    output.push_str(&format!(
-        "- **Android:** {}\n",
-        if rn.has_android {
-            "detected"
-        } else {
-            "not detected"
-        }
-    ));
-    output.push_str(&format!(
-        "- **Android New Architecture:** {}\n",
+    writeln!(
+        output,
+        "- **iOS:** {}",
+        if rn.has_ios { "detected" } else { "not detected" }
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Android:** {}",
+        if rn.has_android { "detected" } else { "not detected" }
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Android New Architecture:** {}",
         tristate_label(rn.android_new_arch_enabled)
-    ));
-    output.push_str(&format!(
-        "- **iOS New Architecture:** {}\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **iOS New Architecture:** {}",
         tristate_label(rn.ios_new_arch_enabled)
-    ));
-    output.push_str(&format!(
-        "- **Expo New Architecture:** {}\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Expo New Architecture:** {}",
         tristate_label(rn.expo_new_arch_enabled)
-    ));
-    output.push_str(&format!(
-        "- **Hermes:** {}\n",
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Hermes:** {}",
         tristate_label(rn.hermes_enabled)
-    ));
-    output.push_str(&format!(
-        "- **Codegen config:** {}\n\n",
-        if rn.has_codegen_config {
-            "found"
-        } else {
-            "missing"
-        }
-    ));
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Codegen config:** {}\n",
+        if rn.has_codegen_config { "found" } else { "missing" }
+    )
+    .unwrap();
 }
 
 fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramework]) {
@@ -373,7 +379,7 @@ fn render_frameworks_section(output: &mut String, frameworks: &[DetectedFramewor
     }
     let labels: Vec<String> = frameworks.iter().map(|f| f.label()).collect();
     output.push_str("## Frameworks\n\n");
-    output.push_str(&format!("{}\n\n", labels.join(" | ")));
+    writeln!(output, "{}\n", labels.join(" | ")).unwrap();
 }
 
 fn render_framework_projects_section(output: &mut String, projects: &[FrameworkProject]) {
@@ -390,11 +396,13 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
     output.push_str("| --- | --- |\n");
     for project in nested_projects {
         let labels: Vec<String> = project.frameworks.iter().map(|f| f.label()).collect();
-        output.push_str(&format!(
-            "| `{}` | {} |\n",
+        writeln!(
+            output,
+            "| `{}` | {} |",
             project.path.display(),
             escape_table_cell(&labels.join(", "))
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -411,8 +419,9 @@ fn render_workspace_risk_table(output: &mut String, findings: &[Finding]) {
     output.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
     for (pkg, counts) in &table {
         let total: usize = counts.iter().sum();
-        output.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} |\n",
+        writeln!(
+            output,
+            "| {} | {} | {} | {} | {} | {} | {} |",
             escape_table_cell(pkg),
             counts[0],
             counts[1],
@@ -420,7 +429,8 @@ fn render_workspace_risk_table(output: &mut String, findings: &[Finding]) {
             counts[3],
             counts[4],
             total
-        ));
+        )
+        .unwrap();
     }
     output.push('\n');
 }

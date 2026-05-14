@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 
 /// Resolves a raw import string extracted from `from_file` to a concrete path
@@ -7,7 +7,7 @@ pub fn resolve_import(
     raw_import: &str,
     from_file: &Path,
     root: &Path,
-    known_files: &BTreeSet<PathBuf>,
+    known_files: &HashSet<PathBuf>,
 ) -> Option<PathBuf> {
     let ext = from_file.extension().and_then(|e| e.to_str()).unwrap_or("");
 
@@ -30,7 +30,7 @@ fn resolve_rust(
     raw: &str,
     from_file: &Path,
     root: &Path,
-    known_files: &BTreeSet<PathBuf>,
+    known_files: &HashSet<PathBuf>,
 ) -> Option<PathBuf> {
     // mod::child  →  <same-dir>/child.rs  or  <same-dir>/child/mod.rs
     if let Some(name) = raw.strip_prefix("mod::") {
@@ -59,7 +59,7 @@ fn resolve_rust(
 
 // ── TypeScript / JavaScript ───────────────────────────────────────────────────
 
-fn resolve_ts(raw: &str, from_file: &Path, known_files: &BTreeSet<PathBuf>) -> Option<PathBuf> {
+fn resolve_ts(raw: &str, from_file: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     if !raw.starts_with('.') && !raw.starts_with('/') {
         return None;
     }
@@ -87,7 +87,7 @@ fn resolve_ts(raw: &str, from_file: &Path, known_files: &BTreeSet<PathBuf>) -> O
 
 // ── Python ────────────────────────────────────────────────────────────────────
 
-fn resolve_python(raw: &str, from_file: &Path, known_files: &BTreeSet<PathBuf>) -> Option<PathBuf> {
+fn resolve_python(raw: &str, from_file: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     if !raw.starts_with('.') {
         return None;
     }
@@ -118,7 +118,7 @@ fn resolve_python(raw: &str, from_file: &Path, known_files: &BTreeSet<PathBuf>) 
 
 // ── Go ────────────────────────────────────────────────────────────────────────
 
-fn resolve_go(raw: &str, root: &Path, known_files: &BTreeSet<PathBuf>) -> Option<PathBuf> {
+fn resolve_go(raw: &str, root: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     // Skip single-segment paths (stdlib packages like "fmt", "os")
     if !raw.contains('/') {
         return None;
@@ -159,7 +159,7 @@ fn resolve_go(raw: &str, root: &Path, known_files: &BTreeSet<PathBuf>) -> Option
 fn resolve_jvm(
     raw: &str,
     root: &Path,
-    known_files: &BTreeSet<PathBuf>,
+    known_files: &HashSet<PathBuf>,
     extensions: &[&str],
 ) -> Option<PathBuf> {
     let rel = raw.replace('.', "/");
@@ -196,7 +196,7 @@ fn read_go_module_name(root: &Path) -> Option<String> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn probe(candidates: &[PathBuf], known_files: &BTreeSet<PathBuf>) -> Option<PathBuf> {
+fn probe(candidates: &[PathBuf], known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     for candidate in candidates {
         let normalized = normalize_path(candidate);
         if known_files.contains(&normalized) {

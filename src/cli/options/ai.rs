@@ -65,6 +65,14 @@ pub struct AiContextOptions {
     /// Omit the intro header block
     #[arg(long)]
     pub no_header: bool,
+
+    /// Omit the AI task instruction block (the "> Instructions for AI assistant:" preamble)
+    #[arg(long)]
+    pub no_task: bool,
+
+    /// Print a per-section token breakdown to stderr (enabled automatically when stdout is a TTY)
+    #[arg(long)]
+    pub show_breakdown: bool,
 }
 
 #[derive(Args)]

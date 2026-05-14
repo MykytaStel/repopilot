@@ -22,7 +22,13 @@ fn explain_outputs_context_json_for_functional_rust_code() {
     .expect("write rust file");
 
     let output = repopilot()
-        .args(["explain", "src/domain/users.rs", "--format", "json"])
+        .args([
+            "inspect",
+            "explain",
+            "src/domain/users.rs",
+            "--format",
+            "json",
+        ])
         .current_dir(root)
         .output()
         .expect("run explain");
@@ -61,6 +67,7 @@ fn explain_can_show_suppressed_rule_decision_for_rust_tests() {
 
     let output = repopilot()
         .args([
+            "inspect",
             "explain",
             "tests/parser_test.rs",
             "--rule",

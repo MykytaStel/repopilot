@@ -107,19 +107,35 @@ cargo build --release
 
 ## Quick Start
 
+No config needed. Run this in any repository and see findings immediately:
+
 ```bash
-repopilot init
-repopilot doctor .
 repopilot scan .
-repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
-repopilot ai context .
-repopilot review . --base origin/main --fail-on new-high
+```
+
+Then get an AI-ready brief to paste into Claude Code, Cursor, or ChatGPT:
+
+```bash
+repopilot ai context . | pbcopy   # macOS — copies to clipboard
+repopilot ai context .            # print to terminal
+```
+
+That's the two-minute loop. Scan, read the output, paste the context into your assistant, fix.
+
+### Going deeper
+
+Once you want CI integration, baseline tracking, or tighter configuration:
+
+```bash
+repopilot init                                              # generate repopilot.toml
+repopilot doctor .                                          # check CI / baseline readiness
+repopilot baseline create .                                 # accept existing findings as known debt
+repopilot review . --base origin/main --fail-on new-high    # CI gate on new findings only
 ```
 
 Save a shareable report:
 
 ```bash
-repopilot scan . --format markdown --output repopilot-report.md
 repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
 ```
 
@@ -452,7 +468,6 @@ These are planned ideas, not current features:
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
 | [docs/release-checklist-0.10.md](docs/release-checklist-0.10.md) | 0.10.0 release readiness checklist |
-| [docs/release-checklist-0.9.md](docs/release-checklist-0.9.md) | 0.9.0 release readiness checklist |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
 | [docs/github-ruleset.md](docs/github-ruleset.md) | GitHub branch ruleset configuration |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
