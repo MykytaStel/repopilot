@@ -62,6 +62,8 @@ fn html_output_escapes_snippets_and_renders_summary() {
     assert!(html.contains("class=\"finding-group\""));
     assert!(html.contains("class=\"finding-card\""));
     assert!(html.contains("security.secret-candidate"));
+    assert!(html.contains("<strong>Context:</strong> description"));
+    assert!(html.contains("<strong>Recommendation:</strong>"));
     assert!(html.contains("API_KEY = &quot;abc&lt;123&gt;&quot;"));
     assert!(!html.contains("API_KEY = \"abc<123>\""));
 }
