@@ -6,11 +6,11 @@ pub mod inspect;
 pub mod review;
 pub mod scan;
 
-pub use ai::{AiCommands, AiContextOptions, AiOptions, AiPlanOptions, AiPromptOptions};
+pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use compare::CompareOptions;
 pub use doctor::{DoctorOptions, InitOptions};
-pub use inspect::{ExplainOptions, InspectCommands, InspectOptions, KnowledgeOptions};
+pub use inspect::{InspectCommands, InspectOptions};
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
 
@@ -159,24 +159,4 @@ repopilot doctor . --format json\n  \
 repopilot doctor . --format markdown --output doctor.md"
     )]
     Doctor(DoctorOptions),
-
-    /// Deprecated compatibility command; use `repopilot ai context`
-    #[command(alias = "v", hide = true)]
-    Vibe(AiContextOptions),
-
-    /// Deprecated compatibility command; use `repopilot ai plan`
-    #[command(alias = "h", hide = true)]
-    Harden(AiPlanOptions),
-
-    /// Deprecated compatibility command; use `repopilot ai prompt`
-    #[command(alias = "p", hide = true)]
-    Prompt(AiPromptOptions),
-
-    /// Deprecated compatibility command; use `repopilot inspect explain`
-    #[command(alias = "e", hide = true)]
-    Explain(ExplainOptions),
-
-    /// Deprecated compatibility command; use `repopilot inspect knowledge`
-    #[command(alias = "k", hide = true)]
-    Knowledge(KnowledgeOptions),
 }

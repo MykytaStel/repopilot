@@ -1,5 +1,6 @@
 use crate::scan::config::ScanConfig;
 use ignore::WalkBuilder;
+use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -16,10 +17,13 @@ pub(super) struct CollectedPaths {
 pub(super) fn collect_paths(path: &Path, config: &ScanConfig) -> io::Result<CollectedPaths> {
     let repopilotignore_path = find_repopilotignore(path);
 
-    let with_repopilotignore = collect_paths_with_custom_ignore(path, config, true)?;
+    // Build the combined ignored-paths set once and reuse for both walks.
+    let ignored = build_ignored_set(config);
+
+    let with_repopilotignore = collect_paths_with_custom_ignore(path, &ignored, true)?;
 
     let files_skipped_repopilotignore = if repopilotignore_path.is_some() {
-        let without_repopilotignore_count = count_files_with_custom_ignore(path, config, false)?;
+        let without_repopilotignore_count = count_files_with_custom_ignore(path, &ignored, false)?;
 
         without_repopilotignore_count.saturating_sub(with_repopilotignore.file_paths.len())
     } else {
@@ -36,13 +40,13 @@ pub(super) fn collect_paths(path: &Path, config: &ScanConfig) -> io::Result<Coll
 
 fn collect_paths_with_custom_ignore(
     path: &Path,
-    config: &ScanConfig,
+    ignored: &HashSet<String>,
     use_repopilotignore: bool,
 ) -> io::Result<CollectedPaths> {
     let mut file_paths = Vec::new();
     let mut directories_count = 0usize;
 
-    for result in build_walker_with_custom_ignore(path, config, use_repopilotignore) {
+    for result in build_walker(path, ignored, use_repopilotignore) {
         let entry = result.map_err(io::Error::other)?;
         let entry_path = entry.path();
 
@@ -65,18 +69,18 @@ fn collect_paths_with_custom_ignore(
         file_paths,
         directories_count,
         files_skipped_repopilotignore: 0,
-        repopilotignore_path: find_repopilotignore(path),
+        repopilotignore_path: None,
     })
 }
 
 fn count_files_with_custom_ignore(
     path: &Path,
-    config: &ScanConfig,
+    ignored: &HashSet<String>,
     use_repopilotignore: bool,
 ) -> io::Result<usize> {
     let mut files_count = 0usize;
 
-    for result in build_walker_with_custom_ignore(path, config, use_repopilotignore) {
+    for result in build_walker(path, ignored, use_repopilotignore) {
         let entry = result.map_err(io::Error::other)?;
         let entry_path = entry.path();
 
@@ -96,20 +100,28 @@ fn count_files_with_custom_ignore(
     Ok(files_count)
 }
 
-fn build_walker_with_custom_ignore(
-    path: &Path,
-    config: &ScanConfig,
-    use_repopilotignore: bool,
-) -> ignore::Walk {
-    let root = path.to_path_buf();
+fn build_ignored_set(config: &ScanConfig) -> HashSet<String> {
+    let mut ignored: HashSet<String> = config
+        .ignored_paths
+        .iter()
+        .map(|p| p.trim_matches('/').to_string())
+        .filter(|p| !p.is_empty())
+        .collect();
 
-    let mut ignored_paths = config.ignored_paths.clone();
-    ignored_paths.extend(
+    ignored.extend(
         config
             .exclude_patterns
             .iter()
-            .map(|pattern| pattern.trim_end_matches("/**").to_string()),
+            .map(|p| p.trim_end_matches("/**").trim_matches('/').to_string())
+            .filter(|p| !p.is_empty()),
     );
+
+    ignored
+}
+
+fn build_walker(path: &Path, ignored: &HashSet<String>, use_repopilotignore: bool) -> ignore::Walk {
+    let root = path.to_path_buf();
+    let ignored = ignored.clone();
 
     let mut builder = WalkBuilder::new(path);
 
@@ -124,7 +136,7 @@ fn build_walker_with_custom_ignore(
     }
 
     builder
-        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored_paths))
+        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored))
         .build()
 }
 
@@ -144,29 +156,24 @@ fn find_repopilotignore(path: &Path) -> Option<PathBuf> {
     }
 }
 
-fn is_ignored_path(path: &Path, root: &Path, ignored_paths: &[String]) -> bool {
-    if path == root {
+fn is_ignored_path(path: &Path, root: &Path, ignored: &HashSet<String>) -> bool {
+    if path == root || ignored.is_empty() {
         return false;
     }
 
-    ignored_paths.iter().any(|ignored_path| {
-        let ignored_path = ignored_path.trim_matches('/');
-
-        if ignored_path.is_empty() {
-            return false;
+    if let Some(relative) = path.strip_prefix(root).ok().and_then(|p| p.to_str()) {
+        if ignored.contains(relative) {
+            return true;
         }
+    }
 
-        path.strip_prefix(root)
-            .ok()
-            .and_then(|relative_path| relative_path.to_str())
-            .map(|relative_path| relative_path == ignored_path)
-            .unwrap_or(false)
-            || path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| name == ignored_path)
-                .unwrap_or(false)
-    })
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        if ignored.contains(name) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn is_repopilot_control_file(path: &Path) -> bool {

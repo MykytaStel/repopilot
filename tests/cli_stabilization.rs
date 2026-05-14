@@ -61,10 +61,10 @@ fn top_level_help_shows_stable_command_surface() {
         assert!(help.contains(command), "help should show {command}\n{help}");
     }
 
-    for hidden in ["vibe", "harden", "prompt", "explain", "knowledge"] {
+    for removed in ["vibe", "harden", "prompt", "explain", "knowledge"] {
         assert!(
-            !help.contains(&format!("  {hidden}")),
-            "top-level help should hide legacy command {hidden}\n{help}"
+            !help.contains(&format!("  {removed}  ")),
+            "top-level help should not list removed command {removed} as a subcommand\n{help}"
         );
     }
 }
@@ -85,7 +85,7 @@ fn scan_and_review_help_have_flag_descriptions() {
 }
 
 #[test]
-fn grouped_ai_commands_and_legacy_commands_both_work() {
+fn grouped_ai_commands_work() {
     let project = create_project();
 
     let context = run_ok(
@@ -94,30 +94,20 @@ fn grouped_ai_commands_and_legacy_commands_both_work() {
         ],
         project.path(),
     );
-    let legacy_vibe = run_ok(
-        &["vibe", ".", "--focus", "security", "--budget", "2k"],
-        project.path(),
-    );
-
     assert!(stdout(&context).contains("RepoPilot Vibe Check"));
-    assert!(stdout(&legacy_vibe).contains("RepoPilot Vibe Check"));
 
     let plan = run_ok(&["ai", "plan", ".", "--budget", "2k"], project.path());
-    let legacy_harden = run_ok(&["harden", ".", "--budget", "2k"], project.path());
     assert!(stdout(&plan).contains("RepoPilot Harden Plan"));
-    assert!(stdout(&legacy_harden).contains("RepoPilot Harden Plan"));
 
     let prompt = run_ok(&["ai", "prompt", ".", "--budget", "2k"], project.path());
-    let legacy_prompt = run_ok(&["prompt", ".", "--budget", "2k"], project.path());
     assert!(stdout(&prompt).contains("RepoPilot Remediation Prompt"));
-    assert!(stdout(&legacy_prompt).contains("RepoPilot Remediation Prompt"));
 }
 
 #[test]
-fn inspect_commands_and_legacy_commands_both_work() {
+fn inspect_commands_work() {
     let project = create_project();
 
-    let inspect = run_ok(
+    let explain = run_ok(
         &[
             "inspect",
             "explain",
@@ -131,23 +121,10 @@ fn inspect_commands_and_legacy_commands_both_work() {
         ],
         project.path(),
     );
-    let legacy = run_ok(
-        &[
-            "explain",
-            "src/lib.rs",
-            "--format",
-            "json",
-            "--rule",
-            "language.rust.panic-risk",
-            "--signal",
-            "rust.unwrap",
-        ],
-        project.path(),
-    );
 
-    let inspect_json: Value = serde_json::from_slice(&inspect.stdout).expect("inspect json");
-    let legacy_json: Value = serde_json::from_slice(&legacy.stdout).expect("legacy json");
-    assert_eq!(inspect_json["context"], legacy_json["context"]);
+    let explain_json: Value =
+        serde_json::from_slice(&explain.stdout).expect("inspect explain json");
+    assert!(explain_json["context"].is_object());
 
     let knowledge = run_ok(
         &[
@@ -160,14 +137,10 @@ fn inspect_commands_and_legacy_commands_both_work() {
         ],
         project.path(),
     );
-    let legacy_knowledge = run_ok(
-        &["knowledge", "--section", "rules", "--format", "json"],
-        project.path(),
-    );
-    assert_eq!(
-        serde_json::from_slice::<Value>(&knowledge.stdout).expect("knowledge json")["summary"],
-        serde_json::from_slice::<Value>(&legacy_knowledge.stdout).expect("legacy knowledge json")["summary"]
-    );
+
+    let knowledge_json: Value =
+        serde_json::from_slice::<Value>(&knowledge.stdout).expect("knowledge json");
+    assert!(knowledge_json["summary"].is_object());
 }
 
 #[test]

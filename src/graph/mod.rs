@@ -6,7 +6,7 @@ pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 // ── Data structures ───────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ pub struct FileMetrics {
 // ── Graph construction ────────────────────────────────────────────────────────
 
 pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
-    let known_files: BTreeSet<PathBuf> = facts.files.iter().map(|f| f.path.clone()).collect();
+    let known_files: HashSet<PathBuf> = facts.files.iter().map(|f| f.path.clone()).collect();
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
 
@@ -60,8 +60,8 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
 
 pub fn compute_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
     // Single pass: accumulate fan_out and fan_in from edges without pre-initialising maps.
-    let mut fan_out: BTreeMap<&PathBuf, usize> = BTreeMap::new();
-    let mut fan_in: BTreeMap<&PathBuf, usize> = BTreeMap::new();
+    let mut fan_out: HashMap<&PathBuf, usize> = HashMap::new();
+    let mut fan_in: HashMap<&PathBuf, usize> = HashMap::new();
 
     for (from, targets) in &graph.edges {
         fan_out.insert(from, targets.len());
@@ -100,7 +100,7 @@ pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
     let n = nodes.len();
 
     // Map each node to a stable integer index
-    let index: BTreeMap<&PathBuf, usize> = nodes.iter().enumerate().map(|(i, p)| (*p, i)).collect();
+    let index: HashMap<&PathBuf, usize> = nodes.iter().enumerate().map(|(i, p)| (*p, i)).collect();
 
     // Adjacency list using indices
     let adj: Vec<Vec<usize>> = nodes

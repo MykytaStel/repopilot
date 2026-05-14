@@ -44,10 +44,10 @@ fn vibe_default_output_succeeds() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["vibe", "."])
+        .args(["ai", "context", "."])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -64,10 +64,12 @@ fn vibe_focus_security_with_budget_succeeds() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["vibe", ".", "--focus", "security", "--budget", "2k"])
+        .args([
+            "ai", "context", ".", "--focus", "security", "--budget", "2k",
+        ])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -83,10 +85,10 @@ fn vibe_no_header_succeeds() {
     write_sample_project(temp.path());
 
     let output = repopilot()
-        .args(["vibe", ".", "--no-header"])
+        .args(["ai", "context", ".", "--no-header"])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -101,11 +103,11 @@ fn vibe_output_file_succeeds() {
     let output_path = temp.path().join("vibe.md");
 
     let output = repopilot()
-        .args(["vibe", ".", "--output"])
+        .args(["ai", "context", ".", "--output"])
         .arg(&output_path)
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(output.status.success());
     assert!(output.stdout.is_empty());
@@ -120,10 +122,10 @@ fn vibe_groups_medium_recommendations_when_no_high_findings() {
     write_medium_signal_project(temp.path());
 
     let output = repopilot()
-        .args(["vibe", "."])
+        .args(["ai", "context", "."])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
@@ -138,10 +140,10 @@ fn vibe_rejects_unknown_focus() {
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 
     let output = repopilot()
-        .args(["vibe", ".", "--focus", "securty"])
+        .args(["ai", "context", ".", "--focus", "securty"])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(2));
@@ -156,10 +158,10 @@ fn vibe_rejects_unknown_budget() {
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 
     let output = repopilot()
-        .args(["vibe", ".", "--budget", "banana"])
+        .args(["ai", "context", ".", "--budget", "banana"])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(2));
@@ -173,10 +175,10 @@ fn vibe_rejects_zero_budget() {
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 
     let output = repopilot()
-        .args(["vibe", ".", "--budget", "0"])
+        .args(["ai", "context", ".", "--budget", "0"])
         .current_dir(temp.path())
         .output()
-        .expect("failed to run repopilot vibe");
+        .expect("failed to run repopilot ai context");
 
     assert!(!output.status.success());
     assert_eq!(output.status.code(), Some(2));

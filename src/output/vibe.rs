@@ -1,9 +1,13 @@
+mod budget;
 mod findings;
 mod header;
 mod hotfiles;
 mod recommendations;
 
+pub use budget::SectionBreakdown;
+
 use crate::findings::types::Finding;
+use crate::output::vibe::budget::BreakdownSection;
 use crate::scan::types::ScanSummary;
 use std::path::Path;
 use std::str::FromStr;
@@ -15,6 +19,8 @@ pub struct VibeOptions {
     /// Approximate token budget (1 token ≈ 4 chars).
     pub budget_tokens: usize,
     pub no_header: bool,
+    /// Suppress the AI task instruction block (implies no_header keeps it hidden too).
+    pub no_task: bool,
 }
 
 impl Default for VibeOptions {
@@ -23,6 +29,7 @@ impl Default for VibeOptions {
             focus: None,
             budget_tokens: DEFAULT_TOKEN_BUDGET,
             no_header: false,
+            no_task: false,
         }
     }
 }
@@ -71,7 +78,21 @@ impl VibeCategory {
     }
 }
 
+/// Render the vibe context, discarding breakdown info.
 pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
+    let (content, _) = render_internal(summary, opts);
+    content
+}
+
+/// Render the vibe context and return per-section token breakdown for display to the user.
+pub fn render_with_breakdown(
+    summary: &ScanSummary,
+    opts: &VibeOptions,
+) -> (String, SectionBreakdown) {
+    render_internal(summary, opts)
+}
+
+fn render_internal(summary: &ScanSummary, opts: &VibeOptions) -> (String, SectionBreakdown) {
     let budget_chars = opts.budget_tokens * 4;
 
     let findings: Vec<&Finding> = summary
@@ -85,21 +106,73 @@ pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
         .collect();
 
     let mut out = String::new();
+    let mut sections: Vec<BreakdownSection> = Vec::new();
 
-    if !opts.no_header {
-        header::render_header(&mut out, summary, &findings);
+    // Task instruction block (shown before header so AI sees intent first).
+    if !opts.no_header && !opts.no_task {
+        let pre = out.len();
+        header::render_task_instruction(&mut out, &findings, summary);
+        let added = out.len() - pre;
+        if added > 0 {
+            sections.push(BreakdownSection {
+                label: "Task instruction".into(),
+                tokens: added / 4,
+            });
+        }
     }
 
-    findings::render_findings_by_category(&mut out, &findings, budget_chars, opts.no_header);
+    // Project header (risk, tech stack, size, health).
+    if !opts.no_header {
+        let pre = out.len();
+        header::render_header(&mut out, summary, &findings);
+        sections.push(BreakdownSection {
+            label: "Header".into(),
+            tokens: (out.len() - pre) / 4,
+        });
+    }
+
+    // Findings — 2-pass budget allocation.
+    let compact = opts.no_header;
+    let infos = findings::render_findings_by_category(&mut out, &findings, budget_chars, compact);
+    for info in &infos {
+        if info.chars_added > 0 {
+            sections.push(BreakdownSection {
+                label: info.label.clone(),
+                tokens: info.chars_added / 4,
+            });
+        }
+    }
+
+    // Hot files coupling table (architecture-relevant only).
     if opts
         .focus
         .as_ref()
         .is_none_or(VibeCategory::includes_architecture_context)
     {
+        let pre = out.len();
         hotfiles::render_hot_files(&mut out, summary);
+        let added = out.len() - pre;
+        if added > 0 {
+            sections.push(BreakdownSection {
+                label: "Hot Files".into(),
+                tokens: added / 4,
+            });
+        }
     }
-    recommendations::render_top_recommendations(&mut out, &findings);
 
+    // Recommendation clusters.
+    let pre = out.len();
+    recommendations::render_top_recommendations(&mut out, &findings);
+    let rec_added = out.len() - pre;
+    if rec_added > 0 {
+        sections.push(BreakdownSection {
+            label: "Recommendations".into(),
+            tokens: rec_added / 4,
+        });
+    }
+
+    // Footer.
+    let pre = out.len();
     let content_len = out.len();
     recommendations::render_footer(
         &mut out,
@@ -107,8 +180,23 @@ pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
         opts.budget_tokens,
         summary.scan_duration_us,
     );
+    sections.push(BreakdownSection {
+        label: "Footer".into(),
+        tokens: (out.len() - pre) / 4,
+    });
 
-    out
+    let total_tokens = out.len() / 4;
+    let shown_findings: usize = infos.iter().map(|i| i.shown).sum();
+    let hidden_findings = findings.len().saturating_sub(shown_findings);
+
+    let breakdown = SectionBreakdown {
+        sections,
+        total_tokens,
+        budget_tokens: opts.budget_tokens,
+        hidden_findings,
+    };
+
+    (out, breakdown)
 }
 
 pub(crate) fn project_name(summary: &ScanSummary) -> String {
