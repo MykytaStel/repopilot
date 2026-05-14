@@ -20,6 +20,7 @@ pub(super) struct LongFunctionPolicy {
     pub severity: Severity,
     pub confidence: Confidence,
     pub context_label: &'static str,
+    pub confidence_reason: &'static str,
     pub recommendation: &'static str,
 }
 
@@ -73,6 +74,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Info,
             confidence: Confidence::Low,
             context_label: "configuration file",
+            confidence_reason: "configuration files often encode declarative setup rather than executable business logic",
             recommendation: "Configuration files are not evaluated with the generic long-function threshold.",
         };
     }
@@ -83,7 +85,8 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Low,
             confidence: Confidence::Low,
             context_label: "React component",
-            recommendation: "For large React components, prefer extracting child components, hooks, or view-model helpers instead of treating JSX layout as a regular long function.",
+            confidence_reason: "JSX, hooks, and layout markup often make component files longer without implying mixed responsibilities",
+            recommendation: "Split only if state, effects, rendering, or data-shaping concerns are mixed. Prefer extracting child components, hooks, or view-model helpers at clear boundaries.",
         };
     }
 
@@ -93,6 +96,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Low,
             confidence: Confidence::Low,
             context_label: "React hook",
+            confidence_reason: "hooks often combine state and effect orchestration that can be longer than a pure helper function",
             recommendation: "For large hooks, consider splitting state/effect orchestration from data mapping or side-effect helpers.",
         };
     }
@@ -104,6 +108,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Low,
             confidence: Confidence::Low,
             context_label: "Unity MonoBehaviour",
+            confidence_reason: "engine lifecycle methods can accumulate setup and event wiring that is not always business logic",
             recommendation: "For large Unity behaviours, consider moving domain logic out of lifecycle methods and into smaller services or components.",
         };
     }
@@ -114,6 +119,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Low,
             confidence: Confidence::Low,
             context_label: ".NET controller",
+            confidence_reason: "controller actions often include request/response wiring that can be longer than domain logic",
             recommendation: "For large controllers, prefer moving business logic into services, handlers, or application-layer use cases.",
         };
     }
@@ -124,6 +130,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Medium,
             confidence: Confidence::High,
             context_label: ".NET service",
+            confidence_reason: "service classes usually carry reusable production orchestration where long methods signal mixed responsibilities",
             recommendation: "For large services, consider splitting orchestration, validation, persistence, and external integration logic.",
         };
     }
@@ -134,6 +141,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Low,
             confidence: Confidence::Low,
             context_label: "test code",
+            confidence_reason: "tests often include setup and assertions that are naturally longer than production helpers",
             recommendation: "For large tests, consider extracting builders, fixtures, or assertion helpers, but test setup can be naturally longer than production logic.",
         };
     }
@@ -144,6 +152,7 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
             severity: Severity::Medium,
             confidence: Confidence::High,
             context_label: "Rust production code",
+            confidence_reason: "production Rust functions are usually explicit control-flow units where length increases review and error-handling risk",
             recommendation: "Consider extracting smaller functions or methods to isolate parsing, validation, IO, or transformation steps.",
         };
     }
@@ -153,7 +162,8 @@ fn long_function_policy(context: &AuditContext, base_threshold: usize) -> LongFu
         severity: Severity::Medium,
         confidence: Confidence::High,
         context_label: "generic production code",
-        recommendation: "Long functions are harder to test and reason about — consider extracting helper functions.",
+        confidence_reason: "production functions that exceed the threshold are more likely to mix responsibilities",
+        recommendation: "Long functions are harder to test and reason about; consider extracting helper functions.",
     }
 }
 
@@ -183,7 +193,9 @@ fn build_finding(
         recommendation: policy.recommendation.to_string(),
         title,
         description: format!(
-            "Function {name_display} spans {fn_len} lines, exceeding the context-aware {threshold}-line threshold for {context_label}. Large functions are harder to review, test, and safely change.",
+            "This is a long function in {context_label}; confidence is {confidence} because {confidence_reason}. Function {name_display} spans {fn_len} lines, exceeding the context-aware {threshold}-line threshold. Large functions are harder to review, test, and safely change.",
+            confidence = policy.confidence.label(),
+            confidence_reason = policy.confidence_reason,
             threshold = policy.threshold,
             context_label = policy.context_label,
         ),
@@ -254,6 +266,12 @@ mod tests {
         assert_eq!(findings[0].severity, Severity::Low);
         assert_eq!(findings[0].confidence, Confidence::Low);
         assert!(findings[0].title.contains("React component"));
+        assert!(
+            findings[0]
+                .description
+                .contains("confidence is LOW because JSX")
+        );
+        assert!(findings[0].recommendation.contains("Split only if state"));
     }
 
     #[test]

@@ -297,6 +297,12 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
         )
         .unwrap();
     }
+    writeln!(
+        output,
+        "        Recommendation: {}",
+        first_sentence(finding.recommendation_or_default(), 180)
+    )
+    .unwrap();
     if let Some(url) = &finding.docs_url {
         writeln!(output, "        Docs: {url}").unwrap();
     }

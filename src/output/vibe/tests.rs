@@ -142,6 +142,29 @@ fn focus_quality_includes_testing_and_code_quality() {
 }
 
 #[test]
+fn finding_entries_include_context_confidence_and_fix() {
+    let findings = vec![make_finding(
+        "code-quality.long-function",
+        "Long React component",
+        Severity::Low,
+        FindingCategory::CodeQuality,
+        "src/Profile.tsx",
+        12,
+    )];
+    let summary = make_summary(findings);
+    let opts = VibeOptions {
+        no_header: true,
+        ..Default::default()
+    };
+
+    let output = render(&summary, &opts);
+
+    assert!(output.contains("> **Confidence:** MEDIUM"));
+    assert!(output.contains("> **Context:** Description for Long React component"));
+    assert!(output.contains("> **Fix:**"));
+}
+
+#[test]
 fn small_budget_renders_truncation_notice() {
     let findings: Vec<Finding> = (0..8)
         .map(|i| {

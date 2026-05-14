@@ -1,7 +1,7 @@
 use crate::audits::code_quality::sanitize::sanitize_c_style;
 use crate::audits::context::{FileRole, LanguageKind, RuntimeKind, classify_file};
 use crate::audits::traits::FileAudit;
-use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::decide_for_audit_context;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -142,6 +142,8 @@ fn build_finding(
 ) -> Finding {
     let context_label = context_label(context);
     let recommendation = recommendation_for(context, pattern);
+    let confidence = confidence_for(context, pattern, severity);
+    let confidence_reason = confidence_reason_for(context, pattern);
 
     Finding {
         id: String::new(),
@@ -149,13 +151,15 @@ fn build_finding(
         recommendation: recommendation.to_string(),
         title: format!("Risky Rust {} usage in {}", pattern.label(), context_label),
         description: format!(
-            "Rust `{}` was found in {}. Unhandled panic paths can terminate execution or hide recoverable errors in production code.",
+            "Rust `{}` was found in {}; confidence is {} because {}. Unhandled panic paths can terminate execution or hide recoverable errors in production code.",
             pattern.label(),
             context_label,
+            confidence.label(),
+            confidence_reason,
         ),
         category: FindingCategory::CodeQuality,
         severity,
-        confidence: Default::default(),
+        confidence,
         evidence: vec![Evidence {
             path: file.path.clone(),
             line_start: line_number,
@@ -187,6 +191,81 @@ fn context_label(context: &crate::audits::context::AuditContext) -> &'static str
     "Rust production code"
 }
 
+fn confidence_for(
+    context: &crate::audits::context::AuditContext,
+    pattern: RustPanicPattern,
+    severity: Severity,
+) -> Confidence {
+    if context.is_test {
+        return Confidence::Low;
+    }
+
+    if matches!(
+        pattern,
+        RustPanicPattern::Todo | RustPanicPattern::Unimplemented
+    ) {
+        return Confidence::High;
+    }
+
+    if context.has_runtime(RuntimeKind::RustCli) {
+        return match pattern {
+            RustPanicPattern::Unwrap | RustPanicPattern::Expect => Confidence::Low,
+            RustPanicPattern::Panic => Confidence::Medium,
+            RustPanicPattern::Todo | RustPanicPattern::Unimplemented => Confidence::High,
+        };
+    }
+
+    if context.has_role(FileRole::Domain) || context.has_runtime(RuntimeKind::RustLibrary) {
+        return Confidence::High;
+    }
+
+    match severity {
+        Severity::High | Severity::Critical => Confidence::High,
+        Severity::Info | Severity::Low => Confidence::Low,
+        Severity::Medium => Confidence::Medium,
+    }
+}
+
+fn confidence_reason_for(
+    context: &crate::audits::context::AuditContext,
+    pattern: RustPanicPattern,
+) -> &'static str {
+    if context.is_test {
+        return "test code often uses panic-style macros for assertion setup or unfinished test scaffolding";
+    }
+
+    if matches!(
+        pattern,
+        RustPanicPattern::Todo | RustPanicPattern::Unimplemented
+    ) {
+        return "placeholder macros always panic if this path is reached";
+    }
+
+    if context.has_runtime(RuntimeKind::RustCli) {
+        return match pattern {
+            RustPanicPattern::Unwrap | RustPanicPattern::Expect => {
+                "CLI boundary code may intentionally fail fast, but user-facing errors are usually better"
+            }
+            RustPanicPattern::Panic => {
+                "CLI boundary code can terminate the process intentionally, but panic output is rarely a good user-facing error"
+            }
+            RustPanicPattern::Todo | RustPanicPattern::Unimplemented => {
+                "placeholder macros always panic if this path is reached"
+            }
+        };
+    }
+
+    if context.has_role(FileRole::Domain) {
+        return "domain code is usually reusable production logic, so callers cannot recover from this panic path";
+    }
+
+    if context.has_runtime(RuntimeKind::RustLibrary) {
+        return "library code is reused by callers, so panics become part of its public failure behavior";
+    }
+
+    "this is production Rust code and the panic path is not locally handled"
+}
+
 fn recommendation_for(
     context: &crate::audits::context::AuditContext,
     pattern: RustPanicPattern,
@@ -196,11 +275,18 @@ fn recommendation_for(
     }
 
     match pattern {
-        RustPanicPattern::Unwrap | RustPanicPattern::Expect => {
+        RustPanicPattern::Unwrap => {
             if context.has_runtime(RuntimeKind::RustCli) {
                 "At CLI boundaries this may be acceptable for prototype code, but prefer returning a user-friendly error with context."
             } else {
-                "Prefer propagating errors with `?`, returning `Result`, or converting the failure into a domain-specific error."
+                "Return `Result` or propagate with `?`; convert to `expect()` only when failure is impossible and the message documents the invariant."
+            }
+        }
+        RustPanicPattern::Expect => {
+            if context.has_runtime(RuntimeKind::RustCli) {
+                "At CLI boundaries this may be acceptable for prototype code, but prefer returning a user-friendly error with context."
+            } else {
+                "Prefer `Result`/`?` for recoverable errors. Keep `expect()` only for impossible states, with a message that names the invariant."
             }
         }
         RustPanicPattern::Panic => {
@@ -244,7 +330,14 @@ mod tests {
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].rule_id, RULE_ID);
         assert_eq!(findings[0].severity, Severity::Medium);
+        assert_eq!(findings[0].confidence, Confidence::High);
         assert!(findings[0].title.contains("unwrap()"));
+        assert!(
+            findings[0]
+                .description
+                .contains("confidence is HIGH because")
+        );
+        assert!(findings[0].recommendation.contains("Return `Result`"));
     }
 
     #[test]
@@ -285,6 +378,7 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Low);
+        assert_eq!(findings[0].confidence, Confidence::Low);
         assert!(findings[0].description.contains("CLI boundary"));
     }
 
@@ -339,6 +433,7 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].severity, Severity::Medium);
+        assert_eq!(findings[0].confidence, Confidence::High);
         assert!(findings[0].title.contains("expect()"));
         assert!(findings[0].description.contains("Rust domain code"));
     }

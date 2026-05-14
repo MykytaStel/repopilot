@@ -44,6 +44,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
     assert!(output.contains("Security:"));
     assert!(output.contains("security.secret-candidate (1)"));
     assert!(output.contains("src/config.rs:7"));
+    assert!(output.contains("Recommendation:"));
 }
 
 #[test]

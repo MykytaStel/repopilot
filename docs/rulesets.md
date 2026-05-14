@@ -145,12 +145,26 @@ Files with fewer than 10 non-empty LOC are skipped. Supported languages: Rust, G
 | Field | Value |
 |---|---|
 | Category | `CODE_QUALITY` |
-| Severity | `MEDIUM` |
-| Default threshold | 50 lines per function body |
+| Severity | Context-aware: usually `MEDIUM`; `LOW` in React components/hooks, tests, controllers, and framework lifecycle code |
+| Confidence | Context-aware: usually `HIGH` for production functions; `LOW` when file role makes length more likely to be acceptable noise |
+| Default threshold | 50 lines per function body, expanded for roles such as React components/hooks and framework lifecycle methods |
 | Config key | `[architecture] max_function_lines` |
-| Description | A function body exceeds the configured line threshold. Long functions are harder to test, review, and reason about — consider extracting helpers or splitting logic into smaller units. |
+| Description | A function body exceeds the context-aware threshold. Findings explain why confidence is high or low for the detected file role, then recommend splitting only when responsibilities are mixed. |
 
-Supported languages: Rust, Go, Python, TypeScript, JavaScript.
+Examples: a long Rust production function is usually `severity: MEDIUM`, `confidence: HIGH`; a very long React component can be `severity: LOW`, `confidence: LOW` because JSX, hooks, and layout markup often make component files longer without necessarily mixing responsibilities.
+
+Supported languages: Rust, Go, Python, TypeScript, JavaScript, Java, Kotlin, C#.
+
+### `language.rust.panic-risk`
+
+| Field | Value |
+|---|---|
+| Category | `CODE_QUALITY` |
+| Severity | Context-aware: `MEDIUM` for `unwrap()`, `expect()`, and `panic!`; `HIGH` for placeholders and upgraded domain/library panics; `LOW` at acceptable test/CLI boundaries |
+| Confidence | Context-aware: `HIGH` in reusable production/library/domain code; `LOW` for test scaffolding and some CLI boundary fail-fast paths |
+| Description | Rust panic-style operations (`unwrap()`, `expect()`, `panic!`, `todo!`, `unimplemented!`) can terminate execution or hide recoverable errors. Findings explain the detected context and why the confidence score was chosen. |
+
+Suggested action is signal-specific. For production `unwrap()`, return `Result` or propagate with `?`; convert to `expect()` only when failure is impossible and the message documents the invariant.
 
 ### `architecture.excessive-fan-out`
 

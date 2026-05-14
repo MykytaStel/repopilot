@@ -2,6 +2,7 @@ use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::finding_helpers::{
     finding_location, finding_location_key, finding_recommendation,
 };
+use crate::output::report_text::first_sentence;
 use crate::output::vibe::budget::{CategoryAllocation, allocate_categories, category_weight};
 use std::fmt::Write as FmtWrite;
 
@@ -178,6 +179,16 @@ pub(super) fn render_finding_entry(
                 let _ = writeln!(out, "```\n{snippet}\n```");
             }
         }
+    }
+
+    let _ = writeln!(out, "> **Confidence:** {}", finding.confidence.label());
+
+    if !finding.description.trim().is_empty() {
+        let _ = writeln!(
+            out,
+            "> **Context:** {}",
+            first_sentence(&finding.description, 220)
+        );
     }
 
     let _ = writeln!(out, "> **Fix:** {}", finding_recommendation(finding));

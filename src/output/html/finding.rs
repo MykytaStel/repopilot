@@ -83,6 +83,18 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
             }
         })
         .unwrap_or_default();
+    let context = if finding.description.trim().is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<p class="finding-meta"><strong>Context:</strong> {}</p>"#,
+            escape_html(finding.description.trim())
+        )
+    };
+    let recommendation = format!(
+        r#"<p class="finding-meta"><strong>Recommendation:</strong> {}</p>"#,
+        escape_html(finding.recommendation_or_default())
+    );
     let docs = finding
         .docs_url
         .as_ref()
@@ -102,6 +114,8 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
   {}
   {}
   {}
+  {}
+  {}
 </article>"#,
         finding.severity.lowercase_label(),
         finding.confidence.lowercase_label(),
@@ -115,6 +129,8 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         escape_html(&finding.rule_id),
         location,
         evidence,
+        context,
+        recommendation,
         docs
     )
 }
