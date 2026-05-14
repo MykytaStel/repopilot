@@ -216,11 +216,7 @@ mod tests {
 
     #[test]
     fn detects_three_node_cycle() {
-        let graph = graph_from_edges(&[
-            ("a.rs", "b.rs"),
-            ("b.rs", "c.rs"),
-            ("c.rs", "a.rs"),
-        ]);
+        let graph = graph_from_edges(&[("a.rs", "b.rs"), ("b.rs", "c.rs"), ("c.rs", "a.rs")]);
 
         let cycles = detect_cycles(&graph);
 

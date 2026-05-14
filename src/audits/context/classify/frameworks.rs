@@ -1,5 +1,5 @@
-use crate::audits::context::model::{FrameworkKind, LanguageKind};
 use super::helpers::{is_js_or_ts, normalize, path_contains_component, push_unique};
+use crate::audits::context::model::{FrameworkKind, LanguageKind};
 use std::path::Path;
 
 pub fn classify_frameworks(

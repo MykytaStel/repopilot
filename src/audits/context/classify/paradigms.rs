@@ -1,5 +1,5 @@
-use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm};
 use super::helpers::{is_js_or_ts, path_contains_component, push_unique};
+use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm};
 use std::path::Path;
 
 pub fn classify_paradigms(

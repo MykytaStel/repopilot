@@ -146,8 +146,7 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
             | "index.js"
             | "main.ts"
             | "main.js"
-    ) || (language == LanguageKind::Python
-        && content.contains("if __name__ == \"__main__\""))
+    ) || (language == LanguageKind::Python && content.contains("if __name__ == \"__main__\""))
         || (language == LanguageKind::Go && content.contains("func main("))
         || (language == LanguageKind::Rust && content.contains("fn main("))
 }

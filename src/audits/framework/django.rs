@@ -188,9 +188,7 @@ fn is_django_settings_file(path: &std::path::Path) -> bool {
         .unwrap_or("")
         .to_ascii_lowercase();
     path.extension().and_then(|e| e.to_str()) == Some("py")
-        && (stem == "settings"
-            || stem.starts_with("settings_")
-            || stem.ends_with("_settings"))
+        && (stem == "settings" || stem.starts_with("settings_") || stem.ends_with("_settings"))
 }
 
 fn is_comment(line: &str) -> bool {
@@ -216,9 +214,7 @@ mod tests {
         assert!(is_django_settings_file(std::path::Path::new(
             "settings/base_settings.py"
         )));
-        assert!(!is_django_settings_file(std::path::Path::new(
-            "views.py"
-        )));
+        assert!(!is_django_settings_file(std::path::Path::new("views.py")));
     }
 
     #[test]

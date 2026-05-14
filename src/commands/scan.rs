@@ -10,12 +10,12 @@ use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
+use repopilot::findings::types::Finding;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::findings::types::Finding;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use repopilot::scan::workspace::{WorkspacePackage, detect_workspace_packages};
 use std::collections::{HashMap, HashSet};
@@ -279,7 +279,8 @@ fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<Langu
 
 fn print_timing_breakdown(summary: &ScanSummary) {
     if let Some(timings) = &summary.scan_timings {
-        let total = timings.file_scan_us + timings.framework_detection_us + timings.post_scan_audits_us;
+        let total =
+            timings.file_scan_us + timings.framework_detection_us + timings.post_scan_audits_us;
         eprintln!(
             "\n[timing] File scan: {}ms · Framework detection: {}ms · Post-scan audits: {}ms · Engine total: {}ms",
             timings.file_scan_us / 1000,

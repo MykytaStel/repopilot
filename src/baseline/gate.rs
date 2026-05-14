@@ -123,10 +123,7 @@ mod tests {
 
     #[test]
     fn gate_passes_when_no_findings_exceed_threshold() {
-        let report = make_report(
-            vec![make_finding(Severity::Low)],
-            vec![BaselineStatus::New],
-        );
+        let report = make_report(vec![make_finding(Severity::Low)], vec![BaselineStatus::New]);
 
         let result = evaluate_ci_gate(&report, FailOn::New(Severity::High));
 

@@ -112,7 +112,9 @@ pub struct KnowledgeBase {
 
 impl KnowledgeBase {
     pub fn rule_by_id(&self, rule_id: &str) -> Option<&RuleApplicability> {
-        self.rule_index.get(rule_id).map(|&idx| &self.rule_applicability[idx])
+        self.rule_index
+            .get(rule_id)
+            .map(|&idx| &self.rule_applicability[idx])
     }
 }
 

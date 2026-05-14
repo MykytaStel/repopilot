@@ -131,7 +131,9 @@ fn status_findings(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::baseline::model::{Baseline, BaselineFinding, BASELINE_SCHEMA_VERSION, BASELINE_TOOL};
+    use crate::baseline::model::{
+        BASELINE_SCHEMA_VERSION, BASELINE_TOOL, Baseline, BaselineFinding,
+    };
     use crate::findings::types::{Evidence, Finding, Severity};
     use crate::scan::types::ScanSummary;
     use std::path::PathBuf;

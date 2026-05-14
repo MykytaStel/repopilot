@@ -48,8 +48,9 @@ pub fn build_next_steps(
     } else {
         steps.push(DoctorNextStep {
             command: format!("repopilot baseline create {path}"),
-            reason: "Accept existing findings as technical debt before enabling new-finding CI gates."
-                .to_string(),
+            reason:
+                "Accept existing findings as technical debt before enabling new-finding CI gates."
+                    .to_string(),
         });
     }
 

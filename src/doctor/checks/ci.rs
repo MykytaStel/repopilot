@@ -91,7 +91,10 @@ pub fn has_ci_config(root: &Path, github_workflows_dir: &Path) -> bool {
         || root.join("Jenkinsfile").is_file()
 }
 
-pub fn detect_repopilot_ci_config(root: &Path, github_workflows_dir: &Path) -> RepopilotCiDetection {
+pub fn detect_repopilot_ci_config(
+    root: &Path,
+    github_workflows_dir: &Path,
+) -> RepopilotCiDetection {
     let mut integration_only = RepopilotCiDetection::default();
 
     for path in ci_candidate_paths(root, github_workflows_dir) {

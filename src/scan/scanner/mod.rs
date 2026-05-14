@@ -52,16 +52,15 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     let framework_detection_us = framework_start.elapsed().as_micros() as u64;
 
     let post_scan_start = Instant::now();
-    let ((project_findings, framework_findings), (coupling_findings, coupling_graph)) =
-        rayon::join(
-            || {
-                rayon::join(
-                    || run_project_audits(&facts, config),
-                    || run_framework_audits(&facts, config),
-                )
-            },
-            || ImportCouplingAudit.audit_with_graph(&facts, config, path),
-        );
+    let ((project_findings, framework_findings), (coupling_findings, coupling_graph)) = rayon::join(
+        || {
+            rayon::join(
+                || run_project_audits(&facts, config),
+                || run_framework_audits(&facts, config),
+            )
+        },
+        || ImportCouplingAudit.audit_with_graph(&facts, config, path),
+    );
     findings.extend(project_findings);
     findings.extend(framework_findings);
     findings.extend(apply_project_decisions(&facts, coupling_findings));

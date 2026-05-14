@@ -14,7 +14,10 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
     };
 
     if !rule.languages.is_empty()
-        && !context.languages.iter().any(|l| rule.languages.contains(*l))
+        && !context
+            .languages
+            .iter()
+            .any(|l| rule.languages.contains(*l))
     {
         return RuleDecision::suppress("rule does not apply to this language");
     }
@@ -26,19 +29,23 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
     }
 
     if !rule.frameworks.is_empty()
-        && !context.frameworks.iter().any(|f| rule.frameworks.contains(*f))
+        && !context
+            .frameworks
+            .iter()
+            .any(|f| rule.frameworks.contains(*f))
     {
         return RuleDecision::suppress("rule does not apply to this framework");
     }
 
-    if !rule.runtimes.is_empty()
-        && !context.runtimes.iter().any(|r| rule.runtimes.contains(*r))
-    {
+    if !rule.runtimes.is_empty() && !context.runtimes.iter().any(|r| rule.runtimes.contains(*r)) {
         return RuleDecision::suppress("rule does not apply to this runtime");
     }
 
     if !rule.paradigms.is_empty()
-        && !context.paradigms.iter().any(|p| rule.paradigms.contains(*p))
+        && !context
+            .paradigms
+            .iter()
+            .any(|p| rule.paradigms.contains(*p))
     {
         return RuleDecision::suppress("rule does not apply to this paradigm");
     }
@@ -445,12 +452,8 @@ mod tests {
             is_test: false,
         };
 
-        let decision = decide_for_audit_context(
-            "language.rust.panic-risk",
-            &context,
-            Severity::Medium,
-            None,
-        );
+        let decision =
+            decide_for_audit_context("language.rust.panic-risk", &context, Severity::Medium, None);
 
         assert!(decision.is_suppressed());
     }
