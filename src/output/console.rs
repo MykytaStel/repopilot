@@ -164,13 +164,33 @@ fn render_scan_input(output: &mut String, summary: &ScanSummary) {
 
 fn render_risk_summary(output: &mut String, stats: &ReportStats) {
     output.push_str("Risk Summary:\n");
-    writeln!(output, "  Severity: {}", console_severity_counts_text(stats)).unwrap();
-    writeln!(output, "  Categories: {}", named_counts_text(&stats.category_counts)).unwrap();
+    writeln!(
+        output,
+        "  Severity: {}",
+        console_severity_counts_text(stats)
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "  Categories: {}",
+        named_counts_text(&stats.category_counts)
+    )
+    .unwrap();
     if !stats.top_paths.is_empty() {
-        writeln!(output, "  Top paths: {}", named_counts_text(&stats.top_paths)).unwrap();
+        writeln!(
+            output,
+            "  Top paths: {}",
+            named_counts_text(&stats.top_paths)
+        )
+        .unwrap();
     }
     if !stats.top_packages.is_empty() {
-        writeln!(output, "  Top packages: {}", named_counts_text(&stats.top_packages)).unwrap();
+        writeln!(
+            output,
+            "  Top packages: {}",
+            named_counts_text(&stats.top_packages)
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -202,7 +222,12 @@ fn render_languages_section(output: &mut String, summary: &ScanSummary) {
     }
 
     for language in &summary.languages {
-        writeln!(output, "  {}: {} files", language.name, language.files_count).unwrap();
+        writeln!(
+            output,
+            "  {}: {} files",
+            language.name, language.files_count
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -346,7 +371,13 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
     output.push_str("Framework projects:\n");
     for project in nested_projects {
         let labels: Vec<String> = project.frameworks.iter().map(|f| f.label()).collect();
-        writeln!(output, "  {}: {}", project.path.display(), labels.join(" | ")).unwrap();
+        writeln!(
+            output,
+            "  {}: {}",
+            project.path.display(),
+            labels.join(" | ")
+        )
+        .unwrap();
     }
     output.push('\n');
 }

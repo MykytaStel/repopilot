@@ -22,20 +22,35 @@ pub struct CategoryAllocation {
 }
 
 /// Allocate `findings_budget_chars` across categories proportionally to their severity weights.
-pub fn allocate_categories(weights: &[usize], findings_budget_chars: usize) -> Vec<CategoryAllocation> {
+pub fn allocate_categories(
+    weights: &[usize],
+    findings_budget_chars: usize,
+) -> Vec<CategoryAllocation> {
     let total_weight: usize = weights.iter().sum();
     if total_weight == 0 {
         return weights
             .iter()
-            .map(|_| CategoryAllocation { chars: 0, snippet_lines: 0 })
+            .map(|_| CategoryAllocation {
+                chars: 0,
+                snippet_lines: 0,
+            })
             .collect();
     }
     weights
         .iter()
         .map(|&w| {
             let chars = findings_budget_chars * w / total_weight;
-            let snippet_lines = if chars >= 800 { 3 } else if chars >= 300 { 1 } else { 0 };
-            CategoryAllocation { chars, snippet_lines }
+            let snippet_lines = if chars >= 800 {
+                3
+            } else if chars >= 300 {
+                1
+            } else {
+                0
+            };
+            CategoryAllocation {
+                chars,
+                snippet_lines,
+            }
         })
         .collect()
 }
@@ -58,7 +73,10 @@ impl SectionBreakdown {
         let mut h = stderr.lock();
 
         let bar_width = 16usize;
-        let _ = writeln!(h, "\n── Token Budget ──────────────────────────────────────");
+        let _ = writeln!(
+            h,
+            "\n── Token Budget ──────────────────────────────────────"
+        );
         for section in &self.sections {
             let filled = if self.budget_tokens > 0 {
                 (section.tokens * bar_width / self.budget_tokens).min(bar_width)
@@ -74,7 +92,11 @@ impl SectionBreakdown {
             let _ = writeln!(h, "  {:<26} {} {:>5}", label_trunc, bar, section.tokens);
         }
         let _ = writeln!(h, "  ──────────────────────────────────────────────────");
-        let status = if self.total_tokens <= self.budget_tokens { "✅" } else { "⚠️ " };
+        let status = if self.total_tokens <= self.budget_tokens {
+            "✅"
+        } else {
+            "⚠️ "
+        };
         let _ = writeln!(
             h,
             "  Total: {} / {} tokens  {}",
@@ -87,6 +109,9 @@ impl SectionBreakdown {
                 self.hidden_findings
             );
         }
-        let _ = writeln!(h, "──────────────────────────────────────────────────────\n");
+        let _ = writeln!(
+            h,
+            "──────────────────────────────────────────────────────\n"
+        );
     }
 }

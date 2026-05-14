@@ -15,8 +15,12 @@ pub(super) struct CategoryRenderInfo {
 
 const CATEGORY_ORDER: &[(&str, CategoryFilter)] = &[
     ("Security", |c| matches!(c, FindingCategory::Security)),
-    ("Architecture", |c| matches!(c, FindingCategory::Architecture)),
-    ("Code Quality", |c| matches!(c, FindingCategory::CodeQuality)),
+    ("Architecture", |c| {
+        matches!(c, FindingCategory::Architecture)
+    }),
+    ("Code Quality", |c| {
+        matches!(c, FindingCategory::CodeQuality)
+    }),
     ("Testing", |c| matches!(c, FindingCategory::Testing)),
     ("Framework", |c| matches!(c, FindingCategory::Framework)),
 ];
@@ -88,8 +92,14 @@ fn render_category(
     });
     let total = sorted.len();
 
-    let critical_n = sorted.iter().filter(|f| f.severity == Severity::Critical).count();
-    let high_n = sorted.iter().filter(|f| f.severity == Severity::High).count();
+    let critical_n = sorted
+        .iter()
+        .filter(|f| f.severity == Severity::Critical)
+        .count();
+    let high_n = sorted
+        .iter()
+        .filter(|f| f.severity == Severity::High)
+        .count();
     let severity_note = if critical_n > 0 {
         format!("{critical_n} critical")
     } else if high_n > 0 {

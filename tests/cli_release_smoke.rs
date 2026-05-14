@@ -297,4 +297,3 @@ fn inspect_explain_writes_valid_json() {
         content
     );
 }
-

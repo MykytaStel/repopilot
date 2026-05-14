@@ -52,7 +52,12 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         None => output.push_str("- **Baseline:** none (all findings treated as new)\n"),
     }
     writeln!(output, "- **New findings:** {}", report.new_count()).unwrap();
-    writeln!(output, "- **Existing findings:** {}", report.existing_count()).unwrap();
+    writeln!(
+        output,
+        "- **Existing findings:** {}",
+        report.existing_count()
+    )
+    .unwrap();
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
         writeln!(output, "- **CI gate:** {status} (`{}`)", ci_gate.label()).unwrap();
@@ -89,7 +94,12 @@ fn render_overview(output: &mut String, summary: &ScanSummary, stats: &ReportSta
     )
     .unwrap();
     writeln!(output, "- **Files analyzed:** {}", summary.files_count).unwrap();
-    writeln!(output, "- **Directories analyzed:** {}", summary.directories_count).unwrap();
+    writeln!(
+        output,
+        "- **Directories analyzed:** {}",
+        summary.directories_count
+    )
+    .unwrap();
     writeln!(output, "- **Lines of code:** {}", summary.lines_of_code).unwrap();
     if summary.scan_duration_us > 0 {
         writeln!(
@@ -118,13 +128,33 @@ fn render_risk_summary(output: &mut String, summary: &ScanSummary, stats: &Repor
         return;
     }
 
-    writeln!(output, "- **Severity:** {}", markdown_severity_counts_text(stats)).unwrap();
-    writeln!(output, "- **Categories:** {}", named_counts_text(&stats.category_counts)).unwrap();
+    writeln!(
+        output,
+        "- **Severity:** {}",
+        markdown_severity_counts_text(stats)
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Categories:** {}",
+        named_counts_text(&stats.category_counts)
+    )
+    .unwrap();
     if !stats.top_paths.is_empty() {
-        writeln!(output, "- **Top paths:** {}", named_counts_text(&stats.top_paths)).unwrap();
+        writeln!(
+            output,
+            "- **Top paths:** {}",
+            named_counts_text(&stats.top_paths)
+        )
+        .unwrap();
     }
     if !stats.top_packages.is_empty() {
-        writeln!(output, "- **Top packages:** {}", named_counts_text(&stats.top_packages)).unwrap();
+        writeln!(
+            output,
+            "- **Top packages:** {}",
+            named_counts_text(&stats.top_packages)
+        )
+        .unwrap();
     }
     output.push('\n');
 }
@@ -332,13 +362,21 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     writeln!(
         output,
         "- **iOS:** {}",
-        if rn.has_ios { "detected" } else { "not detected" }
+        if rn.has_ios {
+            "detected"
+        } else {
+            "not detected"
+        }
     )
     .unwrap();
     writeln!(
         output,
         "- **Android:** {}",
-        if rn.has_android { "detected" } else { "not detected" }
+        if rn.has_android {
+            "detected"
+        } else {
+            "not detected"
+        }
     )
     .unwrap();
     writeln!(
@@ -368,7 +406,11 @@ fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitecture
     writeln!(
         output,
         "- **Codegen config:** {}\n",
-        if rn.has_codegen_config { "found" } else { "missing" }
+        if rn.has_codegen_config {
+            "found"
+        } else {
+            "missing"
+        }
     )
     .unwrap();
 }

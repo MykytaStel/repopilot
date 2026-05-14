@@ -159,5 +159,4 @@ repopilot doctor . --format json\n  \
 repopilot doctor . --format markdown --output doctor.md"
     )]
     Doctor(DoctorOptions),
-
 }

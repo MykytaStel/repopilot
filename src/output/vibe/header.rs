@@ -118,7 +118,11 @@ pub(super) fn render_task_instruction(
 
     if critical_sec + high_sec > 0 {
         let n = critical_sec + high_sec;
-        let sev = if critical_sec > 0 { "critical" } else { "high-severity" };
+        let sev = if critical_sec > 0 {
+            "critical"
+        } else {
+            "high-severity"
+        };
         let _ = writeln!(
             out,
             "> {step}. Fix the {n} {sev} security finding(s) with concrete code patches."
