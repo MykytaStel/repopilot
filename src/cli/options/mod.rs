@@ -6,11 +6,11 @@ pub mod inspect;
 pub mod review;
 pub mod scan;
 
-pub use ai::{AiCommands, AiOptions};
+pub use ai::{AiCommands, AiContextOptions, AiOptions, AiPlanOptions, AiPromptOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use compare::CompareOptions;
 pub use doctor::{DoctorOptions, InitOptions};
-pub use inspect::{InspectCommands, InspectOptions};
+pub use inspect::{ExplainOptions, InspectCommands, InspectOptions, KnowledgeOptions};
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
 
@@ -58,10 +58,10 @@ repopilot compare before.json after.json --format json --output diff.json"
         alias = "s",
         about = "Scan a project, folder, or file for findings",
         long_about = "Walks the target path and runs all enabled audit rules:\n\n\
-  Architecture  — oversized files, deep nesting, too many modules per directory\n  \
+  Architecture  — oversized files, deep nesting, deep imports, risky barrels\n  \
 Coupling      — excessive fan-out, high-instability hubs, circular dependencies\n  \
-Code quality  — cyclomatic complexity, long functions, TODO/FIXME/HACK markers\n  \
-Security      — hardcoded secret candidates, committed private keys, .env files\n  \
+Code quality  — cyclomatic complexity, long functions, runtime-risk signals\n  \
+Security      — hardcoded secrets, private keys, .env files, Django settings\n  \
 Testing       — missing test folder, source files without test counterparts\n\n\
 The scan respects .gitignore, .repopilotignore, built-in ignores, and --exclude.\n\
 Low-signal test, fixture, example, generated, and benchmark paths are skipped by\n\
@@ -159,4 +159,24 @@ repopilot doctor . --format json\n  \
 repopilot doctor . --format markdown --output doctor.md"
     )]
     Doctor(DoctorOptions),
+
+    /// Hidden 0.x compatibility alias for `ai context`
+    #[command(hide = true)]
+    Vibe(AiContextOptions),
+
+    /// Hidden 0.x compatibility alias for `ai plan`
+    #[command(hide = true)]
+    Harden(AiPlanOptions),
+
+    /// Hidden 0.x compatibility alias for `ai prompt`
+    #[command(hide = true)]
+    Prompt(AiPromptOptions),
+
+    /// Hidden 0.x compatibility alias for `inspect explain`
+    #[command(hide = true)]
+    Explain(ExplainOptions),
+
+    /// Hidden 0.x compatibility alias for `inspect knowledge`
+    #[command(hide = true)]
+    Knowledge(KnowledgeOptions),
 }

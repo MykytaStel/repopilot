@@ -6,19 +6,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-05-14
+## [0.10.0] - 2026-05-16
 
 ### Added
 
 - Added doctor adoption checks for readable `repopilot.toml`, readable `.repopilot/baseline.json`, RepoPilot-specific CI gates, and default report/receipt output readiness.
 - Added `schema_version: 1` to audit receipt JSON produced by `repopilot scan --receipt`.
 - Added typed GitHub Action `receipt` input and `receipt-file` output for scan receipt generation.
+- Added context-aware language runtime-risk audits for Go, JavaScript/TypeScript, Python, and Java/Kotlin/C#.
+- Added Django security audits for `DEBUG = True`, empty `ALLOWED_HOSTS`, and raw SQL string formatting.
+- Added context-aware confidence and recommendations to long-function and Rust panic-risk findings.
 - Added `docs/release-checklist-0.10.md` for the adoption UX release.
 
 ### Changed
 
 - `repopilot doctor` now distinguishes generic CI from a RepoPilot `--fail-on` gate and recommends an adoption path from config to report, baseline, CI gate, and AI context.
 - `repopilot doctor` now renders diagnostics for invalid config files using built-in scan defaults instead of aborting before the report.
+- Restored hidden 0.x compatibility commands: `repopilot vibe`, `repopilot harden`, `repopilot prompt`, `repopilot explain`, and `repopilot knowledge`.
+- Grouped AI and inspection workflows remain the stable command shape: `repopilot ai ...` and `repopilot inspect ...`.
 - Product smoke checks now generate and validate an audit receipt.
 
 ## [0.9.0] - 2026-05-13

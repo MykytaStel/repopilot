@@ -96,7 +96,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "schema_version": 1,
   "tool": "repopilot",
   "version": "0.10.0",
-  "generated_at": "2026-05-14T00:00:00Z",
+  "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {
     "is_git_repo": true,
@@ -137,11 +137,16 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `rule_id` | string | Stable rule identifier, for example `security.secret-candidate`. |
 | `title` | string | Short human-readable summary. |
 | `description` | string | Explanation of why the finding matters. |
+| `recommendation` | string | Concrete remediation guidance. Older reports without this field still deserialize, but new reports include it. |
 | `category` | string | Finding category. |
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. |
+| `confidence` | string | One of `LOW`, `MEDIUM`, or `HIGH`; used to separate impact from certainty. |
 | `docs_url` | string? | Optional documentation link for the rule. |
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
+
+SARIF output carries the same category, recommendation, confidence, baseline
+status, and workspace package metadata in result properties when available.
 
 ## Recommended usage
 

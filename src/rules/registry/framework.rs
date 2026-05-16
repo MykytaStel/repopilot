@@ -226,4 +226,39 @@ pub(super) static RULES: &[RuleMetadata] = &[
             "Check the library's GitHub issues for a New Architecture migration path, or find an actively-maintained alternative.",
         ),
     },
+    RuleMetadata {
+        rule_id: "framework.django.debug-true",
+        title: "DEBUG = True in Django settings",
+        category: FindingCategory::Security,
+        default_severity: Severity::High,
+        docs_url: Some("https://docs.djangoproject.com/en/stable/ref/settings/#debug"),
+        description: "Django DEBUG mode exposes detailed error pages with stack traces, local variables, and settings values.",
+        recommendation: Some(
+            "Set DEBUG = False for deployed environments and load debug mode only from local development configuration.",
+        ),
+    },
+    RuleMetadata {
+        rule_id: "framework.django.missing-allowed-hosts",
+        title: "ALLOWED_HOSTS is empty in Django settings",
+        category: FindingCategory::Security,
+        default_severity: Severity::High,
+        docs_url: Some("https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts"),
+        description: "An empty ALLOWED_HOSTS setting leaves deployed Django services exposed to unsafe Host header handling.",
+        recommendation: Some(
+            "Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept.",
+        ),
+    },
+    RuleMetadata {
+        rule_id: "framework.django.raw-sql-query",
+        title: "Raw SQL with string formatting detected",
+        category: FindingCategory::Security,
+        default_severity: Severity::Medium,
+        docs_url: Some(
+            "https://docs.djangoproject.com/en/stable/topics/db/sql/#passing-parameters-into-raw",
+        ),
+        description: "String formatting inside cursor.execute can turn user-controlled values into SQL injection risk.",
+        recommendation: Some(
+            "Pass query parameters separately, for example cursor.execute(sql, [param]), so the database driver escapes values safely.",
+        ),
+    },
 ];

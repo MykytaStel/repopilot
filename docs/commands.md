@@ -25,7 +25,7 @@ repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail
 
 `repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
 For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
-Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`); Go projects for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot ai context`.
+Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`), including Django deployment settings and raw SQL checks when Django is present. Go projects are scanned for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot ai context`.
 The walker respects gitignore, `.repopilotignore`, and built-in ignores for common build, cache, vendor, and platform directories, including `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.nuxt`, `.cache`, `coverage`, `vendor`, `Pods`, and `DerivedData`.
 
 ```bash

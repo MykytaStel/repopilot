@@ -888,6 +888,22 @@ rule_id = "framework.rn-new-arch-incompatible-dep"
 frameworks = ["react-native", "expo"]
 
 [[rules]]
+rule_id = "framework.django.debug-true"
+frameworks = ["django"]
+
+[[rules]]
+rule_id = "framework.django.missing-allowed-hosts"
+frameworks = ["django"]
+
+[[rules]]
+rule_id = "framework.django.raw-sql-query"
+minimum_support = "context-aware"
+languages = ["python"]
+frameworks = ["django"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
 rule_id = "code-quality.complex-file"
 minimum_support = "rule-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "c", "cpp", "csharp"]
