@@ -80,7 +80,8 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         .map(Into::into)
         .map(|fail_on| evaluate_ci_gate(&ci_report, fail_on))
         .or_else(|| {
-            fail_on_priority.map(|priority| evaluate_ci_gate(&ci_report, FailOn::Priority(priority)))
+            fail_on_priority
+                .map(|priority| evaluate_ci_gate(&ci_report, FailOn::Priority(priority)))
         });
     let rendered_report = render(&review_report, options.format.into(), ci_gate.as_ref())?;
 
