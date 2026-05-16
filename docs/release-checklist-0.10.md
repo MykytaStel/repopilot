@@ -16,6 +16,8 @@ doctor -> scan report + receipt -> baseline -> CI gate -> AI context
 - Doctor checks for readable config, readable baseline, RepoPilot CI gates, and report/receipt readiness.
 - First-class audit receipts through `repopilot scan --receipt`.
 - GitHub Action typed `receipt` input and `receipt-file` output.
+- 0.x compatibility aliases for AI and inspect workflows while the stable command surface remains grouped.
+- Complete registry and Knowledge Engine metadata for all 46 built-in rules.
 - Documentation for adoption workflows, receipt JSON, and CI receipt artifact upload.
 
 ## Required local checks
@@ -44,6 +46,8 @@ cargo run -- scan . --format markdown --output /tmp/repopilot-report.md --receip
 cargo run -- baseline create . --output /tmp/repopilot-baseline-source.json --force
 cargo run -- scan . --baseline /tmp/repopilot-baseline-source.json --fail-on new-high --format json --output /tmp/repopilot-baseline.json
 cargo run -- ai context . --budget 4k --output /tmp/repopilot-context.md
+cargo run -- vibe . --budget 2k --output /tmp/repopilot-legacy-context.md
+cargo run -- inspect knowledge --section rules --format json --output /tmp/repopilot-knowledge-rules.json
 ```
 
 Check that all files exist and are not empty:
@@ -55,6 +59,8 @@ test -s /tmp/repopilot-receipt.json
 test -s /tmp/repopilot-baseline-source.json
 test -s /tmp/repopilot-baseline.json
 test -s /tmp/repopilot-context.md
+test -s /tmp/repopilot-legacy-context.md
+test -s /tmp/repopilot-knowledge-rules.json
 ```
 
 ## Version consistency

@@ -171,6 +171,8 @@ fn all_architecture_rule_ids_are_registered() {
     for rule_id in &[
         "architecture.large-file",
         "architecture.deep-nesting",
+        "architecture.deep-relative-imports",
+        "architecture.barrel-file-risk",
         "architecture.too-many-modules",
         "architecture.circular-dependency",
         "architecture.excessive-fan-out",
@@ -195,6 +197,22 @@ fn all_code_quality_rule_ids_are_registered() {
         assert!(
             lookup_rule_metadata(rule_id).is_some(),
             "code-quality rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
+fn all_language_runtime_risk_rule_ids_are_registered() {
+    for rule_id in &[
+        "language.rust.panic-risk",
+        "language.go.panic-exit-risk",
+        "language.python.exception-risk",
+        "language.javascript.runtime-exit-risk",
+        "language.managed.fatal-exception-risk",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "language runtime-risk rule not in registry: {rule_id}"
         );
     }
 }
@@ -255,16 +273,37 @@ fn all_framework_rn_dep_health_rule_ids_are_registered() {
 }
 
 #[test]
+fn all_framework_django_rule_ids_are_registered() {
+    for rule_id in &[
+        "framework.django.debug-true",
+        "framework.django.missing-allowed-hosts",
+        "framework.django.raw-sql-query",
+    ] {
+        assert!(
+            lookup_rule_metadata(rule_id).is_some(),
+            "Django rule not in registry: {rule_id}"
+        );
+    }
+}
+
+#[test]
 fn static_rule_metadata_severities_match_emitted_findings() {
     let expected = [
         ("architecture.large-file", Severity::Medium),
         ("architecture.deep-nesting", Severity::Low),
+        ("architecture.deep-relative-imports", Severity::Low),
+        ("architecture.barrel-file-risk", Severity::Low),
         ("architecture.too-many-modules", Severity::Medium),
         ("architecture.circular-dependency", Severity::High),
         ("architecture.excessive-fan-out", Severity::Medium),
         ("architecture.high-instability-hub", Severity::High),
         ("code-quality.complex-file", Severity::Medium),
         ("code-quality.long-function", Severity::Medium),
+        ("language.rust.panic-risk", Severity::Medium),
+        ("language.go.panic-exit-risk", Severity::Medium),
+        ("language.python.exception-risk", Severity::Medium),
+        ("language.javascript.runtime-exit-risk", Severity::Medium),
+        ("language.managed.fatal-exception-risk", Severity::Medium),
         ("code-marker.todo", Severity::Low),
         ("code-marker.fixme", Severity::Medium),
         ("code-marker.hack", Severity::Medium),
@@ -305,6 +344,9 @@ fn static_rule_metadata_severities_match_emitted_findings() {
         ("framework.rn-reanimated-compat", Severity::High),
         ("framework.rn-gesture-handler-old", Severity::High),
         ("framework.rn-new-arch-incompatible-dep", Severity::Medium),
+        ("framework.django.debug-true", Severity::High),
+        ("framework.django.missing-allowed-hosts", Severity::High),
+        ("framework.django.raw-sql-query", Severity::Medium),
     ];
 
     for (rule_id, severity) in expected {

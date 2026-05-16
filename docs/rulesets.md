@@ -1,20 +1,22 @@
 # Audit Rulesets
 
-RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a category and carries severity and confidence metadata.
+RepoPilot findings are identified by a stable `rule_id`. RepoPilot 0.10.0 ships
+46 built-in rules. Each finding carries category, severity, confidence,
+recommendation, and evidence metadata.
 
 ## Categories
 
 | Category | Serialized value | Description |
 |---|---|---|
 | Architecture | `ARCHITECTURE` | Structural or design concerns |
-| Code quality | `CODE_QUALITY` | Hygiene and maintainability issues |
+| Code quality | `CODE_QUALITY` | Hygiene, maintainability, and runtime-risk issues |
 | Testing | `TESTING` | Test coverage or quality gaps |
-| Security | `SECURITY` | Potential vulnerabilities |
+| Security | `SECURITY` | Potential vulnerabilities or exposed secrets |
 | Framework | `FRAMEWORK` | Framework-specific configuration, migration, or runtime concerns |
 
-## Severity levels
+## Severity And Confidence
 
-| Level | Serialized value |
+| Severity | Serialized value |
 |---|---|
 | Info | `INFO` |
 | Low | `LOW` |
@@ -22,384 +24,146 @@ RepoPilot findings are identified by a stable `rule_id`. Each rule belongs to a 
 | High | `HIGH` |
 | Critical | `CRITICAL` |
 
-## Rules
+`severity` is the expected impact if the finding is true. `confidence` is how
+certain RepoPilot is that the finding is a real problem in this context.
+
+## Architecture Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `architecture.large-file` | Medium / High | Files above the configured non-empty LOC threshold. High is used for very large files. |
+| `architecture.deep-nesting` | Low | Paths deeper than the configured directory depth threshold. |
+| `architecture.deep-relative-imports` | Low / Medium | Imports crossing three or more parent directories, including JS/TS `../` imports and Rust `super::` chains. |
+| `architecture.barrel-file-risk` | Low / Medium | Large `index.*` barrel files with many re-exports or wildcard exports. |
+| `architecture.too-many-modules` | Medium | Directories containing more files than the configured module threshold. |
+| `architecture.excessive-fan-out` | Medium | Files importing too many project-internal modules. |
+| `architecture.high-instability-hub` | High | Files with high fan-in and high fan-out, making changes ripple broadly. |
+| `architecture.circular-dependency` | High | Cycles in project-internal imports. |
+
+Important defaults:
+
+- `architecture.large-file`: 300 non-empty LOC; CLI override `--max-file-loc`.
+- `architecture.too-many-modules`: 20 files per directory; CLI override `--max-directory-modules`.
+- `architecture.deep-nesting`: 5 directory levels below scan root; CLI override `--max-directory-depth`.
+- `architecture.excessive-fan-out`: `[architecture] max_fan_out`.
+- `architecture.high-instability-hub`: `[architecture] instability_hub_min_fan_in` and `instability_hub_min_instability_pct`.
+
+## Code Quality Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `code-quality.complex-file` | Medium / High | High branch-count density, computed as branch constructs x 1000 / LOC. |
+| `code-quality.long-function` | Context-aware | Function bodies above the context-aware threshold. Production functions are usually medium/high-confidence; tests, React components/hooks, controllers, and lifecycle files can be lower-noise findings. |
+| `code-marker.todo` | Low | `TODO` comments outside skipped docs/test paths. |
+| `code-marker.fixme` | Medium | `FIXME` comments indicating known broken or problematic code. |
+| `code-marker.hack` | Medium | `HACK` comments indicating workaround code. |
+
+Important defaults:
+
+- `code-quality.complex-file`: medium threshold 200 and high threshold 400 under `[code_quality]`.
+- `code-quality.long-function`: `[architecture] max_function_lines`, default 50, with context-aware expansion for common framework/test roles.
+- Long function support: Rust, Go, Python, TypeScript, JavaScript, Java, Kotlin, and C#.
+
+## Language Runtime-Risk Rules
+
+| Rule ID | Default severity | Signals |
+|---|---:|---|
+| `language.rust.panic-risk` | Context-aware | `rust.unwrap`, `rust.expect`, `rust.panic`, `rust.todo`, `rust.unimplemented` |
+| `language.go.panic-exit-risk` | Context-aware | `go.panic`, `go.log-fatal`, `go.os-exit` |
+| `language.python.exception-risk` | Context-aware | `python.broad-except`, `python.assert`, `python.not-implemented` |
+| `language.javascript.runtime-exit-risk` | Context-aware | `js.process-exit`, `js.throw-error` |
+| `language.managed.fatal-exception-risk` | Context-aware | `managed.fatal-exception`, `managed.not-implemented` |
+
+These rules use file context from the Knowledge Engine. Test scaffolding, CLI
+entrypoints, generated paths, and framework boundaries can reduce severity,
+confidence, or suppress a finding. Domain, reusable library, and production code
+usually keeps higher confidence.
+
+## Security Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `security.secret-candidate` | High | High-entropy values or known secret-like patterns. Evidence masks secret values. |
+| `security.private-key-candidate` | Critical | PEM private key headers. Key content is never included in evidence. |
+| `security.env-file-committed` | Critical | Committed `.env`, `.env.local`, `.env.production`, `.env.staging`, or `.env.development` files. |
+
+Security audits skip low-signal examples, fixtures, docs, lockfiles, and common
+test paths where appropriate to reduce false positives.
+
+## Testing Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `testing.missing-test-folder` | Medium | No recognizable test directory such as `tests/`, `test/`, `__tests__/`, or `spec/`. |
+| `testing.source-without-test` | Low | Source files without detectable test counterparts. |
+
+`testing.source-without-test` skips wrapper and low-signal files such as
+`mod.rs`, `lib.rs`, `main.rs`, generated files, type-only files, constants,
+tokens, mocks, and framework setup files.
+
+## JavaScript And React Framework Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `framework.js.var-declaration` | Low | `var` usage in JavaScript or TypeScript source. |
+| `framework.js.console-log` | Low | `console.log` outside test files. |
+| `framework.react.class-component` | Low | React class components. |
+| `framework.react.prop-types` | Low | `prop-types` runtime checks in typed React projects. |
+
+## React Native Rules
+
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `framework.react-native.old-architecture` | Medium | No detected New Architecture enablement signal. |
+| `framework.react-native.architecture-mismatch` | High | Android, iOS, or Expo New Architecture settings disagree. |
+| `framework.react-native.hermes-disabled` | Low | Hermes explicitly disabled. |
+| `framework.react-native.hermes-mismatch` | Medium | Hermes settings differ between Android and iOS. |
+| `framework.react-native.codegen-missing` | Medium | Turbo Module or Fabric-like usage without `codegenConfig`. |
+| `framework.react-native.async-storage-from-core` | High | `AsyncStorage` imported from `react-native` core. |
+| `framework.react-native.old-react-navigation` | Medium | Legacy unscoped `react-navigation` imports. |
+| `framework.react-native.direct-state-mutation` | High | Direct `this.state` mutation in class components. |
+| `framework.react-native.inline-style` | Medium | JSX inline style objects such as `style={{ ... }}`. |
+| `framework.react-native.deprecated-api` | High | Removed core APIs such as `ViewPagerAndroid`, `ToolbarAndroid`, `CheckBox`, or old platform widgets. |
+| `framework.react-native.flatlist-missing-key` | Low | `FlatList` without `keyExtractor`. |
 
-### `code-marker.todo`
+See [React Native Analysis](react-native.md) for supported project shapes, profile
+fields, and limitations.
 
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | `LOW` |
-| Description | A `TODO` comment was found. Review whether it represents outstanding work that should be tracked. |
+## React Native Dependency Health Rules
 
-Markdown files and files under `tests/` or `test/` are skipped to avoid reporting documentation examples and test fixture strings as production debt.
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `framework.rn-async-storage-legacy` | Medium | Deprecated `@react-native-community/async-storage`. |
+| `framework.rn-navigation-compat` | High | React Navigation version incompatible with the detected React Native version. |
+| `framework.rn-reanimated-compat` | High | Reanimated version incompatible with the detected React Native version. |
+| `framework.rn-gesture-handler-old` | High | Gesture Handler v1 with a React Native version that requires a newer line. |
+| `framework.rn-new-arch-incompatible-dep` | Medium | Known dependency without React Native New Architecture support. |
 
-### `code-marker.fixme`
+## Django Rules
 
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | `MEDIUM` |
-| Description | A `FIXME` comment was found. These typically indicate known bugs or broken behavior. |
+| Rule ID | Default severity | What it detects |
+|---|---:|---|
+| `framework.django.debug-true` | High | `DEBUG = True` in Django settings files. |
+| `framework.django.missing-allowed-hosts` | High | `ALLOWED_HOSTS = []` in Django settings files. |
+| `framework.django.raw-sql-query` | Medium | `cursor.execute(...)` calls that combine raw SQL with string formatting. |
 
-### `code-marker.hack`
-
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | `MEDIUM` |
-| Description | A `HACK` comment was found. These indicate workarounds that should be replaced with proper solutions. |
-
-### `architecture.large-file`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `MEDIUM` when LOC ≥ threshold; `HIGH` when LOC ≥ huge threshold |
-| Default threshold | 300 non-empty LOC |
-| Override | `--max-file-loc <n>` |
-| Description | A file exceeds the configured LOC threshold. Consider splitting responsibilities into smaller modules. |
-
-The *huge* threshold defaults to `max(threshold × 3, threshold + 1)`. When `--max-file-loc` is set, the huge threshold adjusts automatically.
-
-### `architecture.too-many-modules`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `MEDIUM` |
-| Default threshold | 20 files per directory |
-| Override | `--max-directory-modules <n>` |
-| Description | A directory contains more files than the threshold. Consider splitting it into sub-modules to reduce coupling. |
-
-### `architecture.deep-nesting`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `LOW` |
-| Default threshold | 5 directory levels below the scan root |
-| Override | `--max-directory-depth <n>` |
-| Description | The deepest file in the project exceeds the nesting threshold. Deep hierarchies often indicate over-engineered module structures. |
-
-### `testing.missing-test-folder`
-
-| Field | Value |
-|---|---|
-| Category | `TESTING` |
-| Severity | `MEDIUM` |
-| Description | No test directory (`tests/`, `test/`, `__tests__/`, `spec/`) was found at any level in the scanned tree. |
-
-### `testing.source-without-test`
-
-| Field | Value |
-|---|---|
-| Category | `TESTING` |
-| Severity | `LOW` |
-| Description | A source file has no detectable test counterpart. Looks for sibling files like `payment_test.rs`, `payment.test.ts`, `payment.spec.ts`, entries in a `tests/` directory, or Rust integration tests such as `tests/report_writer.rs` for `src/report/writer.rs`. |
-
-Low-signal wrapper entrypoints such as `mod.rs`, `lib.rs`, and `main.rs` are skipped.
-
-### `security.secret-candidate`
-
-| Field | Value |
-|---|---|
-| Category | `SECURITY` |
-| Severity | `HIGH` |
-| Description | A line matches a pattern indicating a hardcoded secret (`api_key`, `password`, `token`, `private_key`, etc.). The evidence snippet **masks the value** — only the key name and first 3 characters are shown. |
-
-Skipped for files whose path contains `test`, `fixture`, `example`, or `mock`.
-
-### `security.private-key-candidate`
-
-| Field | Value |
-|---|---|
-| Category | `SECURITY` |
-| Severity | `CRITICAL` |
-| Description | A PEM private key header (`-----BEGIN RSA PRIVATE KEY-----`, etc.) was found in a source file. The key content is never included in the evidence. |
-
-Markdown examples under `docs/` are skipped to avoid reporting documented rule examples as committed keys.
-
-### `security.env-file-committed`
-
-| Field | Value |
-|---|---|
-| Category | `SECURITY` |
-| Severity | `CRITICAL` |
-| Description | A `.env`, `.env.local`, `.env.production`, `.env.staging`, or `.env.development` file is present in the scanned tree. Environment files often contain secrets and must not be committed. |
-
-### `code-quality.complex-file`
-
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | `MEDIUM` when density ≥ medium threshold; `HIGH` when density ≥ high threshold |
-| Default thresholds | Medium: 200, High: 400 (branch constructs × 1000 / LOC) |
-| Config keys | `[code_quality] complexity_medium_threshold`, `complexity_high_threshold` |
-| Description | The file has a high branching density. Density is computed as `(branch_count × 1000) / lines_of_code` where branch constructs include `if`, `else`, `for`, `while`, `match`, `switch`, `case`, `catch`, `&&`, and `\|\|`. Values above the medium threshold suggest tangled logic; values above the high threshold indicate files likely needing to be split. |
-
-Files with fewer than 10 non-empty LOC are skipped. Supported languages: Rust, Go, Python, TypeScript, JavaScript, Java, Kotlin, C, C++.
-
-### `code-quality.long-function`
-
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | Context-aware: usually `MEDIUM`; `LOW` in React components/hooks, tests, controllers, and framework lifecycle code |
-| Confidence | Context-aware: usually `HIGH` for production functions; `LOW` when file role makes length more likely to be acceptable noise |
-| Default threshold | 50 lines per function body, expanded for roles such as React components/hooks and framework lifecycle methods |
-| Config key | `[architecture] max_function_lines` |
-| Description | A function body exceeds the context-aware threshold. Findings explain why confidence is high or low for the detected file role, then recommend splitting only when responsibilities are mixed. |
-
-Examples: a long Rust production function is usually `severity: MEDIUM`, `confidence: HIGH`; a very long React component can be `severity: LOW`, `confidence: LOW` because JSX, hooks, and layout markup often make component files longer without necessarily mixing responsibilities.
-
-Supported languages: Rust, Go, Python, TypeScript, JavaScript, Java, Kotlin, C#.
-
-### `language.rust.panic-risk`
-
-| Field | Value |
-|---|---|
-| Category | `CODE_QUALITY` |
-| Severity | Context-aware: `MEDIUM` for `unwrap()`, `expect()`, and `panic!`; `HIGH` for placeholders and upgraded domain/library panics; `LOW` at acceptable test/CLI boundaries |
-| Confidence | Context-aware: `HIGH` in reusable production/library/domain code; `LOW` for test scaffolding and some CLI boundary fail-fast paths |
-| Description | Rust panic-style operations (`unwrap()`, `expect()`, `panic!`, `todo!`, `unimplemented!`) can terminate execution or hide recoverable errors. Findings explain the detected context and why the confidence score was chosen. |
-
-Suggested action is signal-specific. For production `unwrap()`, return `Result` or propagate with `?`; convert to `expect()` only when failure is impossible and the message documents the invariant.
-
-### `architecture.excessive-fan-out`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `MEDIUM` |
-| Default threshold | 15 imported project files |
-| Config key | `[architecture] max_fan_out` |
-| Description | This file imports more project-internal files than the configured threshold. High fan-out increases the blast radius of changes and suggests the file may be accumulating unrelated responsibilities. |
-
-Only project-internal imports are counted; stdlib and third-party imports are excluded.
-
-### `architecture.high-instability-hub`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `HIGH` |
-| Default thresholds | Minimum fan-in: 5; minimum instability: 75% |
-| Config keys | `[architecture] instability_hub_min_fan_in`, `instability_hub_min_instability_pct` |
-| Description | This file is imported by many files (high fan-in) but itself imports heavily from other files (high fan-out), resulting in high instability. An instability hub amplifies change propagation — modifications here risk breaking many dependents, yet it has little stability anchoring it. |
-
-Instability is computed as `fan_out / (fan_in + fan_out)` expressed as a percentage.
-
-### `architecture.circular-dependency`
-
-| Field | Value |
-|---|---|
-| Category | `ARCHITECTURE` |
-| Severity | `HIGH` |
-| Description | A cycle of project-internal imports was detected. Circular dependencies prevent files from being compiled or tested in isolation, complicate dependency injection, and are a strong signal of tangled module boundaries. |
-
-Cycles are deduplicated and reported once per unique set of files involved. Supported languages: Rust, TypeScript, JavaScript, Python, Go.
-
-### `framework.react-native.old-architecture`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Description | React Native New Architecture is not enabled by any detected Android, iOS, or Expo configuration signal. |
-
-### `framework.react-native.architecture-mismatch`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Description | Android, iOS, or Expo New Architecture settings disagree. Align the settings before release so all builds use the same runtime. |
-
-### `framework.react-native.hermes-disabled`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Description | Hermes is explicitly disabled in native React Native configuration. |
-
-### `framework.react-native.hermes-mismatch`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Description | Hermes settings differ between Android and iOS. This can create platform-specific runtime and performance behavior. |
-
-### `framework.react-native.codegen-missing`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Description | Turbo Module or Fabric-like usage was detected but `package.json` does not define `codegenConfig`. |
-
-### `framework.react-native.async-storage-from-core`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Description | `AsyncStorage` is imported from `react-native` core instead of `@react-native-async-storage/async-storage`. |
-
-### `framework.react-native.old-react-navigation`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Description | Legacy `react-navigation` v4 import was detected. Prefer the scoped `@react-navigation/*` packages. |
-
-### `framework.react-native.direct-state-mutation`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Description | A class component mutates `this.state` directly instead of using `setState`. |
-
-### `framework.react-native.inline-style`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Docs | https://reactnative.dev/docs/stylesheet |
-| Description | A JSX element uses an inline style object (`style={{ ... }}`). Inline objects are reallocated on every render, defeating memoization. Extract styles with `StyleSheet.create`. |
-
-### `framework.react-native.deprecated-api`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Docs | https://reactnative.dev/docs/out-of-tree-platforms |
-| Description | A React Native core API that was removed in RN 0.65+ was detected (`ViewPagerAndroid`, `ToolbarAndroid`, `DatePickerAndroid`, `TimePickerAndroid`, `MaskedViewIOS`, `ProgressBarAndroid`, `ProgressViewIOS`, `SegmentedControlIOS`, or `CheckBox`). Replace with the corresponding community package. |
-
-### `framework.react-native.flatlist-missing-key`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Docs | https://reactnative.dev/docs/flatlist#keyextractor |
-| Description | A `FlatList` component is missing the `keyExtractor` prop. Without it, React Native falls back to array index keys, breaking list reconciliation when items change order. |
-
-### `framework.js.var-declaration`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Docs | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/var |
-| Description | A JavaScript or TypeScript file uses `var`. Prefer `const` or `let` for block scoping and clearer reassignment behavior. |
-
-### `framework.js.console-log`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Description | A `console.log` call was found outside test files. Remove debug logging or replace it with a structured logger that respects log levels. |
-
-### `framework.react.class-component`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Docs | https://react.dev/reference/react/Component |
-| Description | A React class component is in use. Function components with hooks are the preferred model for new React code. |
-
-### `framework.react.prop-types`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `LOW` |
-| Docs | https://react.dev/blog/2024/04/25/react-19-upgrade-guide#removed-proptypes |
-| Description | `prop-types` runtime checks were found in a typed React project. Prefer TypeScript or Flow static types and remove the runtime package when possible. |
-
-### `framework.rn-async-storage-legacy`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Docs | https://react-native-async-storage.github.io/async-storage/docs/install |
-| Description | `@react-native-community/async-storage` is installed. Migrate to the maintained `@react-native-async-storage/async-storage` package. |
-
-### `framework.rn-navigation-compat`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Docs | https://reactnavigation.org/docs/getting-started |
-| Description | The installed `@react-navigation/native` version is incompatible with the detected React Native version. Upgrade React Navigation before release. |
-
-### `framework.rn-reanimated-compat`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Docs | https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/installation |
-| Description | The installed `react-native-reanimated` version is incompatible with the detected React Native version. Upgrade to a compatible Reanimated release. |
-
-### `framework.rn-gesture-handler-old`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `HIGH` |
-| Docs | https://docs.swmansion.com/react-native-gesture-handler/docs/installation |
-| Description | `react-native-gesture-handler` v1 is installed with a React Native version that requires a newer gesture-handler line. Upgrade to v2 or later. |
-
-### `framework.rn-new-arch-incompatible-dep`
-
-| Field | Value |
-|---|---|
-| Category | `FRAMEWORK` |
-| Severity | `MEDIUM` |
-| Docs | https://reactnative.dev/docs/new-architecture-intro |
-| Description | A known dependency without React Native New Architecture support is installed. Replace it or verify its migration path before enabling New Architecture. |
-
-See [React Native Analysis](react-native.md) for supported project shapes, profile fields, and limitations.
-
-## Finding fields
+## Finding Fields
 
 Every finding includes these top-level fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | string | Stable finding ID derived from rule + path + line |
-| `rule_id` | string | Stable rule identifier (e.g. `security.private-key-candidate`) |
-| `title` | string | Short human-readable summary |
-| `description` | string | Why the finding matters |
-| `recommendation` | string | Explicit remediation guidance describing what to do next. Older JSON reports without this field still deserialize, but new reports always include it. |
-| `category` | string | One of `ARCHITECTURE`, `CODE_QUALITY`, `TESTING`, `SECURITY`, `FRAMEWORK` |
-| `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, `CRITICAL` |
-| `confidence` | string | One of `LOW`, `MEDIUM`, `HIGH`; omitted values in old JSON reports are read as `MEDIUM` |
-| `docs_url` | string? | Link to official documentation for the rule (omitted when not set) |
-| `workspace_package` | string? | Package name in monorepos (omitted for flat projects) |
-| `evidence` | array | One or more evidence locations (see below) |
-
-Severity and confidence are separate signals:
-
-- `severity` is the expected impact if the finding is true.
-- `confidence` is how certain RepoPilot is that the finding is truly a problem in this context.
-
-Examples:
-
-- A long production function can be `severity: MEDIUM` and `confidence: HIGH` because the impact is moderate and the context strongly suggests maintainability risk.
-- The same pattern in generated, config, fixture, or test-like code can remain `severity: MEDIUM` but use `confidence: LOW` when the context makes the finding more likely to be acceptable noise.
+| `id` | string | Stable finding ID derived from rule, path, and line. |
+| `rule_id` | string | Stable rule identifier. |
+| `title` | string | Short human-readable summary. |
+| `description` | string | Why the finding matters. |
+| `recommendation` | string | Explicit remediation guidance. Older reports without this field still deserialize, but new reports include it. |
+| `category` | string | One of `ARCHITECTURE`, `CODE_QUALITY`, `TESTING`, `SECURITY`, or `FRAMEWORK`. |
+| `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. |
+| `confidence` | string | One of `LOW`, `MEDIUM`, or `HIGH`; omitted values in old JSON reports are read as `MEDIUM`. |
+| `docs_url` | string? | Link to documentation for the rule, when set. |
+| `workspace_package` | string? | Package name in monorepos, when set. |
+| `evidence` | array | One or more evidence locations. |
 
 ## Evidence
 
@@ -407,7 +171,7 @@ Each entry in the `evidence` array contains:
 
 | Field | Type | Description |
 |---|---|---|
-| `path` | path | File that triggered the finding |
-| `line_start` | usize | First relevant line (1-based) |
-| `line_end` | usize? | Last relevant line (optional) |
-| `snippet` | string | Source text at that location |
+| `path` | path | File that triggered the finding. |
+| `line_start` | usize | First relevant line, 1-based. |
+| `line_end` | usize? | Last relevant line, when available. |
+| `snippet` | string | Source text or computed evidence at that location. |

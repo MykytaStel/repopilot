@@ -144,6 +144,47 @@ fn inspect_commands_work() {
 }
 
 #[test]
+fn hidden_legacy_commands_remain_executable() {
+    let project = create_project();
+
+    let vibe = run_ok(
+        &["vibe", ".", "--focus", "security", "--budget", "2k"],
+        project.path(),
+    );
+    assert!(stdout(&vibe).contains("RepoPilot Vibe Check"));
+
+    let harden = run_ok(&["harden", ".", "--budget", "2k"], project.path());
+    assert!(stdout(&harden).contains("RepoPilot Harden Plan"));
+
+    let prompt = run_ok(&["prompt", ".", "--budget", "2k"], project.path());
+    assert!(stdout(&prompt).contains("RepoPilot Remediation Prompt"));
+
+    let explain = run_ok(
+        &[
+            "explain",
+            "src/lib.rs",
+            "--format",
+            "json",
+            "--rule",
+            "language.rust.panic-risk",
+            "--signal",
+            "rust.unwrap",
+        ],
+        project.path(),
+    );
+    let explain_json: Value = serde_json::from_slice(&explain.stdout).expect("legacy explain json");
+    assert!(explain_json["context"].is_object());
+
+    let knowledge = run_ok(
+        &["knowledge", "--section", "rules", "--format", "json"],
+        project.path(),
+    );
+    let knowledge_json: Value =
+        serde_json::from_slice::<Value>(&knowledge.stdout).expect("legacy knowledge json");
+    assert!(knowledge_json["summary"].is_object());
+}
+
+#[test]
 fn exit_codes_distinguish_findings_usage_and_runtime_errors() {
     let project = create_project();
 
