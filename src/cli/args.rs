@@ -2,6 +2,7 @@ use clap::ValueEnum;
 use repopilot::baseline::gate::FailOn;
 use repopilot::findings::types::Severity;
 use repopilot::output::OutputFormat;
+use repopilot::risk::RiskPriority;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum OutputFormatArg {
@@ -26,6 +27,14 @@ pub enum SeverityArg {
     Medium,
     High,
     Critical,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum PriorityArg {
+    P0,
+    P1,
+    P2,
+    P3,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -68,6 +77,17 @@ impl From<OutputFormatArg> for OutputFormat {
             OutputFormatArg::Json => OutputFormat::Json,
             OutputFormatArg::Markdown => OutputFormat::Markdown,
             OutputFormatArg::Sarif => OutputFormat::Sarif,
+        }
+    }
+}
+
+impl From<PriorityArg> for RiskPriority {
+    fn from(value: PriorityArg) -> Self {
+        match value {
+            PriorityArg::P0 => RiskPriority::P0,
+            PriorityArg::P1 => RiskPriority::P1,
+            PriorityArg::P2 => RiskPriority::P2,
+            PriorityArg::P3 => RiskPriority::P3,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::cli::{FailOnArg, OutputFormatArg, SeverityArg, parse_byte_size};
+use crate::cli::{FailOnArg, OutputFormatArg, PriorityArg, SeverityArg, parse_byte_size};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -66,6 +66,10 @@ pub struct ScanOptions {
     /// Only render findings at or above this severity
     #[arg(long, value_enum)]
     pub min_severity: Option<SeverityArg>,
+
+    /// Only render findings at or above this risk priority
+    #[arg(long, value_enum)]
+    pub min_priority: Option<PriorityArg>,
 
     /// Print scan and render timing to stderr
     #[arg(long)]

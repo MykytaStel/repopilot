@@ -13,11 +13,13 @@ pub mod scan;
 pub mod vibe;
 
 use crate::cli::{
-    AiCommands, Cli, Commands, InspectCommands, ReviewOptions, ScanOptions, SeverityArg,
+    AiCommands, Cli, Commands, InspectCommands, PriorityArg, ReviewOptions, ScanOptions,
+    SeverityArg,
 };
 use repopilot::config::model::RepoPilotConfig;
-use repopilot::findings::types::Severity;
+use repopilot::findings::types::{Finding, Severity};
 use repopilot::output::vibe::VibeCategory;
+use repopilot::risk::RiskPriority;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::types::ScanSummary;
 use std::fmt;
@@ -138,6 +140,10 @@ pub fn severity_arg_into(arg: SeverityArg) -> Severity {
     }
 }
 
+pub fn priority_arg_into(arg: PriorityArg) -> RiskPriority {
+    arg.into()
+}
+
 pub fn parse_focus_category(
     focus: Option<&str>,
 ) -> Result<Option<VibeCategory>, Box<dyn std::error::Error>> {
@@ -197,10 +203,39 @@ pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
         ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
 }
 
+pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
+    summary
+        .findings
+        .retain(|finding| finding_meets_min_priority(finding, min));
+    summary.health_score =
+        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+}
+
+pub fn finding_meets_min_priority(finding: &Finding, min: RiskPriority) -> bool {
+    priority_rank(finding.risk.priority) <= priority_rank(min)
+}
+
+fn priority_rank(priority: RiskPriority) -> u8 {
+    match priority {
+        RiskPriority::P0 => 0,
+        RiskPriority::P1 => 1,
+        RiskPriority::P2 => 2,
+        RiskPriority::P3 => 3,
+    }
+}
+
 pub fn scan_options_min_severity(options: &ScanOptions) -> Option<Severity> {
     options.min_severity.map(severity_arg_into)
 }
 
+pub fn scan_options_min_priority(options: &ScanOptions) -> Option<RiskPriority> {
+    options.min_priority.map(priority_arg_into)
+}
+
 pub fn review_options_min_severity(options: &ReviewOptions) -> Option<Severity> {
     options.min_severity.map(severity_arg_into)
+}
+
+pub fn review_options_min_priority(options: &ReviewOptions) -> Option<RiskPriority> {
+    options.min_priority.map(priority_arg_into)
 }

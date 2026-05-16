@@ -1,11 +1,14 @@
 use crate::cli::ScanOptions;
 use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::{
-    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_severity_filter,
-    build_scan_config, scan_options_min_severity,
+    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_priority_filter,
+    apply_min_severity_filter, build_scan_config, finding_meets_min_priority,
+    scan_options_min_priority, scan_options_min_severity,
 };
 use rayon::prelude::*;
-use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
+use repopilot::baseline::diff::{
+    BaselineScanReport, all_findings_new, diff_summary_against_baseline,
+};
 use repopilot::baseline::gate::evaluate_ci_gate;
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
@@ -14,7 +17,7 @@ use repopilot::findings::types::Finding;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
-use repopilot::risk::{apply_workspace_hotspot_overlay, sort_findings};
+use repopilot::risk::{RiskPriority, apply_workspace_hotspot_overlay, sort_findings};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
@@ -25,6 +28,7 @@ use std::time::Instant;
 
 pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let min_severity = scan_options_min_severity(&options);
+    let min_priority = scan_options_min_priority(&options);
     let mut repo_config = match &options.config {
         Some(config_path) => load_optional_config(config_path)?,
         None => load_default_config()?,
@@ -82,13 +86,16 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if options.baseline.is_some() || options.fail_on.is_some() {
-        let baseline_report = match options.baseline.clone() {
+        let mut baseline_report = match options.baseline.clone() {
             Some(baseline_path) => {
                 let baseline_file = read_baseline(&baseline_path)?;
                 diff_summary_against_baseline(summary, &baseline_file, baseline_path)
             }
             None => all_findings_new(summary),
         };
+        if let Some(min) = min_priority {
+            apply_min_priority_filter_to_baseline_report(&mut baseline_report, min);
+        }
 
         let ci_gate = options
             .fail_on
@@ -128,6 +135,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    if let Some(min) = min_priority {
+        apply_min_priority_filter(&mut summary, min);
+    }
+
     let render_start = Instant::now();
     let rendered_report = render_scan_summary(&summary, output_format)?;
     let render_elapsed = render_start.elapsed();
@@ -150,6 +161,28 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn apply_min_priority_filter_to_baseline_report(
+    report: &mut BaselineScanReport,
+    min: RiskPriority,
+) {
+    let mut paired = report
+        .summary
+        .findings
+        .drain(..)
+        .zip(report.findings.drain(..))
+        .collect::<Vec<_>>();
+
+    paired.retain(|(finding, _)| finding_meets_min_priority(finding, min));
+
+    for (finding, status) in paired {
+        report.summary.findings.push(finding);
+        report.findings.push(status);
+    }
+
+    report.summary.health_score =
+        ScanSummary::compute_health_score(&report.summary.findings, report.summary.lines_of_code);
 }
 
 fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, std::io::Error> {
