@@ -1,11 +1,13 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::findings::types::{Finding, Severity};
+use crate::risk::RiskPriority;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum FailOn {
     New(Severity),
     Any(Severity),
+    Priority(RiskPriority),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -23,6 +25,7 @@ impl CiGateResult {
         match self.fail_on {
             FailOn::New(severity) => format!("new-{}", severity.lowercase_label()),
             FailOn::Any(severity) => severity.lowercase_label().to_string(),
+            FailOn::Priority(priority) => format!("priority-{}", priority.label().to_lowercase()),
         }
     }
 
@@ -31,18 +34,25 @@ impl CiGateResult {
             return None;
         }
 
-        let scope = match self.fail_on {
-            FailOn::New(_) => "new findings",
-            FailOn::Any(_) => "findings",
-        };
-        let severity = match self.fail_on {
-            FailOn::New(severity) | FailOn::Any(severity) => severity.lowercase_label(),
-        };
-
-        Some(format!(
-            "RepoPilot CI Gate failed\n\nReason:\nFound {} {scope} at or above {severity} severity.\n\nUse `repopilot baseline create . --force` only if these findings are accepted technical debt.",
-            self.failed_findings
-        ))
+        match self.fail_on {
+            FailOn::New(severity) | FailOn::Any(severity) => {
+                let scope = match self.fail_on {
+                    FailOn::New(_) => "new findings",
+                    FailOn::Any(_) => "findings",
+                    FailOn::Priority(_) => unreachable!("handled by outer match"),
+                };
+                Some(format!(
+                    "RepoPilot CI Gate failed\n\nReason:\nFound {} {scope} at or above {} severity.\n\nUse `repopilot baseline create . --force` only if these findings are accepted technical debt.",
+                    self.failed_findings,
+                    severity.lowercase_label()
+                ))
+            }
+            FailOn::Priority(priority) => Some(format!(
+                "RepoPilot CI Gate failed\n\nReason:\nFound {} findings at or above {} risk priority.\n\nUse `--min-priority` to inspect the same prioritized scope locally, or lower the gate only if this risk is accepted.",
+                self.failed_findings,
+                priority.label()
+            )),
+        }
     }
 }
 
@@ -73,6 +83,20 @@ fn finding_matches(
                 && finding.severity.is_at_least(&threshold)
         }
         FailOn::Any(threshold) => finding.severity.is_at_least(&threshold),
+        FailOn::Priority(threshold) => priority_is_at_least(finding.risk.priority, threshold),
+    }
+}
+
+fn priority_is_at_least(priority: RiskPriority, threshold: RiskPriority) -> bool {
+    priority_rank(priority) <= priority_rank(threshold)
+}
+
+fn priority_rank(priority: RiskPriority) -> u8 {
+    match priority {
+        RiskPriority::P0 => 0,
+        RiskPriority::P1 => 1,
+        RiskPriority::P2 => 2,
+        RiskPriority::P3 => 3,
     }
 }
 
@@ -81,6 +105,7 @@ mod tests {
     use super::*;
     use crate::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
     use crate::findings::types::{Evidence, Finding, Severity};
+    use crate::risk::RiskPriority;
     use crate::scan::types::ScanSummary;
     use std::path::PathBuf;
 
@@ -98,6 +123,13 @@ mod tests {
             }],
             ..Default::default()
         }
+    }
+
+    fn make_priority_finding(priority: RiskPriority, score: u8) -> Finding {
+        let mut finding = make_finding(Severity::Low);
+        finding.risk.priority = priority;
+        finding.risk.score = score;
+        finding
     }
 
     fn make_report(findings: Vec<Finding>, statuses: Vec<BaselineStatus>) -> BaselineScanReport {
@@ -166,6 +198,32 @@ mod tests {
 
         assert!(!result.passed());
         assert_eq!(result.failed_findings, 1);
+    }
+
+    #[test]
+    fn priority_gate_fails_on_p1_or_higher_priority() {
+        let report = make_report(
+            vec![make_priority_finding(RiskPriority::P1, 70)],
+            vec![BaselineStatus::Existing],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::Priority(RiskPriority::P1));
+
+        assert!(!result.passed());
+        assert_eq!(result.failed_findings, 1);
+        assert_eq!(result.label(), "priority-p1");
+    }
+
+    #[test]
+    fn priority_gate_passes_when_findings_are_below_threshold() {
+        let report = make_report(
+            vec![make_priority_finding(RiskPriority::P3, 20)],
+            vec![BaselineStatus::New],
+        );
+
+        let result = evaluate_ci_gate(&report, FailOn::Priority(RiskPriority::P1));
+
+        assert!(result.passed());
     }
 
     #[test]

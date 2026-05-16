@@ -24,9 +24,13 @@ pub struct ReviewOptions {
     #[arg(long)]
     pub baseline: Option<PathBuf>,
 
-    /// Exit with code 1 when in-diff findings meet this threshold
+    /// Exit with code 1 when in-diff findings meet this severity threshold
     #[arg(long, value_enum)]
     pub fail_on: Option<FailOnArg>,
+
+    /// Exit with code 1 when in-diff findings meet this risk priority threshold
+    #[arg(long, value_enum)]
+    pub fail_on_priority: Option<PriorityArg>,
 
     /// Output format for the review report
     #[arg(long, value_enum, default_value = "console")]
