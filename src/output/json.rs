@@ -1,6 +1,7 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
+use crate::risk::RiskSummary;
 use crate::scan::types::LanguageSummary;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
@@ -12,6 +13,7 @@ pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
     let output = JsonScanReport {
         schema_version: SCAN_REPORT_SCHEMA_VERSION,
         repopilot_version: REPOPILOT_VERSION,
+        risk_summary: RiskSummary::from_findings(&summary.findings),
         summary,
     };
 
@@ -22,6 +24,7 @@ pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
 struct JsonScanReport<'a> {
     schema_version: &'static str,
     repopilot_version: &'static str,
+    risk_summary: RiskSummary,
     #[serde(flatten)]
     summary: &'a ScanSummary,
 }
@@ -51,6 +54,7 @@ pub fn render_with_baseline(
         skipped_files_count: report.summary.skipped_files_count,
         skipped_bytes: report.summary.skipped_bytes,
         languages: &report.summary.languages,
+        risk_summary: RiskSummary::from_findings(&report.summary.findings),
         baseline: BaselineJsonMetadata {
             path: report
                 .baseline_path
@@ -77,6 +81,7 @@ struct BaselineJsonReport<'a> {
     skipped_files_count: usize,
     skipped_bytes: u64,
     languages: &'a [LanguageSummary],
+    risk_summary: RiskSummary,
     baseline: BaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     ci_gate: Option<CiGateJsonMetadata>,

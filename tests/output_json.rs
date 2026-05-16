@@ -1,7 +1,7 @@
 use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::risk::{RiskInputs, assess_finding};
+use repopilot::risk::{RiskInputs, RiskSummary, assess_finding};
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use std::path::PathBuf;
 
@@ -45,6 +45,8 @@ fn renders_valid_json_scan_summary() {
     assert_eq!(parsed["directories_count"], 0);
     assert_eq!(parsed["lines_of_code"], 3);
     assert_eq!(parsed["languages"][0]["name"], "Rust");
+    assert_eq!(parsed["risk_summary"]["total"], 0);
+    assert_eq!(parsed["risk_summary"]["average_score"], 0);
     // react_native must be absent when None
     assert!(parsed.get("react_native").is_none());
 }
@@ -77,6 +79,9 @@ fn json_findings_include_confidence() {
         findings: vec![finding],
         ..ScanSummary::default()
     };
+    let risk_summary = RiskSummary::from_findings(&summary.findings);
+    assert_eq!(risk_summary.total, 1);
+    assert_eq!(risk_summary.counts.p2, 1);
 
     let output =
         render_scan_summary(&summary, OutputFormat::Json).expect("failed to render json summary");
@@ -84,6 +89,10 @@ fn json_findings_include_confidence() {
         serde_json::from_str(&output).expect("output should be valid json");
 
     assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
+    assert_eq!(parsed["risk_summary"]["total"], 1);
+    assert_eq!(parsed["risk_summary"]["counts"]["p2"], 1);
+    assert_eq!(parsed["risk_summary"]["highest_priority"], "P2");
+    assert_eq!(parsed["risk_summary"]["average_score"], 50);
     assert_eq!(parsed["findings"][0]["risk"]["priority"], "P2");
     assert_eq!(parsed["findings"][0]["risk"]["score"], 50);
     assert_eq!(

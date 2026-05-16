@@ -1,4 +1,5 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
+use crate::risk::{RiskPriority, RiskPriorityCounts, RiskSummary};
 use crate::scan::types::ScanSummary;
 use counts::{CountWithSeverity, category_counts_from_map, increment, top_counts_from_map};
 use std::collections::BTreeMap;
@@ -11,6 +12,9 @@ mod counts;
 pub(crate) struct ReportStats {
     pub total_findings: usize,
     pub severity_counts: [usize; 5],
+    pub priority_counts: RiskPriorityCounts,
+    pub highest_priority: Option<RiskPriority>,
+    pub average_risk_score: u8,
     pub category_counts: Vec<NamedCount>,
     pub top_rules: Vec<NamedCount>,
     pub top_paths: Vec<NamedCount>,
@@ -30,6 +34,10 @@ pub(crate) struct NamedCount {
 impl ReportStats {
     pub fn severity_count(&self, severity: Severity) -> usize {
         self.severity_counts[severity_index(severity)]
+    }
+
+    pub fn priority_count(&self, priority: RiskPriority) -> usize {
+        self.priority_counts.count(priority)
     }
 }
 
@@ -69,6 +77,7 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
     }
 
     let total_findings = summary.findings.len();
+    let risk_summary = RiskSummary::from_findings(&summary.findings);
     let finding_density = if summary.lines_of_code > 0 {
         total_findings as f64 * 1000.0 / summary.lines_of_code as f64
     } else {
@@ -78,6 +87,9 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
     ReportStats {
         total_findings,
         severity_counts,
+        priority_counts: risk_summary.counts,
+        highest_priority: risk_summary.highest_priority,
+        average_risk_score: risk_summary.average_score,
         category_counts: category_counts_from_map(category_counts),
         top_rules: top_counts_from_map(rule_counts, 10),
         top_paths: top_counts_from_map(path_counts, 10),
