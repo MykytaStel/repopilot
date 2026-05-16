@@ -22,6 +22,11 @@ JSON scan reports include explicit schema metadata. The current schema is 0.10:
   "directories_count": 12,
   "lines_of_code": 3200,
   "languages": [],
+  "risk_summary": {
+    "total": 0,
+    "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
+    "average_score": 0
+  },
   "findings": []
 }
 ```
@@ -32,6 +37,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.10:
 |---|---|---|
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
+| `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 
 `schema_version` is intentionally separate from the binary version. Patch releases
 may fix bugs without changing the report schema, while future minor releases can
@@ -68,6 +74,12 @@ Example shape:
   "repopilot_version": "0.10.0",
   "root_path": ".",
   "files_count": 42,
+  "risk_summary": {
+    "total": 12,
+    "counts": { "p0": 0, "p1": 2, "p2": 5, "p3": 5 },
+    "highest_priority": "P1",
+    "average_score": 46
+  },
   "baseline": {
     "path": ".repopilot/baseline.json",
     "new_findings": 2,

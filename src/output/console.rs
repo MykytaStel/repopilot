@@ -172,6 +172,23 @@ fn render_risk_summary(output: &mut String, stats: &ReportStats) {
     .unwrap();
     writeln!(
         output,
+        "  Priority: P0 {}, P1 {}, P2 {}, P3 {}{}",
+        stats.priority_count(crate::risk::RiskPriority::P0),
+        stats.priority_count(crate::risk::RiskPriority::P1),
+        stats.priority_count(crate::risk::RiskPriority::P2),
+        stats.priority_count(crate::risk::RiskPriority::P3),
+        stats
+            .highest_priority
+            .map(|priority| format!(
+                " | highest {} | avg score {}",
+                priority.label(),
+                stats.average_risk_score
+            ))
+            .unwrap_or_default()
+    )
+    .unwrap();
+    writeln!(
+        output,
         "  Categories: {}",
         named_counts_text(&stats.category_counts)
     )
