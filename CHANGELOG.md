@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-17
+
+### Added
+
+- Added v0.11 release checklist focused on signal quality, GitHub Action parity, and release trust.
+- Added first-party GitHub Action support for `command: doctor`, `fail-on-priority`, `min-priority`, `rule`, and `timing`.
+- Added product smoke coverage for priority filtering, rule filtering, scan timing, and priority gates.
+
+### Changed
+
+- Reduced RepoPilot self-audit P2 noise by treating `write!`/`writeln!` result unwraps in report renderers as infallible string-rendering boilerplate while still reporting unwraps inside formatting arguments.
+- Documented the v0.11 adoption loop: doctor diagnostics, focused scan/review filters, AI context, and CI gates.
+
 ## [0.10.0] - 2026-05-16
 
 ### Added
@@ -201,7 +214,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MykytaStel/repopilot/compare/v0.7.0...v0.8.0

@@ -116,6 +116,16 @@ run_repopilot() {
   )
 }
 
+run_repopilot_in() {
+  local cwd="$1"
+  shift
+  echo "==> repopilot $* (cwd: $cwd)" >&2
+  (
+    cd "$cwd"
+    "$BINARY" "$@"
+  )
+}
+
 assert_non_empty() {
   local file="$1"
   if [[ ! -s "$file" ]]; then
@@ -211,6 +221,18 @@ assert_non_empty "$TMP_DIR/scan.json"
 validate_json_if_possible "$TMP_DIR/scan.json"
 assert_non_empty "$TMP_DIR/receipt.json"
 validate_json_if_possible "$TMP_DIR/receipt.json"
+
+run_repopilot scan . --format json --min-priority p2 --rule language.rust.panic-risk --timing --output "$TMP_DIR/scan-rule-priority-timing.json"
+assert_non_empty "$TMP_DIR/scan-rule-priority-timing.json"
+validate_json_if_possible "$TMP_DIR/scan-rule-priority-timing.json"
+
+PRIORITY_GATE_PROJECT="$TMP_DIR/priority-gate-project"
+mkdir -p "$PRIORITY_GATE_PROJECT/src" "$PRIORITY_GATE_PROJECT/tests"
+printf 'pub fn ok() -> bool { true }\n' > "$PRIORITY_GATE_PROJECT/src/lib.rs"
+printf '#[test]\nfn ok() { assert!(priority_gate_project::ok()); }\n' > "$PRIORITY_GATE_PROJECT/tests/lib_test.rs"
+run_repopilot_in "$PRIORITY_GATE_PROJECT" scan . --format json --fail-on-priority p0 --output "$TMP_DIR/scan-priority-gate.json"
+assert_non_empty "$TMP_DIR/scan-priority-gate.json"
+validate_json_if_possible "$TMP_DIR/scan-priority-gate.json"
 
 run_repopilot scan . --format markdown --output "$TMP_DIR/scan.md"
 assert_non_empty "$TMP_DIR/scan.md"

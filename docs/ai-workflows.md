@@ -6,6 +6,7 @@ development without uploading source code.
 ## Core workflow
 
 ```bash
+repopilot doctor .
 repopilot scan .
 repopilot ai context .
 repopilot ai plan .
@@ -15,7 +16,7 @@ repopilot ai prompt .
 Use this loop:
 
 ```text
-scan -> understand -> plan -> prompt -> change -> review
+doctor -> scan -> understand -> plan -> prompt -> change -> review
 ```
 
 ## Generate context
@@ -71,7 +72,7 @@ Run cargo fmt, clippy, and tests.
 repopilot ai prompt . --focus security --output prompt.md
 # paste prompt into your coding assistant
 cargo test --all
-repopilot review . --base origin/main --fail-on new-high
+repopilot review . --base origin/main --fail-on-priority p1
 ```
 
 ## Good focus values
@@ -108,7 +109,8 @@ repopilot ai prompt . --focus architecture --budget 4k
 Use `review` after AI-generated or AI-assisted edits:
 
 ```bash
-repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
+repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on-priority p1
+repopilot scan . --min-priority p2 --rule language.rust.panic-risk
 ```
 
 This helps catch new high-risk findings introduced by the change rather than

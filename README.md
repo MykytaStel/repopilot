@@ -15,9 +15,10 @@ and framework health checks. It gives developers useful terminal reports, CI gat
 SARIF for GitHub Code Scanning, and Markdown briefs that can be pasted into Claude
 Code, ChatGPT, Cursor, or another coding assistant.
 
-Version `0.10.0` is an adoption and stability release: it focuses on cleaner
-rollout diagnostics, reproducible audit receipts, CI artifacts, and 0.x command
-compatibility while keeping all scans local.
+Version `0.11.0` is a signal quality and CI polish release: it reduces
+low-value self-audit findings, adds first-party Action parity for priority/rule
+filters, and tightens the `doctor -> scan/review -> ai context -> CI gate` loop
+while keeping all scans local.
 
 ## Why RepoPilot?
 
@@ -133,8 +134,10 @@ Once you want CI integration, baseline tracking, or tighter configuration:
 ```bash
 repopilot init                                              # generate repopilot.toml
 repopilot doctor .                                          # check CI / baseline readiness
+repopilot scan . --min-priority p2 --rule security.secret-candidate
+repopilot ai context . --focus security                     # prepare local AI context
 repopilot baseline create .                                 # accept existing findings as known debt
-repopilot review . --base origin/main --fail-on new-high    # CI gate on new findings only
+repopilot review . --base origin/main --fail-on-priority p1 # CI gate on high-priority risk
 ```
 
 Save a shareable report:
@@ -217,7 +220,7 @@ RepoPilot is a local-first safety layer for AI-assisted and vibe-coded changes. 
 repopilot ai context . --focus security    # get an LLM brief for Claude Code
 repopilot ai plan . --focus security       # get a prioritized hardening plan
 repopilot ai prompt . --budget 8k          # generate a paste-ready remediation prompt
-repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
+repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on-priority p1
 repopilot scan . --workspace --min-severity medium --format markdown --output repopilot-report.md
 ```
 
@@ -403,7 +406,7 @@ Use `--fail-on new-high` to fail CI only when new high or critical findings are 
 When `--fail-on new-*` is used without `--baseline`, RepoPilot treats all current findings as new. For baseline-based adoption, commit an accepted baseline and scan against it in CI.
 
 To upload RepoPilot findings to GitHub Code Scanning, generate SARIF and use `github/codeql-action/upload-sarif`. The workflow must include `security-events: write`.
-The first-party action can also run `command: ai-context`, `command: ai-plan`, or `command: ai-prompt`; those commands emit Markdown and do not produce SARIF. Prefer typed action inputs such as `path`, `config`, `baseline`, `fail-on`, `focus`, `budget`, `output`, and `receipt`; `args` remains available for advanced flags.
+The first-party action can also run `command: doctor`, `command: ai-context`, `command: ai-plan`, or `command: ai-prompt`; AI commands emit Markdown and do not produce SARIF. Prefer typed action inputs such as `path`, `config`, `baseline`, `fail-on`, `fail-on-priority`, `min-priority`, `rule`, `timing`, `focus`, `budget`, `output`, and `receipt`; `args` remains available for advanced flags.
 
 ```yaml
 name: RepoPilot
@@ -472,6 +475,7 @@ These are planned ideas, not current features:
 | [docs/react-native.md](docs/react-native.md) | React Native and Expo detection, findings, and limitations |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
+| [docs/release-checklist-0.11.md](docs/release-checklist-0.11.md) | 0.11.0 release readiness checklist |
 | [docs/release-checklist-0.10.md](docs/release-checklist-0.10.md) | 0.10.0 release readiness checklist |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
 | [docs/github-ruleset.md](docs/github-ruleset.md) | GitHub branch ruleset configuration |

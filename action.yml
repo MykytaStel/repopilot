@@ -8,15 +8,15 @@ branding:
 
 inputs:
   command:
-    description: "Command to run: scan | review | compare | ai-context | ai-plan | ai-prompt"
+    description: "Command to run: scan | review | compare | doctor | ai-context | ai-plan | ai-prompt"
     required: false
     default: "scan"
   format:
-    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare; AI commands emit Markdown."
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare/doctor; AI commands emit Markdown."
     required: false
     default: "auto"
   path:
-    description: "Path passed to scan, review, or AI commands."
+    description: "Path passed to scan, review, doctor, or AI commands."
     required: false
     default: "."
   config:
@@ -31,10 +31,26 @@ inputs:
     description: "Optional scan/review failure threshold, e.g. new-high."
     required: false
     default: ""
+  fail-on-priority:
+    description: "Optional scan/review failure threshold by risk priority: p0 | p1 | p2 | p3."
+    required: false
+    default: ""
   min-severity:
     description: "Optional minimum rendered severity, e.g. high."
     required: false
     default: ""
+  min-priority:
+    description: "Optional minimum rendered risk priority: p0 | p1 | p2 | p3."
+    required: false
+    default: ""
+  rule:
+    description: "Optional scan rule filter. For multiple rules, provide a space-separated list of rule IDs."
+    required: false
+    default: ""
+  timing:
+    description: "Print per-phase scan timing breakdown for scan commands."
+    required: false
+    default: "false"
   base:
     description: "Optional Git base ref for review."
     required: false
@@ -64,7 +80,7 @@ inputs:
     required: false
     default: ""
   version:
-    description: "npm version tag to install (e.g. latest, 0.10.0)"
+    description: "npm version tag to install (e.g. latest, 0.11.0)"
     required: false
     default: "latest"
   upload-sarif:
@@ -98,7 +114,11 @@ runs:
         CONFIG="${{ inputs.config }}"
         BASELINE="${{ inputs.baseline }}"
         FAIL_ON="${{ inputs.fail-on }}"
+        FAIL_ON_PRIORITY="${{ inputs.fail-on-priority }}"
         MIN_SEVERITY="${{ inputs.min-severity }}"
+        MIN_PRIORITY="${{ inputs.min-priority }}"
+        RULE_INPUT="${{ inputs.rule }}"
+        TIMING="${{ inputs.timing }}"
         BASE="${{ inputs.base }}"
         HEAD="${{ inputs.head }}"
         FOCUS="${{ inputs.focus }}"
@@ -111,11 +131,12 @@ runs:
           scan) RUN_ARGS=(scan "$PATH_INPUT") ;;
           review) RUN_ARGS=(review "$PATH_INPUT") ;;
           compare) RUN_ARGS=(compare) ;;
+          doctor) RUN_ARGS=(doctor "$PATH_INPUT") ;;
           ai-context|vibe) RUN_ARGS=(ai context "$PATH_INPUT") ;;
           ai-plan|harden) RUN_ARGS=(ai plan "$PATH_INPUT") ;;
           ai-prompt|prompt) RUN_ARGS=(ai prompt "$PATH_INPUT") ;;
           *)
-          echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, ai-context, ai-plan, or ai-prompt."
+          echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, doctor, ai-context, ai-plan, or ai-prompt."
           exit 1
           ;;
         esac
@@ -140,13 +161,38 @@ runs:
           echo "::error::Receipt output is only supported by 'scan'. Remove receipt or use command=scan."
           exit 1
         fi
+        if [[ -n "$FAIL_ON_PRIORITY" && "$COMMAND" != "scan" && "$COMMAND" != "review" ]]; then
+          echo "::error::fail-on-priority is only supported by 'scan' and 'review'."
+          exit 1
+        fi
+        if [[ -n "$MIN_PRIORITY" && "$COMMAND" != "scan" && "$COMMAND" != "review" ]]; then
+          echo "::error::min-priority is only supported by 'scan' and 'review'."
+          exit 1
+        fi
+        if [[ -n "$RULE_INPUT" && "$COMMAND" != "scan" ]]; then
+          echo "::error::rule filtering is only supported by 'scan'."
+          exit 1
+        fi
+        if [[ "$TIMING" == "true" && "$COMMAND" != "scan" ]]; then
+          echo "::error::timing is only supported by 'scan'."
+          exit 1
+        fi
 
         if [[ -n "$CONFIG" && "$COMMAND" != "compare" ]]; then RUN_ARGS+=(--config "$CONFIG"); fi
         if [[ "$COMMAND" == "scan" || "$COMMAND" == "review" ]]; then
           if [[ -n "$BASELINE" ]]; then RUN_ARGS+=(--baseline "$BASELINE"); fi
           if [[ -n "$FAIL_ON" ]]; then RUN_ARGS+=(--fail-on "$FAIL_ON"); fi
+          if [[ -n "$FAIL_ON_PRIORITY" ]]; then RUN_ARGS+=(--fail-on-priority "$FAIL_ON_PRIORITY"); fi
           if [[ -n "$MIN_SEVERITY" ]]; then RUN_ARGS+=(--min-severity "$MIN_SEVERITY"); fi
+          if [[ -n "$MIN_PRIORITY" ]]; then RUN_ARGS+=(--min-priority "$MIN_PRIORITY"); fi
         fi
+        if [[ "$COMMAND" == "scan" && -n "$RULE_INPUT" ]]; then
+          read -r -a RULES <<< "$RULE_INPUT"
+          for RULE in "${RULES[@]}"; do
+            RUN_ARGS+=(--rule "$RULE")
+          done
+        fi
+        if [[ "$COMMAND" == "scan" && "$TIMING" == "true" ]]; then RUN_ARGS+=(--timing); fi
         if [[ "$COMMAND" == "review" && -n "$BASE" ]]; then RUN_ARGS+=(--base "$BASE"); fi
         if [[ "$COMMAND" == "review" && -n "$HEAD" ]]; then RUN_ARGS+=(--head "$HEAD"); fi
         if [[ "$IS_AI" == "true" && -n "$FOCUS" ]]; then RUN_ARGS+=(--focus "$FOCUS"); fi
