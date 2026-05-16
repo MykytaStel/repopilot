@@ -31,6 +31,10 @@ pub struct ScanOptions {
     #[arg(long, value_enum)]
     pub fail_on: Option<FailOnArg>,
 
+    /// Exit with code 1 when findings meet this risk priority threshold
+    #[arg(long, value_enum)]
+    pub fail_on_priority: Option<PriorityArg>,
+
     /// Override the large-file LOC threshold
     #[arg(long)]
     pub max_file_loc: Option<usize>,

@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use repopilot::baseline::diff::{
     BaselineScanReport, all_findings_new, diff_summary_against_baseline,
 };
-use repopilot::baseline::gate::evaluate_ci_gate;
+use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
@@ -29,6 +29,14 @@ use std::time::Instant;
 pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let min_severity = scan_options_min_severity(&options);
     let min_priority = scan_options_min_priority(&options);
+    let fail_on_priority = options.fail_on_priority.map(Into::into);
+
+    if options.fail_on.is_some() && fail_on_priority.is_some() {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--fail-on` and `--fail-on-priority` cannot be used together".to_string(),
+        }));
+    }
     let mut repo_config = match &options.config {
         Some(config_path) => load_optional_config(config_path)?,
         None => load_default_config()?,
@@ -85,7 +93,7 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         apply_rule_filter(&mut summary, &options.rule);
     }
 
-    if options.baseline.is_some() || options.fail_on.is_some() {
+    if options.baseline.is_some() || options.fail_on.is_some() || fail_on_priority.is_some() {
         let mut baseline_report = match options.baseline.clone() {
             Some(baseline_path) => {
                 let baseline_file = read_baseline(&baseline_path)?;
@@ -100,7 +108,11 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         let ci_gate = options
             .fail_on
             .map(Into::into)
-            .map(|fail_on| evaluate_ci_gate(&baseline_report, fail_on));
+            .map(|fail_on| evaluate_ci_gate(&baseline_report, fail_on))
+            .or_else(|| {
+                fail_on_priority
+                    .map(|priority| evaluate_ci_gate(&baseline_report, FailOn::Priority(priority)))
+            });
         let render_start = Instant::now();
         let rendered_report =
             render_baseline_scan_report(&baseline_report, output_format, ci_gate.as_ref())?;

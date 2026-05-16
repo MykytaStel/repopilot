@@ -5,7 +5,7 @@ use crate::commands::{
     build_scan_config, finding_meets_min_priority, review_options_min_priority,
     review_options_min_severity,
 };
-use repopilot::baseline::gate::evaluate_ci_gate;
+use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::report::writer::write_report;
@@ -18,6 +18,14 @@ use repopilot::scan::scanner::scan_path_with_config;
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let min_severity = review_options_min_severity(&options);
     let min_priority = review_options_min_priority(&options);
+    let fail_on_priority = options.fail_on_priority.map(Into::into);
+
+    if options.fail_on.is_some() && fail_on_priority.is_some() {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--fail-on` and `--fail-on-priority` cannot be used together".to_string(),
+        }));
+    }
 
     if options.base.is_none() && options.head.is_some() {
         return Err(Box::new(CliExit {
@@ -70,7 +78,11 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let ci_gate = options
         .fail_on
         .map(Into::into)
-        .map(|fail_on| evaluate_ci_gate(&ci_report, fail_on));
+        .map(|fail_on| evaluate_ci_gate(&ci_report, fail_on))
+        .or_else(|| {
+            fail_on_priority
+                .map(|priority| evaluate_ci_gate(&ci_report, FailOn::Priority(priority)))
+        });
     let rendered_report = render(&review_report, options.format.into(), ci_gate.as_ref())?;
 
     write_report(&rendered_report, options.output.as_deref())?;
