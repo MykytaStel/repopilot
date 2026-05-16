@@ -1,4 +1,4 @@
-use crate::cli::{CompareOutputFormatArg, FailOnArg, SeverityArg};
+use crate::cli::{CompareOutputFormatArg, FailOnArg, PriorityArg, SeverityArg};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -51,4 +51,8 @@ pub struct ReviewOptions {
     /// Only render findings at or above this severity
     #[arg(long, value_enum)]
     pub min_severity: Option<SeverityArg>,
+
+    /// Only render findings at or above this risk priority
+    #[arg(long, value_enum)]
+    pub min_priority: Option<PriorityArg>,
 }
