@@ -10,6 +10,7 @@ Task-oriented guide to RepoPilot commands. For a complete flag reference see [do
 repopilot init          # generate repopilot.toml
 repopilot doctor .      # check adoption readiness
 repopilot scan .        # scan the current directory
+repopilot ai context .  # prepare local AI remediation context
 ```
 
 For React Native or Expo projects:
@@ -101,6 +102,15 @@ repopilot scan . --min-severity high
 repopilot review . --min-severity high
 ```
 
+Use `--min-priority` when you want risk-ranked output instead of severity-only
+filtering, and `--rule` when investigating one detector:
+
+```bash
+repopilot scan . --min-priority p2
+repopilot review . --base origin/main --min-priority p1
+repopilot scan . --rule language.rust.panic-risk --timing
+```
+
 Use `--verbose` when you need scan and render timing:
 
 ```bash
@@ -176,9 +186,11 @@ Covers staged, unstaged, and untracked files.
 ```bash
 repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
+repopilot review . --base origin/main --fail-on-priority p1
 ```
 
 When `--fail-on` is used with `review`, only **in-diff findings** trigger a failure — unrelated pre-existing issues do not block CI.
+`--fail-on-priority` works the same way, but evaluates P0/P1/P2/P3 risk priority instead of severity.
 
 ### Blast radius
 

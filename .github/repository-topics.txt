@@ -2,9 +2,13 @@ repopilot
 static-analysis
 code-review
 architecture
+security
+security-tools
 react-native
 expo
 sarif
+github-actions
+ai-tools
 cli
 rust
 npm

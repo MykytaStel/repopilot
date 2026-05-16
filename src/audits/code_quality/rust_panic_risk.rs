@@ -29,6 +29,7 @@ impl FileAudit for RustPanicRiskAudit {
 
         let mut findings = Vec::new();
         let mut in_block_comment = false;
+        let mut pending_render_write = false;
 
         for (index, line) in content.lines().enumerate() {
             let line_number = index + 1;
@@ -39,9 +40,25 @@ impl FileAudit for RustPanicRiskAudit {
             }
 
             let sanitized = sanitize_c_style(line, &mut in_block_comment);
-            let Some(pattern) = detect_pattern(sanitized.trim()) else {
+            let sanitized = sanitized.trim();
+            if is_infallible_render_write_start(&file.path, sanitized) {
+                pending_render_write = true;
+            }
+
+            let Some(pattern) = detect_pattern(sanitized) else {
+                if sanitized.ends_with(';') {
+                    pending_render_write = false;
+                }
                 continue;
             };
+
+            if pending_render_write && is_infallible_render_write_result_unwrap(pattern, sanitized)
+            {
+                if sanitized.ends_with(';') {
+                    pending_render_write = false;
+                }
+                continue;
+            }
 
             let decision = decide_for_audit_context(
                 RULE_ID,
@@ -62,6 +79,10 @@ impl FileAudit for RustPanicRiskAudit {
                 &context,
                 decision.severity,
             ));
+
+            if sanitized.ends_with(';') {
+                pending_render_write = false;
+            }
         }
 
         findings
@@ -130,6 +151,43 @@ fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
     }
 
     None
+}
+
+fn is_infallible_render_write_start(path: &std::path::Path, trimmed: &str) -> bool {
+    is_report_renderer_path(path)
+        && (trimmed.starts_with("writeln!(") || trimmed.starts_with("write!("))
+}
+
+fn is_report_renderer_path(path: &std::path::Path) -> bool {
+    let mut previous = None;
+    for component in path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+    {
+        if previous == Some("src") && component == "output" {
+            return true;
+        }
+        previous = Some(component);
+    }
+    false
+}
+
+fn is_infallible_render_write_result_unwrap(pattern: RustPanicPattern, trimmed: &str) -> bool {
+    match pattern {
+        RustPanicPattern::Unwrap => {
+            trimmed == ".unwrap();"
+                || (is_infallible_render_write_line(trimmed) && trimmed.ends_with(".unwrap();"))
+        }
+        RustPanicPattern::Expect => {
+            trimmed.starts_with(".expect(")
+                || (is_infallible_render_write_line(trimmed) && trimmed.contains(").expect("))
+        }
+        RustPanicPattern::Panic | RustPanicPattern::Todo | RustPanicPattern::Unimplemented => false,
+    }
+}
+
+fn is_infallible_render_write_line(trimmed: &str) -> bool {
+    trimmed.starts_with("writeln!(") || trimmed.starts_with("write!(")
 }
 
 fn build_finding(
@@ -407,6 +465,60 @@ mod tests {
         let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
 
         assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn ignores_string_write_unwraps_in_report_renderers() {
+        let file = facts(
+            "src/output/markdown.rs",
+            "pub fn render(output: &mut String) {\n    writeln!(output, \"# Report\").unwrap();\n}\n",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn ignores_multiline_string_write_unwraps_in_report_renderers() {
+        let file = facts(
+            "src/output/console.rs",
+            "pub fn render(output: &mut String) {\n    writeln!(\n        output,\n        \"Findings: {}\",\n        3\n    )\n    .unwrap();\n}\n",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn still_reports_non_renderer_unwraps_in_output_modules() {
+        let file = facts(
+            "src/output/markdown.rs",
+            "pub fn render(value: Option<&str>) -> &str {\n    value.unwrap()\n}\n",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].rule_id, RULE_ID);
+    }
+
+    #[test]
+    fn still_reports_unwraps_inside_renderer_format_arguments() {
+        let file = facts(
+            "src/output/console.rs",
+            "pub fn render(output: &mut String, value: Option<&str>) {\n    writeln!(output, \"{}\", value.unwrap());\n}\n",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].rule_id, RULE_ID);
     }
 
     #[test]

@@ -93,11 +93,12 @@ jobs:
 
       - name: Run RepoPilot
         id: repopilot
-        uses: MykytaStel/repopilot@v0.10.0
+        uses: MykytaStel/repopilot@v0.11.0
         with:
           command: scan
           baseline: .repopilot/baseline.json
           fail-on: new-high
+          min-priority: p2
           receipt: repopilot-receipt.json
 
       - name: Upload audit receipt
@@ -112,12 +113,34 @@ For review-only gates, use `command: review` without `receipt`:
 
 ```yaml
       - name: RepoPilot review gate
-        uses: MykytaStel/repopilot@v0.10.0
+        uses: MykytaStel/repopilot@v0.11.0
         with:
           command: review
           base: origin/main
           baseline: .repopilot/baseline.json
-          fail-on: new-high
+          fail-on-priority: p1
+          upload-sarif: "false"
+```
+
+For adoption diagnostics or focused rule investigations, use the same first-party
+action without SARIF upload:
+
+```yaml
+      - name: RepoPilot doctor
+        uses: MykytaStel/repopilot@v0.11.0
+        with:
+          command: doctor
+          format: markdown
+          output: repopilot-doctor.md
+          upload-sarif: "false"
+
+      - name: RepoPilot focused scan
+        uses: MykytaStel/repopilot@v0.11.0
+        with:
+          command: scan
+          rule: language.rust.panic-risk
+          min-priority: p2
+          timing: "true"
           upload-sarif: "false"
 ```
 

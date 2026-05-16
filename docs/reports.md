@@ -16,7 +16,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.10:
 ```json
 {
   "schema_version": "0.10",
-  "repopilot_version": "0.10.0",
+  "repopilot_version": "0.11.0",
   "root_path": ".",
   "files_count": 42,
   "directories_count": 12,
@@ -71,7 +71,7 @@ Example shape:
 ```json
 {
   "schema_version": "0.10",
-  "repopilot_version": "0.10.0",
+  "repopilot_version": "0.11.0",
   "root_path": ".",
   "files_count": 42,
   "risk_summary": {
@@ -107,7 +107,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
 {
   "schema_version": 1,
   "tool": "repopilot",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {
@@ -160,7 +160,7 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 
 ### Risk object
 
-RepoPilot 0.10 uses `risk-v2` for deterministic, explainable prioritization:
+RepoPilot 0.11 uses `risk-v2` for deterministic, explainable prioritization:
 
 ```json
 {

@@ -217,6 +217,9 @@ fn self_audit_stays_clean_at_high_severity() {
         .unwrap_or(usize::MAX);
     let p0 = json["risk_summary"]["counts"]["p0"].as_u64().unwrap_or(1);
     let p1 = json["risk_summary"]["counts"]["p1"].as_u64().unwrap_or(1);
+    let p2 = json["risk_summary"]["counts"]["p2"]
+        .as_u64()
+        .unwrap_or(u64::MAX);
     assert_eq!(
         high_or_higher,
         0,
@@ -225,4 +228,9 @@ fn self_audit_stays_clean_at_high_severity() {
     );
     assert_eq!(p0, 0, "self-audit should not produce P0 findings");
     assert_eq!(p1, 0, "self-audit should not produce P1 findings");
+    assert!(
+        p2 <= 135,
+        "self-audit P2 noise should stay within the v0.11 signal-quality budget, got {p2}\n{}",
+        serde_json::to_string_pretty(&json).unwrap_or_default()
+    );
 }

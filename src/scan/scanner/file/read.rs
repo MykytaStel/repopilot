@@ -25,13 +25,24 @@ pub(super) fn load_file(path: &Path, config: &ScanConfig) -> io::Result<LoadedFi
     let language = detect_language(path).map(str::to_string);
 
     if config.max_file_bytes > 0 {
-        let file_size = fs::metadata(path)?.len();
-        if file_size > config.max_file_bytes {
-            return Ok(LoadedFile::Skipped {
-                language,
-                reason: SkipReason::LargeFile,
-                skipped_bytes: file_size,
-            });
+        match fs::metadata(path) {
+            Ok(metadata) => {
+                let file_size = metadata.len();
+                if file_size > config.max_file_bytes {
+                    return Ok(LoadedFile::Skipped {
+                        language,
+                        reason: SkipReason::LargeFile,
+                        skipped_bytes: file_size,
+                    });
+                }
+            }
+            Err(_) => {
+                return Ok(LoadedFile::Skipped {
+                    language,
+                    reason: SkipReason::Binary,
+                    skipped_bytes: 0,
+                });
+            }
         }
     }
 
@@ -100,4 +111,28 @@ fn count_lines_of_code(content: &str) -> usize {
         .lines()
         .filter(|line| !line.trim().is_empty())
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_file_is_skipped_instead_of_aborting_scan() {
+        let loaded = load_file(Path::new("missing-after-walk.rs"), &ScanConfig::default())
+            .expect("missing file should be classified as skipped");
+
+        let LoadedFile::Skipped {
+            language,
+            reason,
+            skipped_bytes,
+        } = loaded
+        else {
+            panic!("missing file should not be analyzable");
+        };
+
+        assert_eq!(language.as_deref(), Some("Rust"));
+        assert_eq!(reason, SkipReason::Binary);
+        assert_eq!(skipped_bytes, 0);
+    }
 }
