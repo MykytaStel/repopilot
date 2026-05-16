@@ -2,6 +2,44 @@
 
 This document describes the GitHub repository ruleset that protects the `main` branch.
 
+## Repository metadata
+
+Set these repository fields in **Settings -> General**:
+
+| Setting | Value |
+|---|---|
+| Description | `Local-first CLI for repository audits, architecture risk detection, SARIF, CI gates, and AI-ready remediation context.` |
+| Website | `https://github.com/MykytaStel/repopilot#readme` |
+| Topics | `rust`, `cli`, `static-analysis`, `code-review`, `security`, `security-tools`, `architecture`, `sarif`, `github-actions`, `ai-tools`, `react-native`, `expo`, `npm` |
+
+Recommended feature toggles:
+
+| Setting | Value |
+|---|---|
+| Issues | Enabled |
+| Projects | Disabled unless actively used |
+| Wiki | Disabled unless actively used |
+| Automatically delete head branches | Enabled |
+
+## Repository security settings
+
+Set these in **Settings -> Code security and analysis**:
+
+| Setting | Value |
+|---|---|
+| Dependency graph | Enabled |
+| Dependabot alerts | Enabled |
+| Dependabot security updates | Enabled |
+| Secret scanning | Enabled |
+| Push protection | Enabled |
+| Non-provider secret scanning patterns | Enabled if available |
+| Secret validity checks | Enabled if available |
+
+The repository also contains:
+
+- `.github/dependabot.yml` for Cargo, npm, and GitHub Actions updates.
+- `.github/workflows/codeql.yml` for CodeQL Rust and JavaScript/TypeScript scanning.
+
 ## Why rulesets instead of branch protection rules
 
 GitHub Rulesets (available on all plans) supersede the legacy branch protection UI. Advantages:
@@ -33,7 +71,10 @@ Go to **Settings → Rules → Rulesets → New ruleset** and configure the foll
 | — Dismiss stale approvals when new commits are pushed | Enabled |
 | — Require review from Code Owners | Disabled (no `CODEOWNERS` file yet) |
 | Require status checks to pass | Enabled |
-| — Required status check | `Rust checks` (job name in `ci.yaml`) |
+| — Required status check | `Rust MSRV 1.87` |
+| — Required status check | `Rust checks` |
+| — Required status check | `Security and maintenance checks` |
+| — Required status check | `CodeQL` |
 | — Require branches to be up to date before merging | Enabled |
 | Block force pushes | Enabled |
 

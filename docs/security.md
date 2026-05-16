@@ -57,11 +57,17 @@ For RepoPilot itself and projects using RepoPilot in CI, prefer:
 
 - protected `main` branch;
 - required CI checks;
+- CodeQL code scanning;
 - no force-push to protected branches;
 - minimal GitHub Actions permissions;
-- dependency scanning;
+- dependency graph, Dependabot alerts, and Dependabot security updates;
 - secret scanning;
+- secret scanning push protection;
 - release tags created from reviewed commits.
+
+RepoPilot keeps `.github/dependabot.yml` for Cargo, npm, and GitHub Actions
+updates. Security updates still require Dependabot security updates to be enabled
+in the repository settings.
 
 ## GitHub Actions permissions
 

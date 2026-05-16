@@ -10,6 +10,21 @@
 - name: docs
   color: "0075ca"
   description: Documentation and examples
+- name: dependencies
+  color: "0366d6"
+  description: Dependency updates and supply chain maintenance
+- name: rust
+  color: "dea584"
+  description: Rust code, Cargo dependencies, or toolchain changes
+- name: npm
+  color: "cb3837"
+  description: npm package wrapper or JavaScript dependency changes
+- name: ci
+  color: "5319e7"
+  description: GitHub Actions, checks, and automation
+- name: security
+  color: "d73a4a"
+  description: Security hardening, vulnerability fixes, or security tooling
 - name: good-first-issue
   color: "7057ff"
   description: Small, well-scoped issue suitable for new contributors
