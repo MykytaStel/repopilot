@@ -99,14 +99,15 @@ pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
         return RuleDecision::suppress(SuppressReason::GeneratedFile);
     }
 
-    let mut decision = RuleDecision::apply(context.base_severity);
+    let mut decision =
+        RuleDecision::apply(context.base_severity).with_risk_signal(rule.risk.clone());
 
     for override_rule in &rule.overrides {
         if context.is_test && !is_test_override(override_rule) {
             continue;
         }
         if override_matches(override_rule, context) {
-            decision = apply_override(override_rule, decision.severity);
+            decision = apply_override(override_rule, decision.severity, rule.risk.clone());
             if decision.is_suppressed() {
                 return decision;
             }
@@ -288,17 +289,24 @@ fn is_test_override(override_rule: &RuleOverride) -> bool {
     matches!(override_rule.role.as_deref(), Some("test" | "rust-test"))
 }
 
-fn apply_override(override_rule: &RuleOverride, current: Severity) -> RuleDecision {
+fn apply_override(
+    override_rule: &RuleOverride,
+    current: Severity,
+    fallback_risk: Option<crate::knowledge::model::RuleRiskAdjustment>,
+) -> RuleDecision {
+    let risk_signal = override_rule.risk.clone().or(fallback_risk);
     match override_rule.action {
         RuleDecisionAction::Apply => RuleDecision {
             action: RuleDecisionAction::Apply,
             severity: override_rule.severity.unwrap_or(current),
             reason: override_rule.reason.clone(),
+            risk_signal,
         },
         RuleDecisionAction::Suppress => RuleDecision {
             action: RuleDecisionAction::Suppress,
             severity: Severity::Info,
             reason: override_rule.reason.clone(),
+            risk_signal: None,
         },
         RuleDecisionAction::Downgrade => {
             let severity = override_rule
@@ -309,6 +317,7 @@ fn apply_override(override_rule: &RuleOverride, current: Severity) -> RuleDecisi
                 action: RuleDecisionAction::Downgrade,
                 severity,
                 reason: override_rule.reason.clone(),
+                risk_signal,
             }
         }
         RuleDecisionAction::Upgrade => {
@@ -320,6 +329,7 @@ fn apply_override(override_rule: &RuleOverride, current: Severity) -> RuleDecisi
                 action: RuleDecisionAction::Upgrade,
                 severity,
                 reason: override_rule.reason.clone(),
+                risk_signal,
             }
         }
     }

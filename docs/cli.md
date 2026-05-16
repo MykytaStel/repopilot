@@ -569,7 +569,7 @@ The `--min-severity` flag filters rendered findings before baseline or CI gate e
 
 | Format | Available in | Best for |
 |--------|-------------|----------|
-| `console` | `scan`, `review`, `compare` | Versioned terminal report with risk summary and grouped findings |
+| `console` | `scan`, `review`, `compare` | Versioned terminal report with risk summary, top risk clusters, and grouped findings |
 | `json` | `scan`, `review`, `compare` | Machine consumption, piping to scripts |
 | `markdown` | `scan`, `review`, `compare` | Versioned human-readable report with top rules and findings index |
 | `html` | `scan` | Standalone visual report with severity, category, and rule filters |

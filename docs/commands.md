@@ -125,7 +125,7 @@ The legacy `repopilot vibe` command still works in 0.x, but `repopilot ai contex
 
 ### Hardening plan
 
-Use `ai plan` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities and includes verification commands.
+Use `ai plan` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities, clusters repeated rule patterns by repository area, and includes verification commands.
 
 ```bash
 repopilot ai plan .

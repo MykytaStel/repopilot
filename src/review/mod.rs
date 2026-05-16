@@ -11,7 +11,7 @@ use crate::baseline::model::Baseline;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
-use crate::risk::apply_review_overlay;
+use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::types::ScanSummary;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -66,6 +66,7 @@ fn classify_findings(
         .map(|status| status.in_diff)
         .collect::<Vec<_>>();
     apply_review_overlay(&mut summary.findings, &in_diff);
+    apply_blast_radius_overlay(&mut summary.findings, &repo_root, &blast_radius);
     sort_findings_with_review_status(&mut summary.findings, &mut findings);
 
     ReviewReport {

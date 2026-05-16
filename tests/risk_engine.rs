@@ -1,11 +1,14 @@
 use repopilot::baseline::diff::{BaselineStatus, FindingBaselineStatus};
 use repopilot::baseline::key::stable_finding_key;
 use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
+use repopilot::graph::CouplingGraph;
 use repopilot::risk::{
-    RiskInputs, RiskPriority, apply_baseline_overlay, apply_review_overlay,
+    FORMULA_VERSION, RiskInputs, RiskPriority, apply_baseline_overlay, apply_blast_radius_overlay,
+    apply_cluster_overlay, apply_graph_overlay, apply_review_overlay,
     apply_workspace_hotspot_overlay, assess_finding,
 };
 use repopilot::scan::facts::FileFacts;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 #[test]
@@ -167,6 +170,116 @@ fn priority_labels_follow_score_thresholds() {
 
     assert_eq!(critical.risk.priority, RiskPriority::P0);
     assert_eq!(low.risk.priority, RiskPriority::P3);
+    assert_eq!(critical.risk.formula_version, FORMULA_VERSION);
+}
+
+#[test]
+fn graph_overlay_boosts_hub_findings_above_leaf_findings() {
+    let mut findings = vec![
+        assessed_finding("code-quality.complex-file", "src/core.rs", Severity::Medium),
+        assessed_finding("code-quality.complex-file", "src/leaf.rs", Severity::Medium),
+    ];
+    let graph = graph(&[
+        ("src/a.rs", "src/core.rs"),
+        ("src/b.rs", "src/core.rs"),
+        ("src/c.rs", "src/core.rs"),
+        ("src/core.rs", "src/leaf.rs"),
+    ]);
+
+    apply_graph_overlay(&mut findings, &graph);
+
+    assert!(findings[0].risk.score > findings[1].risk.score);
+    assert!(
+        findings[0]
+            .risk
+            .signals
+            .iter()
+            .any(|signal| signal.id == "graph.hub")
+    );
+}
+
+#[test]
+fn blast_radius_overlay_boosts_impacted_files() {
+    let mut findings = vec![
+        assessed_finding(
+            "architecture.large-file",
+            "src/impacted.rs",
+            Severity::Medium,
+        ),
+        assessed_finding("architecture.large-file", "src/other.rs", Severity::Medium),
+    ];
+
+    apply_blast_radius_overlay(
+        &mut findings,
+        Path::new("/repo"),
+        &[PathBuf::from("src/impacted.rs")],
+    );
+
+    assert!(findings[0].risk.score > findings[1].risk.score);
+    assert!(
+        findings[0]
+            .risk
+            .signals
+            .iter()
+            .any(|signal| signal.id == "review.blast-radius")
+    );
+}
+
+#[test]
+fn cluster_overlay_marks_repeated_rule_scope_patterns() {
+    let mut findings = vec![
+        assessed_finding(
+            "language.rust.panic-risk",
+            "src/output/a.rs",
+            Severity::Medium,
+        ),
+        assessed_finding(
+            "language.rust.panic-risk",
+            "src/output/b.rs",
+            Severity::Medium,
+        ),
+        assessed_finding(
+            "language.rust.panic-risk",
+            "src/output/c.rs",
+            Severity::Medium,
+        ),
+        assessed_finding(
+            "language.rust.panic-risk",
+            "src/core/d.rs",
+            Severity::Medium,
+        ),
+    ];
+
+    apply_cluster_overlay(&mut findings);
+
+    assert!(
+        findings[0]
+            .risk
+            .signals
+            .iter()
+            .any(|signal| signal.id == "cluster.repeated")
+    );
+    assert!(
+        findings[3]
+            .risk
+            .signals
+            .iter()
+            .all(|signal| signal.id != "cluster.repeated")
+    );
+}
+
+#[test]
+fn knowledge_rule_adjustment_participates_in_risk_scoring() {
+    let finding = finding("code-marker.todo", "src/lib.rs", Severity::Low);
+    let file = file("src/lib.rs", Some("Rust"));
+
+    let risk = assess_finding(&finding, Some(&file), RiskInputs::default());
+
+    assert!(
+        risk.signals
+            .iter()
+            .any(|signal| signal.id == "knowledge.todo-backlog")
+    );
 }
 
 fn assessed_finding(rule_id: &str, path: &str, severity: Severity) -> Finding {
@@ -210,5 +323,23 @@ fn file(path: &str, language: Option<&str>) -> FileFacts {
         imports: Vec::new(),
         content: None,
         has_inline_tests: false,
+    }
+}
+
+fn graph(edges: &[(&str, &str)]) -> CouplingGraph {
+    let mut edge_map: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+    let mut nodes = BTreeSet::new();
+
+    for (source, target) in edges {
+        let source = PathBuf::from(source);
+        let target = PathBuf::from(target);
+        nodes.insert(source.clone());
+        nodes.insert(target.clone());
+        edge_map.entry(source).or_default().insert(target);
+    }
+
+    CouplingGraph {
+        edges: edge_map,
+        nodes,
     }
 }

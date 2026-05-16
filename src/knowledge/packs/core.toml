@@ -703,6 +703,7 @@ minimum_support = "rule-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
 suppress_low_signal = true
 suppress_generated = true
+risk = { id = "knowledge.circular-dependency", label = "cycle risk", weight = 6, reason = "dependency cycles make local changes harder to isolate and review" }
 
 [[rules]]
 rule_id = "architecture.excessive-fan-out"
@@ -710,6 +711,7 @@ minimum_support = "rule-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
 suppress_low_signal = true
 suppress_generated = true
+risk = { id = "knowledge.excessive-fan-out", label = "wide dependency fan-out", weight = 4, reason = "files that depend on many internal modules are harder to change safely" }
 
 [[rules]]
 rule_id = "architecture.high-instability-hub"
@@ -717,11 +719,13 @@ minimum_support = "rule-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
 suppress_low_signal = true
 suppress_generated = true
+risk = { id = "knowledge.instability-hub", label = "unstable hub", weight = 8, reason = "high fan-in and fan-out indicates a file where changes can ripple broadly" }
 
 [[rules]]
 rule_id = "code-marker.todo"
 suppress_low_signal = true
 suppress_generated = true
+risk = { id = "knowledge.todo-backlog", label = "backlog marker", weight = -4, reason = "TODO markers are useful review signals but usually lower urgency than runtime or security findings" }
 
 [[rules.overrides]]
 role = "test"
@@ -764,6 +768,7 @@ suppress_generated = true
 rule_id = "testing.missing-test-folder"
 minimum_support = "context-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "php", "ruby", "dart", "scala"]
+risk = { id = "knowledge.testing-adoption", label = "testing adoption signal", weight = -3, reason = "project-level testing gaps guide adoption but often need human prioritization" }
 
 [[rules]]
 rule_id = "testing.source-without-test"
@@ -771,6 +776,7 @@ minimum_support = "context-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "php", "ruby", "dart", "scala"]
 suppress_low_signal = true
 suppress_generated = true
+risk = { id = "knowledge.coverage-gap", label = "coverage gap", weight = -4, reason = "missing counterpart tests are lower urgency unless they overlap changed or high-risk code" }
 
 [[rules]]
 rule_id = "framework.react-native.inline-style"

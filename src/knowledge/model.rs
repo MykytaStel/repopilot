@@ -1,5 +1,5 @@
 use crate::findings::types::Severity;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
@@ -62,6 +62,8 @@ pub struct RuleApplicability {
     #[serde(default)]
     pub suppress_config: bool,
     #[serde(default)]
+    pub risk: Option<RuleRiskAdjustment>,
+    #[serde(default)]
     pub overrides: Vec<RuleOverride>,
 }
 
@@ -84,6 +86,16 @@ pub struct RuleOverride {
     pub severity: Option<Severity>,
     #[serde(default)]
     pub reason: Option<String>,
+    #[serde(default)]
+    pub risk: Option<RuleRiskAdjustment>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct RuleRiskAdjustment {
+    pub id: String,
+    pub label: String,
+    pub weight: i16,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -151,6 +163,7 @@ pub struct RuleDecision {
     pub action: RuleDecisionAction,
     pub severity: Severity,
     pub reason: Option<String>,
+    pub risk_signal: Option<RuleRiskAdjustment>,
 }
 
 impl RuleDecision {
@@ -159,6 +172,7 @@ impl RuleDecision {
             action: RuleDecisionAction::Apply,
             severity,
             reason: None,
+            risk_signal: None,
         }
     }
 
@@ -167,11 +181,17 @@ impl RuleDecision {
             action: RuleDecisionAction::Suppress,
             severity: Severity::Info,
             reason: Some(reason.into()),
+            risk_signal: None,
         }
     }
 
     pub fn is_suppressed(&self) -> bool {
         self.action == RuleDecisionAction::Suppress
+    }
+
+    pub fn with_risk_signal(mut self, risk_signal: Option<RuleRiskAdjustment>) -> Self {
+        self.risk_signal = risk_signal;
+        self
     }
 }
 

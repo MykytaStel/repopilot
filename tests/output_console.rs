@@ -40,6 +40,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
     assert!(output.contains("RepoPilot Scan"));
     assert!(output.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))));
     assert!(output.contains("Risk Summary:"));
+    assert!(output.contains("Top Risk Clusters:"));
     assert!(output.contains("Top Rules:"));
     assert!(output.contains("Findings:"));
     assert!(output.contains("Security:"));

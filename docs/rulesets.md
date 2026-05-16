@@ -27,6 +27,15 @@ recommendation, and evidence metadata.
 `severity` is the expected impact if the finding is true. `confidence` is how
 certain RepoPilot is that the finding is a real problem in this context.
 
+## Risk Prioritization
+
+Severity is not the final sort key. RepoPilot also assigns each finding an
+explainable `risk-v2` score and P0/P1/P2/P3 priority from severity, confidence,
+Knowledge Engine rule calibration, file role, baseline status, review diff,
+dependency graph impact, workspace hotspots, and repeated-pattern clusters.
+
+See [Risk Engine](risk-engine.md) for the priority contract and signal families.
+
 ## Architecture Rules
 
 | Rule ID | Default severity | What it detects |
@@ -175,3 +184,10 @@ Each entry in the `evidence` array contains:
 | `line_start` | usize | First relevant line, 1-based. |
 | `line_end` | usize? | Last relevant line, when available. |
 | `snippet` | string | Source text or computed evidence at that location. |
+
+## False-Positive Policy
+
+Rules should be tuned with context before they are broadened. If a finding is a
+false positive, prefer adding a narrow regression test, Knowledge Engine
+override, or documented limitation over lowering the rule globally. RepoPilot
+findings are review signals and should be used alongside language-native tools.
