@@ -68,6 +68,7 @@ fn renders_markdown_scan_summary() {
     )));
     assert!(output.contains("## Overview"));
     assert!(output.contains("## Risk Summary"));
+    assert!(output.contains("## Top Risk Clusters"));
     assert!(output.contains("## Top Rules"));
     assert!(output.contains("## Languages"));
     assert!(output.contains("## Findings Index"));
@@ -75,6 +76,7 @@ fn renders_markdown_scan_summary() {
     assert!(output.contains("### Code Quality"));
     assert!(output.contains("#### `code-marker.todo` (1)"));
     assert!(output.contains("| `code-marker.todo` | 1 | LOW |"));
+    assert!(output.contains("| P3 | `src` | `code-marker.todo` | 1 | LOW | 0 |"));
     assert!(output.contains("`src/main.rs:7`"));
     assert!(output.contains("- **Path:** `demo-project`"));
     assert!(output.contains("- **Files analyzed:** 2"));

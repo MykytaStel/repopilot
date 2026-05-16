@@ -158,6 +158,39 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
 
+### Risk object
+
+RepoPilot 0.10 uses `risk-v2` for deterministic, explainable prioritization:
+
+```json
+{
+  "score": 67,
+  "priority": "P2",
+  "formula_version": "risk-v2",
+  "signals": [
+    {
+      "id": "severity.medium",
+      "label": "MEDIUM severity",
+      "weight": 45,
+      "reason": "base score from rule severity"
+    },
+    {
+      "id": "cluster.repeated",
+      "label": "repeated pattern",
+      "weight": 7,
+      "reason": "same rule appears repeatedly in the same repository area"
+    }
+  ]
+}
+```
+
+Markdown and console reports include a Top Risk Clusters section that groups
+repeated findings by rule and repository area. JSON keeps individual findings so
+baselines, SARIF, and scripts can continue to address exact evidence locations.
+
+See [Risk Engine](risk-engine.md) for priority buckets, signal families, and
+calibration policy.
+
 SARIF output carries the same category, recommendation, confidence, baseline
 status, and workspace package metadata in result properties when available.
 

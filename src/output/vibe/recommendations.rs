@@ -1,6 +1,6 @@
 use crate::findings::types::{Finding, Severity};
 use crate::output::finding_helpers::{
-    RuleCluster, clusters_by_rule, example_locations, finding_recommendation,
+    RuleCluster, clusters_by_rule_scope, example_locations, finding_recommendation,
 };
 use std::fmt::Write as FmtWrite;
 
@@ -48,19 +48,29 @@ fn recommendation_clusters<'a>(
     findings: &'a [&'a Finding],
     min_severity: Severity,
 ) -> Vec<RuleCluster<'a>> {
-    let mut clusters = clusters_by_rule(findings)
+    let mut clusters = clusters_by_rule_scope(findings)
         .into_iter()
         .filter(|cluster| cluster.severity >= min_severity && !cluster.findings.is_empty())
         .collect::<Vec<_>>();
 
     clusters.sort_by(|left, right| {
-        right
-            .severity
-            .cmp(&left.severity)
+        priority_rank(left)
+            .cmp(&priority_rank(right))
+            .then_with(|| right.max_score.cmp(&left.max_score))
+            .then_with(|| right.severity.cmp(&left.severity))
             .then_with(|| right.findings.len().cmp(&left.findings.len()))
-            .then_with(|| left.title.cmp(right.title))
+            .then_with(|| left.title.cmp(&right.title))
     });
     clusters
+}
+
+fn priority_rank(cluster: &RuleCluster<'_>) -> u8 {
+    match cluster.priority {
+        crate::risk::RiskPriority::P0 => 0,
+        crate::risk::RiskPriority::P1 => 1,
+        crate::risk::RiskPriority::P2 => 2,
+        crate::risk::RiskPriority::P3 => 3,
+    }
 }
 
 pub(super) fn render_footer(

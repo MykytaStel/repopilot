@@ -11,7 +11,7 @@ use crate::frameworks::{
     detect_react_native_architecture,
 };
 use crate::knowledge::decision::apply_project_decisions;
-use crate::risk::assess_findings;
+use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
@@ -72,6 +72,8 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         finding.id = stable_finding_key(finding, path);
     }
     assess_findings(&mut findings, &facts);
+    apply_graph_overlay(&mut findings, &coupling_graph);
+    apply_cluster_overlay(&mut findings);
     summary::sort_findings(&mut findings);
 
     let scan_duration_us = start.elapsed().as_micros() as u64;

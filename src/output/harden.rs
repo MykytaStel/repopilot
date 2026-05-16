@@ -1,6 +1,6 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::finding_helpers::{
-    RuleCluster, category_rank, clusters_by_rule, example_locations, finding_recommendation,
+    RuleCluster, category_rank, clusters_by_rule_scope, example_locations, finding_recommendation,
 };
 use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory, project_name};
 use crate::scan::types::ScanSummary;
@@ -33,7 +33,7 @@ pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
                 .is_none_or(|focus| focus.matches(&finding.category))
         })
         .collect();
-    let mut clusters = clusters_by_rule(&findings);
+    let mut clusters = clusters_by_rule_scope(&findings);
     sort_harden_clusters(&mut clusters);
 
     let mut out = String::new();
@@ -120,6 +120,17 @@ fn render_cluster_plan(out: &mut String, cluster: &RuleCluster<'_>, index: usize
         count_note
     );
     let _ = writeln!(out, "- Rule: `{}`", cluster.rule_id);
+    if let Some(scope) = &cluster.scope
+        && scope != "."
+    {
+        let _ = writeln!(out, "- Area: `{scope}`");
+    }
+    let _ = writeln!(
+        out,
+        "- Priority: {} (max risk {}/100)",
+        cluster.priority.label(),
+        cluster.max_score
+    );
 
     let examples = example_locations(&cluster.findings, 3);
     if !examples.is_empty() {
@@ -155,24 +166,12 @@ fn priority_label(priority: u8) -> &'static str {
     }
 }
 
-fn priority_rank(finding: &Finding) -> u8 {
-    if finding.severity == Severity::Critical
-        || (finding.severity == Severity::High && finding.category == FindingCategory::Security)
-    {
-        0
-    } else if finding.severity == Severity::High {
-        1
-    } else if finding.severity == Severity::Medium {
-        2
-    } else {
-        3
-    }
-}
-
 fn sort_harden_clusters(clusters: &mut [RuleCluster<'_>]) {
     clusters.sort_by(|left, right| {
-        cluster_priority(left)
-            .cmp(&cluster_priority(right))
+        priority_rank(left)
+            .cmp(&priority_rank(right))
+            .then_with(|| right.max_score.cmp(&left.max_score))
+            .then_with(|| cluster_priority(left).cmp(&cluster_priority(right)))
             .then_with(|| right.severity.cmp(&left.severity))
             .then_with(|| cluster_category_rank(left).cmp(&cluster_category_rank(right)))
             .then_with(|| right.findings.len().cmp(&left.findings.len()))
@@ -184,9 +183,32 @@ fn cluster_priority(cluster: &RuleCluster<'_>) -> u8 {
     cluster
         .findings
         .iter()
-        .map(|finding| priority_rank(finding))
+        .map(|finding| legacy_priority_rank(finding))
         .min()
         .unwrap_or(3)
+}
+
+fn priority_rank(cluster: &RuleCluster<'_>) -> u8 {
+    match cluster.priority {
+        crate::risk::RiskPriority::P0 => 0,
+        crate::risk::RiskPriority::P1 => 1,
+        crate::risk::RiskPriority::P2 => 2,
+        crate::risk::RiskPriority::P3 => 3,
+    }
+}
+
+fn legacy_priority_rank(finding: &Finding) -> u8 {
+    if finding.severity == Severity::Critical
+        || (finding.severity == Severity::High && finding.category == FindingCategory::Security)
+    {
+        0
+    } else if finding.severity == Severity::High {
+        1
+    } else if finding.severity == Severity::Medium {
+        2
+    } else {
+        3
+    }
 }
 
 fn cluster_category_rank(cluster: &RuleCluster<'_>) -> u8 {

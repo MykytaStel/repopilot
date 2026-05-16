@@ -1,7 +1,7 @@
 use crate::baseline::diff::BaselineStatus;
 use serde::{Deserialize, Serialize};
 
-pub const FORMULA_VERSION: &str = "risk-v1";
+pub const FORMULA_VERSION: &str = "risk-v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RiskAssessment {
@@ -32,6 +32,15 @@ pub struct RiskInputs {
     pub baseline_status: Option<BaselineStatus>,
     pub in_diff: bool,
     pub workspace_hotspot: bool,
+    pub graph_impact: Option<GraphImpact>,
+    pub blast_radius: bool,
+    pub cluster_size: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GraphImpact {
+    Hub,
+    Dependency,
 }
 
 impl Default for RiskAssessment {

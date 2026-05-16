@@ -381,7 +381,7 @@ If your installed RepoPilot version does not support `--output`, redirect stdout
 repopilot scan . --format sarif > repopilot.sarif
 ```
 
-Use JSON when custom scripts need to parse RepoPilot results. Console, Markdown, and HTML reports include the RepoPilot version, risk summary, top rules, and grouped findings for human review. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
+Use JSON when custom scripts need to parse RepoPilot results. Console, Markdown, and HTML reports include the RepoPilot version, risk summary, top risk clusters, top rules, and grouped findings for human review. Use SARIF for CI and code scanning integrations, including GitHub Code Scanning.
 Use `--receipt <path>` with `scan` when CI or release processes need compact evidence of the exact RepoPilot version, git state, scan scope, finding counts, language counts, and health score.
 
 See [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) for a copy-paste GitHub Actions workflow, required permissions, and local validation commands.
@@ -465,6 +465,7 @@ These are planned ideas, not current features:
 | [docs/security.md](docs/security.md) | Local-first trust model, installer security, and vulnerability reporting |
 | [docs/configuration.md](docs/configuration.md) | `repopilot.toml`, presets, ignore files, and baseline adoption |
 | [docs/language-support.md](docs/language-support.md) | Supported language/framework tiers, rule families, and limitations |
+| [docs/risk-engine.md](docs/risk-engine.md) | Risk scoring, priority buckets, signals, and calibration policy |
 | [docs/cli.md](docs/cli.md) | Complete CLI reference — all commands, flags, and exit codes |
 | [docs/commands.md](docs/commands.md) | Task-oriented command guide and common patterns |
 | [docs/rulesets.md](docs/rulesets.md) | Implemented audit rules, categories, and severity levels |

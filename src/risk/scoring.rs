@@ -1,10 +1,13 @@
 use crate::findings::types::{Confidence, Finding, FindingCategory, Severity};
+use crate::knowledge::decision::decide_for_file;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use super::context::add_file_context_signals;
-use super::model::{RiskAssessment, RiskInputs, RiskSignal, clamp_score, push_adjustment, signal};
+use super::model::{
+    GraphImpact, RiskAssessment, RiskInputs, RiskSignal, clamp_score, push_adjustment, signal,
+};
 use super::overlays::baseline_signal;
 
 pub fn assess_findings(findings: &mut [Finding], facts: &ScanFacts) {
@@ -41,6 +44,7 @@ pub fn assess_finding(
     }
 
     if let Some(file) = file {
+        add_knowledge_rule_signal(finding, file, &mut score, &mut signals);
         add_file_context_signals(file, &mut score, &mut signals);
     }
 
@@ -71,7 +75,85 @@ pub fn assess_finding(
         );
     }
 
+    if let Some(impact) = inputs.graph_impact {
+        add_graph_signal(impact, &mut score, &mut signals);
+    }
+
+    if inputs.blast_radius {
+        push_adjustment(
+            &mut score,
+            &mut signals,
+            "review.blast-radius",
+            "blast radius",
+            6,
+            "finding is in a file impacted by changed import dependencies",
+        );
+    }
+
+    if inputs.cluster_size >= 3 {
+        let weight = cluster_weight(inputs.cluster_size);
+        push_adjustment(
+            &mut score,
+            &mut signals,
+            "cluster.repeated",
+            "repeated pattern",
+            weight,
+            "same rule appears repeatedly in the same repository area",
+        );
+    }
+
     RiskAssessment::new(clamp_score(score), signals)
+}
+
+fn add_knowledge_rule_signal(
+    finding: &Finding,
+    file: &FileFacts,
+    score: &mut i16,
+    signals: &mut Vec<RiskSignal>,
+) {
+    let decision = decide_for_file(&finding.rule_id, file, finding.severity, None);
+    let Some(rule_signal) = decision.risk_signal else {
+        return;
+    };
+
+    push_adjustment(
+        score,
+        signals,
+        rule_signal.id.as_str(),
+        rule_signal.label.as_str(),
+        rule_signal.weight,
+        rule_signal.reason.as_str(),
+    );
+}
+
+fn add_graph_signal(impact: GraphImpact, score: &mut i16, signals: &mut Vec<RiskSignal>) {
+    match impact {
+        GraphImpact::Hub => push_adjustment(
+            score,
+            signals,
+            "graph.hub",
+            "dependency hub",
+            8,
+            "file has high fan-in or fan-out, so changes can ripple through the codebase",
+        ),
+        GraphImpact::Dependency => push_adjustment(
+            score,
+            signals,
+            "graph.dependency",
+            "shared dependency",
+            5,
+            "file is imported by multiple other files",
+        ),
+    }
+}
+
+fn cluster_weight(size: usize) -> i16 {
+    match size {
+        0..=2 => 0,
+        3..=5 => 3,
+        6..=15 => 5,
+        _ => 7,
+    }
 }
 
 fn severity_base_score(severity: Severity) -> u8 {

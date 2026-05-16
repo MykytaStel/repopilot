@@ -4,6 +4,7 @@ use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
+use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::render_helpers::{escape_table_cell, workspace_package_counts};
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
@@ -24,6 +25,7 @@ pub fn render(summary: &ScanSummary) -> String {
     output.push_str("# RepoPilot Scan Report\n\n");
     render_overview(&mut output, summary, &stats);
     render_risk_summary(&mut output, summary, &stats);
+    render_top_risk_clusters(&mut output, &summary.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);
     render_frameworks_section(&mut output, &summary.detected_frameworks);
@@ -65,6 +67,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     output.push('\n');
 
     render_risk_summary(&mut output, summary, &stats);
+    render_top_risk_clusters(&mut output, &summary.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);
     render_frameworks_section(&mut output, &summary.detected_frameworks);
@@ -184,6 +187,56 @@ fn render_top_rules(output: &mut String, stats: &ReportStats) {
         .unwrap();
     }
     output.push('\n');
+}
+
+fn render_top_risk_clusters(output: &mut String, findings: &[Finding]) {
+    output.push_str("## Top Risk Clusters\n\n");
+
+    if findings.is_empty() {
+        output.push_str("No risk clusters found.\n\n");
+        return;
+    }
+
+    let finding_refs = findings.iter().collect::<Vec<_>>();
+    let mut clusters = clusters_by_rule_scope(&finding_refs);
+    clusters.sort_by(|left, right| {
+        priority_rank(left.priority)
+            .cmp(&priority_rank(right.priority))
+            .then_with(|| right.max_score.cmp(&left.max_score))
+            .then_with(|| right.findings.len().cmp(&left.findings.len()))
+            .then_with(|| left.rule_id.cmp(right.rule_id))
+            .then_with(|| left.scope.cmp(&right.scope))
+    });
+    clusters.truncate(8);
+
+    output.push_str("| Priority | Area | Rule | Count | Max severity | Max risk | Examples |\n");
+    output.push_str("| --- | --- | --- | ---: | --- | ---: | --- |\n");
+    for cluster in clusters {
+        let area = cluster.scope.as_deref().unwrap_or(".");
+        let examples = example_locations(&cluster.findings, 2).join(", ");
+        writeln!(
+            output,
+            "| {} | `{}` | `{}` | {} | {} | {} | {} |",
+            cluster.priority.label(),
+            escape_table_cell(area),
+            escape_table_cell(cluster.rule_id),
+            cluster.findings.len(),
+            cluster.severity.label(),
+            cluster.max_score,
+            escape_table_cell(&examples)
+        )
+        .unwrap();
+    }
+    output.push('\n');
+}
+
+fn priority_rank(priority: crate::risk::RiskPriority) -> u8 {
+    match priority {
+        crate::risk::RiskPriority::P0 => 0,
+        crate::risk::RiskPriority::P1 => 1,
+        crate::risk::RiskPriority::P2 => 2,
+        crate::risk::RiskPriority::P3 => 3,
+    }
 }
 
 fn render_languages_section(output: &mut String, summary: &ScanSummary) {

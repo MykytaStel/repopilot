@@ -88,8 +88,9 @@ fn harden_groups_repeated_medium_findings_by_rule() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("File exceeds recommended size (2 findings)"));
+    assert!(stdout.contains("File exceeds recommended size in src (2 findings)"));
     assert!(stdout.contains("Rule: `architecture.large-file`"));
+    assert!(stdout.contains("Area: `src`"));
     assert!(stdout.contains("`./src/large_a.rs:1`"));
     assert!(stdout.contains("`./src/large_b.rs:1`"));
 }

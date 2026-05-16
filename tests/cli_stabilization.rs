@@ -204,19 +204,25 @@ fn exit_codes_distinguish_findings_usage_and_runtime_errors() {
 #[test]
 fn self_audit_stays_clean_at_high_severity() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let output = run_ok(
-        &["scan", ".", "--min-severity", "high", "--format", "json"],
-        repo,
-    );
+    let output = run_ok(&["scan", ".", "--format", "json"], repo);
     let json: Value = serde_json::from_slice(&output.stdout).expect("json output from self-audit");
-    let finding_count = json["findings"]
+    let high_or_higher = json["findings"]
         .as_array()
-        .map(|a| a.len())
+        .map(|findings| {
+            findings
+                .iter()
+                .filter(|finding| matches!(finding["severity"].as_str(), Some("HIGH" | "CRITICAL")))
+                .count()
+        })
         .unwrap_or(usize::MAX);
+    let p0 = json["risk_summary"]["counts"]["p0"].as_u64().unwrap_or(1);
+    let p1 = json["risk_summary"]["counts"]["p1"].as_u64().unwrap_or(1);
     assert_eq!(
-        finding_count,
+        high_or_higher,
         0,
         "self-audit high severity should stay clean\n{}",
         serde_json::to_string_pretty(&json).unwrap_or_default()
     );
+    assert_eq!(p0, 0, "self-audit should not produce P0 findings");
+    assert_eq!(p1, 0, "self-audit should not produce P1 findings");
 }

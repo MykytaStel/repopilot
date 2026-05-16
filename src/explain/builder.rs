@@ -1,5 +1,7 @@
 use crate::audits::context::classify_file;
-use crate::explain::model::{ExplainContext, ExplainDecision, ExplainReport, ExplainSource};
+use crate::explain::model::{
+    ExplainContext, ExplainDecision, ExplainReport, ExplainRiskSignal, ExplainSource,
+};
 use crate::findings::types::Severity;
 use crate::knowledge::decision::decide_for_file;
 use crate::knowledge::language::{detect_language_for_path, profile_by_id};
@@ -72,6 +74,12 @@ pub fn build_explain_report(
             action: decision_action_label(decision.action).to_string(),
             final_severity: decision.severity,
             reason: decision.reason,
+            risk_signal: decision.risk_signal.map(|signal| ExplainRiskSignal {
+                id: signal.id,
+                label: signal.label,
+                weight: signal.weight,
+                reason: signal.reason,
+            }),
         }
     });
 

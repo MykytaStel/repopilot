@@ -90,6 +90,12 @@ fn render_console_decision(decision: &ExplainDecision) -> String {
     if let Some(reason) = &decision.reason {
         output.push_str(&format!(" Reason: {reason}\n"));
     }
+    if let Some(signal) = &decision.risk_signal {
+        output.push_str(&format!(
+            " Risk signal: {} ({:+}) - {}\n",
+            signal.label, signal.weight, signal.reason
+        ));
+    }
 
     output
 }
@@ -166,6 +172,12 @@ fn render_markdown(report: &ExplainReport) -> String {
             ));
             if let Some(reason) = &decision.reason {
                 output.push_str(&format!("- **Reason:** {reason}\n"));
+            }
+            if let Some(signal) = &decision.risk_signal {
+                output.push_str(&format!(
+                    "- **Risk signal:** {} ({:+}) — {}\n",
+                    signal.label, signal.weight, signal.reason
+                ));
             }
         }
         None => {
