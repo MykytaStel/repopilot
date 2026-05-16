@@ -41,6 +41,7 @@ impl ProjectAudit for ReactNativeOldArchAudit {
             }],
             workspace_package: None,
             docs_url: Some("https://reactnative.dev/docs/new-architecture-intro".to_string()),
+            risk: Default::default(),
         }]
     }
 }
@@ -82,6 +83,7 @@ impl ProjectAudit for ReactNativeArchitectureMismatchAudit {
             }],
             workspace_package: None,
             docs_url: None,
+            risk: Default::default(),
         }]
     }
 }
@@ -122,6 +124,7 @@ impl ProjectAudit for HermesMismatchAudit {
             }],
             workspace_package: None,
             docs_url: None,
+            risk: Default::default(),
         }]
     }
 }

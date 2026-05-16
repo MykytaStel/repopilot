@@ -18,6 +18,8 @@ pub struct Finding {
     pub workspace_package: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs_url: Option<String>,
+    #[serde(default)]
+    pub risk: crate::risk::RiskAssessment,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]

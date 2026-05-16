@@ -63,5 +63,6 @@ fn finding(rule_id: &str, path: &str, line: usize) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     }
 }

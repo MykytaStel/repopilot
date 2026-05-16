@@ -63,6 +63,7 @@ fn build_marker_finding(marker: &Marker) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     }
 }
 

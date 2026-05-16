@@ -63,6 +63,7 @@ impl ProjectAudit for VarDeclarationAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     };
                     if let Some(finding) =
                         apply_file_decision("framework.js.var-declaration", file, finding, None)
@@ -126,6 +127,7 @@ impl ProjectAudit for ConsoleLogAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     };
                     if let Some(finding) =
                         apply_file_decision("framework.js.console-log", file, finding, None)

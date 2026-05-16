@@ -18,9 +18,7 @@ pub(crate) fn clusters_by_rule<'a>(findings: &'a [&'a Finding]) -> Vec<RuleClust
         .into_values()
         .filter_map(|mut group| {
             group.sort_by(|left, right| {
-                right
-                    .severity
-                    .cmp(&left.severity)
+                crate::risk::compare_findings(left, right)
                     .then_with(|| finding_location(left).cmp(&finding_location(right)))
             });
             let first = group.first().copied()?;

@@ -69,5 +69,6 @@ fn build_finding(source: &Path) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     }
 }

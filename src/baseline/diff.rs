@@ -1,6 +1,7 @@
 use crate::baseline::key::stable_finding_key;
 use crate::baseline::model::Baseline;
 use crate::findings::types::Finding;
+use crate::risk::apply_baseline_overlay;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -70,7 +71,7 @@ impl BaselineScanReport {
 }
 
 pub fn diff_summary_against_baseline(
-    summary: ScanSummary,
+    mut summary: ScanSummary,
     baseline: &Baseline,
     baseline_path: PathBuf,
 ) -> BaselineScanReport {
@@ -80,7 +81,13 @@ pub fn diff_summary_against_baseline(
         .map(|finding| finding.key.clone())
         .collect::<HashSet<_>>();
 
-    let findings = status_findings(&summary, &baseline_keys);
+    let mut findings = status_findings(&summary, &baseline_keys);
+    apply_baseline_overlay(
+        &mut summary.findings,
+        &findings,
+        summary.root_path.as_path(),
+    );
+    sort_findings_with_status(&mut summary.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -89,8 +96,8 @@ pub fn diff_summary_against_baseline(
     }
 }
 
-pub fn all_findings_new(summary: ScanSummary) -> BaselineScanReport {
-    let findings = summary
+pub fn all_findings_new(mut summary: ScanSummary) -> BaselineScanReport {
+    let mut findings: Vec<FindingBaselineStatus> = summary
         .findings
         .iter()
         .map(|finding| FindingBaselineStatus {
@@ -98,6 +105,12 @@ pub fn all_findings_new(summary: ScanSummary) -> BaselineScanReport {
             status: BaselineStatus::New,
         })
         .collect();
+    apply_baseline_overlay(
+        &mut summary.findings,
+        &findings,
+        summary.root_path.as_path(),
+    );
+    sort_findings_with_status(&mut summary.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -126,6 +139,21 @@ fn status_findings(
             FindingBaselineStatus { key, status }
         })
         .collect()
+}
+
+fn sort_findings_with_status(
+    findings: &mut Vec<Finding>,
+    statuses: &mut Vec<FindingBaselineStatus>,
+) {
+    let mut paired = findings
+        .drain(..)
+        .zip(statuses.drain(..))
+        .collect::<Vec<_>>();
+    paired.sort_by(|(left, _), (right, _)| crate::risk::compare_findings(left, right));
+    for (finding, status) in paired {
+        findings.push(finding);
+        statuses.push(status);
+    }
 }
 
 #[cfg(test)]

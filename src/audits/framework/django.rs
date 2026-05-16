@@ -50,6 +50,7 @@ impl ProjectAudit for DjangoDebugTrueAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                     break;
                 }
@@ -107,6 +108,7 @@ impl ProjectAudit for DjangoEmptyAllowedHostsAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                     break;
                 }
@@ -170,6 +172,7 @@ impl ProjectAudit for DjangoRawSqlAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                 }
             }

@@ -302,6 +302,16 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
     )
     .unwrap();
     writeln!(output, "  - Confidence: {}", finding.confidence_label()).unwrap();
+    writeln!(
+        output,
+        "  - Priority: {} (risk {}/100)",
+        finding.risk.priority.label(),
+        finding.risk.score
+    )
+    .unwrap();
+    if let Some(reasons) = risk_reason_text(finding) {
+        writeln!(output, "  - Risk signals: {reasons}").unwrap();
+    }
     if let Some(status) = status {
         writeln!(output, "  - Baseline: {status}").unwrap();
     }
@@ -344,6 +354,19 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
         writeln!(output, "  - Docs: {url}").unwrap();
     }
     output.push('\n');
+}
+
+fn risk_reason_text(finding: &Finding) -> Option<String> {
+    let reasons = finding
+        .risk
+        .signals
+        .iter()
+        .filter(|signal| !signal.id.starts_with("severity."))
+        .take(3)
+        .map(|signal| format!("{} ({:+})", signal.label, signal.weight))
+        .collect::<Vec<_>>();
+
+    (!reasons.is_empty()).then(|| reasons.join(", "))
 }
 
 fn render_react_native_section(output: &mut String, rn: &ReactNativeArchitectureProfile) {

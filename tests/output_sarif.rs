@@ -22,6 +22,7 @@ fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
         }],
         workspace_package: pkg.map(str::to_owned),
         docs_url: None,
+        risk: Default::default(),
     }
 }
 
@@ -77,6 +78,7 @@ fn sarif_rule_uses_title_and_full_description() {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     };
 
     let root = PathBuf::from(".");
@@ -121,6 +123,7 @@ fn sarif_result_includes_partial_fingerprints() {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     };
 
     let root = PathBuf::from(".");
