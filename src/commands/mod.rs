@@ -18,8 +18,8 @@ use crate::cli::{
 };
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::findings::types::{Finding, Severity};
-use repopilot::risk::RiskPriority;
 use repopilot::output::vibe::VibeCategory;
+use repopilot::risk::RiskPriority;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::types::ScanSummary;
 use std::fmt;

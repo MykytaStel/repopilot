@@ -181,10 +181,8 @@ fn apply_min_priority_filter_to_baseline_report(
         report.findings.push(status);
     }
 
-    report.summary.health_score = ScanSummary::compute_health_score(
-        &report.summary.findings,
-        report.summary.lines_of_code,
-    );
+    report.summary.health_score =
+        ScanSummary::compute_health_score(&report.summary.findings, report.summary.lines_of_code);
 }
 
 fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, std::io::Error> {
