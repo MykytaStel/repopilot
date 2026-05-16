@@ -52,6 +52,7 @@ impl ProjectAudit for RnInlineStyleAudit {
                         }],
                         workspace_package: None,
                         docs_url: Some("https://reactnative.dev/docs/stylesheet".to_string()),
+            risk: Default::default(),
                     });
                     break;
                 }
@@ -135,6 +136,7 @@ impl ProjectAudit for RnDeprecatedApiAudit {
                             docs_url: Some(
                                 "https://reactnative.dev/docs/out-of-tree-platforms".to_string(),
                             ),
+                            risk: Default::default(),
                         });
                         break;
                     }
@@ -200,6 +202,7 @@ impl ProjectAudit for RnFlatListMissingKeyAudit {
                             docs_url: Some(
                                 "https://reactnative.dev/docs/flatlist#keyextractor".to_string(),
                             ),
+                            risk: Default::default(),
                         });
                     }
                     i = window_end;

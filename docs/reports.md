@@ -11,11 +11,11 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-Starting with RepoPilot 0.9, JSON scan reports include explicit schema metadata:
+JSON scan reports include explicit schema metadata. The current schema is 0.10:
 
 ```json
 {
-  "schema_version": "0.9",
+  "schema_version": "0.10",
   "repopilot_version": "0.10.0",
   "root_path": ".",
   "files_count": 42,
@@ -39,8 +39,8 @@ evolve the schema in a documented way.
 
 ### Compatibility
 
-RepoPilot 0.9 keeps the existing scan summary fields at the top level of the JSON
-document. The schema metadata is additive:
+RepoPilot keeps the existing scan summary fields at the top level of the JSON
+document. Schema metadata and finding risk assessments are additive:
 
 - existing consumers can continue reading fields such as `findings`,
   `files_count`, and `lines_of_code`;
@@ -64,7 +64,7 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.9",
+  "schema_version": "0.10",
   "repopilot_version": "0.10.0",
   "root_path": ".",
   "files_count": 42,
@@ -141,6 +141,7 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `category` | string | Finding category. |
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. |
 | `confidence` | string | One of `LOW`, `MEDIUM`, or `HIGH`; used to separate impact from certainty. |
+| `risk` | object | Explainable prioritization assessment with `score`, `priority`, stable `signals`, and `formula_version`. |
 | `docs_url` | string? | Optional documentation link for the rule. |
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |

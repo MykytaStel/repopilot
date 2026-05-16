@@ -35,6 +35,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
             }],
             workspace_package: None,
             docs_url: None,
+            risk: Default::default(),
         }],
         react_native: None,
         coupling_graph: None,

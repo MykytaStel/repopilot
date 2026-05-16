@@ -163,5 +163,6 @@ fn finding(rule_id: &str, severity: Severity, path: Option<&str>, line_start: us
             .unwrap_or_default(),
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     }
 }

@@ -5,7 +5,7 @@ use crate::scan::types::LanguageSummary;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.9";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.10";
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {

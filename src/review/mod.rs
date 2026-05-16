@@ -11,6 +11,7 @@ use crate::baseline::model::Baseline;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::risk::apply_review_overlay;
 use crate::scan::types::ScanSummary;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -42,9 +43,9 @@ fn classify_findings(
     repo_root: PathBuf,
     changed_files: Vec<ChangedFile>,
 ) -> ReviewReport {
-    let summary = baseline_report.summary;
+    let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
-    let findings = summary
+    let mut findings: Vec<ReviewFindingStatus> = summary
         .findings
         .iter()
         .enumerate()
@@ -60,6 +61,12 @@ fn classify_findings(
             ),
         })
         .collect();
+    let in_diff = findings
+        .iter()
+        .map(|status| status.in_diff)
+        .collect::<Vec<_>>();
+    apply_review_overlay(&mut summary.findings, &in_diff);
+    sort_findings_with_review_status(&mut summary.findings, &mut findings);
 
     ReviewReport {
         summary,
@@ -68,6 +75,21 @@ fn classify_findings(
         changed_files,
         blast_radius,
         findings,
+    }
+}
+
+fn sort_findings_with_review_status(
+    findings: &mut Vec<Finding>,
+    statuses: &mut Vec<ReviewFindingStatus>,
+) {
+    let mut paired = findings
+        .drain(..)
+        .zip(statuses.drain(..))
+        .collect::<Vec<_>>();
+    paired.sort_by(|(left, _), (right, _)| crate::risk::compare_findings(left, right));
+    for (finding, status) in paired {
+        findings.push(finding);
+        statuses.push(status);
     }
 }
 

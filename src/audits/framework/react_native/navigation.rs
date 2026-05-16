@@ -58,6 +58,7 @@ impl ProjectAudit for ReactNavigationV4Audit {
                         docs_url: Some(
                             "https://reactnavigation.org/docs/getting-started".to_string(),
                         ),
+                        risk: Default::default(),
                     });
                     break;
                 }
@@ -116,6 +117,7 @@ impl ProjectAudit for DirectStateMutationAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                     break;
                 }

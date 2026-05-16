@@ -116,6 +116,7 @@ fn health_score_decreases_with_severity() {
             evidence: vec![],
             workspace_package: None,
             docs_url: None,
+            risk: Default::default(),
         }
     }
     let critical = ScanSummary::compute_health_score(&[finding(Severity::Critical)], 1000);
@@ -144,6 +145,7 @@ fn health_score_is_clamped_at_zero_for_catastrophic_repos() {
             evidence: vec![],
             workspace_package: None,
             docs_url: None,
+            risk: Default::default(),
         })
         .collect();
     assert_eq!(

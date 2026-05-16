@@ -1,6 +1,7 @@
 use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
+use repopilot::risk::{RiskInputs, assess_finding};
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
 use std::path::PathBuf;
 
@@ -50,26 +51,30 @@ fn renders_valid_json_scan_summary() {
 
 #[test]
 fn json_findings_include_confidence() {
+    let mut finding = Finding {
+        id: "code-quality.long-function:src/lib.rs:1".to_string(),
+        rule_id: "code-quality.long-function".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("code-quality.long-function"),
+        title: "Large Rust production function".to_string(),
+        description: "Function spans more lines than the configured threshold.".to_string(),
+        category: FindingCategory::CodeQuality,
+        severity: Severity::Medium,
+        confidence: Confidence::High,
+        evidence: vec![Evidence {
+            path: PathBuf::from("src/lib.rs"),
+            line_start: 1,
+            line_end: Some(80),
+            snippet: "function spans lines 1-80".to_string(),
+        }],
+        workspace_package: None,
+        docs_url: None,
+        risk: Default::default(),
+    };
+    finding.risk = assess_finding(&finding, None, RiskInputs::default());
+
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
-        findings: vec![Finding {
-            id: "code-quality.long-function:src/lib.rs:1".to_string(),
-            rule_id: "code-quality.long-function".to_string(),
-            recommendation: Finding::recommendation_for_rule_id("code-quality.long-function"),
-            title: "Large Rust production function".to_string(),
-            description: "Function spans more lines than the configured threshold.".to_string(),
-            category: FindingCategory::CodeQuality,
-            severity: Severity::Medium,
-            confidence: Confidence::High,
-            evidence: vec![Evidence {
-                path: PathBuf::from("src/lib.rs"),
-                line_start: 1,
-                line_end: Some(80),
-                snippet: "function spans lines 1-80".to_string(),
-            }],
-            workspace_package: None,
-            docs_url: None,
-        }],
+        findings: vec![finding],
         ..ScanSummary::default()
     };
 
@@ -79,6 +84,12 @@ fn json_findings_include_confidence() {
         serde_json::from_str(&output).expect("output should be valid json");
 
     assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
+    assert_eq!(parsed["findings"][0]["risk"]["priority"], "P2");
+    assert_eq!(parsed["findings"][0]["risk"]["score"], 50);
+    assert_eq!(
+        parsed["findings"][0]["risk"]["signals"][0]["id"],
+        "severity.medium"
+    );
     assert_eq!(
         parsed["findings"][0]["recommendation"],
         Finding::recommendation_for_rule_id("code-quality.long-function")

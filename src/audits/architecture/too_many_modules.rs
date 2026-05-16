@@ -49,5 +49,6 @@ fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     }
 }

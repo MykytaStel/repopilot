@@ -20,6 +20,7 @@ fn finding_contains_evidence() {
         }],
         workspace_package: None,
         docs_url: None,
+        risk: Default::default(),
     };
 
     assert_eq!(finding.rule_id, "code-marker.todo");

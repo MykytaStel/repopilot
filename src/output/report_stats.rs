@@ -128,14 +128,7 @@ pub(crate) fn category_order() -> [FindingCategory; 5] {
 
 pub(crate) fn sorted_findings(findings: &[Finding]) -> Vec<&Finding> {
     let mut sorted = findings.iter().collect::<Vec<_>>();
-    sorted.sort_by(|left, right| {
-        right
-            .severity
-            .cmp(&left.severity)
-            .then_with(|| category_rank(&left.category).cmp(&category_rank(&right.category)))
-            .then_with(|| left.rule_id.cmp(&right.rule_id))
-            .then_with(|| finding_location_key(left).cmp(&finding_location_key(right)))
-    });
+    sorted.sort_by(|left, right| crate::risk::compare_findings(left, right));
     sorted
 }
 
@@ -197,18 +190,4 @@ pub(crate) fn risk_label_for_counts(
     } else {
         "Clean"
     }
-}
-
-fn category_rank(category: &FindingCategory) -> usize {
-    match category {
-        FindingCategory::Security => 0,
-        FindingCategory::Architecture => 1,
-        FindingCategory::Framework => 2,
-        FindingCategory::CodeQuality => 3,
-        FindingCategory::Testing => 4,
-    }
-}
-
-fn finding_location_key(finding: &Finding) -> String {
-    first_location(finding).unwrap_or_default()
 }

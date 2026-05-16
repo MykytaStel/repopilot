@@ -14,6 +14,7 @@ use repopilot::findings::types::Finding;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
+use repopilot::risk::{apply_workspace_hotspot_overlay, sort_findings};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::{LanguageSummary, ScanSummary};
@@ -185,6 +186,9 @@ fn scan_workspace(path: &Path, scan_config: &ScanConfig) -> Result<ScanSummary, 
     }
 
     deduplicate_workspace_findings(&mut merged.findings);
+    apply_workspace_hotspot_overlay(&mut merged.findings);
+    sort_findings(&mut merged.findings);
+    merged.health_score = ScanSummary::compute_health_score(&merged.findings, merged.lines_of_code);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
     Ok(merged)
 }

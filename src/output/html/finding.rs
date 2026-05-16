@@ -95,6 +95,14 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         r#"<p class="finding-meta"><strong>Recommendation:</strong> {}</p>"#,
         escape_html(finding.recommendation_or_default())
     );
+    let risk = format!(
+        r#"<p class="finding-meta"><strong>Priority:</strong> {} (risk {}/100){}</p>"#,
+        finding.risk.priority.label(),
+        finding.risk.score,
+        risk_reason_text(finding)
+            .map(|reasons| format!(" - {}", escape_html(&reasons)))
+            .unwrap_or_default()
+    );
     let docs = finding
         .docs_url
         .as_ref()
@@ -108,9 +116,10 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         .unwrap_or_default();
 
     format!(
-        r#"<article class="finding-card" data-severity="{}" data-confidence="{}" data-category="{}" data-rule="{}">
-  <div class="finding-title"><span class="badge {}">{}</span><span class="badge confidence">confidence {}</span><strong>{}</strong>{}</div>
+        r#"<article class="finding-card" data-severity="{}" data-confidence="{}" data-priority="{}" data-category="{}" data-rule="{}">
+  <div class="finding-title"><span class="badge {}">{}</span><span class="badge confidence">confidence {}</span><span class="badge confidence">{}</span><strong>{}</strong>{}</div>
   <p class="finding-meta"><strong>Rule:</strong> <code>{}</code></p>
+  {}
   {}
   {}
   {}
@@ -119,11 +128,13 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
 </article>"#,
         finding.severity.lowercase_label(),
         finding.confidence.lowercase_label(),
+        finding.risk.priority.label(),
         finding.category.label(),
         escape_html(&finding.rule_id),
         finding.severity.lowercase_label(),
         finding.severity.label(),
         finding.confidence.label(),
+        finding.risk.priority.label(),
         escape_html(&finding.title),
         status,
         escape_html(&finding.rule_id),
@@ -131,8 +142,22 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         evidence,
         context,
         recommendation,
+        risk,
         docs
     )
+}
+
+fn risk_reason_text(finding: &Finding) -> Option<String> {
+    let reasons = finding
+        .risk
+        .signals
+        .iter()
+        .filter(|signal| !signal.id.starts_with("severity."))
+        .take(3)
+        .map(|signal| format!("{} ({:+})", signal.label, signal.weight))
+        .collect::<Vec<_>>();
+
+    (!reasons.is_empty()).then(|| reasons.join(", "))
 }
 
 fn category_title(category: &FindingCategory) -> &'static str {

@@ -27,5 +27,6 @@ pub mod output;
 pub mod receipt;
 pub mod report;
 pub mod review;
+pub mod risk;
 pub mod rules;
 pub mod scan;

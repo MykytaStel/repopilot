@@ -270,6 +270,16 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
     let severity = color::severity_label(finding.severity_label());
     writeln!(output, "      [{}] {}", severity, finding.title).unwrap();
     writeln!(output, "        Confidence: {}", finding.confidence_label()).unwrap();
+    writeln!(
+        output,
+        "        Priority: {} (risk {}/100)",
+        finding.risk.priority.label(),
+        finding.risk.score
+    )
+    .unwrap();
+    if let Some(reasons) = risk_reason_text(finding) {
+        writeln!(output, "        Risk signals: {reasons}").unwrap();
+    }
     if let Some(status) = status {
         writeln!(output, "        Baseline: {status}").unwrap();
     }
@@ -306,6 +316,19 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
     if let Some(url) = &finding.docs_url {
         writeln!(output, "        Docs: {url}").unwrap();
     }
+}
+
+fn risk_reason_text(finding: &Finding) -> Option<String> {
+    let reasons = finding
+        .risk
+        .signals
+        .iter()
+        .filter(|signal| !signal.id.starts_with("severity."))
+        .take(3)
+        .map(|signal| format!("{} ({:+})", signal.label, signal.weight))
+        .collect::<Vec<_>>();
+
+    (!reasons.is_empty()).then(|| reasons.join(", "))
 }
 
 fn workspace_risk_table(output: &mut String, findings: &[Finding]) {

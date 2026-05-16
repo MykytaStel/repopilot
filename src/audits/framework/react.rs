@@ -54,6 +54,7 @@ impl ProjectAudit for ReactClassComponentAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                     break; // one finding per file
                 }
@@ -116,6 +117,7 @@ impl ProjectAudit for ReactPropTypesAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            risk: Default::default(),
                     });
                     break; // one finding per file
                 }
