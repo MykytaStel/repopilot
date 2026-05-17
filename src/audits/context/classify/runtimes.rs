@@ -1,4 +1,5 @@
-use super::helpers::{path_contains_component, push_unique};
+use super::helpers::push_unique;
+use super::signals::ContextSignals;
 use crate::audits::context::model::{FrameworkKind, LanguageKind, RuntimeKind};
 use std::path::Path;
 
@@ -8,8 +9,32 @@ pub fn classify_runtimes(
     content: &str,
     language: LanguageKind,
     frameworks: &[FrameworkKind],
+    signals: &ContextSignals,
 ) {
     // All patterns are lowercase in their respective source languages — no allocation needed.
+    classify_framework_runtimes(runtimes, frameworks);
+    classify_node_runtime(runtimes, content, frameworks);
+
+    if language == LanguageKind::Rust {
+        classify_rust_runtime(runtimes, path);
+    }
+
+    classify_language_runtimes(runtimes, language);
+
+    if signals.is_infrastructure_context() {
+        push_unique(runtimes, RuntimeKind::Infrastructure);
+    }
+
+    if frameworks.contains(&FrameworkKind::Android) {
+        push_unique(runtimes, RuntimeKind::Android);
+    }
+
+    if runtimes.is_empty() {
+        push_unique(runtimes, RuntimeKind::Unknown);
+    }
+}
+
+fn classify_framework_runtimes(runtimes: &mut Vec<RuntimeKind>, frameworks: &[FrameworkKind]) {
     if frameworks.contains(&FrameworkKind::ReactNative) || frameworks.contains(&FrameworkKind::Expo)
     {
         push_unique(runtimes, RuntimeKind::ReactNative);
@@ -22,14 +47,6 @@ pub fn classify_runtimes(
         push_unique(runtimes, RuntimeKind::Browser);
     }
 
-    if frameworks.contains(&FrameworkKind::NodeJs)
-        || content.contains("process.env")
-        || content.contains("from 'node:")
-        || content.contains("from \"node:")
-    {
-        push_unique(runtimes, RuntimeKind::Node);
-    }
-
     if frameworks.contains(&FrameworkKind::Unity) {
         push_unique(runtimes, RuntimeKind::Unity);
     }
@@ -37,20 +54,36 @@ pub fn classify_runtimes(
     if frameworks.contains(&FrameworkKind::DotNet) {
         push_unique(runtimes, RuntimeKind::DotNet);
     }
+}
 
-    if language == LanguageKind::Rust {
-        let file_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default();
-
-        if file_name == "main.rs" {
-            push_unique(runtimes, RuntimeKind::RustCli);
-        } else {
-            push_unique(runtimes, RuntimeKind::RustLibrary);
-        }
+fn classify_node_runtime(
+    runtimes: &mut Vec<RuntimeKind>,
+    content: &str,
+    frameworks: &[FrameworkKind],
+) {
+    if frameworks.contains(&FrameworkKind::NodeJs)
+        || content.contains("process.env")
+        || content.contains("from 'node:")
+        || content.contains("from \"node:")
+    {
+        push_unique(runtimes, RuntimeKind::Node);
     }
+}
 
+fn classify_rust_runtime(runtimes: &mut Vec<RuntimeKind>, path: &Path) {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+
+    if file_name == "main.rs" {
+        push_unique(runtimes, RuntimeKind::RustCli);
+    } else {
+        push_unique(runtimes, RuntimeKind::RustLibrary);
+    }
+}
+
+fn classify_language_runtimes(runtimes: &mut Vec<RuntimeKind>, language: LanguageKind) {
     if language == LanguageKind::Python {
         push_unique(runtimes, RuntimeKind::Python);
     }
@@ -75,32 +108,5 @@ pub fn classify_runtimes(
         LanguageKind::C | LanguageKind::Cpp | LanguageKind::CHeader | LanguageKind::Swift
     ) {
         push_unique(runtimes, RuntimeKind::Native);
-    }
-
-    if matches!(
-        language,
-        LanguageKind::Terraform | LanguageKind::Dockerfile | LanguageKind::Nix
-    ) || path_contains_component(
-        path,
-        &[
-            "infra",
-            "infrastructure",
-            "terraform",
-            "k8s",
-            "kubernetes",
-            "helm",
-            ".github",
-            "workflows",
-        ],
-    ) {
-        push_unique(runtimes, RuntimeKind::Infrastructure);
-    }
-
-    if frameworks.contains(&FrameworkKind::Android) {
-        push_unique(runtimes, RuntimeKind::Android);
-    }
-
-    if runtimes.is_empty() {
-        push_unique(runtimes, RuntimeKind::Unknown);
     }
 }

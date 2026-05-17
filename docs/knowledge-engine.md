@@ -47,7 +47,6 @@ This lifecycle matters more than the raw number of rules. A new rule should not
 ship unless it produces evidence-backed findings, has a recommendation, and can
 be inspected through the existing diagnostic commands.
 
-## Diagnostics
 ## Context Taxonomy
 
 The context classifier separates language, framework, file role, paradigm, and runtime.
@@ -59,6 +58,7 @@ object-oriented service should not receive the same generic interpretation.
 so future rules can narrow applicability instead of treating every file as normal
 application code.
 
+## Diagnostics
 
 Use the inspection commands when debugging rule behavior:
 
@@ -84,3 +84,33 @@ file is classified before rule decisions are applied.
 The goal is to make the internal contract clear enough that local overlays can
 be designed in a later 0.x release without breaking the existing command and
 report behavior.
+
+## Shared Context Signals
+
+The 0.12 context classifier keeps reusable signal logic in one place before it is
+used by role, paradigm, and runtime classification. The signal model is
+deterministic and local: each signal records path, language, or content evidence
+with a confidence level and a short reason label. This avoids duplicated lists of
+infrastructure paths, declarative languages, and functional-first languages.
+
+This structure is intentional:
+
+```text
+path/language/content
+-> shared context signals
+-> roles
+-> paradigms
+-> runtimes
+-> rule applicability and calibration
+```
+
+Future rules should prefer the shared context signals instead of adding another
+local copy of the same path or language checks inside an individual audit.
+
+## Future Local Overlays
+
+The intended 0.13 direction is inspectable local calibration, not a plugin
+runtime. Local overlays should be normal files that users can review, commit,
+diff, or delete. They may tune known rule severity, confidence, or suppression
+decisions, but they must not execute arbitrary code, load remote packs, or change
+scan behavior silently.
