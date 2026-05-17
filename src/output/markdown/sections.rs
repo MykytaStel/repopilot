@@ -16,10 +16,24 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
     writeln!(output, "- **Health score:** {}/100", stats.health_score).unwrap();
     writeln!(
         output,
-        "- **Findings:** {} ({:.1}/kloc)",
+        "- **Findings:** {} visible ({:.1}/kloc)",
         stats.total_findings, stats.finding_density
     )
     .unwrap();
+    if summary.hidden_suggestions_count > 0 {
+        writeln!(
+            output,
+            "- **Hidden suggestions:** {} maintainability/testing",
+            summary.hidden_suggestions_count
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "- **Note:** {} maintainability/testing suggestions hidden. Run with `--profile strict` to view.",
+            summary.hidden_suggestions_count
+        )
+        .unwrap();
+    }
     writeln!(output, "- **Files analyzed:** {}", summary.files_count).unwrap();
     writeln!(
         output,

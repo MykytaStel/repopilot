@@ -152,6 +152,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         .collect();
 
     let in_diff_findings: Vec<_> = report.in_diff_findings().into_iter().cloned().collect();
+    let visible_findings_count = in_diff_findings.len();
     let health_score =
         ScanSummary::compute_health_score(&in_diff_findings, report.summary.lines_of_code);
     BaselineScanReport {
@@ -173,6 +174,9 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             coupling_graph: report.summary.coupling_graph.clone(),
             scan_duration_us: report.summary.scan_duration_us,
             health_score,
+            visible_findings_count,
+            hidden_suggestions_count: report.summary.hidden_suggestions_count,
+            visibility_profile: report.summary.visibility_profile.clone(),
             files_skipped_by_limit: report.summary.files_skipped_by_limit,
             files_skipped_repopilotignore: report.summary.files_skipped_repopilotignore,
             repopilotignore_path: report.summary.repopilotignore_path.clone(),

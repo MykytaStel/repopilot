@@ -171,7 +171,7 @@ fn min_severity_recomputes_health_score_for_markdown_output() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("- **Risk:** Clean"));
     assert!(stdout.contains("- **Health score:** 100/100"));
-    assert!(stdout.contains("- **Findings:** 0 (0.0/kloc)"));
+    assert!(stdout.contains("- **Findings:** 0 visible (0.0/kloc)"));
 }
 
 #[test]

@@ -78,6 +78,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
 
     let scan_duration_us = start.elapsed().as_micros() as u64;
     let health_score = ScanSummary::compute_health_score(&findings, facts.lines_of_code);
+    let visible_findings_count = findings.len();
 
     Ok(ScanSummary {
         root_path: facts.root_path,
@@ -97,6 +98,9 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         coupling_graph: Some(coupling_graph),
         scan_duration_us,
         health_score,
+        visible_findings_count,
+        hidden_suggestions_count: 0,
+        visibility_profile: None,
         files_skipped_by_limit: facts.files_skipped_by_limit,
         files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
         repopilotignore_path: facts.repopilotignore_path,

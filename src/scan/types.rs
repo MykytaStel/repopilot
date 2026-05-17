@@ -68,6 +68,12 @@ pub struct ScanSummary {
     #[serde(default)]
     pub health_score: u8,
     #[serde(default)]
+    pub visible_findings_count: usize,
+    #[serde(default)]
+    pub hidden_suggestions_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_profile: Option<String>,
+    #[serde(default)]
     pub files_skipped_by_limit: usize,
 
     #[serde(default)]

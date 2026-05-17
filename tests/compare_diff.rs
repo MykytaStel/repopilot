@@ -62,6 +62,7 @@ fn compare_json_renders_valid_json() {
 }
 
 fn summary(findings: Vec<Finding>) -> ScanSummary {
+    let visible_findings_count = findings.len();
     ScanSummary {
         root_path: PathBuf::from("demo"),
         files_discovered: 0,
@@ -80,6 +81,9 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         coupling_graph: None,
         scan_duration_us: 0,
         health_score: 0,
+        visible_findings_count,
+        hidden_suggestions_count: 0,
+        visibility_profile: None,
         files_skipped_by_limit: 0,
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,

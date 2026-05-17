@@ -60,6 +60,13 @@ impl FileAudit for RustPanicRiskAudit {
                 continue;
             }
 
+            if should_ignore_contextual_panic_pattern(pattern, trimmed) {
+                if sanitized.ends_with(';') {
+                    pending_render_write = false;
+                }
+                continue;
+            }
+
             let decision = decide_for_audit_context(
                 RULE_ID,
                 &context,
@@ -71,13 +78,19 @@ impl FileAudit for RustPanicRiskAudit {
                 continue;
             }
 
+            let severity = if is_external_failure_path(pattern, sanitized) && !context.is_test {
+                decision.severity.max(Severity::High)
+            } else {
+                decision.severity
+            };
+
             findings.push(build_finding(
                 file,
                 line_number,
                 trimmed,
                 pattern,
                 &context,
-                decision.severity,
+                severity,
             ));
 
             if sanitized.ends_with(';') {
@@ -151,6 +164,67 @@ fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
     }
 
     None
+}
+
+fn should_ignore_contextual_panic_pattern(pattern: RustPanicPattern, raw_trimmed: &str) -> bool {
+    if pattern != RustPanicPattern::Expect {
+        return false;
+    }
+
+    let lower = raw_trimmed.to_lowercase();
+    (lower.contains("valid") && lower.contains("regex") && lower.contains(".expect("))
+        || (lower.contains("mutex") && lower.contains("poison") && lower.contains(".expect("))
+}
+
+fn is_external_failure_path(pattern: RustPanicPattern, sanitized: &str) -> bool {
+    if !matches!(
+        pattern,
+        RustPanicPattern::Unwrap | RustPanicPattern::Expect | RustPanicPattern::Panic
+    ) {
+        return false;
+    }
+
+    let lower = sanitized.to_lowercase();
+    const EXTERNAL_SIGNALS: &[&str] = &[
+        ".parse(",
+        ".parse::<",
+        "from_str(",
+        "from_slice(",
+        "serde_json",
+        "json",
+        "env::var",
+        "std::env",
+        "var_os(",
+        "fs::",
+        "std::fs",
+        "file::open",
+        "read_to_string",
+        ".read_",
+        ".recv",
+        ".send",
+        "request",
+        "reqwest",
+        "hyper",
+        "axum",
+        "headers",
+        "query",
+        "params",
+        "body",
+        "sqlx",
+        "diesel",
+        "postgres",
+        "mysql",
+        "redis",
+        "database",
+        "db.",
+        "pool.",
+        "conn.",
+        "tcpstream",
+        "udp",
+        "socket",
+    ];
+
+    EXTERNAL_SIGNALS.iter().any(|signal| lower.contains(signal))
 }
 
 fn is_infallible_render_write_start(path: &std::path::Path, trimmed: &str) -> bool {
@@ -549,6 +623,47 @@ mod tests {
         assert_eq!(findings[0].confidence, Confidence::High);
         assert!(findings[0].title.contains("expect()"));
         assert!(findings[0].description.contains("Rust domain code"));
+    }
+
+    #[test]
+    fn ignores_valid_regex_expect_in_production_code() {
+        let file = facts(
+            "src/domain/parser.rs",
+            "let matcher = Regex::new(r\"^[a-z]+$\").expect(\"valid parser regex\");",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn ignores_mutex_poison_invariant_expect() {
+        let file = facts(
+            "src/state.rs",
+            "let guard = cache.lock().expect(\"cache mutex should not be poisoned\");",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn upgrades_external_parse_unwrap_to_high() {
+        let file = facts(
+            "src/domain/parser.rs",
+            "let value = raw.parse::<u64>().unwrap();",
+            false,
+        );
+
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::High);
+        assert_eq!(findings[0].confidence, Confidence::High);
     }
 
     #[test]

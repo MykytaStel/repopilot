@@ -22,10 +22,24 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     .unwrap();
     writeln!(
         output,
-        "Findings: {} ({:.1}/kloc)",
+        "Findings: {} visible ({:.1}/kloc)",
         stats.total_findings, stats.finding_density
     )
     .unwrap();
+    if summary.hidden_suggestions_count > 0 {
+        writeln!(
+            output,
+            "Hidden suggestions: {} maintainability/testing",
+            summary.hidden_suggestions_count
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "Note: {} maintainability/testing suggestions hidden. Run with --profile strict to view.",
+            summary.hidden_suggestions_count
+        )
+        .unwrap();
+    }
     writeln!(
         output,
         "Directories analyzed: {} | Lines of code: {}",

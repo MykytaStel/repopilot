@@ -27,7 +27,15 @@ fn workspace_scan_does_not_duplicate_package_file_findings() {
     .expect("failed to write source file");
 
     let output = repopilot()
-        .args(["scan", ".", "--workspace", "--format", "json"])
+        .args([
+            "scan",
+            ".",
+            "--workspace",
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+        ])
         .current_dir(root)
         .output()
         .expect("failed to run repopilot scan");

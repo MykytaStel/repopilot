@@ -87,6 +87,7 @@ fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
     apply_cluster_overlay(&mut merged.findings);
     sort_findings(&mut merged.findings);
     merged.health_score = ScanSummary::compute_health_score(&merged.findings, merged.lines_of_code);
+    merged.visible_findings_count = merged.findings.len();
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
 }
 
@@ -132,6 +133,9 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
         merged.repopilotignore_path = package.repopilotignore_path.clone();
     }
     merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
+    merged.hidden_suggestions_count = merged
+        .hidden_suggestions_count
+        .saturating_add(package.hidden_suggestions_count);
     merge_language_summaries(&mut merged.languages, package.languages);
     merged.findings.extend(package.findings);
 }
