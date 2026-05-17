@@ -1,5 +1,5 @@
 use crate::audits::traits::FileAudit;
-use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -148,6 +148,7 @@ fn is_secret_literal(value: &str) -> bool {
     let lower = unquoted.to_lowercase();
 
     let is_placeholder = unquoted.is_empty()
+        || is_env_var_reference(unquoted)
         || unquoted.starts_with("${")
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
@@ -160,6 +161,12 @@ fn is_secret_literal(value: &str) -> bool {
                 | "nil"
                 | "none"
                 | "your_key_here"
+                | "short"
+                | "password"
+                | "test-password"
+                | "test_password"
+                | "dummy"
+                | "example"
                 | "changeme"
                 | "replace_me"
                 | "placeholder"
@@ -179,21 +186,137 @@ fn is_secret_literal(value: &str) -> bool {
         "aes", "aes256", "rsa", "hmac", "basic", "digest", "oauth", "oauth2", "true", "false",
     ];
 
-    if is_placeholder || NON_SECRET_VALUES.contains(&lower.as_str()) || unquoted.len() <= 6 {
+    if is_placeholder || NON_SECRET_VALUES.contains(&lower.as_str()) || unquoted.len() < 8 {
         return false;
     }
 
     // Low-entropy strings (repetitive English words) are not real secrets.
     // Real API keys/tokens have high character diversity (entropy > 3.0 bits/char).
-    if unquoted.len() >= 8 && shannon_entropy(unquoted) < 3.0 {
+    if shannon_entropy(unquoted) < 3.0 {
         return false;
     }
 
-    value.starts_with('"')
-        || value.starts_with('\'')
-        || !unquoted.chars().any(|c| {
-            c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?' | '<' | '>')
-        })
+    if value.starts_with('"') || value.starts_with('\'') {
+        return true;
+    }
+
+    is_unquoted_secret_token(unquoted)
+}
+
+fn is_unquoted_secret_token(value: &str) -> bool {
+    if value.chars().any(|c| {
+        c.is_whitespace() || matches!(c, '(' | ')' | '[' | ']' | '{' | '}' | '?' | '<' | '>')
+    }) {
+        return false;
+    }
+
+    if has_known_secret_prefix(value) {
+        return true;
+    }
+
+    if looks_like_code_reference(value) {
+        return false;
+    }
+
+    let has_letter = value.chars().any(|c| c.is_ascii_alphabetic());
+    let has_digit = value.chars().any(|c| c.is_ascii_digit());
+    let has_symbol = value.chars().any(|c| !c.is_ascii_alphanumeric());
+
+    value.len() >= 16 && has_letter && (has_digit || has_symbol)
+}
+
+fn is_env_var_reference(value: &str) -> bool {
+    let value = value.trim();
+    if let Some(name) = value.strip_prefix('$') {
+        let name = name
+            .strip_prefix('{')
+            .and_then(|name| name.strip_suffix('}'))
+            .unwrap_or(name);
+        return !name.is_empty()
+            && name
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    }
+
+    false
+}
+
+fn has_known_secret_prefix(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("sk-")
+        || lower.starts_with("sk_")
+        || lower.starts_with("sk_live_")
+        || lower.starts_with("sk_test_")
+        || lower.starts_with("ghp_")
+        || lower.starts_with("gho_")
+        || lower.starts_with("ghu_")
+        || lower.starts_with("ghs_")
+        || lower.starts_with("github_pat_")
+        || lower.starts_with("xoxb-")
+        || lower.starts_with("xoxp-")
+        || lower.starts_with("ya29.")
+        || value.starts_with("AKIA")
+        || value.starts_with("ASIA")
+        || value.starts_with("AIza")
+}
+
+fn looks_like_code_reference(value: &str) -> bool {
+    let value = value
+        .trim_start_matches('&')
+        .trim_start_matches('*')
+        .trim_start_matches('$');
+    let has_path_separator = value.contains('.') || value.contains("::");
+    let parts: Vec<&str> = if value.contains("::") {
+        value.split("::").collect()
+    } else {
+        value.split('.').collect()
+    };
+
+    if parts.is_empty() || !parts.iter().all(|part| is_identifier(part)) {
+        return false;
+    }
+
+    if has_path_separator || looks_like_secret_name(value) || value.contains('_') {
+        return true;
+    }
+
+    let has_digit = value.chars().any(|c| c.is_ascii_digit());
+    let is_lowercase_word = value
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+    let is_uppercase_name = value
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_');
+
+    !has_digit && (is_lowercase_word || is_uppercase_name)
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+fn looks_like_secret_name(value: &str) -> bool {
+    let compact_value = compact_secret_name(value);
+    SECRET_KEYS.iter().any(|key| {
+        let compact_key = compact_secret_name(key);
+        compact_value.contains(&compact_key)
+    })
+}
+
+fn compact_secret_name(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// Computes Shannon entropy in bits per character.
@@ -232,7 +355,7 @@ fn build_finding(
         ),
         category: FindingCategory::Security,
         severity: Severity::High,
-        confidence: Default::default(),
+        confidence: Confidence::High,
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: line_number,

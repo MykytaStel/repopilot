@@ -76,6 +76,24 @@ fn secret_candidate_does_not_flag_secret_scanner_variable_names() {
 }
 
 #[test]
+fn secret_candidate_does_not_flag_variable_references() {
+    for line in [
+        "api_key=api_key,\n",
+        "api_key=settings.openai_api_key,\n",
+        "api_key=process.env.OPENAI_API_KEY,\n",
+        "password=password,\n",
+        "access_token=self.access_token,\n",
+    ] {
+        let f = file("src/provider.py", line);
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "variable reference must not be flagged as a secret: `{line}` -> {findings:?}"
+        );
+    }
+}
+
+#[test]
 fn secret_candidate_detects_secret_named_literals() {
     let file = file("src/config.rs", "let jwt = \"abc123xyz987\";\n");
 
@@ -160,6 +178,12 @@ fn secret_candidate_skips_low_entropy_values() {
         r#"const SECRET = "testtest";"#,
         r#"password = "aaaaaaaa";"#,
         r#"api_key = "abcabcab";"#,
+        r#"password = "password";"#,
+        r#"password = "test-password";"#,
+        r#"secret = "dummy";"#,
+        r#"token = "example";"#,
+        r#"api_key = "$PGPASSWORD";"#,
+        r#"token = "${TOKEN}";"#,
     ] {
         let f = file("src/config.rs", &format!("{line}\n"));
         let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
@@ -176,12 +200,17 @@ fn secret_candidate_flags_high_entropy_values() {
     for line in [
         r#"api_key = "xK9mQ2pL8rT5vN3wY7";"#,
         r#"secret_key = "Zj4Hn8Qw2Kp6Mv9Rs";"#,
+        r#"api_key = sk_live_xK9mQ2pL8rT5vN3wY7;"#,
     ] {
         let f = file("src/config.rs", &format!("{line}\n"));
         let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
         assert!(
             !findings.is_empty(),
             "high-entropy value must be flagged: `{line}`"
+        );
+        assert_eq!(
+            findings[0].confidence,
+            repopilot::findings::types::Confidence::High
         );
     }
 }

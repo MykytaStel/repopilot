@@ -1,4 +1,6 @@
-use crate::cli::{FailOnArg, OutputFormatArg, PriorityArg, SeverityArg, parse_byte_size};
+use crate::cli::{
+    FailOnArg, OutputFormatArg, PriorityArg, ScanProfileArg, SeverityArg, parse_byte_size,
+};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -78,6 +80,14 @@ pub struct ScanOptions {
     /// Print scan and render timing to stderr
     #[arg(long)]
     pub verbose: bool,
+
+    /// Report visibility profile: default hides low-signal suggestions; strict shows all findings
+    #[arg(long, value_enum)]
+    pub profile: Option<ScanProfileArg>,
+
+    /// Include maintainability and testing suggestions hidden by the default profile
+    #[arg(long)]
+    pub include_maintainability: bool,
 
     /// Print per-phase scan timing breakdown to stderr
     #[arg(long)]

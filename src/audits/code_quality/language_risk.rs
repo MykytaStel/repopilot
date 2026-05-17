@@ -325,7 +325,10 @@ impl JsRiskPattern {
     }
 
     fn base_severity(self) -> Severity {
-        Severity::Medium
+        match self {
+            Self::ProcessExit => Severity::High,
+            Self::ThrowError => Severity::Medium,
+        }
     }
 }
 
@@ -552,6 +555,30 @@ mod tests {
 
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].rule_id, "language.javascript.runtime-exit-risk");
+    }
+
+    #[test]
+    fn downgrades_js_process_exit_in_script_paths() {
+        let file = facts("scripts/check.js", Some("JavaScript"), "process.exit(1);\n");
+
+        let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::Low);
+    }
+
+    #[test]
+    fn reports_js_process_exit_in_library_code_as_high() {
+        let file = facts(
+            "src/lib/runtime.js",
+            Some("JavaScript"),
+            "export function stop() { process.exit(1); }\n",
+        );
+
+        let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::High);
     }
 
     #[test]

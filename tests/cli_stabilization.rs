@@ -189,7 +189,16 @@ fn exit_codes_distinguish_findings_usage_and_runtime_errors() {
     let project = create_project();
 
     let threshold = run(
-        &["scan", ".", "--fail-on", "low", "--format", "json"],
+        &[
+            "scan",
+            ".",
+            "--fail-on",
+            "low",
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+        ],
         project.path(),
     );
     assert_eq!(threshold.status.code(), Some(1));

@@ -12,6 +12,7 @@ use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
+use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
@@ -88,6 +89,9 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     if !options.rule.is_empty() {
         apply_rule_filter(&mut summary, &options.rule);
     }
+
+    let visibility_profile = scan_visibility_profile(&options);
+    apply_visibility_profile(&mut summary, visibility_profile);
 
     if options.baseline.is_some() || options.fail_on.is_some() || fail_on_priority.is_some() {
         let mut baseline_report = match options.baseline.clone() {
@@ -189,6 +193,7 @@ fn apply_min_priority_filter_to_baseline_report(
         report.findings.push(status);
     }
 
+    report.summary.visible_findings_count = report.summary.findings.len();
     report.summary.health_score =
         ScanSummary::compute_health_score(&report.summary.findings, report.summary.lines_of_code);
 }
@@ -197,6 +202,20 @@ fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
     summary
         .findings
         .retain(|f| rules.iter().any(|r| r == &f.rule_id));
+    summary.visible_findings_count = summary.findings.len();
+    summary.health_score =
+        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+}
+
+fn scan_visibility_profile(options: &ScanOptions) -> FindingVisibilityProfile {
+    if options.include_maintainability || options.verbose || !options.rule.is_empty() {
+        return FindingVisibilityProfile::Strict;
+    }
+
+    match options.profile {
+        Some(crate::cli::ScanProfileArg::Strict) => FindingVisibilityProfile::Strict,
+        Some(crate::cli::ScanProfileArg::Default) | None => FindingVisibilityProfile::Default,
+    }
 }
 
 fn print_timing_breakdown(summary: &ScanSummary) {

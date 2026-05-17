@@ -11,11 +11,18 @@ pub(super) fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
         summary_card(format!("{}/100", stats.health_score), "Health"),
-        summary_card(stats.total_findings, "Findings"),
+        summary_card(stats.total_findings, "Visible Findings"),
         summary_card(summary.files_count, "Files"),
         summary_card(summary.lines_of_code, "Lines of Code"),
         summary_card(format!("{:.1}/kloc", stats.finding_density), "Density"),
     ];
+
+    if summary.hidden_suggestions_count > 0 {
+        cards.push(summary_card(
+            summary.hidden_suggestions_count,
+            "Hidden Suggestions",
+        ));
+    }
 
     if summary.skipped_files_count > 0 {
         cards.push(summary_card(summary.skipped_files_count, "Skipped"));
@@ -31,11 +38,18 @@ pub(super) fn render_baseline_summary_cards(
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
         summary_card(format!("{}/100", stats.health_score), "Health"),
-        summary_card(report.summary.findings.len(), "Findings"),
+        summary_card(report.summary.findings.len(), "Visible Findings"),
         summary_card(report.new_count(), "New"),
         summary_card(report.existing_count(), "Existing"),
         summary_card(report.summary.files_count, "Files"),
     ];
+
+    if report.summary.hidden_suggestions_count > 0 {
+        cards.push(summary_card(
+            report.summary.hidden_suggestions_count,
+            "Hidden Suggestions",
+        ));
+    }
 
     if report.summary.skipped_files_count > 0 {
         cards.push(summary_card(report.summary.skipped_files_count, "Skipped"));
@@ -65,7 +79,7 @@ pub(super) fn render_baseline_meta(
     format!(r#"<p class="meta">{baseline}.{gate}</p>"#)
 }
 
-pub(super) fn render_risk_section(stats: &ReportStats) -> String {
+pub(super) fn render_risk_section(summary: &ScanSummary, stats: &ReportStats) -> String {
     let severity_items = severity_order()
         .iter()
         .filter_map(|severity| {
@@ -110,8 +124,17 @@ pub(super) fn render_risk_section(stats: &ReportStats) -> String {
         )
     };
 
+    let hidden_note = if summary.hidden_suggestions_count > 0 {
+        format!(
+            r#"<p class="meta">{} maintainability/testing suggestions hidden. Run with <code>--profile strict</code> to view.</p>"#,
+            summary.hidden_suggestions_count
+        )
+    } else {
+        String::new()
+    };
+
     format!(
-        r#"<section class="panel"><h2>Risk Summary</h2><h3>Severity</h3>{severity}{categories}</section>"#
+        r#"<section class="panel"><h2>Risk Summary</h2>{hidden_note}<h3>Severity</h3>{severity}{categories}</section>"#
     )
 }
 

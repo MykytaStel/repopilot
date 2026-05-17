@@ -121,7 +121,16 @@ fn classify_entrypoint_and_path_roles(
         push_unique(roles, FileRole::Domain);
     }
 
-    if path_contains_component(path, &["script", "scripts", "bin", "tools"]) {
+    if path_contains_component(path, &["script", "scripts", "bin", "tools", "guards"])
+        || is_guard_file(path)
+    {
         push_unique(roles, FileRole::Script);
     }
+}
+
+fn is_guard_file(path: &Path) -> bool {
+    path.file_stem()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_lowercase().contains("guard"))
+        .unwrap_or(false)
 }

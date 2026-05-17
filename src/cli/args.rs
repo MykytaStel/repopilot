@@ -37,6 +37,12 @@ pub enum PriorityArg {
     P3,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum ScanProfileArg {
+    Default,
+    Strict,
+}
+
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum KnowledgeSectionArg {
     All,

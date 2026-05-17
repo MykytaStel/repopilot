@@ -53,6 +53,9 @@ pub fn render_with_baseline(
         lines_of_code: report.summary.lines_of_code,
         skipped_files_count: report.summary.skipped_files_count,
         skipped_bytes: report.summary.skipped_bytes,
+        visible_findings_count: report.summary.findings.len(),
+        hidden_suggestions_count: report.summary.hidden_suggestions_count,
+        visibility_profile: report.summary.visibility_profile.as_deref(),
         languages: &report.summary.languages,
         risk_summary: RiskSummary::from_findings(&report.summary.findings),
         baseline: BaselineJsonMetadata {
@@ -80,6 +83,10 @@ struct BaselineJsonReport<'a> {
     lines_of_code: usize,
     skipped_files_count: usize,
     skipped_bytes: u64,
+    visible_findings_count: usize,
+    hidden_suggestions_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    visibility_profile: Option<&'a str>,
     languages: &'a [LanguageSummary],
     risk_summary: RiskSummary,
     baseline: BaselineJsonMetadata,

@@ -243,7 +243,7 @@ fn lower_severity_new_findings_do_not_fail_higher_threshold() {
         .expect("failed to write test file");
 
     let output = repopilot()
-        .args(["scan", ".", "--fail-on", "new-high"])
+        .args(["scan", ".", "--fail-on", "new-high", "--profile", "strict"])
         .current_dir(temp.path())
         .output()
         .expect("failed to run scan");
