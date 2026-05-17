@@ -457,7 +457,6 @@ These are planned ideas, not current features:
 
 - Change Risk Map
 - Better architecture drift detection
-- Optional per-platform npm binary packages for faster installs
 
 ## Documentation
 

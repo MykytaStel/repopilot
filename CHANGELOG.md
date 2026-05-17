@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Hardened npm distribution by replacing the install-time binary downloader with platform-specific optional `@repopilot/*` native packages.
+
 ## [0.11.0] - 2026-05-17
 
 ### Added

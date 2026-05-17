@@ -15,7 +15,6 @@
 		"repopilot": "bin/repopilot.js"
 	},
 	"scripts": {
-		"postinstall": "node scripts/install.js",
 		"test": "npm run test:npm",
 		"test:npm": "node --test tests/npm_wrapper.test.js",
 		"release:check": "bash scripts/verify-release.sh",
@@ -23,10 +22,16 @@
 	},
 	"files": [
 		"bin",
-		"scripts",
 		"README.md",
 		"LICENSE"
 	],
+	"optionalDependencies": {
+		"@repopilot/darwin-arm64": "0.11.0",
+		"@repopilot/darwin-x64": "0.11.0",
+		"@repopilot/linux-arm64-gnu": "0.11.0",
+		"@repopilot/linux-x64-gnu": "0.11.0",
+		"@repopilot/win32-x64-msvc": "0.11.0"
+	},
 	"keywords": [
 		"cli",
 		"audit",

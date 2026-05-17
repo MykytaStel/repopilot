@@ -26,12 +26,23 @@ RepoPilot is also packaged as an npm CLI wrapper around the native Rust binary:
 npm install -g repopilot
 ```
 
-The npm package downloads the matching GitHub Release binary during `postinstall`, verifies the `.sha256` checksum, and exposes the `repopilot` command through the package `bin` entry. This network access happens only during package installation; normal `repopilot` CLI execution is local-first and does not upload source code or call external services.
+The npm package exposes the `repopilot` command through the package `bin` entry
+and depends on platform-specific optional native packages:
+
+- `@repopilot/darwin-arm64`
+- `@repopilot/darwin-x64`
+- `@repopilot/linux-arm64-gnu`
+- `@repopilot/linux-x64-gnu`
+- `@repopilot/win32-x64-msvc`
+
+npm selects the matching optional package during install. RepoPilot does not run
+a `postinstall` downloader and does not download GitHub Release assets during npm
+installation. Normal `repopilot` CLI execution remains local-first and does not
+upload source code or call external services.
 
 Environment overrides:
 
-- `REPOPILOT_BINARY_PATH=/path/to/repopilot` uses an existing binary.
-- `REPOPILOT_SKIP_DOWNLOAD=1` skips the postinstall download.
+- `REPOPILOT_BINARY_PATH=/path/to/repopilot` uses an existing binary when optional dependencies are omitted or unsupported.
 
 Package page: <https://www.npmjs.com/package/repopilot>
 
@@ -75,17 +86,18 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 - Runtime commands do not call AI providers, telemetry endpoints, or RepoPilot servers.
 - AI workflow commands (`ai context`, `ai plan`, `ai prompt`) only format local scan findings as Markdown.
 - The curl installer downloads a GitHub Release artifact and its `.sha256` checksum, then fails closed if the checksum file cannot be downloaded, no SHA256 tool is available, or verification fails.
-- npm installation downloads a GitHub Release artifact and verifies its SHA256 checksum before placing the binary in `vendor/`.
-- `REPOPILOT_BINARY_PATH` can point the npm wrapper at a user-managed binary when download policy is restricted.
+- npm installation uses platform-specific optional packages and does not run a downloader script.
+- Platform npm packages are generated from GitHub Release archives only after their SHA256 checksum files are verified.
+- `REPOPILOT_BINARY_PATH` can point the npm wrapper at a user-managed binary when optional dependencies are omitted or unsupported.
 
-Before v1, the preferred hardening path is per-platform npm packages or signed/provenance-backed artifacts in addition to the current checksum verification.
+Before v1, the preferred hardening path is GitHub artifact attestations for release assets in addition to npm Trusted Publishing provenance.
 
 ## Publishing Policy
 
 The release workflow runs `cargo publish --dry-run` for release tags. Publishing is automated when the corresponding channel is configured:
 
 - `CRATES_IO_TOKEN` publishes the crate to crates.io.
-- `publish-npm.yml` publishes the npm package through npm Trusted Publishing / GitHub OIDC, without an npm token secret.
+- `publish-npm.yml` publishes the platform npm packages first, then the root npm package, through npm Trusted Publishing / GitHub OIDC, without an npm token secret.
 - `HOMEBREW_TAP_TOKEN` updates the Homebrew tap formula.
 
 If an optional publishing secret is absent, that channel is skipped without failing the release workflow. The GitHub Release binaries are still built and attached.

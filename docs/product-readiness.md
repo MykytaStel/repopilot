@@ -172,14 +172,18 @@ RepoPilot runtime commands must stay local-first:
 - AI commands do not call AI providers;
 - `ai context`, `ai plan`, and `ai prompt` only format local scan output as Markdown.
 
-The npm installer is allowed to download a matching GitHub Release binary during `postinstall`, but this must stay documented and controllable:
+The npm package must not download binaries during installation. It should install
+the matching platform-specific optional package from npm, and the generated
+platform packages must be built only from checksum-verified GitHub Release
+archives.
 
 ```bash
-REPOPILOT_SKIP_DOWNLOAD=1 npm install -g repopilot
-REPOPILOT_BINARY_PATH=/path/to/repopilot npm install -g repopilot
+npm install -g repopilot
+REPOPILOT_BINARY_PATH=/path/to/repopilot repopilot --version
 ```
 
-The installer must verify the release checksum before using a downloaded binary.
+`REPOPILOT_BINARY_PATH` remains the fallback for environments that omit optional
+dependencies or require a user-managed binary.
 
 ---
 
@@ -194,6 +198,7 @@ Before release, verify:
 - `cargo publish --dry-run` passes;
 - `npm run test:npm` passes;
 - `npm pack --dry-run` looks correct;
+- platform npm packages can be generated from release archives and packed with no lifecycle scripts;
 - `scripts/smoke-product.sh` passes against the release binary.
 
 The GitHub Action should support:
