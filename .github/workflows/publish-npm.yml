@@ -2,6 +2,11 @@ name: Publish npm
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v0.11.0. Defaults to package.json version."
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -13,6 +18,7 @@ jobs:
   publish-npm:
     name: Publish package to npm
     runs-on: ubuntu-latest
+    environment: npm
 
     steps:
       - name: Checkout repository
@@ -24,8 +30,70 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org/
 
+      - name: Resolve release tag
+        env:
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${EVENT_TAG:-${INPUT_TAG:-}}"
+          if [[ -z "$TAG" ]]; then
+            TAG="v$(node -p 'require("./package.json").version')"
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Verify package version matches release tag
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p 'require("./package.json").version')"
+          if [[ "$RELEASE_TAG" != "v$VERSION" ]]; then
+            echo "::error::package.json version $VERSION does not match release tag $RELEASE_TAG"
+            exit 1
+          fi
+
       - name: Verify npm version
         run: npm --version
 
-      - name: Publish to npm
+      - name: Test npm wrapper
+        run: npm run test:npm
+
+      - name: Download GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release-assets
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir dist/release-assets \
+            --pattern "repopilot-${RELEASE_TAG}-*" \
+            --clobber
+
+      - name: Generate platform npm packages
+        run: |
+          set -euo pipefail
+          node scripts/build-npm-platform-packages.js \
+            --dist dist/release-assets \
+            --out dist/npm-platform-packages \
+            > dist/npm-platform-packages.json
+
+      - name: Verify npm package dry runs
+        run: |
+          set -euo pipefail
+          npm pack --dry-run --json > dist/root-npm-pack.json
+          node -e 'const fs=require("node:fs"); const pack=JSON.parse(fs.readFileSync("dist/root-npm-pack.json","utf8"))[0]; const files=pack.files.map((file)=>file.path); if (files.some((file)=>file.startsWith("scripts/"))) { throw new Error("root npm package must not publish scripts/"); }'
+          node -e 'const fs=require("node:fs"); const packages=JSON.parse(fs.readFileSync("dist/npm-platform-packages.json","utf8")); for (const pkg of packages) console.log(pkg.directory);' |
+          while IFS= read -r package_dir; do
+            (cd "$package_dir" && npm pack --dry-run)
+          done
+
+      - name: Publish platform packages to npm
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"); const packages=JSON.parse(fs.readFileSync("dist/npm-platform-packages.json","utf8")); for (const pkg of packages) console.log(pkg.directory);' |
+          while IFS= read -r package_dir; do
+            npm publish "$package_dir" --access public
+          done
+
+      - name: Publish root package to npm
         run: npm publish

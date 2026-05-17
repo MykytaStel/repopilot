@@ -36,16 +36,28 @@ Installation aborts if checksum verification cannot be completed.
 
 ### npm package
 
-The npm package uses a `postinstall` script to download the matching native binary
-from GitHub Releases. It verifies the `.sha256` checksum before copying the binary
-into the package `vendor/` directory.
+The root npm package is a JavaScript wrapper around platform-specific optional
+native packages under the `@repopilot/*` scope. It does not run a `postinstall`
+script and does not download binaries during npm installation.
+
+The platform packages are generated from GitHub Release archives after verifying
+the matching `.sha256` checksum file. npm then installs the package matching the
+user's OS, CPU, and, on Linux, glibc runtime.
 
 Supported overrides:
 
 ```bash
-REPOPILOT_SKIP_DOWNLOAD=1
 REPOPILOT_BINARY_PATH=/path/to/repopilot
 ```
+
+If optional dependencies are omitted or blocked by policy, set
+`REPOPILOT_BINARY_PATH` or use the Cargo, Homebrew, or GitHub Releases channel.
+
+### IDE schema warnings
+
+Warnings such as VS Code failing to load `http://json.schemastore.org/nodemon.json`
+are editor schema-trust diagnostics. They do not indicate that RepoPilot's npm
+package runs install-time code or contacts Schema Store at runtime.
 
 ### Homebrew
 
@@ -106,7 +118,7 @@ Include:
 Treat these areas as security-sensitive:
 
 - release workflow;
-- npm `postinstall` installer;
+- npm platform package generation and publishing;
 - curl installer;
 - binary checksums;
 - package publishing credentials;

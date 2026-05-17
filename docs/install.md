@@ -32,19 +32,19 @@ Upgrade:
 npm update -g repopilot
 ```
 
-The npm package is a thin wrapper around the native Rust binary. During `postinstall`,
-it downloads the matching GitHub Release artifact and verifies the `.sha256`
-checksum before exposing the `repopilot` command.
+The npm package is a thin JavaScript wrapper around platform-specific optional
+native packages under the `@repopilot/*` scope. npm selects the matching package
+for your operating system and CPU during install; RepoPilot does not run a
+`postinstall` downloader.
 
 Environment overrides:
 
 ```bash
-REPOPILOT_SKIP_DOWNLOAD=1 npm install -g repopilot
 REPOPILOT_BINARY_PATH=/path/to/repopilot repopilot --version
 ```
 
-Use `REPOPILOT_BINARY_PATH` when your environment does not allow package installers
-to download binaries.
+Use `REPOPILOT_BINARY_PATH` when your environment omits optional dependencies or
+requires a user-managed binary.
 
 ### Homebrew
 
@@ -126,7 +126,7 @@ For the curl installer, add this to your shell profile if needed:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### npm install cannot download the binary
+### npm install did not install the native package
 
 Use a manually installed binary:
 
@@ -134,10 +134,10 @@ Use a manually installed binary:
 REPOPILOT_BINARY_PATH=/path/to/repopilot repopilot --version
 ```
 
-Or skip the download during installation:
+Or reinstall without omitting optional dependencies:
 
 ```bash
-REPOPILOT_SKIP_DOWNLOAD=1 npm install -g repopilot
+npm install -g repopilot
 ```
 
 ### Homebrew formula looks outdated

@@ -36,9 +36,33 @@ npm pack --dry-run
 ```
 
 Review the package contents from `cargo package --list` before publishing.
+When release archives already exist in `dist/`, verify npm platform package
+generation with:
+
+```bash
+node scripts/build-npm-platform-packages.js --dist dist --out /tmp/repopilot-npm-platform-packages
+```
+
 Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
 For a version-specific gate list, use the current release checklist in `docs/release-checklist-*.md`.
 The product smoke suite validates the adoption flow, including receipt generation.
+
+## npm Trusted Publishing setup
+
+Before the first npm publish, configure npm Publishing Access for `repopilot` and
+each `@repopilot/*` platform package:
+
+```text
+Publisher: GitHub Actions
+Repository owner: MykytaStel
+Repository name: repopilot
+Workflow filename: publish-npm.yml
+Environment name: npm
+```
+
+Keep package publishing access set to "Require two-factor authentication and
+disallow tokens". The `publish-npm.yml` job uses the `npm` GitHub Environment and
+OIDC, so no `NPM_TOKEN` secret is required.
 
 ## 3. Create release branch
 
@@ -66,7 +90,7 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The separate `publish-npm.yml` workflow publishes npm through npm Trusted Publishing / GitHub OIDC when the GitHub Release is published. Optional secret-backed channels are skipped when their secret is absent.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The separate `publish-npm.yml` workflow downloads the GitHub Release artifacts, generates checksum-verified `@repopilot/*` platform packages, publishes those packages first, then publishes the root `repopilot` package through npm Trusted Publishing / GitHub OIDC. Optional secret-backed channels are skipped when their secret is absent.
 
 ## 7. Verify publishing
 
