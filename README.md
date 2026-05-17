@@ -156,6 +156,40 @@ repopilot scan . --exclude fixtures --max-file-size 1mb --max-files 500
 
 By default, RepoPilot skips low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks. Use `--include-low-signal` when you want those paths analyzed too.
 
+## Trust Mode and strict mode
+
+RepoPilot's default scan profile is intentionally quieter than a full raw audit.
+
+```bash
+repopilot scan .
+```
+
+Default mode focuses on findings that are more likely to be actionable production, security, runtime, or release risks. It hides low-signal maintenance suggestions such as broad testing gaps, threshold-only long-file/long-function findings, and script-boundary runtime-exit patterns.
+
+Use strict mode when you want the full raw audit surface:
+
+```bash
+repopilot scan . --profile strict
+```
+
+Use maintainability mode when you want default behavior plus hidden debt-oriented suggestions:
+
+```bash
+repopilot scan . --include-maintainability
+```
+
+The report shows how many suggestions were hidden and how to reveal them. This keeps the normal workflow focused while preserving deeper audit capability.
+
+Recommended workflow:
+
+```bash
+repopilot scan .                         # actionable default report
+repopilot scan . --profile strict        # full maintenance/debt view
+repopilot review . --base origin/main    # PR-oriented changed-code review
+```
+
+See [docs/trust-mode.md](docs/trust-mode.md) for the product model behind default visibility, strict mode, and local learning.
+
 ## Local-First AI Workflow
 
 RepoPilot does not call LLM APIs. AI commands scan local files and produce Markdown

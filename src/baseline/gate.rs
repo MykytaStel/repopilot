@@ -144,6 +144,7 @@ mod tests {
 
         BaselineScanReport {
             summary: ScanSummary {
+                hidden_suggestions: Vec::new(),
                 root_path: PathBuf::from("."),
                 findings,
                 ..Default::default()

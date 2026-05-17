@@ -32,6 +32,15 @@ pub struct ScanTimings {
     pub post_scan_audits_us: u64,
 }
 
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HiddenSuggestionSummary {
+    pub intent: String,
+    pub rule_id: String,
+    pub category: String,
+    pub reason: String,
+    pub count: usize,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
@@ -71,6 +80,8 @@ pub struct ScanSummary {
     pub visible_findings_count: usize,
     #[serde(default)]
     pub hidden_suggestions_count: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hidden_suggestions: Vec<HiddenSuggestionSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visibility_profile: Option<String>,
     #[serde(default)]
