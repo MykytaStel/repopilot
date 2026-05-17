@@ -2,8 +2,8 @@ use super::frameworks::{
     is_dotnet_controller, is_dotnet_service, is_react_component_file, is_react_hook_file,
 };
 use super::helpers::{
-    is_app_entrypoint, is_config_file, is_generated_file, is_js_or_ts, path_contains_component,
-    push_unique,
+    is_app_entrypoint, is_config_file, is_generated_file, is_js_or_ts, normalize,
+    path_contains_component, push_unique,
 };
 use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind};
 use std::path::Path;
@@ -18,6 +18,10 @@ pub fn classify_roles(
 ) {
     if is_config_file(path) {
         push_unique(roles, FileRole::Config);
+    }
+
+    if is_infrastructure_file(path, language) {
+        push_unique(roles, FileRole::Infrastructure);
     }
 
     if is_generated_file(path, content) {
@@ -80,4 +84,47 @@ pub fn classify_roles(
     if path_contains_component(path, &["script", "scripts", "bin", "tools"]) {
         push_unique(roles, FileRole::Script);
     }
+}
+
+fn is_infrastructure_file(path: &Path, language: LanguageKind) -> bool {
+    if matches!(
+        language,
+        LanguageKind::Terraform
+            | LanguageKind::Dockerfile
+            | LanguageKind::Nix
+            | LanguageKind::Yaml
+            | LanguageKind::Toml
+    ) {
+        return true;
+    }
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(normalize)
+        .unwrap_or_default();
+
+    matches!(
+        file_name.as_str(),
+        "docker-compose.yml"
+            | "docker-compose.yaml"
+            | "compose.yml"
+            | "compose.yaml"
+            | "kustomization.yml"
+            | "kustomization.yaml"
+            | "helmfile.yml"
+            | "helmfile.yaml"
+    ) || path_contains_component(
+        path,
+        &[
+            "infra",
+            "infrastructure",
+            "terraform",
+            "k8s",
+            "kubernetes",
+            "helm",
+            ".github",
+            "workflows",
+        ],
+    )
 }

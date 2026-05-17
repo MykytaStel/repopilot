@@ -87,6 +87,7 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
+    Infrastructure,
     Unknown,
 }
 
@@ -95,6 +96,7 @@ pub enum ProgrammingParadigm {
     Functional,
     ObjectOriented,
     Procedural,
+    Declarative,
     DeclarativeUi,
     Reactive,
     DataOriented,
@@ -118,6 +120,7 @@ pub enum RuntimeKind {
     Ios,
     Shell,
     Native,
+    Infrastructure,
     Unknown,
 }
 
@@ -176,8 +179,19 @@ impl AuditContext {
         self.has_paradigm(ProgrammingParadigm::DeclarativeUi)
     }
 
+    pub fn is_declarative_code(&self) -> bool {
+        self.has_paradigm(ProgrammingParadigm::Declarative)
+    }
+
+    pub fn is_infrastructure_code(&self) -> bool {
+        self.has_role(FileRole::Infrastructure) || self.has_runtime(RuntimeKind::Infrastructure)
+    }
+
     pub fn is_production_code(&self) -> bool {
-        !self.is_test && !self.has_role(FileRole::Config) && !self.has_role(FileRole::Generated)
+        !self.is_test
+            && !self.has_role(FileRole::Config)
+            && !self.has_role(FileRole::Generated)
+            && !self.has_role(FileRole::Infrastructure)
     }
 
     pub fn language_id(&self) -> &'static str {
@@ -306,6 +320,7 @@ impl FileRole {
             FileRole::Generated => "generated",
             FileRole::Domain => "domain",
             FileRole::Script => "script",
+            FileRole::Infrastructure => "infrastructure",
             FileRole::Unknown => "unknown",
         }
     }
@@ -317,6 +332,7 @@ impl ProgrammingParadigm {
             ProgrammingParadigm::Functional => "functional",
             ProgrammingParadigm::ObjectOriented => "object-oriented",
             ProgrammingParadigm::Procedural => "procedural",
+            ProgrammingParadigm::Declarative => "declarative",
             ProgrammingParadigm::DeclarativeUi => "declarative-ui",
             ProgrammingParadigm::Reactive => "reactive",
             ProgrammingParadigm::DataOriented => "data-oriented",
@@ -343,6 +359,7 @@ impl RuntimeKind {
             RuntimeKind::Ios => "ios",
             RuntimeKind::Shell => "shell",
             RuntimeKind::Native => "native",
+            RuntimeKind::Infrastructure => "infrastructure",
             RuntimeKind::Unknown => "unknown",
         }
     }

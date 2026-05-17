@@ -154,32 +154,32 @@ support = "context-aware"
 id = "elixir"
 name = "Elixir"
 extensions = ["ex", "exs"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "erlang"
 name = "Erlang"
 extensions = ["erl", "hrl"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "haskell"
 name = "Haskell"
 extensions = ["hs", "lhs"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "ocaml"
 name = "OCaml"
 extensions = ["ml", "mli"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "fsharp"
 name = "F#"
 aliases = ["fsharp"]
 extensions = ["fs", "fsx"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "r"
@@ -229,19 +229,19 @@ id = "terraform"
 name = "Terraform"
 aliases = ["hcl"]
 extensions = ["tf", "hcl"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "dockerfile"
 name = "Dockerfile"
 filenames = ["Dockerfile", "Containerfile"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "nix"
 name = "Nix"
 extensions = ["nix"]
-support = "detect-only"
+support = "context-aware"
 
 [[languages]]
 id = "yaml"
@@ -408,6 +408,10 @@ name = "Shell"
 id = "native"
 name = "Native"
 
+[[runtimes]]
+id = "infrastructure"
+name = "Infrastructure"
+
 [[paradigms]]
 id = "functional"
 name = "Functional"
@@ -419,6 +423,10 @@ name = "Object-oriented"
 [[paradigms]]
 id = "procedural"
 name = "Procedural"
+
+[[paradigms]]
+id = "declarative"
+name = "Declarative"
 
 [[paradigms]]
 id = "declarative-ui"
@@ -569,6 +577,12 @@ action = "downgrade"
 severity = "LOW"
 
 [[rules.overrides]]
+role = "infrastructure"
+action = "downgrade"
+severity = "LOW"
+reason = "Infrastructure files can be structurally dense without representing application-level complexity."
+
+[[rules.overrides]]
 role = "script"
 signal = "python.assert"
 action = "downgrade"
@@ -658,6 +672,12 @@ severity = "LOW"
 role = "react-hook"
 action = "downgrade"
 severity = "LOW"
+
+[[rules.overrides]]
+role = "infrastructure"
+action = "downgrade"
+severity = "LOW"
+reason = "Infrastructure-oriented code often contains orchestration or declarative setup around external systems."
 
 [[rules]]
 rule_id = "architecture.large-file"
