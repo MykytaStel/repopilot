@@ -1,7 +1,7 @@
 use crate::audits::context::{AuditContext, classify_file};
 use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
-use crate::knowledge::bundled_knowledge;
+use crate::knowledge::active_knowledge;
 use crate::knowledge::language::{language_id_for_name, profile_by_id};
 use crate::knowledge::model::{RuleDecision, RuleDecisionAction, RuleMatchContext, RuleOverride};
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -46,7 +46,7 @@ impl From<SuppressReason> for String {
 }
 
 pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
-    let Some(rule) = bundled_knowledge().rule_by_id(context.rule_id) else {
+    let Some(rule) = active_knowledge().rule_by_id(context.rule_id) else {
         return RuleDecision::apply(context.base_severity);
     };
 

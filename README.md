@@ -15,10 +15,10 @@ and framework health checks. It gives developers useful terminal reports, CI gat
 SARIF for GitHub Code Scanning, and Markdown briefs that can be pasted into Claude
 Code, ChatGPT, Cursor, or another coding assistant.
 
-Version `0.11.0` is a signal quality and CI polish release: it reduces
-low-value self-audit findings, adds first-party Action parity for priority/rule
-filters, and tightens the `doctor -> scan/review -> ai context -> CI gate` loop
-while keeping all scans local.
+Version `0.12.0` is a core foundation release: it documents the Knowledge
+Engine lifecycle, sets the pre-1.0 roadmap and gates, and moves workspace scan
+orchestration into the library core while keeping public CLI and report schemas
+compatible with 0.11.
 
 ## Why RepoPilot?
 
@@ -467,13 +467,16 @@ These are planned ideas, not current features:
 | [docs/security.md](docs/security.md) | Local-first trust model, installer security, and vulnerability reporting |
 | [docs/configuration.md](docs/configuration.md) | `repopilot.toml`, presets, ignore files, and baseline adoption |
 | [docs/language-support.md](docs/language-support.md) | Supported language/framework tiers, rule families, and limitations |
+| [docs/knowledge-engine.md](docs/knowledge-engine.md) | Knowledge Engine lifecycle, rule applicability, and local-first learning policy |
 | [docs/risk-engine.md](docs/risk-engine.md) | Risk scoring, priority buckets, signals, and calibration policy |
 | [docs/cli.md](docs/cli.md) | Complete CLI reference — all commands, flags, and exit codes |
 | [docs/commands.md](docs/commands.md) | Task-oriented command guide and common patterns |
 | [docs/rulesets.md](docs/rulesets.md) | Implemented audit rules, categories, and severity levels |
 | [docs/react-native.md](docs/react-native.md) | React Native and Expo detection, findings, and limitations |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
+| [docs/roadmap.md](docs/roadmap.md) | Pre-1.0 roadmap, release train, and v1 gates |
 | [docs/release.md](docs/release.md) | Manual release process |
+| [docs/release-checklist-0.12.md](docs/release-checklist-0.12.md) | 0.12.0 release readiness checklist |
 | [docs/release-announcement-0.11.md](docs/release-announcement-0.11.md) | 0.11.0 launch post and post-publish checks |
 | [docs/release-checklist-0.11.md](docs/release-checklist-0.11.md) | 0.11.0 release readiness checklist |
 | [docs/release-checklist-0.10.md](docs/release-checklist-0.10.md) | 0.10.0 release readiness checklist |

@@ -20,3 +20,21 @@ pub(crate) fn workspace_package_counts<'a>(
     }
     table
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkspacePackageRow {
+    pub package: String,
+    pub counts: [usize; 5],
+    pub total: usize,
+}
+
+pub(crate) fn workspace_package_rows(findings: &[Finding]) -> Vec<WorkspacePackageRow> {
+    workspace_package_counts(findings)
+        .into_iter()
+        .map(|(package, counts)| WorkspacePackageRow {
+            package: package.to_string(),
+            counts,
+            total: counts.iter().sum(),
+        })
+        .collect()
+}

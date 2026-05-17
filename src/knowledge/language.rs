@@ -1,5 +1,5 @@
 use crate::audits::context::LanguageKind;
-use crate::knowledge::bundled_knowledge;
+use crate::knowledge::active_knowledge;
 use crate::knowledge::model::LanguageProfile;
 use crate::scan::facts::FileFacts;
 use std::path::Path;
@@ -8,7 +8,7 @@ pub fn detect_language_for_path(path: &Path) -> Option<&'static str> {
     let file_name = path.file_name().and_then(|name| name.to_str())?;
     let extension = path.extension().and_then(|extension| extension.to_str());
 
-    bundled_knowledge().languages.iter().find_map(|language| {
+    active_knowledge().languages.iter().find_map(|language| {
         let file_name_matches = language
             .filenames
             .iter()
@@ -25,7 +25,7 @@ pub fn detect_language_for_path(path: &Path) -> Option<&'static str> {
 }
 
 pub fn profile_by_id(id: &str) -> Option<&'static LanguageProfile> {
-    bundled_knowledge()
+    active_knowledge()
         .languages
         .iter()
         .find(|language| language.id == id)
@@ -33,7 +33,7 @@ pub fn profile_by_id(id: &str) -> Option<&'static LanguageProfile> {
 
 pub fn language_id_for_name(name: &str) -> Option<&'static str> {
     let normalized = normalize(name);
-    bundled_knowledge()
+    active_knowledge()
         .languages
         .iter()
         .find(|language| {

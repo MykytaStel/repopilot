@@ -5,7 +5,7 @@ use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
-use crate::output::render_helpers::{escape_table_cell, workspace_package_counts};
+use crate::output::render_helpers::{escape_table_cell, workspace_package_rows};
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
     findings_for_rule, first_location, rule_ids_for_findings,
@@ -526,27 +526,26 @@ fn render_framework_projects_section(output: &mut String, projects: &[FrameworkP
 }
 
 fn render_workspace_risk_table(output: &mut String, findings: &[Finding]) {
-    let table = workspace_package_counts(findings);
+    let rows = workspace_package_rows(findings);
 
-    if table.is_empty() {
+    if rows.is_empty() {
         return;
     }
 
     output.push_str("## Workspace Risk Summary\n\n");
     output.push_str("| Package | Critical | High | Medium | Low | Info | Total |\n");
     output.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
-    for (pkg, counts) in &table {
-        let total: usize = counts.iter().sum();
+    for row in &rows {
         writeln!(
             output,
             "| {} | {} | {} | {} | {} | {} | {} |",
-            escape_table_cell(pkg),
-            counts[0],
-            counts[1],
-            counts[2],
-            counts[3],
-            counts[4],
-            total
+            escape_table_cell(&row.package),
+            row.counts[0],
+            row.counts[1],
+            row.counts[2],
+            row.counts[3],
+            row.counts[4],
+            row.total
         )
         .unwrap();
     }

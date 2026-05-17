@@ -211,4 +211,27 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn rule_lifecycle_requires_metadata_knowledge_and_recommendation() {
+        let known_rules = bundled_knowledge()
+            .rule_applicability
+            .iter()
+            .map(|rule| rule.rule_id.as_str())
+            .collect::<HashSet<_>>();
+
+        for rule in all_rule_metadata() {
+            assert!(
+                known_rules.contains(rule.rule_id),
+                "{} must have a Knowledge Engine applicability entry",
+                rule.rule_id
+            );
+            assert!(
+                rule.recommendation
+                    .is_some_and(|recommendation| !recommendation.trim().is_empty()),
+                "{} must have a user-facing recommendation",
+                rule.rule_id
+            );
+        }
+    }
 }

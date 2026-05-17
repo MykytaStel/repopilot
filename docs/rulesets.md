@@ -1,6 +1,6 @@
 # Audit Rulesets
 
-RepoPilot findings are identified by a stable `rule_id`. RepoPilot 0.11.0 ships
+RepoPilot findings are identified by a stable `rule_id`. RepoPilot 0.12.0 ships
 46 built-in rules. Each finding carries category, severity, confidence,
 recommendation, and evidence metadata.
 
