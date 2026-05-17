@@ -30,6 +30,7 @@ fn renders_valid_json_scan_summary() {
         health_score: 0,
         visible_findings_count: 0,
         hidden_suggestions_count: 0,
+        hidden_suggestions: Vec::new(),
         visibility_profile: None,
         files_skipped_by_limit: 0,
         files_skipped_repopilotignore: 0,

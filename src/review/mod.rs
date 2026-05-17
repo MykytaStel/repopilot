@@ -176,6 +176,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             health_score,
             visible_findings_count,
             hidden_suggestions_count: report.summary.hidden_suggestions_count,
+            hidden_suggestions: Vec::new(),
             visibility_profile: report.summary.visibility_profile.clone(),
             files_skipped_by_limit: report.summary.files_skipped_by_limit,
             files_skipped_repopilotignore: report.summary.files_skipped_repopilotignore,

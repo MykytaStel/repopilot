@@ -136,6 +136,7 @@ mod tests {
     #[test]
     fn json_scan_report_includes_schema_and_tool_versions() {
         let summary = ScanSummary {
+            hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
             files_count: 1,
             ..ScanSummary::default()
@@ -153,6 +154,7 @@ mod tests {
     #[test]
     fn baseline_json_report_includes_schema_and_tool_versions() {
         let summary = ScanSummary {
+            hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
             files_count: 2,
             ..ScanSummary::default()

@@ -83,6 +83,7 @@ mod tests {
     #[test]
     fn read_summary_accepts_versioned_json_report() {
         let summary = ScanSummary {
+            hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
             files_count: 7,
             lines_of_code: 42,
@@ -102,6 +103,7 @@ mod tests {
     #[test]
     fn read_summary_still_accepts_legacy_scan_summary_json() {
         let summary = ScanSummary {
+            hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
             files_count: 3,
             lines_of_code: 21,

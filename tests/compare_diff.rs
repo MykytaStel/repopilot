@@ -83,6 +83,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         health_score: 0,
         visible_findings_count,
         hidden_suggestions_count: 0,
+        hidden_suggestions: Vec::new(),
         visibility_profile: None,
         files_skipped_by_limit: 0,
         files_skipped_repopilotignore: 0,

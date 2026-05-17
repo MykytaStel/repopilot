@@ -12,6 +12,9 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     output.push_str("RepoPilot Scan\n");
     writeln!(output, "Version: {TOOL_VERSION}").unwrap();
     writeln!(output, "Path: {}", summary.root_path.display()).unwrap();
+    if let Some(profile) = &summary.visibility_profile {
+        writeln!(output, "Profile: {profile}").unwrap();
+    }
     writeln!(
         output,
         "Risk: {} | Health score: {}/100 {}",
@@ -29,17 +32,18 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     if summary.hidden_suggestions_count > 0 {
         writeln!(
             output,
-            "Hidden suggestions: {} maintainability/testing",
+            "Hidden suggestions: {} strict-only suggestions",
             summary.hidden_suggestions_count
         )
         .unwrap();
         writeln!(
             output,
-            "Note: {} maintainability/testing suggestions hidden. Run with --profile strict to view.",
+            "Note: {} strict-only suggestions hidden. Run with --profile strict or --include-maintainability to view.",
             summary.hidden_suggestions_count
         )
         .unwrap();
     }
+    render_hidden_suggestions_breakdown(output, summary);
     writeln!(
         output,
         "Directories analyzed: {} | Lines of code: {}",
@@ -56,6 +60,35 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         .unwrap();
     }
     output.push('\n');
+}
+
+fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummary) {
+    if summary.hidden_suggestions.is_empty() {
+        return;
+    }
+
+    output.push_str(
+        "Hidden suggestions breakdown:
+",
+    );
+
+    for item in summary.hidden_suggestions.iter().take(8) {
+        writeln!(
+            output,
+            "  {:>4}  {} / {} ({})",
+            item.count, item.intent, item.rule_id, item.reason
+        )
+        .unwrap();
+    }
+
+    if summary.hidden_suggestions.len() > 8 {
+        writeln!(
+            output,
+            "  ... {} more hidden group(s)",
+            summary.hidden_suggestions.len() - 8
+        )
+        .unwrap();
+    }
 }
 
 pub(crate) fn render_risk_summary(output: &mut String, stats: &ReportStats) {

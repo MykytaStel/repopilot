@@ -100,6 +100,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
         health_score,
         visible_findings_count,
         hidden_suggestions_count: 0,
+        hidden_suggestions: Vec::new(),
         visibility_profile: None,
         files_skipped_by_limit: facts.files_skipped_by_limit,
         files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
