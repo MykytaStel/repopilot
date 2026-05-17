@@ -113,6 +113,26 @@ Before publishing:
 
 See [docs/release.md](release.md) for the full release process.
 
+For RepoPilot 0.11.0, publish the GitHub Release assets first, then the platform
+npm packages, then the root npm package. The root `repopilot` package declares
+optional dependencies on the platform packages at the same version, so publishing
+the root package before the platform packages can create a broken install window.
+
+After publishing, verify:
+
+```bash
+npm view repopilot version
+for pkg in \
+  @repopilot/darwin-arm64 \
+  @repopilot/darwin-x64 \
+  @repopilot/linux-arm64-gnu \
+  @repopilot/linux-x64-gnu \
+  @repopilot/win32-x64-msvc; do
+  npm view "$pkg" version
+done
+git ls-remote --tags origin v0.11.0
+```
+
 ## Homebrew (via tap)
 
 A formula template lives at [`Formula/repopilot.rb`](../Formula/repopilot.rb) in the repo.

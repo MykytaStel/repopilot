@@ -474,6 +474,7 @@ These are planned ideas, not current features:
 | [docs/react-native.md](docs/react-native.md) | React Native and Expo detection, findings, and limitations |
 | [docs/integrations/github-code-scanning.md](docs/integrations/github-code-scanning.md) | GitHub Code Scanning SARIF workflow |
 | [docs/release.md](docs/release.md) | Manual release process |
+| [docs/release-announcement-0.11.md](docs/release-announcement-0.11.md) | 0.11.0 launch post and post-publish checks |
 | [docs/release-checklist-0.11.md](docs/release-checklist-0.11.md) | 0.11.0 release readiness checklist |
 | [docs/release-checklist-0.10.md](docs/release-checklist-0.10.md) | 0.10.0 release readiness checklist |
 | [docs/distribution.md](docs/distribution.md) | Distribution channels |
