@@ -1,4 +1,4 @@
-use super::helpers::push_unique;
+use super::helpers::{path_contains_component, push_unique};
 use crate::audits::context::model::{FrameworkKind, LanguageKind, RuntimeKind};
 use std::path::Path;
 
@@ -75,6 +75,25 @@ pub fn classify_runtimes(
         LanguageKind::C | LanguageKind::Cpp | LanguageKind::CHeader | LanguageKind::Swift
     ) {
         push_unique(runtimes, RuntimeKind::Native);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::Terraform | LanguageKind::Dockerfile | LanguageKind::Nix
+    ) || path_contains_component(
+        path,
+        &[
+            "infra",
+            "infrastructure",
+            "terraform",
+            "k8s",
+            "kubernetes",
+            "helm",
+            ".github",
+            "workflows",
+        ],
+    ) {
+        push_unique(runtimes, RuntimeKind::Infrastructure);
     }
 
     if frameworks.contains(&FrameworkKind::Android) {

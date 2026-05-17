@@ -95,6 +95,34 @@ pub fn classify_paradigms(
         push_unique(paradigms, ProgrammingParadigm::ObjectOriented);
     }
 
+    if matches!(
+        language,
+        LanguageKind::Elixir
+            | LanguageKind::Erlang
+            | LanguageKind::Haskell
+            | LanguageKind::OCaml
+            | LanguageKind::FSharp
+            | LanguageKind::Scala
+    ) {
+        push_unique(paradigms, ProgrammingParadigm::Functional);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::Terraform
+            | LanguageKind::Dockerfile
+            | LanguageKind::Nix
+            | LanguageKind::Yaml
+            | LanguageKind::Toml
+            | LanguageKind::Json
+            | LanguageKind::Sql
+            | LanguageKind::Html
+            | LanguageKind::Css
+            | LanguageKind::Scss
+    ) {
+        push_unique(paradigms, ProgrammingParadigm::Declarative);
+    }
+
     if paradigms.len() > 1 {
         push_unique(paradigms, ProgrammingParadigm::Mixed);
     }

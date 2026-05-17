@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Expanded context classification for functional, declarative, and infrastructure-oriented files.
 - Added a pre-1.0 roadmap with the 0.12 through 0.20 release train, local-first learning policy, and v1 release gates.
 - Added Knowledge Engine documentation covering built-in rules, metadata, applicability, calibration, local overlays, and the rule lifecycle.
 - Added a 0.12 release checklist focused on core foundation work, rule lifecycle completeness, workspace scan behavior, and v1 readiness.
@@ -17,6 +18,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Improved Knowledge Engine taxonomy so future audits can distinguish application code from infrastructure and declarative files.
 - Hardened npm distribution by replacing the install-time binary downloader with platform-specific optional `@repopilot/*` native packages.
 - Moved workspace scan orchestration from the CLI command layer into the library scan core while preserving existing `--workspace` behavior.
 - Split Knowledge Catalog model construction from rendering while preserving the `inspect knowledge` JSON shape.

@@ -336,6 +336,42 @@ mod tests {
         assert!(!context.is_production_code());
     }
 
+    #[test]
+    fn classifies_functional_language_context() {
+        let file = facts(
+            "src/Pipeline.hs",
+            Some("Haskell"),
+            "module Pipeline where\nrun xs = map (+1) xs\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Haskell);
+        assert!(context.has_paradigm(ProgrammingParadigm::Functional));
+        assert!(context.is_functional_code());
+    }
+
+    #[test]
+    fn classifies_infrastructure_files_as_declarative_context() {
+        let file = facts(
+            "infra/terraform/main.tf",
+            Some("Terraform"),
+            "resource \"aws_s3_bucket\" \"assets\" {}\n",
+            false,
+        );
+
+        let context = classify_file(&file);
+
+        assert_eq!(context.language, LanguageKind::Terraform);
+        assert!(context.has_role(FileRole::Infrastructure));
+        assert!(context.has_runtime(RuntimeKind::Infrastructure));
+        assert!(context.has_paradigm(ProgrammingParadigm::Declarative));
+        assert!(context.is_declarative_code());
+        assert!(context.is_infrastructure_code());
+        assert!(!context.is_production_code());
+    }
+
     fn facts(
         path: &str,
         language: Option<&str>,

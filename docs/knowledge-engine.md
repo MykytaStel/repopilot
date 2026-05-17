@@ -26,6 +26,8 @@ not loaded by `scan`, `review`, `ai`, or CI.
 | Calibration | Deterministic severity, suppression, or risk adjustments based on local file/project context. |
 | Local overlay | A future local file that can tune known rules in an inspectable way. Not enabled in 0.12.0. |
 | Local learning | User-controlled local calibration or fixtures, not model training or remote telemetry. |
+| Declarative context | Infrastructure, config, markup, query, and data-description files that should not be judged like imperative application code. |
+| Infrastructure context | Terraform, Dockerfile, Nix, Kubernetes, Helm, CI workflow, and infra-directory files where orchestration is expected. |
 
 ## Rule Lifecycle
 
@@ -46,6 +48,17 @@ ship unless it produces evidence-backed findings, has a recommendation, and can
 be inspected through the existing diagnostic commands.
 
 ## Diagnostics
+## Context Taxonomy
+
+The context classifier separates language, framework, file role, paradigm, and runtime.
+This matters because the same surface pattern can mean different things in different
+contexts. A long declarative infrastructure file, a functional pipeline, and an
+object-oriented service should not receive the same generic interpretation.
+
+0.12.0 expands this taxonomy with explicit declarative and infrastructure context
+so future rules can narrow applicability instead of treating every file as normal
+application code.
+
 
 Use the inspection commands when debugging rule behavior:
 
