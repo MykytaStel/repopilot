@@ -93,7 +93,7 @@ jobs:
 
       - name: Run RepoPilot
         id: repopilot
-        uses: MykytaStel/repopilot@v0.11.0
+        uses: MykytaStel/repopilot@v0.12.0
         with:
           command: scan
           baseline: .repopilot/baseline.json
@@ -113,7 +113,7 @@ For review-only gates, use `command: review` without `receipt`:
 
 ```yaml
       - name: RepoPilot review gate
-        uses: MykytaStel/repopilot@v0.11.0
+        uses: MykytaStel/repopilot@v0.12.0
         with:
           command: review
           base: origin/main
@@ -127,7 +127,7 @@ action without SARIF upload:
 
 ```yaml
       - name: RepoPilot doctor
-        uses: MykytaStel/repopilot@v0.11.0
+        uses: MykytaStel/repopilot@v0.12.0
         with:
           command: doctor
           format: markdown
@@ -135,7 +135,7 @@ action without SARIF upload:
           upload-sarif: "false"
 
       - name: RepoPilot focused scan
-        uses: MykytaStel/repopilot@v0.11.0
+        uses: MykytaStel/repopilot@v0.12.0
         with:
           command: scan
           rule: language.rust.panic-risk

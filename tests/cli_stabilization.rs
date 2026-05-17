@@ -230,7 +230,7 @@ fn self_audit_stays_clean_at_high_severity() {
     assert_eq!(p1, 0, "self-audit should not produce P1 findings");
     assert!(
         p2 <= 135,
-        "self-audit P2 noise should stay within the v0.11 signal-quality budget, got {p2}\n{}",
+        "self-audit P2 noise should stay within the signal-quality budget, got {p2}\n{}",
         serde_json::to_string_pretty(&json).unwrap_or_default()
     );
 }

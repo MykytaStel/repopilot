@@ -6,3 +6,4 @@ pub(crate) mod path_classification;
 pub mod scanner;
 pub mod types;
 pub mod workspace;
+pub mod workspace_scan;

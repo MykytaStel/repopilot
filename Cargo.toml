@@ -1,6 +1,6 @@
 [package]
 name = "repopilot"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2024"
 rust-version = "1.87"
 description = "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review."

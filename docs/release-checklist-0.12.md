@@ -1,0 +1,112 @@
+# RepoPilot 0.12.0 Release Checklist
+
+RepoPilot 0.12.0 is the core foundation and roadmap release.
+
+Main release promise:
+
+```text
+core foundation -> rule lifecycle -> v1 gates
+```
+
+## Release Scope
+
+- Keep the stable command surface compatible with 0.11.
+- Keep JSON, SARIF, baseline, receipt, and scan report schemas backward-compatible.
+- Keep runtime commands local-first: no telemetry, source upload, hosted scanner, plugin runtime, external rule execution, or LLM API calls.
+- Document the Knowledge Engine lifecycle and local-first learning policy.
+- Move workspace scan orchestration out of the CLI command layer without changing behavior.
+- Keep `bundled_knowledge()` as the only runtime Knowledge Engine source.
+
+## Knowledge Engine Gates
+
+Verify:
+
+- every registered rule has metadata;
+- every registered rule has a Knowledge Engine applicability entry;
+- every registered rule has a non-empty recommendation;
+- `inspect knowledge --section rules --format json` keeps the same JSON shape;
+- `inspect explain` still evaluates rule decisions from the bundled core pack.
+
+Smoke commands:
+
+```bash
+cargo run -- inspect knowledge --section rules --format json --output /tmp/repopilot-knowledge-rules.json
+cargo run -- inspect knowledge --section rules --format markdown --output /tmp/repopilot-knowledge-rules.md
+cargo run -- inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap
+```
+
+## Workspace Scan Gates
+
+Verify `--workspace` behavior is unchanged:
+
+- fallback warning appears when no workspace packages are found;
+- root scan ignores package roots before per-package scans;
+- package findings include `workspace_package`;
+- duplicate root/package findings are removed;
+- workspace hotspot and repeated-cluster overlays still run after merge;
+- health score and sorting are recomputed after merge.
+
+Smoke command:
+
+```bash
+cargo run -- scan . --workspace --format json --output /tmp/repopilot-workspace.json
+```
+
+## Signal Quality Gates
+
+Run the self-audit from the repository root:
+
+```bash
+cargo run -- scan . --format json --output /tmp/repopilot-self-audit.json
+```
+
+Verify:
+
+- `risk_summary.counts.p0 == 0`
+- `risk_summary.counts.p1 == 0`
+- high/critical findings remain at `0`
+- any P2 increase from 0.11 is explained by a deliberate rule or calibration change
+
+Spot-check medium-or-higher clusters:
+
+```bash
+cargo run -- scan . --min-severity medium --format json \
+  | jq '.findings | group_by(.rule_id)[] | {rule: .[0].rule_id, count: length}'
+```
+
+## Required Local Checks
+
+Run from the repository root:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all
+npm run test:npm
+npm pack --dry-run
+cargo package --list
+cargo publish --dry-run
+./scripts/verify-release.sh
+```
+
+Run the product smoke suite against the release binary:
+
+```bash
+cargo build --release
+./scripts/smoke-product.sh --binary ./target/release/repopilot --repo .
+```
+
+## Version Consistency
+
+Before tagging, update and verify:
+
+```bash
+grep '^version = "0.12.0"' Cargo.toml
+grep '"version": "0.12.0"' package.json
+grep '## \[0.12.0\]' CHANGELOG.md
+rg '0\.[[]11[]]\.0|release-checklist-0\.[[]11[]]' Cargo.toml package.json action.yml README.md docs .github scripts install.sh Formula examples
+```
+
+The final search should only report historical changelog entries, old release
+checklists, old release announcements, and examples intentionally pinned to old
+versions.

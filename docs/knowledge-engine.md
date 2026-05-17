@@ -1,0 +1,73 @@
+# Knowledge Engine
+
+The RepoPilot Knowledge Engine is the local metadata layer that keeps findings
+context-aware and explainable. It does not call external services and does not
+learn from telemetry.
+
+## Runtime Source
+
+RepoPilot 0.12.0 uses the bundled core knowledge pack as the only runtime source:
+
+```text
+src/knowledge/packs/core.toml
+```
+
+The loader has an explicit source boundary so future releases can add local
+overlays without rewriting rule decisions. In 0.12.0, custom external packs are
+not loaded by `scan`, `review`, `ai`, or CI.
+
+## Concepts
+
+| Concept | Meaning |
+|---|---|
+| Built-in rule | A detector implemented in RepoPilot and identified by a stable `rule_id`. |
+| Rule metadata | Title, category, default severity, docs URL, description, and recommendation in the rule registry. |
+| Applicability | Knowledge Engine data that defines which languages, frameworks, runtimes, paradigms, and file roles a rule applies to. |
+| Calibration | Deterministic severity, suppression, or risk adjustments based on local file/project context. |
+| Local overlay | A future local file that can tune known rules in an inspectable way. Not enabled in 0.12.0. |
+| Local learning | User-controlled local calibration or fixtures, not model training or remote telemetry. |
+
+## Rule Lifecycle
+
+Every rule should move through the same lifecycle:
+
+```text
+audit emits rule_id
+-> audit registration declares emitted rule IDs
+-> registry metadata explains the rule
+-> Knowledge Engine applicability defines where it applies
+-> risk calibration explains priority changes
+-> docs describe behavior and limitations
+-> tests guard metadata, applicability, rendering, and false positives
+```
+
+This lifecycle matters more than the raw number of rules. A new rule should not
+ship unless it produces evidence-backed findings, has a recommendation, and can
+be inspected through the existing diagnostic commands.
+
+## Diagnostics
+
+Use the inspection commands when debugging rule behavior:
+
+```bash
+repopilot inspect knowledge --section rules --format markdown
+repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap
+```
+
+`inspect knowledge` shows bundled catalog data. `inspect explain` shows how a
+file is classified before rule decisions are applied.
+
+## 0.12.0 Boundaries
+
+0.12.0 intentionally does not add:
+
+- a stable `--knowledge-pack` flag;
+- external rule execution;
+- plugin runtime loading;
+- hosted learning;
+- telemetry;
+- report schema changes.
+
+The goal is to make the internal contract clear enough that local overlays can
+be designed in a later 0.x release without breaking the existing command and
+report behavior.

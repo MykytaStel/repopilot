@@ -12,7 +12,7 @@ pub mod validate;
 pub use catalog::{
     KnowledgeCatalogSection, build_knowledge_catalog_report, render_knowledge_catalog_report,
 };
-pub use loader::bundled_knowledge;
+pub use loader::{KnowledgePackSource, active_knowledge, bundled_knowledge};
 pub use model::{
     KnowledgeBase, LanguageProfile, RuleDecision, RuleDecisionAction, RuleMatchContext,
     SupportLevel,

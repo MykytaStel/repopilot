@@ -98,7 +98,7 @@ pub struct RuleRiskAdjustment {
     pub reason: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct KnowledgePack {
     #[serde(default)]
     pub languages: Vec<LanguageProfile>,

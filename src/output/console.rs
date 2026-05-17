@@ -6,7 +6,7 @@ use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::output::color;
 use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
-use crate::output::render_helpers::workspace_package_counts;
+use crate::output::render_helpers::workspace_package_rows;
 use crate::output::report_stats::{
     ReportStats, TOOL_VERSION, build_report_stats, category_order, findings_for_category,
     findings_for_rule, first_location, rule_ids_for_findings,
@@ -398,13 +398,18 @@ fn risk_reason_text(finding: &Finding) -> Option<String> {
 }
 
 fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
-    let table = workspace_package_counts(findings);
+    let rows = workspace_package_rows(findings);
 
-    if table.is_empty() {
+    if rows.is_empty() {
         return;
     }
 
-    let name_width = table.keys().map(|k| k.len()).max().unwrap_or(7).max(7);
+    let name_width = rows
+        .iter()
+        .map(|row| row.package.len())
+        .max()
+        .unwrap_or(7)
+        .max(7);
 
     output.push_str("Workspace Risk Summary:\n");
     writeln!(
@@ -427,18 +432,17 @@ fn workspace_risk_table(output: &mut String, findings: &[Finding]) {
         width = name_width
     )
     .unwrap();
-    for (pkg, counts) in &table {
-        let total: usize = counts.iter().sum();
+    for row in &rows {
         writeln!(
             output,
             "  {:<width$}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}  {:>5}",
-            pkg,
-            counts[0],
-            counts[1],
-            counts[2],
-            counts[3],
-            counts[4],
-            total,
+            row.package.as_str(),
+            row.counts[0],
+            row.counts[1],
+            row.counts[2],
+            row.counts[3],
+            row.counts[4],
+            row.total,
             width = name_width
         )
         .unwrap();

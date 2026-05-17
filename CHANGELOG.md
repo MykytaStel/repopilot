@@ -6,9 +6,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-17
+
+### Added
+
+- Added a pre-1.0 roadmap with the 0.12 through 0.20 release train, local-first learning policy, and v1 release gates.
+- Added Knowledge Engine documentation covering built-in rules, metadata, applicability, calibration, local overlays, and the rule lifecycle.
+- Added a 0.12 release checklist focused on core foundation work, rule lifecycle completeness, workspace scan behavior, and v1 readiness.
+- Added guard coverage for Knowledge Engine catalog rendering, rule lifecycle completeness, and library-level workspace scan merging.
+
 ### Changed
 
 - Hardened npm distribution by replacing the install-time binary downloader with platform-specific optional `@repopilot/*` native packages.
+- Moved workspace scan orchestration from the CLI command layer into the library scan core while preserving existing `--workspace` behavior.
+- Split Knowledge Catalog model construction from rendering while preserving the `inspect knowledge` JSON shape.
+- Shared workspace report row construction between console and Markdown renderers.
 
 ## [0.11.0] - 2026-05-17
 
@@ -218,7 +230,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/MykytaStel/repopilot/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/MykytaStel/repopilot/compare/v0.8.0...v0.9.0

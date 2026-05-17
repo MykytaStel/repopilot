@@ -80,7 +80,7 @@ inputs:
     required: false
     default: ""
   version:
-    description: "npm version tag to install (e.g. latest, 0.11.0)"
+    description: "npm version tag to install (e.g. latest, 0.12.0)"
     required: false
     default: "latest"
   upload-sarif:

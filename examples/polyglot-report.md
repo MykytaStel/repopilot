@@ -2,7 +2,7 @@
 
 ## Overview
 
-- **RepoPilot version:** 0.11.0
+- **RepoPilot version:** 0.12.0
 - **Path:** `polyglot-api`
 - **Risk:** Moderate
 - **Health score:** 88/100

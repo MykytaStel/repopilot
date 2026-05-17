@@ -15,7 +15,7 @@ fn action_exposes_typed_receipt_input_and_output() {
 }
 
 #[test]
-fn action_exposes_v011_cli_parity_inputs() {
+fn action_exposes_priority_and_rule_parity_inputs() {
     let action_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("action.yml");
     let action = fs::read_to_string(action_path).expect("read action.yml");
 
