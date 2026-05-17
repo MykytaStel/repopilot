@@ -11,108 +11,23 @@ pub fn classify_frameworks(
     // JS/TS, Python, Go, Dart: all patterns are naturally lowercase in source — no allocation.
     // C# and JVM: use PascalCase/camelCase identifiers that need case-folding.
     if is_js_or_ts(language) {
-        if is_react_native_content(content) {
-            push_unique(frameworks, FrameworkKind::ReactNative);
-        }
-
-        if content.contains("from 'expo")
-            || content.contains("from \"expo")
-            || content.contains("expo-status-bar")
-            || content.contains("expo-router")
-        {
-            push_unique(frameworks, FrameworkKind::Expo);
-        }
-
-        if is_react_file(path, content) {
-            push_unique(frameworks, FrameworkKind::React);
-        }
-
-        if content.contains("next/")
-            || (path_contains_component(path, &["pages", "app"]) && is_tsx_or_jsx_file(path))
-        {
-            push_unique(frameworks, FrameworkKind::NextJs);
-        }
-
-        if content.contains("from 'vue'")
-            || content.contains("from \"vue\"")
-            || content.contains("@vue/")
-        {
-            push_unique(frameworks, FrameworkKind::Vue);
-        }
-
-        if content.contains("@angular/") {
-            push_unique(frameworks, FrameworkKind::Angular);
-        }
-
-        if content.contains("from 'svelte") || content.contains("from \"svelte") {
-            push_unique(frameworks, FrameworkKind::Svelte);
-        }
-
-        if content.contains("@nestjs/") {
-            push_unique(frameworks, FrameworkKind::NestJs);
-        }
-
-        if content.contains("express") {
-            push_unique(frameworks, FrameworkKind::Express);
-        }
-
-        if content.contains("express")
-            || content.contains("from 'node:")
-            || content.contains("from \"node:")
-            || content.contains("process.env")
-            || content.contains("process.exit")
-        {
-            push_unique(frameworks, FrameworkKind::NodeJs);
-        }
+        classify_js_ts_frameworks(frameworks, path, content);
     }
 
     if language == LanguageKind::CSharp {
-        // Compute lowercase only for C# where PascalCase identifiers need folding.
-        let lower = content.to_lowercase();
-        if is_unity_file(path, &lower) {
-            push_unique(frameworks, FrameworkKind::Unity);
-        }
-        if is_dotnet_file(path, &lower) {
-            push_unique(frameworks, FrameworkKind::DotNet);
-        }
+        classify_csharp_frameworks(frameworks, path, content);
     }
 
     if language == LanguageKind::Python {
-        if content.contains("django") {
-            push_unique(frameworks, FrameworkKind::Django);
-        }
-        if content.contains("flask") {
-            push_unique(frameworks, FrameworkKind::Flask);
-        }
-        if content.contains("fastapi") {
-            push_unique(frameworks, FrameworkKind::FastApi);
-        }
+        classify_python_frameworks(frameworks, content);
     }
 
     if language == LanguageKind::Go {
-        if content.contains("github.com/gin-gonic/gin") {
-            push_unique(frameworks, FrameworkKind::Gin);
-        }
-        if content.contains("github.com/labstack/echo") {
-            push_unique(frameworks, FrameworkKind::Echo);
-        }
-        if content.contains("github.com/gofiber/fiber") {
-            push_unique(frameworks, FrameworkKind::Fiber);
-        }
+        classify_go_frameworks(frameworks, content);
     }
 
     if matches!(language, LanguageKind::Java | LanguageKind::Kotlin) {
-        // Compute lowercase only for JVM where annotations use mixed case.
-        let lower = content.to_lowercase();
-        if lower.contains("org.springframework") || lower.contains("@springbootapplication") {
-            push_unique(frameworks, FrameworkKind::Spring);
-        }
-        if lower.contains("android.")
-            || lower.contains("androidx.")
-            || path_contains_component(path, &["android"])
-        {
-            push_unique(frameworks, FrameworkKind::Android);
-        }
+        classify_jvm_frameworks(frameworks, path, content);
     }
 
     if language == LanguageKind::Dart
@@ -120,6 +35,118 @@ pub fn classify_frameworks(
             || path_contains_component(path, &["lib", "widgets"]))
     {
         push_unique(frameworks, FrameworkKind::Flutter);
+    }
+}
+
+fn classify_js_ts_frameworks(frameworks: &mut Vec<FrameworkKind>, path: &Path, content: &str) {
+    if is_react_native_content(content) {
+        push_unique(frameworks, FrameworkKind::ReactNative);
+    }
+
+    if content.contains("from 'expo")
+        || content.contains("from \"expo")
+        || content.contains("expo-status-bar")
+        || content.contains("expo-router")
+    {
+        push_unique(frameworks, FrameworkKind::Expo);
+    }
+
+    if is_react_file(path, content) {
+        push_unique(frameworks, FrameworkKind::React);
+    }
+
+    if content.contains("next/")
+        || (path_contains_component(path, &["pages", "app"]) && is_tsx_or_jsx_file(path))
+    {
+        push_unique(frameworks, FrameworkKind::NextJs);
+    }
+
+    classify_js_ui_frameworks(frameworks, content);
+    classify_node_frameworks(frameworks, content);
+}
+
+fn classify_js_ui_frameworks(frameworks: &mut Vec<FrameworkKind>, content: &str) {
+    if content.contains("from 'vue'")
+        || content.contains("from \"vue\"")
+        || content.contains("@vue/")
+    {
+        push_unique(frameworks, FrameworkKind::Vue);
+    }
+
+    if content.contains("@angular/") {
+        push_unique(frameworks, FrameworkKind::Angular);
+    }
+
+    if content.contains("from 'svelte") || content.contains("from \"svelte") {
+        push_unique(frameworks, FrameworkKind::Svelte);
+    }
+}
+
+fn classify_node_frameworks(frameworks: &mut Vec<FrameworkKind>, content: &str) {
+    if content.contains("@nestjs/") {
+        push_unique(frameworks, FrameworkKind::NestJs);
+    }
+
+    if content.contains("express") {
+        push_unique(frameworks, FrameworkKind::Express);
+    }
+
+    if content.contains("express")
+        || content.contains("from 'node:")
+        || content.contains("from \"node:")
+        || content.contains("process.env")
+        || content.contains("process.exit")
+    {
+        push_unique(frameworks, FrameworkKind::NodeJs);
+    }
+}
+
+fn classify_csharp_frameworks(frameworks: &mut Vec<FrameworkKind>, path: &Path, content: &str) {
+    // Compute lowercase only for C# where PascalCase identifiers need folding.
+    let lower = content.to_lowercase();
+    if is_unity_file(path, &lower) {
+        push_unique(frameworks, FrameworkKind::Unity);
+    }
+    if is_dotnet_file(path, &lower) {
+        push_unique(frameworks, FrameworkKind::DotNet);
+    }
+}
+
+fn classify_python_frameworks(frameworks: &mut Vec<FrameworkKind>, content: &str) {
+    if content.contains("django") {
+        push_unique(frameworks, FrameworkKind::Django);
+    }
+    if content.contains("flask") {
+        push_unique(frameworks, FrameworkKind::Flask);
+    }
+    if content.contains("fastapi") {
+        push_unique(frameworks, FrameworkKind::FastApi);
+    }
+}
+
+fn classify_go_frameworks(frameworks: &mut Vec<FrameworkKind>, content: &str) {
+    if content.contains("github.com/gin-gonic/gin") {
+        push_unique(frameworks, FrameworkKind::Gin);
+    }
+    if content.contains("github.com/labstack/echo") {
+        push_unique(frameworks, FrameworkKind::Echo);
+    }
+    if content.contains("github.com/gofiber/fiber") {
+        push_unique(frameworks, FrameworkKind::Fiber);
+    }
+}
+
+fn classify_jvm_frameworks(frameworks: &mut Vec<FrameworkKind>, path: &Path, content: &str) {
+    // Compute lowercase only for JVM where annotations use mixed case.
+    let lower = content.to_lowercase();
+    if lower.contains("org.springframework") || lower.contains("@springbootapplication") {
+        push_unique(frameworks, FrameworkKind::Spring);
+    }
+    if lower.contains("android.")
+        || lower.contains("androidx.")
+        || path_contains_component(path, &["android"])
+    {
+        push_unique(frameworks, FrameworkKind::Android);
     }
 }
 

@@ -14,8 +14,8 @@ pub fn scan_workspace_with_config(
     path: &Path,
     scan_config: &ScanConfig,
 ) -> io::Result<ScanSummary> {
-    let packages = detect_workspace_packages(path);
-    if packages.is_empty() {
+    let plan = WorkspaceScanPlan::detect(path, scan_config);
+    if plan.packages.is_empty() {
         eprintln!(
             "Warning: --workspace specified but no workspace packages found under {}. \
              Falling back to single-package scan.",
@@ -24,35 +24,70 @@ pub fn scan_workspace_with_config(
         return scan_path_with_config(path, scan_config);
     }
 
-    let wall_start = Instant::now();
+    plan.execute()
+}
 
-    let root_scan_config = workspace_root_config(scan_config, path, &packages);
-    let mut merged = scan_path_with_config(path, &root_scan_config)?;
+struct WorkspaceScanPlan<'a> {
+    root: &'a Path,
+    scan_config: &'a ScanConfig,
+    packages: Vec<WorkspacePackage>,
+}
 
-    let pkg_results: Vec<(String, Result<_, _>)> = packages
-        .par_iter()
-        .map(|pkg| {
-            (
-                pkg.name.clone(),
-                scan_path_with_config(&pkg.root, scan_config),
-            )
-        })
-        .collect();
+struct PackageScanResult {
+    name: String,
+    result: io::Result<ScanSummary>,
+}
 
-    for (name, result) in pkg_results {
-        match result {
-            Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &name),
-            Err(err) => eprintln!("Warning: failed to scan workspace package '{name}': {err}"),
+impl<'a> WorkspaceScanPlan<'a> {
+    fn detect(root: &'a Path, scan_config: &'a ScanConfig) -> Self {
+        Self {
+            root,
+            scan_config,
+            packages: detect_workspace_packages(root),
         }
     }
 
+    fn execute(&self) -> io::Result<ScanSummary> {
+        let wall_start = Instant::now();
+        let mut merged = self.scan_root()?;
+
+        for package in self.scan_packages() {
+            match package.result {
+                Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &package.name),
+                Err(err) => eprintln!(
+                    "Warning: failed to scan workspace package '{}': {err}",
+                    package.name
+                ),
+            }
+        }
+
+        finalize_workspace_summary(&mut merged, wall_start);
+        Ok(merged)
+    }
+
+    fn scan_root(&self) -> io::Result<ScanSummary> {
+        let root_scan_config = workspace_root_config(self.scan_config, self.root, &self.packages);
+        scan_path_with_config(self.root, &root_scan_config)
+    }
+
+    fn scan_packages(&self) -> Vec<PackageScanResult> {
+        self.packages
+            .par_iter()
+            .map(|pkg| PackageScanResult {
+                name: pkg.name.clone(),
+                result: scan_path_with_config(&pkg.root, self.scan_config),
+            })
+            .collect()
+    }
+}
+
+fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
     deduplicate_workspace_findings(&mut merged.findings);
     apply_workspace_hotspot_overlay(&mut merged.findings);
     apply_cluster_overlay(&mut merged.findings);
     sort_findings(&mut merged.findings);
     merged.health_score = ScanSummary::compute_health_score(&merged.findings, merged.lines_of_code);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
-    Ok(merged)
 }
 
 fn workspace_root_config(
