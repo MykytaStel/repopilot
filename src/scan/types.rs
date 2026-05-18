@@ -32,6 +32,45 @@ pub struct ScanTimings {
     pub post_scan_audits_us: u64,
 }
 
+/// Cache effectiveness and per-file cache decisions captured during changed scans.
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanCacheTelemetry {
+    pub hits: usize,
+    pub misses: usize,
+    pub skipped: usize,
+    pub hit_rate_percent: u8,
+    pub changed_file_reasons: Vec<ChangedFileReasonSummary>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changed_files: Vec<ChangedFileCacheTelemetry>,
+    pub timings: ScanCacheTimings,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChangedFileReasonSummary {
+    pub reason: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ChangedFileCacheTelemetry {
+    pub path: PathBuf,
+    pub change_reason: String,
+    pub cache_status: String,
+    pub cache_reason: String,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanCacheTimings {
+    pub load_us: u64,
+    pub file_hash_us: u64,
+    pub lookup_us: u64,
+    pub hit_reuse_us: u64,
+    pub miss_scan_us: u64,
+    pub write_us: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub estimated_time_saved_us: Option<u64>,
+}
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HiddenSuggestionSummary {
     pub intent: String,
@@ -120,6 +159,9 @@ pub struct ScanSummary {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scan_timings: Option<ScanTimings>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_telemetry: Option<ScanCacheTelemetry>,
 }
 
 fn default_repo_level_rules_included() -> bool {
@@ -158,6 +200,7 @@ impl Default for ScanSummary {
             files_skipped_repopilotignore: 0,
             repopilotignore_path: None,
             scan_timings: None,
+            cache_telemetry: None,
         }
     }
 }

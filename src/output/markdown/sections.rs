@@ -55,6 +55,7 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         )
         .unwrap();
     }
+    render_cache_telemetry(output, summary);
     if summary.skipped_files_count > 0 {
         writeln!(
             output,
@@ -64,6 +65,74 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         .unwrap();
     }
     output.push('\n');
+}
+
+fn render_cache_telemetry(output: &mut String, summary: &ScanSummary) {
+    let Some(cache) = &summary.cache_telemetry else {
+        return;
+    };
+
+    writeln!(
+        output,
+        "- **Cache:** {} hit(s), {} miss(es), {} skipped ({}% hit rate)",
+        cache.hits, cache.misses, cache.skipped, cache.hit_rate_percent
+    )
+    .unwrap();
+
+    if !cache.changed_file_reasons.is_empty() {
+        let reasons = cache
+            .changed_file_reasons
+            .iter()
+            .map(|item| format!("{} ({})", item.reason, item.count))
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(output, "- **Changed file reasons:** {reasons}").unwrap();
+    }
+
+    writeln!(
+        output,
+        "- **Cache timing:** load {}ms; hash {}ms; lookup {}ms; reuse {}ms; miss scan {}ms; write {}ms; est. saved {}",
+        cache.timings.load_us / 1000,
+        cache.timings.file_hash_us / 1000,
+        cache.timings.lookup_us / 1000,
+        cache.timings.hit_reuse_us / 1000,
+        cache.timings.miss_scan_us / 1000,
+        cache.timings.write_us / 1000,
+        format_optional_ms(cache.timings.estimated_time_saved_us)
+    )
+    .unwrap();
+
+    if cache.changed_files.is_empty() {
+        return;
+    }
+
+    output.push_str("- **Changed file cache decisions:**\n");
+    for file in cache.changed_files.iter().take(8) {
+        writeln!(
+            output,
+            "  - `{}`: {} ({}, {})",
+            file.path.display(),
+            file.cache_status,
+            file.change_reason,
+            file.cache_reason
+        )
+        .unwrap();
+    }
+
+    if cache.changed_files.len() > 8 {
+        writeln!(
+            output,
+            "  - ... {} more changed file(s)",
+            cache.changed_files.len() - 8
+        )
+        .unwrap();
+    }
+}
+
+fn format_optional_ms(value: Option<u64>) -> String {
+    value
+        .map(|value| format!("{}ms", value / 1000))
+        .unwrap_or_else(|| "n/a".to_string())
 }
 
 fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummary) {

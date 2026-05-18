@@ -1,7 +1,10 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanSummary};
+use repopilot::scan::types::{
+    ChangedFileCacheTelemetry, ChangedFileReasonSummary, HiddenSuggestionSummary, LanguageSummary,
+    ScanCacheTelemetry, ScanCacheTimings, ScanSummary,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -64,6 +67,7 @@ fn renders_markdown_scan_summary() {
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,
         scan_timings: None,
+        cache_telemetry: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -127,6 +131,7 @@ fn renders_empty_markdown_sections() {
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,
         scan_timings: None,
+        cache_telemetry: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -185,6 +190,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
         files_skipped_repopilotignore: 0,
         repopilotignore_path: None,
         scan_timings: None,
+        cache_telemetry: None,
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -234,4 +240,49 @@ fn markdown_output_includes_hidden_suggestion_breakdown() {
 
     assert!(output.contains("- **Top hidden suggestions:**"));
     assert!(output.contains("`testing` / `testing-gap` / `testing.source-without-test`: 2"));
+}
+
+#[test]
+fn markdown_output_includes_cache_telemetry() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        cache_telemetry: Some(cache_telemetry()),
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render markdown summary");
+
+    assert!(output.contains("- **Cache:** 1 hit(s), 1 miss(es), 0 skipped (50% hit rate)"));
+    assert!(output.contains("- **Changed file reasons:** modified (2)"));
+    assert!(output.contains("- **Cache timing:** load 1ms; hash 2ms; lookup 3ms; reuse 4ms; miss scan 5ms; write 6ms; est. saved 7ms"));
+    assert!(output.contains("`src/lib.rs`: hit (modified, unchanged-content-and-config)"));
+}
+
+fn cache_telemetry() -> ScanCacheTelemetry {
+    ScanCacheTelemetry {
+        hits: 1,
+        misses: 1,
+        skipped: 0,
+        hit_rate_percent: 50,
+        changed_file_reasons: vec![ChangedFileReasonSummary {
+            reason: "modified".to_string(),
+            count: 2,
+        }],
+        changed_files: vec![ChangedFileCacheTelemetry {
+            path: PathBuf::from("src/lib.rs"),
+            change_reason: "modified".to_string(),
+            cache_status: "hit".to_string(),
+            cache_reason: "unchanged-content-and-config".to_string(),
+        }],
+        timings: ScanCacheTimings {
+            load_us: 1_000,
+            file_hash_us: 2_000,
+            lookup_us: 3_000,
+            hit_reuse_us: 4_000,
+            miss_scan_us: 5_000,
+            write_us: 6_000,
+            estimated_time_saved_us: Some(7_000),
+        },
+    }
 }

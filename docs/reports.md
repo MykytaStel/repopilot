@@ -38,6 +38,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.10:
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
+| `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
 
 `schema_version` is intentionally separate from the binary version. Patch releases
 may fix bugs without changing the report schema, while future minor releases can

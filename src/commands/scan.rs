@@ -244,6 +244,24 @@ fn print_timing_breakdown(summary: &ScanSummary) {
             total / 1000,
         );
     }
+
+    if let Some(cache) = &summary.cache_telemetry {
+        let estimated_saved = cache
+            .timings
+            .estimated_time_saved_us
+            .map(|value| format!("{}ms", value / 1000))
+            .unwrap_or_else(|| "n/a".to_string());
+        eprintln!(
+            "[timing] Cache: load {}ms · hash {}ms · lookup {}ms · hit reuse {}ms · miss scan {}ms · write {}ms · estimated saved {}",
+            cache.timings.load_us / 1000,
+            cache.timings.file_hash_us / 1000,
+            cache.timings.lookup_us / 1000,
+            cache.timings.hit_reuse_us / 1000,
+            cache.timings.miss_scan_us / 1000,
+            cache.timings.write_us / 1000,
+            estimated_saved,
+        );
+    }
 }
 
 fn write_scan_receipt_if_requested(
