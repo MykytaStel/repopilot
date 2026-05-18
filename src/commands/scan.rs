@@ -1,9 +1,10 @@
 use crate::cli::ScanOptions;
 use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::{
-    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_priority_filter,
-    apply_min_severity_filter, build_scan_config, finding_meets_min_priority,
-    scan_options_min_priority, scan_options_min_severity,
+    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_confidence_filter,
+    apply_min_priority_filter, apply_min_severity_filter, build_scan_config,
+    finding_meets_min_priority, scan_options_min_confidence, scan_options_min_priority,
+    scan_options_min_severity,
 };
 use repopilot::baseline::diff::{
     BaselineScanReport, all_findings_new, diff_summary_against_baseline,
@@ -26,6 +27,7 @@ use std::time::Instant;
 
 pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let min_severity = scan_options_min_severity(&options);
+    let min_confidence = scan_options_min_confidence(&options);
     let min_priority = scan_options_min_priority(&options);
     let fail_on_priority = options.fail_on_priority.map(Into::into);
 
@@ -103,6 +105,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(min) = min_severity {
         apply_min_severity_filter(&mut summary, min);
+    }
+
+    if let Some(min) = min_confidence {
+        apply_min_confidence_filter(&mut summary, min);
     }
 
     if !options.rule.is_empty() {

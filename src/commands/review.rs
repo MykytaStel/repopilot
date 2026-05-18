@@ -1,9 +1,9 @@
 use crate::cli::ReviewOptions;
 use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::{
-    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_severity_filter,
-    build_scan_config, finding_meets_min_priority, review_options_min_priority,
-    review_options_min_severity,
+    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_confidence_filter,
+    apply_min_severity_filter, build_scan_config, finding_meets_min_priority,
+    review_options_min_confidence, review_options_min_priority, review_options_min_severity,
 };
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
@@ -17,6 +17,7 @@ use repopilot::scan::scanner::scan_path_with_config;
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let min_severity = review_options_min_severity(&options);
+    let min_confidence = review_options_min_confidence(&options);
     let min_priority = review_options_min_priority(&options);
     let fail_on_priority = options.fail_on_priority.map(Into::into);
 
@@ -54,6 +55,10 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(min) = min_severity {
         apply_min_severity_filter(&mut summary, min);
+    }
+
+    if let Some(min) = min_confidence {
+        apply_min_confidence_filter(&mut summary, min);
     }
 
     let baseline_file = match options.baseline {

@@ -15,11 +15,11 @@ pub mod scan;
 pub mod vibe;
 
 use crate::cli::{
-    AiCommands, Cli, Commands, InspectCommands, PriorityArg, ReviewOptions, ScanOptions,
-    SeverityArg,
+    AiCommands, Cli, Commands, ConfidenceArg, InspectCommands, PriorityArg, ReviewOptions,
+    ScanOptions, SeverityArg,
 };
 use repopilot::config::model::RepoPilotConfig;
-use repopilot::findings::types::{Finding, Severity};
+use repopilot::findings::types::{Confidence, Finding, Severity};
 use repopilot::output::vibe::VibeCategory;
 use repopilot::risk::RiskPriority;
 use repopilot::scan::config::ScanConfig;
@@ -146,6 +146,10 @@ pub fn severity_arg_into(arg: SeverityArg) -> Severity {
     }
 }
 
+pub fn confidence_arg_into(arg: ConfidenceArg) -> Confidence {
+    arg.into()
+}
+
 pub fn priority_arg_into(arg: PriorityArg) -> RiskPriority {
     arg.into()
 }
@@ -210,6 +214,15 @@ pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
         ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
+pub fn apply_min_confidence_filter(summary: &mut ScanSummary, min: Confidence) {
+    summary
+        .findings
+        .retain(|finding| finding_meets_min_confidence(finding, min));
+    summary.visible_findings_count = summary.findings.len();
+    summary.health_score =
+        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
+}
+
 pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
     summary
         .findings
@@ -221,6 +234,10 @@ pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
 
 pub fn finding_meets_min_priority(finding: &Finding, min: RiskPriority) -> bool {
     priority_rank(finding.risk.priority) <= priority_rank(min)
+}
+
+pub fn finding_meets_min_confidence(finding: &Finding, min: Confidence) -> bool {
+    finding.confidence >= min
 }
 
 fn priority_rank(priority: RiskPriority) -> u8 {
@@ -236,12 +253,20 @@ pub fn scan_options_min_severity(options: &ScanOptions) -> Option<Severity> {
     options.min_severity.map(severity_arg_into)
 }
 
+pub fn scan_options_min_confidence(options: &ScanOptions) -> Option<Confidence> {
+    options.min_confidence.map(confidence_arg_into)
+}
+
 pub fn scan_options_min_priority(options: &ScanOptions) -> Option<RiskPriority> {
     options.min_priority.map(priority_arg_into)
 }
 
 pub fn review_options_min_severity(options: &ReviewOptions) -> Option<Severity> {
     options.min_severity.map(severity_arg_into)
+}
+
+pub fn review_options_min_confidence(options: &ReviewOptions) -> Option<Confidence> {
+    options.min_confidence.map(confidence_arg_into)
 }
 
 pub fn review_options_min_priority(options: &ReviewOptions) -> Option<RiskPriority> {

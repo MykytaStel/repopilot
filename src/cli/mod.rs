@@ -2,8 +2,8 @@ mod args;
 mod options;
 
 pub use args::{
-    CompareOutputFormatArg, FailOnArg, KnowledgeSectionArg, OutputFormatArg, PriorityArg,
-    ScanProfileArg, SeverityArg, parse_byte_size, parse_vibe_budget,
+    CompareOutputFormatArg, ConfidenceArg, FailOnArg, KnowledgeSectionArg, OutputFormatArg,
+    PriorityArg, ScanProfileArg, SeverityArg, parse_byte_size, parse_vibe_budget,
 };
 pub use options::*;
 

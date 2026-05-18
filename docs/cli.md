@@ -84,6 +84,8 @@ repopilot s <PATH> [OPTIONS]
 | `--changed` | flag | — | Scan only files changed against `HEAD`, including untracked files; repo-level rules are skipped |
 | `--since` | git ref | — | Scan only files changed between `BASE...HEAD`; repo-level rules are skipped |
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
+| `--min-confidence` | `low\|medium\|high` | — | Only show findings at or above this confidence |
+| `--min-priority` | `p0\|p1\|p2\|p3` | — | Only show findings at or above this risk priority |
 | `--verbose` | flag | — | Print scan phase timing breakdown after the report |
 | `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
 
@@ -205,6 +207,8 @@ repopilot r [PATH] [OPTIONS]
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
+| `--min-confidence` | `low\|medium\|high` | — | Only show findings at or above this confidence |
+| `--min-priority` | `p0\|p1\|p2\|p3` | — | Only show findings at or above this risk priority |
 
 ### Exit codes
 
