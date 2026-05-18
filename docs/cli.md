@@ -24,6 +24,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`inspect explain`](#inspect-explain) | — | Explain file classification and rule decisions |
 | [`inspect knowledge`](#inspect-knowledge) | — | Inspect bundled Knowledge Engine data |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
+| [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
 | [`doctor`](#doctor) | `d` | Diagnose audit readiness |
@@ -80,6 +81,8 @@ repopilot s <PATH> [OPTIONS]
 | `--max-file-size` | size | `2097152` | Skip files larger than this size; accepts bytes, `kb`, `mb`, or `gb`; `0` disables the guard |
 | `--max-files` | integer | — | Analyze at most this many discovered files after ignore and exclude filters |
 | `-w, --workspace` | flag | — | Scan each detected workspace package separately and group findings by package |
+| `--changed` | flag | — | Scan only files changed against `HEAD`, including untracked files; repo-level rules are skipped |
+| `--since` | git ref | — | Scan only files changed between `BASE...HEAD`; repo-level rules are skipped |
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
 | `--verbose` | flag | — | Print scan phase timing breakdown after the report |
 | `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
@@ -129,10 +132,33 @@ repopilot scan . --include-low-signal
 # Monorepo scan with less noise
 repopilot scan . --workspace --min-severity medium
 
+# Focus on changed files
+repopilot scan . --changed
+repopilot scan . --since main
+
 # One-shot threshold presets and timing
 repopilot scan . --preset strict
 repopilot scan . --verbose
 ```
+
+Changed scans write local cache files under `.repopilot/cache/` and intentionally
+skip repo-level architecture, framework, testing, and coupling rules. Use a full
+scan for authoritative repository-wide risk.
+
+---
+
+## `cache`
+
+Manage RepoPilot's local scan cache.
+
+### Synopsis
+
+```bash
+repopilot cache clear [PATH]
+```
+
+`cache clear` removes only `.repopilot/cache` for the selected path and succeeds
+when the cache directory does not exist.
 
 ---
 

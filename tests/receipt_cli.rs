@@ -43,16 +43,28 @@ fn scan_writes_audit_receipt_json() {
     let receipt: Value = serde_json::from_slice(&fs::read(receipt_path).expect("read receipt"))
         .expect("valid receipt json");
 
-    assert_eq!(receipt["schema_version"], 1);
+    assert_eq!(receipt["schema_version"], 2);
     assert_eq!(receipt["tool"], "repopilot");
     assert!(receipt["version"].as_str().is_some());
     assert!(receipt["generated_at"].as_str().is_some());
 
     assert_eq!(receipt["scope"]["files_discovered"], 1);
+    assert_eq!(receipt["scope"]["mode"], "full");
+    assert_eq!(receipt["scope"]["repo_level_rules_included"], true);
     assert_eq!(receipt["scope"]["files_analyzed"], 1);
     assert_eq!(receipt["scope"]["files_skipped_repopilotignore"], 1);
 
     assert!(receipt["findings"]["total"].as_u64().is_some());
+    assert!(
+        receipt["findings"]["hidden_suggestions_count"]
+            .as_u64()
+            .is_some()
+    );
+    assert!(
+        receipt["findings"]["hidden_suggestions"]
+            .as_array()
+            .is_some()
+    );
     assert!(receipt["health_score"].as_u64().is_some());
 }
 

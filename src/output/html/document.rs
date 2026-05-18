@@ -4,6 +4,7 @@ use crate::output::report_stats::TOOL_VERSION;
 
 pub(super) struct DocumentParts<'a> {
     pub(super) path: &'a str,
+    pub(super) scan_meta: &'a str,
     pub(super) baseline_meta: &'a str,
     pub(super) cards: &'a str,
     pub(super) risk_section: &'a str,
@@ -17,6 +18,7 @@ pub(super) struct DocumentParts<'a> {
 pub(super) fn render_document(p: DocumentParts<'_>) -> String {
     let DocumentParts {
         path,
+        scan_meta,
         baseline_meta,
         cards,
         risk_section,
@@ -42,6 +44,7 @@ pub(super) fn render_document(p: DocumentParts<'_>) -> String {
   <h1>RepoPilot Scan Report</h1>
   <p class="meta">RepoPilot version: <strong>{version}</strong></p>
   <p class="meta">Path: <code>{path}</code></p>
+  {scan_meta}
   {baseline_meta}
 </header>
 

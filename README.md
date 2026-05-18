@@ -187,6 +187,8 @@ See [AI workflows](docs/ai-workflows.md).
 | Command | Alias | Description |
 |---|---:|---|
 | `repopilot scan <path>` | `s` | Scan a project, folder, or file |
+| `repopilot scan <path> --changed` | — | Scan changed files with local cache |
+| `repopilot cache clear [path]` | — | Remove `.repopilot/cache` |
 | `repopilot review [path]` | `r` | Review findings that touch changed Git diff lines |
 | `repopilot ai context <path>` | — | Generate LLM-ready repository context |
 | `repopilot ai plan <path>` | — | Generate a prioritized remediation plan |
@@ -388,7 +390,7 @@ Planned direction:
 - `repopilot eval` with golden fixtures
 - local feedback through `.repopilot/feedback.yml`
 - hidden suggestion trend tracking
-- changed-file cache and incremental scans
+- deeper changed-scan cache telemetry
 - deeper dependency graph and impact analysis
 - AI task packs with context, constraints, and acceptance criteria
 

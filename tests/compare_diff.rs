@@ -65,6 +65,10 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
     let visible_findings_count = findings.len();
     ScanSummary {
         root_path: PathBuf::from("demo"),
+        mode: Default::default(),
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: 0,
         files_count: 1,
         directories_count: 0,

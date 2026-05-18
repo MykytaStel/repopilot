@@ -158,6 +158,10 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
     BaselineScanReport {
         summary: ScanSummary {
             root_path: report.summary.root_path.clone(),
+            mode: report.summary.mode,
+            base_ref: report.summary.base_ref.clone(),
+            changed_files_count: report.summary.changed_files_count,
+            repo_level_rules_included: report.summary.repo_level_rules_included,
             files_discovered: report.summary.files_discovered,
             files_count: report.summary.files_count,
             directories_count: report.summary.directories_count,

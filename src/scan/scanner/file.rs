@@ -1,5 +1,6 @@
 mod read;
 
+use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
@@ -13,8 +14,18 @@ pub(super) struct PerFileResult {
     pub(super) file_facts: FileFacts,
     pub(super) findings: Vec<Finding>,
     pub(super) language: Option<String>,
+    pub(super) context: Option<PerFileContext>,
     pub(super) skip_reason: SkipReason,
     pub(super) skipped_bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct PerFileContext {
+    pub(super) roles: Vec<String>,
+    pub(super) frameworks: Vec<String>,
+    pub(super) runtimes: Vec<String>,
+    pub(super) paradigms: Vec<String>,
+    pub(super) is_test: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +41,23 @@ pub(super) fn process_file(
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
 ) -> io::Result<PerFileResult> {
+    process_file_inner(path, file_audits, config, false)
+}
+
+pub(super) fn process_file_with_content(
+    path: &Path,
+    file_audits: &[Box<dyn FileAudit>],
+    config: &ScanConfig,
+) -> io::Result<PerFileResult> {
+    process_file_inner(path, file_audits, config, true)
+}
+
+fn process_file_inner(
+    path: &Path,
+    file_audits: &[Box<dyn FileAudit>],
+    config: &ScanConfig,
+    retain_content: bool,
+) -> io::Result<PerFileResult> {
     let loaded = load_file(path, config)?;
     let LoadedFile::Analyzable {
         full_facts,
@@ -39,15 +67,21 @@ pub(super) fn process_file(
         return Ok(skipped_result_from_loaded(path, loaded));
     };
 
+    let context = PerFileContext::from_file(&full_facts);
     let mut findings = Vec::new();
     for audit in file_audits {
         findings.extend(audit.audit(&full_facts, config));
     }
 
     Ok(PerFileResult {
-        file_facts: without_content(full_facts),
+        file_facts: if retain_content {
+            full_facts
+        } else {
+            without_content(full_facts)
+        },
         findings,
         language,
+        context: Some(context),
         skip_reason: SkipReason::None,
         skipped_bytes: 0,
     })
@@ -160,8 +194,34 @@ fn skipped_result(
         file_facts: empty_file_facts(path, language.clone()),
         findings: Vec::new(),
         language,
+        context: None,
         skip_reason,
         skipped_bytes,
+    }
+}
+
+impl PerFileContext {
+    fn from_file(file: &FileFacts) -> Self {
+        let context = classify_file(file);
+        Self {
+            roles: context.role_ids().into_iter().map(str::to_string).collect(),
+            frameworks: context
+                .framework_ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            runtimes: context
+                .runtime_ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            paradigms: context
+                .paradigm_ids()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            is_test: context.is_test,
+        }
     }
 }
 

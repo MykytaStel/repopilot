@@ -1,6 +1,6 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{HiddenSuggestionSummary, ScanSummary};
 use std::path::PathBuf;
 
 #[test]
@@ -67,4 +67,26 @@ fn console_output_labels_max_files_remainder_as_limit_skipped() {
 
     assert!(output.contains("Files skipped (limit):"));
     assert!(!output.contains("Files skipped (ignore):"));
+}
+
+#[test]
+fn console_output_includes_hidden_suggestion_breakdown() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        hidden_suggestions_count: 3,
+        hidden_suggestions: vec![HiddenSuggestionSummary {
+            intent: "maintainability".to_string(),
+            rule_id: "architecture.large-file".to_string(),
+            category: "architecture".to_string(),
+            reason: "maintainability signals are hidden in the default profile".to_string(),
+            count: 3,
+        }],
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Console)
+        .expect("failed to render console report");
+
+    assert!(output.contains("Hidden suggestions breakdown:"));
+    assert!(output.contains("architecture / maintainability / architecture.large-file"));
 }

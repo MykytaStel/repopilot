@@ -2,8 +2,7 @@ use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::risk::RiskSummary;
-use crate::scan::types::LanguageSummary;
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanMode, ScanSummary};
 use serde::Serialize;
 
 pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.10";
@@ -53,8 +52,13 @@ pub fn render_with_baseline(
         lines_of_code: report.summary.lines_of_code,
         skipped_files_count: report.summary.skipped_files_count,
         skipped_bytes: report.summary.skipped_bytes,
+        mode: report.summary.mode,
+        base_ref: report.summary.base_ref.as_deref(),
+        changed_files_count: report.summary.changed_files_count,
+        repo_level_rules_included: report.summary.repo_level_rules_included,
         visible_findings_count: report.summary.findings.len(),
         hidden_suggestions_count: report.summary.hidden_suggestions_count,
+        hidden_suggestions: &report.summary.hidden_suggestions,
         visibility_profile: report.summary.visibility_profile.as_deref(),
         languages: &report.summary.languages,
         risk_summary: RiskSummary::from_findings(&report.summary.findings),
@@ -83,8 +87,15 @@ struct BaselineJsonReport<'a> {
     lines_of_code: usize,
     skipped_files_count: usize,
     skipped_bytes: u64,
+    mode: ScanMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    base_ref: Option<&'a str>,
+    changed_files_count: usize,
+    repo_level_rules_included: bool,
     visible_findings_count: usize,
     hidden_suggestions_count: usize,
+    #[serde(skip_serializing_if = "hidden_suggestions_empty")]
+    hidden_suggestions: &'a Vec<HiddenSuggestionSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     visibility_profile: Option<&'a str>,
     languages: &'a [LanguageSummary],
@@ -93,6 +104,10 @@ struct BaselineJsonReport<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     ci_gate: Option<CiGateJsonMetadata>,
     findings: Vec<FindingWithBaselineStatus<'a>>,
+}
+
+fn hidden_suggestions_empty(value: &&Vec<HiddenSuggestionSummary>) -> bool {
+    value.is_empty()
 }
 
 #[derive(Serialize)]
@@ -154,7 +169,14 @@ mod tests {
     #[test]
     fn baseline_json_report_includes_schema_and_tool_versions() {
         let summary = ScanSummary {
-            hidden_suggestions: Vec::new(),
+            hidden_suggestions_count: 5,
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "testing-gap".to_string(),
+                rule_id: "testing.source-without-test".to_string(),
+                category: "testing".to_string(),
+                reason: "testing gaps are hidden in the default profile".to_string(),
+                count: 5,
+            }],
             root_path: PathBuf::from("."),
             files_count: 2,
             ..ScanSummary::default()
@@ -172,6 +194,11 @@ mod tests {
         assert_eq!(value["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
         assert_eq!(value["files_count"], 2);
+        assert_eq!(value["hidden_suggestions_count"], 5);
+        assert_eq!(
+            value["hidden_suggestions"][0]["rule_id"],
+            "testing.source-without-test"
+        );
         assert!(value.get("baseline").is_some());
     }
 }

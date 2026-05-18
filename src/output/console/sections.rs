@@ -15,6 +15,7 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     if let Some(profile) = &summary.visibility_profile {
         writeln!(output, "Profile: {profile}").unwrap();
     }
+    render_scope(output, summary);
     writeln!(
         output,
         "Risk: {} | Health score: {}/100 {}",
@@ -75,8 +76,8 @@ fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummar
     for item in summary.hidden_suggestions.iter().take(8) {
         writeln!(
             output,
-            "  {:>4}  {} / {} ({})",
-            item.count, item.intent, item.rule_id, item.reason
+            "  {:>4}  {} / {} / {} ({})",
+            item.count, item.category, item.intent, item.rule_id, item.reason
         )
         .unwrap();
     }
@@ -89,6 +90,25 @@ fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummar
         )
         .unwrap();
     }
+}
+
+fn render_scope(output: &mut String, summary: &ScanSummary) {
+    if summary.mode == crate::scan::types::ScanMode::Changed {
+        let base = summary
+            .base_ref
+            .as_ref()
+            .map(|base| format!(" since {base}"))
+            .unwrap_or_else(|| " against HEAD".to_string());
+        writeln!(
+            output,
+            "Scope: changed files{base} | changed files: {} | repo-level rules: skipped",
+            summary.changed_files_count
+        )
+        .unwrap();
+        return;
+    }
+
+    writeln!(output, "Scope: full scan | repo-level rules: included").unwrap();
 }
 
 pub(crate) fn render_risk_summary(output: &mut String, stats: &ReportStats) {

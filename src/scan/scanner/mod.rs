@@ -1,3 +1,4 @@
+mod changed;
 mod collection;
 mod file;
 mod summary;
@@ -13,11 +14,12 @@ use crate::frameworks::{
 use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
-use crate::scan::types::{ScanSummary, ScanTimings};
+use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
 
+pub use changed::scan_changed_with_config;
 pub use collection::{collect_scan_facts, collect_scan_facts_with_config};
 
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
@@ -82,6 +84,10 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
 
     Ok(ScanSummary {
         root_path: facts.root_path,
+        mode: ScanMode::Full,
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: facts.files_discovered,
         files_count: facts.files_count,
         directories_count: facts.directories_count,

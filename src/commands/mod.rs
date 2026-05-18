@@ -1,4 +1,5 @@
 pub mod baseline;
+pub mod cache;
 pub mod compare;
 pub mod doctor;
 pub mod explain;
@@ -31,6 +32,7 @@ pub const EXIT_RUNTIME: i32 = 3;
 
 pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
+        Commands::Cache(options) => cache::run(options.command),
         Commands::Scan(options) => scan::run(options),
         Commands::Review(options) => review::run(options),
         Commands::Baseline(options) => baseline::run(options.command),

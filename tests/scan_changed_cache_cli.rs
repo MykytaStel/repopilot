@@ -1,0 +1,202 @@
+use serde_json::Value;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+use tempfile::tempdir;
+
+fn repopilot() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_repopilot"))
+}
+
+#[test]
+fn changed_scan_writes_cache_and_reuses_matching_findings() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+
+    let first = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(first["mode"], "changed");
+    assert_eq!(first["repo_level_rules_included"], false);
+    assert_eq!(first["changed_files_count"], 1);
+    assert_rule_present(&first, "security.secret-candidate");
+
+    let cache_dir = temp.path().join(".repopilot/cache");
+    assert!(cache_dir.join("file_hashes.json").is_file());
+    assert!(cache_dir.join("file_roles.json").is_file());
+    assert!(cache_dir.join("findings.json").is_file());
+
+    rewrite_cached_finding_title(&cache_dir.join("findings.json"), "Cached secret title");
+    let cached = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(first_finding_title(&cached), "Cached secret title");
+
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"xyz987abc123\";\n",
+    );
+    let invalidated = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(
+        first_finding_title(&invalidated),
+        "Possible secret detected"
+    );
+}
+
+#[test]
+fn since_scan_uses_base_ref_scope() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    git(temp.path(), &["checkout", "-b", "feature"]);
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+    commit_all(temp.path(), "feature secret");
+
+    let json = scan_changed_json(temp.path(), &["--since", "main"]);
+
+    assert_eq!(json["mode"], "changed");
+    assert_eq!(json["base_ref"], "main");
+    assert_eq!(json["changed_files_count"], 1);
+    assert_rule_present(&json, "security.secret-candidate");
+}
+
+#[test]
+fn cache_clear_removes_cache_and_is_idempotent() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+    scan_changed_json(temp.path(), &["--changed"]);
+
+    let cache_dir = temp.path().join(".repopilot/cache");
+    assert!(cache_dir.is_dir());
+
+    clear_cache(temp.path());
+    assert!(!cache_dir.exists());
+    clear_cache(temp.path());
+    assert!(!cache_dir.exists());
+}
+
+#[test]
+fn changed_scan_rejects_invalid_flag_combinations() {
+    let temp = tempdir().expect("temp dir");
+
+    let both = repopilot()
+        .args(["scan", ".", "--changed", "--since", "main"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run scan");
+    assert_eq!(both.status.code(), Some(2));
+
+    let workspace = repopilot()
+        .args(["scan", ".", "--workspace", "--changed"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run scan");
+    assert_eq!(workspace.status.code(), Some(2));
+}
+
+fn scan_changed_json(root: &Path, args: &[&str]) -> Value {
+    let output = repopilot()
+        .args(["scan", ".", "--format", "json"])
+        .args(args)
+        .current_dir(root)
+        .output()
+        .expect("run repopilot scan");
+
+    assert!(
+        output.status.success(),
+        "scan failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    serde_json::from_slice(&output.stdout).expect("json output")
+}
+
+fn clear_cache(root: &Path) {
+    let output = repopilot()
+        .args(["cache", "clear", "."])
+        .current_dir(root)
+        .output()
+        .expect("run cache clear");
+
+    assert!(
+        output.status.success(),
+        "cache clear failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn rewrite_cached_finding_title(path: &Path, title: &str) {
+    let mut value: Value =
+        serde_json::from_slice(&fs::read(path).expect("read findings cache")).expect("json");
+    value["entries"][0]["findings"][0]["title"] = Value::String(title.to_string());
+    fs::write(
+        path,
+        serde_json::to_string_pretty(&value).expect("render findings cache"),
+    )
+    .expect("write findings cache");
+}
+
+fn first_finding_title(json: &Value) -> &str {
+    json["findings"][0]["title"]
+        .as_str()
+        .expect("finding title")
+}
+
+fn assert_rule_present(json: &Value, rule_id: &str) {
+    assert!(
+        json["findings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|finding| finding["rule_id"] == rule_id),
+        "expected {rule_id} in findings: {json:#?}"
+    );
+}
+
+fn init_repo(root: &Path) {
+    git(root, &["init"]);
+    git(root, &["checkout", "-B", "main"]);
+    git(root, &["config", "user.email", "repopilot@example.com"]);
+    git(root, &["config", "user.name", "RepoPilot Test"]);
+}
+
+fn commit_all(root: &Path, message: &str) {
+    git(root, &["add", "."]);
+    git(root, &["commit", "-m", message]);
+}
+
+fn git(root: &Path, args: &[&str]) {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(root)
+        .output()
+        .expect("run git");
+    assert!(
+        output.status.success(),
+        "git {:?} failed\nstdout:\n{}\nstderr:\n{}",
+        args,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn write(path: std::path::PathBuf, content: &str) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create parent");
+    }
+    fs::write(path, content).expect("write file");
+}

@@ -7,6 +7,22 @@ use crate::scan::types::ScanSummary;
 
 mod frameworks;
 
+pub(super) fn render_scan_meta(summary: &ScanSummary) -> String {
+    if summary.mode == crate::scan::types::ScanMode::Changed {
+        let base = summary
+            .base_ref
+            .as_ref()
+            .map(|base| format!(" since <code>{}</code>", escape_html(base)))
+            .unwrap_or_else(|| " against <code>HEAD</code>".to_string());
+        return format!(
+            r#"<p class="meta">Scope: changed files{base}; {} changed file(s); repo-level rules skipped.</p>"#,
+            summary.changed_files_count
+        );
+    }
+
+    r#"<p class="meta">Scope: full scan; repo-level rules included.</p>"#.to_string()
+}
+
 pub(super) fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -> String {
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
@@ -125,10 +141,7 @@ pub(super) fn render_risk_section(summary: &ScanSummary, stats: &ReportStats) ->
     };
 
     let hidden_note = if summary.hidden_suggestions_count > 0 {
-        format!(
-            r#"<p class="meta">{} maintainability/testing suggestions hidden. Run with <code>--profile strict</code> to view.</p>"#,
-            summary.hidden_suggestions_count
-        )
+        render_hidden_suggestions(summary)
     } else {
         String::new()
     };
@@ -136,6 +149,46 @@ pub(super) fn render_risk_section(summary: &ScanSummary, stats: &ReportStats) ->
     format!(
         r#"<section class="panel"><h2>Risk Summary</h2>{hidden_note}<h3>Severity</h3>{severity}{categories}</section>"#
     )
+}
+
+fn render_hidden_suggestions(summary: &ScanSummary) -> String {
+    let mut output = format!(
+        r#"<p class="meta">{} strict-only suggestions hidden. Run with <code>--profile strict</code> or <code>--include-maintainability</code> to view.</p>"#,
+        summary.hidden_suggestions_count
+    );
+
+    if summary.hidden_suggestions.is_empty() {
+        return output;
+    }
+
+    let rows = summary
+        .hidden_suggestions
+        .iter()
+        .take(8)
+        .map(|item| {
+            format!(
+                "<tr><td><code>{}</code></td><td><code>{}</code></td><td><code>{}</code></td><td class=\"num-cell\">{}</td><td>{}</td></tr>",
+                escape_html(&item.category),
+                escape_html(&item.intent),
+                escape_html(&item.rule_id),
+                item.count,
+                escape_html(&item.reason)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    output.push_str(&format!(
+        "<h3>Top Hidden Suggestions</h3><table><thead><tr><th>Category</th><th>Intent</th><th>Rule</th><th class=\"num-cell\">Count</th><th>Reason</th></tr></thead><tbody>{rows}</tbody></table>"
+    ));
+
+    if summary.hidden_suggestions.len() > 8 {
+        output.push_str(&format!(
+            r#"<p class="meta">{} more hidden group(s).</p>"#,
+            summary.hidden_suggestions.len() - 8
+        ));
+    }
+
+    output
 }
 
 pub(super) fn render_top_rules_section(stats: &ReportStats) -> String {

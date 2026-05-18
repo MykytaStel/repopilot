@@ -17,7 +17,7 @@ use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
 use repopilot::risk::RiskPriority;
-use repopilot::scan::scanner::scan_path_with_config;
+use repopilot::scan::scanner::{scan_changed_with_config, scan_path_with_config};
 use repopilot::scan::types::ScanSummary;
 use repopilot::scan::workspace_scan::scan_workspace_with_config;
 use std::path::Path;
@@ -32,6 +32,18 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         return Err(Box::new(CliExit {
             code: EXIT_USAGE,
             message: "`--fail-on` and `--fail-on-priority` cannot be used together".to_string(),
+        }));
+    }
+    if options.changed && options.since.is_some() {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--changed` and `--since` cannot be used together".to_string(),
+        }));
+    }
+    if options.workspace && (options.changed || options.since.is_some()) {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--workspace` cannot be used with changed scans".to_string(),
         }));
     }
     let mut repo_config = match &options.config {
@@ -73,7 +85,9 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let pb = make_spinner("Scanning...");
     let scan_start = Instant::now();
 
-    let mut summary = if options.workspace {
+    let mut summary = if options.changed || options.since.is_some() {
+        scan_changed_with_config(&options.path, &scan_config, options.since.as_deref())?
+    } else if options.workspace {
         scan_workspace_with_config(&options.path, &scan_config)?
     } else {
         scan_path_with_config(&options.path, &scan_config)?
@@ -208,7 +222,7 @@ fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
 }
 
 fn scan_visibility_profile(options: &ScanOptions) -> FindingVisibilityProfile {
-    if options.include_maintainability || options.verbose || !options.rule.is_empty() {
+    if options.include_maintainability || !options.rule.is_empty() {
         return FindingVisibilityProfile::Strict;
     }
 
