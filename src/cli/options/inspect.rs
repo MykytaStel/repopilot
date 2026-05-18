@@ -29,6 +29,16 @@ repopilot inspect knowledge --section languages\n  \
 repopilot inspect knowledge --section rules --format json"
     )]
     Knowledge(KnowledgeOptions),
+
+    /// Inspect local changed-scan cache diagnostics
+    #[command(
+        about = "Inspect RepoPilot local cache diagnostics",
+        after_help = "EXAMPLES:\n  \
+repopilot inspect cache\n  \
+repopilot inspect cache . --format json\n  \
+repopilot inspect cache . --format markdown --output cache.md"
+    )]
+    Cache(CacheInspectOptions),
 }
 
 #[derive(Args)]
@@ -64,6 +74,21 @@ pub struct KnowledgeOptions {
     pub section: KnowledgeSectionArg,
 
     /// Output format for the catalog
+    #[arg(long, value_enum, default_value = "console")]
+    pub format: CompareOutputFormatArg,
+
+    /// Write report to a file instead of stdout
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct CacheInspectOptions {
+    /// Repository or project path whose .repopilot/cache directory should be inspected
+    #[arg(default_value = ".")]
+    pub path: PathBuf,
+
+    /// Output format for cache diagnostics
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
 

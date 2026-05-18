@@ -1,11 +1,14 @@
 use crate::audits::context::classify_file;
 use crate::explain::model::{
     ExplainContext, ExplainDecision, ExplainReport, ExplainRiskSignal, ExplainSource,
+    ExplainVisibility,
 };
-use crate::findings::types::Severity;
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
+use crate::findings::visibility::classify_visibility;
 use crate::knowledge::decision::decide_for_file;
 use crate::knowledge::language::{detect_language_for_path, profile_by_id};
 use crate::knowledge::model::{RuleDecisionAction, SupportLevel};
+use crate::rules::registry::lookup_rule_metadata;
 use crate::scan::facts::FileFacts;
 use std::fs;
 use std::io;
@@ -80,6 +83,7 @@ pub fn build_explain_report(
                 weight: signal.weight,
                 reason: signal.reason,
             }),
+            visibility: Some(explain_visibility(path, rule_id, decision.severity)),
         }
     });
 
@@ -148,5 +152,34 @@ fn decision_action_label(action: RuleDecisionAction) -> &'static str {
         RuleDecisionAction::Suppress => "suppress",
         RuleDecisionAction::Downgrade => "downgrade",
         RuleDecisionAction::Upgrade => "upgrade",
+    }
+}
+
+fn explain_visibility(path: &Path, rule_id: &str, severity: Severity) -> ExplainVisibility {
+    let category = lookup_rule_metadata(rule_id)
+        .map(|metadata| metadata.category.clone())
+        .unwrap_or(FindingCategory::CodeQuality);
+
+    let finding = Finding {
+        rule_id: rule_id.to_string(),
+        category,
+        severity,
+        confidence: Confidence::High,
+        evidence: vec![Evidence {
+            path: path.to_path_buf(),
+            line_start: 1,
+            line_end: None,
+            snippet: "synthetic finding for visibility explanation".to_string(),
+        }],
+        ..Default::default()
+    };
+
+    let decision = classify_visibility(&finding);
+
+    ExplainVisibility {
+        profile: "default".to_string(),
+        intent: decision.intent.label().to_string(),
+        visible_by_default: decision.visible_by_default,
+        reason: decision.reason.to_string(),
     }
 }

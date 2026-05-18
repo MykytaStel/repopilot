@@ -105,6 +105,10 @@ pub struct ScanOptions {
     #[arg(long, value_parser = ["strict", "balanced", "lenient"])]
     pub preset: Option<String>,
 
+    /// Ignore .repopilot/feedback.yml local suppressions
+    #[arg(long)]
+    pub ignore_feedback: bool,
+
     /// Only show findings for specific rule ID(s); repeatable
     #[arg(long, value_name = "RULE_ID")]
     pub rule: Vec<String>,

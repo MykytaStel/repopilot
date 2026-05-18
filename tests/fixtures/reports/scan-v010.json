@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.10",
+  "repopilot_version": "0.10.0",
+  "root_path": ".",
+  "files_count": 2,
+  "directories_count": 1,
+  "lines_of_code": 12,
+  "findings": [],
+  "languages": [],
+  "risk_summary": {
+    "total": 0,
+    "average_score": 0,
+    "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  }
+}

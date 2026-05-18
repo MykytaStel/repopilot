@@ -348,3 +348,37 @@ repopilot compare before.json after.json --format markdown
 ```bash
 repopilot scan src/payments/processor.rs
 ```
+
+---
+
+## `inspect cache`
+
+Inspect local changed-scan cache diagnostics.
+
+```bash
+repopilot inspect cache .
+repopilot inspect cache . --format json
+repopilot inspect cache . --format markdown --output cache.md
+```
+
+The command is read-only and reports cache entry counts, schema version,
+approximate cache size, and stale entry count.
+
+---
+
+## Local feedback suppressions
+
+RepoPilot reads `.repopilot/feedback.yml` by default:
+
+```yaml
+suppressions:
+  - rule_id: architecture.large-file
+    path: src/generated/schema.rs
+    reason: generated schema boundary
+```
+
+Use raw output without local suppressions:
+
+```bash
+repopilot scan . --ignore-feedback
+```
