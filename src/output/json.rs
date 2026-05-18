@@ -2,7 +2,9 @@ use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::risk::RiskSummary;
-use crate::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanMode, ScanSummary};
+use crate::scan::types::{
+    HiddenSuggestionSummary, LanguageSummary, ScanCacheTelemetry, ScanMode, ScanSummary,
+};
 use serde::Serialize;
 
 pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.10";
@@ -60,6 +62,7 @@ pub fn render_with_baseline(
         hidden_suggestions_count: report.summary.hidden_suggestions_count,
         hidden_suggestions: &report.summary.hidden_suggestions,
         visibility_profile: report.summary.visibility_profile.as_deref(),
+        cache_telemetry: report.summary.cache_telemetry.as_ref(),
         languages: &report.summary.languages,
         risk_summary: RiskSummary::from_findings(&report.summary.findings),
         baseline: BaselineJsonMetadata {
@@ -98,6 +101,8 @@ struct BaselineJsonReport<'a> {
     hidden_suggestions: &'a Vec<HiddenSuggestionSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
     visibility_profile: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cache_telemetry: Option<&'a ScanCacheTelemetry>,
     languages: &'a [LanguageSummary],
     risk_summary: RiskSummary,
     baseline: BaselineJsonMetadata,

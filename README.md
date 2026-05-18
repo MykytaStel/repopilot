@@ -390,7 +390,6 @@ Planned direction:
 - `repopilot eval` with golden fixtures
 - local feedback through `.repopilot/feedback.yml`
 - hidden suggestion trend tracking
-- deeper changed-scan cache telemetry
 - deeper dependency graph and impact analysis
 - AI task packs with context, constraints, and acceptance criteria
 

@@ -8,13 +8,16 @@ use crate::review::diff::{
 };
 use crate::risk::{apply_cluster_overlay, assess_findings};
 use crate::scan::cache::{
-    FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
+    CACHE_DIR, FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
     relative_cache_path,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
-use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
-use std::collections::{HashMap, HashSet};
+use crate::scan::types::{
+    ChangedFileCacheTelemetry, ChangedFileReasonSummary, ScanCacheTelemetry, ScanMode, ScanSummary,
+    ScanTimings,
+};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -31,12 +34,23 @@ pub fn scan_changed_with_config(
         Some(base) => DiffTarget::Refs { base, head: "HEAD" },
         None => DiffTarget::WorkingTree,
     };
-    let changed_files =
-        load_changed_files(&repo_root, target, pathspec.as_deref()).map_err(diff_error_to_io)?;
+    let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())
+        .map_err(diff_error_to_io)?
+        .into_iter()
+        .filter(|changed_file| !is_cache_path(&changed_file.path))
+        .collect::<Vec<_>>();
 
     let file_scan_start = Instant::now();
     let file_audits = build_file_audits(config);
+    let cache_load_start = Instant::now();
     let mut cache = ScanCache::load(&repo_root);
+    let mut cache_telemetry = ScanCacheTelemetry {
+        timings: crate::scan::types::ScanCacheTimings {
+            load_us: cache_load_start.elapsed().as_micros() as u64,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
     let fingerprint = config_fingerprint(config);
     let mut facts = ScanFacts {
         root_path: path.to_path_buf(),
@@ -46,14 +60,37 @@ pub fn scan_changed_with_config(
     let mut languages: HashMap<String, usize> = HashMap::new();
     let mut findings = Vec::new();
     let mut directories = HashSet::new();
+    let mut changed_file_reasons: BTreeMap<String, usize> = BTreeMap::new();
 
     for changed_file in &changed_files {
+        let change_reason = change_status_label(changed_file.status).to_string();
+        *changed_file_reasons
+            .entry(change_reason.clone())
+            .or_insert(0) += 1;
+
         if changed_file.status == ChangeStatus::Deleted {
+            record_skipped_cache_file(
+                &mut cache_telemetry,
+                &changed_file.path,
+                &change_reason,
+                "deleted",
+            );
             continue;
         }
 
         let absolute_path = repo_root.join(&changed_file.path);
         if !absolute_path.is_file() {
+            let reason = if absolute_path.exists() {
+                "not-regular-file"
+            } else {
+                "missing-file"
+            };
+            record_skipped_cache_file(
+                &mut cache_telemetry,
+                &changed_file.path,
+                &change_reason,
+                reason,
+            );
             continue;
         }
 
@@ -63,24 +100,56 @@ pub fn scan_changed_with_config(
             directories.insert(parent.to_path_buf());
         }
 
+        let hash_start = Instant::now();
         let hash_entry = file_hash_entry(&repo_root, &absolute_path)?;
+        cache_telemetry.timings.file_hash_us = cache_telemetry
+            .timings
+            .file_hash_us
+            .saturating_add(hash_start.elapsed().as_micros() as u64);
         let cache_path = hash_entry.path.clone();
         cache
             .file_hashes
             .insert(cache_path.clone(), hash_entry.clone());
 
-        if let (Some(role_entry), Some(findings_entry)) = (
+        let lookup_start = Instant::now();
+        let cache_decision = cache_decision(
             cache.file_roles.get(&cache_path),
             cache.findings.get(&cache_path),
-        ) && role_entry.hash == hash_entry.hash
-            && findings_entry.hash == hash_entry.hash
-            && findings_entry.config_fingerprint == fingerprint
-        {
-            record_cached_file(&mut facts, &mut languages, role_entry);
-            findings.extend(findings_entry.findings.clone());
-            continue;
-        }
+            &hash_entry.hash,
+            &fingerprint,
+        );
+        cache_telemetry.timings.lookup_us = cache_telemetry
+            .timings
+            .lookup_us
+            .saturating_add(lookup_start.elapsed().as_micros() as u64);
 
+        let mut reason = match cache_decision {
+            CacheDecision::Hit {
+                role_entry,
+                findings: cached_findings,
+            } => {
+                let reuse_start = Instant::now();
+                record_cached_file(&mut facts, &mut languages, &role_entry);
+                findings.extend(cached_findings);
+                cache_telemetry.timings.hit_reuse_us = cache_telemetry
+                    .timings
+                    .hit_reuse_us
+                    .saturating_add(reuse_start.elapsed().as_micros() as u64);
+                cache_telemetry.hits += 1;
+                cache_telemetry
+                    .changed_files
+                    .push(ChangedFileCacheTelemetry {
+                        path: changed_file.path.clone(),
+                        change_reason,
+                        cache_status: "hit".to_string(),
+                        cache_reason: "unchanged-content-and-config".to_string(),
+                    });
+                continue;
+            }
+            CacheDecision::Miss { reason } => reason,
+        };
+
+        let miss_start = Instant::now();
         let mut per_file = process_file_with_content(&absolute_path, &file_audits, config)?;
         normalize_per_file_paths(
             &mut per_file.file_facts.path,
@@ -127,17 +196,33 @@ pub fn scan_changed_with_config(
                 findings.extend(per_file.findings);
             }
             SkipReason::LargeFile => {
+                reason = "large-file";
                 facts.skipped_files_count += 1;
                 facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
             }
             SkipReason::Binary => {
+                reason = "binary-file";
                 facts.binary_files_skipped += 1;
                 facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
             }
             SkipReason::LowSignal => {
+                reason = "low-signal-file";
                 facts.files_skipped_low_signal += 1;
             }
         }
+        cache_telemetry.timings.miss_scan_us = cache_telemetry
+            .timings
+            .miss_scan_us
+            .saturating_add(miss_start.elapsed().as_micros() as u64);
+        cache_telemetry.misses += 1;
+        cache_telemetry
+            .changed_files
+            .push(ChangedFileCacheTelemetry {
+                path: changed_file.path.clone(),
+                change_reason,
+                cache_status: "miss".to_string(),
+                cache_reason: reason.to_string(),
+            });
     }
 
     facts.directories_count = directories.len();
@@ -152,7 +237,10 @@ pub fn scan_changed_with_config(
     apply_cluster_overlay(&mut findings);
     super::summary::sort_findings(&mut findings);
 
+    let cache_write_start = Instant::now();
     cache.write(&repo_root)?;
+    cache_telemetry.timings.write_us = cache_write_start.elapsed().as_micros() as u64;
+    finalize_cache_telemetry(&mut cache_telemetry, changed_file_reasons);
 
     let scan_duration_us = start.elapsed().as_micros() as u64;
     let health_score = ScanSummary::compute_health_score(&findings, facts.lines_of_code);
@@ -192,7 +280,129 @@ pub fn scan_changed_with_config(
             framework_detection_us: 0,
             post_scan_audits_us: 0,
         }),
+        cache_telemetry: Some(cache_telemetry),
     })
+}
+
+enum CacheDecision {
+    Hit {
+        role_entry: FileRoleEntry,
+        findings: Vec<Finding>,
+    },
+    Miss {
+        reason: &'static str,
+    },
+}
+
+fn cache_decision(
+    role_entry: Option<&FileRoleEntry>,
+    findings_entry: Option<&FindingsEntry>,
+    hash: &str,
+    fingerprint: &str,
+) -> CacheDecision {
+    match (role_entry, findings_entry) {
+        (Some(role_entry), Some(findings_entry))
+            if role_entry.hash == hash
+                && findings_entry.hash == hash
+                && findings_entry.config_fingerprint == fingerprint =>
+        {
+            CacheDecision::Hit {
+                role_entry: role_entry.clone(),
+                findings: findings_entry.findings.clone(),
+            }
+        }
+        (None, None) => CacheDecision::Miss {
+            reason: "missing-cache-entry",
+        },
+        (None, Some(_)) => CacheDecision::Miss {
+            reason: "missing-file-role-cache",
+        },
+        (Some(_), None) => CacheDecision::Miss {
+            reason: "missing-findings-cache",
+        },
+        (Some(role_entry), Some(findings_entry))
+            if role_entry.hash != hash || findings_entry.hash != hash =>
+        {
+            CacheDecision::Miss {
+                reason: "content-changed",
+            }
+        }
+        (Some(_), Some(findings_entry)) if findings_entry.config_fingerprint != fingerprint => {
+            CacheDecision::Miss {
+                reason: "config-changed",
+            }
+        }
+        (Some(_), Some(_)) => CacheDecision::Miss {
+            reason: "cache-mismatch",
+        },
+    }
+}
+
+fn record_skipped_cache_file(
+    telemetry: &mut ScanCacheTelemetry,
+    path: &Path,
+    change_reason: &str,
+    cache_reason: &str,
+) {
+    telemetry.skipped += 1;
+    telemetry.changed_files.push(ChangedFileCacheTelemetry {
+        path: path.to_path_buf(),
+        change_reason: change_reason.to_string(),
+        cache_status: "skipped".to_string(),
+        cache_reason: cache_reason.to_string(),
+    });
+}
+
+fn finalize_cache_telemetry(
+    telemetry: &mut ScanCacheTelemetry,
+    changed_file_reasons: BTreeMap<String, usize>,
+) {
+    let cached_total = telemetry.hits.saturating_add(telemetry.misses);
+    let hit_rate = telemetry
+        .hits
+        .saturating_mul(100)
+        .checked_div(cached_total)
+        .unwrap_or(0);
+    telemetry.hit_rate_percent = hit_rate.min(100) as u8;
+    telemetry.changed_file_reasons = changed_file_reasons
+        .into_iter()
+        .map(|(reason, count)| ChangedFileReasonSummary { reason, count })
+        .collect();
+
+    let average_miss_us = telemetry
+        .timings
+        .miss_scan_us
+        .checked_div(telemetry.misses as u64);
+    let average_hit_reuse_us = telemetry
+        .timings
+        .hit_reuse_us
+        .checked_div(telemetry.hits as u64);
+    telemetry.timings.estimated_time_saved_us =
+        average_miss_us
+            .zip(average_hit_reuse_us)
+            .map(|(average_miss_us, average_hit_reuse_us)| {
+                average_miss_us
+                    .saturating_sub(average_hit_reuse_us)
+                    .saturating_mul(telemetry.hits as u64)
+            });
+}
+
+fn change_status_label(status: ChangeStatus) -> &'static str {
+    match status {
+        ChangeStatus::Added => "added",
+        ChangeStatus::Modified => "modified",
+        ChangeStatus::Deleted => "deleted",
+        ChangeStatus::Renamed => "renamed",
+        ChangeStatus::Untracked => "untracked",
+    }
+}
+
+fn is_cache_path(path: &Path) -> bool {
+    let path = path.to_string_lossy().replace('\\', "/");
+    path == CACHE_DIR
+        || path
+            .strip_prefix(CACHE_DIR)
+            .is_some_and(|suffix| suffix.starts_with('/'))
 }
 
 fn record_cached_file(

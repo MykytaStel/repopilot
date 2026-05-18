@@ -40,6 +40,8 @@ repopilot scan src/payments/processor.rs
 Use changed scans when you want a fast file-level pass for the current diff.
 RepoPilot writes local cache files under `.repopilot/cache/` and skips
 repo-level architecture, framework, testing, and coupling rules in this mode.
+Changed-scan summaries include cache hits, misses, skipped changed files,
+changed-file reasons, cache decisions, and cache timing impact.
 
 ```bash
 repopilot scan . --changed

@@ -143,7 +143,9 @@ repopilot scan . --verbose
 
 Changed scans write local cache files under `.repopilot/cache/` and intentionally
 skip repo-level architecture, framework, testing, and coupling rules. Use a full
-scan for authoritative repository-wide risk.
+scan for authoritative repository-wide risk. Changed-scan summaries include
+`cache_telemetry` with cache hits, misses, skipped files, changed-file reasons,
+per-file cache decisions, and cache timing impact.
 
 ---
 

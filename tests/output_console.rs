@@ -1,6 +1,9 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::{HiddenSuggestionSummary, ScanSummary};
+use repopilot::scan::types::{
+    ChangedFileCacheTelemetry, ChangedFileReasonSummary, HiddenSuggestionSummary,
+    ScanCacheTelemetry, ScanCacheTimings, ScanSummary,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -89,4 +92,51 @@ fn console_output_includes_hidden_suggestion_breakdown() {
 
     assert!(output.contains("Hidden suggestions breakdown:"));
     assert!(output.contains("architecture / maintainability / architecture.large-file"));
+}
+
+#[test]
+fn console_output_includes_cache_telemetry_for_changed_scans() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        cache_telemetry: Some(cache_telemetry()),
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Console)
+        .expect("failed to render console report");
+
+    assert!(output.contains("Cache telemetry:"));
+    assert!(output.contains("Cache hits:"));
+    assert!(output.contains("misses:"));
+    assert!(output.contains("Changed file reasons: modified (2)"));
+    assert!(output.contains("Cache timing:"));
+    assert!(output.contains("src/lib.rs: hit (modified, unchanged-content-and-config)"));
+}
+
+fn cache_telemetry() -> ScanCacheTelemetry {
+    ScanCacheTelemetry {
+        hits: 1,
+        misses: 1,
+        skipped: 0,
+        hit_rate_percent: 50,
+        changed_file_reasons: vec![ChangedFileReasonSummary {
+            reason: "modified".to_string(),
+            count: 2,
+        }],
+        changed_files: vec![ChangedFileCacheTelemetry {
+            path: PathBuf::from("src/lib.rs"),
+            change_reason: "modified".to_string(),
+            cache_status: "hit".to_string(),
+            cache_reason: "unchanged-content-and-config".to_string(),
+        }],
+        timings: ScanCacheTimings {
+            load_us: 1_000,
+            file_hash_us: 2_000,
+            lookup_us: 3_000,
+            hit_reuse_us: 4_000,
+            miss_scan_us: 5_000,
+            write_us: 6_000,
+            estimated_time_saved_us: Some(7_000),
+        },
+    }
 }

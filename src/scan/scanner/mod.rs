@@ -116,5 +116,6 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
             framework_detection_us,
             post_scan_audits_us,
         }),
+        cache_telemetry: None,
     })
 }

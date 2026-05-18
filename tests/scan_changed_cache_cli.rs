@@ -24,6 +24,31 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert_eq!(first["mode"], "changed");
     assert_eq!(first["repo_level_rules_included"], false);
     assert_eq!(first["changed_files_count"], 1);
+    assert_eq!(first["cache_telemetry"]["hits"], 0);
+    assert_eq!(first["cache_telemetry"]["misses"], 1);
+    assert_eq!(first["cache_telemetry"]["skipped"], 0);
+    assert_eq!(
+        first["cache_telemetry"]["changed_files"][0]["path"],
+        "src/lib.rs"
+    );
+    assert_eq!(
+        first["cache_telemetry"]["changed_files"][0]["change_reason"],
+        "modified"
+    );
+    assert_eq!(
+        first["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "miss"
+    );
+    assert_eq!(
+        first["cache_telemetry"]["changed_files"][0]["cache_reason"],
+        "missing-cache-entry"
+    );
+    assert_changed_reason(&first, "modified", 1);
+    assert!(
+        first["cache_telemetry"]["timings"]["miss_scan_us"]
+            .as_u64()
+            .is_some()
+    );
     assert_rule_present(&first, "security.secret-candidate");
 
     let cache_dir = temp.path().join(".repopilot/cache");
@@ -33,6 +58,17 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
 
     rewrite_cached_finding_title(&cache_dir.join("findings.json"), "Cached secret title");
     let cached = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(cached["cache_telemetry"]["hits"], 1);
+    assert_eq!(cached["cache_telemetry"]["misses"], 0);
+    assert_eq!(cached["cache_telemetry"]["hit_rate_percent"], 100);
+    assert_eq!(
+        cached["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "hit"
+    );
+    assert_eq!(
+        cached["cache_telemetry"]["changed_files"][0]["cache_reason"],
+        "unchanged-content-and-config"
+    );
     assert_eq!(first_finding_title(&cached), "Cached secret title");
 
     write(
@@ -40,6 +76,12 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
         "pub fn live() {}\nconst API_KEY: &str = \"xyz987abc123\";\n",
     );
     let invalidated = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(invalidated["cache_telemetry"]["hits"], 0);
+    assert_eq!(invalidated["cache_telemetry"]["misses"], 1);
+    assert_eq!(
+        invalidated["cache_telemetry"]["changed_files"][0]["cache_reason"],
+        "content-changed"
+    );
     assert_eq!(
         first_finding_title(&invalidated),
         "Possible secret detected"
@@ -164,6 +206,17 @@ fn assert_rule_present(json: &Value, rule_id: &str) {
             .flatten()
             .any(|finding| finding["rule_id"] == rule_id),
         "expected {rule_id} in findings: {json:#?}"
+    );
+}
+
+fn assert_changed_reason(json: &Value, reason: &str, count: u64) {
+    assert!(
+        json["cache_telemetry"]["changed_file_reasons"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|item| item["reason"] == reason && item["count"] == count),
+        "expected changed file reason {reason} ({count}) in {json:#?}"
     );
 }
 
