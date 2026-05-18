@@ -357,28 +357,34 @@ fn finalize_cache_telemetry(
     telemetry: &mut ScanCacheTelemetry,
     changed_file_reasons: BTreeMap<String, usize>,
 ) {
-    let cached_total = telemetry.hits + telemetry.misses;
-    telemetry.hit_rate_percent = if cached_total == 0 {
-        0
-    } else {
-        ((telemetry.hits * 100) / cached_total) as u8
-    };
+    let cached_total = telemetry.hits.saturating_add(telemetry.misses);
+    let hit_rate = telemetry
+        .hits
+        .saturating_mul(100)
+        .checked_div(cached_total)
+        .unwrap_or(0);
+    telemetry.hit_rate_percent = hit_rate.min(100) as u8;
     telemetry.changed_file_reasons = changed_file_reasons
         .into_iter()
         .map(|(reason, count)| ChangedFileReasonSummary { reason, count })
         .collect();
 
-    telemetry.timings.estimated_time_saved_us = if telemetry.hits > 0 && telemetry.misses > 0 {
-        let average_miss_us = telemetry.timings.miss_scan_us / telemetry.misses as u64;
-        let average_hit_reuse_us = telemetry.timings.hit_reuse_us / telemetry.hits as u64;
-        Some(
-            average_miss_us
-                .saturating_sub(average_hit_reuse_us)
-                .saturating_mul(telemetry.hits as u64),
-        )
-    } else {
-        None
-    };
+    let average_miss_us = telemetry
+        .timings
+        .miss_scan_us
+        .checked_div(telemetry.misses as u64);
+    let average_hit_reuse_us = telemetry
+        .timings
+        .hit_reuse_us
+        .checked_div(telemetry.hits as u64);
+    telemetry.timings.estimated_time_saved_us =
+        average_miss_us
+            .zip(average_hit_reuse_us)
+            .map(|(average_miss_us, average_hit_reuse_us)| {
+                average_miss_us
+                    .saturating_sub(average_hit_reuse_us)
+                    .saturating_mul(telemetry.hits as u64)
+            });
 }
 
 fn change_status_label(status: ChangeStatus) -> &'static str {
