@@ -42,6 +42,8 @@ pub struct ExplainDecision {
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub risk_signal: Option<ExplainRiskSignal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<ExplainVisibility>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -49,5 +51,13 @@ pub struct ExplainRiskSignal {
     pub id: String,
     pub label: String,
     pub weight: i16,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ExplainVisibility {
+    pub profile: String,
+    pub intent: String,
+    pub visible_by_default: bool,
     pub reason: String,
 }

@@ -99,6 +99,19 @@ fn render_console_decision(decision: &ExplainDecision) -> String {
             signal.label, signal.weight, signal.reason
         ));
     }
+    if let Some(visibility) = &decision.visibility {
+        output.push_str(&format!(
+            " Visibility: {} in {} profile ({})\n",
+            if visibility.visible_by_default {
+                "visible"
+            } else {
+                "hidden"
+            },
+            visibility.profile,
+            visibility.reason
+        ));
+        output.push_str(&format!(" Intent: {}\n", visibility.intent));
+    }
 
     output
 }
@@ -181,6 +194,19 @@ fn render_markdown(report: &ExplainReport) -> String {
                     "- **Risk signal:** {} ({:+}) — {}\n",
                     signal.label, signal.weight, signal.reason
                 ));
+            }
+            if let Some(visibility) = &decision.visibility {
+                output.push_str(&format!(
+                    "- **Visibility:** `{}` in `{}` profile\n",
+                    if visibility.visible_by_default {
+                        "visible"
+                    } else {
+                        "hidden"
+                    },
+                    visibility.profile
+                ));
+                output.push_str(&format!("- **Intent:** `{}`\n", visibility.intent));
+                output.push_str(&format!("- **Visibility reason:** {}\n", visibility.reason));
             }
         }
         None => {

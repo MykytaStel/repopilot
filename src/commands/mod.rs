@@ -1,5 +1,6 @@
 pub mod baseline;
 pub mod cache;
+pub mod cache_inspect;
 pub mod compare;
 pub mod doctor;
 pub mod explain;
@@ -114,6 +115,9 @@ fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error
         ),
         InspectCommands::Knowledge(options) => {
             knowledge::run(options.section, options.format, options.output)
+        }
+        InspectCommands::Cache(options) => {
+            cache_inspect::run(options.path, options.format, options.output)
         }
     }
 }

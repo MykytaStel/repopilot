@@ -1,0 +1,16 @@
+{
+  "schema_version": "0.13",
+  "repopilot_version": "0.12.0",
+  "root_path": ".",
+  "files_analyzed": 2,
+  "directories_count": 1,
+  "non_empty_lines": 12,
+  "large_files_skipped": 0,
+  "findings": [],
+  "languages": [],
+  "risk_summary": {
+    "total": 0,
+    "average_score": 0,
+    "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  }
+}

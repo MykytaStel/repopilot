@@ -12,6 +12,7 @@ use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::presets::{Preset, apply_preset};
+use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
@@ -95,6 +96,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
 
     let scan_elapsed = scan_start.elapsed();
     finish_spinner(pb);
+
+    if !options.ignore_feedback {
+        apply_local_feedback(&mut summary, &options.path)?;
+    }
 
     if let Some(min) = min_severity {
         apply_min_severity_filter(&mut summary, min);
