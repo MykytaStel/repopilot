@@ -2,7 +2,7 @@ use crate::audits::framework::js_common::is_comment_line;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileContentProvider, ScanFacts};
 
 // ── Class components ──────────────────────────────────────────────────────────
 
@@ -18,9 +18,8 @@ impl ProjectAudit for ReactClassComponentAudit {
                 continue;
             }
 
-            let content = match std::fs::read_to_string(&file.path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Some(content) = FileContentProvider.content(file) else {
+                continue;
             };
 
             for (idx, line) in content.lines().enumerate() {
@@ -87,9 +86,8 @@ impl ProjectAudit for ReactPropTypesAudit {
                 continue;
             }
 
-            let content = match std::fs::read_to_string(&file.path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Some(content) = FileContentProvider.content(file) else {
+                continue;
             };
 
             for (idx, line) in content.lines().enumerate() {
@@ -157,7 +155,7 @@ mod tests {
         facts.files.push(FileFacts {
             path: file_path,
             language: Some("TypeScript React".to_string()),
-            lines_of_code: 3,
+            non_empty_lines: 3,
             branch_count: 0,
             imports: vec![],
             content: None,
@@ -183,7 +181,7 @@ mod tests {
         facts.files.push(FileFacts {
             path: file_path,
             language: Some("JavaScript React".to_string()),
-            lines_of_code: 1,
+            non_empty_lines: 1,
             branch_count: 0,
             imports: vec![],
             content: None,
@@ -208,12 +206,12 @@ mod tests {
         };
         facts.languages.push(LanguageSummary {
             name: "TypeScript React".to_string(),
-            files_count: 5,
+            files_analyzed: 5,
         });
         facts.files.push(FileFacts {
             path: file_path,
             language: Some("TypeScript React".to_string()),
-            lines_of_code: 1,
+            non_empty_lines: 1,
             branch_count: 0,
             imports: vec![],
             content: None,

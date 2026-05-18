@@ -23,7 +23,10 @@ fn render_console(report: &ExplainReport) -> String {
         "Language: {}\n",
         report.source.language_name.as_deref().unwrap_or("unknown")
     ));
-    output.push_str(&format!("Lines of code: {}\n", report.source.lines_of_code));
+    output.push_str(&format!(
+        "Lines of code: {}\n",
+        report.source.non_empty_lines
+    ));
     output.push_str(&format!(
         "Inline tests: {}\n\n",
         yes_no(report.source.has_inline_tests)
@@ -111,7 +114,7 @@ fn render_markdown(report: &ExplainReport) -> String {
     ));
     output.push_str(&format!(
         "- **Lines of code:** {}\n",
-        report.source.lines_of_code
+        report.source.non_empty_lines
     ));
     output.push_str(&format!(
         "- **Inline tests:** {}\n\n",

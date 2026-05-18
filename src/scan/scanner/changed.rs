@@ -1,21 +1,29 @@
+use super::changed_cache::{
+    CacheDecision, cache_decision, normalize_per_file_paths, record_cached_file,
+};
+use super::changed_git::collect_changed_scope;
+use super::changed_telemetry::{
+    change_status_label, finalize_cache_telemetry, record_skipped_cache_file,
+};
 use super::file::{SkipReason, process_file_with_content};
-use super::summary::build_language_summary;
+use super::summary::{ScanSummaryParts, build_language_summary, build_scan_summary};
 use crate::audits::pipeline::build_file_audits;
 use crate::baseline::key::stable_finding_key;
-use crate::findings::types::Finding;
-use crate::review::diff::{
-    ChangeStatus, DiffTarget, GitDiffError, load_changed_files, resolve_git_root,
+use crate::frameworks::{
+    DetectedFramework, detect_framework_projects, detect_frameworks,
+    detect_react_native_architecture,
 };
-use crate::risk::{apply_cluster_overlay, assess_findings};
+use crate::graph::{CouplingGraph, build_coupling_graph};
+use crate::review::diff::ChangeStatus;
+use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::cache::{
-    CACHE_DIR, FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
+    FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
     relative_cache_path,
 };
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::facts::ScanFacts;
 use crate::scan::types::{
-    ChangedFileCacheTelemetry, ChangedFileReasonSummary, ScanCacheTelemetry, ScanMode, ScanSummary,
-    ScanTimings,
+    ChangedFileCacheTelemetry, ScanCacheTelemetry, ScanMode, ScanSummary, ScanTimings,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
@@ -28,17 +36,9 @@ pub fn scan_changed_with_config(
     base_ref: Option<&str>,
 ) -> io::Result<ScanSummary> {
     let start = Instant::now();
-    let repo_root = resolve_git_root(path).map_err(diff_error_to_io)?;
-    let pathspec = pathspec_for_scan_path(path, &repo_root);
-    let target = match base_ref {
-        Some(base) => DiffTarget::Refs { base, head: "HEAD" },
-        None => DiffTarget::WorkingTree,
-    };
-    let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())
-        .map_err(diff_error_to_io)?
-        .into_iter()
-        .filter(|changed_file| !is_cache_path(&changed_file.path))
-        .collect::<Vec<_>>();
+    let changed_scope = collect_changed_scope(path, base_ref)?;
+    let repo_root = changed_scope.repo_root;
+    let changed_files = changed_scope.changed_files;
 
     let file_scan_start = Instant::now();
     let file_audits = build_file_audits(config);
@@ -159,8 +159,8 @@ pub fn scan_changed_with_config(
 
         match per_file.skip_reason {
             SkipReason::None => {
-                facts.files_count += 1;
-                facts.lines_of_code += per_file.file_facts.lines_of_code;
+                facts.files_analyzed += 1;
+                facts.non_empty_lines += per_file.file_facts.non_empty_lines;
                 if let Some(language) = &per_file.language {
                     *languages.entry(language.clone()).or_insert(0) += 1;
                 }
@@ -172,7 +172,7 @@ pub fn scan_changed_with_config(
                             path: cache_path.clone(),
                             hash: hash_entry.hash.clone(),
                             language: per_file.language.clone(),
-                            lines_of_code: per_file.file_facts.lines_of_code,
+                            non_empty_lines: per_file.file_facts.non_empty_lines,
                             roles: context.roles,
                             frameworks: context.frameworks,
                             runtimes: context.runtimes,
@@ -197,7 +197,7 @@ pub fn scan_changed_with_config(
             }
             SkipReason::LargeFile => {
                 reason = "large-file";
-                facts.skipped_files_count += 1;
+                facts.large_files_skipped += 1;
                 facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
             }
             SkipReason::Binary => {
@@ -229,11 +229,25 @@ pub fn scan_changed_with_config(
     facts.languages = build_language_summary(languages);
     let file_scan_us = file_scan_start.elapsed().as_micros() as u64;
 
+    let framework_start = Instant::now();
+    let mut repo_context =
+        super::collection::collect_scan_facts_without_content(&repo_root, config)?;
+    repo_context.detected_frameworks = detect_frameworks(&repo_root);
+    repo_context.framework_projects = detect_framework_projects(&repo_root);
+    repo_context.react_native = detect_react_native_profile(&repo_context);
+    let coupling_graph =
+        relative_coupling_graph(build_coupling_graph(&repo_context, &repo_root), &repo_root);
+    facts.detected_frameworks = repo_context.detected_frameworks.clone();
+    facts.framework_projects = repo_context.framework_projects.clone();
+    facts.react_native = repo_context.react_native.clone();
+    let framework_detection_us = framework_start.elapsed().as_micros() as u64;
+
     for finding in &mut findings {
         finding.populate_recommendation();
         finding.id = stable_finding_key(finding, &repo_root);
     }
-    assess_findings(&mut findings, &facts);
+    assess_findings(&mut findings, &repo_context);
+    apply_graph_overlay(&mut findings, &coupling_graph);
     apply_cluster_overlay(&mut findings);
     super::summary::sort_findings(&mut findings);
 
@@ -242,214 +256,64 @@ pub fn scan_changed_with_config(
     cache_telemetry.timings.write_us = cache_write_start.elapsed().as_micros() as u64;
     finalize_cache_telemetry(&mut cache_telemetry, changed_file_reasons);
 
+    facts.root_path = path.to_path_buf();
     let scan_duration_us = start.elapsed().as_micros() as u64;
-    let health_score = ScanSummary::compute_health_score(&findings, facts.lines_of_code);
-    let visible_findings_count = findings.len();
 
-    Ok(ScanSummary {
-        root_path: path.to_path_buf(),
-        mode: ScanMode::Changed,
-        base_ref: base_ref.map(str::to_string),
-        changed_files_count: changed_files.len(),
-        repo_level_rules_included: false,
-        files_discovered: facts.files_discovered,
-        files_count: facts.files_count,
-        directories_count: facts.directories_count,
-        lines_of_code: facts.lines_of_code,
-        skipped_files_count: facts.skipped_files_count,
-        files_skipped_low_signal: facts.files_skipped_low_signal,
-        binary_files_skipped: facts.binary_files_skipped,
-        skipped_bytes: facts.skipped_bytes,
-        languages: facts.languages,
-        detected_frameworks: Vec::new(),
-        framework_projects: Vec::new(),
-        react_native: None,
+    Ok(build_scan_summary(
+        facts,
         findings,
-        coupling_graph: None,
-        scan_duration_us,
-        health_score,
-        visible_findings_count,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: Some(ScanTimings {
-            file_scan_us,
-            framework_detection_us: 0,
-            post_scan_audits_us: 0,
-        }),
-        cache_telemetry: Some(cache_telemetry),
-    })
-}
-
-enum CacheDecision {
-    Hit {
-        role_entry: FileRoleEntry,
-        findings: Vec<Finding>,
-    },
-    Miss {
-        reason: &'static str,
-    },
-}
-
-fn cache_decision(
-    role_entry: Option<&FileRoleEntry>,
-    findings_entry: Option<&FindingsEntry>,
-    hash: &str,
-    fingerprint: &str,
-) -> CacheDecision {
-    match (role_entry, findings_entry) {
-        (Some(role_entry), Some(findings_entry))
-            if role_entry.hash == hash
-                && findings_entry.hash == hash
-                && findings_entry.config_fingerprint == fingerprint =>
-        {
-            CacheDecision::Hit {
-                role_entry: role_entry.clone(),
-                findings: findings_entry.findings.clone(),
-            }
-        }
-        (None, None) => CacheDecision::Miss {
-            reason: "missing-cache-entry",
+        ScanSummaryParts {
+            mode: ScanMode::Changed,
+            base_ref: base_ref.map(str::to_string),
+            changed_files_count: changed_files.len(),
+            repo_level_rules_included: false,
+            coupling_graph: None,
+            scan_duration_us,
+            scan_timings: Some(ScanTimings {
+                file_scan_us,
+                framework_detection_us,
+                post_scan_audits_us: 0,
+            }),
+            cache_telemetry: Some(cache_telemetry),
         },
-        (None, Some(_)) => CacheDecision::Miss {
-            reason: "missing-file-role-cache",
-        },
-        (Some(_), None) => CacheDecision::Miss {
-            reason: "missing-findings-cache",
-        },
-        (Some(role_entry), Some(findings_entry))
-            if role_entry.hash != hash || findings_entry.hash != hash =>
-        {
-            CacheDecision::Miss {
-                reason: "content-changed",
-            }
-        }
-        (Some(_), Some(findings_entry)) if findings_entry.config_fingerprint != fingerprint => {
-            CacheDecision::Miss {
-                reason: "config-changed",
-            }
-        }
-        (Some(_), Some(_)) => CacheDecision::Miss {
-            reason: "cache-mismatch",
-        },
-    }
+    ))
 }
 
-fn record_skipped_cache_file(
-    telemetry: &mut ScanCacheTelemetry,
-    path: &Path,
-    change_reason: &str,
-    cache_reason: &str,
-) {
-    telemetry.skipped += 1;
-    telemetry.changed_files.push(ChangedFileCacheTelemetry {
-        path: path.to_path_buf(),
-        change_reason: change_reason.to_string(),
-        cache_status: "skipped".to_string(),
-        cache_reason: cache_reason.to_string(),
-    });
-}
-
-fn finalize_cache_telemetry(
-    telemetry: &mut ScanCacheTelemetry,
-    changed_file_reasons: BTreeMap<String, usize>,
-) {
-    let cached_total = telemetry.hits.saturating_add(telemetry.misses);
-    let hit_rate = telemetry
-        .hits
-        .saturating_mul(100)
-        .checked_div(cached_total)
-        .unwrap_or(0);
-    telemetry.hit_rate_percent = hit_rate.min(100) as u8;
-    telemetry.changed_file_reasons = changed_file_reasons
-        .into_iter()
-        .map(|(reason, count)| ChangedFileReasonSummary { reason, count })
-        .collect();
-
-    let average_miss_us = telemetry
-        .timings
-        .miss_scan_us
-        .checked_div(telemetry.misses as u64);
-    let average_hit_reuse_us = telemetry
-        .timings
-        .hit_reuse_us
-        .checked_div(telemetry.hits as u64);
-    telemetry.timings.estimated_time_saved_us =
-        average_miss_us
-            .zip(average_hit_reuse_us)
-            .map(|(average_miss_us, average_hit_reuse_us)| {
-                average_miss_us
-                    .saturating_sub(average_hit_reuse_us)
-                    .saturating_mul(telemetry.hits as u64)
-            });
-}
-
-fn change_status_label(status: ChangeStatus) -> &'static str {
-    match status {
-        ChangeStatus::Added => "added",
-        ChangeStatus::Modified => "modified",
-        ChangeStatus::Deleted => "deleted",
-        ChangeStatus::Renamed => "renamed",
-        ChangeStatus::Untracked => "untracked",
-    }
-}
-
-fn is_cache_path(path: &Path) -> bool {
-    let path = path.to_string_lossy().replace('\\', "/");
-    path == CACHE_DIR
-        || path
-            .strip_prefix(CACHE_DIR)
-            .is_some_and(|suffix| suffix.starts_with('/'))
-}
-
-fn record_cached_file(
-    facts: &mut ScanFacts,
-    languages: &mut HashMap<String, usize>,
-    entry: &FileRoleEntry,
-) {
-    facts.files_count += 1;
-    facts.lines_of_code += entry.lines_of_code;
-    if let Some(language) = &entry.language {
-        *languages.entry(language.clone()).or_insert(0) += 1;
-    }
-    facts.files.push(FileFacts {
-        path: PathBuf::from(&entry.path),
-        language: entry.language.clone(),
-        lines_of_code: entry.lines_of_code,
-        branch_count: 0,
-        imports: Vec::new(),
-        content: None,
-        has_inline_tests: entry.is_test,
-    });
-}
-
-fn normalize_per_file_paths(path: &mut PathBuf, findings: &mut [Finding], repo_root: &Path) {
-    *path = PathBuf::from(relative_cache_path(repo_root, path));
-    for finding in findings {
-        for evidence in &mut finding.evidence {
-            evidence.path = PathBuf::from(relative_cache_path(repo_root, &evidence.path));
+fn detect_react_native_profile(
+    facts: &ScanFacts,
+) -> Option<crate::frameworks::ReactNativeArchitectureProfile> {
+    if facts
+        .detected_frameworks
+        .iter()
+        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
+    {
+        let profile = detect_react_native_architecture(&facts.root_path);
+        if profile.detected {
+            return Some(profile);
         }
     }
+    None
 }
 
-fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> {
-    let absolute = if scan_path.is_absolute() {
-        scan_path.to_path_buf()
-    } else {
-        std::env::current_dir().ok()?.join(scan_path)
-    };
-    let absolute = absolute.canonicalize().unwrap_or(absolute);
-    let relative = absolute.strip_prefix(repo_root).ok()?;
-    if relative.as_os_str().is_empty() {
-        None
-    } else {
-        Some(relative.to_string_lossy().replace('\\', "/"))
+fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
+    CouplingGraph {
+        edges: graph
+            .edges
+            .into_iter()
+            .map(|(source, targets)| {
+                (
+                    PathBuf::from(relative_cache_path(repo_root, &source)),
+                    targets
+                        .into_iter()
+                        .map(|target| PathBuf::from(relative_cache_path(repo_root, &target)))
+                        .collect(),
+                )
+            })
+            .collect(),
+        nodes: graph
+            .nodes
+            .into_iter()
+            .map(|node| PathBuf::from(relative_cache_path(repo_root, &node)))
+            .collect(),
     }
-}
-
-fn diff_error_to_io(error: GitDiffError) -> io::Error {
-    io::Error::other(error)
 }

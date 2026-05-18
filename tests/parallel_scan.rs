@@ -22,11 +22,11 @@ fn parallel_scan_matches_sequential_file_counts() {
     let parallel = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
 
     assert_eq!(
-        sequential.files_count, parallel.files_count,
+        sequential.files_analyzed, parallel.files_analyzed,
         "file count must match between sequential and parallel paths"
     );
     assert_eq!(
-        sequential.lines_of_code, parallel.lines_of_code,
+        sequential.non_empty_lines, parallel.non_empty_lines,
         "LOC count must match"
     );
     assert_eq!(
@@ -64,8 +64,8 @@ fn parallel_scan_empty_directory() {
     let temp = tempdir().unwrap();
     let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
 
-    assert_eq!(summary.files_count, 0);
-    assert_eq!(summary.lines_of_code, 0);
+    assert_eq!(summary.files_analyzed, 0);
+    assert_eq!(summary.non_empty_lines, 0);
     // Project-level audits (e.g. missing-test-folder) may still produce findings
     // for an empty directory — that is expected behaviour.
 }

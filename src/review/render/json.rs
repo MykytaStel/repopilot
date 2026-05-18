@@ -29,9 +29,9 @@ pub fn render_json(
     let output = ReviewJsonReport {
         root_path: report.summary.root_path.to_string_lossy().to_string(),
         git_root: report.repo_root.to_string_lossy().to_string(),
-        files_count: report.summary.files_count,
+        files_analyzed: report.summary.files_analyzed,
         directories_count: report.summary.directories_count,
-        lines_of_code: report.summary.lines_of_code,
+        non_empty_lines: report.summary.non_empty_lines,
         changed_files: &report.changed_files,
         blast_radius: report
             .blast_radius
@@ -62,9 +62,9 @@ pub fn render_json(
 struct ReviewJsonReport<'a> {
     root_path: String,
     git_root: String,
-    files_count: usize,
+    files_analyzed: usize,
     directories_count: usize,
-    lines_of_code: usize,
+    non_empty_lines: usize,
     changed_files: &'a [ChangedFile],
     blast_radius: Vec<String>,
     review: ReviewJsonMetadata,

@@ -11,16 +11,16 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.10:
+JSON scan reports include explicit schema metadata. The current schema is 0.13:
 
 ```json
 {
-  "schema_version": "0.10",
+  "schema_version": "0.13",
   "repopilot_version": "0.12.0",
   "root_path": ".",
-  "files_count": 42,
+  "files_analyzed": 42,
   "directories_count": 12,
-  "lines_of_code": 3200,
+  "non_empty_lines": 3200,
   "languages": [],
   "risk_summary": {
     "total": 0,
@@ -46,11 +46,11 @@ evolve the schema in a documented way.
 
 ### Compatibility
 
-RepoPilot keeps the existing scan summary fields at the top level of the JSON
-document. Schema metadata and finding risk assessments are additive:
+RepoPilot keeps the scan summary fields at the top level of the JSON document.
+Schema `0.13` intentionally renamed scope counters for accuracy:
 
-- existing consumers can continue reading fields such as `findings`,
-  `files_count`, and `lines_of_code`;
+- consumers should read `files_analyzed`, `non_empty_lines`, and
+  `large_files_skipped`;
 - `repopilot compare` continues to read older JSON reports that do not contain
   `schema_version`;
 - future tools can branch on `schema_version` when parsing reports.
@@ -71,10 +71,10 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.10",
+  "schema_version": "0.13",
   "repopilot_version": "0.12.0",
   "root_path": ".",
-  "files_count": 42,
+  "files_analyzed": 42,
   "risk_summary": {
     "total": 12,
     "counts": { "p0": 0, "p1": 2, "p2": 5, "p3": 5 },
@@ -106,7 +106,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "tool": "repopilot",
   "version": "0.12.0",
   "generated_at": "2026-05-16T00:00:00Z",
@@ -121,7 +121,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
     "files_discovered": 42,
     "files_analyzed": 40,
     "directories_count": 12,
-    "lines_of_code": 3200
+    "non_empty_lines": 3200
   },
   "findings": {
     "total": 3,

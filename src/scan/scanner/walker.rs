@@ -1,8 +1,13 @@
 use crate::scan::config::ScanConfig;
+use globset::{Glob, GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
-use std::collections::HashSet;
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 const REPOPILOT_IGNORE_FILENAME: &str = ".repopilotignore";
 
@@ -16,37 +21,28 @@ pub(super) struct CollectedPaths {
 
 pub(super) fn collect_paths(path: &Path, config: &ScanConfig) -> io::Result<CollectedPaths> {
     let repopilotignore_path = find_repopilotignore(path);
-
-    // Build the combined ignored-paths set once and reuse for both walks.
-    let ignored = build_ignored_set(config);
-
-    let with_repopilotignore = collect_paths_with_custom_ignore(path, &ignored, true)?;
-
-    let files_skipped_repopilotignore = if repopilotignore_path.is_some() {
-        let without_repopilotignore_count = count_files_with_custom_ignore(path, &ignored, false)?;
-
-        without_repopilotignore_count.saturating_sub(with_repopilotignore.file_paths.len())
-    } else {
-        0
-    };
+    let matcher = PathMatcher::new(config, repopilotignore_path.as_deref())?;
+    let skipped_repopilotignore = Arc::new(AtomicUsize::new(0));
+    let collected =
+        collect_paths_with_matcher(path, matcher, Arc::clone(&skipped_repopilotignore))?;
 
     Ok(CollectedPaths {
-        file_paths: with_repopilotignore.file_paths,
-        directories_count: with_repopilotignore.directories_count,
-        files_skipped_repopilotignore,
+        file_paths: collected.file_paths,
+        directories_count: collected.directories_count,
+        files_skipped_repopilotignore: skipped_repopilotignore.load(Ordering::Relaxed),
         repopilotignore_path,
     })
 }
 
-fn collect_paths_with_custom_ignore(
+fn collect_paths_with_matcher(
     path: &Path,
-    ignored: &HashSet<String>,
-    use_repopilotignore: bool,
+    matcher: PathMatcher,
+    skipped_repopilotignore: Arc<AtomicUsize>,
 ) -> io::Result<CollectedPaths> {
     let mut file_paths = Vec::new();
     let mut directories_count = 0usize;
 
-    for result in build_walker(path, ignored, use_repopilotignore) {
+    for result in build_walker(path, matcher, skipped_repopilotignore) {
         let entry = result.map_err(io::Error::other)?;
         let entry_path = entry.path();
 
@@ -73,55 +69,12 @@ fn collect_paths_with_custom_ignore(
     })
 }
 
-fn count_files_with_custom_ignore(
+fn build_walker(
     path: &Path,
-    ignored: &HashSet<String>,
-    use_repopilotignore: bool,
-) -> io::Result<usize> {
-    let mut files_count = 0usize;
-
-    for result in build_walker(path, ignored, use_repopilotignore) {
-        let entry = result.map_err(io::Error::other)?;
-        let entry_path = entry.path();
-
-        if entry_path == path {
-            continue;
-        }
-
-        let Some(file_type) = entry.file_type() else {
-            continue;
-        };
-
-        if file_type.is_file() && !is_repopilot_control_file(entry_path) {
-            files_count += 1;
-        }
-    }
-
-    Ok(files_count)
-}
-
-fn build_ignored_set(config: &ScanConfig) -> HashSet<String> {
-    let mut ignored: HashSet<String> = config
-        .ignored_paths
-        .iter()
-        .map(|p| p.trim_matches('/').to_string())
-        .filter(|p| !p.is_empty())
-        .collect();
-
-    ignored.extend(
-        config
-            .exclude_patterns
-            .iter()
-            .map(|p| p.trim_end_matches("/**").trim_matches('/').to_string())
-            .filter(|p| !p.is_empty()),
-    );
-
-    ignored
-}
-
-fn build_walker(path: &Path, ignored: &HashSet<String>, use_repopilotignore: bool) -> ignore::Walk {
+    matcher: PathMatcher,
+    skipped_repopilotignore: Arc<AtomicUsize>,
+) -> ignore::Walk {
     let root = path.to_path_buf();
-    let ignored = ignored.clone();
 
     let mut builder = WalkBuilder::new(path);
 
@@ -131,12 +84,25 @@ fn build_walker(path: &Path, ignored: &HashSet<String>, use_repopilotignore: boo
         .git_global(true)
         .git_exclude(true);
 
-    if use_repopilotignore {
-        builder.add_custom_ignore_filename(REPOPILOT_IGNORE_FILENAME);
-    }
-
     builder
-        .filter_entry(move |entry| !is_ignored_path(entry.path(), &root, &ignored))
+        .filter_entry(move |entry| {
+            if entry.path() == root {
+                return true;
+            }
+            match matcher.match_path(entry.path(), &root) {
+                IgnoreMatch::BuiltInOrConfig => false,
+                IgnoreMatch::RepopilotIgnore => {
+                    if entry
+                        .file_type()
+                        .is_some_and(|file_type| file_type.is_file())
+                    {
+                        skipped_repopilotignore.fetch_add(1, Ordering::Relaxed);
+                    }
+                    false
+                }
+                IgnoreMatch::None => true,
+            }
+        })
         .build()
 }
 
@@ -156,29 +122,105 @@ fn find_repopilotignore(path: &Path) -> Option<PathBuf> {
     }
 }
 
-fn is_ignored_path(path: &Path, root: &Path, ignored: &HashSet<String>) -> bool {
-    if path == root || ignored.is_empty() {
-        return false;
-    }
-
-    if let Some(relative) = path.strip_prefix(root).ok().and_then(|p| p.to_str()) {
-        if ignored.contains(relative) {
-            return true;
-        }
-    }
-
-    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-        if ignored.contains(name) {
-            return true;
-        }
-    }
-
-    false
-}
-
 fn is_repopilot_control_file(path: &Path) -> bool {
     path.file_name()
         .and_then(|name| name.to_str())
         .map(|name| matches!(name, REPOPILOT_IGNORE_FILENAME | "repopilot.toml"))
         .unwrap_or(false)
+}
+
+#[derive(Clone)]
+struct PathMatcher {
+    built_in_or_config: GlobSet,
+    repopilotignore: GlobSet,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IgnoreMatch {
+    None,
+    BuiltInOrConfig,
+    RepopilotIgnore,
+}
+
+impl PathMatcher {
+    fn new(config: &ScanConfig, repopilotignore_path: Option<&Path>) -> io::Result<Self> {
+        let mut built_in_or_config = GlobSetBuilder::new();
+        for pattern in config
+            .ignored_paths
+            .iter()
+            .chain(config.exclude_patterns.iter())
+        {
+            add_path_pattern(&mut built_in_or_config, pattern)?;
+        }
+
+        let mut repopilotignore = GlobSetBuilder::new();
+        if let Some(path) = repopilotignore_path {
+            for pattern in read_repopilotignore_patterns(path)? {
+                add_path_pattern(&mut repopilotignore, &pattern)?;
+            }
+        }
+
+        Ok(Self {
+            built_in_or_config: built_in_or_config.build().map_err(io::Error::other)?,
+            repopilotignore: repopilotignore.build().map_err(io::Error::other)?,
+        })
+    }
+
+    fn match_path(&self, path: &Path, root: &Path) -> IgnoreMatch {
+        let relative = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
+
+        if self.built_in_or_config.is_match(relative.as_str())
+            || self.built_in_or_config.is_match(name)
+        {
+            return IgnoreMatch::BuiltInOrConfig;
+        }
+
+        if self.repopilotignore.is_match(relative.as_str()) || self.repopilotignore.is_match(name) {
+            return IgnoreMatch::RepopilotIgnore;
+        }
+
+        IgnoreMatch::None
+    }
+}
+
+fn read_repopilotignore_patterns(path: &Path) -> io::Result<Vec<String>> {
+    let content = fs::read_to_string(path)?;
+    Ok(content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_string)
+        .collect())
+}
+
+fn add_path_pattern(builder: &mut GlobSetBuilder, raw_pattern: &str) -> io::Result<()> {
+    let pattern = raw_pattern.trim().trim_matches('/');
+    if pattern.is_empty() {
+        return Ok(());
+    }
+
+    add_glob(builder, pattern)?;
+    if !pattern.contains('/') {
+        add_glob(builder, &format!("**/{pattern}"))?;
+        add_glob(builder, &format!("{pattern}/**"))?;
+        add_glob(builder, &format!("**/{pattern}/**"))?;
+    } else if !pattern.ends_with("/**") {
+        add_glob(builder, &format!("{pattern}/**"))?;
+    }
+
+    Ok(())
+}
+
+fn add_glob(builder: &mut GlobSetBuilder, pattern: &str) -> io::Result<()> {
+    let glob = Glob::new(pattern).map_err(io::Error::other)?;
+    builder.add(glob);
+    Ok(())
 }

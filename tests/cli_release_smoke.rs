@@ -126,7 +126,7 @@ fn scan_writes_valid_json_report() {
     let content = read_non_empty(&output_path);
     let json: Value = serde_json::from_str(&content).expect("scan output should be valid JSON");
 
-    assert_eq!(json["files_count"].as_u64().unwrap_or_default(), 3);
+    assert_eq!(json["files_analyzed"].as_u64().unwrap_or_default(), 3);
     assert!(
         json["findings"].is_array(),
         "scan JSON should include findings array"

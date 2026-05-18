@@ -9,7 +9,7 @@ fn reports_missing_test_folder() {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),
         files: vec![file("src/payment.rs")],
-        files_count: 1,
+        files_analyzed: 1,
         ..ScanFacts::default()
     };
 
@@ -24,7 +24,7 @@ fn source_without_test_recognizes_integration_test_counterpart() {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),
         files: vec![file("src/report/writer.rs"), file("tests/report_writer.rs")],
-        files_count: 2,
+        files_analyzed: 2,
         ..ScanFacts::default()
     };
 
@@ -43,7 +43,7 @@ fn source_without_test_recognizes_subsystem_integration_tests() {
             file("tests/explain_cli.rs"),
             file("tests/output_markdown.rs"),
         ],
-        files_count: 4,
+        files_analyzed: 4,
         ..ScanFacts::default()
     };
 
@@ -61,7 +61,7 @@ fn source_without_test_reports_uncovered_source_and_ignores_wrappers() {
             file("src/lib.rs"),
             file("src/mod.rs"),
         ],
-        files_count: 3,
+        files_analyzed: 3,
         ..ScanFacts::default()
     };
 
@@ -239,13 +239,13 @@ fn python_init_and_infra_not_flagged() {
             files: vec![FileFacts {
                 path: PathBuf::from(path),
                 language: Some("Python".to_string()),
-                lines_of_code: 1,
+                non_empty_lines: 1,
                 branch_count: 0,
                 imports: Vec::new(),
                 content: None,
                 has_inline_tests: false,
             }],
-            files_count: 1,
+            files_analyzed: 1,
             ..ScanFacts::default()
         };
         let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
@@ -271,7 +271,7 @@ fn scan_facts_with(file: FileFacts) -> ScanFacts {
     ScanFacts {
         root_path: PathBuf::from("."),
         files: vec![file],
-        files_count: 1,
+        files_analyzed: 1,
         ..ScanFacts::default()
     }
 }
@@ -280,7 +280,7 @@ fn ts_file(path: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
         language: Some("TypeScript".to_string()),
-        lines_of_code: 1,
+        non_empty_lines: 1,
         branch_count: 0,
         imports: Vec::new(),
         content: None,
@@ -292,7 +292,7 @@ fn file(path: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
         language: Some("Rust".to_string()),
-        lines_of_code: 1,
+        non_empty_lines: 1,
         branch_count: 0,
         imports: Vec::new(),
         content: Some("pub fn value() {}\n".to_string()),

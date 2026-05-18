@@ -43,7 +43,7 @@ fn scan_writes_audit_receipt_json() {
     let receipt: Value = serde_json::from_slice(&fs::read(receipt_path).expect("read receipt"))
         .expect("valid receipt json");
 
-    assert_eq!(receipt["schema_version"], 2);
+    assert_eq!(receipt["schema_version"], 3);
     assert_eq!(receipt["tool"], "repopilot");
     assert!(receipt["version"].as_str().is_some());
     assert!(receipt["generated_at"].as_str().is_some());

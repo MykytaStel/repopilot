@@ -60,9 +60,9 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
         new_findings,
         resolved_findings,
         severity_increased,
-        before_files: before.files_count,
-        after_files: after.files_count,
-        before_loc: before.lines_of_code,
-        after_loc: after.lines_of_code,
+        before_files: before.files_analyzed,
+        after_files: after.files_analyzed,
+        before_loc: before.non_empty_lines,
+        after_loc: after.non_empty_lines,
     }
 }

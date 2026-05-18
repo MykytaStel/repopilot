@@ -15,7 +15,7 @@ pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
         Some("TypeScript")
         | Some("TypeScript React")
         | Some("JavaScript")
-        | Some("JavaScript React") => ts::extract(content),
+        | Some("JavaScript React") => ts::extract(content, language),
         Some("Python") => python::extract(content),
         Some("Go") => go::extract(content),
         Some("Java") => jvm::extract_java(content),

@@ -43,7 +43,7 @@ fn workspace_scan_does_not_duplicate_package_file_findings() {
     assert!(output.status.success());
     let summary: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
     assert_eq!(
-        summary["files_count"].as_u64(),
+        summary["files_analyzed"].as_u64(),
         Some(3),
         "root scan must not count package files a second time"
     );

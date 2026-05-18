@@ -8,7 +8,7 @@ fn make_file_facts(path: std::path::PathBuf) -> FileFacts {
     FileFacts {
         path,
         language: Some("TypeScript".to_string()),
-        lines_of_code: 2,
+        non_empty_lines: 2,
         branch_count: 0,
         imports: vec![],
         content: None,
@@ -111,7 +111,7 @@ fn console_log_flagged() {
     facts.files.push(FileFacts {
         path: file_path,
         language: Some("TypeScript React".to_string()),
-        lines_of_code: 2,
+        non_empty_lines: 2,
         branch_count: 0,
         imports: vec![],
         content: None,

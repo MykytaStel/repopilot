@@ -13,7 +13,7 @@ pub struct ExplainReport {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ExplainSource {
     pub language_name: Option<String>,
-    pub lines_of_code: usize,
+    pub non_empty_lines: usize,
     pub has_inline_tests: bool,
 }
 

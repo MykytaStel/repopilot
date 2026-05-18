@@ -154,10 +154,10 @@ pub fn build_doctor_report(
 
     let scan = DoctorScanScope {
         files_discovered: summary.files_discovered,
-        files_analyzed: summary.files_count,
+        files_analyzed: summary.files_analyzed,
         files_skipped_low_signal: summary.files_skipped_low_signal,
         binary_files_skipped: summary.binary_files_skipped,
-        large_files_skipped: summary.skipped_files_count,
+        large_files_skipped: summary.large_files_skipped,
         files_skipped_by_limit: summary.files_skipped_by_limit,
         files_skipped_repopilotignore: summary.files_skipped_repopilotignore,
     };
@@ -184,7 +184,7 @@ pub fn build_doctor_report(
         check_ci_config(has_ci_config, has_github_workflows),
         check_repopilot_ci(&repopilot_ci, has_ci_config),
         check_report_receipt_readiness(&root),
-        check_scan_scope(summary.files_count),
+        check_scan_scope(summary.files_analyzed),
         check_scan_limit(summary.files_skipped_by_limit),
     ]);
 
@@ -197,7 +197,7 @@ pub fn build_doctor_report(
         has_ci_config,
         has_repopilot_ci_gate: repopilot_ci.has_gate,
         report_receipt_ready,
-        files_analyzed: summary.files_count,
+        files_analyzed: summary.files_analyzed,
         files_skipped_by_limit: summary.files_skipped_by_limit,
     });
 
@@ -206,7 +206,7 @@ pub fn build_doctor_report(
         config_path.is_some(),
         has_baseline,
         repopilot_ci.has_gate,
-        summary.files_count,
+        summary.files_analyzed,
     );
     let next_command = next_steps
         .first()

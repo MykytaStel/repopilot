@@ -1,63 +1,52 @@
 use std::collections::HashSet;
+use tree_sitter::{Node, Parser};
 
 pub(super) fn extract(content: &str) -> HashSet<String> {
+    let Some(tree) = parse(content) else {
+        return HashSet::new();
+    };
+
     let mut result = HashSet::new();
-    let mut in_block_comment = false;
-    let mut pending: Option<String> = None;
+    visit(tree.root_node(), content, &mut result);
+    result
+}
 
-    for line in content.lines() {
-        let trimmed = line.trim();
+fn parse(content: &str) -> Option<tree_sitter::Tree> {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&tree_sitter_rust::LANGUAGE.into())
+        .ok()?;
+    parser.parse(content, None)
+}
 
-        if in_block_comment {
-            if trimmed.contains("*/") {
-                in_block_comment = false;
-            }
-            continue;
-        }
-        if trimmed.starts_with("/*") {
-            if !trimmed.contains("*/") {
-                in_block_comment = true;
-            }
-            continue;
-        }
-        if trimmed.starts_with("//") || trimmed.starts_with('*') {
-            continue;
-        }
-
-        if let Some(acc) = pending.take() {
-            let combined = acc + " " + trimmed;
-            if combined.contains(';') {
-                for import in rust_use_imports(&combined) {
-                    result.insert(import);
-                }
-            } else {
-                pending = Some(combined);
-            }
-            continue;
-        }
-
-        let effective = strip_rust_visibility(trimmed);
-
-        if effective.strip_prefix("use ").is_some() {
-            if effective.contains(';') {
-                for import in rust_use_imports(effective) {
-                    result.insert(import);
-                }
-            } else {
-                pending = Some(effective.to_string());
-            }
-        } else if let Some(rest) = effective.strip_prefix("mod ") {
-            let rest = rest.trim();
-            if rest.ends_with(';') {
-                let name = rest.trim_end_matches(';').trim();
-                if !name.is_empty() && !name.contains('{') && !name.contains(' ') {
-                    result.insert(format!("mod::{name}"));
-                }
+fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
+    match node.kind() {
+        "use_declaration" => {
+            if let Ok(text) = node.utf8_text(content.as_bytes()) {
+                result.extend(rust_use_imports(text));
             }
         }
+        "mod_item" => {
+            if let Ok(text) = node.utf8_text(content.as_bytes())
+                && let Some(module) = rust_mod_import(text)
+            {
+                result.insert(module);
+            }
+        }
+        _ => {}
     }
 
-    result
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        visit(child, content, result);
+    }
+}
+
+fn rust_mod_import(stmt: &str) -> Option<String> {
+    let effective = strip_rust_visibility(stmt.trim());
+    let rest = effective.strip_prefix("mod ")?;
+    let name = rest.trim().trim_end_matches(';').trim();
+    (!name.is_empty() && !name.contains('{') && !name.contains(' ')).then(|| format!("mod::{name}"))
 }
 
 fn strip_rust_visibility(s: &str) -> &str {
@@ -70,38 +59,104 @@ fn strip_rust_visibility(s: &str) -> &str {
 }
 
 fn rust_use_imports(stmt: &str) -> Vec<String> {
-    let stmt = stmt.trim();
-    let body = stmt.strip_prefix("use ").unwrap_or(stmt);
-    let body = body.trim_end_matches(';').trim();
+    let body = stmt
+        .trim()
+        .strip_prefix("use ")
+        .unwrap_or(stmt)
+        .trim()
+        .trim_end_matches(';')
+        .trim();
+    let mut out = Vec::new();
+    expand_use_tree("", body, &mut out);
+    out
+}
 
-    if let Some(brace_pos) = body.find('{') {
-        let prefix = body[..brace_pos].trim_end_matches(':');
-        let after = &body[brace_pos + 1..];
-        let inner = after.trim_end_matches('}').trim();
-        return inner
-            .split(',')
-            .filter_map(|item| {
-                let item = item.trim();
-                if item.is_empty() || item == "_" || item == "self" {
-                    return None;
-                }
-                let path = item.split(" as ").next().unwrap_or(item).trim();
-                if path.is_empty() {
-                    return None;
-                }
-                if prefix.is_empty() {
-                    Some(path.to_string())
-                } else {
-                    Some(format!("{prefix}::{path}"))
-                }
-            })
-            .collect();
+fn expand_use_tree(prefix: &str, item: &str, out: &mut Vec<String>) {
+    let item = item.trim();
+    if item.is_empty() || item == "_" || item == "self" {
+        return;
     }
 
-    let path = body.split(" as ").next().unwrap_or(body).trim();
-    if path.is_empty() {
-        vec![]
+    if let Some(open) = find_top_level_char(item, '{')
+        && let Some(close) = matching_brace(item, open)
+    {
+        let before = item[..open].trim().trim_end_matches("::");
+        let inner = &item[open + 1..close];
+        let nested_prefix = join_rust_path(prefix, before);
+        for child in split_top_level_commas(inner) {
+            expand_use_tree(&nested_prefix, child, out);
+        }
+        return;
+    }
+
+    let path = item.split(" as ").next().unwrap_or(item).trim();
+    if path.is_empty() || path == "_" || path == "self" {
+        return;
+    }
+    let path = join_rust_path(prefix, path);
+    if !path.is_empty() {
+        out.push(path);
+    }
+}
+
+fn split_top_level_commas(input: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+
+    for (index, ch) in input.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(&input[start..index]);
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(&input[start..]);
+    parts
+}
+
+fn find_top_level_char(input: &str, needle: char) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, ch) in input.char_indices() {
+        match ch {
+            '{' if ch == needle && depth == 0 => return Some(index),
+            '{' => depth += 1,
+            '}' => depth = depth.saturating_sub(1),
+            _ if ch == needle && depth == 0 => return Some(index),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn matching_brace(input: &str, open: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, ch) in input[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(open + index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn join_rust_path(prefix: &str, item: &str) -> String {
+    let item = item.trim().trim_matches(':');
+    if prefix.is_empty() {
+        item.to_string()
+    } else if item.is_empty() {
+        prefix.trim_end_matches("::").to_string()
     } else {
-        vec![path.to_string()]
+        format!("{}::{}", prefix.trim_end_matches("::"), item)
     }
 }

@@ -62,16 +62,16 @@ pub(super) fn load_file(path: &Path, config: &ScanConfig) -> io::Result<LoadedFi
         });
     };
 
-    let lines_of_code = count_lines_of_code(&content);
+    let non_empty_lines = count_non_empty_lines(&content);
     let branch_count = count_branches(&content);
-    let has_inline_tests = content.contains("#[cfg(test)]");
+    let has_inline_tests = has_language_inline_tests(path, language.as_deref(), &content);
     let imports = extract_imports(&content, language.as_deref());
 
     Ok(LoadedFile::Analyzable {
         full_facts: FileFacts {
             path: path.to_path_buf(),
             language: language.clone(),
-            lines_of_code,
+            non_empty_lines,
             branch_count,
             imports,
             has_inline_tests,
@@ -92,7 +92,7 @@ pub(super) fn empty_file_facts(path: &Path, language: Option<String>) -> FileFac
     FileFacts {
         path: path.to_path_buf(),
         language,
-        lines_of_code: 0,
+        non_empty_lines: 0,
         branch_count: 0,
         imports: Vec::new(),
         content: None,
@@ -106,11 +106,42 @@ fn file_size(path: &Path) -> u64 {
         .unwrap_or(0)
 }
 
-fn count_lines_of_code(content: &str) -> usize {
+fn count_non_empty_lines(content: &str) -> usize {
     content
         .lines()
         .filter(|line| !line.trim().is_empty())
         .count()
+}
+
+fn has_language_inline_tests(path: &Path, language: Option<&str>, content: &str) -> bool {
+    match language {
+        Some("Rust") => content.contains("#[cfg(test)]") || content.contains("#[test]"),
+        Some("TypeScript")
+        | Some("TypeScript React")
+        | Some("JavaScript")
+        | Some("JavaScript React") => {
+            contains_call(content, "describe")
+                || contains_call(content, "it")
+                || contains_call(content, "test")
+        }
+        Some("Python") => content.contains("def test_") || content.contains("unittest."),
+        Some("Go") => content.contains("func Test") || content.contains("func Benchmark"),
+        Some("Java") | Some("Kotlin") => content.contains("@Test"),
+        _ => path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.contains("_test.") || name.contains(".test.")),
+    }
+}
+
+fn contains_call(content: &str, name: &str) -> bool {
+    let needle = format!("{name}(");
+    content.match_indices(&needle).any(|(index, _)| {
+        content[..index]
+            .chars()
+            .next_back()
+            .is_none_or(|ch| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '.')
+    })
 }
 
 #[cfg(test)]

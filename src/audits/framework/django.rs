@@ -1,7 +1,7 @@
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileContentProvider, ScanFacts};
 
 // ── django.debug-true ─────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ impl ProjectAudit for DjangoDebugTrueAudit {
                 continue;
             }
 
-            let Ok(content) = std::fs::read_to_string(&file.path) else {
+            let Some(content) = FileContentProvider.content(file) else {
                 continue;
             };
 
@@ -74,7 +74,7 @@ impl ProjectAudit for DjangoEmptyAllowedHostsAudit {
                 continue;
             }
 
-            let Ok(content) = std::fs::read_to_string(&file.path) else {
+            let Some(content) = FileContentProvider.content(file) else {
                 continue;
             };
 
@@ -137,7 +137,7 @@ impl ProjectAudit for DjangoRawSqlAudit {
                 continue;
             }
 
-            let Ok(content) = std::fs::read_to_string(&file.path) else {
+            let Some(content) = FileContentProvider.content(file) else {
                 continue;
             };
 

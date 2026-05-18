@@ -18,7 +18,7 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         let _ = writeln!(out, "**Tech Stack:** {}", stack.join(", "));
     }
 
-    let token_est = summary.lines_of_code * 5;
+    let token_est = summary.non_empty_lines * 5;
     let token_est_str = if token_est >= 1000 {
         format!("~{}k tokens", token_est / 1000)
     } else {
@@ -26,8 +26,8 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
     };
     let _ = writeln!(
         out,
-        "**Size:** {} files · {} LOC · {} directories · {token_est_str}",
-        summary.files_count, summary.lines_of_code, summary.directories_count
+        "**Size:** {} files · {} non-empty lines · {} directories · {token_est_str}",
+        summary.files_analyzed, summary.non_empty_lines, summary.directories_count
     );
 
     if !summary.languages.is_empty() {
@@ -35,7 +35,7 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
             .languages
             .iter()
             .take(5)
-            .map(|l| format!("{} ({})", l.name, l.files_count))
+            .map(|l| format!("{} ({})", l.name, l.files_analyzed))
             .collect();
         let _ = writeln!(out, "**Languages:** {}", langs.join(", "));
     }
@@ -53,10 +53,10 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         .filter(|f| f.severity == Severity::Medium)
         .count();
     let total = findings.len();
-    let density = if summary.lines_of_code > 0 {
+    let density = if summary.non_empty_lines > 0 {
         format!(
             " · {:.1}/kloc",
-            total as f64 * 1000.0 / summary.lines_of_code as f64
+            total as f64 * 1000.0 / summary.non_empty_lines as f64
         )
     } else {
         String::new()
@@ -65,11 +65,11 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         out,
         "**Health:** {total} findings{density} — {critical} critical, {high} high, {medium} medium"
     );
-    if summary.skipped_files_count > 0 {
+    if summary.large_files_skipped > 0 {
         let _ = writeln!(
             out,
             "⚠️ {} files skipped (too large to scan)",
-            summary.skipped_files_count
+            summary.large_files_skipped
         );
     }
     out.push('\n');

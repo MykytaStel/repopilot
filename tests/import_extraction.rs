@@ -66,6 +66,21 @@ fn rust_multiline_group_import() {
 }
 
 #[test]
+fn rust_nested_group_import() {
+    let code = "use crate::{foo::{bar, baz}, qux};\n";
+    let imports = extract_imports(code, Some("Rust"));
+    assert!(
+        imports.contains(&"crate::foo::bar".to_string()),
+        "{imports:?}"
+    );
+    assert!(
+        imports.contains(&"crate::foo::baz".to_string()),
+        "{imports:?}"
+    );
+    assert!(imports.contains(&"crate::qux".to_string()), "{imports:?}");
+}
+
+#[test]
 fn rust_imports_are_deduplicated() {
     let code = "use crate::foo;\nuse crate::foo;\n";
     let imports = extract_imports(code, Some("Rust"));
@@ -93,6 +108,24 @@ fn ts_require_relative() {
     let code = r#"const x = require("../lib");"#;
     let imports = extract_imports(code, Some("TypeScript"));
     assert!(imports.contains(&"../lib".to_string()), "{imports:?}");
+}
+
+#[test]
+fn ts_type_import_and_export_from_relative() {
+    let code = r#"
+        import type { User } from "./types";
+        export type { Config } from "../config";
+    "#;
+    let imports = extract_imports(code, Some("TypeScript"));
+    assert!(imports.contains(&"./types".to_string()), "{imports:?}");
+    assert!(imports.contains(&"../config".to_string()), "{imports:?}");
+}
+
+#[test]
+fn ts_require_inside_string_is_not_extracted() {
+    let code = r#"const text = "require('./not-real')";"#;
+    let imports = extract_imports(code, Some("TypeScript"));
+    assert!(imports.is_empty(), "{imports:?}");
 }
 
 #[test]
@@ -148,6 +181,13 @@ fn python_relative_double_dot() {
     let code = "from ..base import Thing\n";
     let imports = extract_imports(code, Some("Python"));
     assert!(imports.contains(&"..base".to_string()), "{imports:?}");
+}
+
+#[test]
+fn python_multiline_relative_import() {
+    let code = "from .models import (\n    User,\n    Team,\n)\n";
+    let imports = extract_imports(code, Some("Python"));
+    assert!(imports.contains(&".models".to_string()), "{imports:?}");
 }
 
 #[test]

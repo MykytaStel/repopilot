@@ -5,11 +5,11 @@ use repopilot::scan::config::ScanConfig;
 use repopilot::scan::facts::FileFacts;
 use std::path::PathBuf;
 
-fn make_file(lines_of_code: usize, branch_count: usize) -> FileFacts {
+fn make_file(non_empty_lines: usize, branch_count: usize) -> FileFacts {
     FileFacts {
         path: PathBuf::from("src/lib.rs"),
         language: Some("Rust".to_string()),
-        lines_of_code,
+        non_empty_lines,
         branch_count,
         imports: Vec::new(),
         content: None,
@@ -78,7 +78,7 @@ fn skips_unsupported_language() {
     let file = FileFacts {
         path: PathBuf::from("README.md"),
         language: Some("Markdown".to_string()),
-        lines_of_code: 100,
+        non_empty_lines: 100,
         branch_count: 50,
         imports: Vec::new(),
         content: None,

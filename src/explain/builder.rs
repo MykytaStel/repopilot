@@ -19,13 +19,13 @@ pub fn build_explain_report(
 ) -> Result<ExplainReport, io::Error> {
     let content = fs::read_to_string(path)?;
     let language_name = detect_language_for_path(path).map(str::to_string);
-    let lines_of_code = count_non_empty_lines(&content);
-    let has_inline_tests = content.contains("#[cfg(test)]");
+    let non_empty_lines = count_non_empty_lines(&content);
+    let has_inline_tests = has_language_inline_tests(path, language_name.as_deref(), &content);
 
     let file = FileFacts {
         path: path.to_path_buf(),
         language: language_name.clone(),
-        lines_of_code,
+        non_empty_lines,
         branch_count: 0,
         imports: Vec::new(),
         content: Some(content),
@@ -87,7 +87,7 @@ pub fn build_explain_report(
         path: path.display().to_string(),
         source: ExplainSource {
             language_name,
-            lines_of_code,
+            non_empty_lines,
             has_inline_tests,
         },
         context,
@@ -100,6 +100,37 @@ fn count_non_empty_lines(content: &str) -> usize {
         .lines()
         .filter(|line| !line.trim().is_empty())
         .count()
+}
+
+fn has_language_inline_tests(path: &Path, language: Option<&str>, content: &str) -> bool {
+    match language {
+        Some("Rust") => content.contains("#[cfg(test)]") || content.contains("#[test]"),
+        Some("TypeScript")
+        | Some("TypeScript React")
+        | Some("JavaScript")
+        | Some("JavaScript React") => {
+            contains_call(content, "describe")
+                || contains_call(content, "it")
+                || contains_call(content, "test")
+        }
+        Some("Python") => content.contains("def test_") || content.contains("unittest."),
+        Some("Go") => content.contains("func Test") || content.contains("func Benchmark"),
+        Some("Java") | Some("Kotlin") => content.contains("@Test"),
+        _ => path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.contains("_test.") || name.contains(".test.")),
+    }
+}
+
+fn contains_call(content: &str, name: &str) -> bool {
+    let needle = format!("{name}(");
+    content.match_indices(&needle).any(|(index, _)| {
+        content[..index]
+            .chars()
+            .next_back()
+            .is_none_or(|ch| !ch.is_ascii_alphanumeric() && ch != '_' && ch != '.')
+    })
 }
 
 fn support_level_label(level: SupportLevel) -> &'static str {

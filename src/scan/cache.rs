@@ -1,13 +1,17 @@
+use crate::audits::pipeline::{registered_file_audits, registered_project_audits};
 use crate::findings::types::Finding;
+use crate::findings::types::{FindingCategory, Severity};
+use crate::rules::registry::all_rule_metadata;
 use crate::scan::config::ScanConfig;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-pub const CACHE_SCHEMA_VERSION: u32 = 1;
+pub const CACHE_SCHEMA_VERSION: u32 = 2;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
@@ -27,7 +31,7 @@ pub struct FileRoleEntry {
     pub path: String,
     pub hash: String,
     pub language: Option<String>,
-    pub lines_of_code: usize,
+    pub non_empty_lines: usize,
     pub roles: Vec<String>,
     pub frameworks: Vec<String>,
     pub runtimes: Vec<String>,
@@ -159,16 +163,79 @@ pub fn file_hash_entry(root: &Path, path: &Path) -> io::Result<FileHashEntry> {
 }
 
 pub fn config_fingerprint(config: &ScanConfig) -> String {
-    stable_hash_hex(format!("{config:?}").as_bytes())
+    let input = CacheFingerprintInput {
+        cache_schema_version: CACHE_SCHEMA_VERSION,
+        repopilot_version: env!("CARGO_PKG_VERSION"),
+        scan_config: config,
+        file_audits: registered_file_audits(config)
+            .into_iter()
+            .map(|registration| AuditFingerprint {
+                audit_id: registration.metadata.audit_id,
+                kind: registration.metadata.kind.label(),
+                category: registration.metadata.category,
+                rule_ids: registration.metadata.rule_ids.to_vec(),
+            })
+            .collect(),
+        project_audits: registered_project_audits(config)
+            .into_iter()
+            .map(|registration| AuditFingerprint {
+                audit_id: registration.metadata.audit_id,
+                kind: registration.metadata.kind.label(),
+                category: registration.metadata.category,
+                rule_ids: registration.metadata.rule_ids.to_vec(),
+            })
+            .collect(),
+        rules: all_rule_metadata()
+            .map(|rule| RuleFingerprint {
+                rule_id: rule.rule_id,
+                title: rule.title,
+                category: rule.category.clone(),
+                default_severity: rule.default_severity,
+                docs_url: rule.docs_url,
+                description: rule.description,
+                recommendation: rule.recommendation,
+            })
+            .collect(),
+    };
+
+    match serde_json::to_vec(&input) {
+        Ok(bytes) => stable_hash_hex(&bytes),
+        Err(_) => stable_hash_hex(format!("{config:?}:{}", CACHE_SCHEMA_VERSION).as_bytes()),
+    }
 }
 
 pub fn stable_hash_hex(bytes: &[u8]) -> String {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in bytes {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{hash:016x}")
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[derive(Serialize)]
+struct CacheFingerprintInput<'a> {
+    cache_schema_version: u32,
+    repopilot_version: &'static str,
+    scan_config: &'a ScanConfig,
+    file_audits: Vec<AuditFingerprint>,
+    project_audits: Vec<AuditFingerprint>,
+    rules: Vec<RuleFingerprint>,
+}
+
+#[derive(Serialize)]
+struct AuditFingerprint {
+    audit_id: &'static str,
+    kind: &'static str,
+    category: FindingCategory,
+    rule_ids: Vec<&'static str>,
+}
+
+#[derive(Serialize)]
+struct RuleFingerprint {
+    rule_id: &'static str,
+    title: &'static str,
+    category: FindingCategory,
+    default_severity: Severity,
+    docs_url: Option<&'static str>,
+    description: &'static str,
+    recommendation: Option<&'static str>,
 }
 
 pub fn relative_cache_path(root: &Path, path: &Path) -> String {

@@ -5,8 +5,9 @@ use crate::config::defaults::{
     DEFAULT_MAX_DIRECTORY_DEPTH, DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FAN_OUT,
     DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
 };
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ScanConfig {
     pub ignored_paths: Vec<String>,
     pub exclude_patterns: Vec<String>,

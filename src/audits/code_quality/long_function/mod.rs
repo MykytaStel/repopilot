@@ -387,7 +387,7 @@ mod tests {
         FileFacts {
             path: PathBuf::from(path),
             language: language.map(str::to_string),
-            lines_of_code: content.lines().count(),
+            non_empty_lines: content.lines().count(),
             branch_count: 0,
             imports: Vec::new(),
             content: Some(content.to_string()),

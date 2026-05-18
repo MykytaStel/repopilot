@@ -28,7 +28,7 @@ fn ignore_list_from_config_is_applied() {
     let summary = scan_path_with_config(temp.path(), &repo_config.to_scan_config())
         .expect("failed to scan temp project");
 
-    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.files_analyzed, 1);
 }
 
 #[test]

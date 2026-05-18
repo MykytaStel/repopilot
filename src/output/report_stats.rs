@@ -78,8 +78,8 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
 
     let total_findings = summary.findings.len();
     let risk_summary = RiskSummary::from_findings(&summary.findings);
-    let finding_density = if summary.lines_of_code > 0 {
-        total_findings as f64 * 1000.0 / summary.lines_of_code as f64
+    let finding_density = if summary.non_empty_lines > 0 {
+        total_findings as f64 * 1000.0 / summary.non_empty_lines as f64
     } else {
         0.0
     };
