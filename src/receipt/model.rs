@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 1;
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
@@ -26,6 +26,10 @@ pub struct ReceiptGit {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ReceiptScope {
+    pub mode: String,
+    pub base_ref: Option<String>,
+    pub changed_files_count: usize,
+    pub repo_level_rules_included: bool,
     pub files_discovered: usize,
     pub files_analyzed: usize,
     pub directories_count: usize,
@@ -42,11 +46,22 @@ pub struct ReceiptScope {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ReceiptFindings {
     pub total: usize,
+    pub hidden_suggestions_count: usize,
+    pub hidden_suggestions: Vec<ReceiptHiddenSuggestion>,
     pub critical: usize,
     pub high: usize,
     pub medium: usize,
     pub low: usize,
     pub info: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ReceiptHiddenSuggestion {
+    pub intent: String,
+    pub rule_id: String,
+    pub category: String,
+    pub reason: String,
+    pub count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

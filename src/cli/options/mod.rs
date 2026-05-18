@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod baseline;
+pub mod cache;
 pub mod compare;
 pub mod doctor;
 pub mod inspect;
@@ -8,6 +9,7 @@ pub mod scan;
 
 pub use ai::{AiCommands, AiContextOptions, AiOptions, AiPlanOptions, AiPromptOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
+pub use cache::{CacheCommands, CacheOptions};
 pub use compare::CompareOptions;
 pub use doctor::{DoctorOptions, InitOptions};
 pub use inspect::{ExplainOptions, InspectCommands, InspectOptions, KnowledgeOptions};
@@ -18,6 +20,17 @@ use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Manage RepoPilot's local scan cache
+    #[command(
+        about = "Manage RepoPilot's local scan cache",
+        long_about = "Manage RepoPilot's local cache files under .repopilot/cache.\n\n\
+Cache data is local to the repository and is used by changed scans.",
+        after_help = "EXAMPLES:\n  \
+repopilot cache clear\n  \
+repopilot cache clear ."
+    )]
+    Cache(CacheOptions),
+
     /// Manage accepted baseline findings (alias: bl)
     #[command(
         alias = "bl",

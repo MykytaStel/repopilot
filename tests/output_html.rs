@@ -1,12 +1,16 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{HiddenSuggestionSummary, ScanSummary};
 use std::path::PathBuf;
 
 #[test]
 fn html_output_escapes_snippets_and_renders_summary() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
+        mode: Default::default(),
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: 0,
         files_count: 1,
         directories_count: 1,
@@ -71,4 +75,27 @@ fn html_output_escapes_snippets_and_renders_summary() {
     assert!(html.contains("<strong>Recommendation:</strong>"));
     assert!(html.contains("API_KEY = &quot;abc&lt;123&gt;&quot;"));
     assert!(!html.contains("API_KEY = \"abc<123>\""));
+}
+
+#[test]
+fn html_output_includes_hidden_suggestion_breakdown() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        hidden_suggestions_count: 1,
+        hidden_suggestions: vec![HiddenSuggestionSummary {
+            intent: "runtime-risk".to_string(),
+            rule_id: "language.javascript.runtime-exit-risk".to_string(),
+            category: "code-quality".to_string(),
+            reason: "process exit in script/tooling boundary is a strict-mode suggestion"
+                .to_string(),
+            count: 1,
+        }],
+        ..ScanSummary::default()
+    };
+
+    let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");
+
+    assert!(html.contains("Top Hidden Suggestions"));
+    assert!(html.contains("language.javascript.runtime-exit-risk"));
+    assert!(html.contains("code-quality"));
 }

@@ -69,6 +69,14 @@ pub struct ScanOptions {
     #[arg(long, short = 'w')]
     pub workspace: bool,
 
+    /// Scan only files changed against HEAD, including untracked files
+    #[arg(long)]
+    pub changed: bool,
+
+    /// Scan only files changed since BASE ref, compared with HEAD
+    #[arg(long, value_name = "BASE")]
+    pub since: Option<String>,
+
     /// Only render findings at or above this severity
     #[arg(long, value_enum)]
     pub min_severity: Option<SeverityArg>,

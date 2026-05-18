@@ -41,9 +41,34 @@ pub struct HiddenSuggestionSummary {
     pub count: usize,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ScanMode {
+    #[default]
+    Full,
+    Changed,
+}
+
+impl ScanMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Changed => "changed",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScanSummary {
     pub root_path: PathBuf,
+    #[serde(default)]
+    pub mode: ScanMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_ref: Option<String>,
+    #[serde(default)]
+    pub changed_files_count: usize,
+    #[serde(default = "default_repo_level_rules_included")]
+    pub repo_level_rules_included: bool,
     /// Files found after gitignore, `.repopilotignore`, built-in ignores, and
     /// `--exclude` path/name filters are applied.
     #[serde(default)]
@@ -95,6 +120,46 @@ pub struct ScanSummary {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scan_timings: Option<ScanTimings>,
+}
+
+fn default_repo_level_rules_included() -> bool {
+    true
+}
+
+impl Default for ScanSummary {
+    fn default() -> Self {
+        Self {
+            root_path: PathBuf::new(),
+            mode: ScanMode::Full,
+            base_ref: None,
+            changed_files_count: 0,
+            repo_level_rules_included: true,
+            files_discovered: 0,
+            files_count: 0,
+            directories_count: 0,
+            lines_of_code: 0,
+            skipped_files_count: 0,
+            files_skipped_low_signal: 0,
+            binary_files_skipped: 0,
+            skipped_bytes: 0,
+            languages: Vec::new(),
+            findings: Vec::new(),
+            detected_frameworks: Vec::new(),
+            framework_projects: Vec::new(),
+            react_native: None,
+            coupling_graph: None,
+            scan_duration_us: 0,
+            health_score: 0,
+            visible_findings_count: 0,
+            hidden_suggestions_count: 0,
+            hidden_suggestions: Vec::new(),
+            visibility_profile: None,
+            files_skipped_by_limit: 0,
+            files_skipped_repopilotignore: 0,
+            repopilotignore_path: None,
+            scan_timings: None,
+        }
+    }
 }
 
 impl ScanSummary {

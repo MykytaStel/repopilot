@@ -1,13 +1,17 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::{LanguageSummary, ScanSummary};
+use repopilot::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanSummary};
 use std::path::PathBuf;
 
 #[test]
 fn renders_markdown_scan_summary() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo-project"),
+        mode: Default::default(),
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: 0,
         files_count: 2,
         directories_count: 1,
@@ -95,6 +99,10 @@ fn renders_markdown_scan_summary() {
 fn renders_empty_markdown_sections() {
     let summary = ScanSummary {
         root_path: PathBuf::from("empty-project"),
+        mode: Default::default(),
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: 0,
         files_count: 0,
         directories_count: 0,
@@ -135,6 +143,10 @@ fn renders_empty_markdown_sections() {
 fn renders_react_native_architecture_section_when_profile_present() {
     let summary = ScanSummary {
         root_path: PathBuf::from("rn-project"),
+        mode: Default::default(),
+        base_ref: None,
+        changed_files_count: 0,
+        repo_level_rules_included: true,
         files_discovered: 0,
         files_count: 5,
         directories_count: 2,
@@ -200,4 +212,26 @@ fn react_native_section_absent_when_profile_is_none() {
         .expect("failed to render markdown summary");
 
     assert!(!output.contains("### React Native"));
+}
+
+#[test]
+fn markdown_output_includes_hidden_suggestion_breakdown() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        hidden_suggestions_count: 2,
+        hidden_suggestions: vec![HiddenSuggestionSummary {
+            intent: "testing-gap".to_string(),
+            rule_id: "testing.source-without-test".to_string(),
+            category: "testing".to_string(),
+            reason: "testing gaps are hidden in the default profile".to_string(),
+            count: 2,
+        }],
+        ..ScanSummary::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render markdown summary");
+
+    assert!(output.contains("- **Top hidden suggestions:**"));
+    assert!(output.contains("`testing` / `testing-gap` / `testing.source-without-test`: 2"));
 }

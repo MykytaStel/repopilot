@@ -1,7 +1,8 @@
 use crate::findings::types::Severity;
 use crate::receipt::git::collect_git_receipt;
 use crate::receipt::model::{
-    AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptFindings, ReceiptLanguage, ReceiptScope,
+    AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptFindings, ReceiptHiddenSuggestion,
+    ReceiptLanguage, ReceiptScope,
 };
 use crate::scan::types::ScanSummary;
 use chrono::Utc;
@@ -23,6 +24,10 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
 
 fn build_scope(summary: &ScanSummary) -> ReceiptScope {
     ReceiptScope {
+        mode: summary.mode.label().to_string(),
+        base_ref: summary.base_ref.clone(),
+        changed_files_count: summary.changed_files_count,
+        repo_level_rules_included: summary.repo_level_rules_included,
         files_discovered: summary.files_discovered,
         files_analyzed: summary.files_count,
         directories_count: summary.directories_count,
@@ -43,6 +48,18 @@ fn build_scope(summary: &ScanSummary) -> ReceiptScope {
 fn build_findings(summary: &ScanSummary) -> ReceiptFindings {
     let mut findings = ReceiptFindings {
         total: summary.findings.len(),
+        hidden_suggestions_count: summary.hidden_suggestions_count,
+        hidden_suggestions: summary
+            .hidden_suggestions
+            .iter()
+            .map(|item| ReceiptHiddenSuggestion {
+                intent: item.intent.clone(),
+                rule_id: item.rule_id.clone(),
+                category: item.category.clone(),
+                reason: item.reason.clone(),
+                count: item.count,
+            })
+            .collect(),
         critical: 0,
         high: 0,
         medium: 0,

@@ -35,6 +35,20 @@ repopilot scan src/payments/
 repopilot scan src/payments/processor.rs
 ```
 
+### Scanning changed files
+
+Use changed scans when you want a fast file-level pass for the current diff.
+RepoPilot writes local cache files under `.repopilot/cache/` and skips
+repo-level architecture, framework, testing, and coupling rules in this mode.
+
+```bash
+repopilot scan . --changed
+repopilot scan . --since main
+repopilot cache clear .
+```
+
+Use a regular full scan when you need authoritative repository-wide risk.
+
 ### Scanning workspaces
 
 Use `--workspace` in npm, Yarn, pnpm, or Cargo monorepos to scan each package root separately and group findings by package. Console and Markdown output include a compact workspace risk summary.
