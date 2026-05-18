@@ -154,7 +154,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
     let in_diff_findings: Vec<_> = report.in_diff_findings().into_iter().cloned().collect();
     let visible_findings_count = in_diff_findings.len();
     let health_score =
-        ScanSummary::compute_health_score(&in_diff_findings, report.summary.lines_of_code);
+        ScanSummary::compute_health_score(&in_diff_findings, report.summary.non_empty_lines);
     BaselineScanReport {
         summary: ScanSummary {
             root_path: report.summary.root_path.clone(),
@@ -163,10 +163,10 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             changed_files_count: report.summary.changed_files_count,
             repo_level_rules_included: report.summary.repo_level_rules_included,
             files_discovered: report.summary.files_discovered,
-            files_count: report.summary.files_count,
+            files_analyzed: report.summary.files_analyzed,
             directories_count: report.summary.directories_count,
-            lines_of_code: report.summary.lines_of_code,
-            skipped_files_count: report.summary.skipped_files_count,
+            non_empty_lines: report.summary.non_empty_lines,
+            large_files_skipped: report.summary.large_files_skipped,
             files_skipped_low_signal: report.summary.files_skipped_low_signal,
             binary_files_skipped: report.summary.binary_files_skipped,
             skipped_bytes: report.summary.skipped_bytes,

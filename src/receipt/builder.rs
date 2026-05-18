@@ -29,12 +29,12 @@ fn build_scope(summary: &ScanSummary) -> ReceiptScope {
         changed_files_count: summary.changed_files_count,
         repo_level_rules_included: summary.repo_level_rules_included,
         files_discovered: summary.files_discovered,
-        files_analyzed: summary.files_count,
+        files_analyzed: summary.files_analyzed,
         directories_count: summary.directories_count,
-        lines_of_code: summary.lines_of_code,
+        non_empty_lines: summary.non_empty_lines,
         files_skipped_low_signal: summary.files_skipped_low_signal,
         binary_files_skipped: summary.binary_files_skipped,
-        large_files_skipped: summary.skipped_files_count,
+        large_files_skipped: summary.large_files_skipped,
         files_skipped_by_limit: summary.files_skipped_by_limit,
         files_skipped_repopilotignore: summary.files_skipped_repopilotignore,
         skipped_bytes: summary.skipped_bytes,
@@ -86,7 +86,7 @@ fn build_languages(summary: &ScanSummary) -> Vec<ReceiptLanguage> {
         .iter()
         .map(|language| ReceiptLanguage {
             name: language.name.clone(),
-            files_count: language.files_count,
+            files_analyzed: language.files_analyzed,
         })
         .collect()
 }

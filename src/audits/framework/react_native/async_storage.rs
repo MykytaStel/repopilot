@@ -2,7 +2,7 @@ use crate::audits::framework::js_common::is_js_file;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileContentProvider, ScanFacts};
 
 pub struct AsyncStorageFromCoreAudit;
 
@@ -15,9 +15,8 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
                 continue;
             }
 
-            let content = match std::fs::read_to_string(&file.path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Some(content) = FileContentProvider.content(file) else {
+                continue;
             };
 
             if let Some(line_start) = find_async_storage_from_core(&content) {

@@ -203,7 +203,7 @@ pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
     summary.findings.retain(|finding| finding.severity >= min);
     summary.visible_findings_count = summary.findings.len();
     summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
 pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
@@ -212,7 +212,7 @@ pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
         .retain(|finding| finding_meets_min_priority(finding, min));
     summary.visible_findings_count = summary.findings.len();
     summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
 pub fn finding_meets_min_priority(finding: &Finding, min: RiskPriority) -> bool {

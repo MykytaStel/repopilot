@@ -109,7 +109,7 @@ pub fn apply_visibility_profile(summary: &mut ScanSummary, profile: FindingVisib
     summary.hidden_suggestions_count = original_count.saturating_sub(summary.findings.len());
     summary.hidden_suggestions = hidden_suggestions;
     summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
 pub fn is_visible_by_default(finding: &Finding) -> bool {
@@ -514,7 +514,7 @@ mod tests {
 
         let mut summary = ScanSummary {
             hidden_suggestions: Vec::new(),
-            lines_of_code: 1_000,
+            non_empty_lines: 1_000,
             findings: vec![visible, hidden],
             ..Default::default()
         };
@@ -537,7 +537,7 @@ mod tests {
     #[test]
     fn strict_profile_keeps_all_findings_and_clears_hidden_breakdown() {
         let mut summary = ScanSummary {
-            lines_of_code: 1_000,
+            non_empty_lines: 1_000,
             hidden_suggestions: vec![HiddenSuggestionSummary {
                 intent: "maintainability".to_string(),
                 rule_id: "architecture.large-file".to_string(),

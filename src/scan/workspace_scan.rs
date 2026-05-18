@@ -86,7 +86,8 @@ fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
     apply_workspace_hotspot_overlay(&mut merged.findings);
     apply_cluster_overlay(&mut merged.findings);
     sort_findings(&mut merged.findings);
-    merged.health_score = ScanSummary::compute_health_score(&merged.findings, merged.lines_of_code);
+    merged.health_score =
+        ScanSummary::compute_health_score(&merged.findings, merged.non_empty_lines);
     merged.visible_findings_count = merged.findings.len();
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
 }
@@ -119,11 +120,11 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
         finding.workspace_package = Some(package_name.to_string());
     }
 
-    merged.files_count += package.files_count;
+    merged.files_analyzed += package.files_analyzed;
     merged.files_discovered += package.files_discovered;
     merged.directories_count += package.directories_count;
-    merged.lines_of_code += package.lines_of_code;
-    merged.skipped_files_count += package.skipped_files_count;
+    merged.non_empty_lines += package.non_empty_lines;
+    merged.large_files_skipped += package.large_files_skipped;
     merged.files_skipped_low_signal += package.files_skipped_low_signal;
     merged.binary_files_skipped += package.binary_files_skipped;
     merged.files_skipped_by_limit += package.files_skipped_by_limit;
@@ -155,21 +156,24 @@ fn deduplicate_workspace_findings(findings: &mut Vec<Finding>) {
 fn merge_language_summaries(target: &mut Vec<LanguageSummary>, source: Vec<LanguageSummary>) {
     let mut counts: HashMap<String, usize> = target
         .drain(..)
-        .map(|language| (language.name, language.files_count))
+        .map(|language| (language.name, language.files_analyzed))
         .collect();
 
     for language in source {
-        *counts.entry(language.name).or_insert(0) += language.files_count;
+        *counts.entry(language.name).or_insert(0) += language.files_analyzed;
     }
 
     let mut merged: Vec<_> = counts
         .into_iter()
-        .map(|(name, files_count)| LanguageSummary { name, files_count })
+        .map(|(name, files_analyzed)| LanguageSummary {
+            name,
+            files_analyzed,
+        })
         .collect();
     merged.sort_by(|left, right| {
         right
-            .files_count
-            .cmp(&left.files_count)
+            .files_analyzed
+            .cmp(&left.files_analyzed)
             .then_with(|| left.name.cmp(&right.name))
     });
 

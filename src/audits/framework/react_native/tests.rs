@@ -24,7 +24,7 @@ fn jsx_file(dir: &tempfile::TempDir, name: &str, content: &str) -> FileFacts {
     FileFacts {
         path,
         language: Some("TypeScript React".to_string()),
-        lines_of_code: content.lines().count(),
+        non_empty_lines: content.lines().count(),
         branch_count: 0,
         imports: vec![],
         content: None,

@@ -47,8 +47,8 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     render_hidden_suggestions_breakdown(output, summary);
     writeln!(
         output,
-        "Directories analyzed: {} | Lines of code: {}",
-        summary.directories_count, summary.lines_of_code
+        "Directories analyzed: {} | Non-empty lines: {}",
+        summary.directories_count, summary.non_empty_lines
     )
     .unwrap();
     render_scan_input(output, summary);
@@ -293,7 +293,7 @@ pub(crate) fn render_languages_section(output: &mut String, summary: &ScanSummar
         writeln!(
             output,
             "  {}: {} files",
-            language.name, language.files_count
+            language.name, language.files_analyzed
         )
         .unwrap();
     }
@@ -361,13 +361,13 @@ fn render_scan_input(output: &mut String, summary: &ScanSummary) {
         .unwrap();
     }
 
-    writeln!(output, " Files analyzed: {:>7}", summary.files_count).unwrap();
+    writeln!(output, " Files analyzed: {:>7}", summary.files_analyzed).unwrap();
 
-    if summary.skipped_files_count > 0 {
+    if summary.large_files_skipped > 0 {
         writeln!(
             output,
             " Large files skipped: {:>7}",
-            summary.skipped_files_count
+            summary.large_files_skipped
         )
         .unwrap();
     }

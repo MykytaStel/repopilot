@@ -1,8 +1,7 @@
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileFacts, ScanFacts};
-use std::fs;
+use crate::scan::facts::{FileContentProvider, FileFacts, ScanFacts};
 
 const RULE_ID: &str = "architecture.deep-relative-imports";
 const MIN_DEEP_RELATIVE_DEPTH: usize = 3;
@@ -39,11 +38,8 @@ fn find_deep_relative_import(file: &FileFacts) -> Option<Finding> {
     None
 }
 
-fn read_file_content(file: &FileFacts) -> Option<String> {
-    match &file.content {
-        Some(content) => Some(content.clone()),
-        None => fs::read_to_string(&file.path).ok(),
-    }
+fn read_file_content(file: &FileFacts) -> Option<std::borrow::Cow<'_, str>> {
+    FileContentProvider.content(file)
 }
 
 fn should_skip_line(trimmed: &str) -> bool {
@@ -232,7 +228,7 @@ mod tests {
             files: vec![FileFacts {
                 path,
                 language: None,
-                lines_of_code: 1,
+                non_empty_lines: 1,
                 branch_count: 0,
                 imports: vec![],
                 content: None,

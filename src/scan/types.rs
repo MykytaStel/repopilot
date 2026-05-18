@@ -114,11 +114,11 @@ pub struct ScanSummary {
     pub files_discovered: usize,
     /// Text files actually analyzed. Skipped large, binary, low-signal, and
     /// `--max-files` capped files are not included.
-    pub files_count: usize,
+    pub files_analyzed: usize,
     pub directories_count: usize,
-    pub lines_of_code: usize,
+    pub non_empty_lines: usize,
     #[serde(default)]
-    pub skipped_files_count: usize,
+    pub large_files_skipped: usize,
     #[serde(default)]
     pub files_skipped_low_signal: usize,
     #[serde(default)]
@@ -177,10 +177,10 @@ impl Default for ScanSummary {
             changed_files_count: 0,
             repo_level_rules_included: true,
             files_discovered: 0,
-            files_count: 0,
+            files_analyzed: 0,
             directories_count: 0,
-            lines_of_code: 0,
-            skipped_files_count: 0,
+            non_empty_lines: 0,
+            large_files_skipped: 0,
             files_skipped_low_signal: 0,
             binary_files_skipped: 0,
             skipped_bytes: 0,
@@ -206,10 +206,10 @@ impl Default for ScanSummary {
 }
 
 impl ScanSummary {
-    /// Computes the health score from findings and lines of code.
+    /// Computes the health score from findings and non-empty source lines.
     /// Penalty per finding type is normalized by project size (kloc) so large repos
     /// aren't unfairly penalized for having proportionally the same issue density.
-    pub fn compute_health_score(findings: &[Finding], lines_of_code: usize) -> u8 {
+    pub fn compute_health_score(findings: &[Finding], non_empty_lines: usize) -> u8 {
         use crate::findings::types::Severity;
         let mut penalty = 0.0f64;
         for f in findings {
@@ -221,7 +221,7 @@ impl ScanSummary {
                 Severity::Info => 0.0,
             };
         }
-        let kloc = (lines_of_code as f64 / 1000.0).max(0.5);
+        let kloc = (non_empty_lines as f64 / 1000.0).max(0.5);
         let score = 100.0 - (penalty / kloc);
         score.clamp(0.0, 100.0) as u8
     }
@@ -230,7 +230,7 @@ impl ScanSummary {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LanguageSummary {
     pub name: String,
-    pub files_count: usize,
+    pub files_analyzed: usize,
 }
 
 #[cfg(test)]

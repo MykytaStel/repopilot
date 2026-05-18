@@ -1,4 +1,7 @@
 mod changed;
+mod changed_cache;
+mod changed_git;
+mod changed_telemetry;
 mod collection;
 mod file;
 mod summary;
@@ -18,6 +21,7 @@ use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
+use summary::{ScanSummaryParts, build_scan_summary};
 
 pub use changed::scan_changed_with_config;
 pub use collection::{collect_scan_facts, collect_scan_facts_with_config};
@@ -51,7 +55,7 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     } else {
         None
     };
-    facts.react_native = react_native_profile.clone();
+    facts.react_native = react_native_profile;
     let framework_detection_us = framework_start.elapsed().as_micros() as u64;
 
     let post_scan_start = Instant::now();
@@ -79,43 +83,22 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     summary::sort_findings(&mut findings);
 
     let scan_duration_us = start.elapsed().as_micros() as u64;
-    let health_score = ScanSummary::compute_health_score(&findings, facts.lines_of_code);
-    let visible_findings_count = findings.len();
-
-    Ok(ScanSummary {
-        root_path: facts.root_path,
-        mode: ScanMode::Full,
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: facts.files_discovered,
-        files_count: facts.files_count,
-        directories_count: facts.directories_count,
-        lines_of_code: facts.lines_of_code,
-        skipped_files_count: facts.skipped_files_count,
-        files_skipped_low_signal: facts.files_skipped_low_signal,
-        binary_files_skipped: facts.binary_files_skipped,
-        skipped_bytes: facts.skipped_bytes,
-        languages: facts.languages,
-        detected_frameworks: facts.detected_frameworks,
-        framework_projects: facts.framework_projects,
-        react_native: react_native_profile,
+    Ok(build_scan_summary(
+        facts,
         findings,
-        coupling_graph: Some(coupling_graph),
-        scan_duration_us,
-        health_score,
-        visible_findings_count,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: facts.files_skipped_by_limit,
-        files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
-        repopilotignore_path: facts.repopilotignore_path,
-        scan_timings: Some(ScanTimings {
-            file_scan_us,
-            framework_detection_us,
-            post_scan_audits_us,
-        }),
-        cache_telemetry: None,
-    })
+        ScanSummaryParts {
+            mode: ScanMode::Full,
+            base_ref: None,
+            changed_files_count: 0,
+            repo_level_rules_included: true,
+            coupling_graph: Some(coupling_graph),
+            scan_duration_us,
+            scan_timings: Some(ScanTimings {
+                file_scan_us,
+                framework_detection_us,
+                post_scan_audits_us,
+            }),
+            cache_telemetry: None,
+        },
+    ))
 }

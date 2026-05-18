@@ -107,7 +107,7 @@ repopilot scan . --max-files 1000
 
 Size values accept raw bytes plus `kb`, `mb`, and `gb` suffixes. By default, low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks are skipped; pass `--include-low-signal` to analyze them.
 
-JSON reports expose this accounting with `files_discovered`, `files_count` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `skipped_files_count`, and `skipped_bytes`.
+JSON reports expose this accounting with `files_discovered`, `files_analyzed` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `large_files_skipped`, and `skipped_bytes`.
 
 ### Filtering by severity
 

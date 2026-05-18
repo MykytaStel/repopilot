@@ -13,7 +13,7 @@ fn make_file_at(path: &str, language: &str, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
         language: Some(language.to_string()),
-        lines_of_code: content.lines().count(),
+        non_empty_lines: content.lines().count(),
         branch_count: 0,
         imports: Vec::new(),
         content: Some(content.to_string()),

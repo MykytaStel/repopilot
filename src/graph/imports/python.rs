@@ -1,34 +1,42 @@
 use std::collections::HashSet;
+use tree_sitter::{Node, Parser};
 
 pub(super) fn extract(content: &str) -> HashSet<String> {
+    let Some(tree) = parse(content) else {
+        return HashSet::new();
+    };
+
     let mut result = HashSet::new();
+    visit(tree.root_node(), content, &mut result);
+    result
+}
 
-    for line in content.lines() {
-        let trimmed = line.trim();
+fn parse(content: &str) -> Option<tree_sitter::Tree> {
+    let mut parser = Parser::new();
+    parser
+        .set_language(&tree_sitter_python::LANGUAGE.into())
+        .ok()?;
+    parser.parse(content, None)
+}
 
-        if trimmed.starts_with('#') {
-            continue;
-        }
-
-        if let Some(rest) = trimmed.strip_prefix("from ") {
-            if let Some(import_pos) = rest.find(" import ") {
-                let module = rest[..import_pos].trim();
-                if !module.is_empty() {
-                    result.insert(module.to_string());
-                }
-            }
-            continue;
-        }
-
-        if let Some(rest) = trimmed.strip_prefix("import ") {
-            for part in rest.split(',') {
-                let module = part.split(" as ").next().unwrap_or(part).trim();
-                if !module.is_empty() {
-                    result.insert(module.to_string());
-                }
-            }
-        }
+fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
+    if node.kind() == "import_from_statement"
+        && let Some(module) = relative_from_module(node, content)
+    {
+        result.insert(module);
     }
 
-    result
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        visit(child, content, result);
+    }
+}
+
+fn relative_from_module(node: Node<'_>, content: &str) -> Option<String> {
+    let text = node.utf8_text(content.as_bytes()).ok()?;
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let rest = normalized.strip_prefix("from ")?;
+    let import_pos = rest.find(" import ")?;
+    let module = rest[..import_pos].trim();
+    module.starts_with('.').then(|| module.to_string())
 }

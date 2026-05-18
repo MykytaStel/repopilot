@@ -7,7 +7,7 @@ use crate::scan::types::{
 };
 use serde::Serialize;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.10";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.13";
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
@@ -49,10 +49,10 @@ pub fn render_with_baseline(
         schema_version: SCAN_REPORT_SCHEMA_VERSION,
         repopilot_version: REPOPILOT_VERSION,
         root_path: report.summary.root_path.to_string_lossy().to_string(),
-        files_count: report.summary.files_count,
+        files_analyzed: report.summary.files_analyzed,
         directories_count: report.summary.directories_count,
-        lines_of_code: report.summary.lines_of_code,
-        skipped_files_count: report.summary.skipped_files_count,
+        non_empty_lines: report.summary.non_empty_lines,
+        large_files_skipped: report.summary.large_files_skipped,
         skipped_bytes: report.summary.skipped_bytes,
         mode: report.summary.mode,
         base_ref: report.summary.base_ref.as_deref(),
@@ -85,10 +85,10 @@ struct BaselineJsonReport<'a> {
     schema_version: &'static str,
     repopilot_version: &'static str,
     root_path: String,
-    files_count: usize,
+    files_analyzed: usize,
     directories_count: usize,
-    lines_of_code: usize,
-    skipped_files_count: usize,
+    non_empty_lines: usize,
+    large_files_skipped: usize,
     skipped_bytes: u64,
     mode: ScanMode,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -158,7 +158,7 @@ mod tests {
         let summary = ScanSummary {
             hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
-            files_count: 1,
+            files_analyzed: 1,
             ..ScanSummary::default()
         };
 
@@ -167,7 +167,7 @@ mod tests {
 
         assert_eq!(value["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
-        assert_eq!(value["files_count"], 1);
+        assert_eq!(value["files_analyzed"], 1);
         assert!(value.get("findings").is_some());
     }
 
@@ -183,7 +183,7 @@ mod tests {
                 count: 5,
             }],
             root_path: PathBuf::from("."),
-            files_count: 2,
+            files_analyzed: 2,
             ..ScanSummary::default()
         };
         let report = BaselineScanReport {
@@ -198,7 +198,7 @@ mod tests {
 
         assert_eq!(value["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
-        assert_eq!(value["files_count"], 2);
+        assert_eq!(value["files_analyzed"], 2);
         assert_eq!(value["hidden_suggestions_count"], 5);
         assert_eq!(
             value["hidden_suggestions"][0]["rule_id"],

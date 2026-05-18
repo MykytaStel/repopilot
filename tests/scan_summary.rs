@@ -27,8 +27,8 @@ fn scans_directory_with_counts_languages_and_markers() {
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
     assert_eq!(summary.directories_count, 1);
-    assert_eq!(summary.files_count, 3);
-    assert_eq!(summary.lines_of_code, 4);
+    assert_eq!(summary.files_analyzed, 3);
+    assert_eq!(summary.non_empty_lines, 4);
 
     let todo_finding = summary
         .findings
@@ -41,21 +41,21 @@ fn scans_directory_with_counts_languages_and_markers() {
         summary
             .languages
             .iter()
-            .any(|language| language.name == "Rust" && language.files_count == 1)
+            .any(|language| language.name == "Rust" && language.files_analyzed == 1)
     );
 
     assert!(
         summary
             .languages
             .iter()
-            .any(|language| language.name == "TypeScript" && language.files_count == 1)
+            .any(|language| language.name == "TypeScript" && language.files_analyzed == 1)
     );
 
     assert!(
         summary
             .languages
             .iter()
-            .any(|language| language.name == "Markdown" && language.files_count == 1)
+            .any(|language| language.name == "Markdown" && language.files_analyzed == 1)
     );
 }
 
@@ -73,11 +73,11 @@ fn scan_reports_files_skipped_by_size_guard() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_count, 0);
+    assert_eq!(summary.files_analyzed, 0);
     assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.skipped_files_count, 1);
+    assert_eq!(summary.large_files_skipped, 1);
     assert_eq!(summary.skipped_bytes, content.len() as u64);
-    assert_eq!(summary.lines_of_code, 0);
+    assert_eq!(summary.non_empty_lines, 0);
 }
 
 #[test]
@@ -88,12 +88,12 @@ fn scan_reports_binary_files_as_skipped_without_failing() {
 
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_count, 0);
+    assert_eq!(summary.files_analyzed, 0);
     assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.skipped_files_count, 0);
+    assert_eq!(summary.large_files_skipped, 0);
     assert_eq!(summary.binary_files_skipped, 1);
     assert_eq!(summary.skipped_bytes, bytes.len() as u64);
-    assert_eq!(summary.lines_of_code, 0);
+    assert_eq!(summary.non_empty_lines, 0);
 }
 
 #[test]

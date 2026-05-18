@@ -50,7 +50,7 @@ fn scan_uses_explicit_config_path_and_default_output_format() {
 
     assert!(output.status.success());
     let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
-    assert_eq!(json["files_count"], 1);
+    assert_eq!(json["files_analyzed"], 1);
 }
 
 #[test]
@@ -209,7 +209,7 @@ fn scan_exclude_filters_path_or_name() {
     assert!(output.status.success());
     let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
     assert_eq!(json["files_discovered"], 1);
-    assert_eq!(json["files_count"], 1);
+    assert_eq!(json["files_analyzed"], 1);
     assert_eq!(json["coupling_graph"]["nodes"][0], "./keep.rs");
 }
 
@@ -228,7 +228,7 @@ fn scan_include_low_signal_restores_test_path_analysis() {
     assert!(default_output.status.success());
     let default_json: Value =
         serde_json::from_slice(&default_output.stdout).expect("expected JSON output");
-    assert_eq!(default_json["files_count"], 0);
+    assert_eq!(default_json["files_analyzed"], 0);
     assert_eq!(default_json["files_skipped_low_signal"], 1);
 
     let included_output = repopilot()
@@ -239,7 +239,7 @@ fn scan_include_low_signal_restores_test_path_analysis() {
     assert!(included_output.status.success());
     let included_json: Value =
         serde_json::from_slice(&included_output.stdout).expect("expected JSON output");
-    assert_eq!(included_json["files_count"], 1);
+    assert_eq!(included_json["files_analyzed"], 1);
     assert_eq!(included_json["files_skipped_low_signal"], 0);
 }
 
@@ -256,8 +256,8 @@ fn scan_max_file_size_accepts_byte_units() {
         .expect("failed to run repopilot scan");
     assert!(kb_output.status.success());
     let kb_json: Value = serde_json::from_slice(&kb_output.stdout).expect("expected JSON output");
-    assert_eq!(kb_json["files_count"], 0);
-    assert_eq!(kb_json["skipped_files_count"], 1);
+    assert_eq!(kb_json["files_analyzed"], 0);
+    assert_eq!(kb_json["large_files_skipped"], 1);
 
     for size in ["1mb", "1gb"] {
         let output = repopilot()
@@ -267,7 +267,7 @@ fn scan_max_file_size_accepts_byte_units() {
             .expect("failed to run repopilot scan");
         assert!(output.status.success(), "{size} should be accepted");
         let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
-        assert_eq!(json["files_count"], 1, "{size} should not skip the file");
-        assert_eq!(json["skipped_files_count"], 0);
+        assert_eq!(json["files_analyzed"], 1, "{size} should not skip the file");
+        assert_eq!(json["large_files_skipped"], 0);
     }
 }

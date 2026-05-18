@@ -22,9 +22,9 @@ fn does_not_create_finding_when_file_is_under_threshold() {
 #[test]
 fn creates_architecture_finding_when_file_is_above_threshold() {
     let config = ScanConfig::default();
-    let lines_of_code = config.large_file_loc_threshold + 1;
+    let non_empty_lines = config.large_file_loc_threshold + 1;
 
-    let finding = detect_large_file_finding(Path::new("src/large.rs"), lines_of_code, &config)
+    let finding = detect_large_file_finding(Path::new("src/large.rs"), non_empty_lines, &config)
         .expect("expected large file finding");
 
     assert_eq!(finding.rule_id, "architecture.large-file");
@@ -78,7 +78,7 @@ fn large_file_audit_skips_non_code_files() {
         let file = FileFacts {
             path: PathBuf::from(path),
             language: language.map(str::to_string),
-            lines_of_code: 5_000,
+            non_empty_lines: 5_000,
             branch_count: 0,
             imports: Vec::new(),
             content: None,
@@ -99,7 +99,7 @@ fn large_file_audit_skips_test_and_fixture_paths() {
         let file = FileFacts {
             path: PathBuf::from(path),
             language: Some("Rust".to_string()),
-            lines_of_code: 5_000,
+            non_empty_lines: 5_000,
             branch_count: 0,
             imports: Vec::new(),
             content: None,

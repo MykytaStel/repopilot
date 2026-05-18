@@ -161,8 +161,8 @@ fn record_analyzed_file(
     languages: &mut HashMap<String, usize>,
     file_facts: &FileFacts,
 ) {
-    facts.files_count += 1;
-    facts.lines_of_code += file_facts.lines_of_code;
+    facts.files_analyzed += 1;
+    facts.non_empty_lines += file_facts.non_empty_lines;
     if let Some(language_name) = &file_facts.language {
         *languages.entry(language_name.clone()).or_insert(0) += 1;
     }
@@ -226,7 +226,7 @@ impl PerFileContext {
 }
 
 fn track_skipped_file(facts: &mut ScanFacts, skipped_bytes: u64) {
-    facts.skipped_files_count += 1;
+    facts.large_files_skipped += 1;
     facts.skipped_bytes = facts.skipped_bytes.saturating_add(skipped_bytes);
 }
 

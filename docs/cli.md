@@ -87,7 +87,7 @@ repopilot s <PATH> [OPTIONS]
 | `--verbose` | flag | — | Print scan phase timing breakdown after the report |
 | `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
 
-`files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_count` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.
+`files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_analyzed` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.
 
 ### Exit codes
 

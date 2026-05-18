@@ -55,6 +55,17 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("file_hashes.json").is_file());
     assert!(cache_dir.join("file_roles.json").is_file());
     assert!(cache_dir.join("findings.json").is_file());
+    assert_eq!(
+        read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
+        2
+    );
+    assert_eq!(
+        read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
+            .as_str()
+            .expect("hash should be string")
+            .len(),
+        64
+    );
 
     rewrite_cached_finding_title(&cache_dir.join("findings.json"), "Cached secret title");
     let cached = scan_changed_json(temp.path(), &["--changed"]);
@@ -85,6 +96,96 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert_eq!(
         first_finding_title(&invalidated),
         "Possible secret detected"
+    );
+}
+
+#[test]
+fn changed_scan_invalidates_cache_when_config_changes() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+
+    scan_changed_json(temp.path(), &["--changed"]);
+    let changed_config = scan_changed_json(temp.path(), &["--changed", "--max-file-loc", "42"]);
+
+    assert_eq!(changed_config["cache_telemetry"]["hits"], 0);
+    assert_eq!(changed_config["cache_telemetry"]["misses"], 1);
+    assert_eq!(
+        changed_config["cache_telemetry"]["changed_files"][0]["cache_reason"],
+        "config-changed"
+    );
+}
+
+#[test]
+fn changed_scan_invalidates_old_cache_schema() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+
+    scan_changed_json(temp.path(), &["--changed"]);
+    for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
+        force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 1);
+    }
+    let json = scan_changed_json(temp.path(), &["--changed"]);
+
+    assert_eq!(json["cache_telemetry"]["hits"], 0);
+    assert_eq!(json["cache_telemetry"]["misses"], 1);
+    assert_eq!(
+        json["cache_telemetry"]["changed_files"][0]["cache_reason"],
+        "missing-cache-entry"
+    );
+}
+
+#[test]
+fn changed_scan_uses_repo_graph_context_for_changed_findings_only() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/shared.rs"), "pub fn shared() {}\n");
+    write(
+        temp.path().join("src/a.rs"),
+        "use crate::shared;\npub fn a() {}\n",
+    );
+    write(
+        temp.path().join("src/b.rs"),
+        "use crate::shared;\npub fn b() {}\n",
+    );
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/shared.rs"),
+        "pub fn shared() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+
+    let json = scan_changed_json(temp.path(), &["--changed"]);
+    let secret = json["findings"]
+        .as_array()
+        .expect("findings array")
+        .iter()
+        .find(|finding| finding["rule_id"] == "security.secret-candidate")
+        .expect("secret finding");
+
+    assert!(
+        secret["risk"]["signals"]
+            .as_array()
+            .expect("risk signals")
+            .iter()
+            .any(|signal| signal["id"] == "graph.dependency")
+    );
+    assert!(
+        json["findings"]
+            .as_array()
+            .expect("findings array")
+            .iter()
+            .all(|finding| finding["evidence"][0]["path"] == "src/shared.rs")
     );
 }
 
@@ -182,14 +283,27 @@ fn clear_cache(root: &Path) {
 }
 
 fn rewrite_cached_finding_title(path: &Path, title: &str) {
-    let mut value: Value =
-        serde_json::from_slice(&fs::read(path).expect("read findings cache")).expect("json");
+    let mut value = read_json(path);
     value["entries"][0]["findings"][0]["title"] = Value::String(title.to_string());
     fs::write(
         path,
         serde_json::to_string_pretty(&value).expect("render findings cache"),
     )
     .expect("write findings cache");
+}
+
+fn force_cache_schema(path: &Path, schema_version: u64) {
+    let mut value = read_json(path);
+    value["schema_version"] = Value::Number(schema_version.into());
+    fs::write(
+        path,
+        serde_json::to_string_pretty(&value).expect("render cache"),
+    )
+    .expect("write cache");
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_slice(&fs::read(path).expect("read json")).expect("json")
 }
 
 fn first_finding_title(json: &Value) -> &str {

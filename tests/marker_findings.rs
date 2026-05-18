@@ -16,7 +16,7 @@ fn main() {}
     let file = FileFacts {
         path: PathBuf::from("src/main.rs"),
         language: Some("Rust".to_string()),
-        lines_of_code: 5,
+        non_empty_lines: 5,
         branch_count: 0,
         imports: Vec::new(),
         content: Some(content.to_string()),

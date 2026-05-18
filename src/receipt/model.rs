@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 2;
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
@@ -33,7 +33,7 @@ pub struct ReceiptScope {
     pub files_discovered: usize,
     pub files_analyzed: usize,
     pub directories_count: usize,
-    pub lines_of_code: usize,
+    pub non_empty_lines: usize,
     pub files_skipped_low_signal: usize,
     pub binary_files_skipped: usize,
     pub large_files_skipped: usize,
@@ -67,5 +67,5 @@ pub struct ReceiptHiddenSuggestion {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct ReceiptLanguage {
     pub name: String,
-    pub files_count: usize,
+    pub files_analyzed: usize,
 }

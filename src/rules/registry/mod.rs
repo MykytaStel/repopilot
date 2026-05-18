@@ -20,7 +20,6 @@ pub fn lookup_rule_metadata(rule_id: &str) -> Option<&'static RuleMetadata> {
     all_rules().find(|rule| rule.rule_id == rule_id)
 }
 
-#[cfg(test)]
 pub(crate) fn all_rule_metadata() -> impl Iterator<Item = &'static RuleMetadata> {
     all_rules()
 }

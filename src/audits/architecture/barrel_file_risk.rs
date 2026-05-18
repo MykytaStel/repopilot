@@ -1,8 +1,7 @@
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileFacts, ScanFacts};
-use std::fs;
+use crate::scan::facts::{FileContentProvider, FileFacts, ScanFacts};
 
 const RULE_ID: &str = "architecture.barrel-file-risk";
 const MIN_RE_EXPORTS: usize = 8;
@@ -57,11 +56,8 @@ fn is_index_file(file: &FileFacts) -> bool {
         .unwrap_or(false)
 }
 
-fn read_file_content(file: &FileFacts) -> Option<String> {
-    match &file.content {
-        Some(content) => Some(content.clone()),
-        None => fs::read_to_string(&file.path).ok(),
-    }
+fn read_file_content(file: &FileFacts) -> Option<std::borrow::Cow<'_, str>> {
+    FileContentProvider.content(file)
 }
 
 fn collect_barrel_stats(content: &str) -> Option<BarrelStats> {
@@ -282,7 +278,7 @@ mod tests {
             files: vec![FileFacts {
                 path,
                 language: None,
-                lines_of_code: 1,
+                non_empty_lines: 1,
                 branch_count: 0,
                 imports: vec![],
                 content: None,

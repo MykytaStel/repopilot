@@ -59,7 +59,7 @@ fn scan_json_output_still_works() {
 
     assert!(output.status.success());
     let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
-    assert!(json["files_count"].as_u64().is_some());
+    assert!(json["files_analyzed"].as_u64().is_some());
 }
 
 #[test]

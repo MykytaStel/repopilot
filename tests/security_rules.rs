@@ -143,7 +143,7 @@ fn env_file_committed_reports_env_files() {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),
         files: vec![file(".env.production", "TOKEN=value\n")],
-        files_count: 1,
+        files_analyzed: 1,
         ..ScanFacts::default()
     };
 
@@ -219,7 +219,7 @@ fn file(path: &str, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
         language: None,
-        lines_of_code: content.lines().count(),
+        non_empty_lines: content.lines().count(),
         branch_count: 0,
         imports: Vec::new(),
         content: Some(content.to_string()),

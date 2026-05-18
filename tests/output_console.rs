@@ -11,9 +11,9 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
         files_discovered: 0,
-        files_count: 1,
+        files_analyzed: 1,
         directories_count: 1,
-        lines_of_code: 100,
+        non_empty_lines: 100,
         findings: vec![Finding {
             id: "finding-1".to_string(),
             rule_id: "security.secret-candidate".to_string(),
@@ -57,9 +57,9 @@ fn console_output_labels_max_files_remainder_as_limit_skipped() {
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
         files_discovered: 3,
-        files_count: 1,
+        files_analyzed: 1,
         directories_count: 1,
-        lines_of_code: 10,
+        non_empty_lines: 10,
         health_score: 100,
         files_skipped_by_limit: 2,
         ..ScanSummary::default()

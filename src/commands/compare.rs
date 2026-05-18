@@ -85,8 +85,8 @@ mod tests {
         let summary = ScanSummary {
             hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
-            files_count: 7,
-            lines_of_code: 42,
+            files_analyzed: 7,
+            non_empty_lines: 42,
             ..ScanSummary::default()
         };
         let rendered = json::render(&summary).expect("json render should succeed");
@@ -96,8 +96,8 @@ mod tests {
 
         let parsed = read_summary(&path).expect("versioned report should parse");
 
-        assert_eq!(parsed.files_count, 7);
-        assert_eq!(parsed.lines_of_code, 42);
+        assert_eq!(parsed.files_analyzed, 7);
+        assert_eq!(parsed.non_empty_lines, 42);
     }
 
     #[test]
@@ -105,8 +105,8 @@ mod tests {
         let summary = ScanSummary {
             hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
-            files_count: 3,
-            lines_of_code: 21,
+            files_analyzed: 3,
+            non_empty_lines: 21,
             ..ScanSummary::default()
         };
         let rendered =
@@ -117,7 +117,7 @@ mod tests {
 
         let parsed = read_summary(&path).expect("legacy report should parse");
 
-        assert_eq!(parsed.files_count, 3);
-        assert_eq!(parsed.lines_of_code, 21);
+        assert_eq!(parsed.files_analyzed, 3);
+        assert_eq!(parsed.non_empty_lines, 21);
     }
 }

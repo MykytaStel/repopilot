@@ -116,6 +116,6 @@ fn apply_min_priority_filter_to_review_report(report: &mut ReviewReport, min: Ri
 
     report.summary.health_score = repopilot::scan::types::ScanSummary::compute_health_score(
         &report.summary.findings,
-        report.summary.lines_of_code,
+        report.summary.non_empty_lines,
     );
 }

@@ -12,14 +12,14 @@ const MIN_HIGH_COMPLEXITY_LOC: usize = 25;
 
 impl FileAudit for ComplexityAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
-        if file.lines_of_code < 10 {
+        if file.non_empty_lines < 10 {
             return vec![];
         }
 
-        let density = file.branch_count.saturating_mul(1000) / file.lines_of_code;
+        let density = file.branch_count.saturating_mul(1000) / file.non_empty_lines;
 
         let severity = if density >= config.complexity_high_threshold
-            && file.lines_of_code >= MIN_HIGH_COMPLEXITY_LOC
+            && file.non_empty_lines >= MIN_HIGH_COMPLEXITY_LOC
         {
             Severity::High
         } else if density >= config.complexity_medium_threshold {
@@ -61,8 +61,8 @@ impl FileAudit for ComplexityAudit {
                 line_start: 1,
                 line_end: None,
                 snippet: format!(
-                    "branch_count={}, lines_of_code={}, density={density}",
-                    file.branch_count, file.lines_of_code
+                    "branch_count={}, non_empty_lines={}, density={density}",
+                    file.branch_count, file.non_empty_lines
                 ),
             }],
             workspace_package: None,

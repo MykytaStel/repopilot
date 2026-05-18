@@ -14,11 +14,18 @@ categories = ["command-line-utilities", "development-tools"]
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 clap = { version = "4.5", features = ["derive"] }
+globset = "0.4.18"
 ignore = "0.4"
 indicatif = "0.18.4"
 rayon = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
+tree-sitter = "0.26.8"
+tree-sitter-javascript = "0.25.0"
+tree-sitter-python = "0.25.0"
+tree-sitter-rust = "0.24.2"
+tree-sitter-typescript = "0.23.2"
 toml = "1.1.2"
 
 [dev-dependencies]

@@ -209,7 +209,7 @@ fn apply_min_priority_filter_to_baseline_report(
 
     report.summary.visible_findings_count = report.summary.findings.len();
     report.summary.health_score =
-        ScanSummary::compute_health_score(&report.summary.findings, report.summary.lines_of_code);
+        ScanSummary::compute_health_score(&report.summary.findings, report.summary.non_empty_lines);
 }
 
 fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
@@ -218,7 +218,7 @@ fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
         .retain(|f| rules.iter().any(|r| r == &f.rule_id));
     summary.visible_findings_count = summary.findings.len();
     summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.lines_of_code);
+        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
 fn scan_visibility_profile(options: &ScanOptions) -> FindingVisibilityProfile {

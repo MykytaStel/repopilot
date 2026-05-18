@@ -2,7 +2,7 @@ use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileContentProvider, ScanFacts};
 
 pub const JS_EXTENSIONS: &[&str] = &["ts", "tsx", "js", "jsx"];
 const TEST_PATH_SEGMENTS: &[&str] = &[
@@ -28,9 +28,8 @@ impl ProjectAudit for VarDeclarationAudit {
                 continue;
             }
 
-            let content = match std::fs::read_to_string(&file.path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Some(content) = FileContentProvider.content(file) else {
+                continue;
             };
 
             for (idx, line) in content.lines().enumerate() {
@@ -92,9 +91,8 @@ impl ProjectAudit for ConsoleLogAudit {
                 continue;
             }
 
-            let content = match std::fs::read_to_string(&file.path) {
-                Ok(c) => c,
-                Err(_) => continue,
+            let Some(content) = FileContentProvider.content(file) else {
+                continue;
             };
 
             for (idx, line) in content.lines().enumerate() {

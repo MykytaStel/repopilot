@@ -39,14 +39,14 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         .unwrap();
     }
     render_hidden_suggestions_breakdown(output, summary);
-    writeln!(output, "- **Files analyzed:** {}", summary.files_count).unwrap();
+    writeln!(output, "- **Files analyzed:** {}", summary.files_analyzed).unwrap();
     writeln!(
         output,
         "- **Directories analyzed:** {}",
         summary.directories_count
     )
     .unwrap();
-    writeln!(output, "- **Lines of code:** {}", summary.lines_of_code).unwrap();
+    writeln!(output, "- **Non-empty lines:** {}", summary.non_empty_lines).unwrap();
     if summary.scan_duration_us > 0 {
         writeln!(
             output,
@@ -56,11 +56,11 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         .unwrap();
     }
     render_cache_telemetry(output, summary);
-    if summary.skipped_files_count > 0 {
+    if summary.large_files_skipped > 0 {
         writeln!(
             output,
             "- **Files skipped:** {} ({} bytes)",
-            summary.skipped_files_count, summary.skipped_bytes
+            summary.large_files_skipped, summary.skipped_bytes
         )
         .unwrap();
     }
@@ -305,7 +305,7 @@ pub(crate) fn render_languages_section(output: &mut String, summary: &ScanSummar
             output,
             "| {} | {} |",
             escape_table_cell(&language.name),
-            language.files_count
+            language.files_analyzed
         )
         .unwrap();
     }

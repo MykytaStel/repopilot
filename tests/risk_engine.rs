@@ -318,7 +318,7 @@ fn file(path: &str, language: Option<&str>) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
         language: language.map(str::to_string),
-        lines_of_code: 10,
+        non_empty_lines: 10,
         branch_count: 0,
         imports: Vec::new(),
         content: None,

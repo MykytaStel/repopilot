@@ -35,8 +35,8 @@ pub(super) fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -
         summary_card(stats.risk_label, "Risk"),
         summary_card(format!("{}/100", stats.health_score), "Health"),
         summary_card(stats.total_findings, "Visible Findings"),
-        summary_card(summary.files_count, "Files"),
-        summary_card(summary.lines_of_code, "Lines of Code"),
+        summary_card(summary.files_analyzed, "Files"),
+        summary_card(summary.non_empty_lines, "Non-empty Lines"),
         summary_card(format!("{:.1}/kloc", stats.finding_density), "Density"),
     ];
 
@@ -47,8 +47,8 @@ pub(super) fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -
         ));
     }
 
-    if summary.skipped_files_count > 0 {
-        cards.push(summary_card(summary.skipped_files_count, "Skipped"));
+    if summary.large_files_skipped > 0 {
+        cards.push(summary_card(summary.large_files_skipped, "Skipped"));
     }
 
     cards.join("\n  ")
@@ -64,7 +64,7 @@ pub(super) fn render_baseline_summary_cards(
         summary_card(report.summary.findings.len(), "Visible Findings"),
         summary_card(report.new_count(), "New"),
         summary_card(report.existing_count(), "Existing"),
-        summary_card(report.summary.files_count, "Files"),
+        summary_card(report.summary.files_analyzed, "Files"),
     ];
 
     if report.summary.hidden_suggestions_count > 0 {
@@ -74,8 +74,8 @@ pub(super) fn render_baseline_summary_cards(
         ));
     }
 
-    if report.summary.skipped_files_count > 0 {
-        cards.push(summary_card(report.summary.skipped_files_count, "Skipped"));
+    if report.summary.large_files_skipped > 0 {
+        cards.push(summary_card(report.summary.large_files_skipped, "Skipped"));
     }
 
     cards.join("\n  ")
@@ -276,7 +276,7 @@ pub(super) fn render_languages_section(summary: &ScanSummary) -> String {
             format!(
                 "<tr><td>{}</td><td class=\"num-cell\">{}</td></tr>",
                 escape_html(&language.name),
-                language.files_count
+                language.files_analyzed
             )
         })
         .collect::<Vec<_>>()

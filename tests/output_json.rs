@@ -14,16 +14,16 @@ fn renders_valid_json_scan_summary() {
         changed_files_count: 0,
         repo_level_rules_included: true,
         files_discovered: 0,
-        files_count: 1,
+        files_analyzed: 1,
         directories_count: 0,
-        lines_of_code: 3,
-        skipped_files_count: 0,
+        non_empty_lines: 3,
+        large_files_skipped: 0,
         files_skipped_low_signal: 0,
         binary_files_skipped: 0,
         skipped_bytes: 0,
         languages: vec![LanguageSummary {
             name: "Rust".to_string(),
-            files_count: 1,
+            files_analyzed: 1,
         }],
         findings: vec![],
         detected_frameworks: vec![],
@@ -50,9 +50,9 @@ fn renders_valid_json_scan_summary() {
         serde_json::from_str(&output).expect("output should be valid json");
 
     assert_eq!(parsed["root_path"], "demo");
-    assert_eq!(parsed["files_count"], 1);
+    assert_eq!(parsed["files_analyzed"], 1);
     assert_eq!(parsed["directories_count"], 0);
-    assert_eq!(parsed["lines_of_code"], 3);
+    assert_eq!(parsed["non_empty_lines"], 3);
     assert_eq!(parsed["languages"][0]["name"], "Rust");
     assert_eq!(parsed["risk_summary"]["total"], 0);
     assert_eq!(parsed["risk_summary"]["average_score"], 0);

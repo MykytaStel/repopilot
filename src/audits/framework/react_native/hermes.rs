@@ -2,7 +2,7 @@ use crate::audits::framework::js_common::is_js_file;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileContentProvider, ScanFacts};
 use std::path::PathBuf;
 
 pub struct HermesDisabledAudit;
@@ -135,12 +135,10 @@ fn has_codegen_usage_signal(facts: &ScanFacts) -> bool {
         .iter()
         .filter(|file| is_js_file(&file.path))
         .any(|file| {
-            std::fs::read_to_string(&file.path)
-                .map(|content| {
-                    content.contains("TurboModuleRegistry")
-                        || content.contains("codegenNativeComponent")
-                        || (content.contains("TurboModule") && content.contains("react-native"))
-                })
-                .unwrap_or(false)
+            FileContentProvider.content(file).is_some_and(|content| {
+                content.contains("TurboModuleRegistry")
+                    || content.contains("codegenNativeComponent")
+                    || (content.contains("TurboModule") && content.contains("react-native"))
+            })
         })
 }

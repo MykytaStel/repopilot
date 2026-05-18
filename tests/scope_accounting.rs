@@ -15,7 +15,7 @@ fn scan_counts_files_skipped_by_repopilotignore() {
 
     assert_eq!(summary.files_discovered, 1);
     assert_eq!(summary.files_skipped_repopilotignore, 1);
-    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.files_analyzed, 1);
     assert!(summary.repopilotignore_path.is_some());
 }
 
@@ -37,7 +37,7 @@ fn scan_counts_files_skipped_by_max_files_limit() {
 
     assert_eq!(summary.files_discovered, 3);
     assert_eq!(summary.files_skipped_by_limit, 2);
-    assert_eq!(summary.files_count, 1);
+    assert_eq!(summary.files_analyzed, 1);
 }
 
 #[test]

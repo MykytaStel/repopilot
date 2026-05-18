@@ -59,15 +59,15 @@ pub(super) fn collect_and_audit_inline(
     for result in results {
         let per_file = result?;
         if per_file.skip_reason == SkipReason::None {
-            facts.files_count += 1;
+            facts.files_analyzed += 1;
             if let Some(ref lang) = per_file.language {
                 *languages.entry(lang.clone()).or_insert(0) += 1;
             }
         }
-        facts.lines_of_code += per_file.file_facts.lines_of_code;
+        facts.non_empty_lines += per_file.file_facts.non_empty_lines;
         match per_file.skip_reason {
             SkipReason::LargeFile => {
-                facts.skipped_files_count += 1;
+                facts.large_files_skipped += 1;
                 facts.skipped_bytes = facts.skipped_bytes.saturating_add(per_file.skipped_bytes);
             }
             SkipReason::Binary => {
@@ -115,6 +115,17 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
 
     facts.languages = build_language_summary(languages);
 
+    Ok(facts)
+}
+
+pub(super) fn collect_scan_facts_without_content(
+    path: &Path,
+    config: &ScanConfig,
+) -> io::Result<ScanFacts> {
+    ensure_path_exists(path)?;
+
+    let empty_audits: &[Box<dyn FileAudit>] = &[];
+    let (facts, _) = collect_and_audit_inline(path, config, empty_audits)?;
     Ok(facts)
 }
 
