@@ -68,7 +68,11 @@ struct ChangedRepoContextStage {
 
 impl<'a> ChangedScanEngine<'a> {
     fn new(path: &'a Path, config: &'a ScanConfig, base_ref: Option<&'a str>) -> Self {
-        Self { path, config, base_ref }
+        Self {
+            path,
+            config,
+            base_ref,
+        }
     }
 
     fn run(self) -> io::Result<ScanSummary> {
@@ -99,7 +103,10 @@ impl<'a> ChangedScanEngine<'a> {
         })
     }
 
-    fn run_file_analysis(&self, discovery: &ChangedDiscoveryStage) -> io::Result<ChangedFileAnalysisStage> {
+    fn run_file_analysis(
+        &self,
+        discovery: &ChangedDiscoveryStage,
+    ) -> io::Result<ChangedFileAnalysisStage> {
         let start = Instant::now();
         let file_audits = build_file_audits(self.config);
         let cache_load_start = Instant::now();
@@ -168,16 +175,27 @@ impl<'a> ChangedScanEngine<'a> {
         changed_file_reasons: &mut BTreeMap<String, usize>,
     ) -> io::Result<()> {
         let change_reason = change_status_label(changed_file.status).to_string();
-        *changed_file_reasons.entry(change_reason.clone()).or_insert(0) += 1;
+        *changed_file_reasons
+            .entry(change_reason.clone())
+            .or_insert(0) += 1;
 
         if changed_file.status == ChangeStatus::Deleted {
-            record_skipped_cache_file(cache_telemetry, &changed_file.path, &change_reason, "deleted");
+            record_skipped_cache_file(
+                cache_telemetry,
+                &changed_file.path,
+                &change_reason,
+                "deleted",
+            );
             return Ok(());
         }
 
         let absolute_path = repo_root.join(&changed_file.path);
         if !absolute_path.is_file() {
-            let reason = if absolute_path.exists() { "not-regular-file" } else { "missing-file" };
+            let reason = if absolute_path.exists() {
+                "not-regular-file"
+            } else {
+                "missing-file"
+            };
             record_skipped_cache_file(cache_telemetry, &changed_file.path, &change_reason, reason);
             return Ok(());
         }
@@ -196,7 +214,9 @@ impl<'a> ChangedScanEngine<'a> {
             .saturating_add(hash_start.elapsed().as_micros() as u64);
 
         let cache_path = hash_entry.path.clone();
-        cache.file_hashes.insert(cache_path.clone(), hash_entry.clone());
+        cache
+            .file_hashes
+            .insert(cache_path.clone(), hash_entry.clone());
 
         let lookup_start = Instant::now();
         let decision = cache_decision(
@@ -211,7 +231,10 @@ impl<'a> ChangedScanEngine<'a> {
             .saturating_add(lookup_start.elapsed().as_micros() as u64);
 
         let mut cache_reason = match decision {
-            CacheDecision::Hit { role_entry, findings: cached_findings } => {
+            CacheDecision::Hit {
+                role_entry,
+                findings: cached_findings,
+            } => {
                 self.reuse_cached_file(
                     changed_file,
                     &change_reason,
@@ -229,7 +252,11 @@ impl<'a> ChangedScanEngine<'a> {
 
         let miss_start = Instant::now();
         let mut per_file = process_file_with_content(&absolute_path, file_audits, self.config)?;
-        normalize_per_file_paths(&mut per_file.file_facts.path, &mut per_file.findings, repo_root);
+        normalize_per_file_paths(
+            &mut per_file.file_facts.path,
+            &mut per_file.findings,
+            repo_root,
+        );
 
         match per_file.skip_reason {
             SkipReason::None => {
@@ -290,12 +317,14 @@ impl<'a> ChangedScanEngine<'a> {
             .miss_scan_us
             .saturating_add(miss_start.elapsed().as_micros() as u64);
         cache_telemetry.misses += 1;
-        cache_telemetry.changed_files.push(ChangedFileCacheTelemetry {
-            path: changed_file.path.clone(),
-            change_reason,
-            cache_status: "miss".to_string(),
-            cache_reason: cache_reason.to_string(),
-        });
+        cache_telemetry
+            .changed_files
+            .push(ChangedFileCacheTelemetry {
+                path: changed_file.path.clone(),
+                change_reason,
+                cache_status: "miss".to_string(),
+                cache_reason: cache_reason.to_string(),
+            });
 
         Ok(())
     }
@@ -320,23 +349,31 @@ impl<'a> ChangedScanEngine<'a> {
             .hit_reuse_us
             .saturating_add(reuse_start.elapsed().as_micros() as u64);
         cache_telemetry.hits += 1;
-        cache_telemetry.changed_files.push(ChangedFileCacheTelemetry {
-            path: changed_file.path.clone(),
-            change_reason: change_reason.to_string(),
-            cache_status: "hit".to_string(),
-            cache_reason: "unchanged-content-and-config".to_string(),
-        });
+        cache_telemetry
+            .changed_files
+            .push(ChangedFileCacheTelemetry {
+                path: changed_file.path.clone(),
+                change_reason: change_reason.to_string(),
+                cache_status: "hit".to_string(),
+                cache_reason: "unchanged-content-and-config".to_string(),
+            });
     }
 
-    fn run_repo_context(&self, repo_root: &Path, facts: &mut ScanFacts) -> io::Result<ChangedRepoContextStage> {
+    fn run_repo_context(
+        &self,
+        repo_root: &Path,
+        facts: &mut ScanFacts,
+    ) -> io::Result<ChangedRepoContextStage> {
         let start = Instant::now();
-        let mut repo_context = super::collection::collect_scan_facts_without_content(repo_root, self.config)?;
+        let mut repo_context =
+            super::collection::collect_scan_facts_without_content(repo_root, self.config)?;
 
         repo_context.detected_frameworks = detect_frameworks(repo_root);
         repo_context.framework_projects = detect_framework_projects(repo_root);
         repo_context.react_native = detect_react_native_profile(&repo_context);
 
-        let coupling_graph = relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
+        let coupling_graph =
+            relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
 
         facts.detected_frameworks = repo_context.detected_frameworks.clone();
         facts.framework_projects = repo_context.framework_projects.clone();
@@ -358,7 +395,11 @@ impl<'a> ChangedScanEngine<'a> {
         start.elapsed().as_micros() as u64
     }
 
-    fn score_findings(&self, repo_stage: &ChangedRepoContextStage, findings: &mut [Finding]) -> u64 {
+    fn score_findings(
+        &self,
+        repo_stage: &ChangedRepoContextStage,
+        findings: &mut [Finding],
+    ) -> u64 {
         let start = Instant::now();
         assess_findings(findings, &repo_stage.repo_context);
         apply_graph_overlay(findings, &repo_stage.coupling_graph);
@@ -381,8 +422,12 @@ impl<'a> ChangedScanEngine<'a> {
 
         let cache_write_start = Instant::now();
         file_stage.cache.write(&discovery.repo_root)?;
-        file_stage.cache_telemetry.timings.write_us = cache_write_start.elapsed().as_micros() as u64;
-        finalize_cache_telemetry(&mut file_stage.cache_telemetry, file_stage.changed_file_reasons);
+        file_stage.cache_telemetry.timings.write_us =
+            cache_write_start.elapsed().as_micros() as u64;
+        finalize_cache_telemetry(
+            &mut file_stage.cache_telemetry,
+            file_stage.changed_file_reasons,
+        );
 
         file_stage.facts.root_path = self.path.to_path_buf();
 
