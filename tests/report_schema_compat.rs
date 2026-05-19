@@ -1,3 +1,4 @@
+use repopilot::report::schema::parse_scan_summary_json;
 use serde_json::Value;
 
 #[test]
@@ -12,9 +13,15 @@ fn schema_fixtures_document_legacy_and_current_metric_names() {
     assert_eq!(legacy["lines_of_code"], 12);
 
     assert_eq!(current["schema_version"], "0.13");
+    assert_eq!(current["report"]["kind"], "scan");
+    assert_eq!(current["report"]["schema_version"], "0.13");
     assert_eq!(current["files_analyzed"], 2);
     assert_eq!(current["non_empty_lines"], 12);
     assert_eq!(current["large_files_skipped"], 0);
+    assert_eq!(
+        current["diagnostics"][0]["code"],
+        "workspace.package-scan-failed"
+    );
 }
 
 #[test]
@@ -36,4 +43,19 @@ fn legacy_metric_fallbacks_are_unambiguous_for_consumers() {
 
     assert_eq!(files_analyzed, 2);
     assert_eq!(non_empty_lines, 12);
+}
+
+#[test]
+fn migration_reader_accepts_legacy_and_current_report_shapes() {
+    let legacy = parse_scan_summary_json(include_str!("fixtures/reports/scan-v010.json"))
+        .expect("legacy report should migrate into ScanSummary");
+    let current = parse_scan_summary_json(include_str!("fixtures/reports/scan-v013.json"))
+        .expect("current report should parse into ScanSummary");
+
+    assert_eq!(legacy.files_analyzed, 2);
+    assert_eq!(legacy.non_empty_lines, 12);
+    assert_eq!(current.files_analyzed, 2);
+    assert_eq!(current.non_empty_lines, 12);
+    assert_eq!(current.diagnostics.len(), 1);
+    assert_eq!(current.diagnostics[0].code, "workspace.package-scan-failed");
 }

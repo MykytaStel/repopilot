@@ -1,6 +1,7 @@
 use crate::cli::CompareOutputFormatArg;
 use repopilot::compare::diff::diff_summaries;
 use repopilot::compare::render::render;
+use repopilot::report::schema::parse_scan_summary_json;
 use repopilot::report::writer::write_report;
 use repopilot::scan::types::ScanSummary;
 use std::error::Error;
@@ -31,7 +32,7 @@ fn read_summary(path: &Path) -> Result<ScanSummary, CompareInputError> {
         source,
     })?;
 
-    serde_json::from_str(&content).map_err(|source| CompareInputError::Parse {
+    parse_scan_summary_json(&content).map_err(|source| CompareInputError::Parse {
         path: path.to_path_buf(),
         source,
     })

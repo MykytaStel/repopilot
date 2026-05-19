@@ -1,3 +1,4 @@
+use crate::report::schema::ReportEnvelope;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -12,7 +13,13 @@ pub struct SarifLog {
 #[derive(Debug, Clone, Serialize)]
 pub struct SarifRun {
     pub tool: SarifTool,
+    pub properties: SarifRunProperties,
     pub results: Vec<SarifResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SarifRunProperties {
+    pub report: ReportEnvelope,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -1,5 +1,6 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::findings::types::{Finding, Severity};
+use crate::report::schema::ReportEnvelope;
 use crate::scan::types::ScanSummary;
 use std::collections::BTreeMap;
 use std::path::{Component, Path, PathBuf};
@@ -86,6 +87,9 @@ fn findings_to_sarif_with_properties(
                     information_uri: TOOL_INFORMATION_URI.to_string(),
                     rules: sarif_rules(findings),
                 },
+            },
+            properties: SarifRunProperties {
+                report: ReportEnvelope::sarif(),
             },
             results: findings
                 .iter()

@@ -1,11 +1,24 @@
 {
   "schema_version": "0.13",
   "repopilot_version": "0.12.0",
+  "report": {
+    "kind": "scan",
+    "schema_version": "0.13",
+    "repopilot_version": "0.12.0"
+  },
   "root_path": ".",
   "files_analyzed": 2,
   "directories_count": 1,
   "non_empty_lines": 12,
   "large_files_skipped": 0,
+  "diagnostics": [
+    {
+      "code": "workspace.package-scan-failed",
+      "severity": "warning",
+      "message": "Package scan failed; results are partial.",
+      "path": "packages/api"
+    }
+  ],
   "findings": [],
   "languages": [],
   "risk_summary": {

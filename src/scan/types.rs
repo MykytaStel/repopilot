@@ -99,6 +99,15 @@ pub struct ScanDiagnostic {
 }
 
 impl ScanDiagnostic {
+    pub fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            severity: DiagnosticSeverity::Error,
+            message: message.into(),
+            path: None,
+        }
+    }
+
     pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             code: code.into(),
@@ -244,6 +253,18 @@ impl Default for ScanSummary {
 }
 
 impl ScanSummary {
+    pub fn has_error_diagnostics(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+    }
+
+    pub fn first_error_diagnostic(&self) -> Option<&ScanDiagnostic> {
+        self.diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
+    }
+
     /// Computes the health score from findings and non-empty source lines.
     /// Penalty per finding type is normalized by project size (kloc) so large repos
     /// aren't unfairly penalized for having proportionally the same issue density.

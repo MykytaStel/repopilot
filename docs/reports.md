@@ -48,20 +48,26 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 
+Diagnostics use `{ code, severity, message, path? }`. Recoverable diagnostics
+with `warning` severity are report-only and keep the scan exit code at `0`
+unless a finding gate fails. A reportable `error` diagnostic is written into the
+requested report/receipt and then exits with RepoPilot runtime code `3`.
+
 `schema_version` is intentionally separate from the binary version. Patch releases
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
 ### Compatibility
 
-RepoPilot keeps the scan summary fields at the top level of the JSON document.
-Schema `0.13` intentionally renamed scope counters for accuracy:
+RepoPilot renders JSON through explicit report DTOs instead of serializing the
+internal scan model directly. Schema `0.13` intentionally renamed scope counters
+for accuracy:
 
 - consumers should read `files_analyzed`, `non_empty_lines`, and
   `large_files_skipped`;
 - `repopilot compare` continues to read older JSON reports that do not contain
-  `schema_version`;
-- future tools can branch on `schema_version` when parsing reports.
+  `schema_version` or that use the old `files_count` and `lines_of_code` names;
+- future tools can branch on `schema_version` when parsing reports;
 - consumers should prefer `report.schema_version` when they want a single
   envelope object, while top-level `schema_version` remains present during the
   migration window.
@@ -102,6 +108,7 @@ Example shape:
     "new_findings": 2,
     "existing_findings": 10
   },
+  "diagnostics": [],
   "findings": []
 }
 ```
@@ -122,7 +129,12 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
+  "report": {
+    "kind": "receipt",
+    "schema_version": "4",
+    "repopilot_version": "0.12.0"
+  },
   "tool": "repopilot",
   "version": "0.12.0",
   "generated_at": "2026-05-16T00:00:00Z",
@@ -148,6 +160,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
     "info": 0
   },
   "languages": [],
+  "diagnostics": [],
   "health_score": 91
 }
 ```
