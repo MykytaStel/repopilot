@@ -19,8 +19,9 @@ pub mod report {
     pub use crate::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
     pub use crate::receipt::{build_audit_receipt, render_receipt_json};
     pub use crate::report::schema::{
-        BaselineJsonReport, REPOPILOT_VERSION, ReportEnvelope, SCAN_REPORT_SCHEMA_VERSION,
-        ScanJsonReport, parse_scan_summary_json, parse_scan_summary_value,
+        BaselineJsonReport, REPOPILOT_VERSION, ReportEnvelope, ReviewJsonReport,
+        SCAN_REPORT_SCHEMA_VERSION, ScanJsonReport, parse_scan_summary_json,
+        parse_scan_summary_value,
     };
     pub use crate::report::writer::write_report;
 }
