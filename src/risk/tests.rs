@@ -6,6 +6,9 @@ use std::path::PathBuf;
 #[test]
 fn priority_thresholds_match_v2_plan() {
     assert_eq!(FORMULA_VERSION, "risk-v2");
+    assert_eq!(RiskFormula::CURRENT.version, FORMULA_VERSION);
+    assert_eq!(RiskFormula::CURRENT.severity_critical, 95);
+    assert_eq!(RiskFormula::CURRENT.review_in_diff_weight, 12);
     assert_eq!(priority_for_score(90), RiskPriority::P0);
     assert_eq!(priority_for_score(70), RiskPriority::P1);
     assert_eq!(priority_for_score(40), RiskPriority::P2);

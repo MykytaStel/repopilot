@@ -187,6 +187,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             repopilotignore_path: report.summary.repopilotignore_path.clone(),
             scan_timings: None,
             cache_telemetry: report.summary.cache_telemetry.clone(),
+            diagnostics: report.summary.diagnostics.clone(),
         },
         baseline_path: report.baseline_path.clone(),
         findings,

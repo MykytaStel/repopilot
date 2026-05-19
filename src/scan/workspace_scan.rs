@@ -2,7 +2,7 @@ use crate::findings::types::Finding;
 use crate::risk::{apply_cluster_overlay, apply_workspace_hotspot_overlay, sort_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::scanner::scan_path_with_config;
-use crate::scan::types::{LanguageSummary, ScanSummary};
+use crate::scan::types::{LanguageSummary, ScanDiagnostic, ScanSummary};
 use crate::scan::workspace::{WorkspacePackage, detect_workspace_packages};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -16,12 +16,15 @@ pub fn scan_workspace_with_config(
 ) -> io::Result<ScanSummary> {
     let plan = WorkspaceScanPlan::detect(path, scan_config);
     if plan.packages.is_empty() {
-        eprintln!(
-            "Warning: --workspace specified but no workspace packages found under {}. \
-             Falling back to single-package scan.",
-            path.display()
+        let mut summary = scan_path_with_config(path, scan_config)?;
+        summary.diagnostics.push(
+            ScanDiagnostic::warning(
+                "workspace.no-packages",
+                "--workspace was requested but no workspace packages were found; scanned as a single package",
+            )
+            .with_path(path),
         );
-        return scan_path_with_config(path, scan_config);
+        return Ok(summary);
     }
 
     plan.execute()
@@ -54,10 +57,10 @@ impl<'a> WorkspaceScanPlan<'a> {
         for package in self.scan_packages() {
             match package.result {
                 Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &package.name),
-                Err(err) => eprintln!(
-                    "Warning: failed to scan workspace package '{}': {err}",
-                    package.name
-                ),
+                Err(err) => merged.diagnostics.push(ScanDiagnostic::warning(
+                    "workspace.package-scan-failed",
+                    format!("failed to scan workspace package '{}': {err}", package.name),
+                )),
             }
         }
 
@@ -137,6 +140,7 @@ fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, pac
     merged.hidden_suggestions_count = merged
         .hidden_suggestions_count
         .saturating_add(package.hidden_suggestions_count);
+    merged.diagnostics.extend(package.diagnostics);
     merge_language_summaries(&mut merged.languages, package.languages);
     merged.findings.extend(package.findings);
 }

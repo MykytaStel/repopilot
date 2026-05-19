@@ -82,6 +82,40 @@ pub struct HiddenSuggestionSummary {
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+pub enum DiagnosticSeverity {
+    #[default]
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanDiagnostic {
+    pub code: String,
+    pub severity: DiagnosticSeverity,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathBuf>,
+}
+
+impl ScanDiagnostic {
+    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            severity: DiagnosticSeverity::Warning,
+            message: message.into(),
+            path: None,
+        }
+    }
+
+    pub fn with_path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
 pub enum ScanMode {
     #[default]
     Full,
@@ -162,6 +196,9 @@ pub struct ScanSummary {
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_telemetry: Option<ScanCacheTelemetry>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<ScanDiagnostic>,
 }
 
 fn default_repo_level_rules_included() -> bool {
@@ -201,6 +238,7 @@ impl Default for ScanSummary {
             repopilotignore_path: None,
             scan_timings: None,
             cache_telemetry: None,
+            diagnostics: Vec::new(),
         }
     }
 }

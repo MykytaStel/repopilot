@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 
 use super::context::add_file_context_signals;
 use super::model::{
-    GraphImpact, RiskAssessment, RiskInputs, RiskSignal, clamp_score, push_adjustment, signal,
+    GraphImpact, RiskAssessment, RiskFormula, RiskInputs, RiskSignal, clamp_score, push_adjustment,
+    signal,
 };
 use super::overlays::baseline_signal;
 
@@ -38,7 +39,7 @@ pub fn assess_finding(
             &mut signals,
             "category.security",
             "security finding",
-            12,
+            RiskFormula::CURRENT.security_category_weight,
             "security findings usually have higher remediation priority",
         );
     }
@@ -59,7 +60,7 @@ pub fn assess_finding(
             &mut signals,
             "review.in-diff",
             "changed lines",
-            12,
+            RiskFormula::CURRENT.review_in_diff_weight,
             "finding touches changed diff lines",
         );
     }
@@ -70,7 +71,7 @@ pub fn assess_finding(
             &mut signals,
             "workspace.hotspot",
             "workspace hotspot",
-            5,
+            RiskFormula::CURRENT.workspace_hotspot_weight,
             "workspace package has multiple high-risk findings",
         );
     }
@@ -85,7 +86,7 @@ pub fn assess_finding(
             &mut signals,
             "review.blast-radius",
             "blast radius",
-            6,
+            RiskFormula::CURRENT.blast_radius_weight,
             "finding is in a file impacted by changed import dependencies",
         );
     }
@@ -133,7 +134,7 @@ fn add_graph_signal(impact: GraphImpact, score: &mut i16, signals: &mut Vec<Risk
             signals,
             "graph.hub",
             "dependency hub",
-            8,
+            RiskFormula::CURRENT.graph_hub_weight,
             "file has high fan-in or fan-out, so changes can ripple through the codebase",
         ),
         GraphImpact::Dependency => push_adjustment(
@@ -141,7 +142,7 @@ fn add_graph_signal(impact: GraphImpact, score: &mut i16, signals: &mut Vec<Risk
             signals,
             "graph.dependency",
             "shared dependency",
-            5,
+            RiskFormula::CURRENT.graph_dependency_weight,
             "file is imported by multiple other files",
         ),
     }
@@ -150,19 +151,19 @@ fn add_graph_signal(impact: GraphImpact, score: &mut i16, signals: &mut Vec<Risk
 fn cluster_weight(size: usize) -> i16 {
     match size {
         0..=2 => 0,
-        3..=5 => 3,
-        6..=15 => 5,
-        _ => 7,
+        3..=5 => RiskFormula::CURRENT.cluster_small_weight,
+        6..=15 => RiskFormula::CURRENT.cluster_medium_weight,
+        _ => RiskFormula::CURRENT.cluster_large_weight,
     }
 }
 
 fn severity_base_score(severity: Severity) -> u8 {
     match severity {
-        Severity::Critical => 95,
-        Severity::High => 75,
-        Severity::Medium => 45,
-        Severity::Low => 20,
-        Severity::Info => 5,
+        Severity::Critical => RiskFormula::CURRENT.severity_critical,
+        Severity::High => RiskFormula::CURRENT.severity_high,
+        Severity::Medium => RiskFormula::CURRENT.severity_medium,
+        Severity::Low => RiskFormula::CURRENT.severity_low,
+        Severity::Info => RiskFormula::CURRENT.severity_info,
     }
 }
 
@@ -176,12 +177,12 @@ fn severity_signal(severity: Severity, score: u8) -> RiskSignal {
 }
 
 fn confidence_delta(base: u8, confidence: Confidence) -> i16 {
-    let multiplier = match confidence {
-        Confidence::High => 1.10,
-        Confidence::Medium => 1.00,
-        Confidence::Low => 0.80,
+    let percent = match confidence {
+        Confidence::High => RiskFormula::CURRENT.confidence_high_percent,
+        Confidence::Medium => RiskFormula::CURRENT.confidence_medium_percent,
+        Confidence::Low => RiskFormula::CURRENT.confidence_low_percent,
     };
-    ((base as f64 * multiplier).round() as i16) - base as i16
+    (((base as u32 * percent as u32) + 50) / 100) as i16 - base as i16
 }
 
 fn confidence_signal(confidence: Confidence, weight: i16) -> RiskSignal {

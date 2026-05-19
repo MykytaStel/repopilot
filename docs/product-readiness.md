@@ -53,12 +53,6 @@ Keep generated smoke artifacts:
 ./scripts/smoke-product.sh --keep-tmp
 ```
 
-Skip legacy compatibility checks:
-
-```bash
-./scripts/smoke-product.sh --skip-legacy
-```
-
 The script checks the main product workflows:
 
 ```text
@@ -74,11 +68,6 @@ ai plan
 ai prompt
 inspect knowledge
 inspect explain
-legacy vibe
-legacy harden
-legacy prompt
-legacy knowledge
-legacy explain
 ```
 
 `review` is skipped when the target path is not inside a Git repository.
@@ -106,16 +95,6 @@ repopilot inspect knowledge
 repopilot inspect explain src/main.rs
 ```
 
-Legacy 0.x commands must continue to work until a documented breaking release:
-
-```bash
-repopilot vibe .
-repopilot harden .
-repopilot prompt .
-repopilot knowledge
-repopilot explain src/main.rs
-```
-
 The primary help surface should prefer the stable command shape:
 
 ```text
@@ -128,7 +107,9 @@ repopilot ai ...
 repopilot inspect ...
 ```
 
-Legacy commands may stay hidden from primary help while still being executable.
+The legacy 0.x aliases (`vibe`, `harden`, `prompt`, `knowledge`, and
+`explain`) have been removed from the executable CLI surface. Use `ai ...` and
+`inspect ...` commands.
 
 ---
 
@@ -217,13 +198,6 @@ with:
 ```yaml
 with:
   command: ai-context
-```
-
-Legacy action command names may remain available for compatibility:
-
-```yaml
-with:
-  command: vibe
 ```
 
 Receipt output is scan-only. The action should fail clearly when `receipt` is

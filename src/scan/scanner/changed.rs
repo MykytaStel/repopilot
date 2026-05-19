@@ -275,6 +275,7 @@ pub fn scan_changed_with_config(
                 post_scan_audits_us: 0,
             }),
             cache_telemetry: Some(cache_telemetry),
+            diagnostics: Vec::new(),
         },
     ))
 }

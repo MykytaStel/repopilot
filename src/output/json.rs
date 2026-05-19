@@ -14,6 +14,11 @@ pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
     let output = JsonScanReport {
         schema_version: SCAN_REPORT_SCHEMA_VERSION,
         repopilot_version: REPOPILOT_VERSION,
+        report: ReportEnvelope {
+            kind: "scan",
+            schema_version: SCAN_REPORT_SCHEMA_VERSION,
+            repopilot_version: REPOPILOT_VERSION,
+        },
         risk_summary: RiskSummary::from_findings(&summary.findings),
         summary,
     };
@@ -25,6 +30,7 @@ pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
 struct JsonScanReport<'a> {
     schema_version: &'static str,
     repopilot_version: &'static str,
+    report: ReportEnvelope,
     risk_summary: RiskSummary,
     #[serde(flatten)]
     summary: &'a ScanSummary,
@@ -48,6 +54,11 @@ pub fn render_with_baseline(
     let output = BaselineJsonReport {
         schema_version: SCAN_REPORT_SCHEMA_VERSION,
         repopilot_version: REPOPILOT_VERSION,
+        report: ReportEnvelope {
+            kind: "baseline-scan",
+            schema_version: SCAN_REPORT_SCHEMA_VERSION,
+            repopilot_version: REPOPILOT_VERSION,
+        },
         root_path: report.summary.root_path.to_string_lossy().to_string(),
         files_analyzed: report.summary.files_analyzed,
         directories_count: report.summary.directories_count,
@@ -81,9 +92,17 @@ pub fn render_with_baseline(
 }
 
 #[derive(Serialize)]
+struct ReportEnvelope {
+    kind: &'static str,
+    schema_version: &'static str,
+    repopilot_version: &'static str,
+}
+
+#[derive(Serialize)]
 struct BaselineJsonReport<'a> {
     schema_version: &'static str,
     repopilot_version: &'static str,
+    report: ReportEnvelope,
     root_path: String,
     files_analyzed: usize,
     directories_count: usize,
@@ -167,6 +186,7 @@ mod tests {
 
         assert_eq!(value["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
+        assert_eq!(value["report"]["kind"], "scan");
         assert_eq!(value["files_analyzed"], 1);
         assert!(value.get("findings").is_some());
     }
@@ -198,6 +218,7 @@ mod tests {
 
         assert_eq!(value["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
+        assert_eq!(value["report"]["kind"], "baseline-scan");
         assert_eq!(value["files_analyzed"], 2);
         assert_eq!(value["hidden_suggestions_count"], 5);
         assert_eq!(
