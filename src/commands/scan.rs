@@ -2,7 +2,7 @@ use crate::cli::ScanOptions;
 use crate::commands::filters::{scan_pre_visibility_filter, scan_priority_filter};
 use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
-use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
+use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_RUNTIME, EXIT_USAGE};
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
@@ -145,6 +145,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             print_timing_breakdown(&baseline_report.summary);
         }
 
+        enforce_diagnostics_exit_policy(&baseline_report.summary)?;
+
         if let Some(ci_gate) = ci_gate
             && let Some(message) = ci_gate.failure_message()
         {
@@ -181,6 +183,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     if options.timing {
         print_timing_breakdown(&summary);
     }
+
+    enforce_diagnostics_exit_policy(&summary)?;
 
     Ok(())
 }
@@ -242,4 +246,20 @@ fn write_scan_receipt_if_requested(
     write_report(&rendered, Some(receipt_path))?;
 
     Ok(())
+}
+
+fn enforce_diagnostics_exit_policy(
+    summary: &ScanSummary,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(diagnostic) = summary.first_error_diagnostic() else {
+        return Ok(());
+    };
+
+    Err(Box::new(CliExit {
+        code: EXIT_RUNTIME,
+        message: format!(
+            "RepoPilot scan completed with reportable error diagnostic `{}`: {}",
+            diagnostic.code, diagnostic.message
+        ),
+    }))
 }

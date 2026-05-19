@@ -2,7 +2,7 @@ use repopilot::findings::types::{Finding, FindingCategory, Severity};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanDiagnostic, ScanSummary};
 use std::fs;
 use tempfile::tempdir;
 
@@ -165,5 +165,31 @@ fn scan_result_includes_health_score() {
     assert!(
         summary.health_score > 0,
         "clean project should have positive health score"
+    );
+}
+
+#[test]
+fn diagnostic_helpers_separate_warnings_from_errors() {
+    let warning_summary = ScanSummary {
+        diagnostics: vec![ScanDiagnostic::warning(
+            "workspace.package-scan-failed",
+            "Package scan failed; results are partial.",
+        )],
+        ..ScanSummary::default()
+    };
+    let error_summary = ScanSummary {
+        diagnostics: vec![ScanDiagnostic::error(
+            "scanner.fatal-stage",
+            "A reportable scan stage failed.",
+        )],
+        ..ScanSummary::default()
+    };
+
+    assert!(!warning_summary.has_error_diagnostics());
+    assert!(warning_summary.first_error_diagnostic().is_none());
+    assert!(error_summary.has_error_diagnostics());
+    assert_eq!(
+        error_summary.first_error_diagnostic().unwrap().code,
+        "scanner.fatal-stage"
     );
 }

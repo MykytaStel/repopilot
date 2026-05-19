@@ -1,15 +1,17 @@
 use crate::findings::types::Severity;
 use crate::receipt::git::collect_git_receipt;
 use crate::receipt::model::{
-    AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptFindings, ReceiptHiddenSuggestion,
-    ReceiptLanguage, ReceiptScope,
+    AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptDiagnostic, ReceiptFindings,
+    ReceiptHiddenSuggestion, ReceiptLanguage, ReceiptScope,
 };
+use crate::report::schema::ReportEnvelope;
 use crate::scan::types::ScanSummary;
 use chrono::Utc;
 
 pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
     AuditReceipt {
         schema_version: AUDIT_RECEIPT_SCHEMA_VERSION,
+        report: ReportEnvelope::receipt(AUDIT_RECEIPT_SCHEMA_VERSION),
         tool: "repopilot".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         generated_at: Utc::now().to_rfc3339(),
@@ -18,6 +20,7 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
         scope: build_scope(summary),
         findings: build_findings(summary),
         languages: build_languages(summary),
+        diagnostics: build_diagnostics(summary),
         health_score: summary.health_score,
     }
 }
@@ -87,6 +90,22 @@ fn build_languages(summary: &ScanSummary) -> Vec<ReceiptLanguage> {
         .map(|language| ReceiptLanguage {
             name: language.name.clone(),
             files_analyzed: language.files_analyzed,
+        })
+        .collect()
+}
+
+fn build_diagnostics(summary: &ScanSummary) -> Vec<ReceiptDiagnostic> {
+    summary
+        .diagnostics
+        .iter()
+        .map(|diagnostic| ReceiptDiagnostic {
+            code: diagnostic.code.clone(),
+            severity: diagnostic.severity,
+            message: diagnostic.message.clone(),
+            path: diagnostic
+                .path
+                .as_ref()
+                .map(|path| path.display().to_string()),
         })
         .collect()
 }

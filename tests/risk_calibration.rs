@@ -1,9 +1,12 @@
-use repopilot::findings::types::Finding;
+use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
+use repopilot::risk::{GraphImpact, RiskInputs, assess_finding};
 use repopilot::risk::{RiskPriority, RiskSummary};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
+use serde::Deserialize;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use tempfile::tempdir;
 
 #[test]
@@ -130,6 +133,45 @@ export function App() {
     assert_ne!(inline_style.risk.priority, RiskPriority::P0);
 }
 
+#[test]
+fn risk_v2_calibration_fixture_matches_snapshot_expectations() {
+    let fixture: RiskCalibrationFixture =
+        serde_json::from_str(include_str!("fixtures/risk/risk-v2-calibration.json"))
+            .expect("risk calibration fixture should parse");
+
+    assert_eq!(fixture.formula_version, "risk-v2");
+
+    for case in fixture.cases {
+        let finding = calibration_finding(&case);
+        let risk = assess_finding(&finding, None, case.inputs());
+        let signal_ids = risk
+            .signals
+            .iter()
+            .map(|signal| signal.id.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            risk.score, case.expected_score,
+            "unexpected score for {} with signals {:?}",
+            case.name, signal_ids
+        );
+        assert_eq!(
+            risk.priority, case.expected_priority,
+            "unexpected priority for {} with signals {:?}",
+            case.name, signal_ids
+        );
+        for expected_signal in &case.expected_signals {
+            assert!(
+                signal_ids.contains(&expected_signal.as_str()),
+                "{} missing expected risk signal `{}` in {:?}",
+                case.name,
+                expected_signal,
+                signal_ids
+            );
+        }
+    }
+}
+
 fn write_file(root: &Path, relative: &str, content: &str) {
     let path = root.join(relative);
     if let Some(parent) = path.parent() {
@@ -150,4 +192,67 @@ fn findings_for_rule<'a>(findings: &'a [Finding], rule_id: &str) -> Vec<&'a Find
         .iter()
         .filter(|finding| finding.rule_id == rule_id)
         .collect()
+}
+
+#[derive(Debug, Deserialize)]
+struct RiskCalibrationFixture {
+    formula_version: String,
+    cases: Vec<RiskCalibrationCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RiskCalibrationCase {
+    name: String,
+    rule_id: String,
+    category: FindingCategory,
+    severity: Severity,
+    confidence: Confidence,
+    #[serde(default)]
+    in_diff: bool,
+    #[serde(default)]
+    blast_radius: bool,
+    #[serde(default)]
+    cluster_size: usize,
+    graph_impact: Option<String>,
+    expected_score: u8,
+    expected_priority: RiskPriority,
+    expected_signals: Vec<String>,
+}
+
+impl RiskCalibrationCase {
+    fn inputs(&self) -> RiskInputs {
+        RiskInputs {
+            in_diff: self.in_diff,
+            blast_radius: self.blast_radius,
+            cluster_size: self.cluster_size,
+            graph_impact: self.graph_impact.as_deref().map(|value| match value {
+                "hub" => GraphImpact::Hub,
+                "dependency" => GraphImpact::Dependency,
+                other => panic!("unknown graph impact `{other}`"),
+            }),
+            ..RiskInputs::default()
+        }
+    }
+}
+
+fn calibration_finding(case: &RiskCalibrationCase) -> Finding {
+    Finding {
+        id: String::new(),
+        rule_id: case.rule_id.clone(),
+        title: case.name.clone(),
+        description: case.name.clone(),
+        recommendation: Finding::recommendation_for_rule_id(&case.rule_id),
+        category: case.category.clone(),
+        severity: case.severity,
+        confidence: case.confidence,
+        evidence: vec![Evidence {
+            path: PathBuf::from("src/main.rs"),
+            line_start: 1,
+            line_end: None,
+            snippet: String::new(),
+        }],
+        workspace_package: None,
+        docs_url: None,
+        risk: Default::default(),
+    }
 }

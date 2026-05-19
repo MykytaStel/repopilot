@@ -2,7 +2,9 @@ use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory,
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
 use repopilot::risk::{RiskInputs, RiskSummary, assess_finding};
-use repopilot::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanSummary};
+use repopilot::scan::types::{
+    DiagnosticSeverity, HiddenSuggestionSummary, LanguageSummary, ScanDiagnostic, ScanSummary,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -187,4 +189,30 @@ fn json_scan_report_includes_hidden_suggestion_breakdown() {
     );
     assert_eq!(parsed["mode"], "full");
     assert_eq!(parsed["repo_level_rules_included"], true);
+}
+
+#[test]
+fn json_scan_report_includes_structured_diagnostics() {
+    let summary = ScanSummary {
+        root_path: PathBuf::from("demo"),
+        diagnostics: vec![ScanDiagnostic {
+            code: "workspace.package-scan-failed".to_string(),
+            severity: DiagnosticSeverity::Warning,
+            message: "Package scan failed; results are partial.".to_string(),
+            path: Some(PathBuf::from("packages/api")),
+        }],
+        ..ScanSummary::default()
+    };
+
+    let output =
+        render_scan_summary(&summary, OutputFormat::Json).expect("failed to render json summary");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&output).expect("output should be valid json");
+
+    assert_eq!(
+        parsed["diagnostics"][0]["code"],
+        "workspace.package-scan-failed"
+    );
+    assert_eq!(parsed["diagnostics"][0]["severity"], "warning");
+    assert_eq!(parsed["diagnostics"][0]["path"], "packages/api");
 }

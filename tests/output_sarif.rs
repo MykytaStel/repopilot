@@ -41,6 +41,11 @@ fn renders_valid_sarif_scan_summary() {
 
     assert_eq!(parsed["version"], "2.1.0");
     assert!(parsed["runs"].is_array());
+    assert_eq!(parsed["runs"][0]["properties"]["report"]["kind"], "sarif");
+    assert_eq!(
+        parsed["runs"][0]["properties"]["report"]["schema_version"],
+        "2.1.0"
+    );
 }
 
 #[test]

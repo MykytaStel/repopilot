@@ -1,0 +1,125 @@
+{
+  "formula_version": "risk-v2",
+  "cases": [
+    {
+      "name": "p3_info_floor",
+      "rule_id": "code-marker.todo",
+      "category": "CODE_QUALITY",
+      "severity": "INFO",
+      "confidence": "MEDIUM",
+      "expected_score": 5,
+      "expected_priority": "P3",
+      "expected_signals": ["severity.info"]
+    },
+    {
+      "name": "p3_low_default",
+      "rule_id": "code-marker.todo",
+      "category": "CODE_QUALITY",
+      "severity": "LOW",
+      "confidence": "MEDIUM",
+      "expected_score": 20,
+      "expected_priority": "P3",
+      "expected_signals": ["severity.low"]
+    },
+    {
+      "name": "p2_medium_default",
+      "rule_id": "code-quality.long-function",
+      "category": "CODE_QUALITY",
+      "severity": "MEDIUM",
+      "confidence": "MEDIUM",
+      "expected_score": 45,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.medium"]
+    },
+    {
+      "name": "p1_high_default",
+      "rule_id": "architecture.large-file",
+      "category": "ARCHITECTURE",
+      "severity": "HIGH",
+      "confidence": "MEDIUM",
+      "expected_score": 75,
+      "expected_priority": "P1",
+      "expected_signals": ["severity.high"]
+    },
+    {
+      "name": "p0_critical_default",
+      "rule_id": "security.private-key-candidate",
+      "category": "SECURITY",
+      "severity": "CRITICAL",
+      "confidence": "MEDIUM",
+      "expected_score": 100,
+      "expected_priority": "P0",
+      "expected_signals": ["severity.critical", "category.security"]
+    },
+    {
+      "name": "low_confidence_can_demote_high_severity",
+      "rule_id": "architecture.large-file",
+      "category": "ARCHITECTURE",
+      "severity": "HIGH",
+      "confidence": "LOW",
+      "expected_score": 60,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.high", "confidence.low"]
+    },
+    {
+      "name": "security_high_boost_stays_p1",
+      "rule_id": "security.secret-candidate",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "confidence": "MEDIUM",
+      "expected_score": 87,
+      "expected_priority": "P1",
+      "expected_signals": ["severity.high", "category.security"]
+    },
+    {
+      "name": "review_diff_medium_boost",
+      "rule_id": "architecture.large-file",
+      "category": "ARCHITECTURE",
+      "severity": "MEDIUM",
+      "confidence": "MEDIUM",
+      "in_diff": true,
+      "expected_score": 57,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.medium", "review.in-diff"]
+    },
+    {
+      "name": "graph_hub_medium_boost",
+      "rule_id": "code-quality.complex-file",
+      "category": "CODE_QUALITY",
+      "severity": "MEDIUM",
+      "confidence": "MEDIUM",
+      "graph_impact": "hub",
+      "expected_score": 53,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.medium", "graph.hub"]
+    },
+    {
+      "name": "large_cluster_medium_boost",
+      "rule_id": "language.rust.panic-risk",
+      "category": "CODE_QUALITY",
+      "severity": "MEDIUM",
+      "confidence": "MEDIUM",
+      "cluster_size": 16,
+      "expected_score": 52,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.medium", "cluster.repeated"]
+    },
+    {
+      "name": "stacked_security_diff_blast_radius_clamps_to_p0",
+      "rule_id": "security.secret-candidate",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "confidence": "MEDIUM",
+      "in_diff": true,
+      "blast_radius": true,
+      "expected_score": 100,
+      "expected_priority": "P0",
+      "expected_signals": [
+        "severity.high",
+        "category.security",
+        "review.in-diff",
+        "review.blast-radius"
+      ]
+    }
+  ]
+}

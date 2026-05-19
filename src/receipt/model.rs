@@ -1,10 +1,13 @@
+use crate::report::schema::ReportEnvelope;
+use crate::scan::types::DiagnosticSeverity;
 use serde::Serialize;
 
-pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 3;
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
     pub schema_version: u32,
+    pub report: ReportEnvelope,
     pub tool: String,
     pub version: String,
     pub generated_at: String,
@@ -13,6 +16,7 @@ pub struct AuditReceipt {
     pub scope: ReceiptScope,
     pub findings: ReceiptFindings,
     pub languages: Vec<ReceiptLanguage>,
+    pub diagnostics: Vec<ReceiptDiagnostic>,
     pub health_score: u8,
 }
 
@@ -68,4 +72,12 @@ pub struct ReceiptHiddenSuggestion {
 pub struct ReceiptLanguage {
     pub name: String,
     pub files_analyzed: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ReceiptDiagnostic {
+    pub code: String,
+    pub severity: DiagnosticSeverity,
+    pub message: String,
+    pub path: Option<String>,
 }
