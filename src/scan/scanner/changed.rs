@@ -36,7 +36,9 @@ pub fn scan_changed_with_config(
     base_ref: Option<&str>,
 ) -> io::Result<ScanSummary> {
     let start = Instant::now();
+    let discovery_start = Instant::now();
     let changed_scope = collect_changed_scope(path, base_ref)?;
+    let discovery_us = discovery_start.elapsed().as_micros() as u64;
     let repo_root = changed_scope.repo_root;
     let changed_files = changed_scope.changed_files;
 
@@ -242,13 +244,18 @@ pub fn scan_changed_with_config(
     facts.react_native = repo_context.react_native.clone();
     let framework_detection_us = framework_start.elapsed().as_micros() as u64;
 
+    let enrichment_start = Instant::now();
     for finding in &mut findings {
         finding.populate_recommendation();
         finding.id = stable_finding_key(finding, &repo_root);
     }
+    let enrichment_us = enrichment_start.elapsed().as_micros() as u64;
+    let risk_scoring_start = Instant::now();
     assess_findings(&mut findings, &repo_context);
     apply_graph_overlay(&mut findings, &coupling_graph);
     apply_cluster_overlay(&mut findings);
+    let risk_scoring_us = risk_scoring_start.elapsed().as_micros() as u64;
+    let finalization_start = Instant::now();
     super::summary::sort_findings(&mut findings);
 
     let cache_write_start = Instant::now();
@@ -259,7 +266,7 @@ pub fn scan_changed_with_config(
     facts.root_path = path.to_path_buf();
     let scan_duration_us = start.elapsed().as_micros() as u64;
 
-    Ok(build_scan_summary(
+    let mut summary = build_scan_summary(
         facts,
         findings,
         ScanSummaryParts {
@@ -270,14 +277,23 @@ pub fn scan_changed_with_config(
             coupling_graph: None,
             scan_duration_us,
             scan_timings: Some(ScanTimings {
+                discovery_us,
+                file_analysis_us: file_scan_us,
                 file_scan_us,
                 framework_detection_us,
                 post_scan_audits_us: 0,
+                enrichment_us,
+                risk_scoring_us,
+                report_finalization_us: 0,
             }),
             cache_telemetry: Some(cache_telemetry),
             diagnostics: Vec::new(),
         },
-    ))
+    );
+    if let Some(timings) = &mut summary.scan_timings {
+        timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
+    }
+    Ok(summary)
 }
 
 fn detect_react_native_profile(

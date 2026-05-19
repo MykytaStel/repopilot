@@ -135,6 +135,10 @@ Use `--verbose` when you need scan and render timing:
 repopilot scan . --verbose
 ```
 
+Use `--timing` when you need the engine pipeline breakdown. It reports
+discovery, file analysis, framework detection, project audits, enrichment, risk
+scoring, and report finalization separately.
+
 ---
 
 ## AI workflows

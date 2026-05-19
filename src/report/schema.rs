@@ -39,6 +39,10 @@ impl ReportEnvelope {
         Self::new("baseline-scan", SCAN_REPORT_SCHEMA_VERSION)
     }
 
+    pub fn review() -> Self {
+        Self::new("review", SCAN_REPORT_SCHEMA_VERSION)
+    }
+
     pub fn sarif() -> Self {
         Self::new("sarif", "2.1.0")
     }

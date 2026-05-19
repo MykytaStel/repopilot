@@ -1,4 +1,4 @@
-use super::file::{SkipReason, audit_file_inline, collect_file_facts, process_file};
+use super::file::{SkipReason, collect_file_facts, process_file};
 use super::summary::build_language_summary;
 use super::walker::collect_paths;
 use crate::audits::traits::FileAudit;
@@ -8,13 +8,26 @@ use crate::scan::facts::ScanFacts;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+pub(super) struct DiscoveredScanPaths {
+    pub(super) facts: ScanFacts,
+    pub(super) file_paths: Vec<PathBuf>,
+}
 
 pub(super) fn collect_and_audit_inline(
     path: &Path,
     config: &ScanConfig,
     file_audits: &[Box<dyn FileAudit>],
 ) -> io::Result<(ScanFacts, Vec<Finding>)> {
+    let discovered = discover_scan_paths(path, config)?;
+    analyze_discovered_files(discovered, file_audits, config)
+}
+
+pub(super) fn discover_scan_paths(
+    path: &Path,
+    config: &ScanConfig,
+) -> io::Result<DiscoveredScanPaths> {
     ensure_path_exists(path)?;
 
     let mut facts = ScanFacts {
@@ -24,18 +37,10 @@ pub(super) fn collect_and_audit_inline(
 
     if path.is_file() {
         facts.files_discovered = 1;
-        let mut languages: HashMap<String, usize> = HashMap::new();
-        let mut findings: Vec<Finding> = Vec::new();
-        audit_file_inline(
-            path,
-            &mut facts,
-            &mut languages,
-            file_audits,
-            config,
-            &mut findings,
-        )?;
-        facts.languages = build_language_summary(languages);
-        return Ok((facts, findings));
+        return Ok(DiscoveredScanPaths {
+            facts,
+            file_paths: vec![path.to_path_buf()],
+        });
     }
 
     let collected = collect_paths(path, config)?;
@@ -47,6 +52,19 @@ pub(super) fn collect_and_audit_inline(
     facts.directories_count = collected.directories_count;
 
     apply_max_files_limit(&mut file_paths, &mut facts, config);
+
+    Ok(DiscoveredScanPaths { facts, file_paths })
+}
+
+pub(super) fn analyze_discovered_files(
+    discovered: DiscoveredScanPaths,
+    file_audits: &[Box<dyn FileAudit>],
+    config: &ScanConfig,
+) -> io::Result<(ScanFacts, Vec<Finding>)> {
+    let DiscoveredScanPaths {
+        mut facts,
+        file_paths,
+    } = discovered;
 
     let results: Vec<io::Result<_>> = file_paths
         .par_iter()

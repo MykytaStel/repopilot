@@ -87,30 +87,6 @@ fn process_file_inner(
     })
 }
 
-pub(super) fn audit_file_inline(
-    path: &Path,
-    facts: &mut ScanFacts,
-    languages: &mut HashMap<String, usize>,
-    file_audits: &[Box<dyn FileAudit>],
-    config: &ScanConfig,
-    findings: &mut Vec<Finding>,
-) -> io::Result<()> {
-    let LoadedFile::Analyzable { full_facts, .. } = load_file_or_record_skip(path, facts, config)?
-    else {
-        return Ok(());
-    };
-
-    record_analyzed_file(facts, languages, &full_facts);
-
-    for audit in file_audits {
-        findings.extend(audit.audit(&full_facts, config));
-    }
-
-    facts.files.push(without_content(full_facts));
-
-    Ok(())
-}
-
 pub(super) fn collect_file_facts(
     path: &Path,
     facts: &mut ScanFacts,

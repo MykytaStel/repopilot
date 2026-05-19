@@ -2,7 +2,7 @@ use repopilot::findings::types::{Finding, FindingCategory, Severity};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::scan::types::{ScanDiagnostic, ScanSummary};
+use repopilot::scan::types::{ScanDiagnostic, ScanSummary, ScanTimings};
 use std::fs;
 use tempfile::tempdir;
 
@@ -192,4 +192,20 @@ fn diagnostic_helpers_separate_warnings_from_errors() {
         error_summary.first_error_diagnostic().unwrap().code,
         "scanner.fatal-stage"
     );
+}
+
+#[test]
+fn timing_accounting_uses_granular_file_pipeline_when_available() {
+    let timings = ScanTimings {
+        discovery_us: 10,
+        file_analysis_us: 40,
+        file_scan_us: 40,
+        framework_detection_us: 5,
+        post_scan_audits_us: 7,
+        enrichment_us: 3,
+        risk_scoring_us: 2,
+        report_finalization_us: 1,
+    };
+
+    assert_eq!(timings.accounted_engine_us(), 68);
 }

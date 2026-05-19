@@ -45,6 +45,11 @@ struct FileAnalysisStage {
     elapsed_us: u64,
 }
 
+struct DiscoveryStage {
+    discovered: collection::DiscoveredScanPaths,
+    elapsed_us: u64,
+}
+
 struct FrameworkDetectionStage {
     facts: crate::scan::facts::ScanFacts,
     elapsed_us: u64,
@@ -64,19 +69,45 @@ impl<'a> ScanEngine<'a> {
 
     pub fn run(self) -> io::Result<ScanSummary> {
         let start = Instant::now();
-        let file_stage = self.run_file_analysis()?;
+        let discovery_stage = self.run_discovery()?;
+        let file_stage = self.run_file_analysis(discovery_stage.discovered)?;
         let framework_stage = self.run_framework_detection(file_stage.facts);
         let mut project_stage =
             self.run_project_analysis(framework_stage.facts, file_stage.findings);
 
-        self.enrich_findings(
+        let enrichment_us = self.enrich_findings(&mut project_stage.findings);
+        let risk_scoring_us = self.score_findings(
             &project_stage.facts,
             &project_stage.coupling_graph,
             &mut project_stage.findings,
         );
 
         let scan_duration_us = start.elapsed().as_micros() as u64;
-        Ok(build_scan_summary(
+        let timings = ScanTimings {
+            discovery_us: discovery_stage.elapsed_us,
+            file_analysis_us: file_stage.elapsed_us,
+            file_scan_us: discovery_stage
+                .elapsed_us
+                .saturating_add(file_stage.elapsed_us),
+            framework_detection_us: framework_stage.elapsed_us,
+            post_scan_audits_us: project_stage.elapsed_us,
+            enrichment_us,
+            risk_scoring_us,
+            report_finalization_us: 0,
+        };
+
+        Ok(self.finalize_report(project_stage, scan_duration_us, timings))
+    }
+
+    fn finalize_report(
+        &self,
+        mut project_stage: ProjectAnalysisStage,
+        scan_duration_us: u64,
+        timings: ScanTimings,
+    ) -> ScanSummary {
+        let finalization_start = Instant::now();
+        summary::sort_findings(&mut project_stage.findings);
+        let mut summary = build_scan_summary(
             project_stage.facts,
             project_stage.findings,
             ScanSummaryParts {
@@ -86,22 +117,34 @@ impl<'a> ScanEngine<'a> {
                 repo_level_rules_included: true,
                 coupling_graph: Some(project_stage.coupling_graph),
                 scan_duration_us,
-                scan_timings: Some(ScanTimings {
-                    file_scan_us: file_stage.elapsed_us,
-                    framework_detection_us: framework_stage.elapsed_us,
-                    post_scan_audits_us: project_stage.elapsed_us,
-                }),
+                scan_timings: Some(timings),
                 cache_telemetry: None,
                 diagnostics: Vec::new(),
             },
-        ))
+        );
+        if let Some(timings) = &mut summary.scan_timings {
+            timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
+        }
+        summary
     }
 
-    fn run_file_analysis(&self) -> io::Result<FileAnalysisStage> {
+    fn run_discovery(&self) -> io::Result<DiscoveryStage> {
+        let start = Instant::now();
+        let discovered = collection::discover_scan_paths(self.path, self.config)?;
+        Ok(DiscoveryStage {
+            discovered,
+            elapsed_us: start.elapsed().as_micros() as u64,
+        })
+    }
+
+    fn run_file_analysis(
+        &self,
+        discovered: collection::DiscoveredScanPaths,
+    ) -> io::Result<FileAnalysisStage> {
         let start = Instant::now();
         let file_audits = build_file_audits(self.config);
         let (facts, findings) =
-            collection::collect_and_audit_inline(self.path, self.config, &file_audits)?;
+            collection::analyze_discovered_files(discovered, &file_audits, self.config)?;
         Ok(FileAnalysisStage {
             facts,
             findings,
@@ -167,21 +210,27 @@ impl<'a> ScanEngine<'a> {
         }
     }
 
-    fn enrich_findings(
-        &self,
-        facts: &crate::scan::facts::ScanFacts,
-        coupling_graph: &crate::graph::CouplingGraph,
-        findings: &mut [crate::findings::types::Finding],
-    ) {
+    fn enrich_findings(&self, findings: &mut [crate::findings::types::Finding]) -> u64 {
+        let start = Instant::now();
         for finding in findings.iter_mut() {
             finding.populate_recommendation();
             finding.id = stable_finding_key(finding, self.path);
         }
+        start.elapsed().as_micros() as u64
+    }
+
+    fn score_findings(
+        &self,
+        facts: &crate::scan::facts::ScanFacts,
+        coupling_graph: &crate::graph::CouplingGraph,
+        findings: &mut [crate::findings::types::Finding],
+    ) -> u64 {
+        let start = Instant::now();
         assess_findings(findings, facts);
         // Graph and cluster overlays are kept after the base scoring pass because
         // they depend on the complete cross-file project view.
         apply_graph_overlay(findings, coupling_graph);
         apply_cluster_overlay(findings);
-        summary::sort_findings(findings);
+        start.elapsed().as_micros() as u64
     }
 }
