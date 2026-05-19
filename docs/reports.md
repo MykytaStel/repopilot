@@ -17,6 +17,11 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
 {
   "schema_version": "0.13",
   "repopilot_version": "0.12.0",
+  "report": {
+    "kind": "scan",
+    "schema_version": "0.13",
+    "repopilot_version": "0.12.0"
+  },
   "root_path": ".",
   "files_analyzed": 42,
   "directories_count": 12,
@@ -27,6 +32,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
     "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
     "average_score": 0
   },
+  "diagnostics": [],
   "findings": []
 }
 ```
@@ -37,8 +43,10 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
 |---|---|---|
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
+| `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
+| `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 
 `schema_version` is intentionally separate from the binary version. Patch releases
 may fix bugs without changing the report schema, while future minor releases can
@@ -54,6 +62,9 @@ Schema `0.13` intentionally renamed scope counters for accuracy:
 - `repopilot compare` continues to read older JSON reports that do not contain
   `schema_version`;
 - future tools can branch on `schema_version` when parsing reports.
+- consumers should prefer `report.schema_version` when they want a single
+  envelope object, while top-level `schema_version` remains present during the
+  migration window.
 
 ## Baseline JSON reports
 
@@ -73,6 +84,11 @@ Example shape:
 {
   "schema_version": "0.13",
   "repopilot_version": "0.12.0",
+  "report": {
+    "kind": "baseline-scan",
+    "schema_version": "0.13",
+    "repopilot_version": "0.12.0"
+  },
   "root_path": ".",
   "files_analyzed": 42,
   "risk_summary": {

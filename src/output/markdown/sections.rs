@@ -4,7 +4,7 @@ use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::render_helpers::escape_table_cell;
 use crate::output::report_stats::{ReportStats, TOOL_VERSION};
 use crate::output::report_text::{markdown_severity_counts_text, named_counts_text};
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
 
 pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
@@ -38,6 +38,7 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         .unwrap();
     }
     render_hidden_suggestions_breakdown(output, summary);
+    render_diagnostics(output, summary);
     writeln!(output, "- **Files analyzed:** {}", summary.files_analyzed).unwrap();
     writeln!(
         output,
@@ -64,6 +65,38 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         .unwrap();
     }
     output.push('\n');
+}
+
+fn render_diagnostics(output: &mut String, summary: &ScanSummary) {
+    if summary.diagnostics.is_empty() {
+        return;
+    }
+
+    output.push_str("- **Diagnostics:**\n");
+    for diagnostic in &summary.diagnostics {
+        let path = diagnostic
+            .path
+            .as_ref()
+            .map(|path| format!(" `{}`", path.display()))
+            .unwrap_or_default();
+        writeln!(
+            output,
+            "  - `{}` `{}`{}: {}",
+            diagnostic_severity_label(diagnostic.severity),
+            diagnostic.code,
+            path,
+            diagnostic.message
+        )
+        .unwrap();
+    }
+}
+
+fn diagnostic_severity_label(severity: DiagnosticSeverity) -> &'static str {
+    match severity {
+        DiagnosticSeverity::Info => "info",
+        DiagnosticSeverity::Warning => "warning",
+        DiagnosticSeverity::Error => "error",
+    }
 }
 
 fn render_cache_telemetry(output: &mut String, summary: &ScanSummary) {

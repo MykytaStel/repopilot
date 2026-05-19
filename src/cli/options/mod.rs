@@ -7,12 +7,12 @@ pub mod inspect;
 pub mod review;
 pub mod scan;
 
-pub use ai::{AiCommands, AiContextOptions, AiOptions, AiPlanOptions, AiPromptOptions};
+pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use cache::{CacheCommands, CacheOptions};
 pub use compare::CompareOptions;
 pub use doctor::{DoctorOptions, InitOptions};
-pub use inspect::{ExplainOptions, InspectCommands, InspectOptions, KnowledgeOptions};
+pub use inspect::{InspectCommands, InspectOptions};
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
 
@@ -172,24 +172,4 @@ repopilot doctor . --format json\n  \
 repopilot doctor . --format markdown --output doctor.md"
     )]
     Doctor(DoctorOptions),
-
-    /// Hidden 0.x compatibility alias for `ai context`
-    #[command(hide = true)]
-    Vibe(AiContextOptions),
-
-    /// Hidden 0.x compatibility alias for `ai plan`
-    #[command(hide = true)]
-    Harden(AiPlanOptions),
-
-    /// Hidden 0.x compatibility alias for `ai prompt`
-    #[command(hide = true)]
-    Prompt(AiPromptOptions),
-
-    /// Hidden 0.x compatibility alias for `inspect explain`
-    #[command(hide = true)]
-    Explain(ExplainOptions),
-
-    /// Hidden 0.x compatibility alias for `inspect knowledge`
-    #[command(hide = true)]
-    Knowledge(KnowledgeOptions),
 }

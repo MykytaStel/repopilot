@@ -41,6 +41,7 @@ fn renders_valid_json_scan_summary() {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        diagnostics: Vec::new(),
     };
 
     let output =

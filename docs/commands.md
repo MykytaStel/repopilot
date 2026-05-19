@@ -149,7 +149,7 @@ repopilot ai context . --no-header | pbcopy
 ```
 
 Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
-The legacy `repopilot vibe` command still works in 0.x, but `repopilot ai context` is the stable command shape. The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
+The removed 0.x `repopilot vibe` alias is no longer part of the executable command surface. The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
 
 ### Hardening plan
 

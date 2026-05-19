@@ -144,44 +144,19 @@ fn inspect_commands_work() {
 }
 
 #[test]
-fn hidden_legacy_commands_remain_executable() {
+fn legacy_commands_are_removed_from_executable_surface() {
     let project = create_project();
 
-    let vibe = run_ok(
-        &["vibe", ".", "--focus", "security", "--budget", "2k"],
-        project.path(),
-    );
-    assert!(stdout(&vibe).contains("RepoPilot Vibe Check"));
-
-    let harden = run_ok(&["harden", ".", "--budget", "2k"], project.path());
-    assert!(stdout(&harden).contains("RepoPilot Harden Plan"));
-
-    let prompt = run_ok(&["prompt", ".", "--budget", "2k"], project.path());
-    assert!(stdout(&prompt).contains("RepoPilot Remediation Prompt"));
-
-    let explain = run_ok(
-        &[
-            "explain",
-            "src/lib.rs",
-            "--format",
-            "json",
-            "--rule",
-            "language.rust.panic-risk",
-            "--signal",
-            "rust.unwrap",
-        ],
-        project.path(),
-    );
-    let explain_json: Value = serde_json::from_slice(&explain.stdout).expect("legacy explain json");
-    assert!(explain_json["context"].is_object());
-
-    let knowledge = run_ok(
-        &["knowledge", "--section", "rules", "--format", "json"],
-        project.path(),
-    );
-    let knowledge_json: Value =
-        serde_json::from_slice::<Value>(&knowledge.stdout).expect("legacy knowledge json");
-    assert!(knowledge_json["summary"].is_object());
+    for command in ["vibe", "harden", "prompt", "explain", "knowledge"] {
+        let output = run(&[command, "."], project.path());
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "legacy command {command} should be rejected\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 #[test]

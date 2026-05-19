@@ -251,7 +251,7 @@ Scans the repository and formats findings as structured Markdown for pasting int
 The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, finding recommendations, and an approximate token count.
 `ai context` emits Markdown only and does not accept `--format`.
 
-The legacy `repopilot vibe` command still works in 0.x for compatibility, but `repopilot ai context` is the stable command shape.
+The removed 0.x `repopilot vibe` alias is no longer part of the executable command surface; use `repopilot ai context`.
 
 ### Synopsis
 
@@ -292,7 +292,7 @@ Scans the repository and formats findings as a Markdown hardening plan with P0/P
 
 `ai plan` emits Markdown only and does not accept `--format`.
 
-The legacy `repopilot harden` command still works in 0.x for compatibility, but `repopilot ai plan` is the stable command shape.
+The removed 0.x `repopilot harden` alias is no longer part of the executable command surface; use `repopilot ai plan`.
 
 ### Synopsis
 
@@ -325,7 +325,7 @@ Scans the repository and emits a Markdown prompt for a coding assistant, includi
 
 `ai prompt` emits Markdown only; it does not call an AI service or accept `--format`.
 
-The legacy `repopilot prompt` command still works in 0.x for compatibility, but `repopilot ai prompt` is the stable command shape.
+The removed 0.x `repopilot prompt` alias is no longer part of the executable command surface; use `repopilot ai prompt`.
 
 ### Synopsis
 
@@ -356,7 +356,7 @@ repopilot ai prompt . --output prompt.md
 
 Explains how RepoPilot classifies a single file before applying audits. This is an advanced diagnostic command for rule authors, false-positive debugging, and context-model development.
 
-The legacy `repopilot explain` command still works in 0.x for compatibility, but `repopilot inspect explain` is the stable command shape.
+The removed 0.x `repopilot explain` alias is no longer part of the executable command surface; use `repopilot inspect explain`.
 
 ### Synopsis
 
@@ -388,7 +388,7 @@ repopilot inspect explain src/App.tsx --format markdown --output explain.md
 
 Prints the bundled Knowledge Engine catalog: languages, frameworks, runtimes, paradigms, and rule applicability records. This is an advanced diagnostic command rather than a normal audit workflow.
 
-The legacy `repopilot knowledge` command still works in 0.x for compatibility, but `repopilot inspect knowledge` is the stable command shape.
+The removed 0.x `repopilot knowledge` alias is no longer part of the executable command surface; use `repopilot inspect knowledge`.
 
 ### Synopsis
 

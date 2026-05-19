@@ -2,7 +2,7 @@ use crate::findings::types::Finding;
 use crate::graph::CouplingGraph;
 use crate::scan::facts::ScanFacts;
 use crate::scan::types::LanguageSummary;
-use crate::scan::types::{ScanCacheTelemetry, ScanMode, ScanSummary, ScanTimings};
+use crate::scan::types::{ScanCacheTelemetry, ScanDiagnostic, ScanMode, ScanSummary, ScanTimings};
 use std::collections::HashMap;
 
 pub(super) fn sort_findings(findings: &mut [Finding]) {
@@ -37,6 +37,7 @@ pub(super) struct ScanSummaryParts {
     pub(super) scan_timings: Option<ScanTimings>,
     pub(super) cache_telemetry: Option<ScanCacheTelemetry>,
     pub(super) coupling_graph: Option<CouplingGraph>,
+    pub(super) diagnostics: Vec<ScanDiagnostic>,
 }
 
 pub(super) fn build_scan_summary(
@@ -78,5 +79,6 @@ pub(super) fn build_scan_summary(
         repopilotignore_path: facts.repopilotignore_path,
         scan_timings: parts.scan_timings,
         cache_telemetry: parts.cache_telemetry,
+        diagnostics: parts.diagnostics,
     }
 }

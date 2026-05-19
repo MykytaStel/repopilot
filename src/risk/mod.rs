@@ -9,8 +9,8 @@ mod summary;
 mod tests;
 
 pub use model::{
-    FORMULA_VERSION, GraphImpact, RiskAssessment, RiskInputs, RiskPriority, RiskSignal,
-    priority_for_score,
+    FORMULA_VERSION, GraphImpact, RiskAssessment, RiskFormula, RiskInputs, RiskPriority,
+    RiskSignal, priority_for_score,
 };
 pub use overlays::{
     apply_baseline_overlay, apply_blast_radius_overlay, apply_cluster_overlay, apply_graph_overlay,

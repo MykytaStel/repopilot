@@ -8,7 +8,6 @@ REPO_PATH="$ROOT_DIR"
 TMP_DIR=""
 TMP_CREATED=0
 KEEP_TMP=0
-RUN_LEGACY=1
 
 usage() {
   cat <<'EOF'
@@ -21,7 +20,6 @@ Options:
   --repo PATH        Repository or project path to smoke test. Defaults to this repo.
   --tmp-dir PATH     Directory for generated smoke artifacts. Defaults to mktemp.
   --keep-tmp         Keep generated smoke artifacts when using a temporary directory.
-  --skip-legacy      Skip hidden 0.x compatibility command checks.
   -h, --help         Show this help message.
 
 Examples:
@@ -47,10 +45,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --keep-tmp)
       KEEP_TMP=1
-      shift
-      ;;
-    --skip-legacy)
-      RUN_LEGACY=0
       shift
       ;;
     -h|--help)
@@ -263,25 +257,6 @@ assert_non_empty "$TMP_DIR/inspect-knowledge-rules.md"
 run_repopilot inspect explain "$EXPLAIN_FILE" --format json --output "$TMP_DIR/inspect-explain.json"
 assert_non_empty "$TMP_DIR/inspect-explain.json"
 validate_json_if_possible "$TMP_DIR/inspect-explain.json"
-
-if [[ "$RUN_LEGACY" -eq 1 ]]; then
-  run_repopilot vibe . --focus security --budget 2k --output "$TMP_DIR/legacy-vibe.md"
-  assert_non_empty "$TMP_DIR/legacy-vibe.md"
-
-  run_repopilot harden . --focus all --budget 2k --output "$TMP_DIR/legacy-harden.md"
-  assert_non_empty "$TMP_DIR/legacy-harden.md"
-
-  run_repopilot prompt . --focus quality --budget 2k --output "$TMP_DIR/legacy-prompt.md"
-  assert_non_empty "$TMP_DIR/legacy-prompt.md"
-
-  run_repopilot knowledge --format json --output "$TMP_DIR/legacy-knowledge.json"
-  assert_non_empty "$TMP_DIR/legacy-knowledge.json"
-  validate_json_if_possible "$TMP_DIR/legacy-knowledge.json"
-
-  run_repopilot explain "$EXPLAIN_FILE" --format json --output "$TMP_DIR/legacy-explain.json"
-  assert_non_empty "$TMP_DIR/legacy-explain.json"
-  validate_json_if_possible "$TMP_DIR/legacy-explain.json"
-fi
 
 echo
 echo "==> Product smoke suite passed"

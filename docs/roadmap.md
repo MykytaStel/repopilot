@@ -19,7 +19,7 @@ discipline, and distribution trust before adding broad custom execution surfaces
 
 | Version | Theme | Main outcome |
 |---|---|---|
-| 0.12 | Core foundation | Document the rule lifecycle, v1 gates, and local-first learning policy; refactor core scan and Knowledge Engine boundaries without public schema changes. |
+| 0.12 | Core foundation | Document the rule lifecycle, v1 gates, and local-first learning policy; start the API facade, ScanEngine pipeline, report envelope, diagnostics, and legacy alias cleanup. |
 | 0.13 | Local overlays MVP | Prototype local project/user knowledge overlays for calibration only, behind an explicit unstable surface. |
 | 0.14 | Rule-author workflow | Add validation and inspection workflows for rule authors, false-positive fixtures, and clearer decision debugging. |
 | 0.15 | Adoption hardening | Improve workspace noise, baseline ergonomics, and performance budgets for larger repositories. |
@@ -55,8 +55,8 @@ Not allowed for the 0.x line:
 RepoPilot can move to 1.0.0 only after the 0.20 review confirms:
 
 - stable primary command surface: `scan`, `review`, `baseline`, `compare`, `doctor`, `ai`, and `inspect`;
-- documented policy for legacy 0.x aliases;
-- stable JSON, SARIF, baseline, and receipt schema compatibility rules;
+- removed legacy 0.x aliases with documented replacements under `ai` and `inspect`;
+- stable JSON, SARIF, baseline, receipt, report-envelope, and diagnostics schema compatibility rules;
 - documented Knowledge Engine lifecycle from audit registration to risk calibration;
 - local-first trust model with no telemetry, source upload, hosted scanner, or LLM API calls;
 - release verification and product smoke suites pass from a clean release branch;
