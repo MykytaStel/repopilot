@@ -202,14 +202,20 @@ fn scan_visibility_profile(options: &ScanOptions) -> FindingVisibilityProfile {
 
 fn print_timing_breakdown(summary: &ScanSummary) {
     if let Some(timings) = &summary.scan_timings {
-        let total =
-            timings.file_scan_us + timings.framework_detection_us + timings.post_scan_audits_us;
         eprintln!(
             "\n[timing] File scan: {}ms · Framework detection: {}ms · Post-scan audits: {}ms · Engine total: {}ms",
             timings.file_scan_us / 1000,
             timings.framework_detection_us / 1000,
             timings.post_scan_audits_us / 1000,
-            total / 1000,
+            timings.accounted_engine_us() / 1000,
+        );
+        eprintln!(
+            "[timing] Pipeline: discovery {}ms · file analysis {}ms · enrichment {}ms · risk scoring {}ms · report finalization {}ms",
+            timings.discovery_us / 1000,
+            timings.file_analysis_us / 1000,
+            timings.enrichment_us / 1000,
+            timings.risk_scoring_us / 1000,
+            timings.report_finalization_us / 1000,
         );
     }
 

@@ -58,6 +58,27 @@ fn scan_duration_is_recorded() {
     );
 }
 
+#[test]
+fn scan_timings_expose_pipeline_stage_breakdown() {
+    let temp = tempdir().unwrap();
+    fs::write(temp.path().join("file.rs"), "fn main() {}\n").unwrap();
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
+    let timings = summary
+        .scan_timings
+        .expect("full scan should expose engine timings");
+
+    assert_eq!(
+        timings.file_scan_us,
+        timings.discovery_us + timings.file_analysis_us,
+        "legacy file_scan_us should remain the discovery + file analysis aggregate"
+    );
+    assert!(
+        timings.accounted_engine_us() >= timings.file_scan_us,
+        "accounted timing should include file scan plus later pipeline stages"
+    );
+}
+
 /// Verifies that parallel scan handles an empty directory cleanly without panicking.
 #[test]
 fn parallel_scan_empty_directory() {

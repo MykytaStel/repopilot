@@ -86,7 +86,8 @@ repopilot s <PATH> [OPTIONS]
 | `--min-severity` | `info\|low\|medium\|high\|critical` | — | Only show findings at or above this severity |
 | `--min-confidence` | `low\|medium\|high` | — | Only show findings at or above this confidence |
 | `--min-priority` | `p0\|p1\|p2\|p3` | — | Only show findings at or above this risk priority |
-| `--verbose` | flag | — | Print scan phase timing breakdown after the report |
+| `--verbose` | flag | — | Print scan/render timing after the report |
+| `--timing` | flag | — | Print pipeline timing for discovery, file analysis, framework detection, audits, enrichment, risk scoring, and report finalization |
 | `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
 
 `files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_analyzed` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.

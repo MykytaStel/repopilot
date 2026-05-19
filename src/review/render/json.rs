@@ -1,8 +1,11 @@
 use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
+use crate::report::schema::{REPOPILOT_VERSION, ReportEnvelope, SCAN_REPORT_SCHEMA_VERSION};
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
+use crate::risk::RiskSummary;
+use crate::scan::types::ScanDiagnostic;
 use serde::Serialize;
 
 pub fn render_json(
@@ -27,6 +30,9 @@ pub fn render_json(
         .collect::<Vec<_>>();
 
     let output = ReviewJsonReport {
+        schema_version: SCAN_REPORT_SCHEMA_VERSION,
+        repopilot_version: REPOPILOT_VERSION,
+        report: ReportEnvelope::review(),
         root_path: report.summary.root_path.to_string_lossy().to_string(),
         git_root: report.repo_root.to_string_lossy().to_string(),
         files_analyzed: report.summary.files_analyzed,
@@ -45,6 +51,7 @@ pub fn render_json(
             existing_in_diff_findings: report.existing_in_diff_count(),
             severity_counts: report.severity_counts(),
         },
+        risk_summary: RiskSummary::from_findings(&report.summary.findings),
         baseline: ReviewBaselineJsonMetadata {
             path: report
                 .baseline_path
@@ -52,6 +59,7 @@ pub fn render_json(
                 .map(|path| path.to_string_lossy().to_string()),
         },
         ci_gate: ci_gate.map(ReviewCiGateJsonMetadata::from),
+        diagnostics: &report.summary.diagnostics,
         findings,
     };
 
@@ -60,6 +68,9 @@ pub fn render_json(
 
 #[derive(Serialize)]
 struct ReviewJsonReport<'a> {
+    schema_version: &'static str,
+    repopilot_version: &'static str,
+    report: ReportEnvelope,
     root_path: String,
     git_root: String,
     files_analyzed: usize,
@@ -68,10 +79,17 @@ struct ReviewJsonReport<'a> {
     changed_files: &'a [ChangedFile],
     blast_radius: Vec<String>,
     review: ReviewJsonMetadata,
+    risk_summary: RiskSummary,
     baseline: ReviewBaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     ci_gate: Option<ReviewCiGateJsonMetadata>,
+    #[serde(skip_serializing_if = "diagnostics_empty")]
+    diagnostics: &'a [ScanDiagnostic],
     findings: Vec<ReviewJsonFinding<'a>>,
+}
+
+fn diagnostics_empty(value: &&[ScanDiagnostic]) -> bool {
+    value.is_empty()
 }
 
 #[derive(Serialize)]

@@ -24,12 +24,42 @@ pub struct Marker {
 /// Per-phase wall-clock timings captured during a scan.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScanTimings {
+    /// Time spent discovering candidate files before analysis (microseconds).
+    #[serde(default)]
+    pub discovery_us: u64,
+    /// Time spent loading files and running per-file audits (microseconds).
+    #[serde(default)]
+    pub file_analysis_us: u64,
     /// Time spent walking the file tree and running per-file audits (microseconds).
     pub file_scan_us: u64,
     /// Time spent detecting frameworks (microseconds).
     pub framework_detection_us: u64,
     /// Time spent running project, framework, and coupling audits (microseconds).
     pub post_scan_audits_us: u64,
+    /// Time spent populating recommendations, IDs, and derived finding metadata.
+    #[serde(default)]
+    pub enrichment_us: u64,
+    /// Time spent applying risk scoring and risk overlays.
+    #[serde(default)]
+    pub risk_scoring_us: u64,
+    /// Time spent building the final report summary object.
+    #[serde(default)]
+    pub report_finalization_us: u64,
+}
+
+impl ScanTimings {
+    pub fn accounted_engine_us(&self) -> u64 {
+        let file_pipeline_us = self
+            .file_scan_us
+            .max(self.discovery_us.saturating_add(self.file_analysis_us));
+
+        file_pipeline_us
+            .saturating_add(self.framework_detection_us)
+            .saturating_add(self.post_scan_audits_us)
+            .saturating_add(self.enrichment_us)
+            .saturating_add(self.risk_scoring_us)
+            .saturating_add(self.report_finalization_us)
+    }
 }
 
 /// Cache effectiveness and per-file cache decisions captured during changed scans.

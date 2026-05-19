@@ -46,6 +46,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
+| `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, and `report_finalization_us`. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 
 Diagnostics use `{ code, severity, message, path? }`. Recoverable diagnostics
@@ -112,6 +113,14 @@ Example shape:
   "findings": []
 }
 ```
+
+## Review JSON reports
+
+`repopilot review --format json` uses the same envelope policy with
+`report.kind = "review"`. Review reports include scan scope, changed files,
+blast-radius files, `risk_summary`, structured diagnostics, baseline metadata,
+CI gate metadata when requested, and per-finding `in_diff` / `baseline_status`
+classification.
 
 ## Audit receipt JSON
 
