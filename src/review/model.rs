@@ -1,4 +1,5 @@
 use crate::baseline::diff::BaselineStatus;
+use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::scan::types::ScanSummary;
@@ -110,6 +111,31 @@ impl ReviewReport {
 
     pub fn finding_status(&self, index: usize) -> Option<&ReviewFindingStatus> {
         self.findings.get(index)
+    }
+
+    pub fn apply_filter(&mut self, filter: &FindingFilter) {
+        self.retain_findings(|finding| filter.matches(finding));
+    }
+
+    pub fn retain_findings<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Finding) -> bool,
+    {
+        let mut paired = self
+            .summary
+            .findings
+            .drain(..)
+            .zip(self.findings.drain(..))
+            .collect::<Vec<_>>();
+
+        paired.retain(|(finding, _)| keep(finding));
+
+        for (finding, status) in paired {
+            self.summary.findings.push(finding);
+            self.findings.push(status);
+        }
+
+        recompute_summary_metrics(&mut self.summary);
     }
 }
 

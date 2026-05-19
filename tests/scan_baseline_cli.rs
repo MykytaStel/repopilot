@@ -182,6 +182,51 @@ fn scan_with_baseline_sarif_includes_baseline_properties() {
 }
 
 #[test]
+fn scan_min_priority_preserves_baseline_status_alignment() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_project_with_secret(temp.path(), "config");
+    create_baseline(temp.path());
+    write_project_with_secret(temp.path(), "creds");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--baseline",
+            ".repopilot/baseline.json",
+            "--format",
+            "json",
+            "--min-priority",
+            "p3",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run scan");
+
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
+    let findings = json["findings"]
+        .as_array()
+        .expect("findings should be an array");
+
+    assert_eq!(json["baseline"]["new_findings"], 1);
+    assert_eq!(json["baseline"]["existing_findings"], 1);
+    assert_eq!(findings.len(), 2);
+    assert!(findings.iter().any(|finding| {
+        finding["baseline_status"] == "existing"
+            && finding["evidence"][0]["path"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("src/config.rs"))
+    }));
+    assert!(findings.iter().any(|finding| {
+        finding["baseline_status"] == "new"
+            && finding["evidence"][0]["path"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("src/creds.rs"))
+    }));
+}
+
+#[test]
 fn fail_on_new_high_passes_when_no_new_high_findings_exist() {
     let temp = tempdir().expect("failed to create temp dir");
     write_project_with_secret(temp.path(), "config");

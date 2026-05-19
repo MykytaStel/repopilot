@@ -83,6 +83,19 @@ impl RiskPriority {
             Self::P3 => "P3",
         }
     }
+
+    pub fn rank(self) -> u8 {
+        match self {
+            Self::P0 => 0,
+            Self::P1 => 1,
+            Self::P2 => 2,
+            Self::P3 => 3,
+        }
+    }
+
+    pub fn is_at_least(self, threshold: Self) -> bool {
+        self.rank() <= threshold.rank()
+    }
 }
 
 pub(super) fn push_adjustment(

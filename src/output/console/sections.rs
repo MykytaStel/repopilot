@@ -255,8 +255,9 @@ pub(crate) fn render_top_risk_clusters(output: &mut String, findings: &[Finding]
     let finding_refs = findings.iter().collect::<Vec<_>>();
     let mut clusters = clusters_by_rule_scope(&finding_refs);
     clusters.sort_by(|left, right| {
-        priority_rank(left.priority)
-            .cmp(&priority_rank(right.priority))
+        left.priority
+            .rank()
+            .cmp(&right.priority.rank())
             .then_with(|| right.max_score.cmp(&left.max_score))
             .then_with(|| right.findings.len().cmp(&left.findings.len()))
             .then_with(|| left.rule_id.cmp(right.rule_id))
@@ -388,15 +389,6 @@ fn render_scan_input(output: &mut String, summary: &ScanSummary) {
             summary.files_skipped_low_signal
         )
         .unwrap();
-    }
-}
-
-fn priority_rank(priority: RiskPriority) -> u8 {
-    match priority {
-        RiskPriority::P0 => 0,
-        RiskPriority::P1 => 1,
-        RiskPriority::P2 => 2,
-        RiskPriority::P3 => 3,
     }
 }
 

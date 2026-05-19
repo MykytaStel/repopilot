@@ -4,6 +4,8 @@ pub mod cache_inspect;
 pub mod compare;
 pub mod doctor;
 pub mod explain;
+pub(crate) mod filters;
+pub(crate) mod focus;
 pub mod harden;
 pub mod init;
 pub mod knowledge;
@@ -12,21 +14,12 @@ mod progress;
 pub mod prompt;
 pub mod review;
 pub mod scan;
+pub(crate) mod scan_config;
 pub mod vibe;
 
-use crate::cli::{
-    AiCommands, Cli, Commands, ConfidenceArg, InspectCommands, PriorityArg, ReviewOptions,
-    ScanOptions, SeverityArg,
-};
-use repopilot::config::model::RepoPilotConfig;
-use repopilot::findings::types::{Confidence, Finding, Severity};
-use repopilot::output::vibe::VibeCategory;
-use repopilot::risk::RiskPriority;
-use repopilot::scan::config::ScanConfig;
-use repopilot::scan::types::ScanSummary;
+use crate::cli::{AiCommands, Cli, Commands, InspectCommands};
 use std::fmt;
 
-pub const VALID_FOCUS_VALUES: &str = "security, arch, architecture, quality, framework, all";
 pub const EXIT_FINDINGS: i32 = 1;
 pub const EXIT_USAGE: i32 = 2;
 pub const EXIT_RUNTIME: i32 = 3;
@@ -135,140 +128,3 @@ impl fmt::Display for CliExit {
 }
 
 impl std::error::Error for CliExit {}
-
-pub fn severity_arg_into(arg: SeverityArg) -> Severity {
-    match arg {
-        SeverityArg::Info => Severity::Info,
-        SeverityArg::Low => Severity::Low,
-        SeverityArg::Medium => Severity::Medium,
-        SeverityArg::High => Severity::High,
-        SeverityArg::Critical => Severity::Critical,
-    }
-}
-
-pub fn confidence_arg_into(arg: ConfidenceArg) -> Confidence {
-    arg.into()
-}
-
-pub fn priority_arg_into(arg: PriorityArg) -> RiskPriority {
-    arg.into()
-}
-
-pub fn parse_focus_category(
-    focus: Option<&str>,
-) -> Result<Option<VibeCategory>, Box<dyn std::error::Error>> {
-    match focus {
-        Some(value) => Ok(Some(value.parse::<VibeCategory>().map_err(|_| {
-            CliExit {
-                code: EXIT_USAGE,
-                message: format!("Invalid focus '{value}'. Expected: {VALID_FOCUS_VALUES}"),
-            }
-        })?)),
-        None => Ok(None),
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ScanConfigOverrides {
-    pub max_file_loc: Option<usize>,
-    pub max_directory_modules: Option<usize>,
-    pub max_directory_depth: Option<usize>,
-    pub exclude_patterns: Vec<String>,
-    pub include_low_signal: bool,
-    pub max_file_size: Option<u64>,
-    pub max_files: Option<usize>,
-}
-
-pub fn build_scan_config(
-    repo_config: &RepoPilotConfig,
-    overrides: ScanConfigOverrides,
-) -> ScanConfig {
-    let mut config = repo_config.to_scan_config();
-
-    if let Some(threshold) = overrides.max_file_loc {
-        config = config.with_large_file_loc_threshold(threshold);
-    }
-
-    if let Some(modules) = overrides.max_directory_modules {
-        config.max_directory_modules = modules;
-    }
-
-    if let Some(depth) = overrides.max_directory_depth {
-        config.max_directory_depth = depth;
-    }
-
-    config.exclude_patterns = overrides.exclude_patterns;
-    config.include_low_signal = overrides.include_low_signal;
-    if let Some(bytes) = overrides.max_file_size {
-        config.max_file_bytes = bytes;
-    }
-    config.max_files = overrides.max_files;
-
-    config
-}
-
-pub fn apply_min_severity_filter(summary: &mut ScanSummary, min: Severity) {
-    summary.findings.retain(|finding| finding.severity >= min);
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
-}
-
-pub fn apply_min_confidence_filter(summary: &mut ScanSummary, min: Confidence) {
-    summary
-        .findings
-        .retain(|finding| finding_meets_min_confidence(finding, min));
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
-}
-
-pub fn apply_min_priority_filter(summary: &mut ScanSummary, min: RiskPriority) {
-    summary
-        .findings
-        .retain(|finding| finding_meets_min_priority(finding, min));
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
-}
-
-pub fn finding_meets_min_priority(finding: &Finding, min: RiskPriority) -> bool {
-    priority_rank(finding.risk.priority) <= priority_rank(min)
-}
-
-pub fn finding_meets_min_confidence(finding: &Finding, min: Confidence) -> bool {
-    finding.confidence >= min
-}
-
-fn priority_rank(priority: RiskPriority) -> u8 {
-    match priority {
-        RiskPriority::P0 => 0,
-        RiskPriority::P1 => 1,
-        RiskPriority::P2 => 2,
-        RiskPriority::P3 => 3,
-    }
-}
-
-pub fn scan_options_min_severity(options: &ScanOptions) -> Option<Severity> {
-    options.min_severity.map(severity_arg_into)
-}
-
-pub fn scan_options_min_confidence(options: &ScanOptions) -> Option<Confidence> {
-    options.min_confidence.map(confidence_arg_into)
-}
-
-pub fn scan_options_min_priority(options: &ScanOptions) -> Option<RiskPriority> {
-    options.min_priority.map(priority_arg_into)
-}
-
-pub fn review_options_min_severity(options: &ReviewOptions) -> Option<Severity> {
-    options.min_severity.map(severity_arg_into)
-}
-
-pub fn review_options_min_confidence(options: &ReviewOptions) -> Option<Confidence> {
-    options.min_confidence.map(confidence_arg_into)
-}
-
-pub fn review_options_min_priority(options: &ReviewOptions) -> Option<RiskPriority> {
-    options.min_priority.map(priority_arg_into)
-}

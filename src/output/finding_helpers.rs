@@ -98,7 +98,7 @@ fn build_cluster<'a>(
     let priority = group
         .iter()
         .map(|finding| finding.risk.priority)
-        .min_by_key(|priority| priority_rank(*priority))
+        .min_by_key(|priority| priority.rank())
         .unwrap_or(first.risk.priority);
     let title = cluster_title(first, group.len(), scope.as_deref());
 
@@ -150,14 +150,5 @@ fn cluster_scope_for_path(path: &std::path::Path) -> String {
         (Some(first), Some(second)) => format!("{first}/{second}"),
         (Some(first), None) => first.clone(),
         _ => ".".to_string(),
-    }
-}
-
-fn priority_rank(priority: RiskPriority) -> u8 {
-    match priority {
-        RiskPriority::P0 => 0,
-        RiskPriority::P1 => 1,
-        RiskPriority::P2 => 2,
-        RiskPriority::P3 => 3,
     }
 }

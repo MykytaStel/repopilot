@@ -1,5 +1,5 @@
 use crate::cli::{CompareOutputFormatArg, SeverityArg};
-use crate::commands::severity_arg_into;
+use crate::commands::filters::severity_arg_into;
 use repopilot::explain::{build_explain_report, render_explain_report};
 use repopilot::output::OutputFormat;
 use repopilot::report::writer::write_report;
