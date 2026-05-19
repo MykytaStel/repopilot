@@ -248,3 +248,17 @@ repopilot scan . --format json --output before.json
 repopilot scan . --format json --output after.json
 repopilot compare before.json after.json --format markdown
 ```
+
+
+## Machine-readable DTO ownership
+
+All machine-readable JSON DTOs live in `report::schema`:
+
+- scan JSON reports;
+- baseline scan JSON reports;
+- review JSON reports;
+- report envelope parsing helpers.
+
+Output modules should render these DTOs instead of owning separate schema
+structures. This keeps CLI output, embedded API usage, and compatibility parsing
+aligned.
