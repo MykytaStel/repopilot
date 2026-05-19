@@ -109,13 +109,15 @@ Size values accept raw bytes plus `kb`, `mb`, and `gb` suffixes. By default, low
 
 JSON reports expose this accounting with `files_discovered`, `files_analyzed` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `large_files_skipped`, and `skipped_bytes`.
 
-### Filtering by severity
+### Filtering by severity, confidence, and priority
 
-Use `--min-severity` to reduce local report noise while keeping the same rules enabled:
+Use `--min-severity` and `--min-confidence` to reduce local report noise while keeping the same rules enabled:
 
 ```bash
 repopilot scan . --min-severity high
 repopilot review . --min-severity high
+repopilot scan . --min-confidence high
+repopilot review . --base origin/main --min-confidence medium
 ```
 
 Use `--min-priority` when you want risk-ranked output instead of severity-only

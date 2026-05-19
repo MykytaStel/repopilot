@@ -1,23 +1,19 @@
 use crate::cli::ReviewOptions;
+use crate::commands::filters::{review_pre_diff_filter, review_priority_filter};
 use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::{
-    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_severity_filter,
-    build_scan_config, finding_meets_min_priority, review_options_min_priority,
-    review_options_min_severity,
-};
+use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
+use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::report::writer::write_report;
-use repopilot::review::model::ReviewReport;
 use repopilot::review::render::render;
 use repopilot::review::{build_review_report, review_report_for_ci};
-use repopilot::risk::RiskPriority;
 use repopilot::scan::scanner::scan_path_with_config;
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let min_severity = review_options_min_severity(&options);
-    let min_priority = review_options_min_priority(&options);
+    let pre_diff_filter = review_pre_diff_filter(&options);
+    let priority_filter = review_priority_filter(&options);
     let fail_on_priority = options.fail_on_priority.map(Into::into);
 
     if options.fail_on.is_some() && fail_on_priority.is_some() {
@@ -52,8 +48,8 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let mut summary = scan_path_with_config(&options.path, &scan_config)?;
     finish_spinner(pb);
 
-    if let Some(min) = min_severity {
-        apply_min_severity_filter(&mut summary, min);
+    if !pre_diff_filter.is_empty() {
+        pre_diff_filter.apply_to_summary(&mut summary);
     }
 
     let baseline_file = match options.baseline {
@@ -70,8 +66,8 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         options.head.as_deref(),
         baseline_ref,
     )?;
-    if let Some(min) = min_priority {
-        apply_min_priority_filter_to_review_report(&mut review_report, min);
+    if !priority_filter.is_empty() {
+        review_report.apply_filter(&priority_filter);
     }
 
     let ci_report = review_report_for_ci(&review_report);
@@ -97,25 +93,4 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-}
-
-fn apply_min_priority_filter_to_review_report(report: &mut ReviewReport, min: RiskPriority) {
-    let mut paired = report
-        .summary
-        .findings
-        .drain(..)
-        .zip(report.findings.drain(..))
-        .collect::<Vec<_>>();
-
-    paired.retain(|(finding, _)| finding_meets_min_priority(finding, min));
-
-    for (finding, status) in paired {
-        report.summary.findings.push(finding);
-        report.findings.push(status);
-    }
-
-    report.summary.health_score = repopilot::scan::types::ScanSummary::compute_health_score(
-        &report.summary.findings,
-        report.summary.non_empty_lines,
-    );
 }

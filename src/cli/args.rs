@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 use repopilot::baseline::gate::FailOn;
-use repopilot::findings::types::Severity;
+use repopilot::findings::types::{Confidence, Severity};
 use repopilot::output::OutputFormat;
 use repopilot::risk::RiskPriority;
 
@@ -27,6 +27,13 @@ pub enum SeverityArg {
     Medium,
     High,
     Critical,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum ConfidenceArg {
+    Low,
+    Medium,
+    High,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -83,6 +90,16 @@ impl From<OutputFormatArg> for OutputFormat {
             OutputFormatArg::Json => OutputFormat::Json,
             OutputFormatArg::Markdown => OutputFormat::Markdown,
             OutputFormatArg::Sarif => OutputFormat::Sarif,
+        }
+    }
+}
+
+impl From<ConfidenceArg> for Confidence {
+    fn from(value: ConfidenceArg) -> Self {
+        match value {
+            ConfidenceArg::Low => Confidence::Low,
+            ConfidenceArg::Medium => Confidence::Medium,
+            ConfidenceArg::High => Confidence::High,
         }
     }
 }

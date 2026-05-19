@@ -189,12 +189,7 @@ fn cluster_priority(cluster: &RuleCluster<'_>) -> u8 {
 }
 
 fn priority_rank(cluster: &RuleCluster<'_>) -> u8 {
-    match cluster.priority {
-        crate::risk::RiskPriority::P0 => 0,
-        crate::risk::RiskPriority::P1 => 1,
-        crate::risk::RiskPriority::P2 => 2,
-        crate::risk::RiskPriority::P3 => 3,
-    }
+    cluster.priority.rank()
 }
 
 fn legacy_priority_rank(finding: &Finding) -> u8 {

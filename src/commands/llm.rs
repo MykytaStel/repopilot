@@ -1,5 +1,6 @@
+use crate::commands::focus::parse_focus_category;
 use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::{ScanConfigOverrides, build_scan_config, parse_focus_category};
+use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory};
 use repopilot::report::writer::write_report;

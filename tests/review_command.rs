@@ -65,6 +65,85 @@ fn review_treats_untracked_files_as_fully_changed() {
 }
 
 #[test]
+fn review_min_confidence_keeps_only_high_confidence_findings() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// TODO: medium-confidence review note\nconst API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to modify source file");
+
+    let json = run_review_json(
+        temp.path(),
+        &[
+            "review",
+            ".",
+            "--format",
+            "json",
+            "--min-confidence",
+            "high",
+        ],
+    );
+    let findings = json["findings"].as_array().unwrap();
+
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["confidence"] == "HIGH")
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["rule_id"] == "security.secret-candidate")
+    );
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["rule_id"] != "code-marker.todo")
+    );
+}
+
+#[test]
+fn review_min_priority_preserves_in_diff_status_alignment() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(
+        temp.path(),
+        "config",
+        "const API_KEY: &str = \"abc12345\";\n",
+    );
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// TODO: changed low finding\n",
+    )
+    .expect("failed to modify source file");
+
+    let json = run_review_json(
+        temp.path(),
+        &["review", ".", "--format", "json", "--min-priority", "p3"],
+    );
+    let findings = json["findings"].as_array().unwrap();
+
+    assert!(findings.iter().any(|finding| {
+        finding["rule_id"] == "security.secret-candidate" && finding["in_diff"] == false
+    }));
+    assert!(
+        findings.iter().any(|finding| {
+            finding["rule_id"] == "code-marker.todo" && finding["in_diff"] == true
+        })
+    );
+    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert_eq!(json["review"]["out_of_diff_findings"], 1);
+}
+
+#[test]
 fn review_accepts_file_paths() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());

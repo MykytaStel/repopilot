@@ -271,3 +271,94 @@ fn scan_max_file_size_accepts_byte_units() {
         assert_eq!(json["large_files_skipped"], 0);
     }
 }
+
+#[test]
+fn scan_min_confidence_keeps_only_high_confidence_findings() {
+    let temp = tempdir().expect("failed to create temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("failed to create src dir");
+    fs::create_dir_all(temp.path().join("tests")).expect("failed to create tests dir");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// TODO: medium-confidence follow-up\nconst API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to write source file");
+    fs::write(temp.path().join("tests/lib.rs"), "fn covers_lib() {}\n")
+        .expect("failed to write test file");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+            "--min-confidence",
+            "high",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
+    let findings = json["findings"]
+        .as_array()
+        .expect("findings should be an array");
+
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["confidence"] == "HIGH")
+    );
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["rule_id"] == "security.secret-candidate")
+    );
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["rule_id"] != "code-marker.todo")
+    );
+}
+
+#[test]
+fn scan_rule_with_min_priority_keeps_rule_filter_strict_visibility() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let content = (0..20)
+        .map(|index| format!("pub fn function_{index}() {{}}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(temp.path().join("large.rs"), content).expect("failed to write source file");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--format",
+            "json",
+            "--max-file-loc",
+            "10",
+            "--rule",
+            "architecture.large-file",
+            "--min-priority",
+            "p3",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
+    let findings = json["findings"]
+        .as_array()
+        .expect("findings should be an array");
+
+    assert_eq!(json["visibility_profile"], "strict");
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["rule_id"] == "architecture.large-file")
+    );
+}

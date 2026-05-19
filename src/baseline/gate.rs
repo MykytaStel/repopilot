@@ -83,20 +83,7 @@ fn finding_matches(
                 && finding.severity.is_at_least(&threshold)
         }
         FailOn::Any(threshold) => finding.severity.is_at_least(&threshold),
-        FailOn::Priority(threshold) => priority_is_at_least(finding.risk.priority, threshold),
-    }
-}
-
-fn priority_is_at_least(priority: RiskPriority, threshold: RiskPriority) -> bool {
-    priority_rank(priority) <= priority_rank(threshold)
-}
-
-fn priority_rank(priority: RiskPriority) -> u8 {
-    match priority {
-        RiskPriority::P0 => 0,
-        RiskPriority::P1 => 1,
-        RiskPriority::P2 => 2,
-        RiskPriority::P3 => 3,
+        FailOn::Priority(threshold) => finding.risk.priority.is_at_least(threshold),
     }
 }
 

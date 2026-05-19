@@ -1,13 +1,9 @@
 use crate::cli::ScanOptions;
+use crate::commands::filters::{scan_pre_visibility_filter, scan_priority_filter};
 use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::{
-    CliExit, EXIT_FINDINGS, EXIT_USAGE, ScanConfigOverrides, apply_min_priority_filter,
-    apply_min_severity_filter, build_scan_config, finding_meets_min_priority,
-    scan_options_min_priority, scan_options_min_severity,
-};
-use repopilot::baseline::diff::{
-    BaselineScanReport, all_findings_new, diff_summary_against_baseline,
-};
+use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
+use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
+use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
@@ -17,7 +13,6 @@ use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
-use repopilot::risk::RiskPriority;
 use repopilot::scan::scanner::{scan_changed_with_config, scan_path_with_config};
 use repopilot::scan::types::ScanSummary;
 use repopilot::scan::workspace_scan::scan_workspace_with_config;
@@ -25,8 +20,8 @@ use std::path::Path;
 use std::time::Instant;
 
 pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let min_severity = scan_options_min_severity(&options);
-    let min_priority = scan_options_min_priority(&options);
+    let pre_visibility_filter = scan_pre_visibility_filter(&options);
+    let priority_filter = scan_priority_filter(&options);
     let fail_on_priority = options.fail_on_priority.map(Into::into);
 
     if options.fail_on.is_some() && fail_on_priority.is_some() {
@@ -101,12 +96,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         apply_local_feedback(&mut summary, &options.path)?;
     }
 
-    if let Some(min) = min_severity {
-        apply_min_severity_filter(&mut summary, min);
-    }
-
-    if !options.rule.is_empty() {
-        apply_rule_filter(&mut summary, &options.rule);
+    if !pre_visibility_filter.is_empty() {
+        pre_visibility_filter.apply_to_summary(&mut summary);
     }
 
     let visibility_profile = scan_visibility_profile(&options);
@@ -120,8 +111,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             }
             None => all_findings_new(summary),
         };
-        if let Some(min) = min_priority {
-            apply_min_priority_filter_to_baseline_report(&mut baseline_report, min);
+        if !priority_filter.is_empty() {
+            baseline_report.apply_filter(&priority_filter);
         }
 
         let ci_gate = options
@@ -166,8 +157,8 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    if let Some(min) = min_priority {
-        apply_min_priority_filter(&mut summary, min);
+    if !priority_filter.is_empty() {
+        priority_filter.apply_to_summary(&mut summary);
     }
 
     let render_start = Instant::now();
@@ -192,38 +183,6 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-}
-
-fn apply_min_priority_filter_to_baseline_report(
-    report: &mut BaselineScanReport,
-    min: RiskPriority,
-) {
-    let mut paired = report
-        .summary
-        .findings
-        .drain(..)
-        .zip(report.findings.drain(..))
-        .collect::<Vec<_>>();
-
-    paired.retain(|(finding, _)| finding_meets_min_priority(finding, min));
-
-    for (finding, status) in paired {
-        report.summary.findings.push(finding);
-        report.findings.push(status);
-    }
-
-    report.summary.visible_findings_count = report.summary.findings.len();
-    report.summary.health_score =
-        ScanSummary::compute_health_score(&report.summary.findings, report.summary.non_empty_lines);
-}
-
-fn apply_rule_filter(summary: &mut ScanSummary, rules: &[String]) {
-    summary
-        .findings
-        .retain(|f| rules.iter().any(|r| r == &f.rule_id));
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
 }
 
 fn scan_visibility_profile(options: &ScanOptions) -> FindingVisibilityProfile {

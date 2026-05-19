@@ -1,5 +1,5 @@
 use crate::cli::CompareOutputFormatArg;
-use crate::commands::{ScanConfigOverrides, build_scan_config};
+use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::doctor::{build_doctor_report, render_doctor_report};

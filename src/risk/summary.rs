@@ -32,7 +32,7 @@ impl RiskSummary {
 
         for finding in findings {
             counts.increment(finding.risk.priority);
-            if priority_rank(finding.risk.priority) < priority_rank(highest_priority) {
+            if finding.risk.priority.rank() < highest_priority.rank() {
                 highest_priority = finding.risk.priority;
             }
             score_sum += finding.risk.score as usize;
@@ -70,14 +70,5 @@ impl RiskPriorityCounts {
             RiskPriority::P2 => self.p2 += 1,
             RiskPriority::P3 => self.p3 += 1,
         }
-    }
-}
-
-fn priority_rank(priority: RiskPriority) -> u8 {
-    match priority {
-        RiskPriority::P0 => 0,
-        RiskPriority::P1 => 1,
-        RiskPriority::P2 => 2,
-        RiskPriority::P3 => 3,
     }
 }

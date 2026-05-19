@@ -65,12 +65,7 @@ fn recommendation_clusters<'a>(
 }
 
 fn priority_rank(cluster: &RuleCluster<'_>) -> u8 {
-    match cluster.priority {
-        crate::risk::RiskPriority::P0 => 0,
-        crate::risk::RiskPriority::P1 => 1,
-        crate::risk::RiskPriority::P2 => 2,
-        crate::risk::RiskPriority::P3 => 3,
-    }
+    cluster.priority.rank()
 }
 
 pub(super) fn render_footer(

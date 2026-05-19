@@ -1,5 +1,6 @@
 use crate::baseline::key::stable_finding_key;
 use crate::baseline::model::Baseline;
+use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::Finding;
 use crate::risk::apply_baseline_overlay;
 use crate::scan::types::ScanSummary;
@@ -67,6 +68,31 @@ impl BaselineScanReport {
                 (self.finding_status(index) == status).then_some(finding)
             })
             .collect()
+    }
+
+    pub fn apply_filter(&mut self, filter: &FindingFilter) {
+        self.retain_findings(|finding| filter.matches(finding));
+    }
+
+    pub fn retain_findings<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&Finding) -> bool,
+    {
+        let mut paired = self
+            .summary
+            .findings
+            .drain(..)
+            .zip(self.findings.drain(..))
+            .collect::<Vec<_>>();
+
+        paired.retain(|(finding, _)| keep(finding));
+
+        for (finding, status) in paired {
+            self.summary.findings.push(finding);
+            self.findings.push(status);
+        }
+
+        recompute_summary_metrics(&mut self.summary);
     }
 }
 
