@@ -364,6 +364,7 @@ fn build_finding(
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

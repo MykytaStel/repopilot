@@ -3,7 +3,8 @@ mod options;
 
 pub use args::{
     CompareOutputFormatArg, ConfidenceArg, FailOnArg, KnowledgeSectionArg, OutputFormatArg,
-    PriorityArg, ScanProfileArg, SeverityArg, parse_byte_size, parse_token_budget,
+    PriorityArg, RuleLifecycleArg, ScanProfileArg, SeverityArg, SignalSourceArg, parse_byte_size,
+    parse_token_budget,
 };
 pub use options::*;
 

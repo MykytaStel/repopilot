@@ -1,0 +1,12 @@
+{
+  "fixtures": [
+    {
+      "path": "true_positive",
+      "expected_rule_ids": ["language.rust.panic-risk"]
+    },
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    }
+  ]
+}

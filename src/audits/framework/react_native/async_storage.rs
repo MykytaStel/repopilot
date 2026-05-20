@@ -51,6 +51,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
                         "https://react-native-async-storage.github.io/async-storage/docs/install"
                             .to_string(),
                     ),
+                    provenance: Default::default(),
                     risk: Default::default(),
                 });
             }

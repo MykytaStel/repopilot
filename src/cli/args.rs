@@ -3,6 +3,7 @@ use repopilot::baseline::gate::FailOn;
 use repopilot::findings::types::{Confidence, Severity};
 use repopilot::output::OutputFormat;
 use repopilot::risk::RiskPriority;
+use repopilot::rules::{RuleLifecycle, SignalSource};
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum OutputFormatArg {
@@ -58,6 +59,26 @@ pub enum KnowledgeSectionArg {
     Runtimes,
     Paradigms,
     Rules,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum RuleLifecycleArg {
+    Experimental,
+    Preview,
+    Stable,
+    Deprecated,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum SignalSourceArg {
+    TextHeuristic,
+    Ast,
+    ConfigFile,
+    DependencyManifest,
+    ImportGraph,
+    FrameworkDetector,
+    GitDiff,
+    Mixed,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -126,6 +147,32 @@ impl From<FailOnArg> for FailOn {
             FailOnArg::Medium => FailOn::Any(Severity::Medium),
             FailOnArg::High => FailOn::Any(Severity::High),
             FailOnArg::Critical => FailOn::Any(Severity::Critical),
+        }
+    }
+}
+
+impl From<RuleLifecycleArg> for RuleLifecycle {
+    fn from(value: RuleLifecycleArg) -> Self {
+        match value {
+            RuleLifecycleArg::Experimental => RuleLifecycle::Experimental,
+            RuleLifecycleArg::Preview => RuleLifecycle::Preview,
+            RuleLifecycleArg::Stable => RuleLifecycle::Stable,
+            RuleLifecycleArg::Deprecated => RuleLifecycle::Deprecated,
+        }
+    }
+}
+
+impl From<SignalSourceArg> for SignalSource {
+    fn from(value: SignalSourceArg) -> Self {
+        match value {
+            SignalSourceArg::TextHeuristic => SignalSource::TextHeuristic,
+            SignalSourceArg::Ast => SignalSource::Ast,
+            SignalSourceArg::ConfigFile => SignalSource::ConfigFile,
+            SignalSourceArg::DependencyManifest => SignalSource::DependencyManifest,
+            SignalSourceArg::ImportGraph => SignalSource::ImportGraph,
+            SignalSourceArg::FrameworkDetector => SignalSource::FrameworkDetector,
+            SignalSourceArg::GitDiff => SignalSource::GitDiff,
+            SignalSourceArg::Mixed => SignalSource::Mixed,
         }
     }
 }

@@ -181,11 +181,12 @@ fn print_timing_breakdown(summary: &ScanSummary) {
             timings.accounted_engine_us() / 1000,
         );
         eprintln!(
-            "[timing] Pipeline: discovery {}ms · file analysis {}ms · enrichment {}ms · risk scoring {}ms · report finalization {}ms",
+            "[timing] Pipeline: discovery {}ms · file analysis {}ms · enrichment {}ms · risk scoring {}ms · contract validation {}ms · report finalization {}ms",
             timings.discovery_us / 1000,
             timings.file_analysis_us / 1000,
             timings.enrichment_us / 1000,
             timings.risk_scoring_us / 1000,
+            timings.contract_validation_us / 1000,
             timings.report_finalization_us / 1000,
         );
     }

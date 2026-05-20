@@ -310,6 +310,7 @@ fn finding(rule_id: &str, path: &str, severity: Severity) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

@@ -116,6 +116,7 @@ fn health_score_decreases_with_severity() {
             evidence: vec![],
             workspace_package: None,
             docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
         }
     }
@@ -145,6 +146,7 @@ fn health_score_is_clamped_at_zero_for_catastrophic_repos() {
             evidence: vec![],
             workspace_package: None,
             docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
         })
         .collect();
@@ -204,8 +206,9 @@ fn timing_accounting_uses_granular_file_pipeline_when_available() {
         post_scan_audits_us: 7,
         enrichment_us: 3,
         risk_scoring_us: 2,
+        contract_validation_us: 4,
         report_finalization_us: 1,
     };
 
-    assert_eq!(timings.accounted_engine_us(), 68);
+    assert_eq!(timings.accounted_engine_us(), 72);
 }

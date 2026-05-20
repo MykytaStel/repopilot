@@ -16,6 +16,7 @@ pub(crate) mod product_scan;
 mod progress;
 pub mod prompt;
 pub mod review;
+pub mod rules;
 pub mod scan;
 pub(crate) mod scan_config;
 
@@ -93,6 +94,21 @@ fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error
             options.format,
             options.output,
             options.evaluate,
+        ),
+        InspectCommands::Rules(options) => rules::list_rules(
+            options.format,
+            options.lifecycle,
+            options.source,
+            options.output,
+        ),
+        InspectCommands::Rule(options) => {
+            rules::inspect_rule(options.rule_id, options.format, options.output)
+        }
+        InspectCommands::EvalRules(options) => rules::eval_rules(
+            options.rule,
+            options.fixtures,
+            options.format,
+            options.output,
         ),
     }
 }

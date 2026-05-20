@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::findings::provenance::{AnalysisScope, FindingProvenance};
+
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Finding {
     pub id: String,
@@ -18,6 +20,8 @@ pub struct Finding {
     pub workspace_package: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs_url: Option<String>,
+    #[serde(default)]
+    pub provenance: FindingProvenance,
     #[serde(default)]
     pub risk: crate::risk::RiskAssessment,
 }
@@ -85,8 +89,39 @@ impl Finding {
     }
 
     pub fn populate_recommendation(&mut self) {
+        self.populate_rule_metadata();
+    }
+
+    pub fn populate_rule_metadata(&mut self) {
+        let Some(metadata) = crate::rules::lookup_rule_metadata(&self.rule_id) else {
+            if self.recommendation.trim().is_empty() {
+                self.recommendation = Self::GENERIC_RECOMMENDATION.to_string();
+            }
+            return;
+        };
+
+        if self.title.trim().is_empty() {
+            self.title = metadata.title.to_string();
+        }
+        if self.description.trim().is_empty() {
+            self.description = metadata.description.to_string();
+        }
         if self.recommendation.trim().is_empty() {
-            self.recommendation = Self::recommendation_for_rule_id(&self.rule_id);
+            self.recommendation = metadata
+                .recommendation
+                .unwrap_or(Self::GENERIC_RECOMMENDATION)
+                .to_string();
+        }
+        if self.docs_url.as_deref().is_none_or(str::is_empty) {
+            self.docs_url = metadata.docs_url.map(str::to_string);
+        }
+        if self.provenance == FindingProvenance::default() {
+            self.provenance = FindingProvenance {
+                detector: metadata.rule_id.to_string(),
+                signal_source: metadata.signal_source,
+                rule_lifecycle: metadata.lifecycle,
+                analysis_scope: AnalysisScope::for_signal_source(metadata.signal_source),
+            };
         }
     }
 

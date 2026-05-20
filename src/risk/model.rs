@@ -1,7 +1,7 @@
 use crate::baseline::diff::BaselineStatus;
 use serde::{Deserialize, Serialize};
 
-pub const FORMULA_VERSION: &str = "risk-v2";
+pub const FORMULA_VERSION: &str = "risk-v3";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RiskFormula {
@@ -70,6 +70,23 @@ pub struct RiskSignal {
     pub label: String,
     pub weight: i16,
     pub reason: String,
+    #[serde(default)]
+    pub source: RiskSignalSource,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum RiskSignalSource {
+    #[default]
+    Severity,
+    Confidence,
+    Category,
+    Graph,
+    ReviewDiff,
+    Workspace,
+    Baseline,
+    Cluster,
+    Visibility,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -165,6 +182,29 @@ pub(super) fn signal(id: &str, label: &str, weight: i16, reason: &str) -> RiskSi
         label: label.to_string(),
         weight,
         reason: reason.to_string(),
+        source: source_for_signal_id(id),
+    }
+}
+
+fn source_for_signal_id(id: &str) -> RiskSignalSource {
+    if id.starts_with("severity.") {
+        RiskSignalSource::Severity
+    } else if id.starts_with("confidence.") {
+        RiskSignalSource::Confidence
+    } else if id.starts_with("category.") || id.starts_with("knowledge.") {
+        RiskSignalSource::Category
+    } else if id.starts_with("graph.") {
+        RiskSignalSource::Graph
+    } else if id.starts_with("review.") {
+        RiskSignalSource::ReviewDiff
+    } else if id.starts_with("workspace.") {
+        RiskSignalSource::Workspace
+    } else if id.starts_with("baseline.") {
+        RiskSignalSource::Baseline
+    } else if id.starts_with("cluster.") {
+        RiskSignalSource::Cluster
+    } else {
+        RiskSignalSource::Visibility
     }
 }
 

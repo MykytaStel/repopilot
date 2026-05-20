@@ -66,6 +66,13 @@ struct ChangedRepoContextStage {
     elapsed_us: u64,
 }
 
+struct ChangedFindingPipelineStage {
+    enrichment_us: u64,
+    risk_scoring_us: u64,
+    contract_validation_us: u64,
+    diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
+}
+
 impl<'a> ChangedScanEngine<'a> {
     fn new(path: &'a Path, config: &'a ScanConfig, base_ref: Option<&'a str>) -> Self {
         Self {
@@ -82,15 +89,19 @@ impl<'a> ChangedScanEngine<'a> {
         let repo_stage = self.run_repo_context(&discovery.repo_root, &mut file_stage.facts)?;
         let enrichment_us = self.enrich_findings(&discovery.repo_root, &mut file_stage.findings);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
-
-        self.finalize_report(
-            start,
-            discovery,
-            file_stage,
-            repo_stage,
+        let mut diagnostics = Vec::new();
+        let contract_validation_us = crate::engine::pipeline::validate_finding_contract_stage(
+            &file_stage.findings,
+            &mut diagnostics,
+        );
+        let finding_pipeline = ChangedFindingPipelineStage {
             enrichment_us,
             risk_scoring_us,
-        )
+            contract_validation_us,
+            diagnostics,
+        };
+
+        self.finalize_report(start, discovery, file_stage, repo_stage, finding_pipeline)
     }
 
     fn run_discovery(&self) -> io::Result<ChangedDiscoveryStage> {
@@ -413,8 +424,7 @@ impl<'a> ChangedScanEngine<'a> {
         discovery: ChangedDiscoveryStage,
         mut file_stage: ChangedFileAnalysisStage,
         repo_stage: ChangedRepoContextStage,
-        enrichment_us: u64,
-        risk_scoring_us: u64,
+        finding_pipeline: ChangedFindingPipelineStage,
     ) -> io::Result<ScanSummary> {
         let finalization_start = Instant::now();
 
@@ -450,12 +460,13 @@ impl<'a> ChangedScanEngine<'a> {
                     file_scan_us,
                     framework_detection_us: repo_stage.elapsed_us,
                     post_scan_audits_us: 0,
-                    enrichment_us,
-                    risk_scoring_us,
+                    enrichment_us: finding_pipeline.enrichment_us,
+                    risk_scoring_us: finding_pipeline.risk_scoring_us,
+                    contract_validation_us: finding_pipeline.contract_validation_us,
                     report_finalization_us: 0,
                 }),
                 cache_telemetry: Some(file_stage.cache_telemetry),
-                diagnostics: Vec::new(),
+                diagnostics: finding_pipeline.diagnostics,
             },
         );
 

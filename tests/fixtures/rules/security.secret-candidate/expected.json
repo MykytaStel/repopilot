@@ -1,0 +1,12 @@
+{
+  "fixtures": [
+    {
+      "path": "true_positive",
+      "expected_rule_ids": ["security.secret-candidate"]
+    },
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    }
+  ]
+}

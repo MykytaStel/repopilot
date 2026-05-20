@@ -2,7 +2,7 @@
 
 RepoPilot findings are identified by a stable `rule_id`. RepoPilot 0.13.0 ships
 46 built-in rules. Each finding carries category, severity, confidence,
-recommendation, and evidence metadata.
+recommendation, evidence, provenance, lifecycle, and signal-source metadata.
 
 ## Categories
 
@@ -30,7 +30,7 @@ certain RepoPilot is that the finding is a real problem in this context.
 ## Risk Prioritization
 
 Severity is not the final sort key. RepoPilot also assigns each finding an
-explainable `risk-v2` score and P0/P1/P2/P3 priority from severity, confidence,
+explainable `risk-v3` score and P0/P1/P2/P3 priority from severity, confidence,
 Knowledge Engine rule calibration, file role, baseline status, review diff,
 dependency graph impact, workspace hotspots, and repeated-pattern clusters.
 

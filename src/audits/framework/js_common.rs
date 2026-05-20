@@ -62,6 +62,7 @@ impl ProjectAudit for VarDeclarationAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
                     };
                     if let Some(finding) =
@@ -125,6 +126,7 @@ impl ProjectAudit for ConsoleLogAudit {
                         }],
                         workspace_package: None,
                         docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
                     };
                     if let Some(finding) =

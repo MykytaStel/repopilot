@@ -4,6 +4,7 @@ use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::render_helpers::escape_table_cell;
 use crate::output::report_stats::{ReportStats, TOOL_VERSION};
 use crate::output::report_text::{markdown_severity_counts_text, named_counts_text};
+use crate::report::quality::build_signal_quality_summary;
 use crate::scan::types::{DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
 
@@ -287,6 +288,48 @@ pub(crate) fn render_risk_summary(output: &mut String, summary: &ScanSummary, st
         )
         .unwrap();
     }
+    output.push('\n');
+}
+
+pub(crate) fn render_signal_quality(output: &mut String, summary: &ScanSummary) {
+    let quality = build_signal_quality_summary(&summary.findings);
+    output.push_str("## Signal Quality\n\n");
+    writeln!(
+        output,
+        "- **High confidence:** {}",
+        quality.by_confidence.high
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Medium confidence:** {}",
+        quality.by_confidence.medium
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Low confidence:** {}",
+        quality.by_confidence.low
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Evidence coverage:** {}%",
+        quality.evidence_coverage_percent
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Recommendation coverage:** {}%",
+        quality.recommendation_coverage_percent
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "- **Contract warnings:** {}",
+        quality.contract_violations
+    )
+    .unwrap();
     output.push('\n');
 }
 

@@ -11,7 +11,8 @@ use crate::output::markdown::findings::{render_findings_index, render_grouped_fi
 use crate::output::markdown::react_native::render_react_native_section;
 use crate::output::markdown::sections::{
     render_framework_projects_section, render_frameworks_section, render_languages_section,
-    render_overview, render_risk_summary, render_top_risk_clusters, render_top_rules,
+    render_overview, render_risk_summary, render_signal_quality, render_top_risk_clusters,
+    render_top_rules,
 };
 use crate::output::markdown::workspace::render_workspace_risk_table;
 use crate::output::report_stats::build_report_stats;
@@ -24,6 +25,7 @@ pub fn render(summary: &ScanSummary) -> String {
     output.push_str("# RepoPilot Scan Report\n\n");
     render_overview(&mut output, summary, &stats);
     render_risk_summary(&mut output, summary, &stats);
+    render_signal_quality(&mut output, summary);
     render_top_risk_clusters(&mut output, &summary.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);
@@ -48,6 +50,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
     render_overview(&mut output, summary, &stats);
     render_baseline_section(&mut output, report, ci_gate);
     render_risk_summary(&mut output, summary, &stats);
+    render_signal_quality(&mut output, summary);
     render_top_risk_clusters(&mut output, &summary.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);

@@ -3,10 +3,10 @@ use serde_json::Value;
 
 #[test]
 fn current_schema_fixture_documents_scan_report_contract() {
-    let current: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v014.json"))
+    let current: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v015.json"))
         .expect("current report fixture should be valid JSON");
 
-    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.14");
+    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.15");
     assert_eq!(current["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
     assert_eq!(current["report"]["kind"], "scan");
     assert_eq!(
@@ -21,11 +21,13 @@ fn current_schema_fixture_documents_scan_report_contract() {
         current["diagnostics"][0]["code"],
         "workspace.package-scan-failed"
     );
+    assert_eq!(current["signal_quality"]["findings_total"], 0);
+    assert_eq!(current["signal_quality"]["evidence_coverage_percent"], 100);
 }
 
 #[test]
 fn strict_reader_accepts_current_scan_report_shape() {
-    let current = parse_scan_summary_json(include_str!("fixtures/reports/scan-v014.json"))
+    let current = parse_scan_summary_json(include_str!("fixtures/reports/scan-v015.json"))
         .expect("current report should parse into ScanSummary");
 
     assert_eq!(current.files_discovered, 2);
@@ -39,7 +41,7 @@ fn strict_reader_accepts_current_scan_report_shape() {
 fn strict_reader_rejects_legacy_report_shapes() {
     let legacy = parse_scan_summary_json(include_str!("fixtures/reports/scan-v010.json"));
     let previous_envelope =
-        parse_scan_summary_json(include_str!("fixtures/reports/scan-v013.json"));
+        parse_scan_summary_json(include_str!("fixtures/reports/scan-v014.json"));
 
     assert!(legacy.is_err());
     assert!(previous_envelope.is_err());

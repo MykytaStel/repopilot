@@ -131,6 +131,7 @@ fn build_finding(file: &FileFacts, stats: BarrelStats) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

@@ -29,6 +29,8 @@ pub mod config;
 #[doc(hidden)]
 pub mod doctor;
 #[doc(hidden)]
+pub mod engine;
+#[doc(hidden)]
 pub mod explain;
 #[doc(hidden)]
 pub mod findings;

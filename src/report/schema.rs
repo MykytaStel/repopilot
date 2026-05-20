@@ -4,6 +4,7 @@ use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject, ReactNativeArchitectureProfile};
 use crate::graph::CouplingGraph;
+use crate::report::quality::build_signal_quality_summary;
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use crate::risk::RiskSummary;
@@ -16,7 +17,7 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.14";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.15";
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -103,6 +104,7 @@ pub struct ScanJsonReport<'a> {
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
     pub risk_summary: RiskSummary,
+    pub signal_quality: crate::findings::quality::SignalQualitySummary,
 }
 
 impl<'a> ScanJsonReport<'a> {
@@ -144,6 +146,7 @@ impl<'a> ScanJsonReport<'a> {
             local_feedback: summary.local_feedback.as_ref(),
             diagnostics: &summary.diagnostics,
             risk_summary: RiskSummary::from_findings(&summary.findings),
+            signal_quality: build_signal_quality_summary(&summary.findings),
         }
     }
 }
@@ -178,6 +181,7 @@ pub struct BaselineJsonReport<'a> {
     pub diagnostics: &'a [ScanDiagnostic],
     pub languages: &'a [LanguageSummary],
     pub risk_summary: RiskSummary,
+    pub signal_quality: crate::findings::quality::SignalQualitySummary,
     pub baseline: BaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ci_gate: Option<CiGateJsonMetadata>,
@@ -209,6 +213,7 @@ impl<'a> BaselineJsonReport<'a> {
             diagnostics: &report.summary.diagnostics,
             languages: &report.summary.languages,
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
+            signal_quality: build_signal_quality_summary(&report.summary.findings),
             baseline: BaselineJsonMetadata {
                 path: report
                     .baseline_path
@@ -246,6 +251,7 @@ pub struct ReviewJsonReport<'a> {
     pub blast_radius: Vec<String>,
     pub review: ReviewJsonMetadata,
     pub risk_summary: RiskSummary,
+    pub signal_quality: crate::findings::quality::SignalQualitySummary,
     pub baseline: ReviewBaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ci_gate: Option<CiGateJsonMetadata>,
@@ -281,6 +287,7 @@ impl<'a> ReviewJsonReport<'a> {
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
+            signal_quality: build_signal_quality_summary(&report.summary.findings),
             baseline: ReviewBaselineJsonMetadata {
                 path: report
                     .baseline_path

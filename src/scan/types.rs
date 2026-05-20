@@ -43,6 +43,9 @@ pub struct ScanTimings {
     /// Time spent applying risk scoring and risk overlays.
     #[serde(default)]
     pub risk_scoring_us: u64,
+    /// Time spent validating the internal finding contract.
+    #[serde(default)]
+    pub contract_validation_us: u64,
     /// Time spent building the final report summary object.
     #[serde(default)]
     pub report_finalization_us: u64,
@@ -59,6 +62,7 @@ impl ScanTimings {
             .saturating_add(self.post_scan_audits_us)
             .saturating_add(self.enrichment_us)
             .saturating_add(self.risk_scoring_us)
+            .saturating_add(self.contract_validation_us)
             .saturating_add(self.report_finalization_us)
     }
 }

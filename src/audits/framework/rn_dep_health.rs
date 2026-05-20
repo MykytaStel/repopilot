@@ -42,6 +42,7 @@ impl ProjectAudit for RnDepHealthAudit {
                 }],
                 workspace_package: None,
                 docs_url: Some("https://react-native-async-storage.github.io/async-storage/docs/install".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
             });
         }
@@ -78,6 +79,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     }],
                     workspace_package: None,
                     docs_url: Some("https://reactnavigation.org/docs/getting-started".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
                 });
             }
@@ -116,6 +118,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     }],
                     workspace_package: None,
                     docs_url: Some("https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/installation".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
                 });
             }
@@ -153,6 +156,7 @@ impl ProjectAudit for RnDepHealthAudit {
                     }],
                     workspace_package: None,
                     docs_url: Some("https://docs.swmansion.com/react-native-gesture-handler/docs/installation".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
                 });
             }
@@ -182,6 +186,7 @@ impl ProjectAudit for RnDepHealthAudit {
                         }],
                         workspace_package: None,
                         docs_url: Some("https://reactnative.dev/docs/new-architecture-intro".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
                     });
                 }

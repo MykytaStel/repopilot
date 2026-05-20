@@ -83,6 +83,7 @@ fn json_findings_include_confidence() {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     };
     finding.risk = assess_finding(&finding, None, RiskInputs::default());
@@ -111,6 +112,16 @@ fn json_findings_include_confidence() {
     assert_eq!(
         parsed["findings"][0]["risk"]["signals"][0]["id"],
         "severity.medium"
+    );
+    assert_eq!(
+        parsed["findings"][0]["risk"]["signals"][0]["source"],
+        "severity"
+    );
+    assert_eq!(parsed["signal_quality"]["findings_total"], 1);
+    assert_eq!(parsed["signal_quality"]["by_confidence"]["high"], 1);
+    assert_eq!(
+        parsed["findings"][0]["provenance"]["rule_lifecycle"],
+        "preview"
     );
     assert_eq!(
         parsed["findings"][0]["recommendation"],

@@ -41,7 +41,7 @@ pub fn apply_review_overlay(findings: &mut [Finding], in_diff: &[bool]) {
                 finding,
                 signal(
                     "review.in-diff",
-                    "changed lines",
+                    "review diff",
                     12,
                     "finding touches changed diff lines",
                 ),
@@ -70,7 +70,7 @@ pub fn apply_workspace_hotspot_overlay(findings: &mut [Finding]) {
                 finding,
                 signal(
                     "workspace.hotspot",
-                    "workspace hotspot",
+                    "workspace",
                     5,
                     "workspace package has multiple high-risk findings",
                 ),
@@ -97,17 +97,12 @@ pub fn apply_graph_overlay(findings: &mut [Finding], graph: &CouplingGraph) {
             continue;
         };
         let signal = match impact {
-            GraphImpact::Hub => signal(
-                "graph.hub",
-                "dependency hub",
-                8,
-                "file has high fan-in or fan-out, so changes can ripple through the codebase",
-            ),
+            GraphImpact::Hub => signal("graph.hub", "graph", 8, "file is an import hub"),
             GraphImpact::Dependency => signal(
                 "graph.dependency",
-                "shared dependency",
+                "graph",
                 5,
-                "file is imported by multiple other files",
+                "file is a shared dependency",
             ),
         };
         apply_overlay_signal(
@@ -145,7 +140,7 @@ pub fn apply_blast_radius_overlay(
                 finding,
                 signal(
                     "review.blast-radius",
-                    "blast radius",
+                    "review diff",
                     6,
                     "finding is in a file impacted by changed import dependencies",
                 ),
@@ -175,7 +170,7 @@ pub fn apply_cluster_overlay(findings: &mut [Finding]) {
             finding,
             signal(
                 "cluster.repeated",
-                "repeated pattern",
+                "cluster",
                 cluster_weight(size),
                 "same rule appears repeatedly in the same repository area",
             ),
@@ -191,13 +186,13 @@ pub(super) fn baseline_signal(status: BaselineStatus) -> RiskSignal {
     match status {
         BaselineStatus::New => signal(
             "baseline.new",
-            "new finding",
+            "baseline",
             10,
             "new findings should be prioritized over accepted existing debt",
         ),
         BaselineStatus::Existing => signal(
             "baseline.existing",
-            "existing finding",
+            "baseline",
             -8,
             "existing baseline findings are already accepted technical debt",
         ),

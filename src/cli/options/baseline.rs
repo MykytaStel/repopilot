@@ -23,6 +23,8 @@ as technical debt — not as a way to silence CI.",
         after_help = "EXAMPLES:\n  \
 repopilot baseline create .\n  \
 repopilot baseline create . --output ./baseline.json\n  \
+repopilot baseline create . --config repopilot.toml\n  \
+repopilot baseline create . --ignore-feedback\n  \
 repopilot baseline create . --force"
     )]
     Create(BaselineCreateOptions),
@@ -36,6 +38,14 @@ pub struct BaselineCreateOptions {
     /// Baseline output path; defaults to .repopilot/baseline.json
     #[arg(short, long)]
     pub output: Option<PathBuf>,
+
+    /// Path to repopilot.toml config
+    #[arg(long)]
+    pub config: Option<PathBuf>,
+
+    /// Do not apply local .repopilot/feedback.yml suppressions
+    #[arg(long)]
+    pub ignore_feedback: bool,
 
     /// Overwrite an existing baseline file
     #[arg(long)]

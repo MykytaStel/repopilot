@@ -5,7 +5,7 @@ RepoPilot 0.13.0 is the breaking cleanup release for the pre-1.0 line.
 Main release promise:
 
 ```text
-engine contract -> stable product commands -> current schema reads -> local-first audit evidence
+finding contract -> rule lifecycle -> signal quality -> risk-v3 -> local-first audit evidence
 ```
 
 ## Release Scope
@@ -15,6 +15,7 @@ engine contract -> stable product commands -> current schema reads -> local-firs
 - Use `repopilot::api::*` as the supported Rust embedding facade; treat direct internal modules as unsupported implementation detail.
 - Require current scan report schema metadata when reading reports for `repopilot compare`.
 - Keep rule growth limited to regression fixes only.
+- Keep finding validation, rule evaluation, and signal quality local-only: no telemetry, source upload, hosted scanner, plugin execution, or LLM API calls.
 
 ## Engine Contract Gates
 
@@ -22,10 +23,19 @@ Verify every rendered finding has:
 
 - stable `id`;
 - non-empty `rule_id`;
+- non-empty title and description;
 - non-empty recommendation;
 - at least one evidence item;
 - risk score, priority, formula version, and risk signals;
+- provenance with detector, lifecycle, signal source, and scope;
 - schema-safe serialization in JSON and SARIF.
+
+Rule metadata gates:
+
+- every registered rule has non-empty title, description, recommendation;
+- every registered rule has lifecycle, signal source, and default confidence;
+- high/critical findings have docs URLs after enrichment;
+- `repopilot inspect rules`, `inspect rule`, and `inspect eval-rules` pass locally.
 
 Smoke commands:
 
@@ -34,14 +44,17 @@ cargo run -- scan . --format json --output /tmp/repopilot-013-scan.json --receip
 cargo run -- scan . --format sarif --output /tmp/repopilot-013.sarif
 cargo run -- review . --format json --output /tmp/repopilot-013-review.json
 cargo run -- ai context . --budget 2k --output /tmp/repopilot-013-ai-context.md
+cargo run -- inspect rules --format json --output /tmp/repopilot-013-rules.json
+cargo run -- inspect eval-rules --format json --output /tmp/repopilot-013-rule-eval.json
 ```
 
 ## Breaking-Change Gates
 
 Verify:
 
-- `repopilot compare` accepts current `0.14` scan reports;
+- `repopilot compare` accepts current `0.15` scan reports;
 - `repopilot compare` rejects pre-current scan report shapes clearly;
+- JSON reports include `signal_quality`, finding `provenance`, `risk.signals[].source`, and `risk-v3`;
 - active docs describe the current command surface, not removed 0.x aliases;
 - schema migration docs state that historical report compatibility belongs in downstream consumers when needed.
 
