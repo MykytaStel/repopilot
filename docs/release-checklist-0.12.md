@@ -153,7 +153,7 @@ Before tagging, update and verify:
 grep '^version = "0.12.0"' Cargo.toml
 grep '"version": "0.12.0"' package.json
 grep '## \[0.12.0\]' CHANGELOG.md
-rg '0\.[[]11[]]\.0|release-checklist-0\.[[]11[]]' Cargo.toml package.json action.yml README.md docs .github scripts install.sh Formula examples
+rg -n '0\.11\.0|release-checklist-0\.11' Cargo.toml package.json action.yml README.md docs .github scripts install.sh Formula examples
 ```
 
 The final search should only report historical changelog entries, old release
