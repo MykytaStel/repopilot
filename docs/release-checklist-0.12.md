@@ -95,10 +95,22 @@ Expected:
 - default self-scan has no P0/P1/high/critical findings;
 - `repopilot doctor .` reports no adoption warnings.
 
+Baseline governance:
+
+- `.repopilot/baseline.json` represents accepted existing debt so teams can
+  adopt RepoPilot gradually without blocking on known findings;
+- update it only after intentional review, not just to make CI green;
+- baseline update PRs should explain why the findings are accepted;
+- recommended creation command:
+  `repopilot baseline create . --output .repopilot/baseline.json`;
+- CI should gate with:
+  `repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high`.
+
 Verify local feedback:
 
 ```bash
 repopilot inspect feedback .
+repopilot inspect feedback . --evaluate
 repopilot scan . --format json --output /tmp/repopilot-feedback.json
 repopilot scan . --ignore-feedback --format json --output /tmp/repopilot-raw.json
 ```

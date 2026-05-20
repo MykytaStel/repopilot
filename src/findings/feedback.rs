@@ -1,7 +1,7 @@
 use crate::findings::types::Finding;
 use crate::scan::types::{ScanDiagnostic, ScanSummary};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -83,9 +83,10 @@ pub fn apply_local_feedback(
 
     let original_count = summary.findings.len();
     let mut matched_suppression_indices = BTreeSet::new();
+    let suppression_index = build_suppression_index(&validation.suppressions);
 
     summary.findings.retain(|finding| {
-        let matched = matching_suppression_index(finding, &validation.suppressions);
+        let matched = matching_suppression_index(finding, &suppression_index);
         if let Some(index) = matched {
             matched_suppression_indices.insert(index);
             false
@@ -216,19 +217,40 @@ fn clean_optional_value(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct SuppressionKey {
+    rule_id: String,
+    path: String,
+}
+
+fn build_suppression_index(suppressions: &[LocalSuppression]) -> HashMap<SuppressionKey, usize> {
+    let mut index = HashMap::new();
+    for suppression in suppressions {
+        index
+            .entry(SuppressionKey {
+                rule_id: suppression.rule_id.clone(),
+                path: suppression.path.clone(),
+            })
+            .or_insert(suppression.index);
+    }
+    index
+}
+
 fn matching_suppression_index(
     finding: &Finding,
-    suppressions: &[LocalSuppression],
+    suppressions: &HashMap<SuppressionKey, usize>,
 ) -> Option<usize> {
-    suppressions
+    finding
+        .evidence
         .iter()
-        .find(|suppression| {
-            finding.rule_id == suppression.rule_id
-                && finding.evidence.iter().any(|evidence| {
-                    normalize_path_text(&evidence.path.to_string_lossy()) == suppression.path
-                })
+        .filter_map(|evidence| {
+            let key = SuppressionKey {
+                rule_id: finding.rule_id.clone(),
+                path: normalize_path_text(&evidence.path.to_string_lossy()),
+            };
+            suppressions.get(&key).copied()
         })
-        .map(|suppression| suppression.index)
+        .min()
 }
 
 fn normalize_path_text(path: &str) -> String {
@@ -238,6 +260,7 @@ fn normalize_path_text(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::findings::types::{Evidence, Finding};
 
     #[test]
     fn parses_minimal_feedback_suppressions() {
@@ -286,5 +309,50 @@ suppressions:
         assert_eq!(validation.suppressions.len(), 0);
         assert_eq!(validation.invalid_suppressions_count, 2);
         assert_eq!(validation.diagnostics.len(), 2);
+    }
+
+    #[test]
+    fn indexed_matching_considers_all_evidence_paths_and_suppression_order() {
+        let suppressions = vec![
+            LocalSuppression {
+                index: 1,
+                rule_id: "security.secret-candidate".to_string(),
+                path: "src/second.rs".to_string(),
+                reason: None,
+            },
+            LocalSuppression {
+                index: 2,
+                rule_id: "security.secret-candidate".to_string(),
+                path: "src/first.rs".to_string(),
+                reason: None,
+            },
+            LocalSuppression {
+                index: 3,
+                rule_id: "architecture.large-file".to_string(),
+                path: "src/first.rs".to_string(),
+                reason: None,
+            },
+        ];
+        let index = build_suppression_index(&suppressions);
+        let finding = Finding {
+            rule_id: "security.secret-candidate".to_string(),
+            evidence: vec![
+                Evidence {
+                    path: PathBuf::from("./src/first.rs"),
+                    line_start: 1,
+                    line_end: None,
+                    snippet: String::new(),
+                },
+                Evidence {
+                    path: PathBuf::from("src/second.rs"),
+                    line_start: 2,
+                    line_end: None,
+                    snippet: String::new(),
+                },
+            ],
+            ..Finding::default()
+        };
+
+        assert_eq!(matching_suppression_index(&finding, &index), Some(1));
     }
 }

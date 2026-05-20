@@ -427,9 +427,11 @@ repopilot inspect knowledge --section rules --format json
 
 ## `inspect feedback`
 
-Validates `.repopilot/feedback.yml`, reports malformed or unmatched
-suppressions, and shows how many findings the local feedback file suppresses.
-This command is local-only and does not upload source code.
+Validates `.repopilot/feedback.yml` and reports malformed suppression entries.
+By default it only parses the feedback file and renders diagnostics. Use
+`--evaluate` to run a repository scan and report matched or unmatched
+suppressions against current findings. This command is local-only and does not
+upload source code.
 
 ### Synopsis
 
@@ -442,6 +444,7 @@ repopilot inspect feedback [PATH] [OPTIONS]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--format` | `console\|json\|markdown` | `console` | Output format |
+| `--evaluate` | flag | — | Scan the repository and evaluate suppressions against current findings |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
 
 ### Examples
@@ -449,6 +452,7 @@ repopilot inspect feedback [PATH] [OPTIONS]
 ```bash
 repopilot inspect feedback .
 repopilot inspect feedback . --format json
+repopilot inspect feedback . --evaluate --format json
 repopilot inspect feedback . --format markdown --output feedback.md
 ```
 
@@ -539,14 +543,18 @@ repopilot baseline create <PATH> [OPTIONS]
 
 ```bash
 # Create baseline in the default location
-repopilot baseline create .
+repopilot baseline create . --output .repopilot/baseline.json
 
 # Custom output path
 repopilot baseline create . --output ./baseline.json
 
 # Overwrite existing baseline
-repopilot baseline create . --force
+repopilot baseline create . --output .repopilot/baseline.json --force
 ```
+
+Treat `.repopilot/baseline.json` as accepted existing debt. Commit or update it
+only after intentional review, and include a PR note explaining why the findings
+are accepted. Do not update it just to make CI green.
 
 ---
 

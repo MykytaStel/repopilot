@@ -87,9 +87,12 @@ fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error
         InspectCommands::Cache(options) => {
             cache_inspect::run(options.path, options.format, options.output)
         }
-        InspectCommands::Feedback(options) => {
-            feedback::run(options.path, options.format, options.output)
-        }
+        InspectCommands::Feedback(options) => feedback::run(
+            options.path,
+            options.format,
+            options.output,
+            options.evaluate,
+        ),
     }
 }
 

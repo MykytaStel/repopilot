@@ -242,7 +242,7 @@ A baseline lets you adopt RepoPilot in a repository that already has findings, w
 ### Step 1 — create the baseline
 
 ```bash
-repopilot baseline create .
+repopilot baseline create . --output .repopilot/baseline.json
 ```
 
 This scans the project and writes all current findings to `.repopilot/baseline.json`. Commit the file.
@@ -268,10 +268,14 @@ The pipeline fails only when a **new** high or critical finding appears. Pre-exi
 Refresh only when the team explicitly accepts the current findings as technical debt:
 
 ```bash
-repopilot baseline create . --force
+repopilot baseline create . --output .repopilot/baseline.json --force
 ```
 
-Do not refresh blindly to silence CI — that defeats the purpose.
+`.repopilot/baseline.json` is accepted existing debt. Commit or update it only
+after intentional review, and include a PR note explaining why the findings are
+accepted. Do not refresh it just to make CI green; that defeats the purpose of
+gating only new risk while allowing gradual adoption. For first-time setup, use
+`repopilot baseline create . --output .repopilot/baseline.json`.
 
 ---
 
@@ -374,17 +378,22 @@ approximate cache size, and stale entry count.
 
 ## `inspect feedback`
 
-Validate local feedback suppressions and show which ones were applied.
+Validate local feedback suppressions. By default this only parses
+`.repopilot/feedback.yml` and renders diagnostics; it does not scan the
+repository.
 
 ```bash
 repopilot inspect feedback .
 repopilot inspect feedback . --format json
+repopilot inspect feedback . --evaluate
+repopilot inspect feedback . --evaluate --format json
 repopilot inspect feedback . --format markdown --output feedback.md
 ```
 
 The command parses `.repopilot/feedback.yml` with a YAML parser, reports
-malformed entries, warns about suppressions that do not match current findings,
-and includes the same `local_feedback` summary that scan/review reports expose.
+malformed entries, and shows suppression counts. Use `--evaluate` when you need
+matched and unmatched suppression results against current findings. Evaluation is
+heavier because it runs a repository scan before applying local feedback.
 
 ---
 
@@ -409,3 +418,7 @@ repopilot review . --ignore-feedback
 When suppressions are applied, console, Markdown, JSON, and receipt output show
 the local feedback counts so findings are visibly suppressed rather than
 silently disappearing.
+
+Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
+suppressions are intentionally team-reviewed and part of repository policy.
+Personal or temporary suppressions should stay local and uncommitted.
