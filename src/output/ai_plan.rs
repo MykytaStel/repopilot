@@ -1,17 +1,17 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
+use crate::output::ai_context::{AiFocusCategory, DEFAULT_TOKEN_BUDGET, project_name};
 use crate::output::finding_helpers::{
     RuleCluster, category_rank, clusters_by_rule_scope, example_locations, finding_recommendation,
 };
-use crate::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory, project_name};
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
-pub struct HardenOptions {
-    pub focus: Option<VibeCategory>,
+pub struct AiPlanOptions {
+    pub focus: Option<AiFocusCategory>,
     pub budget_tokens: usize,
 }
 
-impl Default for HardenOptions {
+impl Default for AiPlanOptions {
     fn default() -> Self {
         Self {
             focus: None,
@@ -20,7 +20,7 @@ impl Default for HardenOptions {
     }
 }
 
-pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
+pub fn render(summary: &ScanSummary, opts: &AiPlanOptions) -> String {
     let project_name = project_name(summary);
     let budget_chars = opts.budget_tokens.saturating_mul(4);
 
@@ -34,10 +34,10 @@ pub fn render(summary: &ScanSummary, opts: &HardenOptions) -> String {
         })
         .collect();
     let mut clusters = clusters_by_rule_scope(&findings);
-    sort_harden_clusters(&mut clusters);
+    sort_ai_plan_clusters(&mut clusters);
 
     let mut out = String::new();
-    let _ = writeln!(out, "# RepoPilot Harden Plan - {project_name}\n");
+    let _ = writeln!(out, "# RepoPilot AI Plan - {project_name}\n");
     let _ = writeln!(
         out,
         "Prioritized remediation plan generated locally from RepoPilot findings. Start at P0 and stop when the remaining risk is acceptable for this release.\n"
@@ -166,7 +166,7 @@ fn priority_label(priority: u8) -> &'static str {
     }
 }
 
-fn sort_harden_clusters(clusters: &mut [RuleCluster<'_>]) {
+fn sort_ai_plan_clusters(clusters: &mut [RuleCluster<'_>]) {
     clusters.sort_by(|left, right| {
         priority_rank(left)
             .cmp(&priority_rank(right))

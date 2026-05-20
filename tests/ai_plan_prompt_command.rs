@@ -39,7 +39,7 @@ fn write_medium_signal_project(root: &std::path::Path) {
 }
 
 #[test]
-fn harden_default_output_succeeds() {
+fn ai_plan_default_output_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
 
@@ -51,7 +51,7 @@ fn harden_default_output_succeeds() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("# RepoPilot Harden Plan"));
+    assert!(stdout.contains("# RepoPilot AI Plan"));
     assert!(stdout.contains("P0 - Immediate risk"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("Move the value to an environment variable or secrets manager"));
@@ -59,7 +59,7 @@ fn harden_default_output_succeeds() {
 }
 
 #[test]
-fn harden_focus_security_excludes_quality_findings() {
+fn ai_plan_focus_security_excludes_quality_findings() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
 
@@ -76,7 +76,7 @@ fn harden_focus_security_excludes_quality_findings() {
 }
 
 #[test]
-fn harden_groups_repeated_medium_findings_by_rule() {
+fn ai_plan_uses_default_product_visibility() {
     let temp = tempdir().expect("failed to create temp dir");
     write_medium_signal_project(temp.path());
 
@@ -88,11 +88,9 @@ fn harden_groups_repeated_medium_findings_by_rule() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("File exceeds recommended size in src (2 findings)"));
-    assert!(stdout.contains("Rule: `architecture.large-file`"));
-    assert!(stdout.contains("Area: `src`"));
-    assert!(stdout.contains("`./src/large_a.rs:1`"));
-    assert!(stdout.contains("`./src/large_b.rs:1`"));
+    assert!(stdout.contains("No findings matched the selected scope."));
+    assert!(!stdout.contains("File exceeds recommended size in src"));
+    assert!(!stdout.contains("Rule: `architecture.large-file`"));
 }
 
 #[test]
@@ -114,26 +112,26 @@ fn prompt_default_output_succeeds() {
     assert!(stdout.contains("## Triage Order"));
     assert!(stdout.contains("## Verification Contract"));
     assert!(stdout.contains("## Final Response Format"));
-    assert!(stdout.contains("# RepoPilot Vibe Check"));
+    assert!(stdout.contains("# RepoPilot AI Context"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("Move the value to an environment variable or secrets manager"));
 }
 
 #[test]
-fn harden_and_prompt_support_output_files() {
+fn ai_plan_and_prompt_support_output_files() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
-    let harden_path = temp.path().join("harden.md");
+    let ai_plan_path = temp.path().join("ai-plan.md");
     let prompt_path = temp.path().join("prompt.md");
 
-    let harden_output = repopilot()
+    let ai_plan_output = repopilot()
         .args(["ai", "plan", ".", "--output"])
-        .arg(&harden_path)
+        .arg(&ai_plan_path)
         .current_dir(temp.path())
         .output()
         .expect("failed to run repopilot ai plan");
-    assert!(harden_output.status.success());
-    assert!(harden_output.stdout.is_empty());
+    assert!(ai_plan_output.status.success());
+    assert!(ai_plan_output.stdout.is_empty());
 
     let prompt_output = repopilot()
         .args(["ai", "prompt", ".", "--output"])
@@ -144,8 +142,8 @@ fn harden_and_prompt_support_output_files() {
     assert!(prompt_output.status.success());
     assert!(prompt_output.stdout.is_empty());
 
-    let harden = fs::read_to_string(harden_path).expect("failed to read harden output");
+    let ai_plan = fs::read_to_string(ai_plan_path).expect("failed to read AI plan output");
     let prompt = fs::read_to_string(prompt_path).expect("failed to read prompt output");
-    assert!(harden.contains("# RepoPilot Harden Plan"));
+    assert!(ai_plan.contains("# RepoPilot AI Plan"));
     assert!(prompt.contains("# RepoPilot Remediation Prompt"));
 }

@@ -1,11 +1,12 @@
-use crate::output::vibe::{
-    DEFAULT_TOKEN_BUDGET, VibeCategory, VibeOptions, project_name, render as render_vibe,
+use crate::output::ai_context::{
+    AiContextRenderOptions, AiFocusCategory, DEFAULT_TOKEN_BUDGET, project_name,
+    render as render_ai_context,
 };
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
 pub struct PromptOptions {
-    pub focus: Option<VibeCategory>,
+    pub focus: Option<AiFocusCategory>,
     pub budget_tokens: usize,
 }
 
@@ -51,19 +52,19 @@ pub fn render(summary: &ScanSummary, opts: &PromptOptions) -> String {
     let _ = writeln!(out, "## RepoPilot Context\n");
 
     const PROMPT_PREFIX_OVERHEAD_TOKENS: usize = 200;
-    let vibe_budget = opts
+    let context_budget = opts
         .budget_tokens
         .saturating_sub(PROMPT_PREFIX_OVERHEAD_TOKENS);
-    let vibe = render_vibe(
+    let ai_context = render_ai_context(
         summary,
-        &VibeOptions {
+        &AiContextRenderOptions {
             focus: opts.focus.clone(),
-            budget_tokens: vibe_budget,
+            budget_tokens: context_budget,
             no_header: false,
             no_task: true,
         },
     );
-    out.push_str(&vibe);
+    out.push_str(&ai_context);
     out
 }
 
@@ -80,12 +81,12 @@ fn render_scope(out: &mut String, opts: &PromptOptions) {
     );
 }
 
-fn focus_label(focus: &VibeCategory) -> &'static str {
+fn focus_label(focus: &AiFocusCategory) -> &'static str {
     match focus {
-        VibeCategory::Security => "security findings",
-        VibeCategory::Architecture => "architecture findings",
-        VibeCategory::Quality => "code quality and testing findings",
-        VibeCategory::Framework => "framework findings",
-        VibeCategory::All => "all RepoPilot findings",
+        AiFocusCategory::Security => "security findings",
+        AiFocusCategory::Architecture => "architecture findings",
+        AiFocusCategory::Quality => "code quality and testing findings",
+        AiFocusCategory::Framework => "framework findings",
+        AiFocusCategory::All => "all RepoPilot findings",
     }
 }

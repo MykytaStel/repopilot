@@ -1,21 +1,18 @@
 use crate::cli::ScanOptions;
 use crate::commands::filters::{scan_pre_visibility_filter, scan_priority_filter};
-use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
-use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_RUNTIME, EXIT_USAGE};
+use crate::commands::product_scan::{
+    ProductScanMode, ProductScanRequest, enforce_diagnostics_exit_policy, run_product_scan,
+};
+use crate::commands::scan_config::ScanConfigOverrides;
+use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
-use repopilot::config::loader::{load_default_config, load_optional_config};
-use repopilot::config::presets::{Preset, apply_preset};
-use repopilot::findings::feedback::apply_local_feedback;
-use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
+use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::output::{render_baseline_scan_report, render_scan_summary};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
-use repopilot::scan::scanner::{scan_changed_with_config, scan_path_with_config};
 use repopilot::scan::types::ScanSummary;
-use repopilot::scan::workspace_scan::scan_workspace_with_config;
 use std::path::Path;
 use std::time::Instant;
 
@@ -42,28 +39,20 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             message: "`--workspace` cannot be used with changed scans".to_string(),
         }));
     }
-    let mut repo_config = match &options.config {
-        Some(config_path) => load_optional_config(config_path)?,
-        None => load_default_config()?,
-    };
-
-    if let Some(preset_str) = options.preset.as_deref() {
-        match preset_str.parse::<Preset>() {
-            Ok(p) => apply_preset(&mut repo_config, p),
-            Err(_) => {
-                return Err(Box::new(CliExit {
-                    code: EXIT_USAGE,
-                    message: format!(
-                        "Invalid preset '{preset_str}'. Expected: strict, balanced, lenient"
-                    ),
-                }));
-            }
+    let visibility_profile = scan_visibility_profile(&options);
+    let scan_mode = if options.changed || options.since.is_some() {
+        ProductScanMode::Changed {
+            since: options.since.clone(),
         }
-    }
-
-    let scan_config = build_scan_config(
-        &repo_config,
-        ScanConfigOverrides {
+    } else if options.workspace {
+        ProductScanMode::Workspace
+    } else {
+        ProductScanMode::Full
+    };
+    let scan_result = run_product_scan(ProductScanRequest {
+        path: options.path.clone(),
+        config_path: options.config.clone(),
+        overrides: ScanConfigOverrides {
             max_file_loc: options.max_file_loc,
             max_directory_modules: options.max_directory_modules,
             max_directory_depth: options.max_directory_depth,
@@ -72,36 +61,18 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
             max_file_size: options.max_file_size,
             max_files: options.max_files,
         },
-    );
+        preset: options.preset.clone(),
+        mode: scan_mode,
+        ignore_feedback: options.ignore_feedback,
+        visibility_profile,
+        pre_visibility_filter,
+    })?;
+    let mut summary = scan_result.summary;
+    let scan_elapsed = scan_result.scan_elapsed;
     let output_format = options
         .format
         .map(Into::into)
-        .unwrap_or(repo_config.output.default_format);
-
-    let pb = make_spinner("Scanning...");
-    let scan_start = Instant::now();
-
-    let mut summary = if options.changed || options.since.is_some() {
-        scan_changed_with_config(&options.path, &scan_config, options.since.as_deref())?
-    } else if options.workspace {
-        scan_workspace_with_config(&options.path, &scan_config)?
-    } else {
-        scan_path_with_config(&options.path, &scan_config)?
-    };
-
-    let scan_elapsed = scan_start.elapsed();
-    finish_spinner(pb);
-
-    if !options.ignore_feedback {
-        apply_local_feedback(&mut summary, &options.path)?;
-    }
-
-    if !pre_visibility_filter.is_empty() {
-        pre_visibility_filter.apply_to_summary(&mut summary);
-    }
-
-    let visibility_profile = scan_visibility_profile(&options);
-    apply_visibility_profile(&mut summary, visibility_profile);
+        .unwrap_or(scan_result.repo_config.output.default_format);
 
     if options.baseline.is_some() || options.fail_on.is_some() || fail_on_priority.is_some() {
         let mut baseline_report = match options.baseline.clone() {
@@ -252,20 +223,4 @@ fn write_scan_receipt_if_requested(
     write_report(&rendered, Some(receipt_path))?;
 
     Ok(())
-}
-
-fn enforce_diagnostics_exit_policy(
-    summary: &ScanSummary,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let Some(diagnostic) = summary.first_error_diagnostic() else {
-        return Ok(());
-    };
-
-    Err(Box::new(CliExit {
-        code: EXIT_RUNTIME,
-        message: format!(
-            "RepoPilot scan completed with reportable error diagnostic `{}`: {}",
-            diagnostic.code, diagnostic.message
-        ),
-    }))
 }

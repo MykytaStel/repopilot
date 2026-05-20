@@ -12,7 +12,8 @@ use crate::scan::types::{
     ScanSummary, ScanTimings,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
+use std::io;
 use std::path::PathBuf;
 
 pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.14";
@@ -376,26 +377,33 @@ pub fn parse_scan_summary_json(content: &str) -> Result<ScanSummary, serde_json:
     parse_scan_summary_value(value)
 }
 
-pub fn parse_scan_summary_value(mut value: Value) -> Result<ScanSummary, serde_json::Error> {
-    migrate_scan_summary_value(&mut value);
+pub fn parse_scan_summary_value(value: Value) -> Result<ScanSummary, serde_json::Error> {
+    validate_current_scan_report(&value)?;
     serde_json::from_value(value)
 }
 
-fn migrate_scan_summary_value(value: &mut Value) {
-    let Some(object) = value.as_object_mut() else {
-        return;
-    };
+fn validate_current_scan_report(value: &Value) -> Result<(), serde_json::Error> {
+    let schema_version = value.get("schema_version").and_then(Value::as_str);
+    let report = value.get("report").and_then(Value::as_object);
+    let report_kind = report
+        .and_then(|report| report.get("kind"))
+        .and_then(Value::as_str);
+    let report_schema_version = report
+        .and_then(|report| report.get("schema_version"))
+        .and_then(Value::as_str);
 
-    copy_legacy_metric(object, "files_count", "files_analyzed");
-    copy_legacy_metric(object, "lines_of_code", "non_empty_lines");
-}
-
-fn copy_legacy_metric(object: &mut Map<String, Value>, legacy: &str, current: &str) {
-    if object.contains_key(current) {
-        return;
+    if schema_version == Some(SCAN_REPORT_SCHEMA_VERSION)
+        && report_kind == Some("scan")
+        && report_schema_version == Some(SCAN_REPORT_SCHEMA_VERSION)
+    {
+        return Ok(());
     }
-    let Some(value) = object.get(legacy).cloned() else {
-        return;
-    };
-    object.insert(current.to_string(), value);
+
+    Err(serde_json::Error::io(io::Error::new(
+        io::ErrorKind::InvalidData,
+        format!(
+            "unsupported scan report schema; expected scan report schema {}",
+            SCAN_REPORT_SCHEMA_VERSION
+        ),
+    )))
 }

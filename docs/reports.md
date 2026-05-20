@@ -16,11 +16,11 @@ JSON scan reports include explicit schema metadata. The current schema is 0.14:
 ```json
 {
   "schema_version": "0.14",
-  "repopilot_version": "0.12.0",
+  "repopilot_version": "0.13.0",
   "report": {
     "kind": "scan",
     "schema_version": "0.14",
-    "repopilot_version": "0.12.0"
+    "repopilot_version": "0.13.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -76,16 +76,15 @@ for accuracy:
 
 - consumers should read `files_analyzed`, `non_empty_lines`, and
   `large_files_skipped`;
-- `repopilot compare` continues to read older JSON reports that do not contain
-  `schema_version` or that use the old `files_count` and `lines_of_code` names;
 - future tools can branch on `schema_version` when parsing reports;
 - consumers should prefer `report.schema_version` when they want a single
-  envelope object, while top-level `schema_version` remains present during the
-  migration window.
+  envelope object, while top-level `schema_version` remains present for direct
+  scripts.
 
 Schema `0.14` adds optional `local_feedback` metadata to scan, baseline-scan,
-review, and receipt output. Older `0.10` and `0.13` reports still parse through
-the compatibility reader used by `repopilot compare`.
+review, and receipt output. Starting with RepoPilot `0.13.0`, `repopilot compare`
+requires current scan reports with `schema_version` and `report.schema_version`
+matching the current schema.
 
 ## Baseline JSON reports
 
@@ -104,11 +103,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.14",
-  "repopilot_version": "0.12.0",
+  "repopilot_version": "0.13.0",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.14",
-    "repopilot_version": "0.12.0"
+    "repopilot_version": "0.13.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -156,10 +155,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.12.0"
+    "repopilot_version": "0.13.0"
   },
   "tool": "repopilot",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

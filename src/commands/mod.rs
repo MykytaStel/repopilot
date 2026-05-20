@@ -1,3 +1,5 @@
+pub mod ai_context;
+pub mod ai_plan;
 pub mod baseline;
 pub mod cache;
 pub mod cache_inspect;
@@ -7,16 +9,15 @@ pub mod explain;
 pub mod feedback;
 pub(crate) mod filters;
 pub(crate) mod focus;
-pub mod harden;
 pub mod init;
 pub mod knowledge;
 mod llm;
+pub(crate) mod product_scan;
 mod progress;
 pub mod prompt;
 pub mod review;
 pub mod scan;
 pub(crate) mod scan_config;
-pub mod vibe;
 
 use crate::cli::{AiCommands, Cli, Commands, InspectCommands};
 use std::fmt;
@@ -53,8 +54,8 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
-        AiCommands::Context(options) => vibe::run(options),
-        AiCommands::Plan(options) => harden::run(
+        AiCommands::Context(options) => ai_context::run(options),
+        AiCommands::Plan(options) => ai_plan::run(
             options.path,
             options.config,
             options.focus,

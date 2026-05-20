@@ -7,15 +7,15 @@ mod recommendations;
 pub use budget::SectionBreakdown;
 
 use crate::findings::types::Finding;
-use crate::output::vibe::budget::BreakdownSection;
+use crate::output::ai_context::budget::BreakdownSection;
 use crate::scan::types::ScanSummary;
 use std::path::Path;
 use std::str::FromStr;
 
 pub const DEFAULT_TOKEN_BUDGET: usize = 4096;
 
-pub struct VibeOptions {
-    pub focus: Option<VibeCategory>,
+pub struct AiContextRenderOptions {
+    pub focus: Option<AiFocusCategory>,
     /// Approximate token budget (1 token ≈ 4 chars).
     pub budget_tokens: usize,
     pub no_header: bool,
@@ -23,7 +23,7 @@ pub struct VibeOptions {
     pub no_task: bool,
 }
 
-impl Default for VibeOptions {
+impl Default for AiContextRenderOptions {
     fn default() -> Self {
         Self {
             focus: None,
@@ -35,7 +35,7 @@ impl Default for VibeOptions {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum VibeCategory {
+pub enum AiFocusCategory {
     Security,
     Architecture,
     Quality,
@@ -43,7 +43,7 @@ pub enum VibeCategory {
     All,
 }
 
-impl FromStr for VibeCategory {
+impl FromStr for AiFocusCategory {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -58,41 +58,44 @@ impl FromStr for VibeCategory {
     }
 }
 
-impl VibeCategory {
+impl AiFocusCategory {
     pub(crate) fn matches(&self, category: &crate::findings::types::FindingCategory) -> bool {
         use crate::findings::types::FindingCategory;
         match self {
-            VibeCategory::All => true,
-            VibeCategory::Security => matches!(category, FindingCategory::Security),
-            VibeCategory::Architecture => matches!(category, FindingCategory::Architecture),
-            VibeCategory::Quality => matches!(
+            AiFocusCategory::All => true,
+            AiFocusCategory::Security => matches!(category, FindingCategory::Security),
+            AiFocusCategory::Architecture => matches!(category, FindingCategory::Architecture),
+            AiFocusCategory::Quality => matches!(
                 category,
                 FindingCategory::CodeQuality | FindingCategory::Testing
             ),
-            VibeCategory::Framework => matches!(category, FindingCategory::Framework),
+            AiFocusCategory::Framework => matches!(category, FindingCategory::Framework),
         }
     }
 
     fn includes_architecture_context(&self) -> bool {
-        matches!(self, VibeCategory::Architecture | VibeCategory::All)
+        matches!(self, AiFocusCategory::Architecture | AiFocusCategory::All)
     }
 }
 
-/// Render the vibe context, discarding breakdown info.
-pub fn render(summary: &ScanSummary, opts: &VibeOptions) -> String {
+/// Render the AI context, discarding breakdown info.
+pub fn render(summary: &ScanSummary, opts: &AiContextRenderOptions) -> String {
     let (content, _) = render_internal(summary, opts);
     content
 }
 
-/// Render the vibe context and return per-section token breakdown for display to the user.
+/// Render the AI context and return per-section token breakdown for display to the user.
 pub fn render_with_breakdown(
     summary: &ScanSummary,
-    opts: &VibeOptions,
+    opts: &AiContextRenderOptions,
 ) -> (String, SectionBreakdown) {
     render_internal(summary, opts)
 }
 
-fn render_internal(summary: &ScanSummary, opts: &VibeOptions) -> (String, SectionBreakdown) {
+fn render_internal(
+    summary: &ScanSummary,
+    opts: &AiContextRenderOptions,
+) -> (String, SectionBreakdown) {
     let budget_chars = opts.budget_tokens * 4;
 
     let findings: Vec<&Finding> = summary
@@ -147,7 +150,7 @@ fn render_internal(summary: &ScanSummary, opts: &VibeOptions) -> (String, Sectio
     if opts
         .focus
         .as_ref()
-        .is_none_or(VibeCategory::includes_architecture_context)
+        .is_none_or(AiFocusCategory::includes_architecture_context)
     {
         let pre = out.len();
         hotfiles::render_hot_files(&mut out, summary);

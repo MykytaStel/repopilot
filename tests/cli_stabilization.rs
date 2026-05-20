@@ -94,10 +94,10 @@ fn grouped_ai_commands_work() {
         ],
         project.path(),
     );
-    assert!(stdout(&context).contains("RepoPilot Vibe Check"));
+    assert!(stdout(&context).contains("RepoPilot AI Context"));
 
     let plan = run_ok(&["ai", "plan", ".", "--budget", "2k"], project.path());
-    assert!(stdout(&plan).contains("RepoPilot Harden Plan"));
+    assert!(stdout(&plan).contains("RepoPilot AI Plan"));
 
     let prompt = run_ok(&["ai", "prompt", ".", "--budget", "2k"], project.path());
     assert!(stdout(&prompt).contains("RepoPilot Remediation Prompt"));

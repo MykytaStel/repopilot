@@ -1,13 +1,13 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
+use crate::output::ai_context::project_name;
 use crate::output::report_stats::risk_label_for_findings;
-use crate::output::vibe::project_name;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
 pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &[&Finding]) {
     let project_name = project_name(summary);
 
-    let _ = writeln!(out, "# RepoPilot Vibe Check — {project_name}");
+    let _ = writeln!(out, "# RepoPilot AI Context — {project_name}");
     out.push('\n');
 
     let risk = risk_level(findings);

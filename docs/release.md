@@ -113,11 +113,11 @@ repopilot --version
 brew test repopilot
 ```
 
-For the 0.12.0 release, also verify that the public package and tag state moved
-to 0.12.0:
+For the 0.13.0 release, also verify that the public package and tag state moved
+to 0.13.0:
 
 ```bash
-git ls-remote --tags origin v0.12.0
+git ls-remote --tags origin v0.13.0
 npm view repopilot version
 for pkg in \
   @repopilot/darwin-arm64 \
@@ -127,7 +127,7 @@ for pkg in \
   @repopilot/win32-x64-msvc; do
   npm view "$pkg" version
 done
-npm install -g repopilot@0.12.0
+npm install -g repopilot@0.13.0
 repopilot --version
 repopilot scan . --format json --output /tmp/repopilot-0.12-smoke.json
 gh attestation verify path/to/repopilot-*.tar.gz --owner MykytaStel

@@ -36,7 +36,8 @@ Consumers should prefer:
 }
 ```
 
-For older reports, consumers can fall back to:
+If a downstream consumer still needs historical reports, keep that compatibility
+in the consumer instead of relying on RepoPilot's current reader:
 
 ```text
 files_analyzed <- files_count
@@ -46,6 +47,7 @@ large_files_skipped <- skipped_files_count
 
 ## Compatibility policy
 
-RepoPilot should keep reading older reports where practical, especially for
-`repopilot compare`, baseline workflows, and older CI artifacts. Current readers
-accept the legacy `0.10` accounting names and the `0.13` report-envelope shape.
+RepoPilot `0.13.0` intentionally tightens current report readers. Commands such
+as `repopilot compare` require current scan reports with both top-level
+`schema_version` and `report.schema_version` matching the current schema.
+Baseline files keep their separate baseline schema policy.

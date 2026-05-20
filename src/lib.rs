@@ -12,6 +12,9 @@
 //! repopilot review .
 //! repopilot baseline create .
 //! ```
+//!
+//! Rust embedding consumers should use the `api` facade. Other modules are
+//! implementation detail for the CLI and may change during the pre-1.0 line.
 
 pub mod api;
 
@@ -21,11 +24,13 @@ pub mod audits;
 pub mod baseline;
 #[doc(hidden)]
 pub mod compare;
+#[doc(hidden)]
 pub mod config;
 #[doc(hidden)]
 pub mod doctor;
 #[doc(hidden)]
 pub mod explain;
+#[doc(hidden)]
 pub mod findings;
 #[doc(hidden)]
 pub mod frameworks;
@@ -33,12 +38,17 @@ pub mod frameworks;
 pub mod graph;
 #[doc(hidden)]
 pub mod knowledge;
+#[doc(hidden)]
 pub mod output;
 #[doc(hidden)]
 pub mod receipt;
+#[doc(hidden)]
 pub mod report;
+#[doc(hidden)]
 pub mod review;
+#[doc(hidden)]
 pub mod risk;
 #[doc(hidden)]
 pub mod rules;
+#[doc(hidden)]
 pub mod scan;

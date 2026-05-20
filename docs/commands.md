@@ -148,21 +148,21 @@ scoring, and report finalization separately.
 ```bash
 repopilot ai context .
 repopilot ai context . --focus security --budget 2k
-repopilot ai context . --output vibe.md
+repopilot ai context . --output ai-context.md
 repopilot ai context . --no-header | pbcopy
 ```
 
 Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
-The removed 0.x `repopilot vibe` alias is no longer part of the executable command surface. The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
+The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
 
-### Hardening plan
+### AI plan
 
 Use `ai plan` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities, clusters repeated rule patterns by repository area, and includes verification commands.
 
 ```bash
 repopilot ai plan .
 repopilot ai plan . --focus security --budget 2k
-repopilot ai plan . --output harden.md
+repopilot ai plan . --output ai-plan.md
 ```
 
 ### AI-ready prompt

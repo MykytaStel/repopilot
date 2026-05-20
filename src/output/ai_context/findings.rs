@@ -1,9 +1,9 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
+use crate::output::ai_context::budget::{CategoryAllocation, allocate_categories, category_weight};
 use crate::output::finding_helpers::{
     finding_location, finding_location_key, finding_recommendation,
 };
 use crate::output::report_text::first_sentence;
-use crate::output::vibe::budget::{CategoryAllocation, allocate_categories, category_weight};
 use std::fmt::Write as FmtWrite;
 
 type CategoryFilter = fn(&FindingCategory) -> bool;

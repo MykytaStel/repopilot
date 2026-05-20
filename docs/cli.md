@@ -262,8 +262,6 @@ Scans the repository and formats findings as structured Markdown for pasting int
 The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, finding recommendations, and an approximate token count.
 `ai context` emits Markdown only and does not accept `--format`.
 
-The removed 0.x `repopilot vibe` alias is no longer part of the executable command surface; use `repopilot ai context`.
-
 ### Synopsis
 
 ```
@@ -291,7 +289,7 @@ repopilot ai context <PATH> [OPTIONS]
 ```bash
 repopilot ai context .
 repopilot ai context . --focus security --budget 2k
-repopilot ai context . --output vibe.md
+repopilot ai context . --output ai-context.md
 repopilot ai context . --no-header | pbcopy
 ```
 
@@ -299,11 +297,9 @@ repopilot ai context . --no-header | pbcopy
 
 ## `ai plan`
 
-Scans the repository and formats findings as a Markdown hardening plan with P0/P1/P2/P3 priorities, locations, rule IDs, finding recommendations, and verification commands.
+Scans the repository and formats findings as a Markdown AI plan with P0/P1/P2/P3 priorities, locations, rule IDs, finding recommendations, and verification commands.
 
 `ai plan` emits Markdown only and does not accept `--format`.
-
-The removed 0.x `repopilot harden` alias is no longer part of the executable command surface; use `repopilot ai plan`.
 
 ### Synopsis
 
@@ -325,7 +321,7 @@ repopilot ai plan <PATH> [OPTIONS]
 ```bash
 repopilot ai plan .
 repopilot ai plan . --focus security --budget 2k
-repopilot ai plan . --output harden.md
+repopilot ai plan . --output ai-plan.md
 ```
 
 ---
