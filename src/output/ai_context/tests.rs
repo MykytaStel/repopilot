@@ -1,5 +1,5 @@
 use super::header::risk_level;
-use super::{VibeCategory, VibeOptions, render};
+use super::{AiContextRenderOptions, AiFocusCategory, render};
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::types::ScanSummary;
 use std::path::PathBuf;
@@ -57,8 +57,8 @@ fn renders_header_with_risk_high() {
         42,
     )];
     let summary = make_summary(findings);
-    let output = render(&summary, &VibeOptions::default());
-    assert!(output.contains("# RepoPilot Vibe Check — my-project"));
+    let output = render(&summary, &AiContextRenderOptions::default());
+    assert!(output.contains("# RepoPilot AI Context — my-project"));
     assert!(output.contains("🔴 HIGH"));
     assert!(output.contains("1 critical"));
 }
@@ -66,12 +66,12 @@ fn renders_header_with_risk_high() {
 #[test]
 fn renders_no_header_when_flag_set() {
     let summary = make_summary(vec![]);
-    let opts = VibeOptions {
+    let opts = AiContextRenderOptions {
         no_header: true,
         ..Default::default()
     };
     let output = render(&summary, &opts);
-    assert!(!output.contains("# RepoPilot Vibe Check"));
+    assert!(!output.contains("# RepoPilot AI Context"));
 }
 
 #[test]
@@ -95,8 +95,8 @@ fn focus_filters_to_security_only() {
         ),
     ];
     let summary = make_summary(findings);
-    let opts = VibeOptions {
-        focus: Some(VibeCategory::Security),
+    let opts = AiContextRenderOptions {
+        focus: Some(AiFocusCategory::Security),
         ..Default::default()
     };
     let output = render(&summary, &opts);
@@ -133,8 +133,8 @@ fn focus_quality_includes_testing_and_code_quality() {
         ),
     ];
     let summary = make_summary(findings);
-    let opts = VibeOptions {
-        focus: Some(VibeCategory::Quality),
+    let opts = AiContextRenderOptions {
+        focus: Some(AiFocusCategory::Quality),
         ..Default::default()
     };
     let output = render(&summary, &opts);
@@ -153,7 +153,7 @@ fn finding_entries_include_context_confidence_and_fix() {
         12,
     )];
     let summary = make_summary(findings);
-    let opts = VibeOptions {
+    let opts = AiContextRenderOptions {
         no_header: true,
         ..Default::default()
     };
@@ -180,7 +180,7 @@ fn small_budget_renders_truncation_notice() {
         })
         .collect();
     let summary = make_summary(findings);
-    let opts = VibeOptions {
+    let opts = AiContextRenderOptions {
         budget_tokens: 20,
         no_header: true,
         ..Default::default()
@@ -256,7 +256,7 @@ fn risk_level_moderate_for_many_medium_findings() {
 #[test]
 fn token_estimate_in_footer() {
     let summary = make_summary(vec![]);
-    let output = render(&summary, &VibeOptions::default());
+    let output = render(&summary, &AiContextRenderOptions::default());
     assert!(output.contains("tokens"));
     assert!(output.contains("budget: 4096"));
 }
@@ -272,7 +272,7 @@ fn top_recommendations_omitted_when_no_high_findings() {
         1,
     )];
     let summary = make_summary(findings);
-    let output = render(&summary, &VibeOptions::default());
+    let output = render(&summary, &AiContextRenderOptions::default());
     assert!(!output.contains("## Top Recommendations"));
 }
 
@@ -297,7 +297,7 @@ fn top_recommendations_include_medium_clusters_when_no_high_findings() {
         ),
     ];
     let summary = make_summary(findings);
-    let output = render(&summary, &VibeOptions::default());
+    let output = render(&summary, &AiContextRenderOptions::default());
     assert!(output.contains("## Top Recommendations"));
     assert!(output.contains("MEDIUM 2 finding(s)"));
 }
@@ -313,24 +313,24 @@ fn top_recommendations_shown_for_high_findings() {
         5,
     )];
     let summary = make_summary(findings);
-    let output = render(&summary, &VibeOptions::default());
+    let output = render(&summary, &AiContextRenderOptions::default());
     assert!(output.contains("## Top Recommendations"));
 }
 
 #[test]
 fn empty_scan_renders_without_panic() {
     let summary = make_summary(vec![]);
-    let output = render(&summary, &VibeOptions::default());
-    assert!(output.contains("RepoPilot Vibe Check"));
+    let output = render(&summary, &AiContextRenderOptions::default());
+    assert!(output.contains("RepoPilot AI Context"));
     assert!(output.contains("0 findings"));
 }
 
 #[test]
-fn vibe_category_from_str() {
-    assert_eq!("security".parse(), Ok(VibeCategory::Security));
-    assert_eq!("arch".parse(), Ok(VibeCategory::Architecture));
-    assert_eq!("quality".parse(), Ok(VibeCategory::Quality));
-    assert_eq!("framework".parse(), Ok(VibeCategory::Framework));
-    assert_eq!("all".parse(), Ok(VibeCategory::All));
-    assert_eq!("unknown".parse::<VibeCategory>(), Err(()));
+fn ai_context_category_from_str() {
+    assert_eq!("security".parse(), Ok(AiFocusCategory::Security));
+    assert_eq!("arch".parse(), Ok(AiFocusCategory::Architecture));
+    assert_eq!("quality".parse(), Ok(AiFocusCategory::Quality));
+    assert_eq!("framework".parse(), Ok(AiFocusCategory::Framework));
+    assert_eq!("all".parse(), Ok(AiFocusCategory::All));
+    assert_eq!("unknown".parse::<AiFocusCategory>(), Err(()));
 }

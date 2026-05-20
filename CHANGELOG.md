@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added a 0.13 release checklist for the breaking cleanup release.
+- Added a current `0.14` scan report fixture that documents the supported compare input schema.
+- Added a shared product scan pipeline for scan, review, and AI Markdown commands, including engine-contract diagnostics and shared runtime diagnostic handling.
+
+### Changed
+
+- Bumped the crate, npm wrapper, optional platform package pins, and GitHub Action default version to `0.13.0`.
+- Renamed internal AI modules from legacy context/plan names to `ai_context` and `ai_plan` while keeping the public CLI as `repopilot ai context|plan|prompt`.
+- Updated AI context and AI plan headings to use the stable product names.
+- AI context, AI plan, and AI prompt now use the same default visibility and local feedback behavior as product scans.
+- `repopilot review` now uses the shared default product visibility path before diff classification.
+- `repopilot compare` now requires current scan reports with matching top-level and envelope schema metadata instead of migrating older scan report shapes.
+
+### Removed
+
+- Removed default parsing compatibility for pre-current scan report schemas in the compare reader.
+
 ## [0.12.0] - 2026-05-20
 
 ### Added

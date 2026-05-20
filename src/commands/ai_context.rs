@@ -1,6 +1,6 @@
 use crate::cli::ai::AiContextOptions;
 use crate::commands::llm::{LlmCommandArgs, run_markdown_command};
-use repopilot::output::vibe::{VibeOptions, render_with_breakdown};
+use repopilot::output::ai_context::{AiContextRenderOptions, render_with_breakdown};
 use std::io::IsTerminal;
 
 pub fn run(options: AiContextOptions) -> Result<(), Box<dyn std::error::Error>> {
@@ -28,7 +28,7 @@ pub fn run(options: AiContextOptions) -> Result<(), Box<dyn std::error::Error>> 
             output,
         },
         |summary, focus, budget_tokens| {
-            let opts = VibeOptions {
+            let opts = AiContextRenderOptions {
                 focus,
                 budget_tokens,
                 no_header,

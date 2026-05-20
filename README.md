@@ -96,36 +96,33 @@ brew update && brew upgrade repopilot
 
 ## Quick Start
 
-Start with a local scan:
+First five minutes:
 
 ```bash
 repopilot scan .
-```
-
-Check adoption readiness and create an intentional baseline for existing debt:
-
-```bash
 repopilot doctor .
 repopilot baseline create . --output .repopilot/baseline.json
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+repopilot review . --base origin/main
+repopilot ai context . --budget 4k
 ```
 
-Generate AI-ready context for the highest-risk work:
+That path answers what RepoPilot found, whether the repo is ready for CI
+adoption, which findings are new, what changed in the current review, and what
+local context to paste into an AI coding assistant.
+
+Save audit evidence for CI or release review:
 
 ```bash
-repopilot ai context . --budget 4k
+repopilot scan . --format markdown --output repopilot-report.md
+repopilot scan . --format json --output repopilot-report.json --receipt .repopilot/receipt.json
+repopilot scan . --format sarif --output repopilot.sarif
 ```
 
 Copy AI context on macOS:
 
 ```bash
 repopilot ai context . | pbcopy
-```
-
-Save a Markdown report:
-
-```bash
-repopilot scan . --format markdown --output repopilot-report.md
 ```
 
 Run a focused security scan:
@@ -358,7 +355,7 @@ See the full rule list in [rulesets](docs/rulesets.md).
 $ repopilot scan .
 
 RepoPilot Scan
-Version: 0.12.0
+Version: 0.13.0
 Path: .
 Risk: Elevated
 Health score: 93/100

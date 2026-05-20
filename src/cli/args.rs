@@ -130,7 +130,7 @@ impl From<FailOnArg> for FailOn {
     }
 }
 
-pub fn parse_vibe_budget(value: &str) -> Result<usize, String> {
+pub fn parse_token_budget(value: &str) -> Result<usize, String> {
     let tokens = match value {
         "2k" => 2048,
         "4k" => 4096,

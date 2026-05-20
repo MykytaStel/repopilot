@@ -39,7 +39,7 @@ fn write_medium_signal_project(root: &std::path::Path) {
 }
 
 #[test]
-fn vibe_default_output_succeeds() {
+fn ai_context_default_output_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
 
@@ -51,7 +51,7 @@ fn vibe_default_output_succeeds() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("# RepoPilot Vibe Check"));
+    assert!(stdout.contains("# RepoPilot AI Context"));
     assert!(stdout.contains("Security"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("sk_...***"));
@@ -59,7 +59,7 @@ fn vibe_default_output_succeeds() {
 }
 
 #[test]
-fn vibe_focus_security_with_budget_succeeds() {
+fn ai_context_focus_security_with_budget_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
 
@@ -80,7 +80,7 @@ fn vibe_focus_security_with_budget_succeeds() {
 }
 
 #[test]
-fn vibe_no_header_succeeds() {
+fn ai_context_no_header_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
 
@@ -92,15 +92,15 @@ fn vibe_no_header_succeeds() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(!stdout.contains("# RepoPilot Vibe Check"));
+    assert!(!stdout.contains("# RepoPilot AI Context"));
     assert!(stdout.contains("Security"));
 }
 
 #[test]
-fn vibe_output_file_succeeds() {
+fn ai_context_output_file_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());
-    let output_path = temp.path().join("vibe.md");
+    let output_path = temp.path().join("ai-context.md");
 
     let output = repopilot()
         .args(["ai", "context", ".", "--output"])
@@ -111,13 +111,13 @@ fn vibe_output_file_succeeds() {
 
     assert!(output.status.success());
     assert!(output.stdout.is_empty());
-    let rendered = fs::read_to_string(output_path).expect("failed to read vibe output");
-    assert!(rendered.contains("# RepoPilot Vibe Check"));
+    let rendered = fs::read_to_string(output_path).expect("failed to read AI context output");
+    assert!(rendered.contains("# RepoPilot AI Context"));
     assert!(rendered.contains("Possible secret detected"));
 }
 
 #[test]
-fn vibe_groups_medium_recommendations_when_no_high_findings() {
+fn ai_context_uses_default_product_visibility() {
     let temp = tempdir().expect("failed to create temp dir");
     write_medium_signal_project(temp.path());
 
@@ -129,13 +129,12 @@ fn vibe_groups_medium_recommendations_when_no_high_findings() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert!(stdout.contains("## Top Recommendations"));
-    assert!(stdout.contains("Large file detected"));
-    assert!(stdout.contains("MEDIUM 2 finding(s)"));
+    assert!(!stdout.contains("## Top Recommendations"));
+    assert!(!stdout.contains("Large file detected"));
 }
 
 #[test]
-fn vibe_rejects_unknown_focus() {
+fn ai_context_rejects_unknown_focus() {
     let temp = tempdir().expect("failed to create temp dir");
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 
@@ -153,7 +152,7 @@ fn vibe_rejects_unknown_focus() {
 }
 
 #[test]
-fn vibe_rejects_unknown_budget() {
+fn ai_context_rejects_unknown_budget() {
     let temp = tempdir().expect("failed to create temp dir");
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 
@@ -170,7 +169,7 @@ fn vibe_rejects_unknown_budget() {
 }
 
 #[test]
-fn vibe_rejects_zero_budget() {
+fn ai_context_rejects_zero_budget() {
     let temp = tempdir().expect("failed to create temp dir");
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");
 

@@ -1,10 +1,13 @@
 use crate::commands::focus::parse_focus_category;
-use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
-use repopilot::config::loader::{load_default_config, load_optional_config};
-use repopilot::output::vibe::{DEFAULT_TOKEN_BUDGET, VibeCategory};
+use crate::commands::product_scan::{
+    ProductScanMode, ProductScanRequest, emit_report_only_diagnostics,
+    enforce_diagnostics_exit_policy, run_product_scan,
+};
+use crate::commands::scan_config::ScanConfigOverrides;
+use repopilot::findings::filter::FindingFilter;
+use repopilot::findings::visibility::FindingVisibilityProfile;
+use repopilot::output::ai_context::{AiFocusCategory, DEFAULT_TOKEN_BUDGET};
 use repopilot::report::writer::write_report;
-use repopilot::scan::scanner::scan_path_with_config;
 use repopilot::scan::types::ScanSummary;
 use std::path::PathBuf;
 
@@ -21,22 +24,27 @@ pub fn run_markdown_command<F>(
     render: F,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
-    F: FnOnce(&ScanSummary, Option<VibeCategory>, usize) -> String,
+    F: FnOnce(&ScanSummary, Option<AiFocusCategory>, usize) -> String,
 {
-    let repo_config = match args.config {
-        Some(config_path) => load_optional_config(&config_path)?,
-        None => load_default_config()?,
-    };
-    let scan_config = build_scan_config(&repo_config, ScanConfigOverrides::default());
     let focus_category = parse_focus_category(args.focus.as_deref())?;
     let budget_tokens = args.budget.unwrap_or(DEFAULT_TOKEN_BUDGET);
 
-    let pb = make_spinner("Scanning...");
-    let summary = scan_path_with_config(&args.path, &scan_config)?;
-    finish_spinner(pb);
+    let scan_result = run_product_scan(ProductScanRequest {
+        path: args.path,
+        config_path: args.config,
+        overrides: ScanConfigOverrides::default(),
+        preset: None,
+        mode: ProductScanMode::Full,
+        ignore_feedback: false,
+        visibility_profile: FindingVisibilityProfile::Default,
+        pre_visibility_filter: FindingFilter::default(),
+    })?;
+    let summary = scan_result.summary;
 
+    emit_report_only_diagnostics(&summary);
     let rendered = render(&summary, focus_category, budget_tokens);
     write_report(&rendered, args.output.as_deref())?;
+    enforce_diagnostics_exit_policy(&summary)?;
 
     Ok(())
 }

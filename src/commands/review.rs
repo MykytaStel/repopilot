@@ -1,16 +1,16 @@
 use crate::cli::ReviewOptions;
 use crate::commands::filters::{review_pre_diff_filter, review_priority_filter};
-use crate::commands::progress::{finish_spinner, make_spinner};
-use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
+use crate::commands::product_scan::{
+    ProductScanMode, ProductScanRequest, enforce_diagnostics_exit_policy, run_product_scan,
+};
+use crate::commands::scan_config::ScanConfigOverrides;
 use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
-use repopilot::config::loader::{load_default_config, load_optional_config};
-use repopilot::findings::feedback::apply_local_feedback;
+use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::report::writer::write_report;
 use repopilot::review::render::render;
 use repopilot::review::{build_review_report, review_report_for_ci};
-use repopilot::scan::scanner::scan_path_with_config;
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let pre_diff_filter = review_pre_diff_filter(&options);
@@ -31,31 +31,22 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         }));
     }
 
-    let repo_config = match &options.config {
-        Some(config_path) => load_optional_config(config_path)?,
-        None => load_default_config()?,
-    };
-    let scan_config = build_scan_config(
-        &repo_config,
-        ScanConfigOverrides {
+    let scan_result = run_product_scan(ProductScanRequest {
+        path: options.path.clone(),
+        config_path: options.config.clone(),
+        overrides: ScanConfigOverrides {
             max_file_loc: options.max_file_loc,
             max_directory_modules: options.max_directory_modules,
             max_directory_depth: options.max_directory_depth,
             ..ScanConfigOverrides::default()
         },
-    );
-
-    let pb = make_spinner("Scanning...");
-    let mut summary = scan_path_with_config(&options.path, &scan_config)?;
-    finish_spinner(pb);
-
-    if !options.ignore_feedback {
-        apply_local_feedback(&mut summary, &options.path)?;
-    }
-
-    if !pre_diff_filter.is_empty() {
-        pre_diff_filter.apply_to_summary(&mut summary);
-    }
+        preset: None,
+        mode: ProductScanMode::Full,
+        ignore_feedback: options.ignore_feedback,
+        visibility_profile: FindingVisibilityProfile::Strict,
+        pre_visibility_filter: pre_diff_filter,
+    })?;
+    let summary = scan_result.summary;
 
     let baseline_file = match options.baseline {
         Some(baseline_path) => Some((read_baseline(&baseline_path)?, baseline_path)),
@@ -87,6 +78,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let rendered_report = render(&review_report, options.format.into(), ci_gate.as_ref())?;
 
     write_report(&rendered_report, options.output.as_deref())?;
+    enforce_diagnostics_exit_policy(&review_report.summary)?;
 
     if let Some(ci_gate) = ci_gate
         && let Some(message) = ci_gate.failure_message()

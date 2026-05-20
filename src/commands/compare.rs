@@ -56,8 +56,12 @@ impl std::fmt::Display for CompareInputError {
             Self::Read { path, .. } => {
                 write!(f, "Failed to read scan summary {}", path.display())
             }
-            Self::Parse { path, .. } => {
-                write!(f, "Failed to parse scan summary {}", path.display())
+            Self::Parse { path, source } => {
+                write!(
+                    f,
+                    "Failed to parse scan summary {}: {source}",
+                    path.display()
+                )
             }
         }
     }
@@ -102,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn read_summary_still_accepts_legacy_scan_summary_json() {
+    fn read_summary_rejects_legacy_scan_summary_json() {
         let summary = ScanSummary {
             hidden_suggestions: Vec::new(),
             root_path: PathBuf::from("."),
@@ -116,9 +120,8 @@ mod tests {
         let path = dir.path().join("legacy-report.json");
         fs::write(&path, rendered).expect("report should be written");
 
-        let parsed = read_summary(&path).expect("legacy report should parse");
+        let error = read_summary(&path).expect_err("legacy report should be rejected");
 
-        assert_eq!(parsed.files_analyzed, 3);
-        assert_eq!(parsed.non_empty_lines, 21);
+        assert!(error.to_string().contains("Failed to parse scan summary"));
     }
 }

@@ -109,9 +109,8 @@ repopilot ai ...
 repopilot inspect ...
 ```
 
-The legacy 0.x aliases (`vibe`, `harden`, `prompt`, `knowledge`, and
-`explain`) have been removed from the executable CLI surface. Use `ai ...` and
-`inspect ...` commands.
+The executable CLI surface should stay on the stable command families. Use
+`ai ...` for AI-ready local Markdown and `inspect ...` for diagnostics.
 
 ---
 

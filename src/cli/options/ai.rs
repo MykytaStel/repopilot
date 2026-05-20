@@ -1,4 +1,4 @@
-use crate::cli::parse_vibe_budget;
+use crate::cli::parse_token_budget;
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
 
@@ -26,7 +26,7 @@ repopilot ai context . --no-header | pbcopy"
         after_help = "EXAMPLES:\n  \
 repopilot ai plan .\n  \
 repopilot ai plan . --focus security --budget 4k\n  \
-repopilot ai plan . --output harden.md"
+repopilot ai plan . --output ai-plan.md"
     )]
     Plan(AiPlanOptions),
 
@@ -55,7 +55,7 @@ pub struct AiContextOptions {
     pub focus: Option<String>,
 
     /// Target token budget: 2k, 4k, 8k, 16k, or a positive integer
-    #[arg(long, value_parser = parse_vibe_budget)]
+    #[arg(long, value_parser = parse_token_budget)]
     pub budget: Option<usize>,
 
     /// Write Markdown output to a file instead of stdout
@@ -89,7 +89,7 @@ pub struct AiPlanOptions {
     pub focus: Option<String>,
 
     /// Target token budget: 2k, 4k, 8k, 16k, or a positive integer
-    #[arg(long, value_parser = parse_vibe_budget)]
+    #[arg(long, value_parser = parse_token_budget)]
     pub budget: Option<usize>,
 
     /// Write Markdown output to a file instead of stdout
@@ -111,7 +111,7 @@ pub struct AiPromptOptions {
     pub focus: Option<String>,
 
     /// Target token budget: 2k, 4k, 8k, 16k, or a positive integer
-    #[arg(long, value_parser = parse_vibe_budget)]
+    #[arg(long, value_parser = parse_token_budget)]
     pub budget: Option<usize>,
 
     /// Write Markdown output to a file instead of stdout

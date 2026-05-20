@@ -156,7 +156,7 @@ fn stable_ai_context_writes_llm_ready_markdown() {
     let content = read_non_empty(&output_path);
 
     assert!(
-        content.contains("RepoPilot") || content.contains("Vibe"),
+        content.contains("RepoPilot") || content.contains("AI Context"),
         "ai context output should identify RepoPilot context\n{}",
         content
     );

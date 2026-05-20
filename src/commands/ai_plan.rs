@@ -1,5 +1,5 @@
 use crate::commands::llm::{LlmCommandArgs, run_markdown_command};
-use repopilot::output::harden::{HardenOptions, render as render_harden};
+use repopilot::output::ai_plan::{AiPlanOptions, render as render_ai_plan};
 use std::path::PathBuf;
 
 pub fn run(
@@ -18,9 +18,9 @@ pub fn run(
             output,
         },
         |summary, focus, budget_tokens| {
-            render_harden(
+            render_ai_plan(
                 summary,
-                &HardenOptions {
+                &AiPlanOptions {
                     focus,
                     budget_tokens,
                 },
