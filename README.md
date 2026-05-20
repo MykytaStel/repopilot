@@ -285,6 +285,13 @@ Fail CI only on new high-risk findings:
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 ```
 
+Validate or bypass local feedback suppressions:
+
+```bash
+repopilot inspect feedback .
+repopilot scan . --ignore-feedback
+```
+
 Review a pull request or branch diff:
 
 ```bash
@@ -369,6 +376,7 @@ repopilot scan . --profile strict
 | [Language support](docs/language-support.md) | Supported language/framework tiers and limitations |
 | [Knowledge Engine](docs/knowledge-engine.md) | Rule applicability and local-first learning policy |
 | [Risk Engine](docs/risk-engine.md) | Risk scoring, priorities, and calibration policy |
+| [Local Feedback](docs/local-feedback.md) | Repository-local suppressions and validation |
 | [Trust Mode](docs/trust-mode.md) | Default vs strict visibility and hidden suggestions |
 | [Core Visibility Engine](docs/core-visibility-engine.md) | Finding intent model and visibility decisions |
 | [CLI reference](docs/cli.md) | Commands, flags, and exit codes |
@@ -377,6 +385,7 @@ repopilot scan . --profile strict
 | [React Native](docs/react-native.md) | React Native and Expo detection |
 | [GitHub Code Scanning](docs/integrations/github-code-scanning.md) | SARIF workflow and CI setup |
 | [Roadmap](docs/roadmap.md) | Pre-1.0 roadmap and v1 gates |
+| [0.12 GTM plan](docs/gtm-0.12.md) | Launch audiences, messaging, and proof points |
 | [Release process](docs/release.md) | Manual release process |
 | [Changelog](CHANGELOG.md) | Version history |
 
@@ -388,7 +397,7 @@ Planned direction:
 
 - stronger Trust Mode calibration
 - `repopilot eval` with golden fixtures
-- local feedback through `.repopilot/feedback.yml`
+- local feedback validation and report transparency
 - hidden suggestion trend tracking
 - deeper dependency graph and impact analysis
 - AI task packs with context, constraints, and acceptance criteria

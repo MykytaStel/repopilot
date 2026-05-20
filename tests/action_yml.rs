@@ -58,6 +58,7 @@ fn action_supports_doctor_as_markdown_auto_command() {
     let helper = fs::read_to_string(helper_path).expect("read action helper");
     assert!(helper.contains("doctor) RUN_ARGS=(doctor \"$PATH_INPUT\") ;;"));
     assert!(helper.contains("SARIF output and upload are only supported by 'scan'"));
+    assert!(helper.contains("GITHUB_STEP_SUMMARY"));
     assert!(!helper.contains("ai-context|vibe"));
 }
 
@@ -155,4 +156,50 @@ printf '%s\n' "$@" > "$CAPTURE_ARGS"
         !capture.exists(),
         "validation should fail before invoking repopilot"
     );
+}
+
+#[test]
+#[cfg(unix)]
+fn action_helper_writes_markdown_job_summary() {
+    let temp = tempdir().expect("tempdir");
+    let capture = temp.path().join("args.txt");
+    let step_summary = temp.path().join("summary.md");
+    let fake_bin = temp.path().join("bin");
+    fs::create_dir(&fake_bin).expect("create fake bin");
+    let fake_repopilot = fake_bin.join("repopilot");
+    fs::write(
+        &fake_repopilot,
+        r#"#!/usr/bin/env bash
+printf '%s\n' "$@" > "$CAPTURE_ARGS"
+printf '# Fake RepoPilot Report\n\n- ok\n'
+"#,
+    )
+    .expect("write fake repopilot");
+    let mut permissions = fs::metadata(&fake_repopilot).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_repopilot, permissions).expect("chmod fake repopilot");
+
+    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
+    let output = Command::new("bash")
+        .arg(helper)
+        .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
+        .env("CAPTURE_ARGS", &capture)
+        .env("GITHUB_STEP_SUMMARY", &step_summary)
+        .env("INPUT_COMMAND", "doctor")
+        .env("INPUT_FORMAT", "auto")
+        .env("INPUT_PATH", ".")
+        .output()
+        .expect("run helper");
+
+    assert!(
+        output.status.success(),
+        "helper failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Fake RepoPilot Report"));
+
+    let summary = fs::read_to_string(step_summary).expect("read step summary");
+    assert!(summary.contains("## RepoPilot"));
+    assert!(summary.contains("Exit status:** passed"));
+    assert!(summary.contains("# Fake RepoPilot Report"));
 }

@@ -107,10 +107,12 @@ path/language/content
 Future rules should prefer the shared context signals instead of adding another
 local copy of the same path or language checks inside an individual audit.
 
-## Future Local Overlays
+## Local Feedback And Future Overlays
 
-The intended 0.13 direction is inspectable local calibration, not a plugin
-runtime. Local overlays should be normal files that users can review, commit,
-diff, or delete. They may tune known rule severity, confidence, or suppression
-decisions, but they must not execute arbitrary code, load remote packs, or change
-scan behavior silently.
+RepoPilot's first local calibration surface is `.repopilot/feedback.yml` for
+explicit suppressions plus `repopilot inspect feedback` for validation. Future
+overlays should remain inspectable local calibration, not a plugin runtime.
+Local overlays should be normal files that users can review, commit, diff, or
+delete. They may tune known rule severity, confidence, or suppression decisions,
+but they must not execute arbitrary code, load remote packs, or change scan
+behavior silently.

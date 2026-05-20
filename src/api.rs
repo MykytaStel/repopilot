@@ -10,6 +10,10 @@ pub mod config {
 }
 
 pub mod findings {
+    pub use crate::findings::feedback::{
+        LocalFeedbackReport, LocalFeedbackValidation, LocalSuppression, apply_local_feedback,
+        validate_local_feedback,
+    };
     pub use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
     pub use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
     pub use crate::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};

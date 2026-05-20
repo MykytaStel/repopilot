@@ -63,4 +63,8 @@ pub struct ReviewOptions {
     /// Only render findings at or above this risk priority
     #[arg(long, value_enum)]
     pub min_priority: Option<PriorityArg>,
+
+    /// Ignore .repopilot/feedback.yml local suppressions
+    #[arg(long)]
+    pub ignore_feedback: bool,
 }

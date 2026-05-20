@@ -39,6 +39,16 @@ repopilot inspect cache . --format json\n  \
 repopilot inspect cache . --format markdown --output cache.md"
     )]
     Cache(CacheInspectOptions),
+
+    /// Inspect local feedback suppressions and validation diagnostics
+    #[command(
+        about = "Inspect RepoPilot local feedback suppressions",
+        after_help = "EXAMPLES:\n  \
+repopilot inspect feedback\n  \
+repopilot inspect feedback . --format json\n  \
+repopilot inspect feedback . --format markdown --output feedback.md"
+    )]
+    Feedback(FeedbackInspectOptions),
 }
 
 #[derive(Args)]
@@ -89,6 +99,21 @@ pub struct CacheInspectOptions {
     pub path: PathBuf,
 
     /// Output format for cache diagnostics
+    #[arg(long, value_enum, default_value = "console")]
+    pub format: CompareOutputFormatArg,
+
+    /// Write report to a file instead of stdout
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct FeedbackInspectOptions {
+    /// Repository or project path whose .repopilot/feedback.yml should be inspected
+    #[arg(default_value = ".")]
+    pub path: PathBuf,
+
+    /// Output format for feedback diagnostics
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
 

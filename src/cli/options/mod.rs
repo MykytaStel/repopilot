@@ -136,11 +136,13 @@ repopilot ai prompt . --output prompt.md"
         about = "Inspect RepoPilot classification and bundled knowledge",
         long_about = "Advanced diagnostics for rule authors and power users.\n\n\
 Use `inspect explain` to understand file context classification and rule decisions.\n\
-Use `inspect knowledge` to inspect the bundled Knowledge Engine catalog.",
+Use `inspect knowledge` to inspect the bundled Knowledge Engine catalog.\n\
+Use `inspect feedback` to validate local .repopilot/feedback.yml suppressions.",
         after_help = "EXAMPLES:\n  \
 repopilot inspect explain src/main.rs\n  \
 repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap\n  \
-repopilot inspect knowledge --section rules --format json"
+repopilot inspect knowledge --section rules --format json\n  \
+repopilot inspect feedback . --format markdown"
     )]
     Inspect(InspectOptions),
 

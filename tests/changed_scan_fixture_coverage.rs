@@ -68,7 +68,7 @@ fn live_smoke() { assert!(true); }
         r#"
 suppressions:
   - rule_id: security.secret-candidate
-    path: src/live.rs
+    path: "src/live.rs"
     reason: fixture value accepted for this test
 "#,
     );
@@ -79,12 +79,105 @@ suppressions:
         !has_rule(&suppressed, "security.secret-candidate"),
         "feedback should suppress matching security finding: {suppressed:#?}"
     );
+    assert_eq!(suppressed["local_feedback"]["suppressions_loaded"], 1);
+    assert_eq!(suppressed["local_feedback"]["suppressed_findings_count"], 1);
+    assert_eq!(
+        suppressed["local_feedback"]["unmatched_suppressions_count"],
+        0
+    );
 
     let raw = scan_json(temp.path(), &["--ignore-feedback"]);
     assert!(
         has_rule(&raw, "security.secret-candidate"),
         "ignore feedback should reveal the finding: {raw:#?}"
     );
+    assert!(raw.get("local_feedback").is_none());
+}
+
+#[test]
+fn malformed_feedback_file_reports_warning_and_keeps_findings() {
+    let temp = tempdir().expect("temp dir");
+
+    write(
+        temp.path().join("src/live.rs"),
+        "const API_KEY: &str = \"abc123xyz987\";\n",
+    );
+    write(
+        temp.path().join(".repopilot/feedback.yml"),
+        "suppressions:\n  - rule_id: [\n",
+    );
+
+    let json = scan_json(temp.path(), &[]);
+
+    assert!(
+        has_rule(&json, "security.secret-candidate"),
+        "malformed feedback should not suppress findings: {json:#?}"
+    );
+    assert_eq!(json["local_feedback"]["suppressions_loaded"], 0);
+    assert!(json["local_feedback"]["parse_error"].as_str().is_some());
+    assert!(diagnostics_include(&json, "feedback.parse-failed"));
+}
+
+#[test]
+fn unmatched_feedback_suppression_reports_warning() {
+    let temp = tempdir().expect("temp dir");
+
+    write(temp.path().join("src/live.rs"), "pub fn live() {}\n");
+    write(
+        temp.path().join(".repopilot/feedback.yml"),
+        r#"
+suppressions:
+  - rule_id: security.secret-candidate
+    path: src/live.rs
+    reason: stale suppression
+"#,
+    );
+
+    let json = scan_json(temp.path(), &[]);
+
+    assert_eq!(json["local_feedback"]["suppressions_loaded"], 1);
+    assert_eq!(json["local_feedback"]["suppressed_findings_count"], 0);
+    assert_eq!(json["local_feedback"]["unmatched_suppressions_count"], 1);
+    assert!(diagnostics_include(
+        &json,
+        "feedback.unmatched-suppressions"
+    ));
+}
+
+#[test]
+fn inspect_feedback_reports_loaded_suppressions() {
+    let temp = tempdir().expect("temp dir");
+
+    write(
+        temp.path().join("src/live.rs"),
+        "const API_KEY: &str = \"abc123xyz987\";\n",
+    );
+    write(
+        temp.path().join(".repopilot/feedback.yml"),
+        r#"
+suppressions:
+  - rule_id: security.secret-candidate
+    path: src/live.rs
+"#,
+    );
+
+    let output = repopilot()
+        .args(["inspect", "feedback", ".", "--format", "json"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run inspect feedback");
+
+    assert!(
+        output.status.success(),
+        "inspect feedback failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(json["exists"], true);
+    assert_eq!(json["local_feedback"]["suppressions_loaded"], 1);
+    assert_eq!(json["local_feedback"]["suppressed_findings_count"], 1);
 }
 
 fn scan_json(root: &Path, extra: &[&str]) -> Value {
@@ -129,6 +222,14 @@ fn has_rule(json: &Value, rule_id: &str) -> bool {
         .into_iter()
         .flatten()
         .any(|finding| finding["rule_id"] == rule_id)
+}
+
+fn diagnostics_include(json: &Value, code: &str) -> bool {
+    json["diagnostics"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|diagnostic| diagnostic["code"] == code)
 }
 
 fn assert_changed_reason(json: &Value, reason: &str, count: u64) {

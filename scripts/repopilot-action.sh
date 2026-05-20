@@ -100,6 +100,50 @@ if [[ -n "$ARGS" ]]; then
   RUN_ARGS+=("${EXTRA_ARGS[@]}")
 fi
 
+SUMMARY_SOURCE=""
+TMP_SUMMARY_OUTPUT=""
+
+append_job_summary() {
+  local status="$1"
+  local source_file="${2:-}"
+
+  if [[ -z "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    return 0
+  fi
+
+  {
+    echo "## RepoPilot"
+    echo
+    printf -- "- **Command:** \`repopilot"
+    printf ' %q' "${RUN_ARGS[@]}"
+    printf '\`\n'
+    echo "- **Exit status:** ${status}"
+    if [[ "$FORMAT" == "sarif" ]]; then
+      echo "- **SARIF file:** \`${OUTFILE}\`"
+    fi
+    if [[ -n "$RECEIPT" ]]; then
+      echo "- **Receipt:** \`${RECEIPT}\`"
+    fi
+  } >> "$GITHUB_STEP_SUMMARY"
+
+  if [[ -z "$source_file" || ! -f "$source_file" ]]; then
+    return 0
+  fi
+
+  {
+    echo
+    if [[ "$FORMAT" == "console" ]]; then
+      echo '```text'
+      sed -n '1,200p' "$source_file"
+      echo '```'
+    else
+      sed -n '1,200p' "$source_file"
+    fi
+  } >> "$GITHUB_STEP_SUMMARY"
+}
+
+trap 'if [[ -n "$TMP_SUMMARY_OUTPUT" && -f "$TMP_SUMMARY_OUTPUT" ]]; then rm -f "$TMP_SUMMARY_OUTPUT"; fi' EXIT
+
 OUTFILE="${OUTPUT:-repopilot-results.sarif}"
 RUN_STATUS=0
 if [[ "$IS_AI" == "true" ]]; then
@@ -107,9 +151,19 @@ if [[ "$IS_AI" == "true" ]]; then
     echo "::error::'$COMMAND' emits Markdown and does not accept --format. Use format=auto or format=markdown."
     exit 2
   fi
+  if [[ -z "$OUTPUT" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    TMP_SUMMARY_OUTPUT="$(mktemp)"
+  fi
   set +e
-  repopilot "${RUN_ARGS[@]}"
-  RUN_STATUS=$?
+  if [[ -n "$TMP_SUMMARY_OUTPUT" ]]; then
+    repopilot "${RUN_ARGS[@]}" | tee "$TMP_SUMMARY_OUTPUT"
+    RUN_STATUS=${PIPESTATUS[0]}
+    SUMMARY_SOURCE="$TMP_SUMMARY_OUTPUT"
+  else
+    repopilot "${RUN_ARGS[@]}"
+    RUN_STATUS=$?
+    SUMMARY_SOURCE="$OUTPUT"
+  fi
   set -e
 elif [[ "$FORMAT" == "sarif" ]]; then
   set +e
@@ -120,14 +174,30 @@ elif [[ "$FORMAT" == "sarif" ]]; then
     echo "sarif_file=$OUTFILE" >> "$GITHUB_OUTPUT"
   fi
 else
+  if [[ -z "$OUTPUT" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    TMP_SUMMARY_OUTPUT="$(mktemp)"
+  fi
   set +e
-  repopilot "${RUN_ARGS[@]}" --format "$FORMAT"
-  RUN_STATUS=$?
+  if [[ -n "$TMP_SUMMARY_OUTPUT" ]]; then
+    repopilot "${RUN_ARGS[@]}" --format "$FORMAT" | tee "$TMP_SUMMARY_OUTPUT"
+    RUN_STATUS=${PIPESTATUS[0]}
+    SUMMARY_SOURCE="$TMP_SUMMARY_OUTPUT"
+  else
+    repopilot "${RUN_ARGS[@]}" --format "$FORMAT"
+    RUN_STATUS=$?
+    SUMMARY_SOURCE="$OUTPUT"
+  fi
   set -e
 fi
 
 if [[ -n "$RECEIPT" && -n "${GITHUB_OUTPUT:-}" ]]; then
   echo "receipt_file=$RECEIPT" >> "$GITHUB_OUTPUT"
+fi
+
+if [[ "$RUN_STATUS" -eq 0 ]]; then
+  append_job_summary "passed" "$SUMMARY_SOURCE"
+else
+  append_job_summary "failed (exit ${RUN_STATUS})" "$SUMMARY_SOURCE"
 fi
 
 exit "$RUN_STATUS"

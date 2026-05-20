@@ -79,6 +79,7 @@ pub(super) fn build_scan_summary(
         repopilotignore_path: facts.repopilotignore_path,
         scan_timings: parts.scan_timings,
         cache_telemetry: parts.cache_telemetry,
+        local_feedback: None,
         diagnostics: parts.diagnostics,
     }
 }

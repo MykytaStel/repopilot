@@ -5,6 +5,17 @@ useful in CI, dashboards, PR bots, and downstream tooling.
 
 ## Current direction
 
+Schema `0.14` adds optional local feedback transparency:
+
+| Field | Where | Why |
+|---|---|---|
+| `local_feedback` | scan, baseline-scan, review, receipt | Shows how many `.repopilot/feedback.yml` suppressions were loaded, matched, unmatched, invalid, or blocked by parse errors. |
+
+The field is omitted when no local feedback file was applied or when the command
+uses `--ignore-feedback`.
+
+## 0.13 accounting migration
+
 Schema `0.13` clarifies scan accounting names:
 
 | Old field | New field | Why |
@@ -36,4 +47,5 @@ large_files_skipped <- skipped_files_count
 ## Compatibility policy
 
 RepoPilot should keep reading older reports where practical, especially for
-`repopilot compare`, baseline workflows, and older CI artifacts.
+`repopilot compare`, baseline workflows, and older CI artifacts. Current readers
+accept the legacy `0.10` accounting names and the `0.13` report-envelope shape.

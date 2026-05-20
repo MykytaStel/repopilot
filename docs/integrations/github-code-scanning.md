@@ -73,6 +73,8 @@ Keep the SARIF file name consistent between the scan step and the upload step. T
 
 The first-party action can generate SARIF and a compact audit receipt from the
 same scan. `receipt` is only valid with `command: scan`.
+For Markdown, console, review, doctor, compare, and AI command output, the
+action also writes a short GitHub job summary through `GITHUB_STEP_SUMMARY`.
 
 ```yaml
 name: RepoPilot

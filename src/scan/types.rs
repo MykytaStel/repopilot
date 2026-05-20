@@ -1,3 +1,4 @@
+use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::types::Finding;
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
@@ -236,6 +237,9 @@ pub struct ScanSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cache_telemetry: Option<ScanCacheTelemetry>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_feedback: Option<LocalFeedbackReport>,
+
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<ScanDiagnostic>,
 }
@@ -277,6 +281,7 @@ impl Default for ScanSummary {
             repopilotignore_path: None,
             scan_timings: None,
             cache_telemetry: None,
+            local_feedback: None,
             diagnostics: Vec::new(),
         }
     }

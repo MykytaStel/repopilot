@@ -38,6 +38,26 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 repopilot scan . --format sarif --output repopilot.sarif
 ```
 
+## Report Example
+
+Use RepoPilot as a local architecture health pass before a React Native release:
+
+```bash
+repopilot scan . --format markdown --output rn-architecture-health.md
+repopilot ai context . --focus framework --budget 4k --output rn-ai-context.md
+```
+
+The report highlights Hermes/New Architecture mismatches, deprecated core APIs,
+direct state mutation, missing Codegen config, dependency signals, and normal
+repository risks such as large files or hardcoded secret candidates. Commit a
+baseline for accepted migration debt, then gate pull requests on new high-risk
+findings:
+
+```bash
+repopilot baseline create .
+repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
+```
+
 ## Known Limitations
 
 - JavaScript and TypeScript config files are detected with conservative heuristics, not executed.

@@ -30,6 +30,12 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
         "- **Out-of-diff findings:** {}\n",
         report.out_of_diff_count()
     ));
+    if let Some(feedback) = &report.summary.local_feedback {
+        output.push_str(&format!(
+            "- **Local feedback:** {} suppression(s) loaded, {} finding(s) suppressed\n",
+            feedback.suppressions_loaded, feedback.suppressed_findings_count
+        ));
+    }
 
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };

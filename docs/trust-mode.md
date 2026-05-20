@@ -136,6 +136,6 @@ centralized and semantic. The next improvements should be:
 
 - persisted hidden summaries in SARIF properties
 - `repopilot eval` fixtures for visibility behavior
-- local feedback through `.repopilot/feedback.yml`
+- validated local feedback with visible `local_feedback` metadata
 - confidence calibration per rule
 - project profile specific visibility defaults
