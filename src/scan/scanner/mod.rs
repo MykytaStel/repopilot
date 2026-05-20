@@ -81,6 +81,11 @@ impl<'a> ScanEngine<'a> {
             &project_stage.coupling_graph,
             &mut project_stage.findings,
         );
+        let mut diagnostics = Vec::new();
+        let contract_validation_us = crate::engine::pipeline::validate_finding_contract_stage(
+            &project_stage.findings,
+            &mut diagnostics,
+        );
 
         let scan_duration_us = start.elapsed().as_micros() as u64;
         let timings = ScanTimings {
@@ -93,10 +98,11 @@ impl<'a> ScanEngine<'a> {
             post_scan_audits_us: project_stage.elapsed_us,
             enrichment_us,
             risk_scoring_us,
+            contract_validation_us,
             report_finalization_us: 0,
         };
 
-        Ok(self.finalize_report(project_stage, scan_duration_us, timings))
+        Ok(self.finalize_report(project_stage, scan_duration_us, timings, diagnostics))
     }
 
     fn finalize_report(
@@ -104,6 +110,7 @@ impl<'a> ScanEngine<'a> {
         mut project_stage: ProjectAnalysisStage,
         scan_duration_us: u64,
         timings: ScanTimings,
+        diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
     ) -> ScanSummary {
         let finalization_start = Instant::now();
         summary::sort_findings(&mut project_stage.findings);
@@ -119,7 +126,7 @@ impl<'a> ScanEngine<'a> {
                 scan_duration_us,
                 scan_timings: Some(timings),
                 cache_telemetry: None,
-                diagnostics: Vec::new(),
+                diagnostics,
             },
         );
         if let Some(timings) = &mut summary.scan_timings {

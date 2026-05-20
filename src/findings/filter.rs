@@ -79,6 +79,7 @@ mod tests {
             rule_id: rule_id.to_string(),
             severity,
             confidence,
+            provenance: Default::default(),
             risk: RiskAssessment {
                 priority,
                 ..RiskAssessment::default()

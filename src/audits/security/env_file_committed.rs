@@ -52,6 +52,7 @@ fn build_finding(path: &std::path::Path) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

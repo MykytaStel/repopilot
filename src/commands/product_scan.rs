@@ -66,7 +66,6 @@ pub fn run_product_scan(
     finish_spinner(pb);
 
     let mut summary = scan_result?;
-    validate_engine_contract(&mut summary);
 
     if !request.ignore_feedback {
         apply_local_feedback(&mut summary, &request.path)?;
@@ -108,63 +107,4 @@ pub fn emit_report_only_diagnostics(summary: &ScanSummary) {
             diagnostic.severity, diagnostic.code, diagnostic.message
         );
     }
-}
-
-fn validate_engine_contract(summary: &mut ScanSummary) {
-    let mut invalid = Vec::new();
-
-    for finding in &summary.findings {
-        let mut missing = Vec::new();
-        if finding.id.trim().is_empty() {
-            missing.push("id");
-        }
-        if finding.rule_id.trim().is_empty() {
-            missing.push("rule_id");
-        }
-        if finding.recommendation.trim().is_empty() {
-            missing.push("recommendation");
-        }
-        if finding.evidence.is_empty() {
-            missing.push("evidence");
-        }
-        if finding.risk.formula_version.trim().is_empty() {
-            missing.push("risk.formula_version");
-        }
-        if finding.risk.signals.is_empty() {
-            missing.push("risk.signals");
-        }
-
-        if !missing.is_empty() {
-            invalid.push(format!(
-                "{} missing {}",
-                if finding.rule_id.trim().is_empty() {
-                    "<unknown-rule>"
-                } else {
-                    finding.rule_id.as_str()
-                },
-                missing.join(", ")
-            ));
-        }
-    }
-
-    if invalid.is_empty() {
-        return;
-    }
-
-    let sample = invalid
-        .iter()
-        .take(5)
-        .cloned()
-        .collect::<Vec<_>>()
-        .join("; ");
-    summary
-        .diagnostics
-        .push(repopilot::scan::types::ScanDiagnostic::error(
-            "engine.contract-invalid",
-            format!(
-                "{} finding(s) violated the RepoPilot engine contract: {}",
-                invalid.len(),
-                sample
-            ),
-        ));
 }

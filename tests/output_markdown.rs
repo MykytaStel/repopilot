@@ -51,6 +51,7 @@ fn renders_markdown_scan_summary() {
             }],
             workspace_package: None,
             docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
         }],
         detected_frameworks: vec![],

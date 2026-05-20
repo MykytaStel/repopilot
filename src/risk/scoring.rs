@@ -38,9 +38,9 @@ pub fn assess_finding(
             &mut score,
             &mut signals,
             "category.security",
-            "security finding",
+            "security",
             RiskFormula::CURRENT.security_category_weight,
-            "security findings usually have higher remediation priority",
+            "security findings are prioritized",
         );
     }
 
@@ -59,7 +59,7 @@ pub fn assess_finding(
             &mut score,
             &mut signals,
             "review.in-diff",
-            "changed lines",
+            "review diff",
             RiskFormula::CURRENT.review_in_diff_weight,
             "finding touches changed diff lines",
         );
@@ -70,7 +70,7 @@ pub fn assess_finding(
             &mut score,
             &mut signals,
             "workspace.hotspot",
-            "workspace hotspot",
+            "workspace",
             RiskFormula::CURRENT.workspace_hotspot_weight,
             "workspace package has multiple high-risk findings",
         );
@@ -85,7 +85,7 @@ pub fn assess_finding(
             &mut score,
             &mut signals,
             "review.blast-radius",
-            "blast radius",
+            "review diff",
             RiskFormula::CURRENT.blast_radius_weight,
             "finding is in a file impacted by changed import dependencies",
         );
@@ -97,7 +97,7 @@ pub fn assess_finding(
             &mut score,
             &mut signals,
             "cluster.repeated",
-            "repeated pattern",
+            "cluster",
             weight,
             "same rule appears repeatedly in the same repository area",
         );
@@ -133,17 +133,17 @@ fn add_graph_signal(impact: GraphImpact, score: &mut i16, signals: &mut Vec<Risk
             score,
             signals,
             "graph.hub",
-            "dependency hub",
+            "graph",
             RiskFormula::CURRENT.graph_hub_weight,
-            "file has high fan-in or fan-out, so changes can ripple through the codebase",
+            "file is an import hub",
         ),
         GraphImpact::Dependency => push_adjustment(
             score,
             signals,
             "graph.dependency",
-            "shared dependency",
+            "graph",
             RiskFormula::CURRENT.graph_dependency_weight,
-            "file is imported by multiple other files",
+            "file is a shared dependency",
         ),
     }
 }
@@ -170,9 +170,9 @@ fn severity_base_score(severity: Severity) -> u8 {
 fn severity_signal(severity: Severity, score: u8) -> RiskSignal {
     signal(
         &format!("severity.{}", severity.lowercase_label()),
-        &format!("{} severity", severity.label()),
+        "severity",
         score as i16,
-        "base score from rule severity",
+        &format!("{} severity finding", severity.lowercase_label()),
     )
 }
 
@@ -188,9 +188,13 @@ fn confidence_delta(base: u8, confidence: Confidence) -> i16 {
 fn confidence_signal(confidence: Confidence, weight: i16) -> RiskSignal {
     signal(
         &format!("confidence.{}", confidence.lowercase_label()),
-        &format!("{} confidence", confidence.label()),
+        "confidence",
         weight,
-        "confidence adjusts certainty without changing rule severity",
+        match confidence {
+            Confidence::Low => "low confidence heuristic signal",
+            Confidence::Medium => "medium confidence signal",
+            Confidence::High => "high confidence signal",
+        },
     )
 }
 

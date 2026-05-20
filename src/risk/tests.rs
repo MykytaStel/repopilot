@@ -4,8 +4,8 @@ use crate::scan::facts::FileFacts;
 use std::path::PathBuf;
 
 #[test]
-fn priority_thresholds_match_v2_plan() {
-    assert_eq!(FORMULA_VERSION, "risk-v2");
+fn priority_thresholds_match_v3_plan() {
+    assert_eq!(FORMULA_VERSION, "risk-v3");
     assert_eq!(RiskFormula::CURRENT.version, FORMULA_VERSION);
     assert_eq!(RiskFormula::CURRENT.severity_critical, 95);
     assert_eq!(RiskFormula::CURRENT.review_in_diff_weight, 12);

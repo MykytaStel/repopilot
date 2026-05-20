@@ -161,9 +161,8 @@ fn risk_reason_text(finding: &Finding) -> Option<String> {
         .risk
         .signals
         .iter()
-        .filter(|signal| !signal.id.starts_with("severity."))
-        .take(3)
-        .map(|signal| format!("{} ({:+})", signal.label, signal.weight))
+        .take(4)
+        .map(|signal| format!("{:+} {}: {}", signal.weight, signal.label, signal.reason))
         .collect::<Vec<_>>();
 
     (!reasons.is_empty()).then(|| reasons.join(", "))

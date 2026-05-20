@@ -21,6 +21,7 @@ fn make_finding(pkg: Option<&str>, severity: Severity) -> Finding {
         }],
         workspace_package: pkg.map(str::to_owned),
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

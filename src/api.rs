@@ -10,11 +10,20 @@ pub mod config {
 }
 
 pub mod findings {
+    pub use crate::findings::contract::{
+        FindingContractReport, FindingContractViolation, FindingContractViolationKind,
+        validate_finding_contract, validate_findings_contract,
+    };
     pub use crate::findings::feedback::{
         LocalFeedbackReport, LocalFeedbackValidation, LocalSuppression, apply_local_feedback,
         validate_local_feedback,
     };
     pub use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
+    pub use crate::findings::provenance::{AnalysisScope, FindingProvenance};
+    pub use crate::findings::quality::{
+        ConfidenceCounts, RuleLifecycleCounts, SignalQualitySummary, SignalSourceCounts,
+        summarize_signal_quality,
+    };
     pub use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
     pub use crate::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 }
@@ -39,7 +48,13 @@ pub mod review {
 pub mod risk {
     pub use crate::risk::{
         FORMULA_VERSION, RiskAssessment, RiskFormula, RiskInputs, RiskPriority, RiskSignal,
-        RiskSummary, assess_finding, assess_findings, priority_for_score,
+        RiskSignalSource, RiskSummary, assess_finding, assess_findings, priority_for_score,
+    };
+}
+
+pub mod rules {
+    pub use crate::rules::{
+        RuleLifecycle, RuleMetadata, SignalSource, all_rule_metadata, lookup_rule_metadata,
     };
 }
 

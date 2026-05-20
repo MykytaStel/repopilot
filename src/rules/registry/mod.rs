@@ -6,6 +6,8 @@ mod security;
 mod testing;
 
 use crate::rules::metadata::RuleMetadata;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 const RULE_GROUPS: &[&[RuleMetadata]] = &[
     framework::RULES,
@@ -17,15 +19,20 @@ const RULE_GROUPS: &[&[RuleMetadata]] = &[
 ];
 
 pub fn lookup_rule_metadata(rule_id: &str) -> Option<&'static RuleMetadata> {
-    all_rules().find(|rule| rule.rule_id == rule_id)
+    rule_index().get(rule_id).copied()
 }
 
-pub(crate) fn all_rule_metadata() -> impl Iterator<Item = &'static RuleMetadata> {
+pub fn all_rule_metadata() -> impl Iterator<Item = &'static RuleMetadata> {
     all_rules()
 }
 
 fn all_rules() -> impl Iterator<Item = &'static RuleMetadata> {
     RULE_GROUPS.iter().flat_map(|rules| rules.iter())
+}
+
+fn rule_index() -> &'static HashMap<&'static str, &'static RuleMetadata> {
+    static RULE_INDEX: OnceLock<HashMap<&'static str, &'static RuleMetadata>> = OnceLock::new();
+    RULE_INDEX.get_or_init(|| all_rules().map(|rule| (rule.rule_id, rule)).collect())
 }
 
 #[cfg(test)]
@@ -125,6 +132,21 @@ mod tests {
                 rule.recommendation
                     .is_some_and(|recommendation| !recommendation.trim().is_empty()),
                 "rule {} has empty recommendation",
+                rule.rule_id
+            );
+            assert!(
+                !rule.lifecycle.label().is_empty(),
+                "rule {} has empty lifecycle",
+                rule.rule_id
+            );
+            assert!(
+                !rule.signal_source.label().is_empty(),
+                "rule {} has empty signal source",
+                rule.rule_id
+            );
+            assert!(
+                !rule.default_confidence.label().is_empty(),
+                "rule {} has empty default confidence",
                 rule.rule_id
             );
         }

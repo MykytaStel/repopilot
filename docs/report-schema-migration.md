@@ -5,7 +5,18 @@ useful in CI, dashboards, PR bots, and downstream tooling.
 
 ## Current direction
 
-Schema `0.14` adds optional local feedback transparency:
+Schema `0.15` is the current scan report schema for RepoPilot 0.13.0. It adds
+finding provenance, typed risk signal sources, `risk-v3`, signal quality
+metrics, and finding-contract diagnostics.
+
+| Field | Where | Why |
+|---|---|---|
+| `provenance` | finding | Explains detector, lifecycle, signal source, and analysis scope. |
+| `risk.signals[].source` | finding risk signal | Gives machine-readable source families for risk explanations. |
+| `signal_quality` | scan, baseline-scan, review | Summarizes confidence, lifecycle, source, evidence, recommendation, docs, and contract warning coverage. |
+| `scan_timings.contract_validation_us` | scan timings | Exposes finding-contract validation timing separately. |
+
+Schema `0.14` added optional local feedback transparency:
 
 | Field | Where | Why |
 |---|---|---|

@@ -129,17 +129,17 @@ export function App() {
     let summary = scan_path_with_config(temp.path(), &config).expect("scan");
     let inline_style = first_rule(&summary.findings, "framework.react-native.inline-style");
 
-    assert_eq!(inline_style.risk.formula_version, "risk-v2");
+    assert_eq!(inline_style.risk.formula_version, "risk-v3");
     assert_ne!(inline_style.risk.priority, RiskPriority::P0);
 }
 
 #[test]
-fn risk_v2_calibration_fixture_matches_snapshot_expectations() {
+fn risk_v3_calibration_fixture_matches_snapshot_expectations() {
     let fixture: RiskCalibrationFixture =
-        serde_json::from_str(include_str!("fixtures/risk/risk-v2-calibration.json"))
+        serde_json::from_str(include_str!("fixtures/risk/risk-v3-calibration.json"))
             .expect("risk calibration fixture should parse");
 
-    assert_eq!(fixture.formula_version, "risk-v2");
+    assert_eq!(fixture.formula_version, "risk-v3");
 
     for case in fixture.cases {
         let finding = calibration_finding(&case);
@@ -253,6 +253,7 @@ fn calibration_finding(case: &RiskCalibrationCase) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

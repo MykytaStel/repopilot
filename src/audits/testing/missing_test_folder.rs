@@ -40,6 +40,7 @@ impl ProjectAudit for MissingTestFolderAudit {
             }],
             workspace_package: None,
             docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
         }]
     }

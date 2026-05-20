@@ -20,8 +20,8 @@ discipline, and distribution trust before adding broad custom execution surfaces
 | Version | Theme | Main outcome |
 |---|---|---|
 | 0.12 | Core foundation | Document the rule lifecycle, v1 gates, and local-first learning policy; start the API facade, ScanEngine pipeline, report envelope, diagnostics, and legacy alias cleanup. |
-| 0.13 | Breaking cleanup | Centralize the product scan pipeline, tighten schema reads, make `api` the supported Rust facade, and keep local feedback transparency visible in reports/receipts. |
-| 0.14 | Rule-author workflow | Add validation and inspection workflows for rule authors, false-positive fixtures, and clearer decision debugging. |
+| 0.13 | Breaking cleanup | Harden the finding contract, rule lifecycle metadata, signal quality summary, risk-v3, inspectable rule catalog, local rule evaluation, current schema reads, and shared product scan behavior. |
+| 0.14 | Rule-author workflow | Broaden rule fixture coverage, false-positive suites, and clearer decision debugging on top of the 0.13 local evaluation foundation. |
 | 0.15 | Adoption hardening | Improve workspace noise, baseline ergonomics, and performance budgets for larger repositories. |
 | 0.16 | Distribution trust | Add release artifact attestations and tighten npm, crates.io, Homebrew, and installer verification. |
 | 0.17 | Curated packs | Introduce curated first-party knowledge/rule pack structure if the 0.13 overlay model is stable. |
@@ -54,7 +54,7 @@ Not allowed for the 0.x line:
 
 RepoPilot can move to 1.0.0 only after the 0.20 review confirms:
 
-- stable primary command surface: `scan`, `review`, `baseline`, `compare`, `doctor`, `ai`, and `inspect`;
+- stable primary command surface: `scan`, `review`, `baseline`, `compare`, `doctor`, `ai`, `inspect`, `init`, and `cache`;
 - removed legacy 0.x aliases with documented replacements under `ai` and `inspect`;
 - stable JSON, SARIF, baseline, receipt, report-envelope, and diagnostics schema compatibility rules;
 - visible local feedback metadata for suppressions so findings never disappear silently;

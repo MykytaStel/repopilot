@@ -9,17 +9,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - Added a 0.13 release checklist for the breaking cleanup release.
-- Added a current `0.14` scan report fixture that documents the supported compare input schema.
-- Added a shared product scan pipeline for scan, review, and AI Markdown commands, including engine-contract diagnostics and shared runtime diagnostic handling.
+- Added a current `0.15` scan report fixture that documents the supported compare input schema.
+- Added finding contract validation with diagnostics, release-test coverage, and contract timing.
+- Added finding provenance with detector, rule lifecycle, signal source, and analysis scope.
+- Added rule lifecycle, signal source, default confidence, false-positive notes, and tags to rule metadata.
+- Added `repopilot inspect rules`, `repopilot inspect rule <rule_id>`, and `repopilot inspect eval-rules`.
+- Added signal quality summaries to JSON, console, and Markdown reports.
+- Added a shared product scan pipeline for scan, review, baseline creation, and AI Markdown commands, including shared runtime diagnostic handling.
+- Added local rule evaluation fixtures for `security.secret-candidate` and `language.rust.panic-risk`.
 
 ### Changed
 
 - Bumped the crate, npm wrapper, optional platform package pins, and GitHub Action default version to `0.13.0`.
+- Bumped scan report schema to `0.15` for provenance, signal quality, finding contract diagnostics, and `risk-v3`.
+- Updated risk scoring metadata to `risk-v3` with typed risk signal sources and clearer signal reasons.
 - Renamed internal AI modules from legacy context/plan names to `ai_context` and `ai_plan` while keeping the public CLI as `repopilot ai context|plan|prompt`.
 - Updated AI context and AI plan headings to use the stable product names.
 - AI context, AI plan, and AI prompt now use the same default visibility and local feedback behavior as product scans.
 - `repopilot review` now uses the shared default product visibility path before diff classification.
 - `repopilot compare` now requires current scan reports with matching top-level and envelope schema metadata instead of migrating older scan report shapes.
+- `repopilot baseline create` now uses the shared product scan path and supports `--config` and `--ignore-feedback`.
 
 ### Removed
 

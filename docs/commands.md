@@ -137,7 +137,7 @@ repopilot scan . --verbose
 
 Use `--timing` when you need the engine pipeline breakdown. It reports
 discovery, file analysis, framework detection, project audits, enrichment, risk
-scoring, and report finalization separately.
+scoring, finding-contract validation, and report finalization separately.
 
 ---
 
@@ -188,6 +188,27 @@ Before v1, new user-facing behavior should fit the existing command families:
 - New debugging and rule-author tools become `inspect` subcommands.
 
 Top-level commands should stay focused on stable workflows: audit, review, baseline, compare, AI assistance, inspection, initialization, and readiness diagnostics.
+
+### Rule inspection and local evaluation
+
+Rule catalog inspection is local and read-only:
+
+```bash
+repopilot inspect rules
+repopilot inspect rules --format json
+repopilot inspect rules --lifecycle preview
+repopilot inspect rules --source text-heuristic
+repopilot inspect rule security.secret-candidate
+```
+
+Local rule evaluation runs bundled fixture projects without telemetry, upload, or
+remote training:
+
+```bash
+repopilot inspect eval-rules
+repopilot inspect eval-rules --rule security.secret-candidate
+repopilot inspect eval-rules --format json
+```
 
 ---
 

@@ -89,6 +89,7 @@ fn build_finding(path: &std::path::Path, line_number: usize, header: &str) -> Fi
             "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
                 .to_string(),
         ),
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

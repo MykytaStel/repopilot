@@ -73,6 +73,7 @@ impl ProjectAudit for ReactNativeCodegenMissingAudit {
             }],
             workspace_package: None,
             docs_url: Some("https://reactnative.dev/docs/the-new-architecture/codegen".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
         }]
     }
@@ -125,6 +126,7 @@ fn hermes_finding(path: PathBuf, snippet: &str) -> Finding {
         }],
         workspace_package: None,
         docs_url: Some("https://reactnative.dev/docs/hermes".to_string()),
+            provenance: Default::default(),
             risk: Default::default(),
     }
 }

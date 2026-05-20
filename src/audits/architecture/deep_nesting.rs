@@ -50,6 +50,7 @@ fn build_finding(deepest_path: PathBuf, depth: usize, threshold: usize) -> Findi
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

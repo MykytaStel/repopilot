@@ -209,6 +209,8 @@ See [AI workflows](docs/ai-workflows.md).
 | `repopilot compare <before> <after>` | `cmp` | Compare two JSON scan reports |
 | `repopilot baseline create <path>` | `bl` | Store current findings as accepted debt |
 | `repopilot doctor [path]` | `d` | Diagnose audit readiness |
+| `repopilot inspect rules` | — | Inspect rule lifecycle and signal-source metadata |
+| `repopilot inspect eval-rules` | — | Run local rule fixture evaluation |
 | `repopilot init` | — | Generate `repopilot.toml` |
 
 Get command help:
@@ -319,6 +321,29 @@ See:
 - [CLI reference](docs/cli.md)
 - [Commands guide](docs/commands.md)
 - [GitHub Code Scanning integration](docs/integrations/github-code-scanning.md)
+
+---
+
+## Finding Trust
+
+RepoPilot 0.13.0 is a breaking cleanup release focused on trustable findings,
+a stronger local scan engine, rule lifecycle discipline, signal quality metrics,
+and pre-v1 product contract hardening.
+
+Every rendered finding is enriched and validated before reporting. JSON reports
+include finding provenance, `risk-v3` signals, and a compact `signal_quality`
+summary. Rule metadata is inspectable locally:
+
+```bash
+repopilot inspect rules
+repopilot inspect rules --lifecycle preview
+repopilot inspect rules --source text-heuristic
+repopilot inspect rule security.secret-candidate
+repopilot inspect eval-rules --rule security.secret-candidate
+```
+
+RepoPilot remains local-first: no telemetry, no source upload, no hosted scanner,
+no arbitrary plugin execution, and no LLM API calls.
 
 ---
 

@@ -4,9 +4,9 @@ RepoPilot risk scoring is local, deterministic, and explainable. It does not use
 telemetry, hosted analysis, or machine learning. The goal is to rank review work
 better than severity alone while keeping every score auditable.
 
-## Formula v2
+## Formula v3
 
-`risk-v2` scores each finding on a 0-100 scale:
+`risk-v3` scores each finding on a 0-100 scale:
 
 ```text
 base impact
@@ -29,7 +29,7 @@ Priority buckets are stable:
 ## Signals
 
 Each finding includes `risk.signals[]` with a stable `id`, label, signed weight,
-and reason. Common signal families:
+reason, and `source`. Common signal families:
 
 - `severity.*` and `confidence.*` define the starting point.
 - `knowledge.*` applies rule-specific calibration from the bundled Knowledge Engine.
@@ -42,6 +42,15 @@ and reason. Common signal families:
 
 Signals are additive but clamped to the 0-100 score range. They are meant to
 explain ranking, not prove that a finding is always a defect.
+
+Example signal text in human reports:
+
+```text
++75 severity: high severity finding
++12 security: security findings are prioritized
++8 graph: file is an import hub
+-10 confidence: low confidence heuristic signal
+```
 
 ## Cluster-Aware Reports
 

@@ -1,11 +1,13 @@
 use crate::cli::BaselineCommands;
+use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
+use crate::commands::scan_config::ScanConfigOverrides;
 use chrono::{SecondsFormat, Utc};
 use repopilot::baseline::key::normalized_relative_path;
 use repopilot::baseline::model::Baseline;
 use repopilot::baseline::writer::{BaselineWriteError, write_baseline};
-use repopilot::config::loader::load_default_config;
+use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::types::Severity;
-use repopilot::scan::scanner::scan_path_with_config;
+use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::scan::types::ScanSummary;
 use std::path::{Path, PathBuf};
 
@@ -15,11 +17,21 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
             let path = options.path;
             let output = options.output;
             let force = options.force;
+            let config = options.config;
+            let ignore_feedback = options.ignore_feedback;
             let output_path = output.unwrap_or_else(|| default_baseline_path(&path));
 
-            let repo_config = load_default_config()?;
-            let scan_config = repo_config.to_scan_config();
-            let summary = scan_path_with_config(&path, &scan_config)?;
+            let scan_result = run_product_scan(ProductScanRequest {
+                path: path.clone(),
+                config_path: config,
+                overrides: ScanConfigOverrides::default(),
+                preset: None,
+                mode: ProductScanMode::Full,
+                ignore_feedback,
+                visibility_profile: FindingVisibilityProfile::Default,
+                pre_visibility_filter: FindingFilter::default(),
+            })?;
+            let summary = scan_result.summary;
             let baseline = Baseline::from_scan_summary(
                 &summary,
                 &summary.root_path,

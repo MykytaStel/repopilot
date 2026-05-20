@@ -31,6 +31,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
             }],
             workspace_package: None,
             docs_url: None,
+            provenance: Default::default(),
             risk: Default::default(),
         }],
         health_score: 95,

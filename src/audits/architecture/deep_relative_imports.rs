@@ -127,6 +127,7 @@ fn build_finding(file: &FileFacts, line_number: usize, snippet: &str, depth: usi
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }

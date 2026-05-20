@@ -11,15 +11,15 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.14:
+JSON scan reports include explicit schema metadata. The current schema is 0.15:
 
 ```json
 {
-  "schema_version": "0.14",
+  "schema_version": "0.15",
   "repopilot_version": "0.13.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.14",
+    "schema_version": "0.15",
     "repopilot_version": "0.13.0"
   },
   "root_path": ".",
@@ -31,6 +31,13 @@ JSON scan reports include explicit schema metadata. The current schema is 0.14:
     "total": 0,
     "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
     "average_score": 0
+  },
+  "signal_quality": {
+    "findings_total": 0,
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
   },
   "local_feedback": {
     "feedback_path": ".repopilot/feedback.yml",
@@ -54,8 +61,9 @@ JSON scan reports include explicit schema metadata. The current schema is 0.14:
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
+| `signal_quality` | object | Aggregate confidence, lifecycle, source, coverage, and finding-contract warning metrics. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
-| `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, and `report_finalization_us`. |
+| `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, `contract_validation_us`, and `report_finalization_us`. |
 | `local_feedback` | object | Optional summary of `.repopilot/feedback.yml` suppressions applied during this scan or review. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 
@@ -86,6 +94,10 @@ review, and receipt output. Starting with RepoPilot `0.13.0`, `repopilot compare
 requires current scan reports with `schema_version` and `report.schema_version`
 matching the current schema.
 
+Schema `0.15` adds finding provenance, typed risk signal sources, `risk-v3`,
+finding-contract diagnostics, and `signal_quality` metrics. This is part of the
+0.13.0 breaking cleanup release.
+
 ## Baseline JSON reports
 
 When a scan is rendered with a baseline, the JSON report also includes the same
@@ -102,11 +114,11 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.14",
+  "schema_version": "0.15",
   "repopilot_version": "0.13.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.14",
+    "schema_version": "0.15",
     "repopilot_version": "0.13.0"
   },
   "root_path": ".",
@@ -207,31 +219,34 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. |
 | `confidence` | string | One of `LOW`, `MEDIUM`, or `HIGH`; used to separate impact from certainty. |
 | `risk` | object | Explainable prioritization assessment with `score`, `priority`, stable `signals`, and `formula_version`. |
+| `provenance` | object | Detector, rule lifecycle, signal source, and analysis scope for explaining where the finding came from. |
 | `docs_url` | string? | Optional documentation link for the rule. |
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
 
 ### Risk object
 
-RepoPilot uses `risk-v2` for deterministic, explainable prioritization:
+RepoPilot uses `risk-v3` for deterministic, explainable prioritization:
 
 ```json
 {
   "score": 67,
   "priority": "P2",
-  "formula_version": "risk-v2",
+  "formula_version": "risk-v3",
   "signals": [
     {
       "id": "severity.medium",
-      "label": "MEDIUM severity",
+      "label": "severity",
       "weight": 45,
-      "reason": "base score from rule severity"
+      "reason": "medium severity finding",
+      "source": "severity"
     },
     {
       "id": "cluster.repeated",
-      "label": "repeated pattern",
+      "label": "cluster",
       "weight": 7,
-      "reason": "same rule appears repeatedly in the same repository area"
+      "reason": "same rule appears repeatedly in the same repository area",
+      "source": "cluster"
     }
   ]
 }

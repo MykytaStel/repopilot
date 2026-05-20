@@ -15,7 +15,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.production",
-            "production code",
+            "visibility",
             10,
             "production code findings are more likely to affect runtime behavior",
         );
@@ -26,7 +26,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.test",
-            "test code",
+            "visibility",
             -20,
             "test code often accepts patterns that would be risky in production",
         );
@@ -37,7 +37,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.generated",
-            "generated file",
+            "visibility",
             -30,
             "generated files should usually be fixed at the generator source",
         );
@@ -48,7 +48,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.config",
-            "config file",
+            "visibility",
             -18,
             "configuration files often use declarative patterns that differ from application code",
         );
@@ -62,7 +62,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.low-signal-path",
-            "low-signal path",
+            "visibility",
             -15,
             "fixtures, examples, and benchmark paths are lower-priority by default",
         );
@@ -73,7 +73,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.entrypoint",
-            "entrypoint",
+            "visibility",
             10,
             "entrypoints can affect application startup and process behavior",
         );
@@ -86,7 +86,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.controller",
-            "controller/router",
+            "visibility",
             12,
             "controllers and routers sit on user-facing request boundaries",
         );
@@ -97,7 +97,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.service",
-            "service layer",
+            "visibility",
             10,
             "service-layer findings can affect reusable production behavior",
         );
@@ -108,7 +108,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.domain",
-            "domain model",
+            "visibility",
             8,
             "domain code usually carries core business behavior",
         );
@@ -119,7 +119,7 @@ pub(super) fn add_file_context_signals(
             score,
             signals,
             "role.react-component",
-            "React component",
+            "visibility",
             4,
             "React component findings can affect user-visible behavior",
         );

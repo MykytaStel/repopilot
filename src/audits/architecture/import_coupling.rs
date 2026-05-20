@@ -79,6 +79,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }
@@ -118,6 +119,7 @@ fn high_instability_hub_finding(
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }
@@ -154,6 +156,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
         }],
         workspace_package: None,
         docs_url: None,
+        provenance: Default::default(),
         risk: Default::default(),
     }
 }
