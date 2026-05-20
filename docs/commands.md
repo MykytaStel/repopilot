@@ -372,6 +372,22 @@ approximate cache size, and stale entry count.
 
 ---
 
+## `inspect feedback`
+
+Validate local feedback suppressions and show which ones were applied.
+
+```bash
+repopilot inspect feedback .
+repopilot inspect feedback . --format json
+repopilot inspect feedback . --format markdown --output feedback.md
+```
+
+The command parses `.repopilot/feedback.yml` with a YAML parser, reports
+malformed entries, warns about suppressions that do not match current findings,
+and includes the same `local_feedback` summary that scan/review reports expose.
+
+---
+
 ## Local feedback suppressions
 
 RepoPilot reads `.repopilot/feedback.yml` by default:
@@ -379,7 +395,7 @@ RepoPilot reads `.repopilot/feedback.yml` by default:
 ```yaml
 suppressions:
   - rule_id: architecture.large-file
-    path: src/generated/schema.rs
+    path: "src/generated/schema.rs"
     reason: generated schema boundary
 ```
 
@@ -387,4 +403,9 @@ Use raw output without local suppressions:
 
 ```bash
 repopilot scan . --ignore-feedback
+repopilot review . --ignore-feedback
 ```
+
+When suppressions are applied, console, Markdown, JSON, and receipt output show
+the local feedback counts so findings are visibly suppressed rather than
+silently disappearing.

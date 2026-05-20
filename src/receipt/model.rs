@@ -1,8 +1,9 @@
+use crate::findings::feedback::LocalSuppression;
 use crate::report::schema::ReportEnvelope;
 use crate::scan::types::DiagnosticSeverity;
 use serde::Serialize;
 
-pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 4;
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 5;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
@@ -15,6 +16,7 @@ pub struct AuditReceipt {
     pub git: ReceiptGit,
     pub scope: ReceiptScope,
     pub findings: ReceiptFindings,
+    pub local_feedback: Option<ReceiptLocalFeedback>,
     pub languages: Vec<ReceiptLanguage>,
     pub diagnostics: Vec<ReceiptDiagnostic>,
     pub health_score: u8,
@@ -66,6 +68,17 @@ pub struct ReceiptHiddenSuggestion {
     pub category: String,
     pub reason: String,
     pub count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct ReceiptLocalFeedback {
+    pub feedback_path: Option<String>,
+    pub suppressions_loaded: usize,
+    pub suppressed_findings_count: usize,
+    pub unmatched_suppressions_count: usize,
+    pub invalid_suppressions_count: usize,
+    pub unmatched_suppressions: Vec<LocalSuppression>,
+    pub parse_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

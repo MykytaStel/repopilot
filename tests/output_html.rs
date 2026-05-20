@@ -54,6 +54,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        local_feedback: None,
         diagnostics: Vec::new(),
     };
 

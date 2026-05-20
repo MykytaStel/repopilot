@@ -45,6 +45,7 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         .unwrap();
     }
     render_hidden_suggestions_breakdown(output, summary);
+    render_local_feedback(output, summary);
     render_diagnostics(output, summary);
     writeln!(
         output,
@@ -63,6 +64,41 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         .unwrap();
     }
     output.push('\n');
+}
+
+fn render_local_feedback(output: &mut String, summary: &ScanSummary) {
+    let Some(feedback) = &summary.local_feedback else {
+        return;
+    };
+
+    let path = feedback
+        .feedback_path
+        .as_ref()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| ".repopilot/feedback.yml".to_string());
+    writeln!(
+        output,
+        "Local feedback: {} suppression(s) loaded, {} finding(s) suppressed ({})",
+        feedback.suppressions_loaded, feedback.suppressed_findings_count, path
+    )
+    .unwrap();
+
+    if feedback.unmatched_suppressions_count > 0 {
+        writeln!(
+            output,
+            "Local feedback unmatched: {} suppression(s)",
+            feedback.unmatched_suppressions_count
+        )
+        .unwrap();
+    }
+    if feedback.invalid_suppressions_count > 0 {
+        writeln!(
+            output,
+            "Local feedback invalid: {} suppression(s)",
+            feedback.invalid_suppressions_count
+        )
+        .unwrap();
+    }
 }
 
 fn render_diagnostics(output: &mut String, summary: &ScanSummary) {

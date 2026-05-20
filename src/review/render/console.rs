@@ -13,6 +13,12 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
         Some(path) => output.push_str(&format!("Baseline: {}\n", path.display())),
         None => output.push_str("Baseline: none (all findings treated as new)\n"),
     }
+    if let Some(feedback) = &report.summary.local_feedback {
+        output.push_str(&format!(
+            "Local feedback: {} suppression(s) loaded, {} finding(s) suppressed\n",
+            feedback.suppressions_loaded, feedback.suppressed_findings_count
+        ));
+    }
     output.push('\n');
 
     output.push_str(&format!("Changed files: {}\n", report.changed_files.len()));

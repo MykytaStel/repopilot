@@ -1,5 +1,6 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
+use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject, ReactNativeArchitectureProfile};
 use crate::graph::CouplingGraph;
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.13";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.14";
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -96,6 +97,8 @@ pub struct ScanJsonReport<'a> {
     pub scan_timings: Option<&'a ScanTimings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_telemetry: Option<&'a ScanCacheTelemetry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
     pub risk_summary: RiskSummary,
@@ -137,6 +140,7 @@ impl<'a> ScanJsonReport<'a> {
             repopilotignore_path: summary.repopilotignore_path.as_ref(),
             scan_timings: summary.scan_timings.as_ref(),
             cache_telemetry: summary.cache_telemetry.as_ref(),
+            local_feedback: summary.local_feedback.as_ref(),
             diagnostics: &summary.diagnostics,
             risk_summary: RiskSummary::from_findings(&summary.findings),
         }
@@ -167,6 +171,8 @@ pub struct BaselineJsonReport<'a> {
     pub visibility_profile: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_telemetry: Option<&'a ScanCacheTelemetry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
     pub languages: &'a [LanguageSummary],
@@ -198,6 +204,7 @@ impl<'a> BaselineJsonReport<'a> {
             hidden_suggestions: &report.summary.hidden_suggestions,
             visibility_profile: report.summary.visibility_profile.as_deref(),
             cache_telemetry: report.summary.cache_telemetry.as_ref(),
+            local_feedback: report.summary.local_feedback.as_ref(),
             diagnostics: &report.summary.diagnostics,
             languages: &report.summary.languages,
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
@@ -241,6 +248,8 @@ pub struct ReviewJsonReport<'a> {
     pub baseline: ReviewBaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ci_gate: Option<CiGateJsonMetadata>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
     pub findings: Vec<ReviewJsonFinding<'a>>,
@@ -278,6 +287,7 @@ impl<'a> ReviewJsonReport<'a> {
                     .map(|path| path.to_string_lossy().to_string()),
             },
             ci_gate: ci_gate.map(CiGateJsonMetadata::from),
+            local_feedback: report.summary.local_feedback.as_ref(),
             diagnostics: &report.summary.diagnostics,
             findings: report
                 .summary

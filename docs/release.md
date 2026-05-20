@@ -90,7 +90,15 @@ git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub Release once, runs `cargo publish --dry-run`, publishes crates.io with `CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The separate `publish-npm.yml` workflow downloads the GitHub Release artifacts, generates checksum-verified `@repopilot/*` platform packages, publishes those packages first, then publishes the root `repopilot` package through npm Trusted Publishing / GitHub OIDC. Optional secret-backed channels are skipped when their secret is absent.
+The tag workflow builds GitHub Release artifacts, creates or updates the GitHub
+Release once, generates artifact attestations for release archives and checksum
+files, runs `cargo publish --dry-run`, publishes crates.io with
+`CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The
+separate `publish-npm.yml` workflow downloads the GitHub Release artifacts,
+generates checksum-verified `@repopilot/*` platform packages, publishes those
+packages first, then publishes the root `repopilot` package through npm Trusted
+Publishing / GitHub OIDC. Optional secret-backed channels are skipped when their
+secret is absent.
 
 ## 7. Verify publishing
 
@@ -122,6 +130,7 @@ done
 npm install -g repopilot@0.12.0
 repopilot --version
 repopilot scan . --format json --output /tmp/repopilot-0.12-smoke.json
+gh attestation verify path/to/repopilot-*.tar.gz --owner MykytaStel
 ```
 
 If a publishing secret is intentionally absent, publish that channel manually from the exact tagged commit and a clean worktree.

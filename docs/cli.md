@@ -23,6 +23,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`ai prompt`](#ai-prompt) | — | Generate an AI-ready remediation prompt |
 | [`inspect explain`](#inspect-explain) | — | Explain file classification and rule decisions |
 | [`inspect knowledge`](#inspect-knowledge) | — | Inspect bundled Knowledge Engine data |
+| [`inspect feedback`](#inspect-feedback) | — | Validate local feedback suppressions |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
@@ -73,6 +74,7 @@ repopilot s <PATH> [OPTIONS]
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Exit code 1 when findings meet this threshold (see [Thresholds](#thresholds)) |
+| `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
@@ -123,6 +125,10 @@ repopilot scan . --baseline .repopilot/baseline.json
 
 # Fail CI on new high or critical findings
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+
+# Inspect or bypass local feedback suppressions
+repopilot inspect feedback .
+repopilot scan . --ignore-feedback
 
 # Override thresholds at the command line
 repopilot scan . --max-file-loc 500 --max-directory-modules 30 --max-directory-depth 8
@@ -204,6 +210,7 @@ repopilot r [PATH] [OPTIONS]
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file |
 | `--fail-on` | threshold | — | Exit code 1 when **in-diff** findings meet this threshold |
+| `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
@@ -235,6 +242,9 @@ repopilot review . --base origin/main --format markdown --output review.md
 
 # Baseline-aware CI gate on in-diff findings only
 repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
+
+# Review without local feedback suppressions
+repopilot review . --ignore-feedback
 
 # JSON output for downstream tooling
 repopilot review . --format json --output review.json
@@ -411,6 +421,35 @@ repopilot inspect knowledge [OPTIONS]
 repopilot inspect knowledge
 repopilot inspect knowledge --section languages
 repopilot inspect knowledge --section rules --format json
+```
+
+---
+
+## `inspect feedback`
+
+Validates `.repopilot/feedback.yml`, reports malformed or unmatched
+suppressions, and shows how many findings the local feedback file suppresses.
+This command is local-only and does not upload source code.
+
+### Synopsis
+
+```
+repopilot inspect feedback [PATH] [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect feedback .
+repopilot inspect feedback . --format json
+repopilot inspect feedback . --format markdown --output feedback.md
 ```
 
 ---

@@ -45,6 +45,10 @@ jobs:
 
       - name: Test
         run: cargo test --all
+
+      - name: RepoPilot CI gate
+        run: cargo run -- scan . --baseline .repopilot/baseline.json --fail-on new-high --format markdown --output /tmp/repopilot-ci.md
+
       - name: CLI release smoke tests
         run: cargo test --test cli_release_smoke
       - name: Install Node.js

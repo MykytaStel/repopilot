@@ -78,7 +78,9 @@ The release workflow builds binaries for the following targets on every `v*` tag
 | `aarch64-apple-darwin` | macOS Apple Silicon |
 | `x86_64-pc-windows-msvc` | Windows x86-64 |
 
-Binaries and `.sha256` checksum files are attached to GitHub Releases.
+Binaries and `.sha256` checksum files are attached to GitHub Releases. The
+release workflow also requests GitHub artifact attestations for each release
+archive and checksum file when the tag workflow runs with OIDC permissions.
 
 ## Runtime and Artifact Security Model
 
@@ -88,9 +90,9 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases.
 - The curl installer downloads a GitHub Release artifact and its `.sha256` checksum, then fails closed if the checksum file cannot be downloaded, no SHA256 tool is available, or verification fails.
 - npm installation uses platform-specific optional packages and does not run a downloader script.
 - Platform npm packages are generated from GitHub Release archives only after their SHA256 checksum files are verified.
+- GitHub Release artifacts are checksummed and attested by the release workflow;
+  npm packages publish through Trusted Publishing / GitHub OIDC when configured.
 - `REPOPILOT_BINARY_PATH` can point the npm wrapper at a user-managed binary when optional dependencies are omitted or unsupported.
-
-Before v1, the preferred hardening path is GitHub artifact attestations for release assets in addition to npm Trusted Publishing provenance.
 
 ## Publishing Policy
 

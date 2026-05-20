@@ -1,25 +1,26 @@
-use repopilot::report::schema::parse_scan_summary_json;
+use repopilot::report::schema::{SCAN_REPORT_SCHEMA_VERSION, parse_scan_summary_json};
 use serde_json::Value;
 
 #[test]
-fn schema_fixtures_document_legacy_and_current_metric_names() {
+fn schema_fixtures_document_legacy_and_013_metric_names() {
     let legacy: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v010.json"))
         .expect("legacy report fixture should be valid JSON");
-    let current: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v013.json"))
-        .expect("current report fixture should be valid JSON");
+    let v013: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v013.json"))
+        .expect("0.13 report fixture should be valid JSON");
 
     assert_eq!(legacy["schema_version"], "0.10");
     assert_eq!(legacy["files_count"], 2);
     assert_eq!(legacy["lines_of_code"], 12);
 
-    assert_eq!(current["schema_version"], "0.13");
-    assert_eq!(current["report"]["kind"], "scan");
-    assert_eq!(current["report"]["schema_version"], "0.13");
-    assert_eq!(current["files_analyzed"], 2);
-    assert_eq!(current["non_empty_lines"], 12);
-    assert_eq!(current["large_files_skipped"], 0);
+    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.14");
+    assert_eq!(v013["schema_version"], "0.13");
+    assert_eq!(v013["report"]["kind"], "scan");
+    assert_eq!(v013["report"]["schema_version"], "0.13");
+    assert_eq!(v013["files_analyzed"], 2);
+    assert_eq!(v013["non_empty_lines"], 12);
+    assert_eq!(v013["large_files_skipped"], 0);
     assert_eq!(
-        current["diagnostics"][0]["code"],
+        v013["diagnostics"][0]["code"],
         "workspace.package-scan-failed"
     );
 }

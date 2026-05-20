@@ -68,6 +68,7 @@ ai plan
 ai prompt
 inspect knowledge
 inspect explain
+inspect feedback
 ```
 
 `review` is skipped when the target path is not inside a Git repository.
@@ -93,6 +94,7 @@ repopilot ai plan .
 repopilot ai prompt .
 repopilot inspect knowledge
 repopilot inspect explain src/main.rs
+repopilot inspect feedback .
 ```
 
 The primary help surface should prefer the stable command shape:
@@ -148,6 +150,8 @@ RepoPilot runtime commands must stay local-first:
 - scans read files from disk;
 - reports write to stdout or explicit output paths;
 - scan receipts write only to explicit local paths;
+- local feedback is read from `.repopilot/feedback.yml`, validated locally, and
+  reported in `local_feedback` metadata when applied;
 - no source code is uploaded;
 - no telemetry is sent;
 - AI commands do not call AI providers;
@@ -180,6 +184,9 @@ Before release, verify:
 - `npm run test:npm` passes;
 - `npm pack --dry-run` looks correct;
 - platform npm packages can be generated from release archives and packed with no lifecycle scripts;
+- RepoPilot's own repository has `.repopilotignore`, `.repopilot/baseline.json`,
+  and a CI gate using `--baseline .repopilot/baseline.json --fail-on new-high`;
+- `repopilot doctor .` reports no adoption warnings for the repository;
 - `scripts/smoke-product.sh` passes against the release binary.
 
 The GitHub Action should support:
@@ -202,6 +209,10 @@ with:
 
 Receipt output is scan-only. The action should fail clearly when `receipt` is
 provided with `review`, `compare`, or AI commands.
+
+The action should also write a concise `$GITHUB_STEP_SUMMARY` entry for `scan`,
+`review`, `doctor`, `compare`, and AI commands so pull request reviewers can see
+the RepoPilot result without opening artifacts first.
 
 ---
 

@@ -23,7 +23,7 @@ fn review_reports_working_tree_findings_on_changed_lines() {
 
     let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
 
-    assert_eq!(json["schema_version"], "0.13");
+    assert_eq!(json["schema_version"], "0.14");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["risk_summary"]["total"].as_u64().is_some());
     assert_eq!(json["review"]["in_diff_findings"], 1);
@@ -62,6 +62,77 @@ fn review_treats_untracked_files_as_fully_changed() {
             .iter()
             .any(|file| file["path"] == "src/creds.rs" && file["status"] == "untracked")
     );
+    assert!(json["findings"].as_array().unwrap().iter().any(|finding| {
+        finding["rule_id"] == "security.secret-candidate" && finding["in_diff"] == true
+    }));
+}
+
+#[test]
+fn review_json_includes_local_feedback_metadata() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write_covered_source(
+        temp.path(),
+        "creds",
+        "const API_KEY: &str = \"abc12345\";\n",
+    );
+    fs::create_dir_all(temp.path().join(".repopilot")).expect("create repopilot dir");
+    fs::write(
+        temp.path().join(".repopilot/feedback.yml"),
+        r#"
+suppressions:
+  - rule_id: security.secret-candidate
+    path: src/creds.rs
+    reason: accepted fixture
+"#,
+    )
+    .expect("write feedback");
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+
+    assert_eq!(json["local_feedback"]["suppressions_loaded"], 1);
+    assert_eq!(json["local_feedback"]["suppressed_findings_count"], 1);
+    assert!(
+        json["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|finding| finding["rule_id"] != "security.secret-candidate")
+    );
+}
+
+#[test]
+fn review_ignore_feedback_reveals_suppressed_findings() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write_covered_source(
+        temp.path(),
+        "creds",
+        "const API_KEY: &str = \"abc12345\";\n",
+    );
+    fs::create_dir_all(temp.path().join(".repopilot")).expect("create repopilot dir");
+    fs::write(
+        temp.path().join(".repopilot/feedback.yml"),
+        r#"
+suppressions:
+  - rule_id: security.secret-candidate
+    path: src/creds.rs
+"#,
+    )
+    .expect("write feedback");
+
+    let json = run_review_json(
+        temp.path(),
+        &["review", ".", "--format", "json", "--ignore-feedback"],
+    );
+
+    assert!(json.get("local_feedback").is_none());
     assert!(json["findings"].as_array().unwrap().iter().any(|finding| {
         finding["rule_id"] == "security.secret-candidate" && finding["in_diff"] == true
     }));

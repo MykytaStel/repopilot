@@ -1,11 +1,12 @@
 # RepoPilot 0.12.0 Release Checklist
 
-RepoPilot 0.12.0 is the core foundation and roadmap release.
+RepoPilot 0.12.0 is the core foundation, local feedback, and release trust
+sync release.
 
 Main release promise:
 
 ```text
-core foundation -> rule lifecycle -> v1 gates
+core foundation -> local feedback transparency -> release trust sync
 ```
 
 ## Release Scope
@@ -16,6 +17,9 @@ core foundation -> rule lifecycle -> v1 gates
 - Document the Knowledge Engine lifecycle and local-first learning policy.
 - Move workspace scan orchestration out of the CLI command layer without changing behavior.
 - Keep `bundled_knowledge()` as the only runtime Knowledge Engine source.
+- Add validated local feedback suppressions without hosted scanner, telemetry, or
+  arbitrary plugin runtime.
+- Keep public distribution channels synchronized at `0.12.0` after publishing.
 
 ## Knowledge Engine Gates
 
@@ -74,6 +78,39 @@ cargo run -- scan . --min-severity medium --format json \
   | jq '.findings | group_by(.rule_id)[] | {rule: .[0].rule_id, count: length}'
 ```
 
+## Adoption And Feedback Gates
+
+Verify RepoPilot's own repository is adopted:
+
+```bash
+repopilot doctor .
+repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+```
+
+Expected:
+
+- `.repopilotignore` exists;
+- `.repopilot/baseline.json` exists and parses;
+- CI contains a RepoPilot gate with `--baseline .repopilot/baseline.json --fail-on new-high`;
+- default self-scan has no P0/P1/high/critical findings;
+- `repopilot doctor .` reports no adoption warnings.
+
+Verify local feedback:
+
+```bash
+repopilot inspect feedback .
+repopilot scan . --format json --output /tmp/repopilot-feedback.json
+repopilot scan . --ignore-feedback --format json --output /tmp/repopilot-raw.json
+```
+
+Expected:
+
+- malformed feedback emits `feedback.parse-failed`;
+- invalid entries emit `feedback.invalid-suppression`;
+- unmatched suppressions emit `feedback.unmatched-suppressions`;
+- scan, review, JSON, Markdown, console, and receipt output expose
+  `local_feedback` when feedback is applied.
+
 ## Required Local Checks
 
 Run from the repository root:
@@ -110,3 +147,16 @@ rg '0\.[[]11[]]\.0|release-checklist-0\.[[]11[]]' Cargo.toml package.json action
 The final search should only report historical changelog entries, old release
 checklists, old release announcements, and examples intentionally pinned to old
 versions.
+
+## Post-Publish Public Channel Checks
+
+After the tag/release workflows complete, verify the public state:
+
+```bash
+npm view repopilot version
+cargo search repopilot --limit 5
+gh release list --repo MykytaStel/repopilot --limit 5
+```
+
+All three should show `0.12.0` as the latest public version before promotion
+posts go out.

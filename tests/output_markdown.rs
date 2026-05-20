@@ -68,6 +68,7 @@ fn renders_markdown_scan_summary() {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        local_feedback: None,
         diagnostics: Vec::new(),
     };
 
@@ -133,6 +134,7 @@ fn renders_empty_markdown_sections() {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        local_feedback: None,
         diagnostics: Vec::new(),
     };
 
@@ -193,6 +195,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        local_feedback: None,
         diagnostics: Vec::new(),
     };
 

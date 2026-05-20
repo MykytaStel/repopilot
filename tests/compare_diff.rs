@@ -94,6 +94,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         repopilotignore_path: None,
         scan_timings: None,
         cache_telemetry: None,
+        local_feedback: None,
         diagnostics: Vec::new(),
     }
 }

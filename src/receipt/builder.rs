@@ -2,7 +2,7 @@ use crate::findings::types::Severity;
 use crate::receipt::git::collect_git_receipt;
 use crate::receipt::model::{
     AUDIT_RECEIPT_SCHEMA_VERSION, AuditReceipt, ReceiptDiagnostic, ReceiptFindings,
-    ReceiptHiddenSuggestion, ReceiptLanguage, ReceiptScope,
+    ReceiptHiddenSuggestion, ReceiptLanguage, ReceiptLocalFeedback, ReceiptScope,
 };
 use crate::report::schema::ReportEnvelope;
 use crate::scan::types::ScanSummary;
@@ -19,6 +19,7 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
         git: collect_git_receipt(&summary.root_path),
         scope: build_scope(summary),
         findings: build_findings(summary),
+        local_feedback: build_local_feedback(summary),
         languages: build_languages(summary),
         diagnostics: build_diagnostics(summary),
         health_score: summary.health_score,
@@ -81,6 +82,24 @@ fn build_findings(summary: &ScanSummary) -> ReceiptFindings {
     }
 
     findings
+}
+
+fn build_local_feedback(summary: &ScanSummary) -> Option<ReceiptLocalFeedback> {
+    summary
+        .local_feedback
+        .as_ref()
+        .map(|feedback| ReceiptLocalFeedback {
+            feedback_path: feedback
+                .feedback_path
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            suppressions_loaded: feedback.suppressions_loaded,
+            suppressed_findings_count: feedback.suppressed_findings_count,
+            unmatched_suppressions_count: feedback.unmatched_suppressions_count,
+            invalid_suppressions_count: feedback.invalid_suppressions_count,
+            unmatched_suppressions: feedback.unmatched_suppressions.clone(),
+            parse_error: feedback.parse_error.clone(),
+        })
 }
 
 fn build_languages(summary: &ScanSummary) -> Vec<ReceiptLanguage> {

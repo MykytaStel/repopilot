@@ -1,0 +1,11 @@
+# RepoPilot local/cache artifacts
+.repopilot/cache
+
+# Build and release outputs
+target
+dist
+
+# Editor/system files
+.DS_Store
+.idea
+.vscode

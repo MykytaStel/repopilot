@@ -6,6 +6,7 @@ use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
+use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::report::writer::write_report;
 use repopilot::review::render::render;
 use repopilot::review::{build_review_report, review_report_for_ci};
@@ -47,6 +48,10 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let pb = make_spinner("Scanning...");
     let mut summary = scan_path_with_config(&options.path, &scan_config)?;
     finish_spinner(pb);
+
+    if !options.ignore_feedback {
+        apply_local_feedback(&mut summary, &options.path)?;
+    }
 
     if !pre_diff_filter.is_empty() {
         pre_diff_filter.apply_to_summary(&mut summary);

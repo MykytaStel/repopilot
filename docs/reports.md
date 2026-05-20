@@ -11,15 +11,15 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.13:
+JSON scan reports include explicit schema metadata. The current schema is 0.14:
 
 ```json
 {
-  "schema_version": "0.13",
+  "schema_version": "0.14",
   "repopilot_version": "0.12.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.13",
+    "schema_version": "0.14",
     "repopilot_version": "0.12.0"
   },
   "root_path": ".",
@@ -31,6 +31,15 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
     "total": 0,
     "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
     "average_score": 0
+  },
+  "local_feedback": {
+    "feedback_path": ".repopilot/feedback.yml",
+    "suppressions_loaded": 1,
+    "suppressed_findings_count": 1,
+    "unmatched_suppressions_count": 0,
+    "invalid_suppressions_count": 0,
+    "unmatched_suppressions": [],
+    "parse_error": null
   },
   "diagnostics": [],
   "findings": []
@@ -47,6 +56,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.13:
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
 | `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, and `report_finalization_us`. |
+| `local_feedback` | object | Optional summary of `.repopilot/feedback.yml` suppressions applied during this scan or review. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 
 Diagnostics use `{ code, severity, message, path? }`. Recoverable diagnostics
@@ -73,6 +83,10 @@ for accuracy:
   envelope object, while top-level `schema_version` remains present during the
   migration window.
 
+Schema `0.14` adds optional `local_feedback` metadata to scan, baseline-scan,
+review, and receipt output. Older `0.10` and `0.13` reports still parse through
+the compatibility reader used by `repopilot compare`.
+
 ## Baseline JSON reports
 
 When a scan is rendered with a baseline, the JSON report also includes the same
@@ -89,11 +103,11 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.13",
+  "schema_version": "0.14",
   "repopilot_version": "0.12.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.13",
+    "schema_version": "0.14",
     "repopilot_version": "0.12.0"
   },
   "root_path": ".",
@@ -119,8 +133,8 @@ Example shape:
 `repopilot review --format json` uses the same envelope policy with
 `report.kind = "review"`. Review reports include scan scope, changed files,
 blast-radius files, `risk_summary`, structured diagnostics, baseline metadata,
-CI gate metadata when requested, and per-finding `in_diff` / `baseline_status`
-classification.
+optional `local_feedback`, CI gate metadata when requested, and per-finding
+`in_diff` / `baseline_status` classification.
 
 ## Audit receipt JSON
 
@@ -138,10 +152,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
 
 ```json
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "report": {
     "kind": "receipt",
-    "schema_version": "4",
+    "schema_version": "5",
     "repopilot_version": "0.12.0"
   },
   "tool": "repopilot",
@@ -170,6 +184,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   },
   "languages": [],
   "diagnostics": [],
+  "local_feedback": null,
   "health_score": 91
 }
 ```

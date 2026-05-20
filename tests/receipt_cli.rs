@@ -43,9 +43,9 @@ fn scan_writes_audit_receipt_json() {
     let receipt: Value = serde_json::from_slice(&fs::read(receipt_path).expect("read receipt"))
         .expect("valid receipt json");
 
-    assert_eq!(receipt["schema_version"], 4);
+    assert_eq!(receipt["schema_version"], 5);
     assert_eq!(receipt["report"]["kind"], "receipt");
-    assert_eq!(receipt["report"]["schema_version"], "4");
+    assert_eq!(receipt["report"]["schema_version"], "5");
     assert_eq!(receipt["tool"], "repopilot");
     assert!(receipt["version"].as_str().is_some());
     assert!(receipt["generated_at"].as_str().is_some());
@@ -69,6 +69,58 @@ fn scan_writes_audit_receipt_json() {
     );
     assert!(receipt["diagnostics"].as_array().is_some());
     assert!(receipt["health_score"].as_u64().is_some());
+}
+
+#[test]
+fn scan_receipt_includes_local_feedback_metadata() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+
+    fs::create_dir_all(root.join(".repopilot")).expect("create repopilot dir");
+    fs::create_dir_all(root.join("src")).expect("create src dir");
+    fs::write(
+        root.join("src/live.rs"),
+        "const API_KEY: &str = \"abc123xyz987\";\n",
+    )
+    .expect("write source");
+    fs::write(
+        root.join(".repopilot/feedback.yml"),
+        r#"
+suppressions:
+  - rule_id: security.secret-candidate
+    path: src/live.rs
+    reason: accepted fixture
+"#,
+    )
+    .expect("write feedback");
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--format",
+            "json",
+            "--output",
+            "report.json",
+            "--receipt",
+            "receipt.json",
+        ])
+        .current_dir(root)
+        .output()
+        .expect("run scan");
+
+    assert!(
+        output.status.success(),
+        "scan should pass, stderr:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let receipt: Value =
+        serde_json::from_slice(&fs::read(root.join("receipt.json")).expect("read receipt"))
+            .expect("valid receipt json");
+
+    assert_eq!(receipt["local_feedback"]["suppressions_loaded"], 1);
+    assert_eq!(receipt["local_feedback"]["suppressed_findings_count"], 1);
 }
 
 #[test]
