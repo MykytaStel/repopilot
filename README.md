@@ -7,16 +7,17 @@
 [![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/MykytaStel/repopilot?style=social)](https://github.com/MykytaStel/repopilot)
 
-**Local-first repo intelligence for safer human and AI-assisted code changes.**
+**Local-first repository risk checks for safer human and AI-assisted code changes.**
 
-RepoPilot scans a repository locally, explains architecture/security/code-quality
-risks, and turns findings into AI-ready context without uploading your source
-code to a hosted scanner.
+RepoPilot gives teams a fast safety pass before a pull request, release, or AI
+coding session. It scans a repository locally, explains architecture, security,
+code-quality, testing, and framework risks, then turns findings into AI-ready
+context without uploading your source code to a hosted scanner.
 
-It is not meant to replace language linters. RepoPilot focuses on repository-level
-signals: risky files, architecture drift, security candidates, testing gaps,
-review risk, baselines, and remediation context for Claude Code, ChatGPT, Cursor,
-or another coding assistant.
+It is not meant to replace language linters. RepoPilot focuses on repository
+signals that are hard to see from one file at a time: risky files, architecture
+drift, security candidates, testing gaps, review risk, baselines, and remediation
+context for Claude Code, ChatGPT, Cursor, or another coding assistant.
 
 ---
 
@@ -38,6 +39,13 @@ scan -> understand risk -> generate AI context -> fix -> review
 | AI-ready remediation context | ❌ | ❌ | ✅ |
 | Baseline and PR review workflow | partial | ✅ | ✅ |
 | Default noise reduction / Trust Mode | ❌ | partial | ✅ |
+
+Use RepoPilot when you need to:
+
+- understand the highest-risk files before asking an AI assistant to edit;
+- add a CI gate without blocking on every existing finding;
+- review PR risk from changed lines instead of only whole-repo noise;
+- produce local evidence for releases through Markdown, JSON, SARIF, and receipts.
 
 ---
 
@@ -88,16 +96,24 @@ brew update && brew upgrade repopilot
 
 ## Quick Start
 
-Scan a repository:
+Start with a local scan:
 
 ```bash
 repopilot scan .
 ```
 
-Generate AI-ready context:
+Check adoption readiness and create an intentional baseline for existing debt:
 
 ```bash
-repopilot ai context .
+repopilot doctor .
+repopilot baseline create . --output .repopilot/baseline.json
+repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
+```
+
+Generate AI-ready context for the highest-risk work:
+
+```bash
+repopilot ai context . --budget 4k
 ```
 
 Copy AI context on macOS:
@@ -270,7 +286,7 @@ See [configuration docs](docs/configuration.md).
 Create a baseline for existing findings:
 
 ```bash
-repopilot baseline create .
+repopilot baseline create . --output .repopilot/baseline.json
 ```
 
 Scan against accepted debt:
@@ -284,6 +300,9 @@ Fail CI only on new high-risk findings:
 ```bash
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 ```
+
+Commit `.repopilot/baseline.json` only after reviewing the accepted findings.
+Do not update it just to make CI green; note accepted baseline changes in the PR.
 
 Validate or bypass local feedback suppressions:
 

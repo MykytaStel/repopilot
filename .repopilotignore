@@ -4,8 +4,17 @@
 # Build and release outputs
 target
 dist
+*.tgz
 
 # Editor/system files
 .DS_Store
 .idea
 .vscode
+
+# Local secrets and generated reports
+.env
+.env.*
+report.md
+repopilot-ci.md
+scan.json
+*.sarif

@@ -8,8 +8,8 @@ pull requests without uploading source code.
 
 RepoPilot 0.12.0 is ready.
 
-This release is for teams that want a fast repository safety layer before code
-goes into CI or an AI coding session:
+This release is for teams that want a fast repository safety layer before a pull
+request, release, or AI coding session:
 
 - scan locally with no telemetry, no hosted scanner, and no source upload;
 - paste `ai context`, `ai plan`, or `ai prompt` into Claude Code, ChatGPT, Cursor,
@@ -22,7 +22,7 @@ Try it:
 
 ```bash
 repopilot doctor .
-repopilot baseline create .
+repopilot baseline create . --output .repopilot/baseline.json
 repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 repopilot ai context . --budget 4k
 ```
@@ -44,6 +44,13 @@ Best first audiences:
 - CI teams that need baseline-aware gates, SARIF, receipts, and no source upload;
 - React Native and Expo teams checking New Architecture, Hermes, deprecated APIs,
   and architecture health before releases.
+
+Positioning guardrails:
+
+- RepoPilot complements language linters; it is not a replacement for them.
+- Baselines are accepted existing debt, not a way to hide new risk.
+- Local feedback suppressions stay visible in reports and should be committed
+  only when team-reviewed.
 
 ## Post-Publish Checks
 

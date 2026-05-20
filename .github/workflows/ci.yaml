@@ -47,7 +47,30 @@ jobs:
         run: cargo test --all
 
       - name: RepoPilot CI gate
-        run: cargo run -- scan . --baseline .repopilot/baseline.json --fail-on new-high --format markdown --output /tmp/repopilot-ci.md
+        shell: bash
+        run: |
+          set +e
+          cargo run -- scan . --baseline .repopilot/baseline.json --fail-on new-high --format markdown --output /tmp/repopilot-ci.md
+          status=$?
+
+          if ((status != 0)); then
+            if [[ -f /tmp/repopilot-ci.md ]]; then
+              echo "RepoPilot CI report:"
+              cat /tmp/repopilot-ci.md
+            else
+              echo "RepoPilot CI report was not generated."
+            fi
+          fi
+
+          exit "$status"
+
+      - name: Upload RepoPilot CI report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repopilot-ci-report
+          path: /tmp/repopilot-ci.md
+          if-no-files-found: ignore
 
       - name: CLI release smoke tests
         run: cargo test --test cli_release_smoke

@@ -186,6 +186,8 @@ Before release, verify:
 - platform npm packages can be generated from release archives and packed with no lifecycle scripts;
 - RepoPilot's own repository has `.repopilotignore`, `.repopilot/baseline.json`,
   and a CI gate using `--baseline .repopilot/baseline.json --fail-on new-high`;
+- `.repopilot/baseline.json` updates are reviewed as accepted existing debt and
+  are not used just to make CI green;
 - `repopilot doctor .` reports no adoption warnings for the repository;
 - `scripts/smoke-product.sh` passes against the release binary.
 

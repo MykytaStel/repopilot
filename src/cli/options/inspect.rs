@@ -46,6 +46,7 @@ repopilot inspect cache . --format markdown --output cache.md"
         after_help = "EXAMPLES:\n  \
 repopilot inspect feedback\n  \
 repopilot inspect feedback . --format json\n  \
+repopilot inspect feedback . --evaluate --format json\n  \
 repopilot inspect feedback . --format markdown --output feedback.md"
     )]
     Feedback(FeedbackInspectOptions),
@@ -116,6 +117,10 @@ pub struct FeedbackInspectOptions {
     /// Output format for feedback diagnostics
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
+
+    /// Run a repository scan and evaluate suppressions against current findings
+    #[arg(long)]
+    pub evaluate: bool,
 
     /// Write report to a file instead of stdout
     #[arg(short, long)]
