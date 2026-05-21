@@ -5,6 +5,7 @@ use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::graph::CouplingGraph;
+use crate::graph::context::{ContextGraphCacheInfo, ContextGraphSummary};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -214,6 +215,10 @@ pub struct ScanSummary {
     pub react_native: Option<ReactNativeArchitectureProfile>,
     #[serde(default)]
     pub coupling_graph: Option<CouplingGraph>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_graph_summary: Option<ContextGraphSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_graph_cache: Option<ContextGraphCacheInfo>,
     #[serde(default)]
     pub scan_duration_us: u64,
     /// 0–100 health score: 100 = no findings, decreases with severity-weighted finding density.
@@ -278,6 +283,8 @@ impl Default for ScanSummary {
             framework_projects: Vec::new(),
             react_native: None,
             coupling_graph: None,
+            context_graph_summary: None,
+            context_graph_cache: None,
             scan_duration_us: 0,
             health_score: 0,
             visible_findings_count: 0,

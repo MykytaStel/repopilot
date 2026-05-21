@@ -50,11 +50,14 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
             .is_some()
     );
     assert_rule_present(&first, "security.secret-candidate");
+    assert_eq!(first["context_graph_cache"]["status"], "miss");
+    assert!(first["context_graph_summary"]["files"].as_u64().is_some());
 
     let cache_dir = temp.path().join(".repopilot/cache");
     assert!(cache_dir.join("file_hashes.json").is_file());
     assert!(cache_dir.join("file_roles.json").is_file());
     assert!(cache_dir.join("findings.json").is_file());
+    assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
         2
@@ -70,6 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     rewrite_cached_finding_title(&cache_dir.join("findings.json"), "Cached secret title");
     let cached = scan_changed_json(temp.path(), &["--changed"]);
     assert_eq!(cached["cache_telemetry"]["hits"], 1);
+    assert_eq!(cached["context_graph_cache"]["status"], "hit");
     assert_eq!(cached["cache_telemetry"]["misses"], 0);
     assert_eq!(cached["cache_telemetry"]["hit_rate_percent"], 100);
     assert_eq!(
@@ -100,6 +104,24 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
 }
 
 #[test]
+fn changed_scan_with_no_changes_skips_repo_context_and_cache_write() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    let json = scan_changed_json(temp.path(), &["--changed", "--timing"]);
+
+    assert_eq!(json["mode"], "changed");
+    assert_eq!(json["changed_files_count"], 0);
+    assert!(json.get("cache_telemetry").is_none());
+    assert!(json.get("context_graph_summary").is_none());
+    assert!(json.get("context_graph_cache").is_none());
+    assert_eq!(json["scan_timings"]["framework_detection_us"], 0);
+    assert!(!temp.path().join(".repopilot/cache").exists());
+}
+
+#[test]
 fn changed_scan_invalidates_cache_when_config_changes() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
@@ -115,6 +137,7 @@ fn changed_scan_invalidates_cache_when_config_changes() {
 
     assert_eq!(changed_config["cache_telemetry"]["hits"], 0);
     assert_eq!(changed_config["cache_telemetry"]["misses"], 1);
+    assert_eq!(changed_config["context_graph_cache"]["status"], "miss");
     assert_eq!(
         changed_config["cache_telemetry"]["changed_files"][0]["cache_reason"],
         "config-changed"

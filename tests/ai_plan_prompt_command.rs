@@ -55,6 +55,8 @@ fn ai_plan_default_output_succeeds() {
     assert!(stdout.contains("P0 - Immediate risk"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("Move the value to an environment variable or secrets manager"));
+    assert!(stdout.contains("## Context Risk Graph"));
+    assert!(stdout.contains("### Edit Order"));
     assert!(stdout.contains("## Verify"));
 }
 

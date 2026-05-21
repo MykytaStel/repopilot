@@ -1,6 +1,8 @@
 use super::header::risk_level;
 use super::{AiContextRenderOptions, AiFocusCategory, render};
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::graph::context::{ContextGraphFileMetric, ContextGraphSummary, ContextRiskCluster};
+use crate::risk::RiskPriority;
 use crate::scan::types::ScanSummary;
 use std::path::PathBuf;
 
@@ -319,6 +321,21 @@ fn top_recommendations_shown_for_high_findings() {
 }
 
 #[test]
+fn ai_context_includes_context_risk_graph_sections() {
+    let mut summary = make_summary(vec![]);
+    summary.context_graph_summary = Some(context_graph_summary());
+
+    let output = render(&summary, &AiContextRenderOptions::default());
+
+    assert!(output.contains("## Context Risk Graph"));
+    assert!(output.contains("### Edit Order"));
+    assert!(output.contains("### Blast Radius"));
+    assert!(output.contains("### High-Context Files"));
+    assert!(output.contains("### Verification Focus"));
+    assert!(output.contains("src/core.rs"));
+}
+
+#[test]
 fn empty_scan_renders_without_panic() {
     let summary = make_summary(vec![]);
     let output = render(&summary, &AiContextRenderOptions::default());
@@ -334,4 +351,29 @@ fn ai_context_category_from_str() {
     assert_eq!("framework".parse(), Ok(AiFocusCategory::Framework));
     assert_eq!("all".parse(), Ok(AiFocusCategory::All));
     assert_eq!("unknown".parse::<AiFocusCategory>(), Err(()));
+}
+
+fn context_graph_summary() -> ContextGraphSummary {
+    ContextGraphSummary {
+        files: 3,
+        import_edges: 2,
+        top_hubs: Vec::new(),
+        top_dependencies: vec![ContextGraphFileMetric {
+            path: PathBuf::from("src/core.rs"),
+            fan_in: 3,
+            fan_out: 1,
+            instability: 0.25,
+            language: Some("Rust".to_string()),
+            roles: vec!["source".to_string()],
+        }],
+        cycles: Vec::new(),
+        changed_blast_radius: vec![PathBuf::from("src/caller.rs")],
+        risky_clusters: vec![ContextRiskCluster {
+            rule_id: "architecture.large-file".to_string(),
+            scope: "src".to_string(),
+            count: 2,
+            max_score: 60,
+            priority: RiskPriority::P2,
+        }],
+    }
 }

@@ -130,6 +130,7 @@ pub fn load_changed_files(
         files.extend(load_untracked_files(repo_root, pathspec)?);
     }
 
+    files.retain(|file| !is_repopilot_internal_path(&file.path));
     files.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(files)
 }
@@ -266,6 +267,11 @@ fn load_untracked_files(
         .collect()
 }
 
+fn is_repopilot_internal_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    normalized == ".repopilot" || normalized.starts_with(".repopilot/")
+}
+
 fn git_output(cwd: &Path, args: &[&str], command_label: &str) -> Result<String, GitDiffError> {
     let output = Command::new("git").args(args).current_dir(cwd).output()?;
 
@@ -320,4 +326,20 @@ fn parse_hunk_added_range(line: &str) -> Option<ChangedRange> {
         start,
         end: start + count - 1,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repopilot_internal_paths_are_excluded_from_review_scope() {
+        assert!(is_repopilot_internal_path(Path::new(
+            ".repopilot/cache/repo_context.json"
+        )));
+        assert!(is_repopilot_internal_path(Path::new(
+            r".repopilot\cache\repo_context.json"
+        )));
+        assert!(!is_repopilot_internal_path(Path::new("src/lib.rs")));
+    }
 }

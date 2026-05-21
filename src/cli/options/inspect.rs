@@ -42,6 +42,16 @@ repopilot inspect cache . --format markdown --output cache.md"
     )]
     Cache(CacheInspectOptions),
 
+    /// Inspect Context Risk Graph decisions for a repository
+    #[command(
+        about = "Inspect RepoPilot Context Risk Graph decisions",
+        after_help = "EXAMPLES:\n  \
+repopilot inspect graph\n  \
+repopilot inspect graph . --format json\n  \
+repopilot inspect graph . --format markdown --output graph.md"
+    )]
+    Graph(GraphInspectOptions),
+
     /// Inspect local feedback suppressions and validation diagnostics
     #[command(
         about = "Inspect RepoPilot local feedback suppressions",
@@ -133,6 +143,25 @@ pub struct CacheInspectOptions {
     pub path: PathBuf,
 
     /// Output format for cache diagnostics
+    #[arg(long, value_enum, default_value = "console")]
+    pub format: CompareOutputFormatArg,
+
+    /// Write report to a file instead of stdout
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct GraphInspectOptions {
+    /// Repository or project path whose Context Risk Graph should be inspected
+    #[arg(default_value = ".")]
+    pub path: PathBuf,
+
+    /// Path to a repopilot.toml config file
+    #[arg(long)]
+    pub config: Option<PathBuf>,
+
+    /// Output format for graph diagnostics
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
 

@@ -1,5 +1,6 @@
+use repopilot::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use repopilot::output::{OutputFormat, render_scan_summary};
+use repopilot::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
 use repopilot::scan::types::{HiddenSuggestionSummary, ScanSummary};
 use std::path::PathBuf;
 
@@ -44,6 +45,8 @@ fn html_output_escapes_snippets_and_renders_summary() {
         }],
         react_native: None,
         coupling_graph: None,
+        context_graph_summary: None,
+        context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
         visible_findings_count: 1,
@@ -103,4 +106,67 @@ fn html_output_includes_hidden_suggestion_breakdown() {
     assert!(html.contains("Top Hidden Suggestions"));
     assert!(html.contains("language.javascript.runtime-exit-risk"));
     assert!(html.contains("code-quality"));
+}
+
+#[test]
+fn html_baseline_status_stays_aligned_for_duplicate_findings() {
+    let report = duplicate_status_report();
+
+    let html = render_baseline_scan_report(&report, OutputFormat::Html, None)
+        .expect("failed to render baseline html");
+
+    let existing = html
+        .find("baseline: existing")
+        .expect("existing status should render");
+    let new = html
+        .find("baseline: new")
+        .expect("new status should render");
+    assert!(existing < new);
+}
+
+fn duplicate_status_report() -> BaselineScanReport {
+    BaselineScanReport {
+        summary: ScanSummary {
+            root_path: PathBuf::from("demo"),
+            findings: vec![
+                duplicate_finding("existing", 7),
+                duplicate_finding("new", 8),
+            ],
+            ..ScanSummary::default()
+        },
+        baseline_path: None,
+        findings: vec![
+            FindingBaselineStatus {
+                key: "existing".to_string(),
+                status: BaselineStatus::Existing,
+            },
+            FindingBaselineStatus {
+                key: "new".to_string(),
+                status: BaselineStatus::New,
+            },
+        ],
+    }
+}
+
+fn duplicate_finding(id: &str, line: usize) -> Finding {
+    Finding {
+        id: id.to_string(),
+        rule_id: "code-quality.long-function".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("code-quality.long-function"),
+        title: "Duplicate-looking finding".to_string(),
+        description: "Duplicate-looking finding for renderer status alignment.".to_string(),
+        category: FindingCategory::CodeQuality,
+        severity: Severity::Medium,
+        confidence: Default::default(),
+        evidence: vec![Evidence {
+            path: PathBuf::from("src/lib.rs"),
+            line_start: line,
+            line_end: None,
+            snippet: "fn duplicate() {}".to_string(),
+        }],
+        workspace_package: None,
+        docs_url: None,
+        provenance: Default::default(),
+        risk: Default::default(),
+    }
 }

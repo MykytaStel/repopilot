@@ -1,7 +1,8 @@
 use crate::findings::types::Finding;
 use crate::output::color;
 use crate::output::report_stats::{
-    category_order, findings_for_category, findings_for_rule, first_location, rule_ids_for_findings,
+    category_order, first_location, indexed_findings_for_category, indexed_findings_for_rule,
+    rule_ids_for_indexed_findings,
 };
 use crate::output::report_text::{category_title, first_sentence};
 use std::fmt::Write;
@@ -18,21 +19,17 @@ where
     }
 
     for category in category_order() {
-        let category_findings = findings_for_category(findings, &category);
+        let category_findings = indexed_findings_for_category(findings, &category);
         if category_findings.is_empty() {
             continue;
         }
 
         writeln!(output, "  {}:", category_title(&category)).unwrap();
-        let rules = rule_ids_for_findings(&category_findings);
+        let rules = rule_ids_for_indexed_findings(&category_findings);
         for rule_id in rules {
-            let rule_findings = findings_for_rule(&category_findings, &rule_id);
+            let rule_findings = indexed_findings_for_rule(&category_findings, &rule_id);
             writeln!(output, "    {} ({})", rule_id, rule_findings.len()).unwrap();
-            for finding in rule_findings {
-                let index = findings
-                    .iter()
-                    .position(|candidate| std::ptr::eq(candidate, finding))
-                    .unwrap_or(0);
+            for (index, finding) in rule_findings {
                 render_finding(output, finding, status_for(index));
             }
         }

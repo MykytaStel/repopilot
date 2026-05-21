@@ -1,6 +1,9 @@
 use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
 use crate::graph::CouplingGraph;
+use crate::graph::context::{
+    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
+};
 use crate::scan::facts::ScanFacts;
 use crate::scan::types::LanguageSummary;
 use crate::scan::types::{ScanCacheTelemetry, ScanDiagnostic, ScanMode, ScanSummary, ScanTimings};
@@ -38,6 +41,8 @@ pub(super) struct ScanSummaryParts {
     pub(super) scan_timings: Option<ScanTimings>,
     pub(super) cache_telemetry: Option<ScanCacheTelemetry>,
     pub(super) coupling_graph: Option<CouplingGraph>,
+    pub(super) context_graph_summary: Option<ContextGraphSummary>,
+    pub(super) context_graph_cache: Option<ContextGraphCacheInfo>,
     pub(super) diagnostics: Vec<ScanDiagnostic>,
     pub(super) signal_quality: SignalQualitySummary,
 }
@@ -49,6 +54,20 @@ pub(super) fn build_scan_summary(
 ) -> ScanSummary {
     let health_score = ScanSummary::compute_health_score(&findings, facts.non_empty_lines);
     let visible_findings_count = findings.len();
+    let context_graph_summary =
+        parts
+            .context_graph_summary
+            .or_else(|| match parts.coupling_graph.as_ref() {
+                Some(coupling_graph) => {
+                    let graph = RepoContextGraph::from_scan_facts(
+                        &facts,
+                        &facts.root_path,
+                        coupling_graph.clone(),
+                    );
+                    Some(summarize_context_graph(&graph, &findings, &[]))
+                }
+                None => None,
+            });
 
     ScanSummary {
         root_path: facts.root_path,
@@ -70,6 +89,8 @@ pub(super) fn build_scan_summary(
         react_native: facts.react_native,
         findings,
         coupling_graph: parts.coupling_graph,
+        context_graph_summary,
+        context_graph_cache: parts.context_graph_cache,
         scan_duration_us: parts.scan_duration_us,
         health_score,
         visible_findings_count,

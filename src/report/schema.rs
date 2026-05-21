@@ -4,6 +4,7 @@ use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject, ReactNativeArchitectureProfile};
 use crate::graph::CouplingGraph;
+use crate::graph::context::{ContextGraphCacheInfo, ContextGraphSummary};
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use crate::risk::RiskSummary;
@@ -16,7 +17,8 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.15";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.16";
+const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.15", SCAN_REPORT_SCHEMA_VERSION];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -82,6 +84,10 @@ pub struct ScanJsonReport<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub react_native: Option<&'a ReactNativeArchitectureProfile>,
     pub coupling_graph: Option<&'a CouplingGraph>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_summary: Option<&'a ContextGraphSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
     pub scan_duration_us: u64,
     pub health_score: u8,
     pub visible_findings_count: usize,
@@ -131,6 +137,8 @@ impl<'a> ScanJsonReport<'a> {
             framework_projects: &summary.framework_projects,
             react_native: summary.react_native.as_ref(),
             coupling_graph: summary.coupling_graph.as_ref(),
+            context_graph_summary: summary.context_graph_summary.as_ref(),
+            context_graph_cache: summary.context_graph_cache.as_ref(),
             scan_duration_us: summary.scan_duration_us,
             health_score: summary.health_score,
             visible_findings_count: summary.visible_findings_count,
@@ -175,6 +183,10 @@ pub struct BaselineJsonReport<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_telemetry: Option<&'a ScanCacheTelemetry>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_summary: Option<&'a ContextGraphSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
@@ -208,6 +220,8 @@ impl<'a> BaselineJsonReport<'a> {
             hidden_suggestions: &report.summary.hidden_suggestions,
             visibility_profile: report.summary.visibility_profile.as_deref(),
             cache_telemetry: report.summary.cache_telemetry.as_ref(),
+            context_graph_summary: report.summary.context_graph_summary.as_ref(),
+            context_graph_cache: report.summary.context_graph_cache.as_ref(),
             local_feedback: report.summary.local_feedback.as_ref(),
             diagnostics: &report.summary.diagnostics,
             languages: &report.summary.languages,
@@ -248,6 +262,10 @@ pub struct ReviewJsonReport<'a> {
     pub non_empty_lines: usize,
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_summary: Option<&'a ContextGraphSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
     pub review: ReviewJsonMetadata,
     pub risk_summary: RiskSummary,
     pub signal_quality: crate::findings::quality::SignalQualitySummary,
@@ -278,6 +296,8 @@ impl<'a> ReviewJsonReport<'a> {
                 .iter()
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
+            context_graph_summary: report.summary.context_graph_summary.as_ref(),
+            context_graph_cache: report.summary.context_graph_cache.as_ref(),
             review: ReviewJsonMetadata {
                 in_diff_findings: report.in_diff_count(),
                 out_of_diff_findings: report.out_of_diff_count(),
@@ -398,9 +418,9 @@ fn validate_current_scan_report(value: &Value) -> Result<(), serde_json::Error> 
         .and_then(|report| report.get("schema_version"))
         .and_then(Value::as_str);
 
-    if schema_version == Some(SCAN_REPORT_SCHEMA_VERSION)
+    if schema_version.is_some_and(is_accepted_scan_schema_version)
         && report_kind == Some("scan")
-        && report_schema_version == Some(SCAN_REPORT_SCHEMA_VERSION)
+        && report_schema_version.is_some_and(is_accepted_scan_schema_version)
     {
         return Ok(());
     }
@@ -412,4 +432,8 @@ fn validate_current_scan_report(value: &Value) -> Result<(), serde_json::Error> 
             SCAN_REPORT_SCHEMA_VERSION
         ),
     )))
+}
+
+fn is_accepted_scan_schema_version(version: &str) -> bool {
+    ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS.contains(&version)
 }

@@ -1,7 +1,8 @@
 use super::escape::escape_html;
 use crate::findings::types::{Finding, FindingCategory};
 use crate::output::report_stats::{
-    category_order, findings_for_category, findings_for_rule, first_location, rule_ids_for_findings,
+    category_order, first_location, indexed_findings_for_category, indexed_findings_for_rule,
+    rule_ids_for_indexed_findings,
 };
 use crate::scan::types::ScanSummary;
 
@@ -15,7 +16,7 @@ where
 
     let mut output = String::new();
     for category in category_order() {
-        let category_findings = findings_for_category(&summary.findings, &category);
+        let category_findings = indexed_findings_for_category(&summary.findings, &category);
         if category_findings.is_empty() {
             continue;
         }
@@ -26,21 +27,16 @@ where
             category_title(&category)
         ));
 
-        let rules = rule_ids_for_findings(&category_findings);
+        let rules = rule_ids_for_indexed_findings(&category_findings);
         for rule_id in rules {
-            let rule_findings = findings_for_rule(&category_findings, &rule_id);
+            let rule_findings = indexed_findings_for_rule(&category_findings, &rule_id);
             output.push_str(&format!(
                 r#"<section class="rule-group" data-rule="{}"><h4><code>{}</code> ({})</h4>"#,
                 escape_html(&rule_id),
                 escape_html(&rule_id),
                 rule_findings.len()
             ));
-            for finding in rule_findings {
-                let index = summary
-                    .findings
-                    .iter()
-                    .position(|candidate| std::ptr::eq(candidate, finding))
-                    .unwrap_or(0);
+            for (index, finding) in rule_findings {
                 output.push_str(&render_finding_card(finding, status_for(index)));
             }
             output.push_str("</section>");
