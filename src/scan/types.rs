@@ -1,4 +1,5 @@
 use crate::findings::feedback::LocalFeedbackReport;
+use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
@@ -246,6 +247,9 @@ pub struct ScanSummary {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<ScanDiagnostic>,
+
+    #[serde(default)]
+    pub signal_quality: SignalQualitySummary,
 }
 
 fn default_repo_level_rules_included() -> bool {
@@ -287,6 +291,7 @@ impl Default for ScanSummary {
             cache_telemetry: None,
             local_feedback: None,
             diagnostics: Vec::new(),
+            signal_quality: SignalQualitySummary::default(),
         }
     }
 }

@@ -57,6 +57,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     };
 
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");

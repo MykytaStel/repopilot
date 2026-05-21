@@ -8,7 +8,10 @@ use super::changed_telemetry::{
 use super::file::{SkipReason, process_file_with_content};
 use super::summary::{ScanSummaryParts, build_language_summary, build_scan_summary};
 use crate::audits::pipeline::build_file_audits;
-use crate::baseline::key::stable_finding_key;
+use crate::findings::enrichment::enrich_findings_timed;
+use crate::findings::quality::{
+    SignalQualitySummary, summarize_signal_quality_with_contract_violations,
+};
 use crate::findings::types::Finding;
 use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
@@ -71,6 +74,7 @@ struct ChangedFindingPipelineStage {
     risk_scoring_us: u64,
     contract_validation_us: u64,
     diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
+    signal_quality: SignalQualitySummary,
 }
 
 impl<'a> ChangedScanEngine<'a> {
@@ -87,18 +91,20 @@ impl<'a> ChangedScanEngine<'a> {
         let discovery = self.run_discovery()?;
         let mut file_stage = self.run_file_analysis(&discovery)?;
         let repo_stage = self.run_repo_context(&discovery.repo_root, &mut file_stage.facts)?;
-        let enrichment_us = self.enrich_findings(&discovery.repo_root, &mut file_stage.findings);
+        let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
-        let mut diagnostics = Vec::new();
-        let contract_validation_us = crate::engine::pipeline::validate_finding_contract_stage(
+        let contract_stage =
+            crate::engine::pipeline::validate_finding_contract_stage(&file_stage.findings);
+        let signal_quality = summarize_signal_quality_with_contract_violations(
             &file_stage.findings,
-            &mut diagnostics,
+            contract_stage.report.violations.len(),
         );
         let finding_pipeline = ChangedFindingPipelineStage {
             enrichment_us,
             risk_scoring_us,
-            contract_validation_us,
-            diagnostics,
+            contract_validation_us: contract_stage.elapsed_us,
+            diagnostics: contract_stage.diagnostics,
+            signal_quality,
         };
 
         self.finalize_report(start, discovery, file_stage, repo_stage, finding_pipeline)
@@ -397,15 +403,6 @@ impl<'a> ChangedScanEngine<'a> {
         })
     }
 
-    fn enrich_findings(&self, repo_root: &Path, findings: &mut [Finding]) -> u64 {
-        let start = Instant::now();
-        for finding in findings.iter_mut() {
-            finding.populate_recommendation();
-            finding.id = stable_finding_key(finding, repo_root);
-        }
-        start.elapsed().as_micros() as u64
-    }
-
     fn score_findings(
         &self,
         repo_stage: &ChangedRepoContextStage,
@@ -467,6 +464,7 @@ impl<'a> ChangedScanEngine<'a> {
                 }),
                 cache_telemetry: Some(file_stage.cache_telemetry),
                 diagnostics: finding_pipeline.diagnostics,
+                signal_quality: finding_pipeline.signal_quality,
             },
         );
 

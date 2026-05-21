@@ -1,3 +1,4 @@
+use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::{Confidence, Finding, FindingCategory, Severity};
 use crate::risk::RiskPriority;
 use crate::scan::types::{HiddenSuggestionSummary, ScanSummary};
@@ -98,6 +99,7 @@ pub fn apply_visibility_profile(summary: &mut ScanSummary, profile: FindingVisib
     summary.hidden_suggestions.clear();
 
     if profile == FindingVisibilityProfile::Strict {
+        recompute_summary_metrics(summary);
         return;
     }
 
@@ -108,8 +110,7 @@ pub fn apply_visibility_profile(summary: &mut ScanSummary, profile: FindingVisib
     summary.visible_findings_count = summary.findings.len();
     summary.hidden_suggestions_count = original_count.saturating_sub(summary.findings.len());
     summary.hidden_suggestions = hidden_suggestions;
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
+    recompute_summary_metrics(summary);
 }
 
 pub fn is_visible_by_default(finding: &Finding) -> bool {

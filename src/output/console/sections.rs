@@ -4,7 +4,6 @@ use crate::output::color;
 use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::report_stats::{ReportStats, TOOL_VERSION};
 use crate::output::report_text::{console_severity_counts_text, named_counts_text};
-use crate::report::quality::build_signal_quality_summary;
 use crate::risk::RiskPriority;
 use crate::scan::types::{DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
@@ -297,7 +296,7 @@ pub(crate) fn render_risk_summary(output: &mut String, stats: &ReportStats) {
 }
 
 pub(crate) fn render_signal_quality(output: &mut String, summary: &ScanSummary) {
-    let quality = build_signal_quality_summary(&summary.findings);
+    let quality = &summary.signal_quality;
     output.push_str("Signal quality:\n");
     writeln!(output, "  High confidence: {}", quality.by_confidence.high).unwrap();
     writeln!(

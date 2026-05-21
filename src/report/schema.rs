@@ -4,7 +4,6 @@ use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject, ReactNativeArchitectureProfile};
 use crate::graph::CouplingGraph;
-use crate::report::quality::build_signal_quality_summary;
 use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use crate::risk::RiskSummary;
@@ -146,7 +145,7 @@ impl<'a> ScanJsonReport<'a> {
             local_feedback: summary.local_feedback.as_ref(),
             diagnostics: &summary.diagnostics,
             risk_summary: RiskSummary::from_findings(&summary.findings),
-            signal_quality: build_signal_quality_summary(&summary.findings),
+            signal_quality: summary.signal_quality.clone(),
         }
     }
 }
@@ -213,7 +212,7 @@ impl<'a> BaselineJsonReport<'a> {
             diagnostics: &report.summary.diagnostics,
             languages: &report.summary.languages,
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
-            signal_quality: build_signal_quality_summary(&report.summary.findings),
+            signal_quality: report.summary.signal_quality.clone(),
             baseline: BaselineJsonMetadata {
                 path: report
                     .baseline_path
@@ -287,7 +286,7 @@ impl<'a> ReviewJsonReport<'a> {
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
-            signal_quality: build_signal_quality_summary(&report.summary.findings),
+            signal_quality: report.summary.signal_quality.clone(),
             baseline: ReviewBaselineJsonMetadata {
                 path: report
                     .baseline_path

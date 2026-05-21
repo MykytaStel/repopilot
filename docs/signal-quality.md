@@ -1,7 +1,9 @@
 # Signal Quality
 
 RepoPilot 0.13.0 adds a report-level `signal_quality` summary derived from the
-visible findings and the finding contract.
+visible findings and the finding contract. The scan pipeline stores the summary
+on `ScanSummary` after enrichment, risk scoring, and contract validation so JSON,
+console, and Markdown renderers do not rebuild the same summary independently.
 
 JSON reports include:
 
@@ -30,3 +32,6 @@ The summary is meant to help users decide how much trust to place in the current
 report. A report with many experimental or low-confidence findings should be
 treated as review guidance, while stable high-confidence findings should receive
 faster attention.
+
+When filters, local feedback, baseline views, or visibility profiles change the
+visible finding set, RepoPilot refreshes the cached summary for that report path.

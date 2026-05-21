@@ -115,9 +115,11 @@ fn build_cluster<'a>(
 
 fn cluster_title(finding: &Finding, count: usize, scope: Option<&str>) -> String {
     let base = if count > 1 {
-        crate::rules::lookup_rule_metadata(&finding.rule_id)
-            .map(|metadata| metadata.title)
-            .unwrap_or(finding.rule_id.as_str())
+        if finding.title.trim().is_empty() {
+            finding.rule_id.as_str()
+        } else {
+            finding.title.as_str()
+        }
     } else {
         finding.title.as_str()
     };

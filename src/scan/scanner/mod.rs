@@ -9,7 +9,8 @@ mod walker;
 
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
-use crate::baseline::key::stable_finding_key;
+use crate::findings::enrichment::enrich_findings_timed;
+use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
@@ -75,16 +76,17 @@ impl<'a> ScanEngine<'a> {
         let mut project_stage =
             self.run_project_analysis(framework_stage.facts, file_stage.findings);
 
-        let enrichment_us = self.enrich_findings(&mut project_stage.findings);
+        let enrichment_us = enrich_findings_timed(&mut project_stage.findings, self.path);
         let risk_scoring_us = self.score_findings(
             &project_stage.facts,
             &project_stage.coupling_graph,
             &mut project_stage.findings,
         );
-        let mut diagnostics = Vec::new();
-        let contract_validation_us = crate::engine::pipeline::validate_finding_contract_stage(
+        let contract_stage =
+            crate::engine::pipeline::validate_finding_contract_stage(&project_stage.findings);
+        let signal_quality = summarize_signal_quality_with_contract_violations(
             &project_stage.findings,
-            &mut diagnostics,
+            contract_stage.report.violations.len(),
         );
 
         let scan_duration_us = start.elapsed().as_micros() as u64;
@@ -98,11 +100,17 @@ impl<'a> ScanEngine<'a> {
             post_scan_audits_us: project_stage.elapsed_us,
             enrichment_us,
             risk_scoring_us,
-            contract_validation_us,
+            contract_validation_us: contract_stage.elapsed_us,
             report_finalization_us: 0,
         };
 
-        Ok(self.finalize_report(project_stage, scan_duration_us, timings, diagnostics))
+        Ok(self.finalize_report(
+            project_stage,
+            scan_duration_us,
+            timings,
+            contract_stage.diagnostics,
+            signal_quality,
+        ))
     }
 
     fn finalize_report(
@@ -111,6 +119,7 @@ impl<'a> ScanEngine<'a> {
         scan_duration_us: u64,
         timings: ScanTimings,
         diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
+        signal_quality: crate::findings::quality::SignalQualitySummary,
     ) -> ScanSummary {
         let finalization_start = Instant::now();
         summary::sort_findings(&mut project_stage.findings);
@@ -127,6 +136,7 @@ impl<'a> ScanEngine<'a> {
                 scan_timings: Some(timings),
                 cache_telemetry: None,
                 diagnostics,
+                signal_quality,
             },
         );
         if let Some(timings) = &mut summary.scan_timings {
@@ -215,15 +225,6 @@ impl<'a> ScanEngine<'a> {
             coupling_graph,
             elapsed_us: start.elapsed().as_micros() as u64,
         }
-    }
-
-    fn enrich_findings(&self, findings: &mut [crate::findings::types::Finding]) -> u64 {
-        let start = Instant::now();
-        for finding in findings.iter_mut() {
-            finding.populate_recommendation();
-            finding.id = stable_finding_key(finding, self.path);
-        }
-        start.elapsed().as_micros() as u64
     }
 
     fn score_findings(

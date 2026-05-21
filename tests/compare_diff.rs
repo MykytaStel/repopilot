@@ -96,6 +96,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     }
 }
 

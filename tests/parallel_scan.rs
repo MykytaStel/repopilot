@@ -77,6 +77,13 @@ fn scan_timings_expose_pipeline_stage_breakdown() {
         timings.accounted_engine_us() >= timings.file_scan_us,
         "accounted timing should include file scan plus later pipeline stages"
     );
+    assert!(
+        timings.accounted_engine_us()
+            >= timings
+                .file_scan_us
+                .saturating_add(timings.contract_validation_us),
+        "accounted timing should include contract validation"
+    );
 }
 
 /// Verifies that parallel scan handles an empty directory cleanly without panicking.

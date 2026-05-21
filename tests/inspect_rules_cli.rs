@@ -113,4 +113,14 @@ fn inspect_eval_rules_reports_fixture_quality() {
     assert_eq!(json["unexpected_findings"], 0);
     assert_eq!(json["contract_violations"], 0);
     assert_eq!(json["stable_id_failures"], 0);
+    let rules = json["rules"].as_array().expect("per-rule details");
+    assert_eq!(rules.len(), 1);
+    assert_eq!(rules[0]["rule_id"], "security.secret-candidate");
+    assert_eq!(rules[0]["fixtures_total"], 2);
+    assert_eq!(rules[0]["expected_findings"], 1);
+    assert_eq!(rules[0]["actual_findings"], 1);
+    assert_eq!(rules[0]["missing_findings"], 0);
+    assert_eq!(rules[0]["unexpected_findings"], 0);
+    assert_eq!(rules[0]["contract_violations"], 0);
+    assert_eq!(rules[0]["stable_id_failures"], 0);
 }
