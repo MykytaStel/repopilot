@@ -12,15 +12,9 @@ pub fn normalize(value: &str) -> String {
 }
 
 pub fn path_contains_component(path: &Path, targets: &[&str]) -> bool {
-    path.components().any(|component| {
-        component
-            .as_os_str()
-            .to_str()
-            .map(|value| {
-                let normalized = normalize(value);
-                targets.iter().any(|target| normalized == *target)
-            })
-            .unwrap_or(false)
+    path.to_string_lossy().split(['/', '\\']).any(|component| {
+        let normalized = normalize(component);
+        targets.iter().any(|target| normalized == *target)
     })
 }
 
@@ -149,4 +143,22 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
     ) || (language == LanguageKind::Python && content.contains("if __name__ == \"__main__\""))
         || (language == LanguageKind::Go && content.contains("func main("))
         || (language == LanguageKind::Rust && content.contains("fn main("))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::path_contains_component;
+    use std::path::Path;
+
+    #[test]
+    fn path_component_matching_handles_windows_separators() {
+        assert!(path_contains_component(
+            Path::new(r"tools\scripts\check.js"),
+            &["scripts"],
+        ));
+        assert!(path_contains_component(
+            Path::new(r"src\domain\model.rs"),
+            &["domain"],
+        ));
+    }
 }

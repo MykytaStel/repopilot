@@ -4,6 +4,7 @@ use crate::commands::product_scan::{
     enforce_diagnostics_exit_policy, run_product_scan,
 };
 use crate::commands::scan_config::ScanConfigOverrides;
+use crate::commands::{CliExit, EXIT_USAGE};
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::graph::context::{ContextGraphFileMetric, ContextGraphSummary};
@@ -43,16 +44,27 @@ pub fn run(
 fn render_graph_inspection(
     summary: &ScanSummary,
     format: OutputFormat,
-) -> Result<String, serde_json::Error> {
+) -> Result<String, Box<dyn std::error::Error>> {
     match format {
         OutputFormat::Console => Ok(render_console(summary)),
         OutputFormat::Markdown => Ok(render_markdown(summary)),
-        OutputFormat::Json | OutputFormat::Html | OutputFormat::Sarif => {
-            serde_json::to_string_pretty(&GraphInspectJson::from_summary(summary))
-        }
+        OutputFormat::Json => Ok(serde_json::to_string_pretty(
+            &GraphInspectJson::from_summary(summary),
+        )?),
+        OutputFormat::Html | OutputFormat::Sarif => Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: format!(
+                "`inspect graph` supports only console, markdown, and json output; received {}",
+                output_format_name(format)
+            ),
+        })),
     }
 }
 
+/// Command-local diagnostics DTO for `inspect graph`.
+///
+/// This JSON shape is not the stable scan report contract; product report DTOs
+/// live under `report::schema`.
 #[derive(Serialize)]
 struct GraphInspectJson<'a> {
     kind: &'static str,
@@ -90,6 +102,7 @@ fn render_console(summary: &ScanSummary) -> String {
         "Graph: {} files, {} import edges",
         graph.files, graph.import_edges
     );
+    render_truncation_console(&mut output, graph);
     render_metrics_console(&mut output, "Top dependencies", &graph.top_dependencies);
     render_metrics_console(&mut output, "Top hubs", &graph.top_hubs);
     render_blast_radius_console(&mut output, graph);
@@ -114,6 +127,7 @@ fn render_markdown(summary: &ScanSummary) -> String {
         "- **Graph:** {} files, {} import edges",
         graph.files, graph.import_edges
     );
+    render_truncation_markdown(&mut output, graph);
     render_metrics_markdown(&mut output, "Top Dependencies", &graph.top_dependencies);
     render_metrics_markdown(&mut output, "Top Hubs", &graph.top_hubs);
     render_blast_radius_markdown(&mut output, graph);
@@ -144,6 +158,24 @@ fn render_cache_markdown(output: &mut String, summary: &ScanSummary) {
             cache.cache_path.display()
         );
     }
+}
+
+fn render_truncation_console(output: &mut String, graph: &ContextGraphSummary) {
+    if graph.truncated.is_empty() {
+        return;
+    }
+    let _ = writeln!(output, "Truncated: {}", graph.truncated.join(", "));
+}
+
+fn render_truncation_markdown(output: &mut String, graph: &ContextGraphSummary) {
+    if graph.truncated.is_empty() {
+        return;
+    }
+    let _ = writeln!(
+        output,
+        "- **Truncated:** `{}`",
+        graph.truncated.join("`, `")
+    );
 }
 
 fn render_metrics_console(output: &mut String, title: &str, metrics: &[ContextGraphFileMetric]) {
@@ -277,5 +309,15 @@ fn render_risky_clusters_markdown(output: &mut String, graph: &ContextGraphSumma
             cluster.max_score,
             cluster.priority.label()
         );
+    }
+}
+
+fn output_format_name(format: OutputFormat) -> &'static str {
+    match format {
+        OutputFormat::Console => "console",
+        OutputFormat::Html => "html",
+        OutputFormat::Json => "json",
+        OutputFormat::Markdown => "markdown",
+        OutputFormat::Sarif => "sarif",
     }
 }

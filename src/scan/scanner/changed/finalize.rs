@@ -1,5 +1,7 @@
+use super::*;
+
 impl<'a> ChangedScanEngine<'a> {
-    fn finalize_report(
+    pub(super) fn finalize_report(
         &self,
         scan_start: Instant,
         discovery: ChangedDiscoveryStage,
@@ -68,7 +70,7 @@ impl<'a> ChangedScanEngine<'a> {
         Ok(summary)
     }
 
-    fn finalize_empty_changed(
+    pub(super) fn finalize_empty_changed(
         &self,
         scan_start: Instant,
         discovery: ChangedDiscoveryStage,
@@ -110,44 +112,5 @@ impl<'a> ChangedScanEngine<'a> {
             timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
         }
         Ok(summary)
-    }
-}
-
-fn detect_react_native_profile(
-    facts: &ScanFacts,
-) -> Option<crate::frameworks::ReactNativeArchitectureProfile> {
-    if facts
-        .detected_frameworks
-        .iter()
-        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
-    {
-        let profile = detect_react_native_architecture(&facts.root_path);
-        if profile.detected {
-            return Some(profile);
-        }
-    }
-    None
-}
-
-fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
-    CouplingGraph {
-        edges: graph
-            .edges
-            .into_iter()
-            .map(|(source, targets)| {
-                (
-                    PathBuf::from(relative_cache_path(repo_root, &source)),
-                    targets
-                        .into_iter()
-                        .map(|target| PathBuf::from(relative_cache_path(repo_root, &target)))
-                        .collect(),
-                )
-            })
-            .collect(),
-        nodes: graph
-            .nodes
-            .into_iter()
-            .map(|node| PathBuf::from(relative_cache_path(repo_root, &node)))
-            .collect(),
     }
 }

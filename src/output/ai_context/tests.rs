@@ -75,5 +75,6 @@ fn context_graph_summary() -> ContextGraphSummary {
             max_score: 60,
             priority: RiskPriority::P2,
         }],
+        truncated: Vec::new(),
     }
 }

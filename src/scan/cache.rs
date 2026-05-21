@@ -32,6 +32,8 @@ pub struct FileRoleEntry {
     pub hash: String,
     pub language: Option<String>,
     pub non_empty_lines: usize,
+    #[serde(default)]
+    pub imports: Vec<String>,
     pub roles: Vec<String>,
     pub frameworks: Vec<String>,
     pub runtimes: Vec<String>,

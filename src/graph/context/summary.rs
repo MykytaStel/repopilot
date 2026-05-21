@@ -18,11 +18,15 @@ pub fn summarize_context_graph(
             .then_with(|| right.fan_in.cmp(&left.fan_in))
             .then_with(|| left.path.cmp(&right.path))
     });
-    let top_hubs = metrics
+    let all_top_hubs = metrics
         .iter()
         .filter(|metric| metric.fan_out > 0)
-        .take(5)
         .map(|metric| metric_from_graph(metric, &node_by_path))
+        .collect::<Vec<_>>();
+    let top_hubs_truncated = all_top_hubs.len() > MAX_CONTEXT_GRAPH_METRICS;
+    let top_hubs = all_top_hubs
+        .into_iter()
+        .take(MAX_CONTEXT_GRAPH_METRICS)
         .collect();
 
     metrics.sort_by(|left, right| {
@@ -32,21 +36,50 @@ pub fn summarize_context_graph(
             .then_with(|| right.fan_out.cmp(&left.fan_out))
             .then_with(|| left.path.cmp(&right.path))
     });
-    let top_dependencies = metrics
+    let all_top_dependencies = metrics
         .iter()
         .filter(|metric| metric.fan_in > 0)
-        .take(5)
         .map(|metric| metric_from_graph(metric, &node_by_path))
+        .collect::<Vec<_>>();
+    let top_dependencies_truncated = all_top_dependencies.len() > MAX_CONTEXT_GRAPH_METRICS;
+    let top_dependencies = all_top_dependencies
+        .into_iter()
+        .take(MAX_CONTEXT_GRAPH_METRICS)
         .collect();
+
+    let mut cycles = detect_cycles_bounded(&coupling_graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
+    let cycles_truncated = cycles.len() > MAX_CONTEXT_GRAPH_CYCLES;
+    cycles.truncate(MAX_CONTEXT_GRAPH_CYCLES);
+
+    let (changed_blast_radius, blast_radius_truncated) =
+        changed_blast_radius(&coupling_graph, changed_files);
+    let (risky_clusters, risky_clusters_truncated) = risky_clusters(findings);
+    let mut truncated = Vec::new();
+    if top_hubs_truncated {
+        truncated.push("top_hubs".to_string());
+    }
+    if top_dependencies_truncated {
+        truncated.push("top_dependencies".to_string());
+    }
+    if cycles_truncated {
+        truncated.push("cycles".to_string());
+    }
+    if blast_radius_truncated {
+        truncated.push("changed_blast_radius".to_string());
+    }
+    if risky_clusters_truncated {
+        truncated.push("risky_clusters".to_string());
+    }
 
     ContextGraphSummary {
         files: graph.nodes.len(),
         import_edges: graph.edges.values().map(BTreeSet::len).sum(),
         top_hubs,
         top_dependencies,
-        cycles: detect_cycles(&coupling_graph).into_iter().take(5).collect(),
-        changed_blast_radius: changed_blast_radius(&coupling_graph, changed_files),
-        risky_clusters: risky_clusters(findings),
+        cycles,
+        changed_blast_radius,
+        risky_clusters,
+        truncated,
     }
 }
 
@@ -65,9 +98,12 @@ fn metric_from_graph(
     }
 }
 
-fn changed_blast_radius(graph: &CouplingGraph, changed_files: &[ChangedFile]) -> Vec<PathBuf> {
+fn changed_blast_radius(
+    graph: &CouplingGraph,
+    changed_files: &[ChangedFile],
+) -> (Vec<PathBuf>, bool) {
     if changed_files.is_empty() {
-        return Vec::new();
+        return (Vec::new(), false);
     }
 
     let changed = changed_files
@@ -95,10 +131,17 @@ fn changed_blast_radius(graph: &CouplingGraph, changed_files: &[ChangedFile]) ->
             );
         }
     }
-    impacted.into_iter().take(20).collect()
+    let truncated = impacted.len() > MAX_CONTEXT_GRAPH_BLAST_RADIUS;
+    (
+        impacted
+            .into_iter()
+            .take(MAX_CONTEXT_GRAPH_BLAST_RADIUS)
+            .collect(),
+        truncated,
+    )
 }
 
-fn risky_clusters(findings: &[Finding]) -> Vec<ContextRiskCluster> {
+fn risky_clusters(findings: &[Finding]) -> (Vec<ContextRiskCluster>, bool) {
     let mut clusters: BTreeMap<(String, String), ContextRiskCluster> = BTreeMap::new();
     for finding in findings {
         let scope = finding
@@ -129,8 +172,9 @@ fn risky_clusters(findings: &[Finding]) -> Vec<ContextRiskCluster> {
             .then_with(|| right.count.cmp(&left.count))
             .then_with(|| left.rule_id.cmp(&right.rule_id))
     });
-    clusters.truncate(8);
-    clusters
+    let truncated = clusters.len() > MAX_CONTEXT_GRAPH_RISKY_CLUSTERS;
+    clusters.truncate(MAX_CONTEXT_GRAPH_RISKY_CLUSTERS);
+    (clusters, truncated)
 }
 
 fn cluster_scope(path: &Path) -> String {

@@ -5,8 +5,9 @@ use super::changed_git::collect_changed_scope;
 use super::changed_telemetry::{
     change_status_label, finalize_cache_telemetry, record_skipped_cache_file,
 };
+use super::collection;
 use super::file::{SkipReason, process_file_with_content};
-use super::summary::{ScanSummaryParts, build_language_summary, build_scan_summary};
+use super::summary::{self, ScanSummaryParts, build_language_summary, build_scan_summary};
 use crate::audits::pipeline::build_file_audits;
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::{
@@ -137,8 +138,45 @@ impl<'a> ChangedScanEngine<'a> {
     }
 }
 
-include!("changed/file_analysis.rs");
+mod file_analysis;
+mod finalize;
+mod repo_context;
 
-include!("changed/repo_context.rs");
+fn detect_react_native_profile(
+    facts: &ScanFacts,
+) -> Option<crate::frameworks::ReactNativeArchitectureProfile> {
+    if facts
+        .detected_frameworks
+        .iter()
+        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
+    {
+        let profile = detect_react_native_architecture(&facts.root_path);
+        if profile.detected {
+            return Some(profile);
+        }
+    }
+    None
+}
 
-include!("changed/finalize.rs");
+fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
+    CouplingGraph {
+        edges: graph
+            .edges
+            .into_iter()
+            .map(|(source, targets)| {
+                (
+                    PathBuf::from(relative_cache_path(repo_root, &source)),
+                    targets
+                        .into_iter()
+                        .map(|target| PathBuf::from(relative_cache_path(repo_root, &target)))
+                        .collect(),
+                )
+            })
+            .collect(),
+        nodes: graph
+            .nodes
+            .into_iter()
+            .map(|node| PathBuf::from(relative_cache_path(repo_root, &node)))
+            .collect(),
+    }
+}
