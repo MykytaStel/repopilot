@@ -36,6 +36,8 @@ Rule metadata gates:
 - every registered rule has lifecycle, signal source, and default confidence;
 - high/critical findings have docs URLs after enrichment;
 - `repopilot inspect rules`, `inspect rule`, and `inspect eval-rules` pass locally.
+- `scripts/smoke-product.sh` verifies the self-scan JSON report has zero finding
+  contract violations without requiring `jq` or other optional JSON tools.
 
 Smoke commands:
 
@@ -48,6 +50,19 @@ cargo run -- inspect rules --format json --output /tmp/repopilot-013-rules.json
 cargo run -- inspect eval-rules --format json --output /tmp/repopilot-013-rule-eval.json
 ```
 
+Optimization/stabilization verification:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all
+cargo run -- scan . --timing
+cargo run -- scan . --format json --output /tmp/repopilot-013-optimized.json
+cargo run -- inspect rules --format json --output /tmp/repopilot-rules.json
+cargo run -- inspect eval-rules --format json --output /tmp/repopilot-rule-eval.json
+./scripts/smoke-product.sh --binary ./target/release/repopilot --repo .
+```
+
 ## Breaking-Change Gates
 
 Verify:
@@ -55,6 +70,7 @@ Verify:
 - `repopilot compare` accepts current `0.15` scan reports;
 - `repopilot compare` rejects pre-current scan report shapes clearly;
 - JSON reports include `signal_quality`, finding `provenance`, `risk.signals[].source`, and `risk-v3`;
+- JSON reports include `scan_timings.contract_validation_us` when scan timings are present;
 - active docs describe the current command surface, not removed 0.x aliases;
 - schema migration docs state that historical report compatibility belongs in downstream consumers when needed.
 

@@ -154,11 +154,7 @@ fn sarif_rules(findings: &[Finding]) -> Vec<SarifRule> {
     rule_map
         .into_iter()
         .map(|(rule_id, finding)| {
-            let meta = crate::rules::lookup_rule_metadata(rule_id);
-            let help_uri = meta
-                .and_then(|m| m.docs_url)
-                .map(str::to_owned)
-                .or_else(|| finding.docs_url.clone());
+            let help_uri = finding.docs_url.clone();
             let help = Some(SarifMessage {
                 text: finding.recommendation_or_default().to_string(),
             });

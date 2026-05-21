@@ -1,3 +1,4 @@
+use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
 use crate::risk::{apply_cluster_overlay, apply_workspace_hotspot_overlay, sort_findings};
 use crate::scan::config::ScanConfig;
@@ -89,9 +90,7 @@ fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
     apply_workspace_hotspot_overlay(&mut merged.findings);
     apply_cluster_overlay(&mut merged.findings);
     sort_findings(&mut merged.findings);
-    merged.health_score =
-        ScanSummary::compute_health_score(&merged.findings, merged.non_empty_lines);
-    merged.visible_findings_count = merged.findings.len();
+    recompute_summary_metrics(merged);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
 }
 

@@ -1,3 +1,4 @@
+use repopilot::findings::quality::summarize_signal_quality;
 use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
@@ -45,6 +46,7 @@ fn renders_valid_json_scan_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     };
 
     let output =
@@ -88,9 +90,11 @@ fn json_findings_include_confidence() {
     };
     finding.risk = assess_finding(&finding, None, RiskInputs::default());
 
+    let findings = vec![finding];
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
-        findings: vec![finding],
+        signal_quality: summarize_signal_quality(&findings),
+        findings,
         ..ScanSummary::default()
     };
     let risk_summary = RiskSummary::from_findings(&summary.findings);

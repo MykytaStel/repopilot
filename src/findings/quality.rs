@@ -43,6 +43,14 @@ pub struct SignalSourceCounts {
 }
 
 pub fn summarize_signal_quality(findings: &[Finding]) -> SignalQualitySummary {
+    let contract_violations = validate_findings_contract(findings).violations.len();
+    summarize_signal_quality_with_contract_violations(findings, contract_violations)
+}
+
+pub fn summarize_signal_quality_with_contract_violations(
+    findings: &[Finding],
+    contract_violations: usize,
+) -> SignalQualitySummary {
     let findings_total = findings.len();
     let mut by_confidence = ConfidenceCounts::default();
     let mut by_lifecycle = RuleLifecycleCounts::default();
@@ -103,7 +111,7 @@ pub fn summarize_signal_quality(findings: &[Finding]) -> SignalQualitySummary {
             high_risk_docs_present,
             high_risk_total,
         ),
-        contract_violations: validate_findings_contract(findings).violations.len(),
+        contract_violations,
     }
 }
 

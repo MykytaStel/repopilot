@@ -1,6 +1,7 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::sarif::findings_to_sarif;
-use repopilot::rules::{RuleMetadata, lookup_rule_metadata};
+use repopilot::rules::{RuleMetadata, all_rule_metadata, lookup_rule_metadata};
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 // ── lookup correctness ────────────────────────────────────────────────────────
@@ -22,6 +23,31 @@ fn unknown_rule_returns_none() {
 #[test]
 fn empty_rule_id_returns_none() {
     assert!(lookup_rule_metadata("").is_none());
+}
+
+#[test]
+fn all_registered_rule_ids_are_unique() {
+    let mut seen = HashSet::new();
+    for rule in all_rule_metadata() {
+        assert!(
+            seen.insert(rule.rule_id),
+            "duplicate rule id in metadata registry: {}",
+            rule.rule_id
+        );
+    }
+}
+
+#[test]
+fn indexed_lookup_matches_registry_iterator_metadata() {
+    for rule in all_rule_metadata() {
+        let indexed = lookup_rule_metadata(rule.rule_id)
+            .unwrap_or_else(|| panic!("indexed lookup missed {}", rule.rule_id));
+        assert_eq!(
+            indexed, rule,
+            "indexed metadata mismatch for {}",
+            rule.rule_id
+        );
+    }
 }
 
 // ── metadata field correctness ────────────────────────────────────────────────
@@ -103,8 +129,9 @@ fn make_finding(rule_id: &str) -> Finding {
 }
 
 #[test]
-fn sarif_rule_includes_help_uri_from_registry() {
-    let finding = make_finding("framework.react-native.inline-style");
+fn sarif_rule_includes_help_uri_from_enriched_finding() {
+    let mut finding = make_finding("framework.react-native.inline-style");
+    finding.populate_rule_metadata();
     let root = PathBuf::from(".");
     let sarif = findings_to_sarif(&[finding], &root);
     let value = serde_json::to_value(&sarif).unwrap();
@@ -113,7 +140,7 @@ fn sarif_rule_includes_help_uri_from_registry() {
     assert_eq!(
         help_uri.as_str(),
         Some("https://reactnative.dev/docs/stylesheet"),
-        "helpUri must come from the registry for a known rule"
+        "helpUri must come from the enriched finding docs URL"
     );
 }
 
@@ -151,9 +178,9 @@ fn sarif_finding_without_metadata_serializes_safely() {
 }
 
 #[test]
-fn sarif_registry_rule_overrides_finding_docs_url() {
+fn sarif_rule_uses_finding_docs_url_without_renderer_lookup() {
     let mut finding = make_finding("framework.react-native.inline-style");
-    finding.docs_url = Some("https://example.com/wrong-url".to_owned());
+    finding.docs_url = Some("https://example.com/custom-url".to_owned());
     let root = PathBuf::from(".");
     let sarif = findings_to_sarif(&[finding], &root);
     let value = serde_json::to_value(&sarif).unwrap();
@@ -161,8 +188,8 @@ fn sarif_registry_rule_overrides_finding_docs_url() {
     let help_uri = &value["runs"][0]["tool"]["driver"]["rules"][0]["helpUri"];
     assert_eq!(
         help_uri.as_str(),
-        Some("https://reactnative.dev/docs/stylesheet"),
-        "registry docs_url must take precedence over finding.docs_url"
+        Some("https://example.com/custom-url"),
+        "SARIF should use the already-enriched finding docs URL"
     );
 }
 

@@ -1,3 +1,4 @@
+use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::{Confidence, Finding, Severity};
 use crate::risk::RiskPriority;
 use crate::scan::types::ScanSummary;
@@ -61,6 +62,7 @@ pub fn recompute_summary_metrics(summary: &mut ScanSummary) {
     summary.visible_findings_count = summary.findings.len();
     summary.health_score =
         ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
+    summary.signal_quality = summarize_signal_quality(&summary.findings);
 }
 
 #[cfg(test)]

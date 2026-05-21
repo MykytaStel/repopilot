@@ -8,6 +8,7 @@ use crate::baseline::diff::{
 };
 use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
+use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
@@ -152,44 +153,45 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         .collect();
 
     let in_diff_findings: Vec<_> = report.in_diff_findings().into_iter().cloned().collect();
-    let visible_findings_count = in_diff_findings.len();
-    let health_score =
-        ScanSummary::compute_health_score(&in_diff_findings, report.summary.non_empty_lines);
+    let mut summary = ScanSummary {
+        root_path: report.summary.root_path.clone(),
+        mode: report.summary.mode,
+        base_ref: report.summary.base_ref.clone(),
+        changed_files_count: report.summary.changed_files_count,
+        repo_level_rules_included: report.summary.repo_level_rules_included,
+        files_discovered: report.summary.files_discovered,
+        files_analyzed: report.summary.files_analyzed,
+        directories_count: report.summary.directories_count,
+        non_empty_lines: report.summary.non_empty_lines,
+        large_files_skipped: report.summary.large_files_skipped,
+        files_skipped_low_signal: report.summary.files_skipped_low_signal,
+        binary_files_skipped: report.summary.binary_files_skipped,
+        skipped_bytes: report.summary.skipped_bytes,
+        languages: report.summary.languages.clone(),
+        detected_frameworks: report.summary.detected_frameworks.clone(),
+        framework_projects: report.summary.framework_projects.clone(),
+        react_native: report.summary.react_native.clone(),
+        findings: in_diff_findings,
+        coupling_graph: report.summary.coupling_graph.clone(),
+        scan_duration_us: report.summary.scan_duration_us,
+        health_score: 0,
+        visible_findings_count: 0,
+        hidden_suggestions_count: report.summary.hidden_suggestions_count,
+        hidden_suggestions: Vec::new(),
+        visibility_profile: report.summary.visibility_profile.clone(),
+        files_skipped_by_limit: report.summary.files_skipped_by_limit,
+        files_skipped_repopilotignore: report.summary.files_skipped_repopilotignore,
+        repopilotignore_path: report.summary.repopilotignore_path.clone(),
+        scan_timings: None,
+        cache_telemetry: report.summary.cache_telemetry.clone(),
+        local_feedback: report.summary.local_feedback.clone(),
+        diagnostics: report.summary.diagnostics.clone(),
+        signal_quality: Default::default(),
+    };
+    recompute_summary_metrics(&mut summary);
+
     BaselineScanReport {
-        summary: ScanSummary {
-            root_path: report.summary.root_path.clone(),
-            mode: report.summary.mode,
-            base_ref: report.summary.base_ref.clone(),
-            changed_files_count: report.summary.changed_files_count,
-            repo_level_rules_included: report.summary.repo_level_rules_included,
-            files_discovered: report.summary.files_discovered,
-            files_analyzed: report.summary.files_analyzed,
-            directories_count: report.summary.directories_count,
-            non_empty_lines: report.summary.non_empty_lines,
-            large_files_skipped: report.summary.large_files_skipped,
-            files_skipped_low_signal: report.summary.files_skipped_low_signal,
-            binary_files_skipped: report.summary.binary_files_skipped,
-            skipped_bytes: report.summary.skipped_bytes,
-            languages: report.summary.languages.clone(),
-            detected_frameworks: report.summary.detected_frameworks.clone(),
-            framework_projects: report.summary.framework_projects.clone(),
-            react_native: report.summary.react_native.clone(),
-            findings: in_diff_findings,
-            coupling_graph: report.summary.coupling_graph.clone(),
-            scan_duration_us: report.summary.scan_duration_us,
-            health_score,
-            visible_findings_count,
-            hidden_suggestions_count: report.summary.hidden_suggestions_count,
-            hidden_suggestions: Vec::new(),
-            visibility_profile: report.summary.visibility_profile.clone(),
-            files_skipped_by_limit: report.summary.files_skipped_by_limit,
-            files_skipped_repopilotignore: report.summary.files_skipped_repopilotignore,
-            repopilotignore_path: report.summary.repopilotignore_path.clone(),
-            scan_timings: None,
-            cache_telemetry: report.summary.cache_telemetry.clone(),
-            local_feedback: report.summary.local_feedback.clone(),
-            diagnostics: report.summary.diagnostics.clone(),
-        },
+        summary,
         baseline_path: report.baseline_path.clone(),
         findings,
     }

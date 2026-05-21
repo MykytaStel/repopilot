@@ -149,6 +149,18 @@ validate_json_if_possible() {
   fi
 }
 
+assert_no_contract_violations() {
+  local file="$1"
+
+  if ! grep -Eq '"contract_violations"[[:space:]]*:[[:space:]]*0' "$file"; then
+    echo "Expected self-scan report to have zero finding contract violations: $file" >&2
+    echo "---- file content ----" >&2
+    cat "$file" >&2 || true
+    echo "----------------------" >&2
+    exit 3
+  fi
+}
+
 find_explain_file() {
   local preferred="$REPO_PATH/src/main.rs"
 
@@ -213,6 +225,7 @@ assert_non_empty "$TMP_DIR/doctor.md"
 run_repopilot scan . --format json --output "$TMP_DIR/scan.json" --receipt "$TMP_DIR/receipt.json"
 assert_non_empty "$TMP_DIR/scan.json"
 validate_json_if_possible "$TMP_DIR/scan.json"
+assert_no_contract_violations "$TMP_DIR/scan.json"
 assert_non_empty "$TMP_DIR/receipt.json"
 validate_json_if_possible "$TMP_DIR/receipt.json"
 

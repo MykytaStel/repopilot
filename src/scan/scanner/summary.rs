@@ -1,3 +1,4 @@
+use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
 use crate::graph::CouplingGraph;
 use crate::scan::facts::ScanFacts;
@@ -38,6 +39,7 @@ pub(super) struct ScanSummaryParts {
     pub(super) cache_telemetry: Option<ScanCacheTelemetry>,
     pub(super) coupling_graph: Option<CouplingGraph>,
     pub(super) diagnostics: Vec<ScanDiagnostic>,
+    pub(super) signal_quality: SignalQualitySummary,
 }
 
 pub(super) fn build_scan_summary(
@@ -81,5 +83,6 @@ pub(super) fn build_scan_summary(
         cache_telemetry: parts.cache_telemetry,
         local_feedback: None,
         diagnostics: parts.diagnostics,
+        signal_quality: parts.signal_quality,
     }
 }

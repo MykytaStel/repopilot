@@ -71,6 +71,7 @@ fn renders_markdown_scan_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -137,6 +138,7 @@ fn renders_empty_markdown_sections() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -198,6 +200,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        signal_quality: Default::default(),
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)

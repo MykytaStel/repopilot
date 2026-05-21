@@ -1,3 +1,4 @@
+use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
 use crate::scan::types::{ScanDiagnostic, ScanSummary};
 use serde::{Deserialize, Serialize};
@@ -117,9 +118,7 @@ pub fn apply_local_feedback(
         );
     }
 
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
+    recompute_summary_metrics(summary);
     summary.local_feedback = Some(report.clone());
 
     Ok(report)

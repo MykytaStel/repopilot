@@ -1,6 +1,8 @@
 # Rule Lifecycle
 
 Every registered rule has lifecycle and signal-source metadata.
+Rule metadata lookup is indexed at runtime, so repeated finding enrichment uses
+a prebuilt rule-id map instead of scanning the full registry for every finding.
 
 Lifecycle values:
 
@@ -32,7 +34,12 @@ repopilot inspect rules --format json
 repopilot inspect rules --lifecycle preview
 repopilot inspect rules --source text-heuristic
 repopilot inspect rule security.secret-candidate
+repopilot inspect eval-rules --format json
 ```
+
+`inspect eval-rules --format json` includes aggregate counts and per-rule
+fixture details, including expected findings, actual findings, missing findings,
+unexpected findings, contract violations, and stable-id failures.
 
 Rule lifecycle does not enable telemetry, hosted scanning, remote model calls, or
 arbitrary plugin execution. It is local metadata used for reports, provenance,

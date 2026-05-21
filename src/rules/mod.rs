@@ -1,3 +1,5 @@
+pub mod catalog;
+pub mod eval;
 pub mod lifecycle;
 pub mod metadata;
 pub mod registry;
