@@ -418,6 +418,8 @@ section names.
 Changed-scope graph and blast-radius details are available only when the scan
 summary has changed-file context; full graph inspection does not invent a diff.
 
+Performance note: `inspect graph` builds its view from a local scan summary. It should not scan again during rendering. Large graph sections are bounded and listed in the `truncated` field when capped.
+
 ---
 
 ## `inspect feedback`

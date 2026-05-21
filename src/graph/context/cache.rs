@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn load_repo_context_graph(root: &Path, config: &ScanConfig) -> Option<RepoContextGraphLoad> {
     let cache_path = context_graph_cache_path(root);
     let cached = read_cached_repo_context_graph(&cache_path)?;
@@ -152,7 +154,10 @@ fn stable_edge_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
         .edges
         .iter()
         .map(|(source, targets)| {
-            let mut targets = targets.iter().map(|path| stable_path(path)).collect::<Vec<_>>();
+            let mut targets = targets
+                .iter()
+                .map(|path| stable_path(path))
+                .collect::<Vec<_>>();
             targets.sort();
             serde_json::json!({
                 "source": stable_path(source),
