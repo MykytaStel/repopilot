@@ -15,6 +15,9 @@ use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
 };
+use crate::graph::context::{
+    RepoContextGraph, cache_diagnostic, summarize_context_graph, write_repo_context_graph,
+};
 use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
@@ -118,11 +121,29 @@ impl<'a> ScanEngine<'a> {
         mut project_stage: ProjectAnalysisStage,
         scan_duration_us: u64,
         timings: ScanTimings,
-        diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
+        mut diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
         signal_quality: crate::findings::quality::SignalQualitySummary,
     ) -> ScanSummary {
         let finalization_start = Instant::now();
         summary::sort_findings(&mut project_stage.findings);
+        let context_graph = RepoContextGraph::from_scan_facts(
+            &project_stage.facts,
+            &project_stage.facts.root_path,
+            project_stage.coupling_graph.clone(),
+        );
+        let context_graph_summary =
+            summarize_context_graph(&context_graph, &project_stage.findings, &[]);
+        let context_graph_cache = match write_repo_context_graph(
+            &project_stage.facts.root_path,
+            self.config,
+            &context_graph,
+        ) {
+            Ok(cache_info) => Some(cache_info),
+            Err(error) => {
+                diagnostics.push(cache_diagnostic(&error));
+                None
+            }
+        };
         let mut summary = build_scan_summary(
             project_stage.facts,
             project_stage.findings,
@@ -137,6 +158,8 @@ impl<'a> ScanEngine<'a> {
                 cache_telemetry: None,
                 diagnostics,
                 signal_quality,
+                context_graph_summary: Some(context_graph_summary),
+                context_graph_cache,
             },
         );
         if let Some(timings) = &mut summary.scan_timings {

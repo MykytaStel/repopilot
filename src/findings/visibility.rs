@@ -311,7 +311,7 @@ fn is_maintainability_rule(rule_id: &str) -> bool {
             | "architecture.too-many-modules"
             | "architecture.large-file"
             | "architecture.barrel-file-risk"
-            | "architecture.deep-relative-import"
+            | "architecture.deep-relative-imports"
             | "code-quality.long-function"
             | "code-quality.complex-file"
             | "code-quality.cyclomatic-complexity"
@@ -343,7 +343,7 @@ fn is_script_boundary_runtime_exit(finding: &Finding) -> bool {
 }
 
 fn is_script_or_tooling_path(path: &Path) -> bool {
-    let path_text = path.to_string_lossy().replace("\"", "/").to_lowercase();
+    let path_text = path.to_string_lossy().replace('\\', "/").to_lowercase();
 
     if path_text.contains("/src/") || path_text.starts_with("src/") {
         return false;
@@ -426,6 +426,20 @@ mod tests {
     }
 
     #[test]
+    fn default_profile_hides_deep_relative_imports() {
+        let finding = finding(
+            "architecture.deep-relative-imports",
+            FindingCategory::Architecture,
+            Severity::High,
+        );
+
+        let decision = classify_visibility(&finding);
+
+        assert_eq!(decision.intent, FindingIntent::Maintainability);
+        assert!(!decision.visible_by_default);
+    }
+
+    #[test]
     fn default_profile_keeps_validated_secret_candidates() {
         let finding = finding(
             "security.secret-candidate",
@@ -446,6 +460,21 @@ mod tests {
             FindingCategory::CodeQuality,
             Severity::High,
             "scripts/verify-release.mjs",
+        );
+
+        let decision = classify_visibility(&finding);
+
+        assert_eq!(decision.intent, FindingIntent::RuntimeRisk);
+        assert!(!decision.visible_by_default);
+    }
+
+    #[test]
+    fn default_profile_hides_windows_script_process_exit() {
+        let finding = finding_with_path(
+            "language.javascript.runtime-exit-risk",
+            FindingCategory::CodeQuality,
+            Severity::High,
+            r"tools\verify-release.mjs",
         );
 
         let decision = classify_visibility(&finding);

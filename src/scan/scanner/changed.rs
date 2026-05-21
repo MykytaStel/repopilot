@@ -17,6 +17,10 @@ use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
 };
+use crate::graph::context::{
+    ContextGraphCacheInfo, RepoContextGraph, cache_diagnostic, context_graph_cache_miss,
+    load_repo_context_graph, summarize_context_graph, write_repo_context_graph,
+};
 use crate::graph::{CouplingGraph, build_coupling_graph};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
@@ -25,9 +29,10 @@ use crate::scan::cache::{
     relative_cache_path,
 };
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::types::{
-    ChangedFileCacheTelemetry, ScanCacheTelemetry, ScanMode, ScanSummary, ScanTimings,
+    ChangedFileCacheTelemetry, ScanCacheTelemetry, ScanDiagnostic, ScanMode, ScanSummary,
+    ScanTimings,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
@@ -57,6 +62,7 @@ struct ChangedDiscoveryStage {
 struct ChangedFileAnalysisStage {
     facts: ScanFacts,
     findings: Vec<Finding>,
+    graph_patch_files: Vec<FileFacts>,
     cache: ScanCache,
     cache_telemetry: ScanCacheTelemetry,
     changed_file_reasons: BTreeMap<String, usize>,
@@ -66,6 +72,9 @@ struct ChangedFileAnalysisStage {
 struct ChangedRepoContextStage {
     repo_context: ScanFacts,
     coupling_graph: CouplingGraph,
+    context_graph: RepoContextGraph,
+    cache_info: ContextGraphCacheInfo,
+    diagnostics: Vec<ScanDiagnostic>,
     elapsed_us: u64,
 }
 
@@ -89,8 +98,15 @@ impl<'a> ChangedScanEngine<'a> {
     fn run(self) -> io::Result<ScanSummary> {
         let start = Instant::now();
         let discovery = self.run_discovery()?;
+        if discovery.changed_files.is_empty() {
+            return self.finalize_empty_changed(start, discovery);
+        }
         let mut file_stage = self.run_file_analysis(&discovery)?;
-        let repo_stage = self.run_repo_context(&discovery.repo_root, &mut file_stage.facts)?;
+        let repo_stage = self.run_repo_context(
+            &discovery,
+            &mut file_stage.facts,
+            &file_stage.graph_patch_files,
+        )?;
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
         let contract_stage =
@@ -144,6 +160,7 @@ impl<'a> ChangedScanEngine<'a> {
         };
         let mut languages: HashMap<String, usize> = HashMap::new();
         let mut findings = Vec::new();
+        let mut graph_patch_files = Vec::new();
         let mut directories = HashSet::new();
         let mut changed_file_reasons: BTreeMap<String, usize> = BTreeMap::new();
 
@@ -160,6 +177,7 @@ impl<'a> ChangedScanEngine<'a> {
                 &mut cache,
                 &mut cache_telemetry,
                 &mut changed_file_reasons,
+                &mut graph_patch_files,
             )?;
         }
 
@@ -169,6 +187,7 @@ impl<'a> ChangedScanEngine<'a> {
         Ok(ChangedFileAnalysisStage {
             facts,
             findings,
+            graph_patch_files,
             cache,
             cache_telemetry,
             changed_file_reasons,
@@ -190,6 +209,7 @@ impl<'a> ChangedScanEngine<'a> {
         cache: &mut ScanCache,
         cache_telemetry: &mut ScanCacheTelemetry,
         changed_file_reasons: &mut BTreeMap<String, usize>,
+        graph_patch_files: &mut Vec<FileFacts>,
     ) -> io::Result<()> {
         let change_reason = change_status_label(changed_file.status).to_string();
         *changed_file_reasons
@@ -310,6 +330,10 @@ impl<'a> ChangedScanEngine<'a> {
                     },
                 );
 
+                let mut graph_file = per_file.file_facts.clone();
+                graph_file.content = None;
+                graph_patch_files.push(graph_file);
+
                 facts.files.push(per_file.file_facts);
                 findings.extend(per_file.findings);
             }
@@ -378,10 +402,38 @@ impl<'a> ChangedScanEngine<'a> {
 
     fn run_repo_context(
         &self,
-        repo_root: &Path,
+        discovery: &ChangedDiscoveryStage,
         facts: &mut ScanFacts,
+        graph_patch_files: &[FileFacts],
     ) -> io::Result<ChangedRepoContextStage> {
         let start = Instant::now();
+        let mut diagnostics = Vec::new();
+        let repo_root = &discovery.repo_root;
+
+        if let Some(mut load) = load_repo_context_graph(repo_root, self.config) {
+            load.graph
+                .apply_changed_facts(repo_root, &discovery.changed_files, graph_patch_files);
+            if let Err(error) = write_repo_context_graph(repo_root, self.config, &load.graph) {
+                diagnostics.push(cache_diagnostic(&error));
+            }
+
+            let repo_context = load.graph.to_scan_facts();
+            let coupling_graph = load.graph.coupling_graph();
+
+            facts.detected_frameworks = repo_context.detected_frameworks.clone();
+            facts.framework_projects = repo_context.framework_projects.clone();
+            facts.react_native = repo_context.react_native.clone();
+
+            return Ok(ChangedRepoContextStage {
+                repo_context,
+                coupling_graph,
+                context_graph: load.graph,
+                cache_info: load.cache_info,
+                diagnostics,
+                elapsed_us: start.elapsed().as_micros() as u64,
+            });
+        }
+
         let mut repo_context =
             super::collection::collect_scan_facts_without_content(repo_root, self.config)?;
 
@@ -391,6 +443,16 @@ impl<'a> ChangedScanEngine<'a> {
 
         let coupling_graph =
             relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
+        let context_graph =
+            RepoContextGraph::from_scan_facts(&repo_context, repo_root, coupling_graph.clone());
+        let mut cache_info =
+            context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
+        match write_repo_context_graph(repo_root, self.config, &context_graph) {
+            Ok(_) => {
+                cache_info.reason.push_str("; cache-updated");
+            }
+            Err(error) => diagnostics.push(cache_diagnostic(&error)),
+        }
 
         facts.detected_frameworks = repo_context.detected_frameworks.clone();
         facts.framework_projects = repo_context.framework_projects.clone();
@@ -399,6 +461,9 @@ impl<'a> ChangedScanEngine<'a> {
         Ok(ChangedRepoContextStage {
             repo_context,
             coupling_graph,
+            context_graph,
+            cache_info,
+            diagnostics,
             elapsed_us: start.elapsed().as_micros() as u64,
         })
     }
@@ -426,6 +491,13 @@ impl<'a> ChangedScanEngine<'a> {
         let finalization_start = Instant::now();
 
         super::summary::sort_findings(&mut file_stage.findings);
+        let context_graph_summary = summarize_context_graph(
+            &repo_stage.context_graph,
+            &file_stage.findings,
+            &discovery.changed_files,
+        );
+        let mut diagnostics = repo_stage.diagnostics;
+        diagnostics.extend(finding_pipeline.diagnostics);
 
         let cache_write_start = Instant::now();
         file_stage.cache.write(&discovery.repo_root)?;
@@ -463,7 +535,9 @@ impl<'a> ChangedScanEngine<'a> {
                     report_finalization_us: 0,
                 }),
                 cache_telemetry: Some(file_stage.cache_telemetry),
-                diagnostics: finding_pipeline.diagnostics,
+                context_graph_summary: Some(context_graph_summary),
+                context_graph_cache: Some(repo_stage.cache_info),
+                diagnostics,
                 signal_quality: finding_pipeline.signal_quality,
             },
         );
@@ -472,6 +546,50 @@ impl<'a> ChangedScanEngine<'a> {
             timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
         }
 
+        Ok(summary)
+    }
+
+    fn finalize_empty_changed(
+        &self,
+        scan_start: Instant,
+        discovery: ChangedDiscoveryStage,
+    ) -> io::Result<ScanSummary> {
+        let finalization_start = Instant::now();
+        let scan_duration_us = scan_start.elapsed().as_micros() as u64;
+        let mut summary = build_scan_summary(
+            ScanFacts {
+                root_path: self.path.to_path_buf(),
+                ..ScanFacts::default()
+            },
+            Vec::new(),
+            ScanSummaryParts {
+                mode: ScanMode::Changed,
+                base_ref: self.base_ref.map(str::to_string),
+                changed_files_count: 0,
+                repo_level_rules_included: false,
+                coupling_graph: None,
+                scan_duration_us,
+                scan_timings: Some(ScanTimings {
+                    discovery_us: discovery.elapsed_us,
+                    file_analysis_us: 0,
+                    file_scan_us: discovery.elapsed_us,
+                    framework_detection_us: 0,
+                    post_scan_audits_us: 0,
+                    enrichment_us: 0,
+                    risk_scoring_us: 0,
+                    contract_validation_us: 0,
+                    report_finalization_us: 0,
+                }),
+                cache_telemetry: None,
+                context_graph_summary: None,
+                context_graph_cache: None,
+                diagnostics: Vec::new(),
+                signal_quality: SignalQualitySummary::default(),
+            },
+        );
+        if let Some(timings) = &mut summary.scan_timings {
+            timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
+        }
         Ok(summary)
     }
 }

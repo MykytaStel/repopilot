@@ -83,6 +83,8 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         framework_projects: vec![],
         react_native: None,
         coupling_graph: None,
+        context_graph_summary: None,
+        context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
         visible_findings_count,

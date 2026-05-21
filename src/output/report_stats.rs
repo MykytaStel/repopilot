@@ -138,37 +138,37 @@ pub(crate) fn category_order() -> [FindingCategory; 5] {
     ]
 }
 
-pub(crate) fn sorted_findings(findings: &[Finding]) -> Vec<&Finding> {
-    let mut sorted = findings.iter().collect::<Vec<_>>();
-    sorted.sort_by(|left, right| crate::risk::compare_findings(left, right));
+pub(crate) fn indexed_sorted_findings(findings: &[Finding]) -> Vec<(usize, &Finding)> {
+    let mut sorted = findings.iter().enumerate().collect::<Vec<_>>();
+    sorted.sort_by(|(_, left), (_, right)| crate::risk::compare_findings(left, right));
     sorted
 }
 
-pub(crate) fn findings_for_category<'a>(
+pub(crate) fn indexed_findings_for_category<'a>(
     findings: &'a [Finding],
     category: &FindingCategory,
-) -> Vec<&'a Finding> {
-    sorted_findings(findings)
+) -> Vec<(usize, &'a Finding)> {
+    indexed_sorted_findings(findings)
         .into_iter()
-        .filter(|finding| &finding.category == category)
+        .filter(|(_, finding)| &finding.category == category)
         .collect()
 }
 
-pub(crate) fn findings_for_rule<'a>(
-    findings: &'a [&'a Finding],
+pub(crate) fn indexed_findings_for_rule<'a>(
+    findings: &[(usize, &'a Finding)],
     rule_id: &str,
-) -> Vec<&'a Finding> {
+) -> Vec<(usize, &'a Finding)> {
     findings
         .iter()
         .copied()
-        .filter(|finding| finding.rule_id == rule_id)
+        .filter(|(_, finding)| finding.rule_id == rule_id)
         .collect()
 }
 
-pub(crate) fn rule_ids_for_findings(findings: &[&Finding]) -> Vec<String> {
+pub(crate) fn rule_ids_for_indexed_findings(findings: &[(usize, &Finding)]) -> Vec<String> {
     let mut rules = findings
         .iter()
-        .map(|finding| finding.rule_id.clone())
+        .map(|(_, finding)| finding.rule_id.clone())
         .collect::<Vec<_>>();
     rules.sort();
     rules.dedup();

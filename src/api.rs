@@ -39,6 +39,14 @@ pub mod report {
     pub use crate::report::writer::write_report;
 }
 
+pub mod graph {
+    pub use crate::graph::CouplingGraph;
+    pub use crate::graph::context::{
+        ContextGraphCacheInfo, ContextGraphFileMetric, ContextGraphSummary, ContextRiskCluster,
+        RepoContextGraph, RepoContextNode,
+    };
+}
+
 pub mod review {
     pub use crate::review::diff::{ChangeStatus, ChangedFile};
     pub use crate::review::model::{ReviewFindingStatus, ReviewReport};

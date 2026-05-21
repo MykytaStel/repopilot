@@ -173,6 +173,8 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         react_native: report.summary.react_native.clone(),
         findings: in_diff_findings,
         coupling_graph: report.summary.coupling_graph.clone(),
+        context_graph_summary: report.summary.context_graph_summary.clone(),
+        context_graph_cache: report.summary.context_graph_cache.clone(),
         scan_duration_us: report.summary.scan_duration_us,
         health_score: 0,
         visible_findings_count: 0,
