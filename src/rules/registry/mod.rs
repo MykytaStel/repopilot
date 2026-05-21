@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 const RULE_GROUPS: &[&[RuleMetadata]] = &[
-    framework::RULES,
+    framework::REACT_NATIVE_RULES,
+    framework::WEB_RULES,
     architecture::RULES,
     code_quality::RULES,
     language::RULES,
