@@ -31,18 +31,30 @@ pub struct FileMetrics {
 // ── Graph construction ────────────────────────────────────────────────────────
 
 pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
-    let known_files: HashSet<PathBuf> = facts.files.iter().map(|f| f.path.clone()).collect();
+    let known_file_by_normalized: HashMap<PathBuf, PathBuf> = facts
+        .files
+        .iter()
+        .map(|file| (resolver::normalize_path(&file.path), file.path.clone()))
+        .collect();
+    let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
 
     for file in &facts.files {
+        let source = file.path.clone();
+        let normalized_source = resolver::normalize_path(&source);
         // Insert into edges (one clone); nodes is derived from edges keys afterwards.
-        let outgoing = edges.entry(file.path.clone()).or_default();
+        let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
-            if let Some(target) = resolve_import(raw, &file.path, root, &known_files) {
-                if target != file.path {
-                    outgoing.insert(target);
+            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files) {
+                if target != normalized_source {
+                    outgoing.insert(
+                        known_file_by_normalized
+                            .get(&target)
+                            .cloned()
+                            .unwrap_or(target),
+                    );
                 }
             }
         }
@@ -97,6 +109,14 @@ pub fn compute_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
 const MAX_DFS_DEPTH: usize = 512;
 
 pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
+    detect_cycles_bounded(graph, usize::MAX)
+}
+
+pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Vec<PathBuf>> {
+    if max_cycles == 0 {
+        return Vec::new();
+    }
+
     let nodes: Vec<&PathBuf> = graph.nodes.iter().collect();
     let n = nodes.len();
 
@@ -124,10 +144,23 @@ pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
     let mut state = vec![0u8; n];
     let mut stack: Vec<usize> = Vec::new();
     let mut cycles: Vec<Vec<PathBuf>> = Vec::new();
+    {
+        let mut dfs_state = CycleDfs {
+            adj: &adj,
+            state: &mut state,
+            stack: &mut stack,
+            cycles: &mut cycles,
+            nodes: &nodes,
+            max_cycles,
+        };
 
-    for start in 0..n {
-        if state[start] == 0 {
-            dfs(start, &adj, &mut state, &mut stack, &mut cycles, &nodes, 0);
+        for start in 0..n {
+            if dfs_state.cycles.len() >= max_cycles {
+                break;
+            }
+            if dfs_state.state[start] == 0 {
+                dfs_state.visit(start, 0);
+            }
         }
     }
 
@@ -145,42 +178,55 @@ pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
 
     cycles.sort();
     cycles.dedup();
+    cycles.truncate(max_cycles);
     cycles
 }
 
-fn dfs(
-    node: usize,
-    adj: &[Vec<usize>],
-    state: &mut Vec<u8>,
-    stack: &mut Vec<usize>,
-    cycles: &mut Vec<Vec<PathBuf>>,
-    nodes: &[&PathBuf],
-    depth: usize,
-) {
-    if depth > MAX_DFS_DEPTH {
-        state[node] = 2;
-        return;
-    }
+struct CycleDfs<'a, 'b> {
+    adj: &'a [Vec<usize>],
+    state: &'a mut Vec<u8>,
+    stack: &'a mut Vec<usize>,
+    cycles: &'a mut Vec<Vec<PathBuf>>,
+    nodes: &'a [&'b PathBuf],
+    max_cycles: usize,
+}
 
-    state[node] = 1;
-    stack.push(node);
-
-    for &neighbor in &adj[node] {
-        match state[neighbor] {
-            1 => {
-                // Back edge → cycle; extract the loop from the current stack
-                if let Some(pos) = stack.iter().position(|&n| n == neighbor) {
-                    let cycle = stack[pos..].iter().map(|&i| nodes[i].clone()).collect();
-                    cycles.push(cycle);
-                }
-            }
-            0 => dfs(neighbor, adj, state, stack, cycles, nodes, depth + 1),
-            _ => {}
+impl CycleDfs<'_, '_> {
+    fn visit(&mut self, node: usize, depth: usize) {
+        if self.cycles.len() >= self.max_cycles {
+            return;
         }
-    }
+        if depth > MAX_DFS_DEPTH {
+            self.state[node] = 2;
+            return;
+        }
 
-    stack.pop();
-    state[node] = 2;
+        self.state[node] = 1;
+        self.stack.push(node);
+
+        for &neighbor in &self.adj[node] {
+            if self.cycles.len() >= self.max_cycles {
+                break;
+            }
+            match self.state[neighbor] {
+                1 => {
+                    // Back edge -> cycle; extract the loop from the current stack.
+                    if let Some(pos) = self.stack.iter().position(|&n| n == neighbor) {
+                        let cycle = self.stack[pos..]
+                            .iter()
+                            .map(|&i| self.nodes[i].clone())
+                            .collect();
+                        self.cycles.push(cycle);
+                    }
+                }
+                0 => self.visit(neighbor, depth + 1),
+                _ => {}
+            }
+        }
+
+        self.stack.pop();
+        self.state[node] = 2;
+    }
 }
 
 #[cfg(test)]

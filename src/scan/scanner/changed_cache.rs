@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 pub(super) enum CacheDecision {
     Hit {
-        role_entry: FileRoleEntry,
+        role_entry: Box<FileRoleEntry>,
         findings: Vec<Finding>,
     },
     Miss {
@@ -27,7 +27,7 @@ pub(super) fn cache_decision(
                 && findings_entry.config_fingerprint == fingerprint =>
         {
             CacheDecision::Hit {
-                role_entry: role_entry.clone(),
+                role_entry: Box::new(role_entry.clone()),
                 findings: findings_entry.findings.clone(),
             }
         }
@@ -62,21 +62,23 @@ pub(super) fn record_cached_file(
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
     entry: &FileRoleEntry,
-) {
+) -> FileFacts {
     facts.files_analyzed += 1;
     facts.non_empty_lines += entry.non_empty_lines;
     if let Some(language) = &entry.language {
         *languages.entry(language.clone()).or_insert(0) += 1;
     }
-    facts.files.push(FileFacts {
+    let file_facts = FileFacts {
         path: PathBuf::from(&entry.path),
         language: entry.language.clone(),
         non_empty_lines: entry.non_empty_lines,
         branch_count: 0,
-        imports: Vec::new(),
+        imports: entry.imports.clone(),
         content: None,
         has_inline_tests: entry.is_test,
-    });
+    };
+    facts.files.push(file_facts.clone());
+    file_facts
 }
 
 pub(super) fn normalize_per_file_paths(

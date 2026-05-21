@@ -397,6 +397,29 @@ approximate cache size, and stale entry count.
 
 ---
 
+## `inspect graph`
+
+Inspect the local Context Risk Graph for top dependencies, import hubs, cycles,
+risky clusters, and changed-file blast radius when changed context is available.
+
+```bash
+repopilot inspect graph .
+repopilot inspect graph . --format json
+repopilot inspect graph . --format markdown --output graph.md
+```
+
+The command runs a local scan by default so graph metadata reflects the current
+working tree. RepoPilot stores the graph cache under `.repopilot/cache/`; clear
+it with `repopilot cache clear .` when you want to discard local cache state.
+Large graph sections are capped so console, Markdown, and JSON output stay
+readable. If a section is truncated, the graph summary lists the truncated
+section names.
+
+Changed-scope graph and blast-radius details are available only when the scan
+summary has changed-file context; full graph inspection does not invent a diff.
+
+---
+
 ## `inspect feedback`
 
 Validate local feedback suppressions. By default this only parses

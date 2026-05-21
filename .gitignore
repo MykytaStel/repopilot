@@ -10,9 +10,15 @@ dist/
 !.env.example
 *.tgz
 /report.md
+/repopilot-report.md
 /repopilot-ci.md
+/review.md
 /scan.json
 /*.sarif
+/.repopilot/feedback.yml
+/.repopilot/receipt.json
+/receipt.json
+/receipts/
 *.log
 *.tmp
 *.bak

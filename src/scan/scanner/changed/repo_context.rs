@@ -1,5 +1,7 @@
+use super::*;
+
 impl<'a> ChangedScanEngine<'a> {
-    fn run_repo_context(
+    pub(super) fn run_repo_context(
         &self,
         discovery: &ChangedDiscoveryStage,
         facts: &mut ScanFacts,
@@ -67,7 +69,7 @@ impl<'a> ChangedScanEngine<'a> {
         })
     }
 
-    fn score_findings(
+    pub(super) fn score_findings(
         &self,
         repo_stage: &ChangedRepoContextStage,
         findings: &mut [Finding],

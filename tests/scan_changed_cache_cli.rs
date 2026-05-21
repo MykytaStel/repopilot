@@ -213,6 +213,50 @@ fn changed_scan_uses_repo_graph_context_for_changed_findings_only() {
 }
 
 #[test]
+fn changed_scan_cache_hit_keeps_changed_file_imports_for_graph_patch() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/old.rs"), "pub fn old() {}\n");
+    write(temp.path().join("src/new.rs"), "pub fn new() {}\n");
+    write(
+        temp.path().join("src/lib.rs"),
+        "use crate::old;\npub fn live() { old::old(); }\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    let initial_graph = inspect_graph_json(temp.path());
+    assert_eq!(initial_graph["context_graph_cache"]["status"], "write");
+    let stale_graph_cache =
+        fs::read(temp.path().join(".repopilot/cache/repo_context.json")).expect("read graph cache");
+
+    write(
+        temp.path().join("src/lib.rs"),
+        "use crate::new;\npub fn live() { new::new(); }\nconst API_KEY: &str = \"abc123xyz987\";\n",
+    );
+    let first_changed = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(
+        first_changed["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "miss"
+    );
+
+    fs::write(
+        temp.path().join(".repopilot/cache/repo_context.json"),
+        stale_graph_cache,
+    )
+    .expect("restore stale graph cache");
+
+    let cached_changed = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(
+        cached_changed["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "hit"
+    );
+    assert!(
+        top_dependencies_include(&cached_changed, "src/new.rs"),
+        "cached changed file imports should patch stale graph cache: {cached_changed:#?}"
+    );
+}
+
+#[test]
 fn since_scan_uses_base_ref_scope() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
@@ -289,6 +333,31 @@ fn scan_changed_json(root: &Path, args: &[&str]) -> Value {
     );
 
     serde_json::from_slice(&output.stdout).expect("json output")
+}
+
+fn inspect_graph_json(root: &Path) -> Value {
+    let output = repopilot()
+        .args(["inspect", "graph", ".", "--format", "json"])
+        .current_dir(root)
+        .output()
+        .expect("run repopilot inspect graph");
+
+    assert!(
+        output.status.success(),
+        "inspect graph failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    serde_json::from_slice(&output.stdout).expect("json output")
+}
+
+fn top_dependencies_include(json: &Value, expected_path: &str) -> bool {
+    json["context_graph_summary"]["top_dependencies"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|metric| metric["path"] == expected_path)
 }
 
 fn clear_cache(root: &Path) {

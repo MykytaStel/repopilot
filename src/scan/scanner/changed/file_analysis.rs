@@ -1,5 +1,7 @@
+use super::*;
+
 impl<'a> ChangedScanEngine<'a> {
-    fn run_file_analysis(
+    pub(super) fn run_file_analysis(
         &self,
         discovery: &ChangedDiscoveryStage,
     ) -> io::Result<ChangedFileAnalysisStage> {
@@ -142,7 +144,8 @@ impl<'a> ChangedScanEngine<'a> {
                     languages,
                     findings,
                     cache_telemetry,
-                    role_entry,
+                    graph_patch_files,
+                    *role_entry,
                     cached_findings,
                 );
                 return Ok(());
@@ -174,6 +177,7 @@ impl<'a> ChangedScanEngine<'a> {
                             hash: hash_entry.hash.clone(),
                             language: per_file.language.clone(),
                             non_empty_lines: per_file.file_facts.non_empty_lines,
+                            imports: per_file.file_facts.imports.clone(),
                             roles: context.roles,
                             frameworks: context.frameworks,
                             runtimes: context.runtimes,
@@ -242,11 +246,14 @@ impl<'a> ChangedScanEngine<'a> {
         languages: &mut HashMap<String, usize>,
         findings: &mut Vec<Finding>,
         cache_telemetry: &mut ScanCacheTelemetry,
+        graph_patch_files: &mut Vec<FileFacts>,
         role_entry: FileRoleEntry,
         cached_findings: Vec<Finding>,
     ) {
         let reuse_start = Instant::now();
-        record_cached_file(facts, languages, &role_entry);
+        let mut graph_file = record_cached_file(facts, languages, &role_entry);
+        graph_file.content = None;
+        graph_patch_files.push(graph_file);
         findings.extend(cached_findings);
         cache_telemetry.timings.hit_reuse_us = cache_telemetry
             .timings
