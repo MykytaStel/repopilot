@@ -1,3 +1,5 @@
+use super::*;
+
 pub fn summarize_context_graph(
     graph: &RepoContextGraph,
     findings: &[Finding],
@@ -194,7 +196,7 @@ fn cluster_scope(path: &Path) -> String {
     }
 }
 
-fn build_language_summary(
+pub(super) fn build_language_summary(
     languages: HashMap<String, usize>,
 ) -> Vec<crate::scan::types::LanguageSummary> {
     let mut languages = languages
@@ -215,7 +217,7 @@ fn build_language_summary(
     languages
 }
 
-fn directory_count(files: &[FileFacts]) -> usize {
+pub(super) fn directory_count(files: &[FileFacts]) -> usize {
     files
         .iter()
         .filter_map(|file| file.path.parent().map(Path::to_path_buf))

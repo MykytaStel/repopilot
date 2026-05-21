@@ -127,9 +127,15 @@ pub struct RepoContextGraphLoad {
     pub cache_info: ContextGraphCacheInfo,
 }
 
-include!("context/graph_impl.rs");
-include!("context/summary.rs");
-include!("context/cache.rs");
+mod cache;
+mod graph_impl;
+mod summary;
+
+pub use cache::{
+    cache_diagnostic, context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
+    write_repo_context_graph,
+};
+pub use summary::summarize_context_graph;
 
 #[cfg(test)]
 mod tests {

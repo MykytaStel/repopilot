@@ -1,3 +1,6 @@
+use super::summary::{build_language_summary, directory_count};
+use super::*;
+
 impl RepoContextGraph {
     pub fn from_scan_facts(facts: &ScanFacts, root: &Path, coupling_graph: CouplingGraph) -> Self {
         Self {
