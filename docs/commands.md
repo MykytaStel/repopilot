@@ -468,3 +468,8 @@ silently disappearing.
 Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
 suppressions are intentionally team-reviewed and part of repository policy.
 Personal or temporary suppressions should stay local and uncommitted.
+\n\n\n## Engine pipeline contract
+
+RepoPilot commands should scan once and render many outputs from the resulting
+`ScanSummary`. Renderers are not allowed to trigger repository scans. This keeps
+large repositories predictable and makes timing/cache metadata easier to trust.\n
