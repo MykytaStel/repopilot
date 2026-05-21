@@ -1,5 +1,7 @@
+use crate::audits::context::LanguageKind;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::knowledge::language::language_kind_for_file;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 use crate::scan::path_classification::is_low_signal_audit_path;
@@ -16,6 +18,9 @@ impl ProjectAudit for TooManyModulesAudit {
             if is_low_signal_audit_path(&file.path) {
                 continue;
             }
+            if !is_source_module_language(language_kind_for_file(file)) {
+                continue;
+            }
             if let Some(parent) = file.path.parent() {
                 *dir_file_counts.entry(parent.to_path_buf()).or_insert(0) += 1;
             }
@@ -27,6 +32,22 @@ impl ProjectAudit for TooManyModulesAudit {
             .map(|(dir, count)| build_finding(dir, count, config.max_directory_modules))
             .collect()
     }
+}
+
+fn is_source_module_language(language: LanguageKind) -> bool {
+    !matches!(
+        language,
+        LanguageKind::Dockerfile
+            | LanguageKind::Json
+            | LanguageKind::Toml
+            | LanguageKind::Yaml
+            | LanguageKind::Markdown
+            | LanguageKind::Html
+            | LanguageKind::Css
+            | LanguageKind::Scss
+            | LanguageKind::Sql
+            | LanguageKind::Unknown
+    )
 }
 
 fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
@@ -45,7 +66,7 @@ fn build_finding(dir: PathBuf, file_count: usize, threshold: usize) -> Finding {
             path: dir,
             line_start: 1,
             line_end: None,
-            snippet: format!("{file_count} files in directory; threshold is {threshold}."),
+            snippet: format!("{file_count} source modules in directory; threshold is {threshold}."),
         }],
         workspace_package: None,
         docs_url: None,
