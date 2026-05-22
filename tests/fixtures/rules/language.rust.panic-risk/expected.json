@@ -1,12 +1,25 @@
 {
   "fixtures": [
     {
-      "path": "true_positive",
-      "expected_rule_ids": ["language.rust.panic-risk"]
-    },
-    {
       "path": "false_positive",
       "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_contextual_expect",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "language.rust.panic-risk"
+      ]
+    },
+    {
+      "path": "true_positive_external_io",
+      "expected_rule_ids": [
+        "language.rust.panic-risk",
+        "language.rust.panic-risk"
+      ]
     }
   ]
 }

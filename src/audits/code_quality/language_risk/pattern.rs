@@ -3,6 +3,9 @@ use crate::knowledge::decision::decide_for_file;
 use crate::scan::facts::FileFacts;
 use std::path::Path;
 
+const RUNTIME_ERROR_HANDLING_DOCS_URL: &str =
+    "https://owasp.org/www-community/vulnerabilities/Improper_Error_Handling";
+
 #[path = "go.rs"]
 mod go;
 #[path = "js.rs"]
@@ -150,7 +153,7 @@ fn build_finding(
             snippet: snippet.to_string(),
         }],
         workspace_package: None,
-        docs_url: None,
+        docs_url: Some(RUNTIME_ERROR_HANDLING_DOCS_URL.to_string()),
         provenance: Default::default(),
         risk: Default::default(),
     }

@@ -1,12 +1,25 @@
 {
   "fixtures": [
     {
-      "path": "true_positive",
-      "expected_rule_ids": ["security.secret-candidate"]
-    },
-    {
       "path": "false_positive",
       "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_documentation",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "security.secret-candidate"
+      ]
+    },
+    {
+      "path": "true_positive_env_value",
+      "expected_rule_ids": [
+        "security.secret-candidate",
+        "security.secret-candidate"
+      ]
     }
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "fixtures": [
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "language.javascript.runtime-exit-risk",
+        "language.javascript.runtime-exit-risk"
+      ]
+    }
+  ]
+}

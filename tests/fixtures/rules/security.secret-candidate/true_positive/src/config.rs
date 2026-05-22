@@ -1,1 +1,1 @@
-pub const API_KEY: &str = "sk_live_repopilot_fixture_1234567890abcdef";
+pub const API_KEY: &str = "fixtureKey-Q7m2vK9pL4xR8tN6zB3wY5cD1sF0";
