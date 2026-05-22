@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+VERIFY_TMP_DIR="$(mktemp -d)"
+cleanup_verify_tmp() {
+  rm -rf "$VERIFY_TMP_DIR"
+}
+trap cleanup_verify_tmp EXIT
+
 echo "==> RepoPilot release verification"
 
 echo "==> Rust formatting"
@@ -74,6 +80,21 @@ npm pack --dry-run
 
 echo "==> Build release binary"
 cargo build --release
+
+
+
+echo "==> Rule evaluation JSON smoke"
+./target/release/repopilot inspect eval-rules --format json > "$VERIFY_TMP_DIR/eval-rules.json"
+if command -v python3 >/dev/null 2>&1; then
+  python3 -m json.tool "$VERIFY_TMP_DIR/eval-rules.json" >/dev/null
+fi
+
+echo "==> Self-scan signal quality"
+./target/release/repopilot scan . --format json --output "$VERIFY_TMP_DIR/self-scan.json"
+if command -v python3 >/dev/null 2>&1 && [[ -f scripts/check-signal-quality.py ]]; then
+  # RepoPilot release signal-quality checks: warn-only until noisy heuristics are fully calibrated.
+  python3 scripts/check-signal-quality.py                 --scan-json "$VERIFY_TMP_DIR/self-scan.json"                 --warn-only                 --output-json "$VERIFY_TMP_DIR/signal-quality.json"
+fi
 
 echo "==> Product readiness smoke suite"
 ./scripts/smoke-product.sh \

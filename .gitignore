@@ -28,3 +28,9 @@ dist/
 *.jar
 *.war
 *.ear
+
+# RepoPilot local state and generated audit artifacts
+/.repopilot/*
+!/.repopilot/.gitkeep
+!/.repopilot/config.toml
+!/.repopilot/config.example.toml

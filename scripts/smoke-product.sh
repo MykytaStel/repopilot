@@ -226,6 +226,11 @@ run_repopilot scan . --format json --output "$TMP_DIR/scan.json" --receipt "$TMP
 assert_non_empty "$TMP_DIR/scan.json"
 validate_json_if_possible "$TMP_DIR/scan.json"
 assert_no_contract_violations "$TMP_DIR/scan.json"
+
+# RepoPilot signal-quality smoke check
+if command -v python3 >/dev/null 2>&1 && [[ -f "$ROOT_DIR/scripts/check-signal-quality.py" ]]; then
+  python3 "$ROOT_DIR/scripts/check-signal-quality.py"             --scan-json "$TMP_DIR/scan.json"             --warn-only             --output-json "$TMP_DIR/signal-quality.json"
+fi
 assert_non_empty "$TMP_DIR/receipt.json"
 validate_json_if_possible "$TMP_DIR/receipt.json"
 

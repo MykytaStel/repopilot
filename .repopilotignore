@@ -24,3 +24,14 @@ scan.json
 .repopilot/receipt.json
 receipt.json
 receipts
+
+# Local release/audit artifacts
+.repopilot/self-scan-013.json
+.repopilot/self-scan-013.md
+.repopilot/signal-quality-013.json
+repopilot-report.json
+repopilot.sarif
+
+# RepoPilot generated local state
+.repopilot
+.repopilot/*
