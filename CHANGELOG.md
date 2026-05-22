@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added 0.13 Smart Baseline release guardrails for self-scan signal quality, rule lifecycle checks, and release evidence.
+- Added documentation for the rule quality gate so default-visible/stable rules have explicit fixture and metadata expectations.
+- Added a local signal-quality checker script for release candidates and CI smoke adoption.
+
+### Changed
+
+- Tightened the 0.13 release story around audit-first positioning: default scans should remain quiet, evidence-backed, and baseline-friendly.
+- Documented noisy heuristic budgets for `code-quality.long-function`, `code-quality.complex-file`, testing-gap rules, and code markers before expanding rule families.
+
+### Added
+
 - Added a 0.13 release checklist for the breaking cleanup release.
 - Added a current `0.17` scan report fixture that documents raw-vs-visible report metrics.
 - Added finding contract validation with diagnostics, release-test coverage, and contract timing.

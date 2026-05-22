@@ -426,6 +426,7 @@ repopilot scan . --profile strict
 | [CLI reference](docs/cli.md) | Commands, flags, and exit codes |
 | [Commands guide](docs/commands.md) | Task-oriented command examples |
 | [Rulesets](docs/rulesets.md) | Implemented rules, categories, and severity levels |
+| [Rule quality gate](docs/rule-quality-gate.md) | Fixture, metadata, visibility, and stability expectations for rules |
 | [React Native](docs/react-native.md) | React Native and Expo detection |
 | [GitHub Code Scanning](docs/integrations/github-code-scanning.md) | SARIF workflow and CI setup |
 | [Roadmap](docs/roadmap.md) | Pre-1.0 roadmap and v1 gates |
