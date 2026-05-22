@@ -9,12 +9,15 @@ use repopilot::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
 // Scope: inspect eval-rules quality gate
 // Style: BDD-style Given / When / Then
 //
-// Keep unit tests close to pure modules. Use this file only for end-to-end
+// Unit tests should stay close to pure modules. This file is for end-to-end
 // fixture evaluation across real fixture projects.
 
-const RULES_WITH_013_FIXTURES: &[&str] = &[
+const SECURITY_RULES_WITH_013_FIXTURES: &[&str] = &[
     "security.secret-candidate",
     "security.private-key-candidate",
+];
+
+const RUNTIME_RULES_WITH_013_FIXTURES: &[&str] = &[
     "language.rust.panic-risk",
     "language.go.panic-exit-risk",
     "language.python.exception-risk",
@@ -23,20 +26,44 @@ const RULES_WITH_013_FIXTURES: &[&str] = &[
 ];
 
 #[test]
-fn given_013_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
-    let fixture_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rules");
+    let fixture_root = rule_fixture_root();
 
-    for rule_id in RULES_WITH_013_FIXTURES {
+    for rule_id in SECURITY_RULES_WITH_013_FIXTURES {
         // When
-        let report = evaluate_rule_fixtures(Some(rule_id), Some(&fixture_root))
-            .unwrap_or_else(|error| panic!("failed to evaluate fixtures for {rule_id}: {error}"));
+        let report = evaluate_rule(rule_id, &fixture_root);
 
         // Then
         assert_single_rule_report(rule_id, &report);
         let rule_report = first_rule_report(rule_id, &report);
         assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
     }
+}
+
+#[test]
+fn given_runtime_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in RUNTIME_RULES_WITH_013_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+fn rule_fixture_root() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rules")
+}
+
+fn evaluate_rule(rule_id: &str, fixture_root: &Path) -> RuleEvaluationReport {
+    evaluate_rule_fixtures(Some(rule_id), Some(fixture_root))
+        .unwrap_or_else(|error| panic!("failed to evaluate fixtures for {rule_id}: {error}"))
 }
 
 fn assert_single_rule_report(rule_id: &str, report: &RuleEvaluationReport) {
