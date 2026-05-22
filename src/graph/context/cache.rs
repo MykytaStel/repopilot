@@ -28,11 +28,10 @@ pub fn write_repo_context_graph(
     if let Some(parent) = cache_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let input_fingerprint = context_graph_input_fingerprint(graph);
-    let graph_fingerprint = context_graph_fingerprint(graph);
+    let (input_fingerprint, graph_fingerprint) = context_graph_fingerprints(graph);
 
     if let Some(cached) = read_cached_repo_context_graph(&cache_path)
-        && valid_cached_graph(&cached, config)
+        && valid_cached_graph_metadata(&cached, config)
         && cached.input_fingerprint == input_fingerprint
         && cached.graph_fingerprint == graph_fingerprint
     {
@@ -52,7 +51,7 @@ pub fn write_repo_context_graph(
         graph_fingerprint,
         graph: graph.clone(),
     };
-    let rendered = serde_json::to_string_pretty(&cached).map_err(io::Error::other)?;
+    let rendered = serde_json::to_vec(&cached).map_err(io::Error::other)?;
     fs::write(&cache_path, rendered)?;
 
     Ok(ContextGraphCacheInfo {
@@ -78,45 +77,54 @@ pub fn cache_diagnostic(error: &io::Error) -> ScanDiagnostic {
 }
 
 fn valid_cached_graph(cached: &CachedRepoContextGraph, config: &ScanConfig) -> bool {
+    if !valid_cached_graph_metadata(cached, config) {
+        return false;
+    }
+
+    let (input_fingerprint, graph_fingerprint) = context_graph_fingerprints(&cached.graph);
+    cached.input_fingerprint == input_fingerprint && cached.graph_fingerprint == graph_fingerprint
+}
+
+fn valid_cached_graph_metadata(cached: &CachedRepoContextGraph, config: &ScanConfig) -> bool {
     cached.schema_version == CONTEXT_GRAPH_SCHEMA_VERSION
         && cached.repopilot_version == env!("CARGO_PKG_VERSION")
         && cached.config_fingerprint == config_fingerprint(config)
         && cached.resolver_version == CONTEXT_GRAPH_RESOLVER_VERSION
-        && cached.input_fingerprint == context_graph_input_fingerprint(&cached.graph)
-        && cached.graph_fingerprint == context_graph_fingerprint(&cached.graph)
 }
 
 pub fn context_graph_cache_path(root: &Path) -> PathBuf {
     cache_dir(root).join(CONTEXT_GRAPH_CACHE_NAME)
 }
 
-fn context_graph_fingerprint(graph: &RepoContextGraph) -> String {
+fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
+    let nodes = stable_node_inputs(graph);
+    let edges = stable_edge_inputs(graph);
     let input = serde_json::json!({
+        "schema": CONTEXT_GRAPH_SCHEMA_VERSION,
+        "resolver": CONTEXT_GRAPH_RESOLVER_VERSION,
+        "nodes": &nodes,
+        "edges": &edges,
+        "frameworks": &graph.detected_frameworks,
+        "framework_projects": &graph.framework_projects,
+        "react_native": &graph.react_native,
+    });
+    let input_fingerprint = stable_hash_hex(input.to_string().as_bytes());
+    let graph_input = serde_json::json!({
         "schema": CONTEXT_GRAPH_SCHEMA_VERSION,
         "resolver": CONTEXT_GRAPH_RESOLVER_VERSION,
         "risk_formula": crate::risk::FORMULA_VERSION,
         "knowledge_pack": stable_hash_hex(include_bytes!("../../knowledge/packs/core.toml")),
-        "input": context_graph_input_fingerprint(graph),
-        "nodes": stable_node_inputs(graph),
-        "edges": stable_edge_inputs(graph),
+        "input": input_fingerprint,
+        "nodes": &nodes,
+        "edges": &edges,
         "frameworks": &graph.detected_frameworks,
         "framework_projects": &graph.framework_projects,
         "react_native": &graph.react_native,
     });
-    stable_hash_hex(input.to_string().as_bytes())
-}
-
-fn context_graph_input_fingerprint(graph: &RepoContextGraph) -> String {
-    let input = serde_json::json!({
-        "schema": CONTEXT_GRAPH_SCHEMA_VERSION,
-        "resolver": CONTEXT_GRAPH_RESOLVER_VERSION,
-        "nodes": stable_node_inputs(graph),
-        "edges": stable_edge_inputs(graph),
-        "frameworks": &graph.detected_frameworks,
-        "framework_projects": &graph.framework_projects,
-        "react_native": &graph.react_native,
-    });
-    stable_hash_hex(input.to_string().as_bytes())
+    (
+        input_fingerprint,
+        stable_hash_hex(graph_input.to_string().as_bytes()),
+    )
 }
 
 fn read_cached_repo_context_graph(path: &Path) -> Option<CachedRepoContextGraph> {

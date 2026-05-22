@@ -87,6 +87,7 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: visible_findings_count,
         visible_findings_count,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -98,6 +99,8 @@ fn summary(findings: Vec<Finding>) -> ScanSummary {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     }
 }

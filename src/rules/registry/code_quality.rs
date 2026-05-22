@@ -25,7 +25,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "A function is longer than the configured line threshold. Long functions are harder to test, understand, and safely refactor.",
         recommendation: Some(

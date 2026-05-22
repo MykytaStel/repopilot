@@ -9,6 +9,7 @@ use crate::baseline::diff::{
 use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
 use crate::findings::filter::recompute_summary_metrics;
+use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
@@ -153,6 +154,8 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         .collect();
 
     let in_diff_findings: Vec<_> = report.in_diff_findings().into_iter().cloned().collect();
+    let in_diff_findings_count = in_diff_findings.len();
+    let in_diff_signal_quality = summarize_signal_quality(&in_diff_findings);
     let mut summary = ScanSummary {
         root_path: report.summary.root_path.clone(),
         mode: report.summary.mode,
@@ -177,6 +180,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         context_graph_cache: report.summary.context_graph_cache.clone(),
         scan_duration_us: report.summary.scan_duration_us,
         health_score: 0,
+        raw_findings_count: in_diff_findings_count,
         visible_findings_count: 0,
         hidden_suggestions_count: report.summary.hidden_suggestions_count,
         hidden_suggestions: Vec::new(),
@@ -188,7 +192,9 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         cache_telemetry: report.summary.cache_telemetry.clone(),
         local_feedback: report.summary.local_feedback.clone(),
         diagnostics: report.summary.diagnostics.clone(),
-        signal_quality: Default::default(),
+        raw_signal_quality: in_diff_signal_quality.clone(),
+        visible_signal_quality: in_diff_signal_quality.clone(),
+        signal_quality: in_diff_signal_quality,
     };
     recompute_summary_metrics(&mut summary);
 

@@ -37,6 +37,7 @@ fn renders_valid_json_scan_summary() {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: 0,
         visible_findings_count: 0,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -48,6 +49,8 @@ fn renders_valid_json_scan_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     };
 
@@ -93,9 +96,13 @@ fn json_findings_include_confidence() {
     finding.risk = assess_finding(&finding, None, RiskInputs::default());
 
     let findings = vec![finding];
+    let signal_quality = summarize_signal_quality(&findings);
     let summary = ScanSummary {
         root_path: PathBuf::from("demo"),
-        signal_quality: summarize_signal_quality(&findings),
+        raw_findings_count: findings.len(),
+        raw_signal_quality: signal_quality.clone(),
+        visible_signal_quality: signal_quality.clone(),
+        signal_quality,
         findings,
         ..ScanSummary::default()
     };
@@ -124,6 +131,9 @@ fn json_findings_include_confidence() {
         "severity"
     );
     assert_eq!(parsed["signal_quality"]["findings_total"], 1);
+    assert_eq!(parsed["raw_findings_count"], 1);
+    assert_eq!(parsed["raw_signal_quality"]["findings_total"], 1);
+    assert_eq!(parsed["visible_signal_quality"]["findings_total"], 1);
     assert_eq!(parsed["signal_quality"]["by_confidence"]["high"], 1);
     assert_eq!(
         parsed["findings"][0]["provenance"]["rule_lifecycle"],

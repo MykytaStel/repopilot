@@ -62,7 +62,16 @@ pub fn recompute_summary_metrics(summary: &mut ScanSummary) {
     summary.visible_findings_count = summary.findings.len();
     summary.health_score =
         ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
-    summary.signal_quality = summarize_signal_quality(&summary.findings);
+    let visible_signal_quality = summarize_signal_quality(&summary.findings);
+    if summary.raw_findings_count == 0
+        && summary.hidden_suggestions_count == 0
+        && !summary.findings.is_empty()
+    {
+        summary.raw_findings_count = summary.findings.len();
+        summary.raw_signal_quality = visible_signal_quality.clone();
+    }
+    summary.visible_signal_quality = visible_signal_quality.clone();
+    summary.signal_quality = visible_signal_quality;
 }
 
 #[cfg(test)]

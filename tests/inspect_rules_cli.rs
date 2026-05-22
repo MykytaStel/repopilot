@@ -20,6 +20,16 @@ fn inspect_rules_lists_and_filters_catalog() {
             .iter()
             .any(|rule| rule["rule_id"] == "security.secret-candidate")
     );
+    let secret_rule = json["rules"]
+        .as_array()
+        .expect("rules array")
+        .iter()
+        .find(|rule| rule["rule_id"] == "security.secret-candidate")
+        .expect("secret rule should be present");
+    assert_eq!(secret_rule["semantic_source"], "text-heuristic");
+    assert_eq!(secret_rule["required_scope"], "file-content");
+    assert_eq!(secret_rule["fixture_coverage"]["fixtures_total"], 2);
+    assert_eq!(secret_rule["stability_gate_status"], "fixture-covered");
 
     let preview = repopilot()
         .args([
@@ -80,6 +90,7 @@ fn inspect_rule_returns_known_rule_and_rejects_unknown_rule() {
     let json: Value = serde_json::from_slice(&known.stdout).expect("rule json");
     assert_eq!(json["rule_id"], "security.secret-candidate");
     assert_eq!(json["lifecycle"], "preview");
+    assert_eq!(json["false_positive_risk"], "high");
 
     let unknown = repopilot()
         .args(["inspect", "rule", "missing.rule"])

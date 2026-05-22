@@ -63,6 +63,7 @@ fn renders_markdown_scan_summary() {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: 1,
         visible_findings_count: 1,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -74,6 +75,8 @@ fn renders_markdown_scan_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     };
 
@@ -132,6 +135,7 @@ fn renders_empty_markdown_sections() {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: 0,
         visible_findings_count: 0,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -143,6 +147,8 @@ fn renders_empty_markdown_sections() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     };
 
@@ -196,6 +202,7 @@ fn renders_react_native_architecture_section_when_profile_present() {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: 0,
         visible_findings_count: 0,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -207,6 +214,8 @@ fn renders_react_native_architecture_section_when_profile_present() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     };
 

@@ -14,12 +14,21 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         health_score_bar(stats.health_score)
     )
     .unwrap();
-    writeln!(
-        output,
-        "Findings: {} visible ({:.1}/kloc)",
-        stats.total_findings, stats.finding_density
-    )
-    .unwrap();
+    if summary.raw_findings_count > summary.visible_findings_count {
+        writeln!(
+            output,
+            "Findings: {} visible / {} raw ({:.1}/kloc visible)",
+            summary.visible_findings_count, summary.raw_findings_count, stats.finding_density
+        )
+        .unwrap();
+    } else {
+        writeln!(
+            output,
+            "Findings: {} visible ({:.1}/kloc)",
+            stats.total_findings, stats.finding_density
+        )
+        .unwrap();
+    }
     if summary.hidden_suggestions_count > 0 {
         writeln!(
             output,

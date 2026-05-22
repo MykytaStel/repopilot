@@ -67,9 +67,9 @@ cargo run -- inspect eval-rules --format json --output /tmp/repopilot-rule-eval.
 
 Verify:
 
-- `repopilot compare` accepts current `0.15` scan reports;
+- `repopilot compare` accepts current `0.17` scan reports;
 - `repopilot compare` rejects pre-current scan report shapes clearly;
-- JSON reports include `signal_quality`, finding `provenance`, `risk.signals[].source`, and `risk-v3`;
+- JSON reports include `raw_findings_count`, `visible_findings_count`, `raw_signal_quality`, `visible_signal_quality`, finding `provenance`, `risk.signals[].source`, and `risk-v3`;
 - JSON reports include `scan_timings.contract_validation_us` when scan timings are present;
 - active docs describe the current command surface, not removed 0.x aliases;
 - schema migration docs state that historical report compatibility belongs in downstream consumers when needed.

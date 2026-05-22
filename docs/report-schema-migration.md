@@ -5,16 +5,24 @@ useful in CI, dashboards, PR bots, and downstream tooling.
 
 ## Current direction
 
-Schema `0.15` is the current scan report schema for RepoPilot 0.13.0. It adds
-finding provenance, typed risk signal sources, `risk-v3`, signal quality
-metrics, and finding-contract diagnostics.
+Schema `0.17` is the current scan report schema for RepoPilot 0.13.0. It keeps
+`0.15` provenance and `risk-v3` fields, keeps `0.16` context graph diagnostics,
+and adds raw-vs-visible finding and signal-quality metrics.
 
 | Field | Where | Why |
 |---|---|---|
+| `raw_findings_count` | scan, baseline-scan | Shows how many findings existed before default visibility filtering. |
+| `visible_findings_count` | scan, baseline-scan | Shows the findings rendered in the current report. |
+| `hidden_suggestions_count` | scan, baseline-scan | Shows strict-only suggestions hidden from the default report. |
+| `raw_signal_quality` | scan, baseline-scan, review | Summarizes quality before visibility filtering. |
+| `visible_signal_quality` | scan, baseline-scan, review | Summarizes quality for rendered findings. |
+| `signal_quality` | scan, baseline-scan, review | Compatibility alias for `visible_signal_quality`. |
 | `provenance` | finding | Explains detector, lifecycle, signal source, and analysis scope. |
 | `risk.signals[].source` | finding risk signal | Gives machine-readable source families for risk explanations. |
-| `signal_quality` | scan, baseline-scan, review | Summarizes confidence, lifecycle, source, evidence, recommendation, docs, and contract warning coverage. |
 | `scan_timings.contract_validation_us` | scan timings | Exposes finding-contract validation timing separately. |
+
+RepoPilot's current reader accepts `0.15`, `0.16`, and `0.17` scan reports
+during the transition. New reports are emitted as `0.17`.
 
 Schema `0.14` added optional local feedback transparency:
 
