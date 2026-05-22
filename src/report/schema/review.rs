@@ -18,6 +18,8 @@ pub struct ReviewJsonReport<'a> {
     pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
     pub review: ReviewJsonMetadata,
     pub risk_summary: RiskSummary,
+    pub raw_signal_quality: crate::findings::quality::SignalQualitySummary,
+    pub visible_signal_quality: crate::findings::quality::SignalQualitySummary,
     pub signal_quality: crate::findings::quality::SignalQualitySummary,
     pub baseline: ReviewBaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,6 +58,8 @@ impl<'a> ReviewJsonReport<'a> {
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.findings),
+            raw_signal_quality: report.summary.raw_signal_quality.clone(),
+            visible_signal_quality: report.summary.visible_signal_quality.clone(),
             signal_quality: report.summary.signal_quality.clone(),
             baseline: ReviewBaselineJsonMetadata {
                 path: report

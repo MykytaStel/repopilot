@@ -53,7 +53,9 @@ pub(super) fn build_scan_summary(
     parts: ScanSummaryParts,
 ) -> ScanSummary {
     let health_score = ScanSummary::compute_health_score(&findings, facts.non_empty_lines);
+    let raw_findings_count = findings.len();
     let visible_findings_count = findings.len();
+    let signal_quality = parts.signal_quality;
     let context_graph_summary =
         parts
             .context_graph_summary
@@ -93,6 +95,7 @@ pub(super) fn build_scan_summary(
         context_graph_cache: parts.context_graph_cache,
         scan_duration_us: parts.scan_duration_us,
         health_score,
+        raw_findings_count,
         visible_findings_count,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -104,6 +107,8 @@ pub(super) fn build_scan_summary(
         cache_telemetry: parts.cache_telemetry,
         local_feedback: None,
         diagnostics: parts.diagnostics,
-        signal_quality: parts.signal_quality,
+        raw_signal_quality: signal_quality.clone(),
+        visible_signal_quality: signal_quality.clone(),
+        signal_quality,
     }
 }

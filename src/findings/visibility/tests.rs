@@ -1,5 +1,6 @@
 use super::*;
 use crate::findings::types::{Confidence, Evidence, FindingCategory, Severity};
+use crate::risk::{RiskAssessment, RiskPriority};
 use std::path::PathBuf;
 
 fn finding(rule_id: &str, category: FindingCategory, severity: Severity) -> Finding {
@@ -25,6 +26,20 @@ fn finding_with_path(
         line_end: None,
         snippet: "process.exit(1);".to_string(),
     }];
+    finding
+}
+
+fn finding_with_priority(
+    rule_id: &str,
+    category: FindingCategory,
+    severity: Severity,
+    priority: RiskPriority,
+) -> Finding {
+    let mut finding = finding(rule_id, category, severity);
+    finding.risk = RiskAssessment {
+        priority,
+        ..RiskAssessment::default()
+    };
     finding
 }
 
@@ -68,6 +83,36 @@ fn default_profile_hides_deep_relative_imports() {
 
     assert_eq!(decision.intent, FindingIntent::Maintainability);
     assert!(!decision.visible_by_default);
+}
+
+#[test]
+fn default_profile_keeps_high_priority_maintainability_signals() {
+    let finding = finding_with_priority(
+        "code-quality.long-function",
+        FindingCategory::CodeQuality,
+        Severity::Medium,
+        RiskPriority::P1,
+    );
+
+    let decision = classify_visibility(&finding);
+
+    assert_eq!(decision.intent, FindingIntent::Maintainability);
+    assert!(decision.visible_by_default);
+}
+
+#[test]
+fn default_profile_keeps_stable_import_graph_architecture_risks() {
+    let finding = finding_with_priority(
+        "architecture.excessive-fan-out",
+        FindingCategory::Architecture,
+        Severity::Medium,
+        RiskPriority::P2,
+    );
+
+    let decision = classify_visibility(&finding);
+
+    assert_eq!(decision.intent, FindingIntent::ActionableRisk);
+    assert!(decision.visible_by_default);
 }
 
 #[test]
@@ -183,8 +228,12 @@ fn apply_default_profile_recomputes_visible_counts_and_hidden_breakdown() {
     apply_visibility_profile(&mut summary, FindingVisibilityProfile::Default);
 
     assert_eq!(summary.visibility_profile.as_deref(), Some("default"));
+    assert_eq!(summary.raw_findings_count, 2);
     assert_eq!(summary.visible_findings_count, 1);
     assert_eq!(summary.hidden_suggestions_count, 1);
+    assert_eq!(summary.raw_signal_quality.findings_total, 2);
+    assert_eq!(summary.visible_signal_quality.findings_total, 1);
+    assert_eq!(summary.signal_quality.findings_total, 1);
     assert_eq!(summary.hidden_suggestions.len(), 1);
     assert_eq!(summary.hidden_suggestions[0].intent, "maintainability");
     assert_eq!(
@@ -224,6 +273,7 @@ fn strict_profile_keeps_all_findings_and_clears_hidden_breakdown() {
     apply_visibility_profile(&mut summary, FindingVisibilityProfile::Strict);
 
     assert_eq!(summary.visibility_profile.as_deref(), Some("strict"));
+    assert_eq!(summary.raw_findings_count, 2);
     assert_eq!(summary.visible_findings_count, 2);
     assert_eq!(summary.hidden_suggestions_count, 0);
     assert!(summary.hidden_suggestions.is_empty());

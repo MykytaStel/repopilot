@@ -49,6 +49,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
         context_graph_cache: None,
         scan_duration_us: 0,
         health_score: 0,
+        raw_findings_count: 1,
         visible_findings_count: 1,
         hidden_suggestions_count: 0,
         hidden_suggestions: Vec::new(),
@@ -60,6 +61,8 @@ fn html_output_escapes_snippets_and_renders_summary() {
         cache_telemetry: None,
         local_feedback: None,
         diagnostics: Vec::new(),
+        raw_signal_quality: Default::default(),
+        visible_signal_quality: Default::default(),
         signal_quality: Default::default(),
     };
 

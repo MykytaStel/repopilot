@@ -1,4 +1,5 @@
 use crate::findings::filter::recompute_summary_metrics;
+use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::Finding;
 use crate::scan::types::{HiddenSuggestionSummary, ScanSummary};
 use std::collections::BTreeMap;
@@ -92,6 +93,8 @@ struct HiddenSuggestionKey {
 /// stores a structured breakdown for hidden suggestions.
 pub fn apply_visibility_profile(summary: &mut ScanSummary, profile: FindingVisibilityProfile) {
     summary.visibility_profile = Some(profile.label().to_string());
+    summary.raw_findings_count = summary.findings.len();
+    summary.raw_signal_quality = summarize_signal_quality(&summary.findings);
     summary.visible_findings_count = summary.findings.len();
     summary.hidden_suggestions_count = 0;
     summary.hidden_suggestions.clear();

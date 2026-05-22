@@ -17,8 +17,8 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.16";
-const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.15", SCAN_REPORT_SCHEMA_VERSION];
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.17";
+const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.15", "0.16", SCAN_REPORT_SCHEMA_VERSION];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -90,6 +90,7 @@ pub struct ScanJsonReport<'a> {
     pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
     pub scan_duration_us: u64,
     pub health_score: u8,
+    pub raw_findings_count: usize,
     pub visible_findings_count: usize,
     pub hidden_suggestions_count: usize,
     #[serde(skip_serializing_if = "hidden_suggestions_empty")]
@@ -109,6 +110,8 @@ pub struct ScanJsonReport<'a> {
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
     pub risk_summary: RiskSummary,
+    pub raw_signal_quality: crate::findings::quality::SignalQualitySummary,
+    pub visible_signal_quality: crate::findings::quality::SignalQualitySummary,
     pub signal_quality: crate::findings::quality::SignalQualitySummary,
 }
 
@@ -141,6 +144,7 @@ impl<'a> ScanJsonReport<'a> {
             context_graph_cache: summary.context_graph_cache.as_ref(),
             scan_duration_us: summary.scan_duration_us,
             health_score: summary.health_score,
+            raw_findings_count: summary.raw_findings_count,
             visible_findings_count: summary.visible_findings_count,
             hidden_suggestions_count: summary.hidden_suggestions_count,
             hidden_suggestions: &summary.hidden_suggestions,
@@ -153,6 +157,8 @@ impl<'a> ScanJsonReport<'a> {
             local_feedback: summary.local_feedback.as_ref(),
             diagnostics: &summary.diagnostics,
             risk_summary: RiskSummary::from_findings(&summary.findings),
+            raw_signal_quality: summary.raw_signal_quality.clone(),
+            visible_signal_quality: summary.visible_signal_quality.clone(),
             signal_quality: summary.signal_quality.clone(),
         }
     }

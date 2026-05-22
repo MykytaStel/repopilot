@@ -331,8 +331,11 @@ a stronger local scan engine, rule lifecycle discipline, signal quality metrics,
 and pre-v1 product contract hardening.
 
 Every rendered finding is enriched and validated before reporting. JSON reports
-include finding provenance, `risk-v3` signals, and a compact `signal_quality`
-summary. Rule metadata is inspectable locally:
+include finding provenance, `risk-v3` signals, raw-vs-visible finding counts,
+`raw_signal_quality`, and `visible_signal_quality`. The default scan is a normal
+actionable scan: high-priority runtime, security, maintainability, and stable
+import-graph risks stay visible, while low-signal testing and marker noise stays
+available through `--profile strict`. Rule metadata is inspectable locally:
 
 ```bash
 repopilot inspect rules

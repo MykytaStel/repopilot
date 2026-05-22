@@ -23,7 +23,7 @@ fn review_reports_working_tree_findings_on_changed_lines() {
 
     let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
 
-    assert_eq!(json["schema_version"], "0.16");
+    assert_eq!(json["schema_version"], "0.17");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["risk_summary"]["total"].as_u64().is_some());
     assert_eq!(json["review"]["in_diff_findings"], 1);

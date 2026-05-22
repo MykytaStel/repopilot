@@ -9,7 +9,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - Added a 0.13 release checklist for the breaking cleanup release.
-- Added a current `0.15` scan report fixture that documents the supported compare input schema.
+- Added a current `0.17` scan report fixture that documents raw-vs-visible report metrics.
 - Added finding contract validation with diagnostics, release-test coverage, and contract timing.
 - Added an indexed rule metadata lookup and registry uniqueness coverage.
 - Added finding provenance with detector, rule lifecycle, signal source, and analysis scope.
@@ -20,11 +20,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added local rule evaluation fixtures for `security.secret-candidate` and `language.rust.panic-risk`.
 - Added per-rule JSON details to `repopilot inspect eval-rules`.
 - Added a product smoke self-scan gate for finding contract violations.
+- Added rule quality metadata to `inspect rules` output, including fixture coverage, semantic source, required scope, false-positive risk, and stability gate status.
+- Added launch positioning and performance budget docs for the 0.13 hardening track.
 
 ### Changed
 
 - Bumped the crate, npm wrapper, optional platform package pins, and GitHub Action default version to `0.13.0`.
-- Bumped scan report schema to `0.15` for provenance, signal quality, finding contract diagnostics, and `risk-v3`.
+- Bumped scan report schema to `0.17` for raw-vs-visible finding counts and signal quality metrics while accepting `0.15` and `0.16` reports during the transition.
+- Default scan visibility now surfaces high-priority maintainability risks and stable import-graph P2+ risks while keeping low-signal testing and marker noise strict-only.
+- Downgraded line/token runtime and long-function rule provenance from `ast` to `text-heuristic` until those rules consume shared parsed facts.
 - Updated risk scoring metadata to `risk-v3` with typed risk signal sources and clearer signal reasons.
 - Centralized scan finding enrichment before risk scoring and report construction.
 - Cached report signal quality on `ScanSummary` so renderers reuse one summary per report path.

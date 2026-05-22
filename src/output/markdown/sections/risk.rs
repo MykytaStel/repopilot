@@ -40,6 +40,26 @@ pub(crate) fn render_risk_summary(output: &mut String, summary: &ScanSummary, st
 pub(crate) fn render_signal_quality(output: &mut String, summary: &ScanSummary) {
     let quality = &summary.signal_quality;
     output.push_str("## Signal Quality\n\n");
+    if summary.raw_findings_count > summary.visible_findings_count {
+        writeln!(
+            output,
+            "- **Visible findings:** {}",
+            summary.visible_findings_count
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "- **Raw findings:** {}",
+            summary.raw_findings_count
+        )
+        .unwrap();
+        writeln!(
+            output,
+            "- **Raw high confidence:** {}",
+            summary.raw_signal_quality.by_confidence.high
+        )
+        .unwrap();
+    }
     writeln!(
         output,
         "- **High confidence:** {}",

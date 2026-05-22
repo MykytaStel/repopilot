@@ -1,7 +1,9 @@
 use crate::rules::{
     RuleLifecycle, RuleMetadata, SignalSource, all_rule_metadata, lookup_rule_metadata,
 };
+use serde::Deserialize;
 use serde::Serialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct RuleCatalogFilter {
@@ -28,6 +30,18 @@ pub struct RuleCatalogItem {
     pub description: &'static str,
     pub recommendation: Option<&'static str>,
     pub false_positive_notes: Option<&'static str>,
+    pub semantic_source: &'static str,
+    pub required_scope: &'static str,
+    pub fixture_coverage: RuleFixtureCoverage,
+    pub false_positive_risk: &'static str,
+    pub stability_gate_status: &'static str,
+}
+
+#[derive(Debug, Default, Clone, Serialize)]
+pub struct RuleFixtureCoverage {
+    pub fixtures_total: usize,
+    pub has_true_positive_fixture: bool,
+    pub has_false_positive_fixture: bool,
 }
 
 pub fn list_rule_catalog(filter: RuleCatalogFilter) -> RuleCatalogReport {
@@ -50,6 +64,7 @@ pub fn inspect_rule(rule_id: &str) -> Option<RuleCatalogItem> {
 
 impl From<&'static RuleMetadata> for RuleCatalogItem {
     fn from(rule: &'static RuleMetadata) -> Self {
+        let fixture_coverage = fixture_coverage_for_rule(rule.rule_id);
         Self {
             rule_id: rule.rule_id,
             title: rule.title,
@@ -63,6 +78,96 @@ impl From<&'static RuleMetadata> for RuleCatalogItem {
             description: rule.description,
             recommendation: rule.recommendation,
             false_positive_notes: rule.false_positive_notes,
+            semantic_source: rule.signal_source.label(),
+            required_scope: required_scope(rule.signal_source),
+            false_positive_risk: false_positive_risk(rule),
+            stability_gate_status: stability_gate_status(rule, &fixture_coverage),
+            fixture_coverage,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct FixtureExpectations {
+    fixtures: Vec<FixtureCase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FixtureCase {
+    expected_rule_ids: Vec<String>,
+}
+
+fn fixture_coverage_for_rule(rule_id: &str) -> RuleFixtureCoverage {
+    let expected_path = default_fixture_root().join(rule_id).join("expected.json");
+    let Ok(content) = std::fs::read_to_string(expected_path) else {
+        return RuleFixtureCoverage::default();
+    };
+    let Ok(expectations) = serde_json::from_str::<FixtureExpectations>(&content) else {
+        return RuleFixtureCoverage::default();
+    };
+
+    let mut coverage = RuleFixtureCoverage {
+        fixtures_total: expectations.fixtures.len(),
+        ..RuleFixtureCoverage::default()
+    };
+
+    for fixture in expectations.fixtures {
+        let expects_rule = fixture
+            .expected_rule_ids
+            .iter()
+            .any(|expected_rule| expected_rule == rule_id);
+        coverage.has_true_positive_fixture |= expects_rule;
+        coverage.has_false_positive_fixture |= !expects_rule;
+    }
+
+    coverage
+}
+
+fn required_scope(source: SignalSource) -> &'static str {
+    match source {
+        SignalSource::ImportGraph => "repository-graph",
+        SignalSource::FrameworkDetector => "project-framework",
+        SignalSource::DependencyManifest | SignalSource::ConfigFile => "project-file",
+        SignalSource::GitDiff => "git-diff",
+        SignalSource::Mixed => "mixed",
+        SignalSource::TextHeuristic | SignalSource::Ast => "file-content",
+    }
+}
+
+fn false_positive_risk(rule: &RuleMetadata) -> &'static str {
+    if rule.default_confidence == crate::findings::types::Confidence::Low {
+        return "high";
+    }
+
+    match (rule.lifecycle, rule.signal_source) {
+        (RuleLifecycle::Stable, SignalSource::ImportGraph | SignalSource::DependencyManifest) => {
+            "low"
+        }
+        (RuleLifecycle::Stable, _) => "medium",
+        (RuleLifecycle::Preview, SignalSource::TextHeuristic | SignalSource::Mixed) => "medium",
+        (RuleLifecycle::Experimental, _) => "high",
+        _ => "medium",
+    }
+}
+
+fn stability_gate_status(
+    rule: &RuleMetadata,
+    fixture_coverage: &RuleFixtureCoverage,
+) -> &'static str {
+    let requires_gate = rule.lifecycle == RuleLifecycle::Stable
+        || rule.default_severity >= crate::findings::types::Severity::High;
+
+    if !requires_gate {
+        return "not-required";
+    }
+
+    if fixture_coverage.has_true_positive_fixture && fixture_coverage.has_false_positive_fixture {
+        "fixture-covered"
+    } else {
+        "blocked-needs-true-and-false-positive-fixtures"
+    }
+}
+
+fn default_fixture_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rules")
 }

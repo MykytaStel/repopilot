@@ -10,7 +10,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "Rust panic-style operations such as unwrap(), expect(), panic!, todo!, and unimplemented! can be risky in reusable production code. Their severity depends on whether the code is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
@@ -25,7 +25,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "Go panic and process-exit operations can terminate the program abruptly. Their risk depends on whether the file is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
@@ -40,7 +40,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "Broad exception handlers, production asserts, and NotImplementedError placeholders can hide failures or ship incomplete behaviour. Their severity depends on test, script, and domain context.",
         recommendation: Some(
@@ -55,7 +55,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "Process exits and generic thrown errors have different risk at a CLI boundary than in reusable browser, Node, or package code.",
         recommendation: Some(
@@ -70,7 +70,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
         description: "Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C# domain/library code can become runtime failures that callers cannot handle precisely.",
         recommendation: Some(

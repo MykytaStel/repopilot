@@ -11,15 +11,15 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.15:
+JSON scan reports include explicit schema metadata. The current schema is 0.17:
 
 ```json
 {
-  "schema_version": "0.15",
+  "schema_version": "0.17",
   "repopilot_version": "0.13.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.15",
+    "schema_version": "0.17",
     "repopilot_version": "0.13.0"
   },
   "root_path": ".",
@@ -28,12 +28,29 @@ JSON scan reports include explicit schema metadata. The current schema is 0.15:
   "non_empty_lines": 3200,
   "languages": [],
   "risk_summary": {
-    "total": 0,
-    "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 },
-    "average_score": 0
+    "total": 3,
+    "counts": { "p0": 0, "p1": 1, "p2": 2, "p3": 0 },
+    "average_score": 58
+  },
+  "raw_findings_count": 12,
+  "visible_findings_count": 3,
+  "hidden_suggestions_count": 9,
+  "raw_signal_quality": {
+    "findings_total": 12,
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "visible_signal_quality": {
+    "findings_total": 3,
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
   },
   "signal_quality": {
-    "findings_total": 0,
+    "findings_total": 3,
     "evidence_coverage_percent": 100,
     "recommendation_coverage_percent": 100,
     "docs_coverage_for_high_risk_percent": 100,
@@ -61,7 +78,12 @@ JSON scan reports include explicit schema metadata. The current schema is 0.15:
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
-| `signal_quality` | object | Aggregate confidence, lifecycle, source, coverage, and finding-contract warning metrics. |
+| `raw_findings_count` | number | Findings before the default visibility profile hides strict-only suggestions. |
+| `visible_findings_count` | number | Findings rendered in the current report after visibility, feedback, and explicit filters. |
+| `hidden_suggestions_count` | number | Findings hidden by the default profile but available through `--profile strict`. |
+| `raw_signal_quality` | object | Aggregate confidence, lifecycle, source, coverage, and contract metrics before visibility filtering. |
+| `visible_signal_quality` | object | Aggregate quality for findings visible in this report. |
+| `signal_quality` | object | Compatibility alias for `visible_signal_quality`. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
 | `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, `contract_validation_us`, and `report_finalization_us`. |
 | `local_feedback` | object | Optional summary of `.repopilot/feedback.yml` suppressions applied during this scan or review. |
@@ -98,6 +120,10 @@ Schema `0.15` adds finding provenance, typed risk signal sources, `risk-v3`,
 finding-contract diagnostics, and `signal_quality` metrics. This is part of the
 0.13.0 breaking cleanup release.
 
+Schema `0.16` adds context graph report and cache diagnostics. Schema `0.17`
+adds raw-vs-visible finding and signal-quality metrics so default-profile
+reports do not look clean when meaningful strict-only findings were hidden.
+
 ## Baseline JSON reports
 
 When a scan is rendered with a baseline, the JSON report also includes the same
@@ -114,11 +140,11 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.15",
+  "schema_version": "0.17",
   "repopilot_version": "0.13.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.15",
+    "schema_version": "0.17",
     "repopilot_version": "0.13.0"
   },
   "root_path": ".",

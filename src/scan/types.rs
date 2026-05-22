@@ -61,6 +61,8 @@ pub struct ScanSummary {
     #[serde(default)]
     pub health_score: u8,
     #[serde(default)]
+    pub raw_findings_count: usize,
+    #[serde(default)]
     pub visible_findings_count: usize,
     #[serde(default)]
     pub hidden_suggestions_count: usize,
@@ -88,6 +90,12 @@ pub struct ScanSummary {
 
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<ScanDiagnostic>,
+
+    #[serde(default)]
+    pub raw_signal_quality: SignalQualitySummary,
+
+    #[serde(default)]
+    pub visible_signal_quality: SignalQualitySummary,
 
     #[serde(default)]
     pub signal_quality: SignalQualitySummary,
@@ -123,6 +131,7 @@ impl Default for ScanSummary {
             context_graph_cache: None,
             scan_duration_us: 0,
             health_score: 0,
+            raw_findings_count: 0,
             visible_findings_count: 0,
             hidden_suggestions_count: 0,
             hidden_suggestions: Vec::new(),
@@ -134,6 +143,8 @@ impl Default for ScanSummary {
             cache_telemetry: None,
             local_feedback: None,
             diagnostics: Vec::new(),
+            raw_signal_quality: SignalQualitySummary::default(),
+            visible_signal_quality: SignalQualitySummary::default(),
             signal_quality: SignalQualitySummary::default(),
         }
     }

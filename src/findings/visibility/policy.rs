@@ -24,10 +24,7 @@ pub fn classify_visibility(finding: &Finding) -> FindingVisibilityDecision {
         FindingIntent::SecurityRisk => security_visibility(finding),
         FindingIntent::RuntimeRisk => runtime_visibility(finding),
         FindingIntent::ActionableRisk => actionable_visibility(finding),
-        FindingIntent::Maintainability => FindingVisibilityDecision::hidden(
-            intent,
-            "maintainability signals are hidden in the default profile",
-        ),
+        FindingIntent::Maintainability => maintainability_visibility(finding),
         FindingIntent::TestingGap => FindingVisibilityDecision::hidden(
             intent,
             "testing gaps are hidden in the default profile",
@@ -82,6 +79,16 @@ fn runtime_visibility(finding: &Finding) -> FindingVisibilityDecision {
 }
 
 fn actionable_visibility(finding: &Finding) -> FindingVisibilityDecision {
+    if is_import_graph_rule(&finding.rule_id)
+        && finding.risk.priority.is_at_least(RiskPriority::P2)
+        && finding.confidence != Confidence::Low
+    {
+        return FindingVisibilityDecision::visible(
+            FindingIntent::ActionableRisk,
+            "stable import-graph architecture risk",
+        );
+    }
+
     if is_high_priority(finding.risk.priority) {
         return FindingVisibilityDecision::visible(
             FindingIntent::ActionableRisk,
@@ -102,6 +109,20 @@ fn actionable_visibility(finding: &Finding) -> FindingVisibilityDecision {
     )
 }
 
+fn maintainability_visibility(finding: &Finding) -> FindingVisibilityDecision {
+    if is_high_priority(finding.risk.priority) && finding.confidence != Confidence::Low {
+        return FindingVisibilityDecision::visible(
+            FindingIntent::Maintainability,
+            "high-priority maintainability risk",
+        );
+    }
+
+    FindingVisibilityDecision::hidden(
+        FindingIntent::Maintainability,
+        "maintainability signal is below the default priority threshold",
+    )
+}
+
 fn classify_intent(finding: &Finding) -> FindingIntent {
     if finding.category == FindingCategory::Testing {
         return FindingIntent::TestingGap;
@@ -113,6 +134,10 @@ fn classify_intent(finding: &Finding) -> FindingIntent {
 
     if is_runtime_rule(&finding.rule_id) {
         return FindingIntent::RuntimeRisk;
+    }
+
+    if is_import_graph_rule(&finding.rule_id) {
+        return FindingIntent::ActionableRisk;
     }
 
     if is_maintainability_rule(&finding.rule_id) {
@@ -151,6 +176,15 @@ fn is_maintainability_rule(rule_id: &str) -> bool {
             | "code-quality.long-function"
             | "code-quality.complex-file"
             | "code-quality.cyclomatic-complexity"
+    )
+}
+
+fn is_import_graph_rule(rule_id: &str) -> bool {
+    matches!(
+        rule_id,
+        "architecture.circular-dependency"
+            | "architecture.excessive-fan-out"
+            | "architecture.high-instability-hub"
     )
 }
 

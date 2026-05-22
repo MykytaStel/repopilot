@@ -126,6 +126,52 @@ fn default_scan_hides_large_file_and_long_function_threshold_findings() {
 }
 
 #[test]
+fn default_scan_surfaces_stable_import_graph_risks_and_reports_raw_metrics() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("repopilot.toml"),
+        "[architecture]\nmax_fan_out = 2\ninstability_hub_min_fan_in = 999\n",
+    );
+    write(
+        root.join("src/app.ts"),
+        r#"
+        import { b } from "./b";
+        import { c } from "./c";
+        import { d } from "./d";
+
+        export function app() { return b() + c() + d(); }
+        "#,
+    );
+    write(root.join("src/b.ts"), "export function b() { return 1; }\n");
+    write(root.join("src/c.ts"), "export function c() { return 1; }\n");
+    write(root.join("src/d.ts"), "export function d() { return 1; }\n");
+    write(root.join("src/leaf_test.ts"), "test('leaf', () => {});\n");
+
+    let default = scan_json(root, &[]);
+
+    assert_rule_present(&default, "architecture.excessive-fan-out");
+    assert!(
+        default["raw_findings_count"].as_u64().unwrap_or(0)
+            >= default["visible_findings_count"].as_u64().unwrap_or(0),
+        "raw count should preserve findings before default visibility filtering: {default:#?}"
+    );
+    assert_eq!(
+        default["signal_quality"], default["visible_signal_quality"],
+        "legacy signal_quality should remain the visible/report quality alias"
+    );
+    assert!(
+        default["raw_signal_quality"]["findings_total"]
+            .as_u64()
+            .unwrap_or(0)
+            >= default["visible_signal_quality"]["findings_total"]
+                .as_u64()
+                .unwrap_or(0),
+        "raw quality should include hidden strict-only suggestions: {default:#?}"
+    );
+}
+
+#[test]
 fn verbose_does_not_change_default_visibility() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();

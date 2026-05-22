@@ -46,11 +46,12 @@ fn render_catalog_console(report: &RuleCatalogReport) -> String {
     for rule in &report.rules {
         writeln!(
             output,
-            "{} [{} {} {}]\n  {}",
+            "{} [{} {} {} {}]\n  {}",
             rule.rule_id,
             rule.severity,
             rule.lifecycle.label(),
             rule.signal_source.label(),
+            rule.stability_gate_status,
             rule.title
         )
         .unwrap();
@@ -61,19 +62,22 @@ fn render_catalog_console(report: &RuleCatalogReport) -> String {
 fn render_catalog_markdown(report: &RuleCatalogReport) -> String {
     let mut output = String::new();
     output.push_str("# RepoPilot Rules\n\n");
-    output.push_str("| Rule | Title | Category | Severity | Confidence | Lifecycle | Source |\n");
-    output.push_str("| --- | --- | --- | --- | --- | --- | --- |\n");
+    output.push_str(
+        "| Rule | Title | Category | Severity | Confidence | Lifecycle | Source | Quality gate |\n",
+    );
+    output.push_str("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
     for rule in &report.rules {
         writeln!(
             output,
-            "| `{}` | {} | {} | {} | {} | {} | {} |",
+            "| `{}` | {} | {} | {} | {} | {} | {} | {} |",
             rule.rule_id,
             escape_table_cell(rule.title),
             rule.category,
             rule.severity,
             rule.confidence,
             rule.lifecycle.label(),
-            rule.signal_source.label()
+            rule.signal_source.label(),
+            rule.stability_gate_status
         )
         .unwrap();
     }
@@ -82,7 +86,7 @@ fn render_catalog_markdown(report: &RuleCatalogReport) -> String {
 
 fn render_rule_console(rule: &RuleCatalogItem) -> String {
     format!(
-        "RepoPilot Rule\n\nRule: {}\nTitle: {}\nCategory: {}\nSeverity: {}\nConfidence: {}\nLifecycle: {}\nSignal source: {}\nDocs: {}\nTags: {}\nDescription: {}\nRecommendation: {}\nFalse positives: {}\n",
+        "RepoPilot Rule\n\nRule: {}\nTitle: {}\nCategory: {}\nSeverity: {}\nConfidence: {}\nLifecycle: {}\nSignal source: {}\nSemantic source: {}\nRequired scope: {}\nFixture coverage: {} fixture(s), true-positive {}, false-positive {}\nFalse-positive risk: {}\nStability gate: {}\nDocs: {}\nTags: {}\nDescription: {}\nRecommendation: {}\nFalse positives: {}\n",
         rule.rule_id,
         rule.title,
         rule.category,
@@ -90,6 +94,13 @@ fn render_rule_console(rule: &RuleCatalogItem) -> String {
         rule.confidence,
         rule.lifecycle.label(),
         rule.signal_source.label(),
+        rule.semantic_source,
+        rule.required_scope,
+        rule.fixture_coverage.fixtures_total,
+        rule.fixture_coverage.has_true_positive_fixture,
+        rule.fixture_coverage.has_false_positive_fixture,
+        rule.false_positive_risk,
+        rule.stability_gate_status,
         rule.docs_url.unwrap_or("none"),
         if rule.tags.is_empty() {
             "none".to_string()
@@ -104,7 +115,7 @@ fn render_rule_console(rule: &RuleCatalogItem) -> String {
 
 fn render_rule_markdown(rule: &RuleCatalogItem) -> String {
     format!(
-        "# `{}`\n\n- **Title:** {}\n- **Category:** {}\n- **Severity:** {}\n- **Confidence:** {}\n- **Lifecycle:** {}\n- **Signal source:** {}\n- **Docs:** {}\n- **Tags:** {}\n\n{}\n\n**Recommendation:** {}\n\n**False-positive notes:** {}\n",
+        "# `{}`\n\n- **Title:** {}\n- **Category:** {}\n- **Severity:** {}\n- **Confidence:** {}\n- **Lifecycle:** {}\n- **Signal source:** {}\n- **Semantic source:** {}\n- **Required scope:** {}\n- **Fixture coverage:** {} fixture(s), true-positive {}, false-positive {}\n- **False-positive risk:** {}\n- **Stability gate:** {}\n- **Docs:** {}\n- **Tags:** {}\n\n{}\n\n**Recommendation:** {}\n\n**False-positive notes:** {}\n",
         rule.rule_id,
         rule.title,
         rule.category,
@@ -112,6 +123,13 @@ fn render_rule_markdown(rule: &RuleCatalogItem) -> String {
         rule.confidence,
         rule.lifecycle.label(),
         rule.signal_source.label(),
+        rule.semantic_source,
+        rule.required_scope,
+        rule.fixture_coverage.fixtures_total,
+        rule.fixture_coverage.has_true_positive_fixture,
+        rule.fixture_coverage.has_false_positive_fixture,
+        rule.false_positive_risk,
+        rule.stability_gate_status,
         rule.docs_url.unwrap_or("none"),
         if rule.tags.is_empty() {
             "none".to_string()
