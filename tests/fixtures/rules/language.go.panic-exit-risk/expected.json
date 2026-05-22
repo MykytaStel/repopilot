@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "language.go.panic-exit-risk",
+        "language.go.panic-exit-risk",
+        "language.go.panic-exit-risk"
+      ]
+    }
+  ]
+}

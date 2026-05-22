@@ -4,6 +4,9 @@ use crate::audits::context::{AuditContext, FileRole, RuntimeKind};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::scan::facts::FileFacts;
 
+const RUST_ERROR_HANDLING_DOCS_URL: &str =
+    "https://doc.rust-lang.org/book/ch09-00-error-handling.html";
+
 pub(super) fn build_finding(
     file: &FileFacts,
     line_number: usize,
@@ -39,7 +42,7 @@ pub(super) fn build_finding(
             snippet: snippet.to_string(),
         }],
         workspace_package: None,
-        docs_url: None,
+        docs_url: Some(RUST_ERROR_HANDLING_DOCS_URL.to_string()),
         provenance: Default::default(),
         risk: Default::default(),
     }
