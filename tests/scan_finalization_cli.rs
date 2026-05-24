@@ -19,8 +19,11 @@ fn fixture_project() -> TempDir {
         "pub mod domain;\npub fn answer() -> i32 { domain::value() }\n",
     )
     .expect("write lib source");
-    fs::write(dir.path().join("src/domain.rs"), "pub fn value() -> i32 { 42 }\n")
-        .expect("write domain source");
+    fs::write(
+        dir.path().join("src/domain.rs"),
+        "pub fn value() -> i32 { 42 }\n",
+    )
+    .expect("write domain source");
     dir
 }
 

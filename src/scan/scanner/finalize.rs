@@ -49,7 +49,9 @@ impl<'a> ScanEngine<'a> {
     }
 }
 
-fn prepare_findings_and_context_graph(project_stage: &mut ProjectAnalysisStage) -> RepoContextGraph {
+fn prepare_findings_and_context_graph(
+    project_stage: &mut ProjectAnalysisStage,
+) -> RepoContextGraph {
     summary::sort_findings(&mut project_stage.findings);
 
     RepoContextGraph::from_scan_facts(

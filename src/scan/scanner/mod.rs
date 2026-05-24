@@ -19,7 +19,7 @@ use crate::frameworks::{
 use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
-use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
+use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
@@ -112,7 +112,6 @@ impl<'a> ScanEngine<'a> {
             signal_quality,
         ))
     }
-
 
     fn run_discovery(&self) -> io::Result<DiscoveryStage> {
         let start = Instant::now();
