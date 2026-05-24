@@ -4,6 +4,7 @@ mod changed_git;
 mod changed_telemetry;
 mod collection;
 mod file;
+mod finalize;
 mod summary;
 mod walker;
 
@@ -15,17 +16,13 @@ use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
 };
-use crate::graph::context::{
-    RepoContextGraph, cache_diagnostic, summarize_context_graph, write_repo_context_graph,
-};
 use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
-use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
+use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
-use summary::{ScanSummaryParts, build_scan_summary};
 
 pub use changed::scan_changed_with_config;
 pub use collection::{collect_scan_facts, collect_scan_facts_with_config};
@@ -114,58 +111,6 @@ impl<'a> ScanEngine<'a> {
             contract_stage.diagnostics,
             signal_quality,
         ))
-    }
-
-    fn finalize_report(
-        &self,
-        mut project_stage: ProjectAnalysisStage,
-        scan_duration_us: u64,
-        timings: ScanTimings,
-        mut diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
-        signal_quality: crate::findings::quality::SignalQualitySummary,
-    ) -> ScanSummary {
-        let finalization_start = Instant::now();
-        summary::sort_findings(&mut project_stage.findings);
-        let context_graph = RepoContextGraph::from_scan_facts(
-            &project_stage.facts,
-            &project_stage.facts.root_path,
-            project_stage.coupling_graph.clone(),
-        );
-        let context_graph_summary =
-            summarize_context_graph(&context_graph, &project_stage.findings, &[]);
-        let context_graph_cache = match write_repo_context_graph(
-            &project_stage.facts.root_path,
-            self.config,
-            &context_graph,
-        ) {
-            Ok(cache_info) => Some(cache_info),
-            Err(error) => {
-                diagnostics.push(cache_diagnostic(&error));
-                None
-            }
-        };
-        let mut summary = build_scan_summary(
-            project_stage.facts,
-            project_stage.findings,
-            ScanSummaryParts {
-                mode: ScanMode::Full,
-                base_ref: None,
-                changed_files_count: 0,
-                repo_level_rules_included: true,
-                coupling_graph: Some(project_stage.coupling_graph),
-                scan_duration_us,
-                scan_timings: Some(timings),
-                cache_telemetry: None,
-                diagnostics,
-                signal_quality,
-                context_graph_summary: Some(context_graph_summary),
-                context_graph_cache,
-            },
-        );
-        if let Some(timings) = &mut summary.scan_timings {
-            timings.report_finalization_us = finalization_start.elapsed().as_micros() as u64;
-        }
-        summary
     }
 
     fn run_discovery(&self) -> io::Result<DiscoveryStage> {
