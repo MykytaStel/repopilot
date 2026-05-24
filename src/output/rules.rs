@@ -144,7 +144,7 @@ fn render_rule_markdown(rule: &RuleCatalogItem) -> String {
 
 fn render_eval_report_console(report: &RuleEvaluationReport) -> String {
     format!(
-        "RepoPilot Rule Evaluation\n\nRules evaluated: {}\nFixtures: {}\nExpected findings: {}\nActual findings: {}\nMissing findings: {}\nUnexpected findings: {}\nContract violations: {}\nStable ID failures: {}\n",
+        "RepoPilot Rule Evaluation\n\nRules evaluated: {}\nFixtures: {}\nExpected findings: {}\nActual findings: {}\nMissing findings: {}\nUnexpected findings: {}\nContract violations: {}\nStable ID failures: {}\nQuality gate failures: {}\n",
         report.rules_evaluated,
         report.fixtures_total,
         report.expected_findings,
@@ -153,6 +153,7 @@ fn render_eval_report_console(report: &RuleEvaluationReport) -> String {
         report.unexpected_findings,
         report.contract_violations,
         report.stable_id_failures,
+        report.quality_gate_failures,
     )
 }
 
@@ -192,22 +193,33 @@ fn render_eval_report_markdown(report: &RuleEvaluationReport) -> String {
         report.stable_id_failures
     )
     .unwrap();
+    writeln!(
+        output,
+        "- **Quality gate failures:** {}\n",
+        report.quality_gate_failures
+    )
+    .unwrap();
 
     if !report.rules.is_empty() {
-        output.push_str("| Rule | Fixtures | Expected | Actual | Missing | Unexpected | Contract | Stable IDs |\n");
-        output.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+        output.push_str("| Rule | TP fixture | FP fixture | Fixtures | Expected | Actual | Missing | Unexpected | Contract | Stable IDs | Gate failures |\n");
+        output.push_str(
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n",
+        );
         for rule in &report.rules {
             writeln!(
                 output,
-                "| `{}` | {} | {} | {} | {} | {} | {} | {} |",
+                "| `{}` | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
                 escape_table_cell(&rule.rule_id),
+                rule.has_true_positive_fixture,
+                rule.has_false_positive_fixture,
                 rule.fixtures_total,
                 rule.expected_findings,
                 rule.actual_findings,
                 rule.missing_findings,
                 rule.unexpected_findings,
                 rule.contract_violations,
-                rule.stable_id_failures
+                rule.stable_id_failures,
+                rule.quality_gate_failures
             )
             .unwrap();
         }

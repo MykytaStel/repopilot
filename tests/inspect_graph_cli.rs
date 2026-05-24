@@ -107,7 +107,7 @@ fn inspect_graph_cache_rebuilds_when_import_changes() {
 
     fs::write(
         temp.path().join("src/lib.rs"),
-        "mod b;\npub fn lib() { b::b(); }\n",
+        "use crate::b;\npub fn lib() { b::b(); }\n",
     )
     .expect("rewrite lib");
 
@@ -164,7 +164,7 @@ fn write_graph_fixture(root: &Path) {
     fs::create_dir_all(root.join("src")).expect("create src");
     fs::write(
         root.join("src/lib.rs"),
-        "mod a;\npub fn lib() { a::a(); }\n",
+        "use crate::a;\npub fn lib() { a::a(); }\n",
     )
     .expect("write lib");
     fs::write(root.join("src/a.rs"), "pub fn a() {}\n").expect("write a");

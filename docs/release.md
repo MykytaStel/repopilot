@@ -11,16 +11,21 @@ Update:
 - `package.json` version
 - `CHANGELOG.md`
 - `README.md` if user-facing behavior changed
-- release checklist for the target version, for example `docs/release-checklist-0.10.md`
+- archived release checklist for the target version when one exists, for example
+  `docs/archive/release-checklist-0.13.md`
 
 Use the current date for the release entry in `CHANGELOG.md`.
 
 ## 2. Verify locally
 
 ```bash
-cargo fmt --check
+cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
+npm run test:npm
+./scripts/smoke-product.sh
+repopilot inspect eval-rules --format json
+repopilot scan .
 cargo audit
 cargo deny check advisories licenses
 cargo package --list
@@ -31,7 +36,6 @@ mapfile -d '' shell_scripts < <({ [[ -f install.sh ]] && printf '%s\0' install.s
 ((${#shell_scripts[@]} == 0)) || shellcheck "${shell_scripts[@]}"
 mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
 ((${#workflows[@]} == 0)) || actionlint "${workflows[@]}"
-npm test
 npm pack --dry-run
 ```
 
@@ -44,7 +48,7 @@ node scripts/build-npm-platform-packages.js --dist dist --out /tmp/repopilot-npm
 ```
 
 Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
-For a version-specific gate list, use the current release checklist in `docs/release-checklist-*.md`.
+For older version-specific gate lists, use `docs/archive/release-checklist-*.md`.
 The product smoke suite validates the adoption flow, including receipt generation.
 
 ## npm Trusted Publishing setup

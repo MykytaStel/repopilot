@@ -46,13 +46,15 @@ The default profile keeps findings that are useful for normal development and CI
 
 - high-confidence security risks
 - high-severity runtime risks outside script/tooling boundaries
-- high-priority actionable risks
+- import-graph risks with concrete repository evidence
+- high-priority actionable risks outside broad maintainability heuristics
 - high-severity/high-confidence release risks
 
 It hides:
 
 - testing gaps
 - maintainability suggestions
+- TODO/FIXME/HACK, long-function, and complex-file heuristics
 - low-severity informational findings
 - process exits in scripts/tools/CI guard files
 

@@ -13,8 +13,15 @@ use repopilot::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
 // fixture evaluation across real fixture projects.
 
 const SECURITY_RULES_WITH_013_FIXTURES: &[&str] = &[
+    "security.env-file-committed",
     "security.secret-candidate",
     "security.private-key-candidate",
+];
+
+const IMPORT_GRAPH_RULES_WITH_013_FIXTURES: &[&str] = &[
+    "architecture.circular-dependency",
+    "architecture.excessive-fan-out",
+    "architecture.high-instability-hub",
 ];
 
 const RUNTIME_RULES_WITH_013_FIXTURES: &[&str] = &[
@@ -31,6 +38,22 @@ fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     let fixture_root = rule_fixture_root();
 
     for rule_id in SECURITY_RULES_WITH_013_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_import_graph_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in IMPORT_GRAPH_RULES_WITH_013_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 
@@ -88,6 +111,14 @@ fn assert_rule_fixture_coverage_is_clean(rule_id: &str, rule_report: &RuleEvalua
         rule_report.fixtures_total >= 2,
         "expected true-positive and false-positive fixtures for {rule_id}: {rule_report:#?}"
     );
+    assert!(
+        rule_report.has_true_positive_fixture,
+        "expected true-positive fixture for {rule_id}: {rule_report:#?}"
+    );
+    assert!(
+        rule_report.has_false_positive_fixture,
+        "expected false-positive fixture for {rule_id}: {rule_report:#?}"
+    );
     assert_eq!(
         rule_report.missing_findings, 0,
         "fixture is missing expected findings for {rule_id}: {rule_report:#?}"
@@ -103,5 +134,9 @@ fn assert_rule_fixture_coverage_is_clean(rule_id: &str, rule_report: &RuleEvalua
     assert_eq!(
         rule_report.stable_id_failures, 0,
         "fixture produced unstable/duplicate finding IDs for {rule_id}: {rule_report:#?}"
+    );
+    assert_eq!(
+        rule_report.quality_gate_failures, 0,
+        "fixture failed the rule quality gate for {rule_id}: {rule_report:#?}"
     );
 }

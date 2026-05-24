@@ -213,7 +213,7 @@ fn self_audit_stays_clean_at_high_severity() {
     assert_eq!(p0, 0, "self-audit should not produce P0 findings");
     assert!(
         p1 <= 1,
-        "self-audit should only expose the known high-priority maintainability risk by default, got {p1}"
+        "self-audit should keep default-visible P1 findings within the product signal budget, got {p1}"
     );
     assert!(
         p2 <= 135,

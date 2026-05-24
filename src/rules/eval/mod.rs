@@ -12,12 +12,15 @@ pub struct RuleEvaluationReport {
     pub unexpected_findings: usize,
     pub contract_violations: usize,
     pub stable_id_failures: usize,
+    pub quality_gate_failures: usize,
     pub rules: Vec<RuleEvaluationRuleReport>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, PartialEq, Eq)]
 pub struct RuleEvaluationRuleReport {
     pub rule_id: String,
+    pub has_true_positive_fixture: bool,
+    pub has_false_positive_fixture: bool,
     pub fixtures_total: usize,
     pub expected_findings: usize,
     pub actual_findings: usize,
@@ -25,6 +28,7 @@ pub struct RuleEvaluationRuleReport {
     pub unexpected_findings: usize,
     pub contract_violations: usize,
     pub stable_id_failures: usize,
+    pub quality_gate_failures: usize,
 }
 
 impl RuleEvaluationReport {
@@ -36,6 +40,7 @@ impl RuleEvaluationReport {
         self.unexpected_findings += rule.unexpected_findings;
         self.contract_violations += rule.contract_violations;
         self.stable_id_failures += rule.stable_id_failures;
+        self.quality_gate_failures += rule.quality_gate_failures;
         self.rules.push(rule);
         self.rules_evaluated = self.rules.len();
     }

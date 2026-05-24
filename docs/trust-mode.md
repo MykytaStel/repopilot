@@ -19,9 +19,9 @@ repopilot scan . --profile strict
 repopilot scan . --include-maintainability
 ```
 
-`default` is optimized for day-to-day development and CI review. It hides noisy
-maintainability and testing suggestions unless they are promoted into a higher
-impact class.
+`default` is optimized for day-to-day development and CI review. It hides broad
+maintainability and testing heuristics by policy, including long-function,
+complex-file, TODO/FIXME/HACK, and testing-gap rules.
 
 `strict` preserves the full raw audit output. Use it for refactoring passes,
 codebase cleanup, rule development, and release-hardening audits.

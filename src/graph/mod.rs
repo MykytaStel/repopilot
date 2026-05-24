@@ -47,6 +47,10 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
+            if is_rust_module_declaration_edge(raw) {
+                continue;
+            }
+
             if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files) {
                 if target != normalized_source {
                     outgoing.insert(
@@ -67,6 +71,9 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
     }
 
     CouplingGraph { edges, nodes }
+}
+fn is_rust_module_declaration_edge(raw_import: &str) -> bool {
+    raw_import.starts_with("mod::")
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
@@ -249,6 +256,13 @@ mod tests {
             edges: edge_map,
             nodes,
         }
+    }
+
+    #[test]
+    fn rust_module_declaration_edges_are_not_coupling_edges() {
+        assert!(is_rust_module_declaration_edge("mod::child"));
+        assert!(!is_rust_module_declaration_edge("crate::child"));
+        assert!(!is_rust_module_declaration_edge("./child"));
     }
 
     #[test]

@@ -110,6 +110,13 @@ fn actionable_visibility(finding: &Finding) -> FindingVisibilityDecision {
 }
 
 fn maintainability_visibility(finding: &Finding) -> FindingVisibilityDecision {
+    if is_strict_only_heuristic_rule(&finding.rule_id) {
+        return FindingVisibilityDecision::hidden(
+            FindingIntent::Maintainability,
+            "broad maintainability heuristics are strict-mode suggestions",
+        );
+    }
+
     if is_high_priority(finding.risk.priority) && finding.confidence != Confidence::Low {
         return FindingVisibilityDecision::visible(
             FindingIntent::Maintainability,
@@ -185,6 +192,25 @@ fn is_import_graph_rule(rule_id: &str) -> bool {
         "architecture.circular-dependency"
             | "architecture.excessive-fan-out"
             | "architecture.high-instability-hub"
+    )
+}
+
+fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
+    matches!(
+        rule_id,
+        "testing.source-without-test"
+            | "testing.missing-test-folder"
+            | "code-marker.todo"
+            | "code-marker.fixme"
+            | "code-marker.hack"
+            | "architecture.deep-nesting"
+            | "architecture.too-many-modules"
+            | "architecture.large-file"
+            | "architecture.barrel-file-risk"
+            | "architecture.deep-relative-imports"
+            | "code-quality.long-function"
+            | "code-quality.complex-file"
+            | "code-quality.cyclomatic-complexity"
     )
 }
 

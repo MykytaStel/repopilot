@@ -171,3 +171,47 @@ fn stability_gate_status(
 fn default_fixture_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/rules")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stable_rules_are_fixture_backed_and_metadata_complete() {
+        for rule in list_rule_catalog(RuleCatalogFilter {
+            lifecycle: Some(RuleLifecycle::Stable),
+            source: None,
+        })
+        .rules
+        {
+            assert!(
+                rule.fixture_coverage.has_true_positive_fixture,
+                "stable rule {} needs a true-positive fixture",
+                rule.rule_id
+            );
+            assert!(
+                rule.fixture_coverage.has_false_positive_fixture,
+                "stable rule {} needs a false-positive fixture",
+                rule.rule_id
+            );
+            assert_eq!(
+                rule.stability_gate_status, "fixture-covered",
+                "stable rule {} must pass the fixture gate",
+                rule.rule_id
+            );
+            assert!(
+                rule.false_positive_notes
+                    .is_some_and(|notes| !notes.trim().is_empty()),
+                "stable rule {} needs false-positive notes",
+                rule.rule_id
+            );
+            if matches!(rule.severity.as_str(), "HIGH" | "CRITICAL") {
+                assert!(
+                    rule.docs_url.is_some(),
+                    "stable high/critical rule {} needs docs URL",
+                    rule.rule_id
+                );
+            }
+        }
+    }
+}

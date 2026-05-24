@@ -10,7 +10,7 @@ Lifecycle values:
 |---|---|
 | `experimental` | Broad or noisy heuristic. Useful signal, but not a stable product contract. |
 | `preview` | Supported rule that is still being calibrated through fixtures and feedback. |
-| `stable` | High-confidence rule with clear evidence, recommendation, and regression coverage. |
+| `stable` | Fixture-backed rule with clear evidence, recommendation, false-positive notes, and clean local evaluation. |
 | `deprecated` | Rule kept temporarily for compatibility while a replacement exists or behavior is removed. |
 
 Signal source values:
@@ -39,7 +39,8 @@ repopilot inspect eval-rules --format json
 
 `inspect eval-rules --format json` includes aggregate counts and per-rule
 fixture details, including expected findings, actual findings, missing findings,
-unexpected findings, contract violations, and stable-id failures.
+unexpected findings, contract violations, stable-id failures, fixture coverage,
+and quality-gate failures.
 
 Rule lifecycle does not enable telemetry, hosted scanning, remote model calls, or
 arbitrary plugin execution. It is local metadata used for reports, provenance,

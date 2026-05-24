@@ -1,6 +1,7 @@
 # Rule quality gate
 
-RepoPilot rules should move through a lifecycle before they become stable or default-visible.
+RepoPilot rules should move through a lifecycle before they become stable or
+default-visible.
 
 ## Lifecycle
 
@@ -8,19 +9,27 @@ RepoPilot rules should move through a lifecycle before they become stable or def
 experimental -> preview -> stable
 ```
 
-A rule can be experimental while the detector is useful but still noisy. A preview rule can appear in strict/profile-driven scans when it has useful evidence but incomplete fixture coverage. A stable rule can be default-visible only when it passes the quality gate below.
+A rule can be experimental while the detector is useful but still noisy. A
+preview rule can appear in strict/profile-driven scans when it has useful
+evidence but incomplete fixture coverage. A rule can be stable only when it
+passes the quality gate below.
 
 ## Stable/default-visible gate
 
-A rule should not be stable and default-visible unless it has:
+A rule should not be marked `stable` unless it has:
 
-- rule metadata: title, description, recommendation, lifecycle, confidence, false-positive notes;
+- rule metadata: title, description, recommendation, lifecycle, confidence, and
+  false-positive notes;
 - at least one true-positive fixture;
-- at least one false-positive fixture or a documented reason why that does not apply;
+- at least one false-positive fixture;
 - stable finding IDs and deterministic output;
 - evidence that points to a concrete file/line/scope;
 - docs URL for high/critical or P0/P1 findings;
 - clean contract validation in `repopilot inspect eval-rules --format json`.
+
+The local gate reports `has_true_positive_fixture`,
+`has_false_positive_fixture`, `contract_violations`, `stable_id_failures`, and
+`quality_gate_failures` for each evaluated rule.
 
 ## Default visibility policy
 
@@ -28,16 +37,20 @@ Default scans should prioritize:
 
 - security risks;
 - runtime risks;
-- high-confidence architecture/review risks;
+- import graph and review risks with concrete blast-radius evidence;
 - actionable findings that a maintainer can fix now.
 
 Strict scans may include:
 
 - long files/functions;
+- complex-file and broad code-quality heuristics;
 - testing gaps;
 - TODO/FIXME/HACK markers;
 - broad text heuristics;
 - experimental framework signals.
+
+Default scans should not be dominated by weak heuristics. If a broad heuristic
+cannot be made contextually precise, keep it strict-only or experimental.
 
 ## Heuristic rules
 
