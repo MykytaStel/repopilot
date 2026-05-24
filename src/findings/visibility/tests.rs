@@ -86,7 +86,7 @@ fn default_profile_hides_deep_relative_imports() {
 }
 
 #[test]
-fn default_profile_keeps_high_priority_maintainability_signals() {
+fn default_profile_hides_high_priority_broad_maintainability_heuristics() {
     let finding = finding_with_priority(
         "code-quality.long-function",
         FindingCategory::CodeQuality,
@@ -97,7 +97,7 @@ fn default_profile_keeps_high_priority_maintainability_signals() {
     let decision = classify_visibility(&finding);
 
     assert_eq!(decision.intent, FindingIntent::Maintainability);
-    assert!(decision.visible_by_default);
+    assert!(!decision.visible_by_default);
 }
 
 #[test]

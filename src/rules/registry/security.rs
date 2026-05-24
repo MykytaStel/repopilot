@@ -16,6 +16,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         recommendation: Some(
             "Add .env (and .env.*) to .gitignore, rotate any exposed credentials immediately, and use a secrets manager or CI environment variables instead.",
         ),
+        false_positive_notes: Some(
+            "Local example environment files should use sample names such as .env.example; committed .env variants are treated as sensitive by default.",
+        ),
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
@@ -33,6 +36,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         recommendation: Some(
             "Remove the key from the file immediately, rotate the key pair, and purge the git history using git-filter-repo or BFG Repo Cleaner.",
         ),
+        false_positive_notes: Some(
+            "Documentation examples and placeholder PEM blocks should live in docs or fixture paths and should not contain real key material.",
+        ),
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
@@ -49,6 +55,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         description: "A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access.",
         recommendation: Some(
             "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised.",
+        ),
+        false_positive_notes: Some(
+            "Public labels, documented variable names, and low-entropy placeholders should not trigger; entropy and context are both required.",
         ),
         ..RuleMetadata::DEFAULT
     },

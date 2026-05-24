@@ -1,6 +1,7 @@
 use crate::findings::contract::validate_findings_contract;
-use crate::findings::types::Finding;
+use crate::findings::types::{Finding, Severity};
 use crate::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
+use crate::rules::{RuleLifecycle, all_rule_metadata, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::scanner::scan_path_with_config;
 use serde::Deserialize;
@@ -39,23 +40,65 @@ pub fn evaluate_rule_fixtures(
         .into());
     }
 
+    let fixture_dirs = discover_rule_fixture_dirs(&fixture_root)?;
+    let rule_ids = rule_ids_to_evaluate(only_rule, &fixture_dirs);
+
     let mut report = RuleEvaluationReport::default();
-    let mut entries = fs::read_dir(&fixture_root)?.collect::<Result<Vec<_>, _>>()?;
-    entries.sort_by_key(|entry| entry.file_name());
+
+    for rule_id in rule_ids {
+        if let Some(rule_root) = fixture_dirs.get(&rule_id) {
+            report.add_rule(evaluate_one_rule_fixture(rule_root, &rule_id)?);
+        } else {
+            report.add_rule(evaluate_missing_rule_fixture(&rule_id));
+        }
+    }
+
+    Ok(report)
+}
+
+fn discover_rule_fixture_dirs(
+    fixture_root: &Path,
+) -> Result<BTreeMap<String, PathBuf>, Box<dyn std::error::Error>> {
+    let mut fixture_dirs = BTreeMap::new();
+    let entries = fs::read_dir(fixture_root)?.collect::<Result<Vec<_>, _>>()?;
 
     for entry in entries {
         if !entry.file_type()?.is_dir() {
             continue;
         }
-        let rule_id = entry.file_name().to_string_lossy().to_string();
-        if only_rule.is_some_and(|only_rule| only_rule != rule_id) {
-            continue;
-        }
-
-        report.add_rule(evaluate_one_rule_fixture(&entry.path(), &rule_id)?);
+        fixture_dirs.insert(
+            entry.file_name().to_string_lossy().to_string(),
+            entry.path(),
+        );
     }
 
-    Ok(report)
+    Ok(fixture_dirs)
+}
+
+fn rule_ids_to_evaluate(
+    only_rule: Option<&str>,
+    fixture_dirs: &BTreeMap<String, PathBuf>,
+) -> Vec<String> {
+    if let Some(rule_id) = only_rule {
+        return vec![rule_id.to_string()];
+    }
+
+    let mut rule_ids = fixture_dirs.keys().cloned().collect::<BTreeSet<_>>();
+    rule_ids.extend(
+        all_rule_metadata()
+            .filter(|rule| rule.lifecycle == RuleLifecycle::Stable)
+            .map(|rule| rule.rule_id.to_string()),
+    );
+    rule_ids.into_iter().collect()
+}
+
+fn evaluate_missing_rule_fixture(rule_id: &str) -> RuleEvaluationRuleReport {
+    let mut report = RuleEvaluationRuleReport {
+        rule_id: rule_id.to_string(),
+        ..RuleEvaluationRuleReport::default()
+    };
+    apply_rule_quality_gate(rule_id, &mut report);
+    report
 }
 
 fn evaluate_one_rule_fixture(
@@ -93,6 +136,11 @@ fn evaluate_one_rule_fixture(
             .cloned()
             .collect::<Vec<_>>();
 
+        if expected.is_empty() {
+            report.has_false_positive_fixture = true;
+        } else {
+            report.has_true_positive_fixture = true;
+        }
         report.fixtures_total += 1;
         report.expected_findings += expected.len();
         report.actual_findings += actual_rule_ids.len();
@@ -107,7 +155,51 @@ fn evaluate_one_rule_fixture(
         }
     }
 
+    apply_rule_quality_gate(rule_id, &mut report);
+
     Ok(report)
+}
+
+fn apply_rule_quality_gate(rule_id: &str, report: &mut RuleEvaluationRuleReport) {
+    let Some(metadata) = lookup_rule_metadata(rule_id) else {
+        return;
+    };
+
+    if metadata.lifecycle != RuleLifecycle::Stable {
+        return;
+    }
+
+    let mut failures = 0usize;
+
+    if !report.has_true_positive_fixture {
+        failures += 1;
+    }
+    if !report.has_false_positive_fixture {
+        failures += 1;
+    }
+    if report.missing_findings > 0 {
+        failures += 1;
+    }
+    if report.unexpected_findings > 0 {
+        failures += 1;
+    }
+    if report.contract_violations > 0 {
+        failures += 1;
+    }
+    if report.stable_id_failures > 0 {
+        failures += 1;
+    }
+    if metadata.default_severity >= Severity::High && metadata.docs_url.is_none() {
+        failures += 1;
+    }
+    if metadata
+        .false_positive_notes
+        .is_none_or(|notes| notes.trim().is_empty())
+    {
+        failures += 1;
+    }
+
+    report.quality_gate_failures = failures;
 }
 
 fn materialize_fixture_for_scan(path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {

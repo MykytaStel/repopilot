@@ -144,10 +144,13 @@ fn given_secret_rule_fixtures_when_eval_rules_runs_then_fixture_quality_is_repor
     assert_eq!(json["unexpected_findings"], 0);
     assert_eq!(json["contract_violations"], 0);
     assert_eq!(json["stable_id_failures"], 0);
+    assert_eq!(json["quality_gate_failures"], 0);
 
     let rules = json["rules"].as_array().expect("per-rule details");
     assert_eq!(rules.len(), 1);
     assert_eq!(rules[0]["rule_id"], SECRET_RULE_ID);
+    assert_eq!(rules[0]["has_true_positive_fixture"], true);
+    assert_eq!(rules[0]["has_false_positive_fixture"], true);
     assert_eq!(rules[0]["fixtures_total"], SECRET_RULE_FIXTURES_TOTAL);
     assert_eq!(rules[0]["expected_findings"], SECRET_RULE_EXPECTED_FINDINGS);
     assert_eq!(rules[0]["actual_findings"], SECRET_RULE_EXPECTED_FINDINGS);
@@ -155,4 +158,5 @@ fn given_secret_rule_fixtures_when_eval_rules_runs_then_fixture_quality_is_repor
     assert_eq!(rules[0]["unexpected_findings"], 0);
     assert_eq!(rules[0]["contract_violations"], 0);
     assert_eq!(rules[0]["stable_id_failures"], 0);
+    assert_eq!(rules[0]["quality_gate_failures"], 0);
 }

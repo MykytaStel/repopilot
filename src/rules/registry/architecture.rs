@@ -93,6 +93,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         recommendation: Some(
             "Extract the shared logic into a third module that both files can import without creating a cycle.",
         ),
+        false_positive_notes: Some(
+            "Generated, fixture, and test-only import cycles should stay out of default scans; production source cycles are treated as actionable.",
+        ),
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
@@ -103,10 +106,15 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ImportGraph,
-        docs_url: None,
+        docs_url: Some(
+            "https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture",
+        ),
         description: "This file depends on an unusually large number of other internal modules, making it a fragile integration point that breaks whenever any dependency changes.",
         recommendation: Some(
             "Introduce an abstraction layer or facade to reduce the number of direct imports. Consider splitting responsibilities across multiple files.",
+        ),
+        false_positive_notes: Some(
+            "Aggregator entrypoints can be acceptable when intentionally reviewed; default thresholds should be raised locally only after that decision.",
         ),
         ..RuleMetadata::DEFAULT
     },
@@ -124,6 +132,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         description: "This file is both widely imported (high fan-in) and depends on many other modules (high fan-out). Changes here ripple across the codebase with no stable upstream to absorb them.",
         recommendation: Some(
             "Separate the stable, widely-imported interface from the volatile implementation details to reduce coupling.",
+        ),
+        false_positive_notes: Some(
+            "Framework entrypoints and generated hubs can be expected; production modules with high fan-in and fan-out should be reviewed.",
         ),
         ..RuleMetadata::DEFAULT
     },
