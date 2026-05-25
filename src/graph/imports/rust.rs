@@ -43,10 +43,40 @@ fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
 }
 
 fn rust_mod_import(stmt: &str) -> Option<String> {
-    let effective = strip_rust_visibility(stmt.trim());
+    let effective = strip_rust_visibility(strip_rust_outer_attributes(stmt));
     let rest = effective.strip_prefix("mod ")?;
     let name = rest.trim().trim_end_matches(';').trim();
     (!name.is_empty() && !name.contains('{') && !name.contains(' ')).then(|| format!("mod::{name}"))
+}
+
+fn strip_rust_outer_attributes(mut s: &str) -> &str {
+    loop {
+        let trimmed = s.trim_start();
+        let Some(rest) = trimmed.strip_prefix("#[") else {
+            return trimmed;
+        };
+
+        let mut depth = 1usize;
+        let mut end = None;
+        for (index, ch) in rest.char_indices() {
+            match ch {
+                '[' => depth += 1,
+                ']' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        end = Some(index + ch.len_utf8());
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let Some(end) = end else {
+            return trimmed;
+        };
+        s = &rest[end..];
+    }
 }
 
 fn strip_rust_visibility(s: &str) -> &str {

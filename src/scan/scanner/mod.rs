@@ -25,6 +25,7 @@ use std::path::Path;
 use std::time::Instant;
 
 pub use changed::scan_changed_with_config;
+pub(crate) use collection::collect_scan_facts_without_content;
 pub use collection::{collect_scan_facts, collect_scan_facts_with_config};
 
 pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {

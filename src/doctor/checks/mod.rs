@@ -8,8 +8,13 @@ pub mod scope;
 
 use crate::baseline::reader::read_baseline;
 use crate::doctor::model::{DoctorProject, DoctorReport, DoctorScanScope};
+use crate::frameworks::{
+    DetectedFramework, detect_framework_projects, detect_frameworks,
+    detect_react_native_architecture,
+};
 use crate::scan::config::ScanConfig;
-use crate::scan::scanner::scan_path_with_config;
+use crate::scan::facts::ScanFacts;
+use crate::scan::scanner::collect_scan_facts_without_content;
 use std::io;
 use std::path::Path;
 
@@ -115,8 +120,8 @@ pub fn build_doctor_report(
     explicit_config_path: Option<&Path>,
     config: &ScanConfig,
 ) -> io::Result<DoctorReport> {
-    let summary = scan_path_with_config(path, config)?;
-    let root = summary.root_path.clone();
+    let facts = collect_doctor_facts(path, config)?;
+    let root = facts.root_path.clone();
 
     let config_path = explicit_config_path
         .filter(|path| path.is_file())
@@ -127,7 +132,7 @@ pub fn build_doctor_report(
     let baseline_path = root.join(BASELINE_FILE_PATH);
     let github_workflows_dir = root.join(".github").join("workflows");
 
-    let has_repopilotignore = summary.repopilotignore_path.is_some();
+    let has_repopilotignore = facts.repopilotignore_path.is_some();
     let has_baseline = baseline_path.is_file();
     let has_github_workflows = has_github_workflows(&github_workflows_dir);
     let has_ci_config = has_ci_config(&root, &github_workflows_dir);
@@ -138,28 +143,28 @@ pub fn build_doctor_report(
     let package_managers = detect_package_managers(&root);
 
     let project = DoctorProject {
-        languages: summary
+        languages: facts
             .languages
             .iter()
             .map(|language| language.name.clone())
             .collect(),
-        frameworks: summary
+        frameworks: facts
             .detected_frameworks
             .iter()
             .map(|framework| framework.label())
             .collect(),
         package_managers,
-        react_native_detected: summary.react_native.is_some(),
+        react_native_detected: facts.react_native.is_some(),
     };
 
     let scan = DoctorScanScope {
-        files_discovered: summary.files_discovered,
-        files_analyzed: summary.files_analyzed,
-        files_skipped_low_signal: summary.files_skipped_low_signal,
-        binary_files_skipped: summary.binary_files_skipped,
-        large_files_skipped: summary.large_files_skipped,
-        files_skipped_by_limit: summary.files_skipped_by_limit,
-        files_skipped_repopilotignore: summary.files_skipped_repopilotignore,
+        files_discovered: facts.files_discovered,
+        files_analyzed: facts.files_analyzed,
+        files_skipped_low_signal: facts.files_skipped_low_signal,
+        binary_files_skipped: facts.binary_files_skipped,
+        large_files_skipped: facts.large_files_skipped,
+        files_skipped_by_limit: facts.files_skipped_by_limit,
+        files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
     };
 
     let mut checks = vec![
@@ -172,7 +177,7 @@ pub fn build_doctor_report(
     }
 
     checks.extend([
-        check_repopilotignore(has_repopilotignore, summary.files_skipped_repopilotignore),
+        check_repopilotignore(has_repopilotignore, facts.files_skipped_repopilotignore),
         check_baseline(has_baseline),
     ]);
 
@@ -184,8 +189,8 @@ pub fn build_doctor_report(
         check_ci_config(has_ci_config, has_github_workflows),
         check_repopilot_ci(&repopilot_ci, has_ci_config),
         check_report_receipt_readiness(&root),
-        check_scan_scope(summary.files_analyzed),
-        check_scan_limit(summary.files_skipped_by_limit),
+        check_scan_scope(facts.files_analyzed),
+        check_scan_limit(facts.files_skipped_by_limit),
     ]);
 
     let recommendations = build_recommendations(DoctorRecommendationState {
@@ -197,8 +202,8 @@ pub fn build_doctor_report(
         has_ci_config,
         has_repopilot_ci_gate: repopilot_ci.has_gate,
         report_receipt_ready,
-        files_analyzed: summary.files_analyzed,
-        files_skipped_by_limit: summary.files_skipped_by_limit,
+        files_analyzed: facts.files_analyzed,
+        files_skipped_by_limit: facts.files_skipped_by_limit,
     });
 
     let next_steps = build_next_steps(
@@ -206,7 +211,7 @@ pub fn build_doctor_report(
         config_path.is_some(),
         has_baseline,
         repopilot_ci.has_gate,
-        summary.files_analyzed,
+        facts.files_analyzed,
     );
     let next_command = next_steps
         .first()
@@ -222,4 +227,21 @@ pub fn build_doctor_report(
         next_steps,
         next_command,
     })
+}
+
+fn collect_doctor_facts(path: &Path, config: &ScanConfig) -> io::Result<ScanFacts> {
+    let mut facts = collect_scan_facts_without_content(path, config)?;
+    facts.detected_frameworks = detect_frameworks(&facts.root_path);
+    facts.framework_projects = detect_framework_projects(&facts.root_path);
+    facts.react_native = if facts
+        .detected_frameworks
+        .iter()
+        .any(|framework| matches!(framework, DetectedFramework::ReactNative { .. }))
+    {
+        let profile = detect_react_native_architecture(&facts.root_path);
+        profile.detected.then_some(profile)
+    } else {
+        None
+    };
+    Ok(facts)
 }

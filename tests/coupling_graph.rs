@@ -53,6 +53,35 @@ fn rust_graph_no_spurious_edges() {
     assert_eq!(foo_edges, 0, "foo.rs must have no outgoing edges");
 }
 
+#[test]
+fn rust_graph_edge_from_attributed_mod_declaration() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir(root.join("src")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "#[cfg(feature = \"child\")]\npub mod child;\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/child.rs"), "pub fn child() {}\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let lib_path = root.join("src/lib.rs");
+    let child_path = root.join("src/child.rs");
+    let lib_edges = graph
+        .edges
+        .get(&lib_path)
+        .expect("lib.rs must have an edge set");
+
+    assert!(
+        lib_edges.contains(&child_path),
+        "attributed mod declarations should resolve to module file edges"
+    );
+}
+
 // ── TypeScript graph ──────────────────────────────────────────────────────────
 
 #[test]
@@ -88,6 +117,33 @@ fn ts_graph_edge_from_app_to_format() {
     assert!(
         app_edges.contains(&format_path),
         "App.tsx must have an edge to utils/format.ts"
+    );
+}
+
+#[test]
+fn ts_graph_edge_from_dynamic_import() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    fs::write(src.join("App.ts"), "const route = import(\"./route\");\n").unwrap();
+    fs::write(src.join("route.ts"), "export const route = true;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let app_path = src.join("App.ts");
+    let route_path = src.join("route.ts");
+    let app_edges = graph
+        .edges
+        .get(&app_path)
+        .expect("App.ts must have an edge set");
+
+    assert!(
+        app_edges.contains(&route_path),
+        "dynamic import() should resolve to a local module edge"
     );
 }
 

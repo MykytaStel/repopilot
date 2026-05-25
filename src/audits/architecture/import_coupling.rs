@@ -131,11 +131,16 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
         .map(|path| path.display().to_string())
         .collect::<Vec<_>>()
         .join(" -> ");
-    let evidence_path = relative_cycle
-        .first()
-        .cloned()
-        .unwrap_or_else(|| PathBuf::from("."));
     let file_count = relative_cycle.len();
+    let evidence = relative_cycle
+        .iter()
+        .map(|path| Evidence {
+            path: path.clone(),
+            line_start: 1,
+            line_end: None,
+            snippet: format!("Cycle ({file_count} files): {cycle_path}."),
+        })
+        .collect();
 
     Finding {
         id: String::new(),
@@ -148,12 +153,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
         category: FindingCategory::Architecture,
         severity: Severity::High,
         confidence: Default::default(),
-        evidence: vec![Evidence {
-            path: evidence_path,
-            line_start: 1,
-            line_end: None,
-            snippet: format!("Cycle ({file_count} files): {cycle_path}."),
-        }],
+        evidence,
         workspace_package: None,
         docs_url: None,
         provenance: Default::default(),

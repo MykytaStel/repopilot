@@ -352,6 +352,34 @@ fn review_fail_on_new_high_uses_baseline_status_for_in_diff_findings() {
 }
 
 #[test]
+fn review_marks_file_level_architecture_findings_in_diff_when_file_changed() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[architecture]\nmax_fan_out = 1\ninstability_hub_min_fan_in = 999\n",
+    )
+    .expect("failed to write config");
+    write_covered_source(temp.path(), "a", "use crate::b;\npub fn a() { b::b(); }\n");
+    write_covered_source(temp.path(), "b", "pub fn b() {}\n");
+    write_covered_source(temp.path(), "c", "pub fn c() {}\n");
+    commit_all(temp.path(), "initial");
+
+    fs::write(
+        temp.path().join("src/a.rs"),
+        "use crate::b;\nuse crate::c;\npub fn a() { b::b(); c::c(); }\n",
+    )
+    .expect("failed to modify source file");
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+
+    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert!(json["findings"].as_array().unwrap().iter().any(|finding| {
+        finding["rule_id"] == "architecture.excessive-fan-out" && finding["in_diff"] == true
+    }));
+}
+
+#[test]
 fn review_rejects_head_without_base() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());

@@ -33,7 +33,7 @@ fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
             }
         }
         "call_expression" => {
-            if let Some(path) = require_source(node, content)
+            if let Some(path) = call_module_source(node, content)
                 && is_relative(path)
             {
                 result.insert(path.to_string());
@@ -58,9 +58,10 @@ fn module_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
     extract_from_path(text)
 }
 
-fn require_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
+fn call_module_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
     let function = node.child_by_field_name("function")?;
-    if function.utf8_text(content.as_bytes()).ok()? != "require" {
+    let function = function.utf8_text(content.as_bytes()).ok()?;
+    if function != "require" && function != "import" {
         return None;
     }
     let arguments = node.child_by_field_name("arguments")?;

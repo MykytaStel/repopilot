@@ -86,7 +86,10 @@ fn confidence_for(
 
     if context.has_runtime(RuntimeKind::RustCli) {
         return match pattern {
-            RustPanicPattern::Unwrap | RustPanicPattern::Expect => Confidence::Low,
+            RustPanicPattern::Unwrap
+            | RustPanicPattern::UnwrapErr
+            | RustPanicPattern::Expect
+            | RustPanicPattern::ExpectErr => Confidence::Low,
             RustPanicPattern::Panic => Confidence::Medium,
             RustPanicPattern::Todo | RustPanicPattern::Unimplemented => Confidence::High,
         };
@@ -117,7 +120,10 @@ fn confidence_reason_for(context: &AuditContext, pattern: RustPanicPattern) -> &
 
     if context.has_runtime(RuntimeKind::RustCli) {
         return match pattern {
-            RustPanicPattern::Unwrap | RustPanicPattern::Expect => {
+            RustPanicPattern::Unwrap
+            | RustPanicPattern::UnwrapErr
+            | RustPanicPattern::Expect
+            | RustPanicPattern::ExpectErr => {
                 "CLI boundary code may intentionally fail fast, but user-facing errors are usually better"
             }
             RustPanicPattern::Panic => {
@@ -146,14 +152,14 @@ fn recommendation_for(context: &AuditContext, pattern: RustPanicPattern) -> &'st
     }
 
     match pattern {
-        RustPanicPattern::Unwrap => {
+        RustPanicPattern::Unwrap | RustPanicPattern::UnwrapErr => {
             if context.has_runtime(RuntimeKind::RustCli) {
                 "At CLI boundaries this may be acceptable for prototype code, but prefer returning a user-friendly error with context."
             } else {
                 "Return `Result` or propagate with `?`; convert to `expect()` only when failure is impossible and the message documents the invariant."
             }
         }
-        RustPanicPattern::Expect => {
+        RustPanicPattern::Expect | RustPanicPattern::ExpectErr => {
             if context.has_runtime(RuntimeKind::RustCli) {
                 "At CLI boundaries this may be acceptable for prototype code, but prefer returning a user-friendly error with context."
             } else {

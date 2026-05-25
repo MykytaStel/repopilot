@@ -10,7 +10,7 @@ use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::quality::summarize_signal_quality;
-use crate::findings::types::Finding;
+use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
@@ -209,10 +209,20 @@ fn finding_is_in_diff(finding: &Finding, repo_root: &Path, changed_files: &[Chan
     finding.evidence.iter().any(|evidence| {
         let evidence_path = normalized_relative_path(&evidence.path, repo_root);
         changed_files.iter().any(|changed_file| {
-            changed_file.path_string() == evidence_path
-                && changed_file.contains_line(evidence.line_start)
+            if changed_file.path_string() != evidence_path {
+                return false;
+            }
+
+            changed_file.contains_line(evidence.line_start)
+                || is_file_level_architecture_evidence(finding, evidence)
         })
     })
+}
+
+fn is_file_level_architecture_evidence(finding: &Finding, evidence: &Evidence) -> bool {
+    finding.category == FindingCategory::Architecture
+        && evidence.line_start == 1
+        && evidence.line_end.is_none()
 }
 
 fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> {

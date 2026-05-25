@@ -3,7 +3,9 @@ use crate::findings::types::Severity;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RustPanicPattern {
     Unwrap,
+    UnwrapErr,
     Expect,
+    ExpectErr,
     Panic,
     Todo,
     Unimplemented,
@@ -13,7 +15,9 @@ impl RustPanicPattern {
     pub(super) fn label(self) -> &'static str {
         match self {
             RustPanicPattern::Unwrap => "unwrap()",
+            RustPanicPattern::UnwrapErr => "unwrap_err()",
             RustPanicPattern::Expect => "expect()",
+            RustPanicPattern::ExpectErr => "expect_err()",
             RustPanicPattern::Panic => "panic!",
             RustPanicPattern::Todo => "todo!",
             RustPanicPattern::Unimplemented => "unimplemented!",
@@ -23,7 +27,9 @@ impl RustPanicPattern {
     pub(super) fn signal(self) -> &'static str {
         match self {
             RustPanicPattern::Unwrap => "rust.unwrap",
+            RustPanicPattern::UnwrapErr => "rust.unwrap_err",
             RustPanicPattern::Expect => "rust.expect",
+            RustPanicPattern::ExpectErr => "rust.expect_err",
             RustPanicPattern::Panic => "rust.panic",
             RustPanicPattern::Todo => "rust.todo",
             RustPanicPattern::Unimplemented => "rust.unimplemented",
@@ -33,9 +39,11 @@ impl RustPanicPattern {
     pub(super) fn base_severity(self) -> Severity {
         match self {
             RustPanicPattern::Todo | RustPanicPattern::Unimplemented => Severity::High,
-            RustPanicPattern::Unwrap | RustPanicPattern::Expect | RustPanicPattern::Panic => {
-                Severity::Medium
-            }
+            RustPanicPattern::Unwrap
+            | RustPanicPattern::UnwrapErr
+            | RustPanicPattern::Expect
+            | RustPanicPattern::ExpectErr
+            | RustPanicPattern::Panic => Severity::Medium,
         }
     }
 }
@@ -53,8 +61,16 @@ pub(super) fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
         return Some(RustPanicPattern::Panic);
     }
 
+    if trimmed.contains(".unwrap_err()") {
+        return Some(RustPanicPattern::UnwrapErr);
+    }
+
     if trimmed.contains(".unwrap()") {
         return Some(RustPanicPattern::Unwrap);
+    }
+
+    if trimmed.contains(".expect_err(") {
+        return Some(RustPanicPattern::ExpectErr);
     }
 
     if trimmed.contains(".expect(") {
@@ -80,7 +96,11 @@ pub(super) fn should_ignore_contextual_panic_pattern(
 pub(super) fn is_external_failure_path(pattern: RustPanicPattern, sanitized: &str) -> bool {
     if !matches!(
         pattern,
-        RustPanicPattern::Unwrap | RustPanicPattern::Expect | RustPanicPattern::Panic
+        RustPanicPattern::Unwrap
+            | RustPanicPattern::UnwrapErr
+            | RustPanicPattern::Expect
+            | RustPanicPattern::ExpectErr
+            | RustPanicPattern::Panic
     ) {
         return false;
     }
@@ -160,7 +180,11 @@ pub(super) fn is_infallible_render_write_result_unwrap(
             trimmed.starts_with(".expect(")
                 || (is_infallible_render_write_line(trimmed) && trimmed.contains(").expect("))
         }
-        RustPanicPattern::Panic | RustPanicPattern::Todo | RustPanicPattern::Unimplemented => false,
+        RustPanicPattern::UnwrapErr
+        | RustPanicPattern::ExpectErr
+        | RustPanicPattern::Panic
+        | RustPanicPattern::Todo
+        | RustPanicPattern::Unimplemented => false,
     }
 }
 

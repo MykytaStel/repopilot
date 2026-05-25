@@ -1,4 +1,4 @@
-use super::path_scope::is_production_architecture_candidate;
+use super::model::ArchitectureAnalysis;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
@@ -11,11 +11,9 @@ impl ProjectAudit for DeepNestingAudit {
     fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
         let root_depth = facts.root_path.components().count();
 
-        facts
-            .files
-            .iter()
-            .filter(|file| is_production_architecture_candidate(&file.path))
-            .filter_map(|file| production_depth_over_threshold(&file.path, root_depth, config))
+        ArchitectureAnalysis::from_facts(facts)
+            .production_files()
+            .filter_map(|file| production_depth_over_threshold(file.path(), root_depth, config))
             .max_by_key(|(_, depth)| *depth)
             .map(|(path, depth)| build_finding(path, depth, config.max_directory_depth))
             .into_iter()

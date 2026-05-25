@@ -14,7 +14,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 2;
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 3;
 pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v1";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
@@ -117,9 +117,19 @@ pub struct CachedRepoContextGraph {
     pub repopilot_version: String,
     pub config_fingerprint: String,
     pub resolver_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository_fingerprint: Option<RepositoryFingerprint>,
     pub input_fingerprint: String,
     pub graph_fingerprint: String,
     pub graph: RepoContextGraph,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RepositoryFingerprint {
+    pub head_oid: String,
+    pub head_tree_oid: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
 }
 
 pub struct RepoContextGraphLoad {

@@ -78,6 +78,18 @@ fn finding_in_baseline_is_marked_existing() {
 }
 
 #[test]
+fn legacy_line_based_baseline_key_matches_after_line_shift() {
+    let finding = make_finding("test.rule", "src/main.rs", 12);
+    let summary = make_summary(vec![finding]);
+    let baseline = baseline_with_keys(vec!["test.rule:src/main.rs:10".to_string()]);
+    let baseline_path = PathBuf::from(".repopilot/baseline.json");
+
+    let report = diff_summary_against_baseline(summary, &baseline, baseline_path);
+
+    assert_eq!(report.findings[0].status, BaselineStatus::Existing);
+}
+
+#[test]
 fn all_findings_new_marks_every_finding_as_new() {
     let summary = make_summary(vec![
         make_finding("rule.one", "src/a.rs", 1),

@@ -192,6 +192,21 @@ fn reports_expect_in_domain_code() {
 }
 
 #[test]
+fn reports_unwrap_err_and_expect_err_in_domain_code() {
+    let file = facts(
+        "src/domain/parser.rs",
+        "let error = parse().unwrap_err();\nlet error = parse().expect_err(\"invalid input should fail\");",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 2);
+    assert!(findings[0].title.contains("unwrap_err()"));
+    assert!(findings[1].title.contains("expect_err()"));
+}
+
+#[test]
 fn ignores_valid_regex_expect_in_production_code() {
     let file = facts(
         "src/domain/parser.rs",
