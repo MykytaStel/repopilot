@@ -81,7 +81,7 @@ jobs:
           echo "CHECKSUM=dist/${AssetName}.zip.sha256" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Generate artifact attestations
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             ${{ env.ASSET }}
