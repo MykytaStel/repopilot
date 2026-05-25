@@ -6,50 +6,56 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-### Added
+No changes yet.
 
-- Added 0.13 Smart Baseline release guardrails for self-scan signal quality, rule lifecycle checks, and release evidence.
-- Added documentation for the rule quality gate so default-visible/stable rules have explicit fixture and metadata expectations.
-- Added a local signal-quality checker script for release candidates and CI smoke adoption.
+## [0.13.0] - 2026-05-25
 
-### Changed
-
-- Tightened the 0.13 release story around audit-first positioning: default scans should remain quiet, evidence-backed, and baseline-friendly.
-- Documented noisy heuristic budgets for `code-quality.long-function`, `code-quality.complex-file`, testing-gap rules, and code markers before expanding rule families.
+RepoPilot 0.13 is the trust and usability release: cleaner default output,
+stronger rule quality checks, safer baseline adoption, and better evidence for
+CI and AI-assisted remediation.
 
 ### Added
 
-- Added a 0.13 release checklist for the breaking cleanup release.
-- Added a current `0.17` scan report fixture that documents raw-vs-visible report metrics.
-- Added finding contract validation with diagnostics, release-test coverage, and contract timing.
-- Added an indexed rule metadata lookup and registry uniqueness coverage.
-- Added finding provenance with detector, rule lifecycle, signal source, and analysis scope.
-- Added rule lifecycle, signal source, default confidence, false-positive notes, and tags to rule metadata.
-- Added `repopilot inspect rules`, `repopilot inspect rule <rule_id>`, and `repopilot inspect eval-rules`.
+- Added `repopilot inspect rules`, `repopilot inspect rule <rule_id>`, and
+  `repopilot inspect eval-rules` for local rule catalog and fixture evaluation.
+- Added rule lifecycle, signal source, default confidence, false-positive notes,
+  tags, fixture coverage, false-positive risk, and stability gate status to rule
+  metadata and inspection output.
+- Added finding contract validation with diagnostics, release-test coverage, and
+  scan timing for contract validation.
+- Added finding provenance with detector, rule lifecycle, signal source, and
+  analysis scope.
 - Added signal quality summaries to JSON, console, and Markdown reports.
-- Added a shared product scan pipeline for scan, review, baseline creation, and AI Markdown commands, including shared runtime diagnostic handling.
-- Added local rule evaluation fixtures for `security.secret-candidate` and `language.rust.panic-risk`.
-- Added per-rule JSON details to `repopilot inspect eval-rules`.
-- Added a product smoke self-scan gate for finding contract violations.
-- Added rule quality metadata to `inspect rules` output, including fixture coverage, semantic source, required scope, false-positive risk, and stability gate status.
-- Added launch positioning and performance budget docs for the 0.13 hardening track.
+- Added a local signal-quality checker and made release smoke self-scans fail on
+  visible low-quality noisy findings.
+- Added local rule evaluation fixtures across security, runtime, and
+  import-graph rule families.
+- Added golden output fixtures for compact console, full console, Markdown, JSON,
+  and SARIF report contracts.
+- Added a 0.13 release checklist and announcement focused on trust, usability,
+  baseline adoption, and release evidence.
 
 ### Changed
 
 - Bumped the crate, npm wrapper, optional platform package pins, and GitHub Action default version to `0.13.0`.
 - Bumped scan report schema to `0.17` for raw-vs-visible finding counts and signal quality metrics while accepting `0.15` and `0.16` reports during the transition.
-- Default scan visibility now surfaces high-priority maintainability risks and stable import-graph P2+ risks while keeping low-signal testing and marker noise strict-only.
+- Default scan visibility now surfaces high-trust security, runtime, and stable
+  import-graph risks while keeping low-signal testing, marker, and broad
+  maintainability noise strict-only.
 - Downgraded line/token runtime and long-function rule provenance from `ast` to `text-heuristic` until those rules consume shared parsed facts.
 - Updated risk scoring metadata to `risk-v3` with typed risk signal sources and clearer signal reasons.
 - Centralized scan finding enrichment before risk scoring and report construction.
 - Cached report signal quality on `ScanSummary` so renderers reuse one summary per report path.
 - Split rule inspection catalog, fixture evaluation, and rendering out of the CLI command orchestration.
-- Renamed internal AI modules from legacy context/plan names to `ai_context` and `ai_plan` while keeping the public CLI as `repopilot ai context|plan|prompt`.
-- Updated AI context and AI plan headings to use the stable product names.
+- Updated AI context and AI plan headings to use the stable product names while
+  keeping the public CLI as `repopilot ai context|plan|prompt`.
 - AI context, AI plan, and AI prompt now use the same default visibility and local feedback behavior as product scans.
 - `repopilot review` now uses the shared default product visibility path before diff classification.
 - `repopilot compare` now requires current scan reports with matching top-level and envelope schema metadata instead of migrating older scan report shapes.
 - `repopilot baseline create` now uses the shared product scan path and supports `--config` and `--ignore-feedback`.
+- `scripts/smoke-product.sh` now covers an install-like release path across
+  scan, review, baseline creation, `scan --baseline --fail-on new-high`, AI
+  context, `inspect eval-rules`, JSON, SARIF, and Markdown output.
 
 ### Removed
 

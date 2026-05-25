@@ -29,7 +29,8 @@ RepoPilot should not become a random collection of commands or rules. Every rele
 
 ## Product readiness smoke suite
 
-Run the product smoke suite from the repository root:
+`scripts/smoke-product.sh` is the single install-like release smoke gate. Run it
+from the repository root:
 
 ```bash
 ./scripts/smoke-product.sh
@@ -60,18 +61,26 @@ version
 help
 init
 doctor
+scan console
 scan JSON + receipt
 scan Markdown
+scan SARIF
+baseline create
+scan --baseline --fail-on new-high
 review Markdown
 ai context
 ai plan
 ai prompt
 inspect knowledge
+inspect eval-rules
 inspect explain
 inspect feedback
+self-scan signal quality
 ```
 
 `review` is skipped when the target path is not inside a Git repository.
+The self-scan signal-quality gate fails on finding contract violations or
+default-visible low-quality noisy findings.
 
 ---
 
@@ -88,10 +97,14 @@ repopilot scan .
 repopilot scan . --format json --output /tmp/repopilot-scan.json
 repopilot scan . --format json --output /tmp/repopilot-scan.json --receipt /tmp/repopilot-receipt.json
 repopilot scan . --format markdown --output /tmp/repopilot-scan.md
+repopilot scan . --format sarif --output /tmp/repopilot.sarif
+repopilot baseline create . --output .repopilot/baseline.json
+repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 repopilot review .
 repopilot ai context .
 repopilot ai plan .
 repopilot ai prompt .
+repopilot inspect eval-rules --format json
 repopilot inspect knowledge
 repopilot inspect explain src/main.rs
 repopilot inspect feedback .
@@ -187,6 +200,11 @@ Before release, verify:
   and a CI gate using `--baseline .repopilot/baseline.json --fail-on new-high`;
 - `.repopilot/baseline.json` updates are reviewed as accepted existing debt and
   are not used just to make CI green;
+- `repopilot inspect eval-rules --format json` reports zero missing findings,
+  unexpected findings, contract violations, stable-id failures, and
+  quality-gate failures;
+- `scripts/check-signal-quality.py --scan-json <self-scan.json>` passes without
+  `--warn-only` for the default RepoPilot self-scan;
 - `repopilot doctor .` reports no adoption warnings for the repository;
 - `scripts/smoke-product.sh` passes against the release binary.
 

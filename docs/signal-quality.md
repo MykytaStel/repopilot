@@ -35,3 +35,17 @@ faster attention.
 
 When filters, local feedback, baseline views, or visibility profiles change the
 visible finding set, RepoPilot refreshes the cached summary for that report path.
+
+## Self-scan gate
+
+RepoPilot's release smoke checks run a default self-scan and then validate the
+JSON report with:
+
+```bash
+python3 scripts/check-signal-quality.py --scan-json /tmp/repopilot-self-scan.json
+```
+
+This gate fails when the self-scan has finding contract violations or
+default-visible low-quality noisy findings from broad testing, marker, or
+maintainability heuristics. Those signals can still exist in strict mode, but
+they should not dominate the default RepoPilot report.

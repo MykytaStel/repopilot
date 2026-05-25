@@ -31,6 +31,26 @@ The local gate reports `has_true_positive_fixture`,
 `has_false_positive_fixture`, `contract_violations`, `stable_id_failures`, and
 `quality_gate_failures` for each evaluated rule.
 
+## Release and smoke gate
+
+`inspect eval-rules` is part of the release smoke gate. Before a release, this
+must pass:
+
+```bash
+repopilot inspect eval-rules --format json --output /tmp/repopilot-rule-eval.json
+```
+
+The aggregate JSON fields must be zero:
+
+- `missing_findings`;
+- `unexpected_findings`;
+- `contract_violations`;
+- `stable_id_failures`;
+- `quality_gate_failures`.
+
+`scripts/smoke-product.sh` and `scripts/verify-release.sh` enforce these checks
+without requiring `jq`.
+
 ## Default visibility policy
 
 Default scans should prioritize:

@@ -1,11 +1,11 @@
 # RepoPilot 0.13.0 Release Checklist
 
-RepoPilot 0.13.0 is the breaking cleanup release for the pre-1.0 line.
+RepoPilot 0.13.0 is the trust and usability release for the pre-1.0 line.
 
 Main release promise:
 
 ```text
-finding contract -> rule lifecycle -> signal quality -> risk-v3 -> local-first audit evidence
+less noise -> stronger rule quality -> safer baseline adoption -> better CI and AI evidence
 ```
 
 ## Release Scope
@@ -37,13 +37,18 @@ Rule metadata gates:
 - high/critical findings have docs URLs after enrichment;
 - `repopilot inspect rules`, `inspect rule`, and `inspect eval-rules` pass locally.
 - `scripts/smoke-product.sh` verifies the self-scan JSON report has zero finding
-  contract violations without requiring `jq` or other optional JSON tools.
+  contract violations and zero default-visible noisy findings without requiring
+  `jq` or other optional JSON tools.
+- `scripts/smoke-product.sh` verifies baseline adoption through
+  `baseline create` followed by `scan --baseline --fail-on new-high`.
 
 Smoke commands:
 
 ```bash
 cargo run -- scan . --format json --output /tmp/repopilot-013-scan.json --receipt /tmp/repopilot-013-receipt.json
 cargo run -- scan . --format sarif --output /tmp/repopilot-013.sarif
+cargo run -- baseline create . --output /tmp/repopilot-013-baseline.json
+cargo run -- scan . --baseline /tmp/repopilot-013-baseline.json --fail-on new-high
 cargo run -- review . --format json --output /tmp/repopilot-013-review.json
 cargo run -- ai context . --budget 2k --output /tmp/repopilot-013-ai-context.md
 cargo run -- inspect rules --format json --output /tmp/repopilot-013-rules.json
@@ -98,7 +103,7 @@ Before tagging, verify:
 ```bash
 grep '^version = "0.13.0"' Cargo.toml
 grep '"version": "0.13.0"' package.json
-grep '## \[0.13.0\]' CHANGELOG.md || grep '## \[Unreleased\]' CHANGELOG.md
+grep '## \[0.13.0\]' CHANGELOG.md
 rg -n '0\.12\.0|release-checklist-0\.12' Cargo.toml package.json action.yml README.md docs .github scripts install.sh Formula examples
 ```
 

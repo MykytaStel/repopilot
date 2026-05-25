@@ -1,0 +1,18 @@
+RepoPilot Scan
+
+Status: Attention needed
+Risk: Medium
+Health: 90/100
+Profile: default
+Path: demo-project
+Files: 4 discovered, 2 analyzed
+
+Findings: 1 visible
+Hidden suggestions: 2 strict-only
+
+Top findings:
+  P0  security.secret-candidate          src/config.ts:3
+
+Next:
+  repopilot scan demo-project --profile strict
+  repopilot scan demo-project --format markdown --output report.md

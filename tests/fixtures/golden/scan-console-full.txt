@@ -1,0 +1,53 @@
+RepoPilot Scan
+Version: {{VERSION}}
+Path: demo-project
+Profile: default
+Scope: full scan | repo-level rules: included
+Risk: Moderate | Health score: 90/100 [##########] Excellent
+Findings: 1 visible (23.8/kloc)
+Hidden suggestions: 2 strict-only suggestions
+Note: 2 strict-only suggestions hidden. Run with --profile strict or --include-maintainability to view.
+Hidden suggestions breakdown:
+     2  code-quality / maintainability / code-quality.long-function (maintainability signals are hidden in the default profile)
+Directories analyzed: 2 | Non-empty lines: 42
+Scan input:
+ Files discovered:       4
+ Files analyzed:       2
+
+Risk Summary:
+  Severity: 1 high
+  Priority: P0 1, P1 0, P2 0, P3 0 | highest P0 | avg score 95
+  Categories: security (1)
+  Top paths: src/config.ts (1)
+
+Signal quality:
+  High confidence: 1
+  Medium confidence: 0
+  Low confidence: 0
+  Evidence coverage: 100%
+  Recommendation coverage: 100%
+  Contract warnings: 0
+
+Top Risk Clusters:
+  P0 risk  95    1 finding(s)  security.secret-candidate in src  `src/config.ts:3`
+
+Top Rules:
+     1  [HIGH] security.secret-candidate
+
+Languages:
+  Rust: 1 files
+  TypeScript: 1 files
+
+Findings:
+  Security:
+    security.secret-candidate (1)
+      [HIGH] Possible hardcoded secret or API key
+        Confidence: HIGH
+        Priority: P0 (risk 95/100)
+        Risk signals: +75 severity: high severity finding, +8 confidence: high confidence signal, +12 security: security findings are prioritized
+        Location: src/config.ts:3
+        Evidence: src/config.ts:3 - export const API_TOKEN = "<redacted>";
+        A high-entropy string or a pattern matching a known secret format was found in source code
+        Recommendation: Move the value to an environment variable or secrets manager
+        Docs: https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling
+

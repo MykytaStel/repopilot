@@ -11,7 +11,7 @@ AI-ready remediation context without uploading source.
 ## Demos
 
 1. AI coding safety loop: run `repopilot scan .`, inspect visible P1/P2 risks,
-   then generate `repopilot ai context . --format markdown` for local agent work.
+   then generate `repopilot ai context . --output ai-context.md` for local agent work.
 2. Baseline-aware CI gate: create `.repopilot/baseline.json`, fail on new high
    risk, and show hidden strict-only suggestions as backlog rather than noise.
 3. React Native/Expo release check: scan mobile release configuration, native

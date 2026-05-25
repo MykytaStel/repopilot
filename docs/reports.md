@@ -118,7 +118,7 @@ matching the current schema.
 
 Schema `0.15` adds finding provenance, typed risk signal sources, `risk-v3`,
 finding-contract diagnostics, and `signal_quality` metrics. This is part of the
-0.13.0 breaking cleanup release.
+0.13.0 trust and usability release.
 
 Schema `0.16` adds context graph report and cache diagnostics. Schema `0.17`
 adds raw-vs-visible finding and signal-quality metrics so default-profile
