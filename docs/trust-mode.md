@@ -139,3 +139,27 @@ centralized and semantic. The next improvements should be:
 - validated local feedback with visible `local_feedback` metadata
 - confidence calibration per rule
 - project profile specific visibility defaults
+
+## Path-aware architecture heuristics
+
+Some repository paths are intentionally deep and should not be treated as production architecture
+risk. Rule fixtures, test corpora, examples, docs, generated files, vendor trees, and build output
+may use nested paths to describe scenarios rather than product structure.
+
+For that reason, broad project-level architecture heuristics such as `architecture.deep-nesting`
+are scoped to production architecture candidates before they emit findings. This keeps rule-author
+fixtures useful for evaluation without turning them into user-facing architecture noise.
+
+```text
+tests/fixtures/rules/** -> fixture corpus -> not a production deep-nesting finding
+src/features/**         -> production source -> eligible for deep-nesting analysis
+```
+
+## Architecture anti-pattern scope
+
+Architecture anti-pattern rules are production-scoped by default. Broad structure heuristics such as
+`architecture.deep-nesting` should not treat rule fixtures, test corpora, docs, examples, generated
+files, vendor trees, or build output as product architecture risk.
+
+This keeps default output quiet while preserving those paths for rule evaluation and other audits
+where they are intentionally useful.

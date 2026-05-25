@@ -1,3 +1,4 @@
+mod path_scope;
 pub mod barrel_file_risk;
 pub mod deep_nesting;
 pub mod deep_relative_imports;
