@@ -8,7 +8,10 @@ use crate::commands::product_scan::{
     ProductScanRequest, enforce_diagnostics_exit_policy, run_product_scan,
 };
 use crate::commands::scan_config::ScanConfigOverrides;
-use repopilot::output::render_scan_summary;
+use repopilot::output::{
+    ColorChoice, ColorDestination, ConsoleOutputStyle, FindingRenderLimit, RenderOptions,
+    render_scan_summary_with_options,
+};
 use repopilot::receipt::{build_audit_receipt, render_receipt_json};
 use repopilot::report::writer::write_report;
 use repopilot::scan::types::ScanSummary;
@@ -38,6 +41,7 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         },
         preset: options.preset.clone(),
         mode: scan_mode,
+        no_progress: options.no_progress || options.quiet,
         ignore_feedback: options.ignore_feedback,
         visibility_profile,
         pre_visibility_filter,
@@ -65,8 +69,10 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
         priority_filter.apply_to_summary(&mut summary);
     }
 
+    let render_options = render_options_for_scan(&options);
     let render_start = Instant::now();
-    let rendered_report = render_scan_summary(&summary, output_format)?;
+    let rendered_report =
+        render_scan_summary_with_options(&summary, output_format, render_options)?;
     let render_elapsed = render_start.elapsed();
 
     write_scan_receipt_if_requested(&summary, options.receipt.as_deref())?;
@@ -83,6 +89,30 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     enforce_diagnostics_exit_policy(&summary)?;
 
     Ok(())
+}
+
+pub(super) fn render_options_for_scan(options: &ScanOptions) -> RenderOptions {
+    RenderOptions {
+        console_output_style: options
+            .output_style
+            .map(Into::into)
+            .unwrap_or(ConsoleOutputStyle::Compact),
+        color_choice: if options.no_color {
+            ColorChoice::Never
+        } else {
+            options.color.map(Into::into).unwrap_or(ColorChoice::Auto)
+        },
+        color_destination: if options.output.is_some() {
+            ColorDestination::File
+        } else {
+            ColorDestination::Stdout
+        },
+        quiet: options.quiet,
+        findings_limit: options
+            .max_findings
+            .map(Into::into)
+            .unwrap_or(FindingRenderLimit::Default),
+    }
 }
 
 pub(super) fn write_scan_receipt_if_requested(

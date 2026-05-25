@@ -78,10 +78,14 @@ fn scan_and_review_help_have_flag_descriptions() {
     assert!(scan_help.contains("Path to project, folder, or file to scan"));
     assert!(scan_help.contains("Write report to a file instead of stdout"));
     assert!(scan_help.contains("Scan each detected workspace package separately"));
+    assert!(scan_help.contains("Disable progress indicators"));
+    assert!(scan_help.contains("Suppress progress indicators and next-step hints"));
+    assert!(scan_help.contains("Limit rendered human-format finding details"));
 
     assert!(review_help.contains("Path to project, folder, or file to review"));
     assert!(review_help.contains("Base Git ref for branch/CI review"));
     assert!(review_help.contains("Exit with code 1 when in-diff findings"));
+    assert!(review_help.contains("Disable progress indicators"));
 }
 
 #[test]

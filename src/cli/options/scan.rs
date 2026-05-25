@@ -1,6 +1,7 @@
+use crate::cli::MaxFindingsArg;
 use crate::cli::{
-    ConfidenceArg, FailOnArg, OutputFormatArg, PriorityArg, ScanProfileArg, SeverityArg,
-    parse_byte_size,
+    ColorArg, ConfidenceArg, FailOnArg, OutputFormatArg, PriorityArg, ScanOutputStyleArg,
+    ScanProfileArg, SeverityArg, parse_byte_size, parse_max_findings,
 };
 use clap::Args;
 use std::path::PathBuf;
@@ -13,6 +14,30 @@ pub struct ScanOptions {
     /// Output format; defaults to repopilot.toml output.default_format or console
     #[arg(long, value_enum)]
     pub format: Option<OutputFormatArg>,
+
+    /// Console output style; compact is the default for scan console output
+    #[arg(long, value_enum)]
+    pub output_style: Option<ScanOutputStyleArg>,
+
+    /// Suppress progress indicators and next-step hints in console output
+    #[arg(long)]
+    pub quiet: bool,
+
+    /// Disable progress indicators
+    #[arg(long)]
+    pub no_progress: bool,
+
+    /// Limit rendered human-format finding details; use 'none' for all
+    #[arg(long, value_name = "N|none", value_parser = parse_max_findings)]
+    pub max_findings: Option<MaxFindingsArg>,
+
+    /// Console color mode
+    #[arg(long, value_enum)]
+    pub color: Option<ColorArg>,
+
+    /// Disable ANSI color in console output
+    #[arg(long)]
+    pub no_color: bool,
 
     /// Write report to a file instead of stdout
     #[arg(short, long)]

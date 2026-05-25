@@ -188,10 +188,23 @@ fn scan_max_files_caps_analyzed_files_and_console_labels_limit() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
-    assert_console_metric(&stdout, "Files discovered:", 2);
-    assert_console_metric(&stdout, "Files skipped (limit):", 1);
-    assert_console_metric(&stdout, "Files analyzed:", 1);
+    assert!(stdout.contains("Files: 2 discovered, 1 analyzed, 1 skipped"));
+    assert!(!stdout.contains("Files discovered:"));
+    assert!(!stdout.contains("Files analyzed:"));
     assert!(!stdout.contains("Files skipped (ignore):"));
+
+    let full_output = repopilot()
+        .args(["scan", ".", "--max-files", "1", "--output-style", "full"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot scan");
+
+    assert!(full_output.status.success());
+    let full_stdout = String::from_utf8(full_output.stdout).expect("stdout should be UTF-8");
+    assert_console_metric(&full_stdout, "Files discovered:", 2);
+    assert_console_metric(&full_stdout, "Files skipped (limit):", 1);
+    assert_console_metric(&full_stdout, "Files analyzed:", 1);
+    assert!(!full_stdout.contains("Files skipped (ignore):"));
 }
 
 #[test]

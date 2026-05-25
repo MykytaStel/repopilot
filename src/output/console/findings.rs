@@ -1,14 +1,19 @@
 use crate::findings::types::Finding;
+use crate::output::FindingRenderLimit;
 use crate::output::color;
 use crate::output::report_stats::{
-    category_order, first_location, indexed_findings_for_category, indexed_findings_for_rule,
+    category_order, first_location, indexed_findings_for_rule, indexed_sorted_findings,
     rule_ids_for_indexed_findings,
 };
 use crate::output::report_text::{category_title, first_sentence};
 use std::fmt::Write;
 
-pub(crate) fn render_grouped_findings<F>(output: &mut String, findings: &[Finding], status_for: F)
-where
+pub(crate) fn render_grouped_findings<F>(
+    output: &mut String,
+    findings: &[Finding],
+    findings_limit: FindingRenderLimit,
+    status_for: F,
+) where
     F: Fn(usize) -> Option<&'static str>,
 {
     output.push_str("Findings:\n");
@@ -18,8 +23,26 @@ where
         return;
     }
 
+    let shown = findings_limit.detailed_limit(findings.len());
+    let indexed_findings = indexed_sorted_findings(findings)
+        .into_iter()
+        .take(shown)
+        .collect::<Vec<_>>();
+    if matches!(findings_limit, FindingRenderLimit::Limit(_)) && shown < findings.len() {
+        writeln!(
+            output,
+            "  showing {shown} of {} findings (--max-findings none shows all)",
+            findings.len()
+        )
+        .unwrap();
+    }
+
     for category in category_order() {
-        let category_findings = indexed_findings_for_category(findings, &category);
+        let category_findings = indexed_findings
+            .iter()
+            .copied()
+            .filter(|(_, finding)| finding.category == category)
+            .collect::<Vec<_>>();
         if category_findings.is_empty() {
             continue;
         }

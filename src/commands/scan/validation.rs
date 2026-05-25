@@ -27,6 +27,13 @@ pub(super) fn validate_scan_options(
         }));
     }
 
+    if options.no_color && matches!(options.color, Some(crate::cli::ColorArg::Always)) {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--color always` cannot be used with `--no-color`".to_string(),
+        }));
+    }
+
     Ok(())
 }
 

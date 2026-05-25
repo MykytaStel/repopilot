@@ -1,4 +1,5 @@
 mod baseline;
+mod compact;
 mod findings;
 mod react_native;
 mod sections;
@@ -16,9 +17,25 @@ use crate::output::console::sections::{
 };
 use crate::output::console::workspace::workspace_risk_table;
 use crate::output::report_stats::build_report_stats;
+use crate::output::{ConsoleOutputStyle, RenderOptions};
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
+    render_full(summary)
+}
+
+pub fn render_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
+    match options.console_output_style {
+        ConsoleOutputStyle::Compact => compact::render_with_options(summary, options),
+        ConsoleOutputStyle::Full => render_full_with_options(summary, options),
+    }
+}
+
+fn render_full(summary: &ScanSummary) -> String {
+    render_full_with_options(summary, RenderOptions::default())
+}
+
+fn render_full_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
     let stats = build_report_stats(summary);
     let mut output = String::new();
 
@@ -34,12 +51,45 @@ pub fn render(summary: &ScanSummary) -> String {
         render_react_native_section(&mut output, rn);
     }
     workspace_risk_table(&mut output, &summary.findings);
-    render_grouped_findings(&mut output, &summary.findings, |_| None);
+    render_grouped_findings(
+        &mut output,
+        &summary.findings,
+        options.findings_limit,
+        |_| None,
+    );
 
     output
 }
 
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
+    render_full_with_baseline(report, ci_gate)
+}
+
+pub fn render_baseline_with_options(
+    report: &BaselineScanReport,
+    ci_gate: Option<&CiGateResult>,
+    options: RenderOptions,
+) -> String {
+    match options.console_output_style {
+        ConsoleOutputStyle::Compact => {
+            compact::render_baseline_with_options(report, ci_gate, options)
+        }
+        ConsoleOutputStyle::Full => render_full_baseline_with_options(report, ci_gate, options),
+    }
+}
+
+fn render_full_with_baseline(
+    report: &BaselineScanReport,
+    ci_gate: Option<&CiGateResult>,
+) -> String {
+    render_full_baseline_with_options(report, ci_gate, RenderOptions::default())
+}
+
+fn render_full_baseline_with_options(
+    report: &BaselineScanReport,
+    ci_gate: Option<&CiGateResult>,
+    options: RenderOptions,
+) -> String {
     let summary = &report.summary;
     let stats = build_report_stats(summary);
     let mut output = String::new();
@@ -57,9 +107,12 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         render_react_native_section(&mut output, rn);
     }
     workspace_risk_table(&mut output, &summary.findings);
-    render_grouped_findings(&mut output, &summary.findings, |index| {
-        Some(report.finding_status(index).lowercase_label())
-    });
+    render_grouped_findings(
+        &mut output,
+        &summary.findings,
+        options.findings_limit,
+        |index| Some(report.finding_status(index).lowercase_label()),
+    );
 
     output
 }

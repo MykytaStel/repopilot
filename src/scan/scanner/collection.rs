@@ -45,6 +45,7 @@ pub(super) fn discover_scan_paths(
 
     let collected = collect_paths(path, config)?;
     let mut file_paths = collected.file_paths;
+    file_paths.sort();
 
     facts.files_discovered = file_paths.len();
     facts.files_skipped_repopilotignore = collected.files_skipped_repopilotignore;
@@ -155,6 +156,7 @@ fn collect_directory_facts(
 ) -> io::Result<()> {
     let collected = collect_paths(path, config)?;
     let mut file_paths = collected.file_paths;
+    file_paths.sort();
 
     facts.files_discovered = file_paths.len();
     facts.files_skipped_repopilotignore = collected.files_skipped_repopilotignore;
