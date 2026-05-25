@@ -19,10 +19,25 @@ RepoPilot is not a replacement for language linters, formatters, type checkers, 
 
 ## Install
 
+Choose one install method.
+
+Cargo:
+
 ```bash
 cargo install repopilot
+```
+
+npm:
+
+```bash
 npm install -g repopilot
-brew tap mykytastel/repopilot && brew install repopilot
+```
+
+Homebrew:
+
+```bash
+brew tap mykytastel/repopilot
+brew install repopilot
 ```
 
 Installer:
@@ -41,7 +56,9 @@ cargo build --release
 
 More: [docs/install.md](docs/install.md).
 
-## First Run
+## Quick Start
+
+Run a local scan:
 
 ```bash
 repopilot scan .
@@ -151,7 +168,9 @@ More: [docs/rule-quality-gate.md](docs/rule-quality-gate.md).
 
 ## Local-First
 
-RepoPilot does not upload source code, run a hosted scanner, call LLM APIs implicitly, send telemetry, or require a SaaS account. AI commands only format local scan evidence as Markdown for tools such as Claude Code, ChatGPT, Cursor, Zed, or another assistant.
+RepoPilot does not upload source code, run a hosted scanner, call LLM APIs implicitly, send telemetry, or require a SaaS account.
+
+AI commands only format local scan evidence as Markdown for tools such as Claude Code, ChatGPT, Cursor, Zed, or another assistant.
 
 ## Reports
 
