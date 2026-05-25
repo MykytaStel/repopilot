@@ -61,11 +61,7 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    let output = Command::new(repopilot_bin())
-        .current_dir(cwd)
-        .args(args)
-        .output()
-        .expect("failed to run repopilot");
+    let output = run(cwd, args);
 
     assert!(
         output.status.success(),
@@ -76,6 +72,18 @@ where
     );
 
     output
+}
+
+fn run<I, S>(cwd: &Path, args: I) -> Output
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    Command::new(repopilot_bin())
+        .current_dir(cwd)
+        .args(args)
+        .output()
+        .expect("failed to run repopilot")
 }
 
 fn read_non_empty(path: &Path) -> String {
@@ -131,6 +139,107 @@ fn scan_writes_valid_json_report() {
         json["findings"].is_array(),
         "scan JSON should include findings array"
     );
+}
+
+#[test]
+fn release_smoke_covers_rule_quality_gate() {
+    let temp = tempfile::tempdir().expect("failed to create temp dir");
+    let output_path = temp.path().join("eval-rules.json");
+
+    run_ok(
+        temp.path(),
+        [
+            "inspect",
+            "eval-rules",
+            "--format",
+            "json",
+            "--output",
+            output_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+
+    let content = read_non_empty(&output_path);
+    let json: Value =
+        serde_json::from_str(&content).expect("eval-rules output should be valid JSON");
+
+    assert_eq!(json["missing_findings"], 0);
+    assert_eq!(json["unexpected_findings"], 0);
+    assert_eq!(json["contract_violations"], 0);
+    assert_eq!(json["stable_id_failures"], 0);
+    assert_eq!(json["quality_gate_failures"], 0);
+}
+
+#[test]
+fn release_smoke_covers_baseline_adoption_path() {
+    let project = create_demo_project();
+    let baseline_path = project.path().join(".repopilot").join("baseline.json");
+    let pass_output_path = project.path().join("baseline-pass.json");
+    fs::write(
+        project.path().join("src").join("config.rs"),
+        "const API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to write baseline secret file");
+
+    run_ok(
+        project.path(),
+        [
+            "baseline",
+            "create",
+            ".",
+            "--output",
+            baseline_path.to_str().expect("non-utf8 baseline path"),
+        ],
+    );
+
+    let baseline: Value = serde_json::from_str(&read_non_empty(&baseline_path))
+        .expect("baseline should be valid JSON");
+    assert_eq!(baseline["schema_version"], 1);
+
+    run_ok(
+        project.path(),
+        [
+            "scan",
+            ".",
+            "--baseline",
+            baseline_path.to_str().expect("non-utf8 baseline path"),
+            "--fail-on",
+            "new-high",
+            "--format",
+            "json",
+            "--output",
+            pass_output_path.to_str().expect("non-utf8 output path"),
+        ],
+    );
+
+    let pass_report: Value = serde_json::from_str(&read_non_empty(&pass_output_path))
+        .expect("scan output should be valid JSON");
+    assert_eq!(pass_report["baseline"]["new_findings"], 0);
+
+    fs::write(
+        project.path().join("src").join("creds.rs"),
+        "const API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to write new secret file");
+
+    let failed = run(
+        project.path(),
+        [
+            "scan",
+            ".",
+            "--baseline",
+            baseline_path.to_str().expect("non-utf8 baseline path"),
+            "--fail-on",
+            "new-high",
+        ],
+    );
+
+    assert!(
+        !failed.status.success(),
+        "new high finding should fail the baseline gate\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&failed.stdout),
+        String::from_utf8_lossy(&failed.stderr)
+    );
+    assert!(String::from_utf8_lossy(&failed.stdout).contains("CI gate: failed (new-high)"));
 }
 
 #[test]

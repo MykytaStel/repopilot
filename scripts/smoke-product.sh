@@ -161,6 +161,38 @@ assert_no_contract_violations() {
   fi
 }
 
+assert_json_number_field() {
+  local file="$1"
+  local field="$2"
+  local expected="$3"
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$file" "$field" "$expected" <<'PY'
+import json
+import sys
+
+path, field, expected_raw = sys.argv[1], sys.argv[2], sys.argv[3]
+expected = int(expected_raw)
+
+with open(path, encoding="utf-8") as handle:
+    data = json.load(handle)
+
+value = data.get(field)
+if value != expected:
+    raise SystemExit(f"Expected {path} field {field} to be {expected}, got {value!r}")
+PY
+    return
+  fi
+
+  if ! grep -Eq "\"$field\"[[:space:]]*:[[:space:]]*$expected([,}])" "$file"; then
+    echo "Expected '$file' JSON field '$field' to be: $expected" >&2
+    echo "---- file content ----" >&2
+    cat "$file" >&2 || true
+    echo "----------------------" >&2
+    exit 3
+  fi
+}
+
 find_explain_file() {
   local preferred="$REPO_PATH/src/main.rs"
 
@@ -227,9 +259,12 @@ assert_non_empty "$TMP_DIR/scan.json"
 validate_json_if_possible "$TMP_DIR/scan.json"
 assert_no_contract_violations "$TMP_DIR/scan.json"
 
-# RepoPilot signal-quality smoke check
+# RepoPilot self-scan signal-quality gate.
 if command -v python3 >/dev/null 2>&1 && [[ -f "$ROOT_DIR/scripts/check-signal-quality.py" ]]; then
-  python3 "$ROOT_DIR/scripts/check-signal-quality.py"             --scan-json "$TMP_DIR/scan.json"             --warn-only             --output-json "$TMP_DIR/signal-quality.json"
+  python3 "$ROOT_DIR/scripts/check-signal-quality.py" \
+    --scan-json "$TMP_DIR/scan.json" \
+    --output-json "$TMP_DIR/signal-quality.json"
+  assert_non_empty "$TMP_DIR/signal-quality.json"
 fi
 assert_non_empty "$TMP_DIR/receipt.json"
 validate_json_if_possible "$TMP_DIR/receipt.json"
@@ -246,8 +281,33 @@ run_repopilot_in "$PRIORITY_GATE_PROJECT" scan . --format json --fail-on-priorit
 assert_non_empty "$TMP_DIR/scan-priority-gate.json"
 validate_json_if_possible "$TMP_DIR/scan-priority-gate.json"
 
+BASELINE_ADOPTION_PROJECT="$TMP_DIR/baseline-adoption-project"
+mkdir -p "$BASELINE_ADOPTION_PROJECT/src" "$BASELINE_ADOPTION_PROJECT/tests"
+SMOKE_SECRET_KEY='API_KEY'
+SMOKE_SECRET_VALUE='abc12345'
+printf 'const %s: &str = "%s";\n' "$SMOKE_SECRET_KEY" "$SMOKE_SECRET_VALUE" > "$BASELINE_ADOPTION_PROJECT/src/config.rs"
+printf 'fn covers_config() {}\n' > "$BASELINE_ADOPTION_PROJECT/tests/config.rs"
+run_repopilot_in "$BASELINE_ADOPTION_PROJECT" baseline create . --output .repopilot/baseline.json > "$TMP_DIR/baseline-create.txt"
+assert_non_empty "$TMP_DIR/baseline-create.txt"
+assert_non_empty "$BASELINE_ADOPTION_PROJECT/.repopilot/baseline.json"
+validate_json_if_possible "$BASELINE_ADOPTION_PROJECT/.repopilot/baseline.json"
+run_repopilot_in "$BASELINE_ADOPTION_PROJECT" scan . --baseline .repopilot/baseline.json --fail-on new-high --format json --output "$TMP_DIR/baseline-pass.json"
+assert_non_empty "$TMP_DIR/baseline-pass.json"
+validate_json_if_possible "$TMP_DIR/baseline-pass.json"
+printf 'const %s: &str = "%s";\n' "$SMOKE_SECRET_KEY" "$SMOKE_SECRET_VALUE" > "$BASELINE_ADOPTION_PROJECT/src/creds.rs"
+if run_repopilot_in "$BASELINE_ADOPTION_PROJECT" scan . --baseline .repopilot/baseline.json --fail-on new-high > "$TMP_DIR/baseline-fail.txt" 2> "$TMP_DIR/baseline-fail.err"; then
+  echo "Expected baseline new-high gate to fail after adding a new high-risk finding" >&2
+  exit 3
+fi
+assert_contains "$TMP_DIR/baseline-fail.txt" "CI gate: failed (new-high)"
+
 run_repopilot scan . --format markdown --output "$TMP_DIR/scan.md"
 assert_non_empty "$TMP_DIR/scan.md"
+
+run_repopilot scan . --format sarif --output "$TMP_DIR/scan.sarif"
+assert_non_empty "$TMP_DIR/scan.sarif"
+validate_json_if_possible "$TMP_DIR/scan.sarif"
+assert_contains "$TMP_DIR/scan.sarif" '"version": "2.1.0"'
 
 if git -C "$REPO_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   run_repopilot review . --format markdown --output "$TMP_DIR/review.md"
@@ -271,6 +331,19 @@ validate_json_if_possible "$TMP_DIR/inspect-knowledge.json"
 
 run_repopilot inspect knowledge --section rules --format markdown --output "$TMP_DIR/inspect-knowledge-rules.md"
 assert_non_empty "$TMP_DIR/inspect-knowledge-rules.md"
+
+run_repopilot inspect feedback . --format json --output "$TMP_DIR/inspect-feedback.json"
+assert_non_empty "$TMP_DIR/inspect-feedback.json"
+validate_json_if_possible "$TMP_DIR/inspect-feedback.json"
+
+run_repopilot inspect eval-rules --format json --output "$TMP_DIR/eval-rules.json"
+assert_non_empty "$TMP_DIR/eval-rules.json"
+validate_json_if_possible "$TMP_DIR/eval-rules.json"
+assert_json_number_field "$TMP_DIR/eval-rules.json" "missing_findings" 0
+assert_json_number_field "$TMP_DIR/eval-rules.json" "unexpected_findings" 0
+assert_json_number_field "$TMP_DIR/eval-rules.json" "contract_violations" 0
+assert_json_number_field "$TMP_DIR/eval-rules.json" "stable_id_failures" 0
+assert_json_number_field "$TMP_DIR/eval-rules.json" "quality_gate_failures" 0
 
 run_repopilot inspect explain "$EXPLAIN_FILE" --format json --output "$TMP_DIR/inspect-explain.json"
 assert_non_empty "$TMP_DIR/inspect-explain.json"

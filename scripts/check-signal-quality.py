@@ -6,9 +6,8 @@ This is a product-level guard, not a per-release helper.
 
 Examples:
     cargo run -- scan . --format json --output /tmp/repopilot-self-scan.json
+    python3 scripts/check-signal-quality.py --scan-json /tmp/repopilot-self-scan.json
     python3 scripts/check-signal-quality.py --scan-json /tmp/repopilot-self-scan.json --warn-only
-
-Later, remove --warn-only when the project is ready to make this a hard gate.
 """
 
 from __future__ import annotations
@@ -76,6 +75,13 @@ def get_priority(finding: dict[str, Any]) -> str:
         value = finding.get(key)
         if isinstance(value, str) and value:
             return value.lower()
+
+    risk = finding.get("risk")
+    if isinstance(risk, dict):
+        value = risk.get("priority")
+        if isinstance(value, str) and value:
+            return value.lower()
+
     return "unknown"
 
 

@@ -18,14 +18,26 @@ Use the current date for the release entry in `CHANGELOG.md`.
 
 ## 2. Verify locally
 
+Run the full release gate:
+
+```bash
+./scripts/verify-release.sh
+```
+
+The release gate runs formatting, clippy, tests, dependency checks, packaging
+dry-runs, rule evaluation, self-scan signal quality, and the install-like product
+smoke suite.
+
+The core checks are:
+
 ```bash
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 npm run test:npm
-./scripts/smoke-product.sh
 repopilot inspect eval-rules --format json
-repopilot scan .
+repopilot scan . --format json --output /tmp/repopilot-self-scan.json
+python3 scripts/check-signal-quality.py --scan-json /tmp/repopilot-self-scan.json
 cargo audit
 cargo deny check advisories licenses
 cargo package --list
@@ -49,7 +61,9 @@ node scripts/build-npm-platform-packages.js --dist dist --out /tmp/repopilot-npm
 
 Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
 For older version-specific gate lists, use `docs/archive/release-checklist-*.md`.
-The product smoke suite validates the adoption flow, including receipt generation.
+The product smoke suite validates the install-like adoption flow: `scan`,
+`review`, `baseline create`, `scan --baseline --fail-on new-high`, `ai context`,
+`inspect eval-rules`, JSON, SARIF, Markdown, and receipt generation.
 
 ## npm Trusted Publishing setup
 
@@ -133,7 +147,7 @@ for pkg in \
 done
 npm install -g repopilot@0.13.0
 repopilot --version
-repopilot scan . --format json --output /tmp/repopilot-0.12-smoke.json
+repopilot scan . --format json --output /tmp/repopilot-0.13-smoke.json
 gh attestation verify path/to/repopilot-*.tar.gz --owner MykytaStel
 ```
 

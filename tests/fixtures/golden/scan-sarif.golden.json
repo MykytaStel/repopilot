@@ -1,0 +1,67 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "RepoPilot",
+          "version": "{{VERSION}}",
+          "informationUri": "https://github.com/MykytaStel/repopilot",
+          "rules": [
+            {
+              "id": "security.secret-candidate",
+              "name": "security.secret-candidate",
+              "shortDescription": {
+                "text": "Possible hardcoded secret or API key"
+              },
+              "fullDescription": {
+                "text": "A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access."
+              },
+              "helpUri": "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling",
+              "help": {
+                "text": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised."
+              }
+            }
+          ]
+        }
+      },
+      "properties": {
+        "report": {
+          "kind": "sarif",
+          "schema_version": "2.1.0",
+          "repopilot_version": "{{VERSION}}"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "security.secret-candidate",
+          "level": "error",
+          "message": {
+            "text": "Possible hardcoded secret or API key"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/config.ts"
+                },
+                "region": {
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "partialFingerprints": {
+            "primaryLocationLineHash/v1": "security.secret-candidate:src/config.ts:3"
+          },
+          "properties": {
+            "category": "security",
+            "confidence": "HIGH",
+            "recommendation": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised."
+          }
+        }
+      ]
+    }
+  ]
+}

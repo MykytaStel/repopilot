@@ -1,0 +1,201 @@
+{
+  "schema_version": "0.17",
+  "repopilot_version": "{{VERSION}}",
+  "report": {
+    "kind": "scan",
+    "schema_version": "0.17",
+    "repopilot_version": "{{VERSION}}"
+  },
+  "root_path": "demo-project",
+  "mode": "full",
+  "changed_files_count": 0,
+  "repo_level_rules_included": true,
+  "files_discovered": 4,
+  "files_analyzed": 2,
+  "directories_count": 2,
+  "non_empty_lines": 42,
+  "large_files_skipped": 0,
+  "files_skipped_low_signal": 0,
+  "binary_files_skipped": 0,
+  "skipped_bytes": 0,
+  "languages": [
+    {
+      "name": "Rust",
+      "files_analyzed": 1
+    },
+    {
+      "name": "TypeScript",
+      "files_analyzed": 1
+    }
+  ],
+  "findings": [
+    {
+      "id": "security.secret-candidate:src/config.ts:3",
+      "rule_id": "security.secret-candidate",
+      "title": "Possible hardcoded secret or API key",
+      "description": "A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access.",
+      "recommendation": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised.",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "path": "src/config.ts",
+          "line_start": 3,
+          "line_end": null,
+          "snippet": "export const API_TOKEN = \"<redacted>\";"
+        }
+      ],
+      "docs_url": "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling",
+      "provenance": {
+        "detector": "security.secret-candidate",
+        "signal_source": "text-heuristic",
+        "rule_lifecycle": "preview",
+        "analysis_scope": "file"
+      },
+      "risk": {
+        "score": 95,
+        "priority": "P0",
+        "signals": [
+          {
+            "id": "severity.high",
+            "label": "severity",
+            "weight": 75,
+            "reason": "high severity finding",
+            "source": "severity"
+          },
+          {
+            "id": "confidence.high",
+            "label": "confidence",
+            "weight": 8,
+            "reason": "high confidence signal",
+            "source": "confidence"
+          },
+          {
+            "id": "category.security",
+            "label": "security",
+            "weight": 12,
+            "reason": "security findings are prioritized",
+            "source": "category"
+          }
+        ],
+        "formula_version": "risk-v3"
+      }
+    }
+  ],
+  "detected_frameworks": [],
+  "framework_projects": [],
+  "coupling_graph": null,
+  "scan_duration_us": 0,
+  "health_score": 90,
+  "raw_findings_count": 1,
+  "visible_findings_count": 1,
+  "hidden_suggestions_count": 2,
+  "hidden_suggestions": [
+    {
+      "intent": "maintainability",
+      "rule_id": "code-quality.long-function",
+      "category": "code-quality",
+      "reason": "maintainability signals are hidden in the default profile",
+      "count": 2
+    }
+  ],
+  "visibility_profile": "default",
+  "files_skipped_by_limit": 0,
+  "files_skipped_repopilotignore": 0,
+  "risk_summary": {
+    "total": 1,
+    "counts": {
+      "p0": 1,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "highest_priority": "P0",
+    "average_score": 95
+  },
+  "raw_signal_quality": {
+    "findings_total": 1,
+    "by_confidence": {
+      "low": 0,
+      "medium": 0,
+      "high": 1
+    },
+    "by_lifecycle": {
+      "experimental": 0,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 1,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "visible_signal_quality": {
+    "findings_total": 1,
+    "by_confidence": {
+      "low": 0,
+      "medium": 0,
+      "high": 1
+    },
+    "by_lifecycle": {
+      "experimental": 0,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 1,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "signal_quality": {
+    "findings_total": 1,
+    "by_confidence": {
+      "low": 0,
+      "medium": 0,
+      "high": 1
+    },
+    "by_lifecycle": {
+      "experimental": 0,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 1,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  }
+}
