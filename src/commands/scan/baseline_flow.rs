@@ -5,7 +5,7 @@ use repopilot::baseline::diff::{all_findings_new, diff_summary_against_baseline}
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
 use repopilot::findings::filter::FindingFilter;
-use repopilot::output::{OutputFormat, render_baseline_scan_report};
+use repopilot::output::{OutputFormat, render_baseline_scan_report_with_options};
 use repopilot::report::writer::write_report;
 use repopilot::risk::RiskPriority;
 use repopilot::scan::types::ScanSummary;
@@ -45,8 +45,12 @@ pub(super) fn run_baseline_scan_flow(
         });
 
     let render_start = Instant::now();
-    let rendered_report =
-        render_baseline_scan_report(&baseline_report, output_format, ci_gate.as_ref())?;
+    let rendered_report = render_baseline_scan_report_with_options(
+        &baseline_report,
+        output_format,
+        ci_gate.as_ref(),
+        super::render_options_for_scan(options),
+    )?;
     let render_elapsed = render_start.elapsed();
 
     super::write_scan_receipt_if_requested(&baseline_report.summary, options.receipt.as_deref())?;

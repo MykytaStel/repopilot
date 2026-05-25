@@ -1,7 +1,7 @@
 use clap::ValueEnum;
 use repopilot::baseline::gate::FailOn;
 use repopilot::findings::types::{Confidence, Severity};
-use repopilot::output::OutputFormat;
+use repopilot::output::{ColorChoice, ConsoleOutputStyle, FindingRenderLimit, OutputFormat};
 use repopilot::risk::RiskPriority;
 use repopilot::rules::{RuleLifecycle, SignalSource};
 
@@ -19,6 +19,19 @@ pub enum CompareOutputFormatArg {
     Console,
     Json,
     Markdown,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum ScanOutputStyleArg {
+    Compact,
+    Full,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum ColorArg {
+    Auto,
+    Always,
+    Never,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -49,6 +62,12 @@ pub enum PriorityArg {
 pub enum ScanProfileArg {
     Default,
     Strict,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaxFindingsArg {
+    Limit(usize),
+    Unlimited,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -111,6 +130,34 @@ impl From<OutputFormatArg> for OutputFormat {
             OutputFormatArg::Json => OutputFormat::Json,
             OutputFormatArg::Markdown => OutputFormat::Markdown,
             OutputFormatArg::Sarif => OutputFormat::Sarif,
+        }
+    }
+}
+
+impl From<ScanOutputStyleArg> for ConsoleOutputStyle {
+    fn from(style: ScanOutputStyleArg) -> Self {
+        match style {
+            ScanOutputStyleArg::Compact => ConsoleOutputStyle::Compact,
+            ScanOutputStyleArg::Full => ConsoleOutputStyle::Full,
+        }
+    }
+}
+
+impl From<MaxFindingsArg> for FindingRenderLimit {
+    fn from(value: MaxFindingsArg) -> Self {
+        match value {
+            MaxFindingsArg::Limit(limit) => FindingRenderLimit::Limit(limit),
+            MaxFindingsArg::Unlimited => FindingRenderLimit::Unlimited,
+        }
+    }
+}
+
+impl From<ColorArg> for ColorChoice {
+    fn from(color: ColorArg) -> Self {
+        match color {
+            ColorArg::Auto => ColorChoice::Auto,
+            ColorArg::Always => ColorChoice::Always,
+            ColorArg::Never => ColorChoice::Never,
         }
     }
 }
@@ -193,6 +240,21 @@ pub fn parse_token_budget(value: &str) -> Result<usize, String> {
     }
 
     Ok(tokens)
+}
+
+pub fn parse_max_findings(value: &str) -> Result<MaxFindingsArg, String> {
+    if value.eq_ignore_ascii_case("none") {
+        return Ok(MaxFindingsArg::Unlimited);
+    }
+
+    let limit = value
+        .parse::<usize>()
+        .map_err(|_| "expected a positive integer or 'none'".to_string())?;
+    if limit == 0 {
+        return Err("max-findings must be greater than zero or 'none'".to_string());
+    }
+
+    Ok(MaxFindingsArg::Limit(limit))
 }
 
 pub fn parse_byte_size(value: &str) -> Result<u64, String> {

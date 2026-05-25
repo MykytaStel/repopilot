@@ -6,6 +6,7 @@ mod workspace;
 
 use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
+use crate::output::RenderOptions;
 use crate::output::markdown::baseline::render_baseline_section;
 use crate::output::markdown::findings::{render_findings_index, render_grouped_findings};
 use crate::output::markdown::react_native::render_react_native_section;
@@ -19,6 +20,10 @@ use crate::output::report_stats::build_report_stats;
 use crate::scan::types::ScanSummary;
 
 pub fn render(summary: &ScanSummary) -> String {
+    render_with_options(summary, RenderOptions::default())
+}
+
+pub fn render_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
     let stats = build_report_stats(summary);
     let mut output = String::new();
 
@@ -35,13 +40,26 @@ pub fn render(summary: &ScanSummary) -> String {
         render_react_native_section(&mut output, rn);
     }
     render_workspace_risk_table(&mut output, &summary.findings);
-    render_findings_index(&mut output, &summary.findings, None);
-    render_grouped_findings(&mut output, &summary.findings, |_| None);
+    render_findings_index(&mut output, &summary.findings, None, options.findings_limit);
+    render_grouped_findings(
+        &mut output,
+        &summary.findings,
+        options.findings_limit,
+        |_| None,
+    );
 
     output
 }
 
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
+    render_baseline_with_options(report, ci_gate, RenderOptions::default())
+}
+
+pub fn render_baseline_with_options(
+    report: &BaselineScanReport,
+    ci_gate: Option<&CiGateResult>,
+    options: RenderOptions,
+) -> String {
     let summary = &report.summary;
     let stats = build_report_stats(summary);
     let mut output = String::new();
@@ -60,10 +78,18 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         render_react_native_section(&mut output, rn);
     }
     render_workspace_risk_table(&mut output, &summary.findings);
-    render_findings_index(&mut output, &summary.findings, Some(report));
-    render_grouped_findings(&mut output, &summary.findings, |index| {
-        Some(report.finding_status(index).lowercase_label())
-    });
+    render_findings_index(
+        &mut output,
+        &summary.findings,
+        Some(report),
+        options.findings_limit,
+    );
+    render_grouped_findings(
+        &mut output,
+        &summary.findings,
+        options.findings_limit,
+        |index| Some(report.finding_status(index).lowercase_label()),
+    );
 
     output
 }

@@ -42,6 +42,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         },
         preset: None,
         mode: ProductScanMode::Full,
+        no_progress: options.no_progress,
         ignore_feedback: options.ignore_feedback,
         visibility_profile: FindingVisibilityProfile::Strict,
         pre_visibility_filter: pre_diff_filter,

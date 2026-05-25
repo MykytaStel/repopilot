@@ -1,8 +1,9 @@
 use crate::baseline::diff::BaselineScanReport;
 use crate::findings::types::{Finding, Severity};
+use crate::output::FindingRenderLimit;
 use crate::output::render_helpers::escape_table_cell;
 use crate::output::report_stats::{
-    category_order, first_location, indexed_findings_for_category, indexed_findings_for_rule,
+    category_order, first_location, indexed_findings_for_rule, indexed_sorted_findings,
     rule_ids_for_indexed_findings,
 };
 use crate::output::report_text::{category_label_rank, category_title, first_sentence};
@@ -13,6 +14,7 @@ pub(crate) fn render_findings_index(
     output: &mut String,
     findings: &[Finding],
     baseline: Option<&BaselineScanReport>,
+    findings_limit: FindingRenderLimit,
 ) {
     output.push_str("## Findings Index\n\n");
 
@@ -21,7 +23,15 @@ pub(crate) fn render_findings_index(
         return;
     }
 
-    let rows = grouped_index_rows(findings, baseline);
+    let indexed_findings = limited_indexed_findings(findings, findings_limit);
+    render_limit_note(
+        output,
+        findings.len(),
+        indexed_findings.len(),
+        findings_limit,
+    );
+
+    let rows = grouped_index_rows(&indexed_findings, baseline);
     if baseline.is_some() {
         output.push_str(
             "| Category | Rule | Max severity | Count | New | Existing | First location |\n",
@@ -60,8 +70,12 @@ pub(crate) fn render_findings_index(
     output.push('\n');
 }
 
-pub(crate) fn render_grouped_findings<F>(output: &mut String, findings: &[Finding], status_for: F)
-where
+pub(crate) fn render_grouped_findings<F>(
+    output: &mut String,
+    findings: &[Finding],
+    findings_limit: FindingRenderLimit,
+    status_for: F,
+) where
     F: Fn(usize) -> Option<&'static str>,
 {
     output.push_str("## Findings\n\n");
@@ -71,8 +85,14 @@ where
         return;
     }
 
+    let indexed_findings = limited_indexed_findings(findings, findings_limit);
+
     for category in category_order() {
-        let category_findings = indexed_findings_for_category(findings, &category);
+        let category_findings = indexed_findings
+            .iter()
+            .copied()
+            .filter(|(_, finding)| finding.category == category)
+            .collect::<Vec<_>>();
         if category_findings.is_empty() {
             continue;
         }
@@ -176,12 +196,12 @@ struct IndexRow {
 }
 
 fn grouped_index_rows(
-    findings: &[Finding],
+    findings: &[(usize, &Finding)],
     baseline: Option<&BaselineScanReport>,
 ) -> Vec<IndexRow> {
     let mut rows: BTreeMap<(String, String), IndexRow> = BTreeMap::new();
 
-    for (index, finding) in findings.iter().enumerate() {
+    for (index, finding) in findings.iter().copied() {
         let key = (
             finding.category.label().to_string(),
             finding.rule_id.clone(),
@@ -218,6 +238,32 @@ fn grouped_index_rows(
             .then_with(|| left.rule_id.cmp(&right.rule_id))
     });
     rows
+}
+
+fn limited_indexed_findings(
+    findings: &[Finding],
+    findings_limit: FindingRenderLimit,
+) -> Vec<(usize, &Finding)> {
+    let shown = findings_limit.detailed_limit(findings.len());
+    indexed_sorted_findings(findings)
+        .into_iter()
+        .take(shown)
+        .collect()
+}
+
+fn render_limit_note(
+    output: &mut String,
+    total: usize,
+    shown: usize,
+    findings_limit: FindingRenderLimit,
+) {
+    if matches!(findings_limit, FindingRenderLimit::Limit(_)) && shown < total {
+        writeln!(
+            output,
+            "Showing {shown} of {total} findings. Use `--max-findings none` to render all findings.\n"
+        )
+        .unwrap();
+    }
 }
 
 fn inline_snippet(snippet: &str) -> String {

@@ -1,9 +1,10 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use std::env;
 use std::io::IsTerminal;
 use std::time::Duration;
 
 pub fn make_spinner(message: &'static str) -> Option<ProgressBar> {
-    if !std::io::stderr().is_terminal() {
+    if !std::io::stderr().is_terminal() || env::var_os("CI").is_some() {
         return None;
     }
 

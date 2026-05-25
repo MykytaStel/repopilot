@@ -23,7 +23,12 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`ai prompt`](#ai-prompt) | — | Generate an AI-ready remediation prompt |
 | [`inspect explain`](#inspect-explain) | — | Explain file classification and rule decisions |
 | [`inspect knowledge`](#inspect-knowledge) | — | Inspect bundled Knowledge Engine data |
+| [`inspect cache`](#inspect-cache) | — | Inspect local changed-scan cache diagnostics |
+| [`inspect graph`](#inspect-graph) | — | Inspect Context Risk Graph decisions |
 | [`inspect feedback`](#inspect-feedback) | — | Validate local feedback suppressions |
+| [`inspect rules`](#inspect-rules) | — | List registered rules with lifecycle and signal metadata |
+| [`inspect rule`](#inspect-rule) | — | Inspect one registered rule |
+| [`inspect eval-rules`](#inspect-eval-rules) | — | Evaluate registered rules against bundled fixtures |
 | [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
@@ -69,11 +74,18 @@ repopilot s <PATH> [OPTIONS]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--format` | `console\|json\|markdown\|html\|sarif` | `console` | Output format |
+| `--output-style` | `compact\|full` | `compact` | Console output style; use `full` for detailed diagnostics |
+| `--quiet` | flag | — | Suppress progress indicators and next-step hints while keeping findings and status |
+| `--no-progress` | flag | — | Disable progress indicators |
+| `--max-findings` | `N\|none` | compact: 5, full/Markdown: all | Limit rendered human-format finding details; JSON and SARIF remain complete |
+| `--color` | `auto\|always\|never` | `auto` | Console color mode |
+| `--no-color` | flag | — | Disable ANSI color in console output |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
 | `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Exit code 1 when findings meet this threshold (see [Thresholds](#thresholds)) |
+| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Exit code 1 when findings meet this risk priority threshold |
 | `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
@@ -89,8 +101,11 @@ repopilot s <PATH> [OPTIONS]
 | `--min-confidence` | `low\|medium\|high` | — | Only show findings at or above this confidence |
 | `--min-priority` | `p0\|p1\|p2\|p3` | — | Only show findings at or above this risk priority |
 | `--verbose` | flag | — | Print scan/render timing after the report |
+| `--profile` | `default\|strict` | `default` | Default hides low-signal suggestions; strict shows all findings |
+| `--include-maintainability` | flag | — | Include maintainability and testing suggestions hidden by the default profile |
 | `--timing` | flag | — | Print pipeline timing for discovery, file analysis, framework detection, audits, enrichment, risk scoring, and report finalization |
-| `--preset` | `strict\|balanced\|lenient` | `balanced` | Apply a threshold preset without editing config |
+| `--preset` | `strict\|balanced\|lenient` | — | Apply a threshold preset without editing config |
+| `--rule` | rule ID | — | Only show findings for specific rule IDs; repeatable |
 
 `files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_analyzed` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.
 
@@ -109,6 +124,12 @@ repopilot s <PATH> [OPTIONS]
 # Basic scan
 repopilot scan .
 repopilot scan src/
+repopilot scan . --output-style full
+repopilot scan . --quiet
+repopilot scan . --no-progress
+repopilot scan . --max-findings 20
+repopilot scan . --max-findings none
+repopilot scan . --no-color
 
 # Save report to a file
 repopilot scan . --format json --output report.json
@@ -147,6 +168,7 @@ repopilot scan . --since main
 
 # One-shot threshold presets and timing
 repopilot scan . --preset strict
+repopilot scan . --profile strict
 repopilot scan . --verbose
 ```
 
@@ -210,6 +232,8 @@ repopilot r [PATH] [OPTIONS]
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file |
 | `--fail-on` | threshold | — | Exit code 1 when **in-diff** findings meet this threshold |
+| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Exit code 1 when **in-diff** findings meet this risk priority threshold |
+| `--no-progress` | flag | — | Disable progress indicators |
 | `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
@@ -236,12 +260,14 @@ repopilot review .
 # Review a branch in CI
 repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
+repopilot review . --base origin/main --no-progress
 
 # Save a Markdown review report
 repopilot review . --base origin/main --format markdown --output review.md
 
 # Baseline-aware CI gate on in-diff findings only
 repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
+repopilot review . --base origin/main --fail-on-priority p1
 
 # Review without local feedback suppressions
 repopilot review . --ignore-feedback
@@ -450,6 +476,146 @@ repopilot inspect feedback .
 repopilot inspect feedback . --format json
 repopilot inspect feedback . --evaluate --format json
 repopilot inspect feedback . --format markdown --output feedback.md
+```
+
+---
+
+## `inspect cache`
+
+Reports local changed-scan cache path, cache existence, entry counts, and cache metadata. It is read-only.
+
+### Synopsis
+
+```
+repopilot inspect cache [PATH] [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect cache .
+repopilot inspect cache . --format json
+repopilot inspect cache . --format markdown --output cache.md
+```
+
+---
+
+## `inspect graph`
+
+Builds a local scan summary and renders Context Risk Graph diagnostics without starting a second scan during rendering.
+
+### Synopsis
+
+```
+repopilot inspect graph [PATH] [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect graph .
+repopilot inspect graph . --format json
+repopilot inspect graph . --format markdown --output graph.md
+```
+
+---
+
+## `inspect rules`
+
+Lists registered rules with lifecycle, signal source, default visibility, fixture coverage, and stability metadata.
+
+### Synopsis
+
+```
+repopilot inspect rules [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `--lifecycle` | `experimental\|preview\|stable\|deprecated` | — | Filter by lifecycle |
+| `--source` | signal source | — | Filter by signal source, for example `text-heuristic` |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect rules
+repopilot inspect rules --format json
+repopilot inspect rules --lifecycle preview
+repopilot inspect rules --source text-heuristic
+```
+
+---
+
+## `inspect rule`
+
+Shows metadata for one registered rule.
+
+### Synopsis
+
+```
+repopilot inspect rule <RULE_ID> [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect rule security.secret-candidate
+repopilot inspect rule architecture.circular-dependency --format json
+```
+
+---
+
+## `inspect eval-rules`
+
+Runs local fixture projects for registered rules and reports missing, unexpected, contract, stability, and fixture-quality failures.
+
+### Synopsis
+
+```
+repopilot inspect eval-rules [OPTIONS]
+```
+
+### Options
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--rule` | rule ID | — | Evaluate only one rule |
+| `--fixtures` | path | `tests/fixtures/rules` | Fixture root |
+| `--format` | `console\|json\|markdown` | `console` | Output format |
+| `-o, --output` | path | stdout | Write report to a file instead of stdout |
+
+### Examples
+
+```bash
+repopilot inspect eval-rules
+repopilot inspect eval-rules --rule security.secret-candidate
+repopilot inspect eval-rules --format json
 ```
 
 ---

@@ -25,6 +25,7 @@ pub struct ProductScanRequest {
     pub overrides: ScanConfigOverrides,
     pub preset: Option<String>,
     pub mode: ProductScanMode,
+    pub no_progress: bool,
     pub ignore_feedback: bool,
     pub visibility_profile: FindingVisibilityProfile,
     pub pre_visibility_filter: FindingFilter,
@@ -53,7 +54,11 @@ pub fn run_product_scan(
     }
 
     let scan_config = build_scan_config(&repo_config, request.overrides);
-    let pb = make_spinner("Scanning...");
+    let pb = if request.no_progress {
+        None
+    } else {
+        make_spinner("Scanning...")
+    };
     let scan_start = Instant::now();
     let scan_result = match &request.mode {
         ProductScanMode::Full => scan_path_with_config(&request.path, &scan_config),

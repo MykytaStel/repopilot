@@ -27,6 +27,7 @@ pub fn run(
         overrides: ScanConfigOverrides::default(),
         preset: None,
         mode: ProductScanMode::Full,
+        no_progress: false,
         ignore_feedback: true,
         visibility_profile: FindingVisibilityProfile::Strict,
         pre_visibility_filter: FindingFilter::default(),

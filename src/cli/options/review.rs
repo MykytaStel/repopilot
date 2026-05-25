@@ -36,6 +36,10 @@ pub struct ReviewOptions {
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
 
+    /// Disable progress indicators
+    #[arg(long)]
+    pub no_progress: bool,
+
     /// Write report to a file instead of stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,

@@ -76,5 +76,7 @@ fn scan_default_text_output_still_works() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("RepoPilot Scan"));
-    assert!(stdout.contains("Files analyzed:"));
+    assert!(stdout.contains("Status: Clean"));
+    assert!(stdout.contains("Findings: 0 visible"));
+    assert!(!stdout.contains("Files analyzed:"));
 }

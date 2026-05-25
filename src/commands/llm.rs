@@ -35,6 +35,7 @@ where
         overrides: ScanConfigOverrides::default(),
         preset: None,
         mode: ProductScanMode::Full,
+        no_progress: false,
         ignore_feedback: false,
         visibility_profile: FindingVisibilityProfile::Default,
         pre_visibility_filter: FindingFilter::default(),

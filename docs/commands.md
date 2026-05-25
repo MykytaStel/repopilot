@@ -109,6 +109,26 @@ Size values accept raw bytes plus `kb`, `mb`, and `gb` suffixes. By default, low
 
 JSON reports expose this accounting with `files_discovered`, `files_analyzed` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `large_files_skipped`, and `skipped_bytes`.
 
+### CI and output controls
+
+Use `--quiet` for CI logs where status and findings should remain visible but
+next-step hints and progress indicators should be suppressed. Use
+`--no-progress` when only the spinner should be disabled.
+
+```bash
+repopilot scan . --quiet
+repopilot scan . --no-progress
+```
+
+Use `--max-findings` to cap rendered human-format finding details. JSON and
+SARIF stay complete unless you apply a real filter such as `--min-severity`,
+`--min-priority`, or `--rule`.
+
+```bash
+repopilot scan . --max-findings 20
+repopilot scan . --max-findings none
+```
+
 ### Filtering by severity, confidence, and priority
 
 Use `--min-severity` and `--min-confidence` to reduce local report noise while keeping the same rules enabled:
@@ -128,6 +148,18 @@ repopilot scan . --min-priority p2
 repopilot review . --base origin/main --min-priority p1
 repopilot scan . --rule language.rust.panic-risk --timing
 ```
+
+The default console report is compact. Use `--output-style full` when you need
+the diagnostic report with scan input, signal quality, hidden suggestion
+breakdown, risk clusters, rule counts, language inventory, and full finding
+details:
+
+```bash
+repopilot scan . --output-style full
+```
+
+Use `--color auto|always|never` or `--no-color` to control ANSI color. Auto mode
+only emits color for terminal stdout outside CI.
 
 Use `--verbose` when you need scan and render timing:
 
@@ -468,8 +500,9 @@ silently disappearing.
 Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
 suppressions are intentionally team-reviewed and part of repository policy.
 Personal or temporary suppressions should stay local and uncommitted.
-\n\n\n## Engine pipeline contract
+
+## Engine pipeline contract
 
 RepoPilot commands should scan once and render many outputs from the resulting
 `ScanSummary`. Renderers are not allowed to trigger repository scans. This keeps
-large repositories predictable and makes timing/cache metadata easier to trust.\n
+large repositories predictable and makes timing/cache metadata easier to trust.

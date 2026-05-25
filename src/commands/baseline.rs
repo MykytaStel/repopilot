@@ -27,6 +27,7 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
                 overrides: ScanConfigOverrides::default(),
                 preset: None,
                 mode: ProductScanMode::Full,
+                no_progress: false,
                 ignore_feedback,
                 visibility_profile: FindingVisibilityProfile::Default,
                 pre_visibility_filter: FindingFilter::default(),
