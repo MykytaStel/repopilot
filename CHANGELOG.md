@@ -6,7 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-No changes yet.
+### Added
+
+- Added architecture anti-pattern documentation describing production-scope policy and false-positive expectations for architecture rules.
+
+### Changed
+
+- Scoped `architecture.deep-nesting` through a shared production architecture path policy so fixtures, tests, docs, examples, generated files, vendor trees, and build output do not become user-facing architecture findings.
 
 ## [0.13.0] - 2026-05-25
 

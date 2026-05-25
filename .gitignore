@@ -34,3 +34,4 @@ dist/
 !/.repopilot/.gitkeep
 !/.repopilot/config.toml
 !/.repopilot/config.example.toml
+.repopilot-patches/

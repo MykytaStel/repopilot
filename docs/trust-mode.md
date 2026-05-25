@@ -139,3 +139,12 @@ centralized and semantic. The next improvements should be:
 - validated local feedback with visible `local_feedback` metadata
 - confidence calibration per rule
 - project profile specific visibility defaults
+
+## Architecture anti-pattern scope
+
+Architecture anti-pattern rules are production-scoped by default. Broad structure heuristics such as
+`architecture.deep-nesting` should not treat rule fixtures, test corpora, docs, examples, generated
+files, vendor trees, or build output as product architecture risk.
+
+This keeps default output quiet while preserving those paths for rule evaluation and other audits
+where they are intentionally useful. See `docs/architecture-antipatterns.md` for the full policy.
