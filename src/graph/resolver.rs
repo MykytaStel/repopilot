@@ -197,12 +197,13 @@ fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
             }
 
             let wildcard = pattern.ends_with("/*");
-            let prefix = pattern
-                .strip_suffix("/*")
-                .unwrap_or(pattern)
-                .to_string();
+            let prefix = pattern.strip_suffix("/*").unwrap_or(pattern).to_string();
 
-            Some(TsAlias { prefix, wildcard, roots })
+            Some(TsAlias {
+                prefix,
+                wildcard,
+                roots,
+            })
         })
         .collect();
 

@@ -51,8 +51,20 @@ fn is_index_file(file: &FileFacts) -> bool {
             let name_lower = name.to_lowercase();
             matches!(
                 name_lower.as_str(),
-                "index.ts" | "index.tsx" | "index.js" | "index.jsx" | "index.mts" | "index.mjs" |
-                "public-api.ts" | "public_api.ts" | "exports.ts" | "exports.js" | "api.ts" | "api.js" | "main.ts" | "main.js"
+                "index.ts"
+                    | "index.tsx"
+                    | "index.js"
+                    | "index.jsx"
+                    | "index.mts"
+                    | "index.mjs"
+                    | "public-api.ts"
+                    | "public_api.ts"
+                    | "exports.ts"
+                    | "exports.js"
+                    | "api.ts"
+                    | "api.js"
+                    | "main.ts"
+                    | "main.js"
             )
         })
         .unwrap_or(false)

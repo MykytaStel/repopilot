@@ -12,4 +12,3 @@ pub(super) fn extract_string_literal(s: &str) -> Option<&str> {
         None
     }
 }
-

@@ -1,5 +1,6 @@
 use crate::cli::{
-    CompareOutputFormatArg, GraphOutputFormatArg, KnowledgeSectionArg, RuleLifecycleArg, SeverityArg, SignalSourceArg,
+    CompareOutputFormatArg, GraphOutputFormatArg, KnowledgeSectionArg, RuleLifecycleArg,
+    SeverityArg, SignalSourceArg,
 };
 use clap::{Args, Subcommand};
 use std::path::PathBuf;

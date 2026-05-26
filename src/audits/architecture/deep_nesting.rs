@@ -3,9 +3,9 @@ use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileContentProvider, ScanFacts};
+use std::cell::RefCell;
 use std::path::PathBuf;
 use tree_sitter::{Node, Parser};
-use std::cell::RefCell;
 
 thread_local! {
     static RUST_PARSER: RefCell<Parser> = RefCell::new({
@@ -33,10 +33,18 @@ impl ProjectAudit for DeepNestingAudit {
             .production_files()
             .filter_map(|file| {
                 let content = FileContentProvider.content(file.facts)?;
-                let ext = file.path().extension().and_then(|e| e.to_str()).unwrap_or("");
+                let ext = file
+                    .path()
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("");
                 let depth = compute_ast_nesting(&content, ext);
                 if depth > config.max_directory_depth {
-                    Some(build_finding(file.path().to_path_buf(), depth, config.max_directory_depth))
+                    Some(build_finding(
+                        file.path().to_path_buf(),
+                        depth,
+                        config.max_directory_depth,
+                    ))
                 } else {
                     None
                 }
@@ -243,11 +251,26 @@ mod tests {
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
             files: vec![
-                file_facts_with_content("./docs/reference/api/v1/generated/client/config.ts", nested_code),
-                file_facts_with_content("./examples/react-native/deep/sample/src/App.tsx", nested_code),
-                file_facts_with_content("./src/generated/openapi/client/v1/types.generated.ts", nested_code),
-                file_facts_with_content("./vendor/company/package/deep/source/file.ts", nested_code),
-                file_facts_with_content("./target/debug/build/package/out/generated.rs", nested_code),
+                file_facts_with_content(
+                    "./docs/reference/api/v1/generated/client/config.ts",
+                    nested_code,
+                ),
+                file_facts_with_content(
+                    "./examples/react-native/deep/sample/src/App.tsx",
+                    nested_code,
+                ),
+                file_facts_with_content(
+                    "./src/generated/openapi/client/v1/types.generated.ts",
+                    nested_code,
+                ),
+                file_facts_with_content(
+                    "./vendor/company/package/deep/source/file.ts",
+                    nested_code,
+                ),
+                file_facts_with_content(
+                    "./target/debug/build/package/out/generated.rs",
+                    nested_code,
+                ),
                 file_facts_with_content("./dist/assets/js/chunks/deep/file.js", nested_code),
             ],
             ..ScanFacts::default()

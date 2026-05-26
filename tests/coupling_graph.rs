@@ -393,6 +393,8 @@ fn cycle_detection_depth_exceeded_warning() {
     let graph = build_coupling_graph(&facts, root);
     let _cycles = detect_cycles(&graph);
 
-    assert!(repopilot::graph::was_cycle_detection_depth_exceeded(), "should have exceeded depth cap");
+    assert!(
+        repopilot::graph::was_cycle_detection_depth_exceeded(),
+        "should have exceeded depth cap"
+    );
 }
-
