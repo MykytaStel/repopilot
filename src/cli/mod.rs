@@ -2,7 +2,7 @@ mod args;
 mod options;
 
 pub use args::{
-    ColorArg, CompareOutputFormatArg, ConfidenceArg, FailOnArg, KnowledgeSectionArg,
+    ColorArg, CompareOutputFormatArg, GraphOutputFormatArg, ConfidenceArg, FailOnArg, KnowledgeSectionArg,
     MaxFindingsArg, OutputFormatArg, PriorityArg, RuleLifecycleArg, ScanOutputStyleArg,
     ScanProfileArg, SeverityArg, SignalSourceArg, parse_byte_size, parse_max_findings,
     parse_token_budget,

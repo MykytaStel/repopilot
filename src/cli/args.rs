@@ -22,6 +22,15 @@ pub enum CompareOutputFormatArg {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum GraphOutputFormatArg {
+    Console,
+    Json,
+    Markdown,
+    Dot,
+    Mermaid,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum ScanOutputStyleArg {
     Compact,
     Full,

@@ -48,9 +48,11 @@ fn is_index_file(file: &FileFacts) -> bool {
         .file_name()
         .and_then(|name| name.to_str())
         .map(|name| {
+            let name_lower = name.to_lowercase();
             matches!(
-                name,
-                "index.ts" | "index.tsx" | "index.js" | "index.jsx" | "index.mts" | "index.mjs"
+                name_lower.as_str(),
+                "index.ts" | "index.tsx" | "index.js" | "index.jsx" | "index.mts" | "index.mjs" |
+                "public-api.ts" | "public_api.ts" | "exports.ts" | "exports.js" | "api.ts" | "api.js" | "main.ts" | "main.js"
             )
         })
         .unwrap_or(false)
@@ -229,9 +231,32 @@ mod tests {
     }
 
     #[test]
-    fn ignores_non_index_file() {
+    fn detects_broad_barrel_filenames() {
         let temp = tempdir().expect("temp dir");
         let file_path = temp.path().join("exports.ts");
+
+        fs::write(
+            &file_path,
+            [
+                "export * from './a';",
+                "export * from './b';",
+                "export * from './c';",
+                "export * from './d';",
+            ]
+            .join("\n"),
+        )
+        .expect("write file");
+
+        let findings =
+            BarrelFileRiskAudit.audit(&facts_for_file(file_path), &ScanConfig::default());
+
+        assert_eq!(findings.len(), 1);
+    }
+
+    #[test]
+    fn ignores_non_index_file() {
+        let temp = tempdir().expect("temp dir");
+        let file_path = temp.path().join("utils.ts");
 
         fs::write(
             &file_path,

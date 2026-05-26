@@ -104,6 +104,20 @@ pub fn compute_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
         .collect()
 }
 
+use std::cell::Cell;
+
+thread_local! {
+    static CYCLE_DETECTION_DEPTH_EXCEEDED: Cell<bool> = const { Cell::new(false) };
+}
+
+pub fn was_cycle_detection_depth_exceeded() -> bool {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.get())
+}
+
+pub fn clear_cycle_detection_depth_exceeded() {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(false));
+}
+
 // ── Cycle detection ───────────────────────────────────────────────────────────
 
 const MAX_DFS_DEPTH: usize = 512;
@@ -113,6 +127,7 @@ pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
 }
 
 pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Vec<PathBuf>> {
+    clear_cycle_detection_depth_exceeded();
     if max_cycles == 0 {
         return Vec::new();
     }
@@ -197,6 +212,7 @@ impl CycleDfs<'_, '_> {
             return;
         }
         if depth > MAX_DFS_DEPTH {
+            CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(true));
             self.state[node] = 2;
             return;
         }

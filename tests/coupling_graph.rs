@@ -367,3 +367,32 @@ fn large_acyclic_import_graph_stays_stable() {
     assert_eq!(metrics.len(), FILE_COUNT);
     assert!(cycles.is_empty());
 }
+
+#[test]
+fn cycle_detection_depth_exceeded_warning() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    let src = root.join("src");
+    fs::create_dir_all(&src).unwrap();
+
+    const FILE_COUNT: usize = 515; // greater than MAX_DFS_DEPTH (512)
+    for index in 0..FILE_COUNT {
+        let next_import = if index + 1 < FILE_COUNT {
+            format!("use crate::module_{};\n", index + 1)
+        } else {
+            "use crate::module_0;\n".to_string()
+        };
+        fs::write(
+            src.join(format!("module_{index}.rs")),
+            format!("{next_import}pub fn module_{index}() {{}}\n"),
+        )
+        .unwrap();
+    }
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let _cycles = detect_cycles(&graph);
+
+    assert!(repopilot::graph::was_cycle_detection_depth_exceeded(), "should have exceeded depth cap");
+}
+

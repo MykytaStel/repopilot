@@ -1,5 +1,5 @@
 use crate::cli::{
-    CompareOutputFormatArg, KnowledgeSectionArg, RuleLifecycleArg, SeverityArg, SignalSourceArg,
+    CompareOutputFormatArg, GraphOutputFormatArg, KnowledgeSectionArg, RuleLifecycleArg, SeverityArg, SignalSourceArg,
 };
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
@@ -163,7 +163,7 @@ pub struct GraphInspectOptions {
 
     /// Output format for graph diagnostics
     #[arg(long, value_enum, default_value = "console")]
-    pub format: CompareOutputFormatArg,
+    pub format: GraphOutputFormatArg,
 
     /// Write report to a file instead of stdout
     #[arg(short, long)]

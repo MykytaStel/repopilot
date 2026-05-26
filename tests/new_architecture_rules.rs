@@ -123,9 +123,23 @@ fn documentation_files_do_not_inflate_module_count() {
 #[test]
 fn reports_deep_nesting_only_above_threshold() {
     let temp = tempdir().expect("failed to create temp dir");
-    let deep = temp.path().join("src/a/b/c");
+    let deep = temp.path().join("src");
     fs::create_dir_all(&deep).expect("failed to create nested dirs");
-    fs::write(deep.join("feature.rs"), "pub fn value() {}\n").expect("failed to write file");
+    fs::write(
+        deep.join("feature.rs"),
+        r#"
+        fn foo() {
+            if a {
+                if b {
+                    if c {
+                        println!("nested");
+                    }
+                }
+            }
+        }
+    "#,
+    )
+    .expect("failed to write file");
 
     let config = ScanConfig {
         max_directory_depth: 2,

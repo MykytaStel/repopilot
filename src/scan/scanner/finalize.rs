@@ -27,6 +27,12 @@ impl<'a> ScanEngine<'a> {
         let finalization_start = Instant::now();
         let context_graph = prepare_findings_and_context_graph(&mut project_stage);
         let mut diagnostics = diagnostics;
+        if crate::graph::was_cycle_detection_depth_exceeded() {
+            diagnostics.push(ScanDiagnostic::warning(
+                "graph.cycle-depth-exceeded",
+                "Cycle detection depth limit (512 hops) was exceeded; some deep transitive cycles may not have been reported.",
+            ));
+        }
         let context_graph_artifacts = build_context_graph_artifacts(
             &project_stage.facts.root_path,
             self.config,
