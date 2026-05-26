@@ -149,11 +149,10 @@ fn normalize_identity_part(value: &str) -> String {
 
 fn mask_string_literal_values(value: &str) -> String {
     let mut output = String::with_capacity(value.len());
-    let mut chars = value.chars().peekable();
     let mut in_string = false;
     let mut escaped = false;
 
-    while let Some(character) = chars.next() {
+    for character in value.chars() {
         if in_string {
             match character {
                 '\\' if !escaped => {

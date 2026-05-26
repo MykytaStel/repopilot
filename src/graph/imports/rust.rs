@@ -1,22 +1,30 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use tree_sitter::{Node, Parser};
 
+thread_local! {
+    static RUST_PARSER: RefCell<Parser> = RefCell::new({
+        let mut parser = Parser::new();
+        parser
+            .set_language(&tree_sitter_rust::LANGUAGE.into())
+            .expect("tree-sitter-rust grammar should load");
+        parser
+    });
+}
+
 pub(super) fn extract(content: &str) -> HashSet<String> {
-    let Some(tree) = parse(content) else {
+    let tree = RUST_PARSER.with(|cell| {
+        let mut parser = cell.borrow_mut();
+        parser.reset();
+        parser.parse(content, None)
+    });
+    let Some(tree) = tree else {
         return HashSet::new();
     };
 
     let mut result = HashSet::new();
     visit(tree.root_node(), content, &mut result);
     result
-}
-
-fn parse(content: &str) -> Option<tree_sitter::Tree> {
-    let mut parser = Parser::new();
-    parser
-        .set_language(&tree_sitter_rust::LANGUAGE.into())
-        .ok()?;
-    parser.parse(content, None)
 }
 
 fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {

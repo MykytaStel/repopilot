@@ -14,7 +14,7 @@ pub fn resolve_import(
     match ext {
         "rs" => resolve_rust(raw_import, from_file, root, known_files),
         "ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs" => {
-            resolve_ts(raw_import, from_file, known_files)
+            resolve_ts(raw_import, from_file, root, known_files)
         }
         "py" => resolve_python(raw_import, from_file, known_files),
         "go" => resolve_go(raw_import, root, known_files),
@@ -59,21 +59,35 @@ fn resolve_rust(
 
 // ── TypeScript / JavaScript ───────────────────────────────────────────────────
 
-fn resolve_ts(raw: &str, from_file: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
-    if !raw.starts_with('.') && !raw.starts_with('/') {
-        return None;
+fn resolve_ts(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    // ── 1. Relative imports (./ or ../) ───────────────────────────────────────
+    if raw.starts_with('.') {
+        let dir = from_file.parent()?;
+        let base = normalize_path(&dir.join(raw));
+        return probe_ts_extensions(&base, known_files);
     }
 
-    let dir = from_file.parent()?;
-    let base = if raw.starts_with('/') {
-        PathBuf::from(raw)
-    } else {
-        dir.join(raw)
-    };
-    let base = normalize_path(&base);
+    // ── 2. Absolute imports starting with / ──────────────────────────────────
+    if raw.starts_with('/') {
+        let base = normalize_path(Path::new(raw));
+        if let Some(resolved) = probe_ts_extensions(&base, known_files) {
+            return Some(resolved);
+        }
+    }
 
+    // ── 3. tsconfig / jsconfig path alias resolution ─────────────────────────
+    let aliases = tsconfig_paths(root);
+    resolve_ts_alias(raw, root, &aliases, known_files)
+}
+
+/// Probe a base path with all TS/JS extensions and index file variants.
+fn probe_ts_extensions(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     const EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
-
     let mut candidates: Vec<PathBuf> = Vec::new();
     for ext in EXTS {
         candidates.push(base.with_extension(ext));
@@ -81,8 +95,200 @@ fn resolve_ts(raw: &str, from_file: &Path, known_files: &HashSet<PathBuf>) -> Op
     for ext in EXTS {
         candidates.push(base.join(format!("index.{ext}")));
     }
-
     probe(&candidates, known_files)
+}
+
+// ── tsconfig path aliases ─────────────────────────────────────────────────────
+
+/// One entry from `compilerOptions.paths`: a prefix pattern → list of replacement roots.
+#[derive(Clone)]
+struct TsAlias {
+    /// The alias prefix, e.g. `@/*` or `@app/*` or `@utils` (exact).
+    prefix: String,
+    /// Whether the alias ends with `/*` (wildcard) or is an exact match.
+    wildcard: bool,
+    /// Replacement roots (relative to tsconfig dir), e.g. `["src/*"]`.
+    /// The trailing `/*` is stripped; we join with the wildcard tail ourselves.
+    roots: Vec<PathBuf>,
+}
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+thread_local! {
+    /// Cache of parsed tsconfig alias maps keyed by project root, so repeated
+    /// calls within one scan only hit the filesystem once per root.
+    static TSCONFIG_CACHE: RefCell<HashMap<PathBuf, Vec<TsAlias>>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Read and parse `compilerOptions.paths` from `tsconfig.json` or `jsconfig.json`.
+/// Returns an empty vec when neither file exists or neither has `paths`.
+fn tsconfig_paths(root: &Path) -> Vec<TsAlias> {
+    TSCONFIG_CACHE.with(|cell| {
+        let mut cache = cell.borrow_mut();
+        if let Some(cached) = cache.get(root) {
+            return cached.clone();
+        }
+        let aliases = parse_tsconfig_paths(root);
+        cache.insert(root.to_path_buf(), aliases.clone());
+        aliases
+    })
+}
+
+fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
+    // Try tsconfig.json first, then jsconfig.json.
+    let content = ["tsconfig.json", "jsconfig.json"]
+        .iter()
+        .find_map(|name| std::fs::read_to_string(root.join(name)).ok());
+
+    let Some(content) = content else {
+        return Vec::new();
+    };
+
+    // tsconfig uses JSON with comments — strip line comments before parsing.
+    let stripped = strip_json_line_comments(&content);
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&stripped) else {
+        return Vec::new();
+    };
+
+    let paths = value
+        .get("compilerOptions")
+        .and_then(|co| co.get("paths"))
+        .and_then(|p| p.as_object());
+
+    let base_url = value
+        .get("compilerOptions")
+        .and_then(|co| co.get("baseUrl"))
+        .and_then(|u| u.as_str())
+        .map(|u| root.join(u));
+
+    let Some(paths) = paths else {
+        // Even without explicit paths, baseUrl alone can resolve bare imports.
+        return base_url
+            .map(|base| {
+                vec![TsAlias {
+                    prefix: String::new(), // matches everything (last resort)
+                    wildcard: true,
+                    roots: vec![base],
+                }]
+            })
+            .unwrap_or_default();
+    };
+
+    let tsconfig_dir = root; // paths are relative to tsconfig location (root)
+
+    let mut aliases: Vec<TsAlias> = paths
+        .iter()
+        .filter_map(|(pattern, mappings)| {
+            let array = mappings.as_array()?;
+            let roots: Vec<PathBuf> = array
+                .iter()
+                .filter_map(|v| v.as_str())
+                .map(|mapping| {
+                    // Strip trailing /* from mapping (e.g. "src/*" → "src")
+                    let mapping = mapping.strip_suffix("/*").unwrap_or(mapping);
+                    tsconfig_dir.join(mapping)
+                })
+                .collect();
+
+            if roots.is_empty() {
+                return None;
+            }
+
+            let wildcard = pattern.ends_with("/*");
+            let prefix = pattern
+                .strip_suffix("/*")
+                .unwrap_or(pattern)
+                .to_string();
+
+            Some(TsAlias { prefix, wildcard, roots })
+        })
+        .collect();
+
+    // Longer (more specific) prefixes should be tried first.
+    aliases.sort_by(|a, b| b.prefix.len().cmp(&a.prefix.len()));
+    aliases
+}
+
+/// Strip `// …` line comments from JSON-with-comments (tsconfig format).
+fn strip_json_line_comments(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut in_string = false;
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => {
+                in_string = !in_string;
+                out.push(ch);
+            }
+            '/' if !in_string => {
+                if chars.peek() == Some(&'/') {
+                    // consume rest of line
+                    for c in chars.by_ref() {
+                        if c == '\n' {
+                            out.push('\n');
+                            break;
+                        }
+                    }
+                } else {
+                    out.push(ch);
+                }
+            }
+            '\\' if in_string => {
+                out.push(ch);
+                if let Some(next) = chars.next() {
+                    out.push(next);
+                }
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// Attempt to resolve `raw` against the collected tsconfig aliases.
+fn resolve_ts_alias(
+    raw: &str,
+    _root: &Path,
+    aliases: &[TsAlias],
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    for alias in aliases {
+        if alias.prefix.is_empty() {
+            // baseUrl-only alias: try root/raw
+            let base = normalize_path(&alias.roots[0].join(raw));
+            if let Some(p) = probe_ts_extensions(&base, known_files) {
+                return Some(p);
+            }
+            continue;
+        }
+
+        if alias.wildcard {
+            // Pattern: `@/*` matches `@/foo/bar` → tail = `foo/bar`
+            let match_prefix = format!("{}/", alias.prefix);
+            let Some(tail) = raw.strip_prefix(&match_prefix) else {
+                continue;
+            };
+            for root in &alias.roots {
+                let base = normalize_path(&root.join(tail));
+                if let Some(p) = probe_ts_extensions(&base, known_files) {
+                    return Some(p);
+                }
+            }
+        } else {
+            // Exact alias: `@utils` → mapped directory/file
+            if raw != alias.prefix {
+                continue;
+            }
+            for root in &alias.roots {
+                if let Some(p) = probe_ts_extensions(root, known_files) {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    None
 }
 
 // ── Python ────────────────────────────────────────────────────────────────────
