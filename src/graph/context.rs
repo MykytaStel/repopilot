@@ -1,6 +1,9 @@
 use crate::audits::context::{FileRole, classify_file};
 use crate::findings::types::Finding;
-use crate::graph::{CouplingGraph, build_coupling_graph, compute_metrics, detect_cycles_bounded};
+use crate::graph::{
+    CouplingGraph, build_coupling_graph, compute_metrics, detect_cycles_bounded,
+    without_rust_module_containment_edges,
+};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::RiskPriority;
 use crate::scan::cache::{cache_dir, config_fingerprint, relative_cache_path, stable_hash_hex};
@@ -15,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
 pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 3;
-pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v1";
+pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v2";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
 pub const MAX_CONTEXT_GRAPH_RISKY_CLUSTERS: usize = 20;

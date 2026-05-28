@@ -22,24 +22,24 @@
       "expected_signals": ["severity.low"]
     },
     {
-      "name": "p2_medium_default",
+      "name": "p3_medium_maintainability_default",
       "rule_id": "code-quality.long-function",
       "category": "CODE_QUALITY",
       "severity": "MEDIUM",
       "confidence": "MEDIUM",
-      "expected_score": 45,
-      "expected_priority": "P2",
-      "expected_signals": ["severity.medium"]
+      "expected_score": 33,
+      "expected_priority": "P3",
+      "expected_signals": ["severity.medium", "knowledge.broad-maintainability"]
     },
     {
-      "name": "p1_high_default",
+      "name": "p2_high_maintainability_default",
       "rule_id": "architecture.large-file",
       "category": "ARCHITECTURE",
       "severity": "HIGH",
       "confidence": "MEDIUM",
-      "expected_score": 75,
-      "expected_priority": "P1",
-      "expected_signals": ["severity.high"]
+      "expected_score": 63,
+      "expected_priority": "P2",
+      "expected_signals": ["severity.high", "knowledge.broad-maintainability"]
     },
     {
       "name": "p0_critical_default",
@@ -57,9 +57,13 @@
       "category": "ARCHITECTURE",
       "severity": "HIGH",
       "confidence": "LOW",
-      "expected_score": 60,
+      "expected_score": 48,
       "expected_priority": "P2",
-      "expected_signals": ["severity.high", "confidence.low"]
+      "expected_signals": [
+        "severity.high",
+        "confidence.low",
+        "knowledge.broad-maintainability"
+      ]
     },
     {
       "name": "security_high_boost_stays_p1",
@@ -78,9 +82,13 @@
       "severity": "MEDIUM",
       "confidence": "MEDIUM",
       "in_diff": true,
-      "expected_score": 57,
+      "expected_score": 45,
       "expected_priority": "P2",
-      "expected_signals": ["severity.medium", "review.in-diff"]
+      "expected_signals": [
+        "severity.medium",
+        "knowledge.broad-maintainability",
+        "review.in-diff"
+      ]
     },
     {
       "name": "graph_hub_medium_boost",
@@ -89,9 +97,13 @@
       "severity": "MEDIUM",
       "confidence": "MEDIUM",
       "graph_impact": "hub",
-      "expected_score": 53,
+      "expected_score": 41,
       "expected_priority": "P2",
-      "expected_signals": ["severity.medium", "graph.hub"]
+      "expected_signals": [
+        "severity.medium",
+        "knowledge.broad-maintainability",
+        "graph.hub"
+      ]
     },
     {
       "name": "large_cluster_medium_boost",

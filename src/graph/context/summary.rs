@@ -49,7 +49,8 @@ pub fn summarize_context_graph(
         .take(MAX_CONTEXT_GRAPH_METRICS)
         .collect();
 
-    let mut cycles = detect_cycles_bounded(&coupling_graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
+    let cycle_graph = without_rust_module_containment_edges(&coupling_graph);
+    let mut cycles = detect_cycles_bounded(&cycle_graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
     let cycles_truncated = cycles.len() > MAX_CONTEXT_GRAPH_CYCLES;
     cycles.truncate(MAX_CONTEXT_GRAPH_CYCLES);
 

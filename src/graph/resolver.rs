@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
 /// Resolves a raw import string extracted from `from_file` to a concrete path
@@ -16,7 +17,7 @@ pub fn resolve_import(
         "ts" | "tsx" | "js" | "jsx" | "mjs" | "cjs" => {
             resolve_ts(raw_import, from_file, root, known_files)
         }
-        "py" => resolve_python(raw_import, from_file, known_files),
+        "py" => resolve_python(raw_import, from_file, root, known_files),
         "go" => resolve_go(raw_import, root, known_files),
         "java" => resolve_jvm(raw_import, root, known_files, &["java"]),
         "kt" | "kts" => resolve_jvm(raw_import, root, known_files, &["kt", "java"]),
@@ -32,9 +33,8 @@ fn resolve_rust(
     root: &Path,
     known_files: &HashSet<PathBuf>,
 ) -> Option<PathBuf> {
-    // mod::child  →  <same-dir>/child.rs  or  <same-dir>/child/mod.rs
     if let Some(name) = raw.strip_prefix("mod::") {
-        let dir = from_file.parent().unwrap_or(root);
+        let dir = rust_current_module_dir(from_file, root);
         return probe(
             &[
                 dir.join(format!("{name}.rs")),
@@ -44,17 +44,70 @@ fn resolve_rust(
         );
     }
 
-    // crate::a::b  →  root/src/a/b.rs  or  root/src/a/b/mod.rs
     if let Some(rest) = raw.strip_prefix("crate::") {
-        let rel = rest.replace("::", "/");
-        let base = root.join("src").join(&rel);
-        return probe(
-            &[base.with_extension("rs"), base.join("mod.rs")],
-            known_files,
-        );
+        let src_root = root.join("src");
+        return resolve_rust_module_path(&src_root, rest, known_files);
+    }
+
+    if let Some(rest) = raw.strip_prefix("self::") {
+        let module_dir = rust_current_module_dir(from_file, root);
+        return resolve_rust_module_path(&module_dir, rest, known_files);
+    }
+
+    if raw.starts_with("super::") {
+        let mut remaining = raw;
+        let mut base = rust_current_module_dir(from_file, root);
+        while let Some(rest) = remaining.strip_prefix("super::") {
+            base = base.parent().unwrap_or(root).to_path_buf();
+            remaining = rest;
+        }
+        return resolve_rust_module_path(&base, remaining, known_files);
     }
 
     None
+}
+
+fn resolve_rust_module_path(
+    base_dir: &Path,
+    module_path: &str,
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    let segments = module_path
+        .split("::")
+        .filter(|segment| !segment.is_empty() && *segment != "self")
+        .collect::<Vec<_>>();
+
+    for end in (1..=segments.len()).rev() {
+        let base = segments[..end]
+            .iter()
+            .fold(base_dir.to_path_buf(), |path, segment| path.join(segment));
+        if let Some(path) = probe_rust_module_file(&base, known_files) {
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+fn probe_rust_module_file(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
+    probe(
+        &[base.with_extension("rs"), base.join("mod.rs")],
+        known_files,
+    )
+}
+
+fn rust_current_module_dir(from_file: &Path, root: &Path) -> PathBuf {
+    let src_root = root.join("src");
+    let file_name = from_file.file_name().and_then(|name| name.to_str());
+
+    match file_name {
+        Some("lib.rs" | "main.rs" | "mod.rs") => from_file
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or(src_root),
+        Some(_) => from_file.with_extension(""),
+        None => src_root,
+    }
 }
 
 // ── TypeScript / JavaScript ───────────────────────────────────────────────────
@@ -65,27 +118,23 @@ fn resolve_ts(
     root: &Path,
     known_files: &HashSet<PathBuf>,
 ) -> Option<PathBuf> {
-    // ── 1. Relative imports (./ or ../) ───────────────────────────────────────
     if raw.starts_with('.') {
         let dir = from_file.parent()?;
         let base = normalize_path(&dir.join(raw));
         return probe_ts_extensions(&base, known_files);
     }
 
-    // ── 2. Absolute imports starting with / ──────────────────────────────────
     if raw.starts_with('/') {
-        let base = normalize_path(Path::new(raw));
-        if let Some(resolved) = probe_ts_extensions(&base, known_files) {
-            return Some(resolved);
+        let base = normalize_path(&root.join(raw.trim_start_matches('/')));
+        if let Some(path) = probe_ts_extensions(&base, known_files) {
+            return Some(path);
         }
     }
 
-    // ── 3. tsconfig / jsconfig path alias resolution ─────────────────────────
     let aliases = tsconfig_paths(root);
-    resolve_ts_alias(raw, root, &aliases, known_files)
+    resolve_ts_alias(raw, &aliases, known_files)
 }
 
-/// Probe a base path with all TS/JS extensions and index file variants.
 fn probe_ts_extensions(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
     const EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
     let mut candidates: Vec<PathBuf> = Vec::new();
@@ -98,32 +147,20 @@ fn probe_ts_extensions(base: &Path, known_files: &HashSet<PathBuf>) -> Option<Pa
     probe(&candidates, known_files)
 }
 
-// ── tsconfig path aliases ─────────────────────────────────────────────────────
-
-/// One entry from `compilerOptions.paths`: a prefix pattern → list of replacement roots.
 #[derive(Clone)]
 struct TsAlias {
-    /// The alias prefix, e.g. `@/*` or `@app/*` or `@utils` (exact).
     prefix: String,
-    /// Whether the alias ends with `/*` (wildcard) or is an exact match.
     wildcard: bool,
-    /// Replacement roots (relative to tsconfig dir), e.g. `["src/*"]`.
-    /// The trailing `/*` is stripped; we join with the wildcard tail ourselves.
     roots: Vec<PathBuf>,
 }
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-
 thread_local! {
-    /// Cache of parsed tsconfig alias maps keyed by project root, so repeated
-    /// calls within one scan only hit the filesystem once per root.
     static TSCONFIG_CACHE: RefCell<HashMap<PathBuf, Vec<TsAlias>>> =
+        RefCell::new(HashMap::new());
+    static GO_MODULE_CACHE: RefCell<HashMap<PathBuf, Option<String>>> =
         RefCell::new(HashMap::new());
 }
 
-/// Read and parse `compilerOptions.paths` from `tsconfig.json` or `jsconfig.json`.
-/// Returns an empty vec when neither file exists or neither has `paths`.
 fn tsconfig_paths(root: &Path) -> Vec<TsAlias> {
     TSCONFIG_CACHE.with(|cell| {
         let mut cache = cell.borrow_mut();
@@ -137,7 +174,6 @@ fn tsconfig_paths(root: &Path) -> Vec<TsAlias> {
 }
 
 fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
-    // Try tsconfig.json first, then jsconfig.json.
     let content = ["tsconfig.json", "jsconfig.json"]
         .iter()
         .find_map(|name| std::fs::read_to_string(root.join(name)).ok());
@@ -146,29 +182,26 @@ fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
         return Vec::new();
     };
 
-    // tsconfig uses JSON with comments — strip line comments before parsing.
     let stripped = strip_json_line_comments(&content);
     let Ok(value) = serde_json::from_str::<serde_json::Value>(&stripped) else {
         return Vec::new();
     };
 
-    let paths = value
-        .get("compilerOptions")
-        .and_then(|co| co.get("paths"))
-        .and_then(|p| p.as_object());
-
     let base_url = value
         .get("compilerOptions")
-        .and_then(|co| co.get("baseUrl"))
-        .and_then(|u| u.as_str())
-        .map(|u| root.join(u));
+        .and_then(|options| options.get("baseUrl"))
+        .and_then(|base| base.as_str())
+        .map(|base| root.join(base));
 
-    let Some(paths) = paths else {
-        // Even without explicit paths, baseUrl alone can resolve bare imports.
+    let Some(paths) = value
+        .get("compilerOptions")
+        .and_then(|options| options.get("paths"))
+        .and_then(|paths| paths.as_object())
+    else {
         return base_url
             .map(|base| {
                 vec![TsAlias {
-                    prefix: String::new(), // matches everything (last resort)
+                    prefix: String::new(),
                     wildcard: true,
                     roots: vec![base],
                 }]
@@ -176,186 +209,245 @@ fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
             .unwrap_or_default();
     };
 
-    let tsconfig_dir = root; // paths are relative to tsconfig location (root)
-
-    let mut aliases: Vec<TsAlias> = paths
+    let base_url = base_url.unwrap_or_else(|| root.to_path_buf());
+    let mut aliases = paths
         .iter()
         .filter_map(|(pattern, mappings)| {
-            let array = mappings.as_array()?;
-            let roots: Vec<PathBuf> = array
+            let roots = mappings
+                .as_array()?
                 .iter()
-                .filter_map(|v| v.as_str())
-                .map(|mapping| {
-                    // Strip trailing /* from mapping (e.g. "src/*" → "src")
-                    let mapping = mapping.strip_suffix("/*").unwrap_or(mapping);
-                    tsconfig_dir.join(mapping)
-                })
-                .collect();
+                .filter_map(|mapping| mapping.as_str())
+                .map(|mapping| base_url.join(mapping.strip_suffix("/*").unwrap_or(mapping)))
+                .collect::<Vec<_>>();
 
             if roots.is_empty() {
                 return None;
             }
 
-            let wildcard = pattern.ends_with("/*");
-            let prefix = pattern.strip_suffix("/*").unwrap_or(pattern).to_string();
-
             Some(TsAlias {
-                prefix,
-                wildcard,
+                prefix: pattern.strip_suffix("/*").unwrap_or(pattern).to_string(),
+                wildcard: pattern.ends_with("/*"),
                 roots,
             })
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    // Longer (more specific) prefixes should be tried first.
-    aliases.sort_by(|a, b| b.prefix.len().cmp(&a.prefix.len()));
+    aliases.sort_by(|left, right| right.prefix.len().cmp(&left.prefix.len()));
     aliases
 }
 
-/// Strip `// …` line comments from JSON-with-comments (tsconfig format).
 fn strip_json_line_comments(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
-    let mut in_string = false;
     let mut chars = input.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+
     while let Some(ch) = chars.next() {
-        match ch {
-            '"' => {
-                in_string = !in_string;
-                out.push(ch);
+        if in_string {
+            out.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
             }
-            '/' if !in_string => {
-                if chars.peek() == Some(&'/') {
-                    // consume rest of line
-                    for c in chars.by_ref() {
-                        if c == '\n' {
-                            out.push('\n');
-                            break;
-                        }
-                    }
-                } else {
-                    out.push(ch);
+            continue;
+        }
+
+        if ch == '"' {
+            in_string = true;
+            out.push(ch);
+        } else if ch == '/' && chars.peek() == Some(&'/') {
+            for next in chars.by_ref() {
+                if next == '\n' {
+                    out.push('\n');
+                    break;
                 }
             }
-            '\\' if in_string => {
-                out.push(ch);
-                if let Some(next) = chars.next() {
-                    out.push(next);
-                }
-            }
-            _ => out.push(ch),
+        } else {
+            out.push(ch);
         }
     }
+
     out
 }
 
-/// Attempt to resolve `raw` against the collected tsconfig aliases.
 fn resolve_ts_alias(
     raw: &str,
-    _root: &Path,
     aliases: &[TsAlias],
     known_files: &HashSet<PathBuf>,
 ) -> Option<PathBuf> {
     for alias in aliases {
         if alias.prefix.is_empty() {
-            // baseUrl-only alias: try root/raw
             let base = normalize_path(&alias.roots[0].join(raw));
-            if let Some(p) = probe_ts_extensions(&base, known_files) {
-                return Some(p);
+            if let Some(path) = probe_ts_extensions(&base, known_files) {
+                return Some(path);
             }
             continue;
         }
 
         if alias.wildcard {
-            // Pattern: `@/*` matches `@/foo/bar` → tail = `foo/bar`
             let match_prefix = format!("{}/", alias.prefix);
             let Some(tail) = raw.strip_prefix(&match_prefix) else {
                 continue;
             };
+
             for root in &alias.roots {
                 let base = normalize_path(&root.join(tail));
-                if let Some(p) = probe_ts_extensions(&base, known_files) {
-                    return Some(p);
+                if let Some(path) = probe_ts_extensions(&base, known_files) {
+                    return Some(path);
                 }
             }
-        } else {
-            // Exact alias: `@utils` → mapped directory/file
-            if raw != alias.prefix {
-                continue;
-            }
+        } else if raw == alias.prefix {
             for root in &alias.roots {
-                if let Some(p) = probe_ts_extensions(root, known_files) {
-                    return Some(p);
+                if let Some(path) = probe_ts_extensions(root, known_files) {
+                    return Some(path);
                 }
             }
         }
     }
+
     None
 }
 
 // ── Python ────────────────────────────────────────────────────────────────────
 
-fn resolve_python(raw: &str, from_file: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
-    if !raw.starts_with('.') {
-        return None;
+fn resolve_python(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    if raw.starts_with('.') {
+        let dots = raw.chars().take_while(|c| *c == '.').count();
+        let module = &raw[dots..];
+
+        let mut dir = from_file.parent()?;
+        for _ in 0..dots.saturating_sub(1) {
+            dir = dir.parent().unwrap_or(dir);
+        }
+
+        return resolve_python_module_from_base(dir, module, known_files);
     }
 
-    let dots = raw.chars().take_while(|c| *c == '.').count();
-    let module = &raw[dots..];
-
-    let mut dir = from_file.parent()?;
-    // One dot = current package (no parent navigation).
-    // Two dots = parent package (navigate up once), etc.
-    for _ in 0..dots.saturating_sub(1) {
-        dir = dir.parent().unwrap_or(dir);
+    for base in [root.to_path_buf(), root.join("src")] {
+        if let Some(path) = resolve_python_module_from_base(&base, raw, known_files) {
+            return Some(path);
+        }
     }
 
-    let base = if module.is_empty() {
-        dir.to_path_buf()
-    } else {
-        let rel = module.replace('.', "/");
-        dir.join(rel)
-    };
-    let base = normalize_path(&base);
+    None
+}
 
-    probe(
-        &[base.with_extension("py"), base.join("__init__.py")],
-        known_files,
-    )
+fn resolve_python_module_from_base(
+    base_dir: &Path,
+    module: &str,
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    if module.is_empty() {
+        return probe(&[base_dir.join("__init__.py")], known_files);
+    }
+
+    let segments = module
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+
+    for end in (1..=segments.len()).rev() {
+        let base = segments[..end]
+            .iter()
+            .fold(base_dir.to_path_buf(), |path, segment| path.join(segment));
+        if let Some(path) = probe(
+            &[base.with_extension("py"), base.join("__init__.py")],
+            known_files,
+        ) {
+            return Some(path);
+        }
+    }
+
+    None
 }
 
 // ── Go ────────────────────────────────────────────────────────────────────────
 
 fn resolve_go(raw: &str, root: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
-    // Skip single-segment paths (stdlib packages like "fmt", "os")
     if !raw.contains('/') {
         return None;
     }
 
-    // Prefer go.mod module name so that `github.com/user/project/subpkg`
-    // resolves correctly regardless of the local directory name.
-    if let Some(module_name) = read_go_module_name(root) {
-        if let Some(rest) = raw.strip_prefix(&module_name) {
-            let rel = rest.trim_start_matches('/');
-            if !rel.is_empty() {
-                let base = normalize_path(&root.join(rel));
-                if let Some(p) = probe(&[base.with_extension("go")], known_files) {
-                    return Some(p);
-                }
-            }
+    if let Some(module_name) = read_go_module_name(root)
+        && let Some(rest) = strip_go_module_prefix(raw, &module_name)
+    {
+        let rel = rest.trim_start_matches('/');
+        let base = if rel.is_empty() {
+            root.to_path_buf()
+        } else {
+            root.join(rel)
+        };
+        if let Some(path) = probe_go_package(&normalize_path(&base), known_files) {
+            return Some(path);
         }
     }
 
-    // Fallback: match against the root directory name for projects without go.mod.
-    let root_name = root.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    if !root_name.is_empty() {
-        if let Some(rest) = raw.strip_prefix(root_name) {
-            let rel = rest.trim_start_matches('/');
-            let base = normalize_path(&root.join(rel));
-            return probe(&[base.with_extension("go")], known_files);
-        }
+    let root_name = root
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
+    if !root_name.is_empty()
+        && let Some(rest) = strip_go_module_prefix(raw, root_name)
+    {
+        let rel = rest.trim_start_matches('/');
+        let base = normalize_path(&root.join(rel));
+        return probe_go_package(&base, known_files);
     }
 
     None
+}
+
+fn strip_go_module_prefix<'a>(raw: &'a str, module_name: &str) -> Option<&'a str> {
+    raw.strip_prefix(module_name)
+        .filter(|rest| rest.is_empty() || rest.starts_with('/'))
+}
+
+fn probe_go_package(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
+    if let Some(path) = probe(&[base.with_extension("go")], known_files) {
+        return Some(path);
+    }
+
+    let package_dir = normalize_path(base);
+    known_files
+        .iter()
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("go"))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_none_or(|name| !name.ends_with("_test.go"))
+        })
+        .filter(|path| path.parent() == Some(package_dir.as_path()))
+        .min()
+        .cloned()
+}
+
+fn read_go_module_name(root: &Path) -> Option<String> {
+    GO_MODULE_CACHE.with(|cell| {
+        let mut cache = cell.borrow_mut();
+        if let Some(cached) = cache.get(root) {
+            return cached.clone();
+        }
+
+        let module = std::fs::read_to_string(root.join("go.mod"))
+            .ok()
+            .and_then(|content| {
+                content.lines().find_map(|line| {
+                    line.trim()
+                        .strip_prefix("module ")
+                        .map(|module| module.trim().to_string())
+                })
+            });
+        cache.insert(root.to_path_buf(), module.clone());
+        module
+    })
 }
 
 // ── JVM (Java / Kotlin) ───────────────────────────────────────────────────────
@@ -385,20 +477,11 @@ fn resolve_jvm(
             .iter()
             .map(|ext| base.with_extension(ext))
             .collect();
-        if let Some(p) = probe(&candidates, known_files) {
-            return Some(p);
+        if let Some(path) = probe(&candidates, known_files) {
+            return Some(path);
         }
     }
     None
-}
-
-fn read_go_module_name(root: &Path) -> Option<String> {
-    let content = std::fs::read_to_string(root.join("go.mod")).ok()?;
-    content.lines().find_map(|line| {
-        line.trim()
-            .strip_prefix("module ")
-            .map(|m| m.trim().to_string())
-    })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

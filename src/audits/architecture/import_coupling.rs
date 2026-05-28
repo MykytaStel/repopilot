@@ -1,6 +1,7 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::graph::{
     CouplingGraph, FileMetrics, build_coupling_graph, compute_metrics, detect_cycles,
+    without_rust_module_containment_edges,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
@@ -18,7 +19,8 @@ impl ImportCouplingAudit {
     ) -> (Vec<Finding>, CouplingGraph) {
         let graph = build_coupling_graph(facts, root);
         let metrics = compute_metrics(&graph);
-        let cycles = detect_cycles(&graph);
+        let cycle_graph = without_rust_module_containment_edges(&graph);
+        let cycles = detect_cycles(&cycle_graph);
 
         let mut findings = Vec::new();
 

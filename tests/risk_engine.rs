@@ -44,6 +44,38 @@ fn file_role_context_changes_risk_without_changing_rule_severity() {
 }
 
 #[test]
+fn testing_gaps_are_ranked_as_backlog_without_change_context() {
+    let finding = finding("testing.missing-test-folder", ".", Severity::Medium);
+
+    let risk = assess_finding(&finding, None, RiskInputs::default());
+
+    assert_eq!(risk.priority, RiskPriority::P3);
+    assert!(
+        risk.signals
+            .iter()
+            .any(|signal| signal.id == "category.testing-gap")
+    );
+}
+
+#[test]
+fn broad_maintainability_heuristics_are_downweighted() {
+    let finding = finding(
+        "architecture.large-file",
+        "src/app/App.tsx",
+        Severity::Medium,
+    );
+
+    let risk = assess_finding(&finding, None, RiskInputs::default());
+
+    assert_eq!(risk.priority, RiskPriority::P3);
+    assert!(
+        risk.signals
+            .iter()
+            .any(|signal| signal.id == "knowledge.broad-maintainability")
+    );
+}
+
+#[test]
 fn baseline_overlay_boosts_new_findings_and_downweights_existing_findings() {
     let root = Path::new("/repo");
     let mut findings = vec![
@@ -297,6 +329,10 @@ fn finding(rule_id: &str, path: &str, severity: Severity) -> Finding {
         recommendation: Finding::recommendation_for_rule_id(rule_id),
         category: if rule_id.starts_with("security.") {
             FindingCategory::Security
+        } else if rule_id.starts_with("testing.") {
+            FindingCategory::Testing
+        } else if rule_id.starts_with("architecture.") {
+            FindingCategory::Architecture
         } else {
             FindingCategory::CodeQuality
         },

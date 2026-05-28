@@ -54,7 +54,8 @@ pub(super) fn extract(content: &str, language: Option<&str>) -> HashSet<String> 
 
 fn is_candidate(path: &str) -> bool {
     path.starts_with('.')
-        || path.starts_with("@/")
+        || path.starts_with('/')
+        || path.starts_with('@')
         || path.starts_with("~/")
         || path.starts_with('#')
 }
@@ -62,17 +63,17 @@ fn is_candidate(path: &str) -> bool {
 fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
     match node.kind() {
         "import_statement" | "export_statement" => {
-            if let Some(path) = module_source(node, content) {
-                if is_candidate(path) {
-                    result.insert(path.to_string());
-                }
+            if let Some(path) = module_source(node, content)
+                && is_candidate(path)
+            {
+                result.insert(path.to_string());
             }
         }
         "call_expression" => {
-            if let Some(path) = call_module_source(node, content) {
-                if is_candidate(path) {
-                    result.insert(path.to_string());
-                }
+            if let Some(path) = call_module_source(node, content)
+                && is_candidate(path)
+            {
+                result.insert(path.to_string());
             }
         }
         _ => {}

@@ -197,6 +197,55 @@ pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Ve
     cycles
 }
 
+pub fn without_rust_module_containment_edges(graph: &CouplingGraph) -> CouplingGraph {
+    let edges = graph
+        .edges
+        .iter()
+        .map(|(source, targets)| {
+            (
+                source.clone(),
+                targets
+                    .iter()
+                    .filter(|target| !is_rust_module_containment_edge(source, target))
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+            )
+        })
+        .collect();
+
+    CouplingGraph {
+        edges,
+        nodes: graph.nodes.clone(),
+    }
+}
+
+fn is_rust_module_containment_edge(source: &Path, target: &Path) -> bool {
+    if source.extension().and_then(|ext| ext.to_str()) != Some("rs")
+        || target.extension().and_then(|ext| ext.to_str()) != Some("rs")
+    {
+        return false;
+    }
+
+    let Some(module_dir) = rust_declared_module_dir(source) else {
+        return false;
+    };
+
+    if target.parent() == Some(module_dir.as_path()) && target.file_name() != source.file_name() {
+        return true;
+    }
+
+    target.file_name().and_then(|name| name.to_str()) == Some("mod.rs")
+        && target.parent().and_then(Path::parent) == Some(module_dir.as_path())
+}
+
+fn rust_declared_module_dir(source: &Path) -> Option<PathBuf> {
+    match source.file_name().and_then(|name| name.to_str()) {
+        Some("lib.rs" | "main.rs" | "mod.rs") => source.parent().map(Path::to_path_buf),
+        Some(_) => Some(source.with_extension("")),
+        None => None,
+    }
+}
+
 struct CycleDfs<'a, 'b> {
     adj: &'a [Vec<usize>],
     state: &'a mut Vec<u8>,
@@ -294,6 +343,25 @@ mod tests {
         let cycles = detect_cycles(&graph);
 
         assert!(cycles.is_empty());
+    }
+
+    #[test]
+    fn rust_module_containment_edges_can_be_removed_before_cycle_detection() {
+        let graph = graph_from_edges(&[
+            ("src/lib.rs", "src/graph/mod.rs"),
+            ("src/graph/mod.rs", "src/graph/context.rs"),
+            ("src/graph/context.rs", "src/graph/mod.rs"),
+            ("src/a.rs", "src/b.rs"),
+            ("src/b.rs", "src/a.rs"),
+        ]);
+
+        let filtered = without_rust_module_containment_edges(&graph);
+        let cycles = detect_cycles(&filtered);
+
+        assert_eq!(
+            cycles,
+            vec![vec![PathBuf::from("src/a.rs"), PathBuf::from("src/b.rs")]]
+        );
     }
 
     #[test]

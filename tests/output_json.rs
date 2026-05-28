@@ -108,7 +108,7 @@ fn json_findings_include_confidence() {
     };
     let risk_summary = RiskSummary::from_findings(&summary.findings);
     assert_eq!(risk_summary.total, 1);
-    assert_eq!(risk_summary.counts.p2, 1);
+    assert_eq!(risk_summary.counts.p3, 1);
 
     let output =
         render_scan_summary(&summary, OutputFormat::Json).expect("failed to render json summary");
@@ -117,11 +117,11 @@ fn json_findings_include_confidence() {
 
     assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
     assert_eq!(parsed["risk_summary"]["total"], 1);
-    assert_eq!(parsed["risk_summary"]["counts"]["p2"], 1);
-    assert_eq!(parsed["risk_summary"]["highest_priority"], "P2");
-    assert_eq!(parsed["risk_summary"]["average_score"], 50);
-    assert_eq!(parsed["findings"][0]["risk"]["priority"], "P2");
-    assert_eq!(parsed["findings"][0]["risk"]["score"], 50);
+    assert_eq!(parsed["risk_summary"]["counts"]["p3"], 1);
+    assert_eq!(parsed["risk_summary"]["highest_priority"], "P3");
+    assert_eq!(parsed["risk_summary"]["average_score"], 38);
+    assert_eq!(parsed["findings"][0]["risk"]["priority"], "P3");
+    assert_eq!(parsed["findings"][0]["risk"]["score"], 38);
     assert_eq!(
         parsed["findings"][0]["risk"]["signals"][0]["id"],
         "severity.medium"

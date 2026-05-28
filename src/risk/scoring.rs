@@ -44,6 +44,28 @@ pub fn assess_finding(
         );
     }
 
+    if finding.category == FindingCategory::Testing {
+        push_adjustment(
+            &mut score,
+            &mut signals,
+            "category.testing-gap",
+            "testing gap",
+            -12,
+            "testing gaps are adoption signals and should not dominate risk ranking without change context",
+        );
+    }
+
+    if is_broad_maintainability_heuristic(&finding.rule_id) {
+        push_adjustment(
+            &mut score,
+            &mut signals,
+            "knowledge.broad-maintainability",
+            "maintainability heuristic",
+            -12,
+            "broad size and complexity heuristics are ranked as cleanup clusters unless other evidence raises them",
+        );
+    }
+
     if let Some(file) = file {
         add_knowledge_rule_signal(finding, file, &mut score, &mut signals);
         add_file_context_signals(file, &mut score, &mut signals);
@@ -104,6 +126,13 @@ pub fn assess_finding(
     }
 
     RiskAssessment::new(clamp_score(score), signals)
+}
+
+fn is_broad_maintainability_heuristic(rule_id: &str) -> bool {
+    matches!(
+        rule_id,
+        "architecture.large-file" | "code-quality.long-function" | "code-quality.complex-file"
+    )
 }
 
 fn add_knowledge_rule_signal(

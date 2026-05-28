@@ -39,7 +39,6 @@ fn rust_graph_no_spurious_edges() {
     let root = temp.path();
 
     fs::create_dir(root.join("src")).unwrap();
-    // foo.rs imports nothing
     fs::write(root.join("src/foo.rs"), "pub fn bar() {}\n").unwrap();
 
     let facts = collect_scan_facts(root).unwrap();
@@ -48,7 +47,7 @@ fn rust_graph_no_spurious_edges() {
     let foo_edges = graph
         .edges
         .get(&root.join("src/foo.rs"))
-        .map(|s| s.len())
+        .map(|edges| edges.len())
         .unwrap_or(0);
     assert_eq!(foo_edges, 0, "foo.rs must have no outgoing edges");
 }
@@ -79,6 +78,93 @@ fn rust_graph_edge_from_attributed_mod_declaration() {
     assert!(
         lib_edges.contains(&child_path),
         "attributed mod declarations should resolve to module file edges"
+    );
+}
+
+#[test]
+fn rust_graph_edge_from_crate_symbol_path() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir(root.join("src")).unwrap();
+    fs::write(
+        root.join("src/main.rs"),
+        "use crate::config::Settings;\nfn main() {}\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/config.rs"), "pub struct Settings;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let main_path = root.join("src/main.rs");
+    let config_path = root.join("src/config.rs");
+    let main_edges = graph
+        .edges
+        .get(&main_path)
+        .expect("main.rs must have an edge set");
+
+    assert!(
+        main_edges.contains(&config_path),
+        "crate::module::Symbol should resolve to module file"
+    );
+}
+
+#[test]
+fn rust_graph_edge_from_self_path() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("src/feature")).unwrap();
+    fs::write(
+        root.join("src/feature/mod.rs"),
+        "use self::model::Thing;\npub fn feature() {}\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/feature/model.rs"), "pub struct Thing;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let feature_path = root.join("src/feature/mod.rs");
+    let model_path = root.join("src/feature/model.rs");
+    let feature_edges = graph
+        .edges
+        .get(&feature_path)
+        .expect("feature/mod.rs must have an edge set");
+
+    assert!(
+        feature_edges.contains(&model_path),
+        "self::module should resolve within the current module directory"
+    );
+}
+
+#[test]
+fn rust_graph_edge_from_super_path() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("src/feature")).unwrap();
+    fs::write(
+        root.join("src/feature/controller.rs"),
+        "use super::model::Thing;\npub fn controller() {}\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/feature/model.rs"), "pub struct Thing;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let controller_path = root.join("src/feature/controller.rs");
+    let model_path = root.join("src/feature/model.rs");
+    let controller_edges = graph
+        .edges
+        .get(&controller_path)
+        .expect("controller.rs must have an edge set");
+
+    assert!(
+        controller_edges.contains(&model_path),
+        "super::module should resolve relative to the parent module"
     );
 }
 
@@ -147,6 +233,137 @@ fn ts_graph_edge_from_dynamic_import() {
     );
 }
 
+#[test]
+fn ts_graph_edges_from_tsconfig_aliases_and_root_absolute_imports() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    let src = root.join("src");
+    fs::create_dir_all(src.join("app")).unwrap();
+    fs::create_dir_all(root.join("internal")).unwrap();
+
+    fs::write(
+        root.join("tsconfig.json"),
+        r##"{
+            "compilerOptions": {
+                "baseUrl": ".",
+                "paths": {
+                    "@app/*": ["src/app/*"],
+                    "@/*": ["src/*"],
+                    "~/*": ["src/*"],
+                    "#internal/*": ["internal/*"]
+                }
+            }
+        }"##,
+    )
+    .unwrap();
+    fs::write(
+        src.join("App.ts"),
+        r##"
+            import { app } from "@app/util";
+            import { shared } from "@/shared";
+            import theme from "~/theme";
+            import { client } from "#internal/client";
+            import { rooted } from "/src/rooted";
+            export const value = [app, shared, theme, client, rooted];
+        "##,
+    )
+    .unwrap();
+    fs::write(src.join("app/util.ts"), "export const app = 1;\n").unwrap();
+    fs::write(src.join("shared.ts"), "export const shared = 1;\n").unwrap();
+    fs::write(src.join("theme.ts"), "export default 1;\n").unwrap();
+    fs::write(
+        root.join("internal/client.ts"),
+        "export const client = 1;\n",
+    )
+    .unwrap();
+    fs::write(src.join("rooted.ts"), "export const rooted = 1;\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let app_path = src.join("App.ts");
+    let app_edges = graph
+        .edges
+        .get(&app_path)
+        .expect("App.ts must have an edge set");
+
+    for expected in [
+        src.join("app/util.ts"),
+        src.join("shared.ts"),
+        src.join("theme.ts"),
+        root.join("internal/client.ts"),
+        src.join("rooted.ts"),
+    ] {
+        assert!(
+            app_edges.contains(&expected),
+            "expected alias/root import edge to {}; got {app_edges:?}",
+            expected.display()
+        );
+    }
+}
+
+// ── Python graph ──────────────────────────────────────────────────────────────
+
+#[test]
+fn python_graph_edges_from_absolute_repo_imports() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("app")).unwrap();
+    fs::write(
+        root.join("app/main.py"),
+        "import app.models\nfrom app import services\n",
+    )
+    .unwrap();
+    fs::write(root.join("app/models.py"), "class User: pass\n").unwrap();
+    fs::write(root.join("app/services.py"), "class Service: pass\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let main_path = root.join("app/main.py");
+    let main_edges = graph
+        .edges
+        .get(&main_path)
+        .expect("main.py must have an edge set");
+
+    assert!(main_edges.contains(&root.join("app/models.py")));
+    assert!(main_edges.contains(&root.join("app/services.py")));
+}
+
+// ── Go graph ──────────────────────────────────────────────────────────────────
+
+#[test]
+fn go_graph_edge_from_module_import() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+
+    fs::create_dir_all(root.join("internal/config")).unwrap();
+    fs::write(root.join("go.mod"), "module example.com/repopilot-test\n").unwrap();
+    fs::write(
+        root.join("main.go"),
+        "package main\n\nimport \"example.com/repopilot-test/internal/config\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("internal/config/config.go"), "package config\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    let main_path = root.join("main.go");
+    let config_path = root.join("internal/config/config.go");
+    let main_edges = graph
+        .edges
+        .get(&main_path)
+        .expect("main.go must have an edge set");
+
+    assert!(
+        main_edges.contains(&config_path),
+        "go module imports should resolve to package files"
+    );
+}
+
 // ── Metrics ───────────────────────────────────────────────────────────────────
 
 #[test]
@@ -157,8 +374,6 @@ fn metrics_fan_in_and_fan_out() {
     let src = root.join("src");
     fs::create_dir_all(&src).unwrap();
 
-    // shared.rs is imported by both a.rs and b.rs
-    // b.rs also imports a.rs
     fs::write(src.join("shared.rs"), "pub fn shared() {}\n").unwrap();
     fs::write(src.join("a.rs"), "use crate::shared;\npub fn a() {}\n").unwrap();
     fs::write(
@@ -196,9 +411,6 @@ fn instability_formula_is_correct() {
     let src = root.join("src");
     fs::create_dir_all(&src).unwrap();
 
-    // stable.rs: fan_in=1, fan_out=0  → instability=0.0
-    // mid.rs:    fan_in=1, fan_out=1  → instability=0.5
-    // unstable.rs: fan_in=0, fan_out=1 → instability=1.0
     fs::write(src.join("stable.rs"), "pub fn s() {}\n").unwrap();
     fs::write(src.join("mid.rs"), "use crate::stable;\npub fn m() {}\n").unwrap();
     fs::write(src.join("unstable.rs"), "use crate::mid;\npub fn u() {}\n").unwrap();
@@ -235,7 +447,6 @@ fn two_node_cycle_is_detected() {
     let src = root.join("src");
     fs::create_dir_all(&src).unwrap();
 
-    // a.rs ↔ b.rs
     fs::write(src.join("a.rs"), "use crate::b;\n").unwrap();
     fs::write(src.join("b.rs"), "use crate::a;\n").unwrap();
 
@@ -249,7 +460,7 @@ fn two_node_cycle_is_detected() {
     assert!(
         cycles
             .iter()
-            .any(|c| c.contains(&a_path) && c.contains(&b_path)),
+            .any(|cycle| cycle.contains(&a_path) && cycle.contains(&b_path)),
         "cycle must include both a.rs and b.rs; got {cycles:?}"
     );
 }
@@ -290,13 +501,13 @@ fn isolated_file_has_zero_metrics() {
     let graph = build_coupling_graph(&facts, root);
     let metrics = compute_metrics(&graph);
 
-    let m = metrics
+    let metric = metrics
         .iter()
-        .find(|m| m.path == src.join("standalone.rs"))
+        .find(|metric| metric.path == src.join("standalone.rs"))
         .unwrap();
-    assert_eq!(m.fan_in, 0);
-    assert_eq!(m.fan_out, 0);
-    assert!((m.instability - 0.0).abs() < f32::EPSILON);
+    assert_eq!(metric.fan_in, 0);
+    assert_eq!(metric.fan_out, 0);
+    assert!((metric.instability - 0.0).abs() < f32::EPSILON);
 }
 
 #[test]
@@ -331,7 +542,7 @@ fn metrics_are_returned_in_path_order() {
     let graph = build_coupling_graph(&facts, root);
     let metrics = compute_metrics(&graph);
 
-    let paths: Vec<_> = metrics.iter().map(|m| &m.path).collect();
+    let paths: Vec<_> = metrics.iter().map(|metric| &metric.path).collect();
     let mut sorted = paths.clone();
     sorted.sort();
     assert_eq!(paths, sorted, "metrics must be in stable path order");
@@ -375,7 +586,7 @@ fn cycle_detection_depth_exceeded_warning() {
     let src = root.join("src");
     fs::create_dir_all(&src).unwrap();
 
-    const FILE_COUNT: usize = 515; // greater than MAX_DFS_DEPTH (512)
+    const FILE_COUNT: usize = 515;
     for index in 0..FILE_COUNT {
         let next_import = if index + 1 < FILE_COUNT {
             format!("use crate::module_{};\n", index + 1)

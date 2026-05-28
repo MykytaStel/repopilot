@@ -20,7 +20,7 @@
               },
               "helpUri": "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling",
               "help": {
-                "text": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised."
+                "text": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples."
               }
             }
           ]
@@ -58,7 +58,7 @@
           "properties": {
             "category": "security",
             "confidence": "HIGH",
-            "recommendation": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised."
+            "recommendation": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples."
           }
         }
       ]

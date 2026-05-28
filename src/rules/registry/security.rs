@@ -54,10 +54,10 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ),
         description: "A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access.",
         recommendation: Some(
-            "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised.",
+            "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.",
         ),
         false_positive_notes: Some(
-            "Public labels, documented variable names, and low-entropy placeholders should not trigger; entropy and context are both required.",
+            "Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered.",
         ),
         ..RuleMetadata::DEFAULT
     },
