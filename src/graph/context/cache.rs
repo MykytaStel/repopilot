@@ -1,10 +1,11 @@
 use super::*;
 use std::process::Command;
+use sha2::{Digest, Sha256};
 
-pub fn load_repo_context_graph(root: &Path, config: &ScanConfig) -> Option<RepoContextGraphLoad> {
+pub fn load_repo_context_graph(root: &Path, config_fingerprint: &str) -> Option<RepoContextGraphLoad> {
     let cache_path = context_graph_cache_path(root);
     let cached = read_cached_repo_context_graph(&cache_path)?;
-    if !valid_cached_graph(&cached, root, config) {
+    if !valid_cached_graph(&cached, root, config_fingerprint) {
         return None;
     }
 
@@ -22,7 +23,7 @@ pub fn load_repo_context_graph(root: &Path, config: &ScanConfig) -> Option<RepoC
 
 pub fn write_repo_context_graph(
     root: &Path,
-    config: &ScanConfig,
+    config_fingerprint: &str,
     graph: &RepoContextGraph,
 ) -> io::Result<ContextGraphCacheInfo> {
     let cache_path = context_graph_cache_path(root);
@@ -33,7 +34,7 @@ pub fn write_repo_context_graph(
     let repository_fingerprint = repository_fingerprint(root);
 
     if let Some(cached) = read_cached_repo_context_graph(&cache_path)
-        && valid_cached_graph_metadata(&cached, root, config)
+        && valid_cached_graph_metadata(&cached, root, config_fingerprint)
         && cached.input_fingerprint == input_fingerprint
         && cached.graph_fingerprint == graph_fingerprint
     {
@@ -47,7 +48,7 @@ pub fn write_repo_context_graph(
     let cached = CachedRepoContextGraph {
         schema_version: CONTEXT_GRAPH_SCHEMA_VERSION,
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-        config_fingerprint: config_fingerprint(config),
+        config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
         repository_fingerprint,
         input_fingerprint,
@@ -72,15 +73,8 @@ pub fn context_graph_cache_miss(root: &Path, reason: &str) -> ContextGraphCacheI
     }
 }
 
-pub fn cache_diagnostic(error: &io::Error) -> ScanDiagnostic {
-    ScanDiagnostic::warning(
-        "context-graph.cache-write-failed",
-        format!("Could not write context graph cache: {error}"),
-    )
-}
-
-fn valid_cached_graph(cached: &CachedRepoContextGraph, root: &Path, config: &ScanConfig) -> bool {
-    if !valid_cached_graph_metadata(cached, root, config) {
+fn valid_cached_graph(cached: &CachedRepoContextGraph, root: &Path, config_fingerprint: &str) -> bool {
+    if !valid_cached_graph_metadata(cached, root, config_fingerprint) {
         return false;
     }
 
@@ -91,17 +85,22 @@ fn valid_cached_graph(cached: &CachedRepoContextGraph, root: &Path, config: &Sca
 fn valid_cached_graph_metadata(
     cached: &CachedRepoContextGraph,
     root: &Path,
-    config: &ScanConfig,
+    config_fingerprint: &str,
 ) -> bool {
     cached.schema_version == CONTEXT_GRAPH_SCHEMA_VERSION
         && cached.repopilot_version == env!("CARGO_PKG_VERSION")
-        && cached.config_fingerprint == config_fingerprint(config)
+        && cached.config_fingerprint == config_fingerprint
         && cached.resolver_version == CONTEXT_GRAPH_RESOLVER_VERSION
         && cached.repository_fingerprint == repository_fingerprint(root)
 }
 
 pub fn context_graph_cache_path(root: &Path) -> PathBuf {
-    cache_dir(root).join(CONTEXT_GRAPH_CACHE_NAME)
+    root.join(".repopilot/cache").join(CONTEXT_GRAPH_CACHE_NAME)
+}
+
+fn stable_hash_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {

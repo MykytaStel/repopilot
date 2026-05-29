@@ -1,12 +1,11 @@
-use crate::findings::feedback::LocalFeedbackReport;
 use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
-use crate::graph::CouplingGraph;
-use crate::graph::context::{ContextGraphCacheInfo, ContextGraphSummary};
+use crate::risk::RiskPriority;
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 mod support;
@@ -188,6 +187,85 @@ impl ScanSummary {
 pub struct LanguageSummary {
     pub name: String,
     pub files_analyzed: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LocalSuppression {
+    pub index: usize,
+    pub rule_id: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct LocalFeedbackReport {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feedback_path: Option<PathBuf>,
+    pub suppressions_loaded: usize,
+    pub suppressed_findings_count: usize,
+    pub unmatched_suppressions_count: usize,
+    pub invalid_suppressions_count: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unmatched_suppressions: Vec<LocalSuppression>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parse_error: Option<String>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContextGraphSummary {
+    pub files: usize,
+    pub import_edges: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub top_hubs: Vec<ContextGraphFileMetric>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub top_dependencies: Vec<ContextGraphFileMetric>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cycles: Vec<Vec<PathBuf>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changed_blast_radius: Vec<PathBuf>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub risky_clusters: Vec<ContextRiskCluster>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub truncated: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ContextGraphFileMetric {
+    pub path: PathBuf,
+    pub fan_in: usize,
+    pub fan_out: usize,
+    pub instability: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roles: Vec<String>,
+}
+
+impl Eq for ContextGraphFileMetric {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContextRiskCluster {
+    pub rule_id: String,
+    pub scope: String,
+    pub count: usize,
+    pub max_score: u8,
+    pub priority: RiskPriority,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContextGraphCacheInfo {
+    pub status: String,
+    pub reason: String,
+    pub cache_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CouplingGraph {
+    /// Outgoing edges: source file → set of files it imports.
+    pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    /// Every scanned file, including those with no edges.
+    pub nodes: BTreeSet<PathBuf>,
 }
 
 #[cfg(test)]

@@ -10,15 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-// ── Data structures ───────────────────────────────────────────────────────────
+pub use crate::scan::types::CouplingGraph;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CouplingGraph {
-    /// Outgoing edges: source file → set of files it imports.
-    pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
-    /// Every scanned file, including those with no edges.
-    pub nodes: BTreeSet<PathBuf>,
-}
+// ── Data structures ───────────────────────────────────────────────────────────
 
 pub struct FileMetrics {
     pub path: PathBuf,

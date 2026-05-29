@@ -10,11 +10,12 @@ impl<'a> ChangedScanEngine<'a> {
         let start = Instant::now();
         let mut diagnostics = Vec::new();
         let repo_root = &discovery.repo_root;
+        let fingerprint = config_fingerprint(self.config);
 
-        if let Some(mut load) = load_repo_context_graph(repo_root, self.config) {
+        if let Some(mut load) = load_repo_context_graph(repo_root, &fingerprint) {
             load.graph
                 .apply_changed_facts(repo_root, &discovery.changed_files, graph_patch_files);
-            if let Err(error) = write_repo_context_graph(repo_root, self.config, &load.graph) {
+            if let Err(error) = write_repo_context_graph(repo_root, &fingerprint, &load.graph) {
                 diagnostics.push(cache_diagnostic(&error));
             }
 
@@ -48,7 +49,7 @@ impl<'a> ChangedScanEngine<'a> {
             RepoContextGraph::from_scan_facts(&repo_context, repo_root, coupling_graph.clone());
         let mut cache_info =
             context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
-        match write_repo_context_graph(repo_root, self.config, &context_graph) {
+        match write_repo_context_graph(repo_root, &fingerprint, &context_graph) {
             Ok(_) => {
                 cache_info.reason.push_str("; cache-updated");
             }

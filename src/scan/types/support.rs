@@ -152,6 +152,14 @@ impl ScanDiagnostic {
     }
 }
 
+pub fn cache_diagnostic(error: &std::io::Error) -> ScanDiagnostic {
+    ScanDiagnostic::warning(
+        "context-graph.cache-write-failed",
+        format!("Could not write context graph cache: {error}"),
+    )
+}
+
+
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ScanMode {

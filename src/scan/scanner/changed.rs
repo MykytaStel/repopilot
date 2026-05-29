@@ -19,7 +19,7 @@ use crate::frameworks::{
     detect_react_native_architecture,
 };
 use crate::graph::context::{
-    ContextGraphCacheInfo, RepoContextGraph, cache_diagnostic, context_graph_cache_miss,
+    ContextGraphCacheInfo, RepoContextGraph, context_graph_cache_miss,
     load_repo_context_graph, summarize_context_graph, write_repo_context_graph,
 };
 use crate::graph::{CouplingGraph, build_coupling_graph};
@@ -29,6 +29,7 @@ use crate::scan::cache::{
     FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
     relative_cache_path,
 };
+use crate::scan::types::cache_diagnostic;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::types::{

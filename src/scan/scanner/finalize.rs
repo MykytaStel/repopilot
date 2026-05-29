@@ -2,11 +2,12 @@ use super::summary::{ScanSummaryParts, build_scan_summary};
 use super::{ProjectAnalysisStage, ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
-    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, cache_diagnostic,
+    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph,
     summarize_context_graph, write_repo_context_graph,
 };
+use crate::scan::cache::config_fingerprint;
 use crate::scan::config::ScanConfig;
-use crate::scan::types::{ScanDiagnostic, ScanMode, ScanSummary, ScanTimings};
+use crate::scan::types::{ScanDiagnostic, ScanMode, ScanSummary, ScanTimings, cache_diagnostic};
 use std::path::Path;
 use std::time::Instant;
 
@@ -75,7 +76,8 @@ fn build_context_graph_artifacts(
     diagnostics: &mut Vec<ScanDiagnostic>,
 ) -> ContextGraphArtifacts {
     let graph_summary = summarize_context_graph(context_graph, findings, &[]);
-    let cache = match write_repo_context_graph(root_path, config, context_graph) {
+    let fingerprint = config_fingerprint(config);
+    let cache = match write_repo_context_graph(root_path, &fingerprint, context_graph) {
         Ok(cache_info) => Some(cache_info),
         Err(error) => {
             diagnostics.push(cache_diagnostic(&error));

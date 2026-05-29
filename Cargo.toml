@@ -20,7 +20,7 @@ indicatif = "0.18.4"
 rayon = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_norway = "0.9.42"
+serde_yaml = "0.9"
 sha2 = "0.11"
 tree-sitter = "0.26.9"
 tree-sitter-javascript = "0.25.0"

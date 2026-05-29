@@ -6,10 +6,10 @@ use crate::graph::{
 };
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::RiskPriority;
-use crate::scan::cache::{cache_dir, config_fingerprint, relative_cache_path, stable_hash_hex};
-use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
-use crate::scan::types::ScanDiagnostic;
+pub use crate::scan::types::{
+    ContextGraphCacheInfo, ContextGraphFileMetric, ContextGraphSummary, ContextRiskCluster,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -66,53 +66,6 @@ pub struct RepoContextNode {
     pub is_config: bool,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ContextGraphSummary {
-    pub files: usize,
-    pub import_edges: usize,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub top_hubs: Vec<ContextGraphFileMetric>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub top_dependencies: Vec<ContextGraphFileMetric>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cycles: Vec<Vec<PathBuf>>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub changed_blast_radius: Vec<PathBuf>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub risky_clusters: Vec<ContextRiskCluster>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub truncated: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ContextGraphFileMetric {
-    pub path: PathBuf,
-    pub fan_in: usize,
-    pub fan_out: usize,
-    pub instability: f32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub language: Option<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub roles: Vec<String>,
-}
-
-impl Eq for ContextGraphFileMetric {}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ContextRiskCluster {
-    pub rule_id: String,
-    pub scope: String,
-    pub count: usize,
-    pub max_score: u8,
-    pub priority: RiskPriority,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ContextGraphCacheInfo {
-    pub status: String,
-    pub reason: String,
-    pub cache_path: PathBuf,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CachedRepoContextGraph {
@@ -145,7 +98,7 @@ mod graph_impl;
 mod summary;
 
 pub use cache::{
-    cache_diagnostic, context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
+    context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
     write_repo_context_graph,
 };
 pub use summary::summarize_context_graph;

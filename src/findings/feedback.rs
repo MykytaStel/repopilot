@@ -1,6 +1,7 @@
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
 use crate::scan::types::{ScanDiagnostic, ScanSummary};
+pub use crate::scan::types::{LocalFeedbackReport, LocalSuppression};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
@@ -9,28 +10,6 @@ use std::path::{Path, PathBuf};
 
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LocalSuppression {
-    pub index: usize,
-    pub rule_id: String,
-    pub path: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LocalFeedbackReport {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_path: Option<PathBuf>,
-    pub suppressions_loaded: usize,
-    pub suppressed_findings_count: usize,
-    pub unmatched_suppressions_count: usize,
-    pub invalid_suppressions_count: usize,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unmatched_suppressions: Vec<LocalSuppression>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parse_error: Option<String>,
-}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LocalFeedbackValidation {
@@ -140,7 +119,7 @@ pub fn validate_local_feedback(root: &Path) -> io::Result<LocalFeedbackValidatio
 }
 
 pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> LocalFeedbackValidation {
-    let parsed = match serde_norway::from_str::<RawFeedbackFile>(content) {
+    let parsed = match serde_yaml::from_str::<RawFeedbackFile>(content) {
         Ok(parsed) => parsed,
         Err(error) => {
             let message = error.to_string();
