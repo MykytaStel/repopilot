@@ -2,28 +2,8 @@ use super::model::ArchitectureAnalysis;
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileContentProvider, ScanFacts};
-use std::cell::RefCell;
-use std::path::PathBuf;
-use tree_sitter::{Node, Parser};
-
-thread_local! {
-    static RUST_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        p.set_language(&tree_sitter_rust::LANGUAGE.into()).expect("rust grammar");
-        p
-    });
-    static TSX_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        p.set_language(&tree_sitter_typescript::LANGUAGE_TSX.into()).expect("tsx grammar");
-        p
-    });
-    static PYTHON_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        p.set_language(&tree_sitter_python::LANGUAGE.into()).expect("python grammar");
-        p
-    });
-}
+use crate::scan::facts::ScanFacts;
+use std::path::{Component, Path, PathBuf};
 
 pub struct DeepNestingAudit;
 
@@ -32,13 +12,7 @@ impl ProjectAudit for DeepNestingAudit {
         ArchitectureAnalysis::from_facts(facts)
             .production_files()
             .filter_map(|file| {
-                let content = FileContentProvider.content(file.facts)?;
-                let ext = file
-                    .path()
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("");
-                let depth = compute_ast_nesting(&content, ext);
+                let depth = compute_directory_nesting(file.path());
                 if depth > config.max_directory_depth {
                     Some(build_finding(
                         file.path().to_path_buf(),
@@ -53,81 +27,11 @@ impl ProjectAudit for DeepNestingAudit {
     }
 }
 
-fn compute_ast_nesting(content: &str, ext: &str) -> usize {
-    let tree = match ext {
-        "rs" => RUST_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "ts" | "tsx" | "js" | "jsx" | "mts" | "mjs" => TSX_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "py" => PYTHON_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        _ => return 0,
-    };
-
-    let Some(tree) = tree else {
-        return 0;
-    };
-
-    let mut max_depth = 0;
-    walk_nesting(tree.root_node(), 0, &mut max_depth, ext);
-    max_depth
-}
-
-fn is_nesting_node(node_kind: &str, ext: &str) -> bool {
-    match ext {
-        "rs" => matches!(
-            node_kind,
-            "if_expression"
-                | "for_expression"
-                | "while_expression"
-                | "loop_expression"
-                | "match_expression"
-        ),
-        "ts" | "tsx" | "js" | "jsx" | "mts" | "mjs" => matches!(
-            node_kind,
-            "if_statement"
-                | "for_statement"
-                | "for_in_statement"
-                | "while_statement"
-                | "do_statement"
-                | "switch_statement"
-                | "catch_clause"
-        ),
-        "py" => matches!(
-            node_kind,
-            "if_statement"
-                | "for_statement"
-                | "while_statement"
-                | "with_statement"
-                | "try_statement"
-        ),
-        _ => false,
-    }
-}
-
-fn walk_nesting(node: Node<'_>, current_depth: usize, max_depth: &mut usize, ext: &str) {
-    let is_nest = is_nesting_node(node.kind(), ext);
-    let next_depth = if is_nest {
-        let d = current_depth + 1;
-        *max_depth = (*max_depth).max(d);
-        d
-    } else {
-        current_depth
-    };
-
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        walk_nesting(child, next_depth, max_depth, ext);
-    }
+fn compute_directory_nesting(path: &Path) -> usize {
+    path.components()
+        .filter(|c| matches!(c, Component::Normal(_)))
+        .count()
+        .saturating_sub(1)
 }
 
 fn build_finding(path: PathBuf, depth: usize, threshold: usize) -> Finding {
@@ -135,10 +39,10 @@ fn build_finding(path: PathBuf, depth: usize, threshold: usize) -> Finding {
         id: String::new(),
         rule_id: "architecture.deep-nesting".to_string(),
         recommendation: Finding::recommendation_for_rule_id("architecture.deep-nesting"),
-        title: "Deep control flow nesting detected".to_string(),
+        title: "Deep directory nesting detected".to_string(),
         description: format!(
-            "This file contains control flow blocks nested {depth} levels deep, exceeding the threshold \
-             of {threshold}. Deep control flow nesting makes code hard to read and maintain."
+            "This file is nested {depth} directories deep, exceeding the threshold \
+             of {threshold}. Deep directory nesting makes the codebase harder to navigate."
         ),
         category: FindingCategory::Architecture,
         severity: Severity::Low,
@@ -147,7 +51,7 @@ fn build_finding(path: PathBuf, depth: usize, threshold: usize) -> Finding {
             path,
             line_start: 1,
             line_end: None,
-            snippet: format!("Control flow nesting depth: {depth}; threshold is {threshold}."),
+            snippet: format!("Directory nesting depth: {depth}; threshold is {threshold}."),
         }],
         workspace_package: None,
         docs_url: None,
@@ -166,24 +70,9 @@ mod tests {
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
             files: vec![
-                file_facts_with_content("./src/domain/user.ts", "export const x = 1;"),
-                file_facts_with_content(
+                file_facts_with_path("./src/domain/user.ts"),
+                file_facts_with_path(
                     "./tests/fixtures/rules/security.secret-candidate/true_positive_env_value/src/config.ts",
-                    r#"
-                        if (a) {
-                            if (b) {
-                                if (c) {
-                                    if (d) {
-                                        if (e) {
-                                            if (f) {
-                                                console.log("nested");
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    "#,
                 ),
             ],
             ..ScanFacts::default()
@@ -199,26 +88,11 @@ mod tests {
 
     #[test]
     fn ignores_test_paths_even_when_they_are_deeper_than_source_paths() {
-        let nested_code = r#"
-            if (a) {
-                if (b) {
-                    if (c) {
-                        if (d) {
-                            if (e) {
-                                if (f) {
-                                    console.log("nested");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        "#;
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
             files: vec![
-                file_facts_with_content("./src/service.ts", "export const x = 1;"),
-                file_facts_with_content("./tests/unit/service.test.ts", nested_code),
+                file_facts_with_path("./src/service.ts"),
+                file_facts_with_path("./tests/unit/a/b/c/d/e/service.test.ts"),
             ],
             ..ScanFacts::default()
         };
@@ -233,45 +107,15 @@ mod tests {
 
     #[test]
     fn ignores_docs_examples_generated_vendor_and_build_paths() {
-        let nested_code = r#"
-            if (a) {
-                if (b) {
-                    if (c) {
-                        if (d) {
-                            if (e) {
-                                if (f) {
-                                    console.log("nested");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        "#;
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
             files: vec![
-                file_facts_with_content(
-                    "./docs/reference/api/v1/generated/client/config.ts",
-                    nested_code,
-                ),
-                file_facts_with_content(
-                    "./examples/react-native/deep/sample/src/App.tsx",
-                    nested_code,
-                ),
-                file_facts_with_content(
-                    "./src/generated/openapi/client/v1/types.generated.ts",
-                    nested_code,
-                ),
-                file_facts_with_content(
-                    "./vendor/company/package/deep/source/file.ts",
-                    nested_code,
-                ),
-                file_facts_with_content(
-                    "./target/debug/build/package/out/generated.rs",
-                    nested_code,
-                ),
-                file_facts_with_content("./dist/assets/js/chunks/deep/file.js", nested_code),
+                file_facts_with_path("./docs/reference/api/v1/generated/client/config.ts"),
+                file_facts_with_path("./examples/react-native/deep/sample/src/App.tsx"),
+                file_facts_with_path("./src/generated/openapi/client/v1/types.generated.ts"),
+                file_facts_with_path("./vendor/company/package/deep/source/file.ts"),
+                file_facts_with_path("./target/debug/build/package/out/generated.rs"),
+                file_facts_with_path("./dist/assets/js/chunks/deep/file.js"),
             ],
             ..ScanFacts::default()
         };
@@ -283,25 +127,10 @@ mod tests {
 
     #[test]
     fn reports_deep_production_path() {
-        let production_path = "./src/handler.ts";
-        let nested_code = r#"
-            if (a) {
-                if (b) {
-                    if (c) {
-                        if (d) {
-                            if (e) {
-                                if (f) {
-                                    console.log("nested");
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        "#;
+        let production_path = "./src/a/b/c/d/e/f/handler.ts";
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
-            files: vec![file_facts_with_content(production_path, nested_code)],
+            files: vec![file_facts_with_path(production_path)],
             ..ScanFacts::default()
         };
 
@@ -322,14 +151,14 @@ mod tests {
         audit.audit(facts, &config)
     }
 
-    fn file_facts_with_content(path: &str, content: &str) -> FileFacts {
+    fn file_facts_with_path(path: &str) -> FileFacts {
         FileFacts {
             path: PathBuf::from(path),
             language: Some("TypeScript".to_string()),
-            non_empty_lines: content.lines().count(),
+            non_empty_lines: 1,
             branch_count: 0,
             imports: Vec::new(),
-            content: Some(content.to_string()),
+            content: Some("".to_string()),
             has_inline_tests: false,
         }
     }
