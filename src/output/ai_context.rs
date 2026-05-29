@@ -99,6 +99,7 @@ fn render_internal(
     let budget_chars = opts.budget_tokens * 4;
 
     let findings: Vec<&Finding> = summary
+        .artifacts
         .findings
         .iter()
         .filter(|f| {

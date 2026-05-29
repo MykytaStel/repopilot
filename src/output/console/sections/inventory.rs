@@ -1,12 +1,12 @@
 pub(crate) fn render_languages_section(output: &mut String, summary: &ScanSummary) {
     output.push_str("Languages:\n");
 
-    if summary.languages.is_empty() {
+    if summary.metrics.languages.is_empty() {
         output.push_str("  No languages detected\n\n");
         return;
     }
 
-    for language in &summary.languages {
+    for language in &summary.metrics.languages {
         writeln!(
             output,
             "  {}: {} files",
@@ -58,51 +58,51 @@ fn render_scan_input(output: &mut String, summary: &ScanSummary) {
         writeln!(output, " .repopilotignore: {}", path.display()).unwrap();
     }
 
-    if summary.files_skipped_repopilotignore > 0 {
+    if summary.metrics.files_skipped_repopilotignore > 0 {
         writeln!(
             output,
             " Files skipped (.repopilotignore): {:>7}",
-            summary.files_skipped_repopilotignore
+            summary.metrics.files_skipped_repopilotignore
         )
         .unwrap();
     }
 
-    writeln!(output, " Files discovered: {:>7}", summary.files_discovered).unwrap();
+    writeln!(output, " Files discovered: {:>7}", summary.metrics.files_discovered).unwrap();
 
-    if summary.files_skipped_by_limit > 0 {
+    if summary.metrics.files_skipped_by_limit > 0 {
         writeln!(
             output,
             " Files skipped (limit): {:>7}",
-            summary.files_skipped_by_limit
+            summary.metrics.files_skipped_by_limit
         )
         .unwrap();
     }
 
-    writeln!(output, " Files analyzed: {:>7}", summary.files_analyzed).unwrap();
+    writeln!(output, " Files analyzed: {:>7}", summary.metrics.files_analyzed).unwrap();
 
-    if summary.large_files_skipped > 0 {
+    if summary.metrics.large_files_skipped > 0 {
         writeln!(
             output,
             " Large files skipped: {:>7}",
-            summary.large_files_skipped
+            summary.metrics.large_files_skipped
         )
         .unwrap();
     }
 
-    if summary.binary_files_skipped > 0 {
+    if summary.metrics.binary_files_skipped > 0 {
         writeln!(
             output,
             " Binary files skipped: {:>7}",
-            summary.binary_files_skipped
+            summary.metrics.binary_files_skipped
         )
         .unwrap();
     }
 
-    if summary.files_skipped_low_signal > 0 {
+    if summary.metrics.files_skipped_low_signal > 0 {
         writeln!(
             output,
             " Low-signal files skipped:{:>7}",
-            summary.files_skipped_low_signal
+            summary.metrics.files_skipped_low_signal
         )
         .unwrap();
     }

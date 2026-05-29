@@ -93,24 +93,25 @@ struct HiddenSuggestionKey {
 /// stores a structured breakdown for hidden suggestions.
 pub fn apply_visibility_profile(summary: &mut ScanSummary, profile: FindingVisibilityProfile) {
     summary.visibility_profile = Some(profile.label().to_string());
-    summary.raw_findings_count = summary.findings.len();
-    summary.raw_signal_quality = summarize_signal_quality(&summary.findings);
-    summary.visible_findings_count = summary.findings.len();
-    summary.hidden_suggestions_count = 0;
-    summary.hidden_suggestions.clear();
+    summary.metrics.raw_findings_count = summary.artifacts.findings.len();
+    summary.artifacts.raw_signal_quality = summarize_signal_quality(&summary.artifacts.findings);
+    summary.metrics.visible_findings_count = summary.artifacts.findings.len();
+    summary.metrics.hidden_suggestions_count = 0;
+    summary.artifacts.hidden_suggestions.clear();
 
     if profile == FindingVisibilityProfile::Strict {
         recompute_summary_metrics(summary);
         return;
     }
 
-    let hidden_suggestions = build_hidden_suggestion_summaries(&summary.findings);
-    let original_count = summary.findings.len();
+    let hidden_suggestions = build_hidden_suggestion_summaries(&summary.artifacts.findings);
+    let original_count = summary.artifacts.findings.len();
 
-    summary.findings.retain(is_visible_by_default);
-    summary.visible_findings_count = summary.findings.len();
-    summary.hidden_suggestions_count = original_count.saturating_sub(summary.findings.len());
-    summary.hidden_suggestions = hidden_suggestions;
+    summary.artifacts.findings.retain(is_visible_by_default);
+    summary.metrics.visible_findings_count = summary.artifacts.findings.len();
+    summary.metrics.hidden_suggestions_count =
+        original_count.saturating_sub(summary.artifacts.findings.len());
+    summary.artifacts.hidden_suggestions = hidden_suggestions;
     recompute_summary_metrics(summary);
 }
 

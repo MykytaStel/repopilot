@@ -14,11 +14,11 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         health_score_bar(stats.health_score)
     )
     .unwrap();
-    if summary.raw_findings_count > summary.visible_findings_count {
+    if summary.metrics.raw_findings_count > summary.metrics.visible_findings_count {
         writeln!(
             output,
             "Findings: {} visible / {} raw ({:.1}/kloc visible)",
-            summary.visible_findings_count, summary.raw_findings_count, stats.finding_density
+            summary.metrics.visible_findings_count, summary.metrics.raw_findings_count, stats.finding_density
         )
         .unwrap();
     } else {
@@ -29,17 +29,17 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
         )
         .unwrap();
     }
-    if summary.hidden_suggestions_count > 0 {
+    if summary.metrics.hidden_suggestions_count > 0 {
         writeln!(
             output,
             "Hidden suggestions: {} strict-only suggestions",
-            summary.hidden_suggestions_count
+            summary.metrics.hidden_suggestions_count
         )
         .unwrap();
         writeln!(
             output,
             "Note: {} strict-only suggestions hidden. Run with --profile strict or --include-maintainability to view.",
-            summary.hidden_suggestions_count
+            summary.metrics.hidden_suggestions_count
         )
         .unwrap();
     }
@@ -49,7 +49,7 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     writeln!(
         output,
         "Directories analyzed: {} | Non-empty lines: {}",
-        summary.directories_count, summary.non_empty_lines
+        summary.metrics.directories_count, summary.metrics.non_empty_lines
     )
     .unwrap();
     render_scan_input(output, summary);
@@ -101,12 +101,12 @@ fn render_local_feedback(output: &mut String, summary: &ScanSummary) {
 }
 
 fn render_diagnostics(output: &mut String, summary: &ScanSummary) {
-    if summary.diagnostics.is_empty() {
+    if summary.artifacts.diagnostics.is_empty() {
         return;
     }
 
     output.push_str("Diagnostics:\n");
-    for diagnostic in &summary.diagnostics {
+    for diagnostic in &summary.artifacts.diagnostics {
         let path = diagnostic
             .path
             .as_ref()
@@ -197,7 +197,7 @@ fn format_optional_ms(value: Option<u64>) -> String {
 }
 
 fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummary) {
-    if summary.hidden_suggestions.is_empty() {
+    if summary.artifacts.hidden_suggestions.is_empty() {
         return;
     }
 
@@ -206,7 +206,7 @@ fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummar
 ",
     );
 
-    for item in summary.hidden_suggestions.iter().take(8) {
+    for item in summary.artifacts.hidden_suggestions.iter().take(8) {
         writeln!(
             output,
             "  {:>4}  {} / {} / {} ({})",
@@ -215,11 +215,11 @@ fn render_hidden_suggestions_breakdown(output: &mut String, summary: &ScanSummar
         .unwrap();
     }
 
-    if summary.hidden_suggestions.len() > 8 {
+    if summary.artifacts.hidden_suggestions.len() > 8 {
         writeln!(
             output,
             "  ... {} more hidden group(s)",
-            summary.hidden_suggestions.len() - 8
+            summary.artifacts.hidden_suggestions.len() - 8
         )
         .unwrap();
     }
@@ -235,7 +235,7 @@ fn render_scope(output: &mut String, summary: &ScanSummary) {
         writeln!(
             output,
             "Scope: changed files{base} | changed files: {} | repo-level rules: skipped",
-            summary.changed_files_count
+            summary.metrics.changed_files_count
         )
         .unwrap();
         return;

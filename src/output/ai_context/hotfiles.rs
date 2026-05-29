@@ -4,12 +4,12 @@ use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
 pub(super) fn render_hot_files(out: &mut String, summary: &ScanSummary) {
-    if let Some(graph) = &summary.context_graph_summary {
+    if let Some(graph) = &summary.artifacts.context_graph_summary {
         render_context_risk_graph(out, summary, graph);
         return;
     }
 
-    let graph = match &summary.coupling_graph {
+    let graph = match &summary.artifacts.coupling_graph {
         Some(g) => g,
         None => return,
     };
@@ -41,7 +41,7 @@ fn render_context_risk_graph(out: &mut String, summary: &ScanSummary, graph: &Co
     }
 
     let _ = writeln!(out, "## Context Risk Graph\n");
-    if let Some(cache) = &summary.context_graph_cache {
+    if let Some(cache) = &summary.artifacts.context_graph_cache {
         let _ = writeln!(
             out,
             "- Cache: {} ({})",

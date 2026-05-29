@@ -64,44 +64,20 @@ fn compare_json_renders_valid_json() {
 fn summary(findings: Vec<Finding>) -> ScanSummary {
     let visible_findings_count = findings.len();
     ScanSummary {
-        root_path: PathBuf::from("demo"),
-        mode: Default::default(),
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: 0,
-        files_analyzed: 1,
-        directories_count: 0,
-        non_empty_lines: 10,
-        large_files_skipped: 0,
-        files_skipped_low_signal: 0,
-        binary_files_skipped: 0,
-        skipped_bytes: 0,
-        languages: vec![],
-        findings,
-        detected_frameworks: vec![],
-        framework_projects: vec![],
-        react_native: None,
-        coupling_graph: None,
-        context_graph_summary: None,
-        context_graph_cache: None,
-        scan_duration_us: 0,
-        health_score: 0,
-        raw_findings_count: visible_findings_count,
-        visible_findings_count,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: None,
-        cache_telemetry: None,
-        local_feedback: None,
-        diagnostics: Vec::new(),
-        raw_signal_quality: Default::default(),
-        visible_signal_quality: Default::default(),
-        signal_quality: Default::default(),
+        metadata: repopilot::scan::types::ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: repopilot::scan::types::ScanMetrics {
+            files_analyzed: 1,
+            raw_findings_count: visible_findings_count,
+            visible_findings_count,
+            ..Default::default()
+        },
+        artifacts: repopilot::scan::types::ScanArtifacts {
+            findings,
+            ..Default::default()
+        },
     }
 }
 

@@ -37,24 +37,28 @@ fn polyglot_scan_uses_knowledge_engine_context_without_flagging_paradigms() {
 
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "Rust")
     );
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "TypeScript")
     );
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "Python")
     );
 
     let rust_findings: Vec<_> = summary
+        .artifacts
         .findings
         .iter()
         .filter(|finding| finding.rule_id == "language.rust.panic-risk")
@@ -73,6 +77,7 @@ fn polyglot_scan_uses_knowledge_engine_context_without_flagging_paradigms() {
     );
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| !finding.title.to_lowercase().contains("functional"))
@@ -96,6 +101,7 @@ fn node_cli_boundary_downgrades_process_exit() {
     .expect("scan");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "language.javascript.runtime-exit-risk")
@@ -125,6 +131,7 @@ fn generated_files_suppress_language_risk_noise() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "language.go.panic-exit-risk")

@@ -74,9 +74,9 @@ impl<'a> GraphInspectJson<'a> {
         Self {
             kind: "context-graph",
             root_path: summary.root_path.to_string_lossy().to_string(),
-            context_graph_summary: summary.context_graph_summary.as_ref(),
-            context_graph_cache: summary.context_graph_cache.as_ref(),
-            diagnostics: &summary.diagnostics,
+            context_graph_summary: summary.artifacts.context_graph_summary.as_ref(),
+            context_graph_cache: summary.artifacts.context_graph_cache.as_ref(),
+            diagnostics: &summary.artifacts.diagnostics,
         }
     }
 }
@@ -87,7 +87,7 @@ fn render_console(summary: &ScanSummary) -> String {
     let _ = writeln!(output, "Path: {}", summary.root_path.display());
     render_cache_console(&mut output, summary);
 
-    let Some(graph) = &summary.context_graph_summary else {
+    let Some(graph) = &summary.artifacts.context_graph_summary else {
         output.push_str("No context graph summary available.\n");
         return output;
     };
@@ -112,7 +112,7 @@ fn render_markdown(summary: &ScanSummary) -> String {
     let _ = writeln!(output, "- **Path:** `{}`", summary.root_path.display());
     render_cache_markdown(&mut output, summary);
 
-    let Some(graph) = &summary.context_graph_summary else {
+    let Some(graph) = &summary.artifacts.context_graph_summary else {
         output.push_str("\nNo context graph summary available.\n");
         return output;
     };
@@ -132,7 +132,7 @@ fn render_markdown(summary: &ScanSummary) -> String {
 }
 
 fn render_cache_console(output: &mut String, summary: &ScanSummary) {
-    if let Some(cache) = &summary.context_graph_cache {
+    if let Some(cache) = &summary.artifacts.context_graph_cache {
         let _ = writeln!(
             output,
             "Cache: {} ({}) at {}",
@@ -144,7 +144,7 @@ fn render_cache_console(output: &mut String, summary: &ScanSummary) {
 }
 
 fn render_cache_markdown(output: &mut String, summary: &ScanSummary) {
-    if let Some(cache) = &summary.context_graph_cache {
+    if let Some(cache) = &summary.artifacts.context_graph_cache {
         let _ = writeln!(
             output,
             "- **Cache:** `{}` ({}) at `{}`",
@@ -310,7 +310,7 @@ fn render_risky_clusters_markdown(output: &mut String, graph: &ContextGraphSumma
 fn render_dot(summary: &ScanSummary) -> String {
     let mut out = String::new();
     out.push_str("digraph {\n");
-    if let Some(graph) = &summary.coupling_graph {
+    if let Some(graph) = &summary.artifacts.coupling_graph {
         // Output all nodes first to ensure isolated nodes are rendered
         for node in &graph.nodes {
             let rel_path = node.strip_prefix(&summary.root_path).unwrap_or(node);
@@ -334,7 +334,7 @@ fn render_dot(summary: &ScanSummary) -> String {
 fn render_mermaid(summary: &ScanSummary) -> String {
     let mut out = String::new();
     out.push_str("graph TD\n");
-    if let Some(graph) = &summary.coupling_graph {
+    if let Some(graph) = &summary.artifacts.coupling_graph {
         let mut node_ids = std::collections::HashMap::new();
         // Register and print nodes
         for (id_counter, node) in graph.nodes.iter().enumerate() {

@@ -45,7 +45,10 @@ pub fn apply_local_feedback(
         return Ok(LocalFeedbackReport::default());
     }
 
-    summary.diagnostics.extend(validation.diagnostics.clone());
+    summary
+        .artifacts
+        .diagnostics
+        .extend(validation.diagnostics.clone());
 
     let mut report = LocalFeedbackReport {
         feedback_path: Some(validation.feedback_path.clone()),
@@ -60,11 +63,11 @@ pub fn apply_local_feedback(
         return Ok(report);
     }
 
-    let original_count = summary.findings.len();
+    let original_count = summary.artifacts.findings.len();
     let mut matched_suppression_indices = BTreeSet::new();
     let suppression_index = build_suppression_index(&validation.suppressions);
 
-    summary.findings.retain(|finding| {
+    summary.artifacts.findings.retain(|finding| {
         let matched = matching_suppression_index(finding, &suppression_index);
         if let Some(index) = matched {
             matched_suppression_indices.insert(index);
@@ -74,7 +77,8 @@ pub fn apply_local_feedback(
         }
     });
 
-    report.suppressed_findings_count = original_count.saturating_sub(summary.findings.len());
+    report.suppressed_findings_count =
+        original_count.saturating_sub(summary.artifacts.findings.len());
     report.unmatched_suppressions = validation
         .suppressions
         .iter()
@@ -84,7 +88,7 @@ pub fn apply_local_feedback(
     report.unmatched_suppressions_count = report.unmatched_suppressions.len();
 
     if report.unmatched_suppressions_count > 0 {
-        summary.diagnostics.push(
+        summary.artifacts.diagnostics.push(
             ScanDiagnostic::warning(
                 "feedback.unmatched-suppressions",
                 format!(

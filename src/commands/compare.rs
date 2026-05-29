@@ -80,7 +80,7 @@ impl Error for CompareInputError {
 mod tests {
     use super::read_summary;
     use repopilot::output::json;
-    use repopilot::scan::types::ScanSummary;
+    use repopilot::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
     use std::fs;
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -88,11 +88,19 @@ mod tests {
     #[test]
     fn read_summary_accepts_versioned_json_report() {
         let summary = ScanSummary {
-            hidden_suggestions: Vec::new(),
-            root_path: PathBuf::from("."),
-            files_analyzed: 7,
-            non_empty_lines: 42,
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("."),
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                files_analyzed: 7,
+                non_empty_lines: 42,
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                hidden_suggestions: Vec::new(),
+                ..Default::default()
+            },
         };
         let rendered = json::render(&summary).expect("json render should succeed");
         let dir = tempdir().expect("tempdir should be created");
@@ -101,18 +109,26 @@ mod tests {
 
         let parsed = read_summary(&path).expect("versioned report should parse");
 
-        assert_eq!(parsed.files_analyzed, 7);
-        assert_eq!(parsed.non_empty_lines, 42);
+        assert_eq!(parsed.metrics.files_analyzed, 7);
+        assert_eq!(parsed.metrics.non_empty_lines, 42);
     }
 
     #[test]
     fn read_summary_rejects_legacy_scan_summary_json() {
         let summary = ScanSummary {
-            hidden_suggestions: Vec::new(),
-            root_path: PathBuf::from("."),
-            files_analyzed: 3,
-            non_empty_lines: 21,
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("."),
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                files_analyzed: 3,
+                non_empty_lines: 21,
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                hidden_suggestions: Vec::new(),
+                ..Default::default()
+            },
         };
         let rendered =
             serde_json::to_string_pretty(&summary).expect("legacy json render should succeed");

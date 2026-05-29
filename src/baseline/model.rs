@@ -33,6 +33,7 @@ impl Baseline {
         created_at: String,
     ) -> Self {
         let mut findings = summary
+            .artifacts
             .findings
             .iter()
             .map(|finding| BaselineFinding::from_finding(finding, root))

@@ -13,9 +13,9 @@ fn scan_counts_files_skipped_by_repopilotignore() {
 
     let summary = scan_path_with_config(root, &ScanConfig::default()).expect("scan");
 
-    assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.files_skipped_repopilotignore, 1);
-    assert_eq!(summary.files_analyzed, 1);
+    assert_eq!(summary.metrics.files_discovered, 1);
+    assert_eq!(summary.metrics.files_skipped_repopilotignore, 1);
+    assert_eq!(summary.metrics.files_analyzed, 1);
     assert!(summary.repopilotignore_path.is_some());
 }
 
@@ -35,9 +35,9 @@ fn scan_counts_files_skipped_by_max_files_limit() {
 
     let summary = scan_path_with_config(root, &config).expect("scan");
 
-    assert_eq!(summary.files_discovered, 3);
-    assert_eq!(summary.files_skipped_by_limit, 2);
-    assert_eq!(summary.files_analyzed, 1);
+    assert_eq!(summary.metrics.files_discovered, 3);
+    assert_eq!(summary.metrics.files_skipped_by_limit, 2);
+    assert_eq!(summary.metrics.files_analyzed, 1);
 }
 
 #[test]
@@ -49,6 +49,6 @@ fn scan_does_not_report_repopilotignore_when_file_is_missing() {
 
     let summary = scan_path_with_config(root, &ScanConfig::default()).expect("scan");
 
-    assert_eq!(summary.files_skipped_repopilotignore, 0);
+    assert_eq!(summary.metrics.files_skipped_repopilotignore, 0);
     assert!(summary.repopilotignore_path.is_none());
 }

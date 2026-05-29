@@ -18,7 +18,7 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         let _ = writeln!(out, "**Tech Stack:** {}", stack.join(", "));
     }
 
-    let token_est = summary.non_empty_lines * 5;
+    let token_est = summary.metrics.non_empty_lines * 5;
     let token_est_str = if token_est >= 1000 {
         format!("~{}k tokens", token_est / 1000)
     } else {
@@ -27,11 +27,14 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
     let _ = writeln!(
         out,
         "**Size:** {} files · {} non-empty lines · {} directories · {token_est_str}",
-        summary.files_analyzed, summary.non_empty_lines, summary.directories_count
+        summary.metrics.files_analyzed,
+        summary.metrics.non_empty_lines,
+        summary.metrics.directories_count
     );
 
-    if !summary.languages.is_empty() {
+    if !summary.metrics.languages.is_empty() {
         let langs: Vec<String> = summary
+            .metrics
             .languages
             .iter()
             .take(5)
@@ -53,10 +56,10 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         .filter(|f| f.severity == Severity::Medium)
         .count();
     let total = findings.len();
-    let density = if summary.non_empty_lines > 0 {
+    let density = if summary.metrics.non_empty_lines > 0 {
         format!(
             " · {:.1}/kloc",
-            total as f64 * 1000.0 / summary.non_empty_lines as f64
+            total as f64 * 1000.0 / summary.metrics.non_empty_lines as f64
         )
     } else {
         String::new()
@@ -65,11 +68,11 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
         out,
         "**Health:** {total} findings{density} — {critical} critical, {high} high, {medium} medium"
     );
-    if summary.large_files_skipped > 0 {
+    if summary.metrics.large_files_skipped > 0 {
         let _ = writeln!(
             out,
             "⚠️ {} files skipped (too large to scan)",
-            summary.large_files_skipped
+            summary.metrics.large_files_skipped
         );
     }
     out.push('\n');
@@ -173,12 +176,13 @@ pub(super) fn risk_level(findings: &[&Finding]) -> &'static str {
 
 fn build_tech_stack(summary: &ScanSummary) -> Vec<String> {
     let mut parts: Vec<String> = summary
+        .artifacts
         .detected_frameworks
         .iter()
         .map(|f| f.label())
         .collect();
 
-    if let Some(rn) = &summary.react_native {
+    if let Some(rn) = &summary.artifacts.react_native {
         let archs = [
             rn.android_new_arch_enabled,
             rn.ios_new_arch_enabled,

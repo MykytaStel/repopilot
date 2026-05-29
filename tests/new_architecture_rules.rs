@@ -26,6 +26,7 @@ fn reports_directory_with_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "architecture.too-many-modules")
@@ -55,6 +56,7 @@ fn flat_tests_directory_is_not_reported_as_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -81,6 +83,7 @@ fn docs_directory_is_not_reported_as_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -114,6 +117,7 @@ fn documentation_files_do_not_inflate_module_count() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -149,6 +153,7 @@ fn reports_deep_nesting_only_above_threshold() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan");
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "architecture.deep-nesting")
@@ -161,6 +166,7 @@ fn reports_deep_nesting_only_above_threshold() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan");
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.deep-nesting")

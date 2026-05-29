@@ -21,6 +21,7 @@ fn scan_pipeline_produces_file_audit_findings() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|f| f.rule_id == "architecture.large-file"),
@@ -29,6 +30,7 @@ fn scan_pipeline_produces_file_audit_findings() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|f| f.rule_id == "code-marker.todo"),

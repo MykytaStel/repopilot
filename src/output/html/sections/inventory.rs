@@ -1,10 +1,9 @@
 pub(super) fn render_languages_section(summary: &ScanSummary) -> String {
-    if summary.languages.is_empty() {
+    if summary.metrics.languages.is_empty() {
         return "<p class=\"empty\">No languages detected.</p>".to_string();
     }
 
-    let rows = summary
-        .languages
+    let rows = summary.metrics.languages
         .iter()
         .map(|language| {
             format!(

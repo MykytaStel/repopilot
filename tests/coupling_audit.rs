@@ -37,6 +37,7 @@ fn excessive_fan_out_finding_is_emitted() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.excessive-fan-out")
@@ -79,6 +80,7 @@ fn high_instability_hub_finding_is_emitted() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.high-instability-hub")
@@ -104,6 +106,7 @@ fn circular_dependency_finding_is_emitted() {
         .expect("failed to scan temp project");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.circular-dependency")
@@ -122,6 +125,7 @@ fn isolated_files_do_not_emit_coupling_findings() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| !COUPLING_RULES.contains(&finding.rule_id.as_str()))
@@ -136,7 +140,7 @@ fn scan_summary_stores_coupling_graph() {
     let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
         .expect("failed to scan temp project");
 
-    assert!(summary.coupling_graph.is_some());
+    assert!(summary.artifacts.coupling_graph.is_some());
 }
 
 fn write_file(temp: &TempDir, relative_path: &str, content: &str) {

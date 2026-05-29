@@ -22,7 +22,7 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
         local_feedback: build_local_feedback(summary),
         languages: build_languages(summary),
         diagnostics: build_diagnostics(summary),
-        health_score: summary.health_score,
+        health_score: summary.metrics.health_score,
     }
 }
 
@@ -30,18 +30,18 @@ fn build_scope(summary: &ScanSummary) -> ReceiptScope {
     ReceiptScope {
         mode: summary.mode.label().to_string(),
         base_ref: summary.base_ref.clone(),
-        changed_files_count: summary.changed_files_count,
+        changed_files_count: summary.metrics.changed_files_count,
         repo_level_rules_included: summary.repo_level_rules_included,
-        files_discovered: summary.files_discovered,
-        files_analyzed: summary.files_analyzed,
-        directories_count: summary.directories_count,
-        non_empty_lines: summary.non_empty_lines,
-        files_skipped_low_signal: summary.files_skipped_low_signal,
-        binary_files_skipped: summary.binary_files_skipped,
-        large_files_skipped: summary.large_files_skipped,
-        files_skipped_by_limit: summary.files_skipped_by_limit,
-        files_skipped_repopilotignore: summary.files_skipped_repopilotignore,
-        skipped_bytes: summary.skipped_bytes,
+        files_discovered: summary.metrics.files_discovered,
+        files_analyzed: summary.metrics.files_analyzed,
+        directories_count: summary.metrics.directories_count,
+        non_empty_lines: summary.metrics.non_empty_lines,
+        files_skipped_low_signal: summary.metrics.files_skipped_low_signal,
+        binary_files_skipped: summary.metrics.binary_files_skipped,
+        large_files_skipped: summary.metrics.large_files_skipped,
+        files_skipped_by_limit: summary.metrics.files_skipped_by_limit,
+        files_skipped_repopilotignore: summary.metrics.files_skipped_repopilotignore,
+        skipped_bytes: summary.metrics.skipped_bytes,
         repopilotignore_path: summary
             .repopilotignore_path
             .as_ref()
@@ -51,9 +51,10 @@ fn build_scope(summary: &ScanSummary) -> ReceiptScope {
 
 fn build_findings(summary: &ScanSummary) -> ReceiptFindings {
     let mut findings = ReceiptFindings {
-        total: summary.findings.len(),
-        hidden_suggestions_count: summary.hidden_suggestions_count,
+        total: summary.artifacts.findings.len(),
+        hidden_suggestions_count: summary.metrics.hidden_suggestions_count,
         hidden_suggestions: summary
+            .artifacts
             .hidden_suggestions
             .iter()
             .map(|item| ReceiptHiddenSuggestion {
@@ -71,7 +72,7 @@ fn build_findings(summary: &ScanSummary) -> ReceiptFindings {
         info: 0,
     };
 
-    for finding in &summary.findings {
+    for finding in &summary.artifacts.findings {
         match finding.severity {
             Severity::Critical => findings.critical += 1,
             Severity::High => findings.high += 1,
@@ -104,6 +105,7 @@ fn build_local_feedback(summary: &ScanSummary) -> Option<ReceiptLocalFeedback> {
 
 fn build_languages(summary: &ScanSummary) -> Vec<ReceiptLanguage> {
     summary
+        .metrics
         .languages
         .iter()
         .map(|language| ReceiptLanguage {
@@ -115,6 +117,7 @@ fn build_languages(summary: &ScanSummary) -> Vec<ReceiptLanguage> {
 
 fn build_diagnostics(summary: &ScanSummary) -> Vec<ReceiptDiagnostic> {
     summary
+        .artifacts
         .diagnostics
         .iter()
         .map(|diagnostic| ReceiptDiagnostic {

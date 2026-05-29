@@ -75,29 +75,31 @@ fn render_findings_block(
     writeln!(
         output,
         "Hidden suggestions: {} strict-only",
-        summary.hidden_suggestions_count
+        summary.metrics.hidden_suggestions_count
     )
     .unwrap();
     output.push('\n');
 
-    if summary.findings.is_empty() {
+    if summary.artifacts.findings.is_empty() {
         output.push_str("No visible risks found.\n\n");
         return;
     }
 
     output.push_str("Top findings:\n");
-    let shown = findings_limit.compact_limit(summary.findings.len());
-    for (_, finding) in indexed_sorted_findings(&summary.findings)
+    let shown = findings_limit.compact_limit(summary.artifacts.findings.len());
+    for (_, finding) in indexed_sorted_findings(&summary.artifacts.findings)
         .into_iter()
         .take(shown)
     {
         render_top_finding(output, finding);
     }
-    if matches!(findings_limit, FindingRenderLimit::Limit(_)) && shown < summary.findings.len() {
+    if matches!(findings_limit, FindingRenderLimit::Limit(_))
+        && shown < summary.artifacts.findings.len()
+    {
         writeln!(
             output,
             "  showing {shown} of {} findings (--max-findings none shows all)",
-            summary.findings.len()
+            summary.artifacts.findings.len()
         )
         .unwrap();
     }
@@ -136,7 +138,7 @@ fn render_baseline_block(
 fn render_next_steps(output: &mut String, summary: &ScanSummary) {
     let path = command_path(summary.root_path.as_path());
     output.push_str("Next:\n");
-    if summary.hidden_suggestions_count > 0 {
+    if summary.metrics.hidden_suggestions_count > 0 {
         writeln!(output, "  repopilot scan {path} --profile strict").unwrap();
     }
     writeln!(
@@ -144,7 +146,7 @@ fn render_next_steps(output: &mut String, summary: &ScanSummary) {
         "  repopilot scan {path} --format markdown --output report.md"
     )
     .unwrap();
-    if summary.findings.is_empty() && profile_label(summary) == "default" {
+    if summary.artifacts.findings.is_empty() && profile_label(summary) == "default" {
         output.push_str("  repopilot inspect eval-rules --format json\n");
     }
 }
@@ -162,7 +164,7 @@ fn render_scope(output: &mut String, summary: &ScanSummary) {
     writeln!(
         output,
         "Scope: changed files{base} ({})",
-        summary.changed_files_count
+        summary.metrics.changed_files_count
     )
     .unwrap();
 }
@@ -173,14 +175,14 @@ fn render_scope_accounting(output: &mut String, summary: &ScanSummary) {
         writeln!(
             output,
             "Files: {} discovered, {} analyzed, {skipped} skipped",
-            summary.files_discovered, summary.files_analyzed
+            summary.metrics.files_discovered, summary.metrics.files_analyzed
         )
         .unwrap();
     } else {
         writeln!(
             output,
             "Files: {} discovered, {} analyzed",
-            summary.files_discovered, summary.files_analyzed
+            summary.metrics.files_discovered, summary.metrics.files_analyzed
         )
         .unwrap();
     }
@@ -188,24 +190,27 @@ fn render_scope_accounting(output: &mut String, summary: &ScanSummary) {
 
 fn skipped_files_count(summary: &ScanSummary) -> usize {
     summary
+        .metrics
         .files_skipped_low_signal
-        .saturating_add(summary.files_skipped_by_limit)
-        .saturating_add(summary.large_files_skipped)
-        .saturating_add(summary.binary_files_skipped)
-        .saturating_add(summary.files_skipped_repopilotignore)
+        .saturating_add(summary.metrics.files_skipped_by_limit)
+        .saturating_add(summary.metrics.large_files_skipped)
+        .saturating_add(summary.metrics.binary_files_skipped)
+        .saturating_add(summary.metrics.files_skipped_repopilotignore)
 }
 
 fn render_diagnostics_line(output: &mut String, summary: &ScanSummary) {
-    if summary.diagnostics.is_empty() {
+    if summary.artifacts.diagnostics.is_empty() {
         return;
     }
 
     let warnings = summary
+        .artifacts
         .diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
         .count();
     let errors = summary
+        .artifacts
         .diagnostics
         .iter()
         .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
@@ -252,6 +257,7 @@ fn status_label(summary: &ScanSummary, visible_count: usize) -> &'static str {
     } else if visible_count > 0 {
         "Attention needed"
     } else if summary
+        .artifacts
         .diagnostics
         .iter()
         .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
@@ -272,10 +278,10 @@ fn compact_risk_label(stats: &ReportStats) -> &'static str {
 }
 
 fn visible_findings_count(summary: &ScanSummary) -> usize {
-    if summary.visible_findings_count == 0 && !summary.findings.is_empty() {
-        summary.findings.len()
+    if summary.metrics.visible_findings_count == 0 && !summary.artifacts.findings.is_empty() {
+        summary.artifacts.findings.len()
     } else {
-        summary.visible_findings_count
+        summary.metrics.visible_findings_count
     }
 }
 

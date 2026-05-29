@@ -35,13 +35,17 @@ fn strict_reader_accepts_current_scan_report_shape() {
     let current = parse_scan_summary_json(include_str!("fixtures/reports/scan-v017.json"))
         .expect("current report should parse into ScanSummary");
 
-    assert_eq!(current.files_discovered, 2);
-    assert_eq!(current.files_analyzed, 2);
-    assert_eq!(current.non_empty_lines, 12);
-    assert_eq!(current.diagnostics.len(), 1);
-    assert_eq!(current.diagnostics[0].code, "workspace.package-scan-failed");
+    assert_eq!(current.metrics.files_discovered, 2);
+    assert_eq!(current.metrics.files_analyzed, 2);
+    assert_eq!(current.metrics.non_empty_lines, 12);
+    assert_eq!(current.artifacts.diagnostics.len(), 1);
+    assert_eq!(
+        current.artifacts.diagnostics[0].code,
+        "workspace.package-scan-failed"
+    );
     assert_eq!(
         current
+            .artifacts
             .context_graph_summary
             .as_ref()
             .map(|graph| graph.files),
@@ -49,6 +53,7 @@ fn strict_reader_accepts_current_scan_report_shape() {
     );
     assert_eq!(
         current
+            .artifacts
             .context_graph_cache
             .as_ref()
             .map(|cache| cache.status.as_str()),
@@ -63,16 +68,17 @@ fn strict_reader_accepts_previous_scan_report_shapes() {
     let previous_v015 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v015.json"))
         .expect("0.15 report should parse during 0.17 transition");
 
-    assert_eq!(previous_v016.files_discovered, 2);
+    assert_eq!(previous_v016.metrics.files_discovered, 2);
     assert_eq!(
         previous_v016
+            .artifacts
             .context_graph_summary
             .as_ref()
             .map(|graph| graph.files),
         Some(2)
     );
-    assert_eq!(previous_v015.files_discovered, 2);
-    assert!(previous_v015.context_graph_summary.is_none());
+    assert_eq!(previous_v015.metrics.files_discovered, 2);
+    assert!(previous_v015.artifacts.context_graph_summary.is_none());
 }
 
 #[test]

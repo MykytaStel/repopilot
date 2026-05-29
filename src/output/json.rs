@@ -20,17 +20,25 @@ pub fn render_with_baseline(
 mod tests {
     use super::*;
     use crate::baseline::diff::{BaselineScanReport, FindingBaselineStatus};
-    use crate::scan::types::HiddenSuggestionSummary;
+    use crate::scan::types::{HiddenSuggestionSummary, ScanArtifacts, ScanMetadata, ScanMetrics};
     use serde_json::Value;
     use std::path::PathBuf;
 
     #[test]
     fn json_scan_report_includes_schema_and_tool_versions() {
         let summary = ScanSummary {
-            hidden_suggestions: Vec::new(),
-            root_path: PathBuf::from("."),
-            files_analyzed: 1,
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("."),
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                files_analyzed: 1,
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                hidden_suggestions: Vec::new(),
+                ..Default::default()
+            },
         };
 
         let rendered = render(&summary).expect("json render should succeed");
@@ -50,17 +58,25 @@ mod tests {
     #[test]
     fn baseline_json_report_includes_schema_and_tool_versions() {
         let summary = ScanSummary {
-            hidden_suggestions_count: 5,
-            hidden_suggestions: vec![HiddenSuggestionSummary {
-                intent: "testing-gap".to_string(),
-                rule_id: "testing.source-without-test".to_string(),
-                category: "testing".to_string(),
-                reason: "testing gaps are hidden in the default profile".to_string(),
-                count: 5,
-            }],
-            root_path: PathBuf::from("."),
-            files_analyzed: 2,
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("."),
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                hidden_suggestions_count: 5,
+                files_analyzed: 2,
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                hidden_suggestions: vec![HiddenSuggestionSummary {
+                    intent: "testing-gap".to_string(),
+                    rule_id: "testing.source-without-test".to_string(),
+                    category: "testing".to_string(),
+                    reason: "testing gaps are hidden in the default profile".to_string(),
+                    count: 5,
+                }],
+                ..Default::default()
+            },
         };
         let report = BaselineScanReport {
             summary,

@@ -48,7 +48,7 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
     let mut path_counts: BTreeMap<String, CountWithSeverity> = BTreeMap::new();
     let mut package_counts: BTreeMap<String, CountWithSeverity> = BTreeMap::new();
 
-    for finding in &summary.findings {
+    for finding in &summary.artifacts.findings {
         severity_counts[severity_index(finding.severity)] += 1;
         increment(
             category_counts.entry(finding.category.label()).or_default(),
@@ -76,10 +76,10 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
         }
     }
 
-    let total_findings = summary.findings.len();
-    let risk_summary = RiskSummary::from_findings(&summary.findings);
-    let finding_density = if summary.non_empty_lines > 0 {
-        total_findings as f64 * 1000.0 / summary.non_empty_lines as f64
+    let total_findings = summary.artifacts.findings.len();
+    let risk_summary = RiskSummary::from_findings(&summary.artifacts.findings);
+    let finding_density = if summary.metrics.non_empty_lines > 0 {
+        total_findings as f64 * 1000.0 / summary.metrics.non_empty_lines as f64
     } else {
         0.0
     };
@@ -95,7 +95,7 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
         top_paths: top_counts_from_map(path_counts, 10),
         top_packages: top_counts_from_map(package_counts, 10),
         finding_density,
-        health_score: summary.health_score,
+        health_score: summary.metrics.health_score,
         risk_label: risk_label_for_counts(&severity_counts, total_findings),
     }
 }

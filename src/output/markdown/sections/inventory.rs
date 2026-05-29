@@ -1,14 +1,14 @@
 pub(crate) fn render_languages_section(output: &mut String, summary: &ScanSummary) {
     output.push_str("## Languages\n\n");
 
-    if summary.languages.is_empty() {
+    if summary.metrics.languages.is_empty() {
         output.push_str("No languages detected.\n\n");
         return;
     }
 
     output.push_str("| Language | Files |\n");
     output.push_str("| --- | ---: |\n");
-    for language in &summary.languages {
+    for language in &summary.metrics.languages {
         writeln!(
             output,
             "| {} | {} |",

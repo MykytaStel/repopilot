@@ -20,6 +20,7 @@ fn scan_respects_custom_large_file_threshold() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.large-file")
@@ -42,6 +43,7 @@ fn scan_still_reports_file_above_custom_threshold() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.large-file")

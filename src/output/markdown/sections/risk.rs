@@ -1,7 +1,7 @@
 pub(crate) fn render_risk_summary(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
     output.push_str("## Risk Summary\n\n");
 
-    if summary.findings.is_empty() {
+    if summary.artifacts.findings.is_empty() {
         output.push_str("No findings found.\n\n");
         return;
     }
@@ -38,25 +38,25 @@ pub(crate) fn render_risk_summary(output: &mut String, summary: &ScanSummary, st
 }
 
 pub(crate) fn render_signal_quality(output: &mut String, summary: &ScanSummary) {
-    let quality = &summary.signal_quality;
+    let quality = &summary.artifacts.signal_quality;
     output.push_str("## Signal Quality\n\n");
-    if summary.raw_findings_count > summary.visible_findings_count {
+    if summary.metrics.raw_findings_count > summary.metrics.visible_findings_count {
         writeln!(
             output,
             "- **Visible findings:** {}",
-            summary.visible_findings_count
+            summary.metrics.visible_findings_count
         )
         .unwrap();
         writeln!(
             output,
             "- **Raw findings:** {}",
-            summary.raw_findings_count
+            summary.metrics.raw_findings_count
         )
         .unwrap();
         writeln!(
             output,
             "- **Raw high confidence:** {}",
-            summary.raw_signal_quality.by_confidence.high
+            summary.artifacts.raw_signal_quality.by_confidence.high
         )
         .unwrap();
     }

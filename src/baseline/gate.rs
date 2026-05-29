@@ -59,6 +59,7 @@ impl CiGateResult {
 pub fn evaluate_ci_gate(report: &BaselineScanReport, fail_on: FailOn) -> CiGateResult {
     let failed_findings = report
         .summary
+        .artifacts
         .findings
         .iter()
         .enumerate()
@@ -93,7 +94,7 @@ mod tests {
     use crate::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
     use crate::findings::types::{Evidence, Finding, Severity};
     use crate::risk::RiskPriority;
-    use crate::scan::types::ScanSummary;
+    use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
     use std::path::PathBuf;
 
     fn make_finding(severity: Severity) -> Finding {
@@ -131,9 +132,14 @@ mod tests {
 
         BaselineScanReport {
             summary: ScanSummary {
-                hidden_suggestions: Vec::new(),
-                root_path: PathBuf::from("."),
-                findings,
+                metadata: ScanMetadata {
+                    root_path: PathBuf::from("."),
+                    ..Default::default()
+                },
+                artifacts: ScanArtifacts {
+                    findings,
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             baseline_path: Some(PathBuf::from(".repopilot/baseline.json")),

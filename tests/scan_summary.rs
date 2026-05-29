@@ -2,7 +2,9 @@ use repopilot::findings::types::{Finding, FindingCategory, Severity};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::scan::types::{ScanDiagnostic, ScanSummary, ScanTimings};
+use repopilot::scan::types::{
+    ScanArtifacts, ScanDiagnostic, ScanMetadata, ScanMetrics, ScanSummary, ScanTimings,
+};
 use std::fs;
 use tempfile::tempdir;
 
@@ -26,11 +28,12 @@ fn scans_directory_with_counts_languages_and_markers() {
 
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
-    assert_eq!(summary.directories_count, 1);
-    assert_eq!(summary.files_analyzed, 3);
-    assert_eq!(summary.non_empty_lines, 4);
+    assert_eq!(summary.metrics.directories_count, 1);
+    assert_eq!(summary.metrics.files_analyzed, 3);
+    assert_eq!(summary.metrics.non_empty_lines, 4);
 
     let todo_finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|f| f.rule_id == "code-marker.todo")
@@ -39,6 +42,7 @@ fn scans_directory_with_counts_languages_and_markers() {
 
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "Rust" && language.files_analyzed == 1)
@@ -46,6 +50,7 @@ fn scans_directory_with_counts_languages_and_markers() {
 
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "TypeScript" && language.files_analyzed == 1)
@@ -53,6 +58,7 @@ fn scans_directory_with_counts_languages_and_markers() {
 
     assert!(
         summary
+            .metrics
             .languages
             .iter()
             .any(|language| language.name == "Markdown" && language.files_analyzed == 1)
@@ -73,11 +79,11 @@ fn scan_reports_files_skipped_by_size_guard() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_analyzed, 0);
-    assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.large_files_skipped, 1);
-    assert_eq!(summary.skipped_bytes, content.len() as u64);
-    assert_eq!(summary.non_empty_lines, 0);
+    assert_eq!(summary.metrics.files_analyzed, 0);
+    assert_eq!(summary.metrics.files_discovered, 1);
+    assert_eq!(summary.metrics.large_files_skipped, 1);
+    assert_eq!(summary.metrics.skipped_bytes, content.len() as u64);
+    assert_eq!(summary.metrics.non_empty_lines, 0);
 }
 
 #[test]
@@ -88,12 +94,12 @@ fn scan_reports_binary_files_as_skipped_without_failing() {
 
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
-    assert_eq!(summary.files_analyzed, 0);
-    assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.large_files_skipped, 0);
-    assert_eq!(summary.binary_files_skipped, 1);
-    assert_eq!(summary.skipped_bytes, bytes.len() as u64);
-    assert_eq!(summary.non_empty_lines, 0);
+    assert_eq!(summary.metrics.files_analyzed, 0);
+    assert_eq!(summary.metrics.files_discovered, 1);
+    assert_eq!(summary.metrics.large_files_skipped, 0);
+    assert_eq!(summary.metrics.binary_files_skipped, 1);
+    assert_eq!(summary.metrics.skipped_bytes, bytes.len() as u64);
+    assert_eq!(summary.metrics.non_empty_lines, 0);
 }
 
 #[test]
@@ -165,7 +171,7 @@ fn scan_result_includes_health_score() {
     let summary = scan_path(temp.path()).expect("scan");
 
     assert!(
-        summary.health_score > 0,
+        summary.metrics.health_score > 0,
         "clean project should have positive health score"
     );
 }
@@ -173,18 +179,26 @@ fn scan_result_includes_health_score() {
 #[test]
 fn diagnostic_helpers_separate_warnings_from_errors() {
     let warning_summary = ScanSummary {
-        diagnostics: vec![ScanDiagnostic::warning(
-            "workspace.package-scan-failed",
-            "Package scan failed; results are partial.",
-        )],
-        ..ScanSummary::default()
+        metadata: ScanMetadata::default(),
+        metrics: ScanMetrics::default(),
+        artifacts: ScanArtifacts {
+            diagnostics: vec![ScanDiagnostic::warning(
+                "workspace.package-scan-failed",
+                "Package scan failed; results are partial.",
+            )],
+            ..Default::default()
+        },
     };
     let error_summary = ScanSummary {
-        diagnostics: vec![ScanDiagnostic::error(
-            "scanner.fatal-stage",
-            "A reportable scan stage failed.",
-        )],
-        ..ScanSummary::default()
+        metadata: ScanMetadata::default(),
+        metrics: ScanMetrics::default(),
+        artifacts: ScanArtifacts {
+            diagnostics: vec![ScanDiagnostic::error(
+                "scanner.fatal-stage",
+                "A reportable scan stage failed.",
+            )],
+            ..Default::default()
+        },
     };
 
     assert!(!warning_summary.has_error_diagnostics());
