@@ -12,6 +12,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Stabilized `architecture.deep-nesting` rule semantics to analyze production directory nesting depth rather than AST control-flow nesting depth.
 - Scoped `architecture.deep-nesting` through a shared production architecture path policy so fixtures, tests, docs, examples, generated files, vendor trees, and build output do not become user-facing architecture findings.
 
 ## [0.13.0] - 2026-05-25
