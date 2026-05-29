@@ -35,7 +35,7 @@ pub struct ScanMetadata {
     pub repopilotignore_path: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ScanMetrics {
     #[serde(default)]
     pub files_discovered: usize,
@@ -67,7 +67,7 @@ pub struct ScanMetrics {
     pub languages: Vec<LanguageSummary>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ScanArtifacts {
     pub findings: Vec<Finding>,
     #[serde(default)]
@@ -94,7 +94,7 @@ pub struct ScanArtifacts {
     pub signal_quality: SignalQualitySummary,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct ScanSummary {
     #[serde(flatten)]
     pub metadata: ScanMetadata,
@@ -121,58 +121,6 @@ impl Default for ScanMetadata {
             local_feedback: None,
             visibility_profile: None,
             repopilotignore_path: None,
-        }
-    }
-}
-
-impl Default for ScanMetrics {
-    fn default() -> Self {
-        Self {
-            files_discovered: 0,
-            files_analyzed: 0,
-            directories_count: 0,
-            non_empty_lines: 0,
-            large_files_skipped: 0,
-            files_skipped_low_signal: 0,
-            binary_files_skipped: 0,
-            skipped_bytes: 0,
-            files_skipped_by_limit: 0,
-            files_skipped_repopilotignore: 0,
-            changed_files_count: 0,
-            health_score: 0,
-            raw_findings_count: 0,
-            visible_findings_count: 0,
-            hidden_suggestions_count: 0,
-            languages: Vec::new(),
-        }
-    }
-}
-
-impl Default for ScanArtifacts {
-    fn default() -> Self {
-        Self {
-            findings: Vec::new(),
-            detected_frameworks: Vec::new(),
-            framework_projects: Vec::new(),
-            react_native: None,
-            coupling_graph: None,
-            context_graph_summary: None,
-            context_graph_cache: None,
-            hidden_suggestions: Vec::new(),
-            diagnostics: Vec::new(),
-            raw_signal_quality: SignalQualitySummary::default(),
-            visible_signal_quality: SignalQualitySummary::default(),
-            signal_quality: SignalQualitySummary::default(),
-        }
-    }
-}
-
-impl Default for ScanSummary {
-    fn default() -> Self {
-        Self {
-            metadata: ScanMetadata::default(),
-            metrics: ScanMetrics::default(),
-            artifacts: ScanArtifacts::default(),
         }
     }
 }

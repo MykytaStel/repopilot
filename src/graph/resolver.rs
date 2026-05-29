@@ -238,7 +238,7 @@ fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
         })
         .collect::<Vec<_>>();
 
-    aliases.sort_by(|left, right| right.prefix.len().cmp(&left.prefix.len()));
+    aliases.sort_by_key(|right| std::cmp::Reverse(right.prefix.len()));
     aliases
 }
 
