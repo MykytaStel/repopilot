@@ -172,4 +172,3 @@ impl std::fmt::Display for KnowledgeValidationError {
 }
 
 impl std::error::Error for KnowledgeValidationError {}
-

@@ -1,7 +1,7 @@
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
-use crate::scan::types::{ScanDiagnostic, ScanSummary};
 pub use crate::scan::types::{LocalFeedbackReport, LocalSuppression};
+use crate::scan::types::{ScanDiagnostic, ScanSummary};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
@@ -9,7 +9,6 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
-
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LocalFeedbackValidation {

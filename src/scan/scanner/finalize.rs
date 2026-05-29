@@ -2,8 +2,8 @@ use super::summary::{ScanSummaryParts, build_scan_summary};
 use super::{ProjectAnalysisStage, ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
-    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph,
-    summarize_context_graph, write_repo_context_graph,
+    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
+    write_repo_context_graph,
 };
 use crate::scan::cache::config_fingerprint;
 use crate::scan::config::ScanConfig;

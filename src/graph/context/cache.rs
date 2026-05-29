@@ -1,8 +1,11 @@
 use super::*;
-use std::process::Command;
 use sha2::{Digest, Sha256};
+use std::process::Command;
 
-pub fn load_repo_context_graph(root: &Path, config_fingerprint: &str) -> Option<RepoContextGraphLoad> {
+pub fn load_repo_context_graph(
+    root: &Path,
+    config_fingerprint: &str,
+) -> Option<RepoContextGraphLoad> {
     let cache_path = context_graph_cache_path(root);
     let cached = read_cached_repo_context_graph(&cache_path)?;
     if !valid_cached_graph(&cached, root, config_fingerprint) {
@@ -73,7 +76,11 @@ pub fn context_graph_cache_miss(root: &Path, reason: &str) -> ContextGraphCacheI
     }
 }
 
-fn valid_cached_graph(cached: &CachedRepoContextGraph, root: &Path, config_fingerprint: &str) -> bool {
+fn valid_cached_graph(
+    cached: &CachedRepoContextGraph,
+    root: &Path,
+    config_fingerprint: &str,
+) -> bool {
     if !valid_cached_graph_metadata(cached, root, config_fingerprint) {
         return false;
     }

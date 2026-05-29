@@ -6,7 +6,6 @@ pub use imports::extract_imports;
 pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 

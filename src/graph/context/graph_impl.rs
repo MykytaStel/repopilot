@@ -168,7 +168,8 @@ fn relative_edges(
 }
 
 fn relative_graph_path(root: &Path, path: &Path) -> PathBuf {
-    let rel = path.strip_prefix(root)
+    let rel = path
+        .strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")

@@ -159,7 +159,6 @@ pub fn cache_diagnostic(error: &std::io::Error) -> ScanDiagnostic {
     )
 }
 
-
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ScanMode {

@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
@@ -154,23 +153,30 @@ struct TsAlias {
     roots: Vec<PathBuf>,
 }
 
-thread_local! {
-    static TSCONFIG_CACHE: RefCell<HashMap<PathBuf, Vec<TsAlias>>> =
-        RefCell::new(HashMap::new());
-    static GO_MODULE_CACHE: RefCell<HashMap<PathBuf, Option<String>>> =
-        RefCell::new(HashMap::new());
+use std::sync::{OnceLock, RwLock};
+
+static TSCONFIG_CACHE: OnceLock<RwLock<HashMap<PathBuf, Vec<TsAlias>>>> = OnceLock::new();
+static GO_MODULE_CACHE: OnceLock<RwLock<HashMap<PathBuf, Option<String>>>> = OnceLock::new();
+
+fn get_tsconfig_cache() -> &'static RwLock<HashMap<PathBuf, Vec<TsAlias>>> {
+    TSCONFIG_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn get_go_module_cache() -> &'static RwLock<HashMap<PathBuf, Option<String>>> {
+    GO_MODULE_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
 fn tsconfig_paths(root: &Path) -> Vec<TsAlias> {
-    TSCONFIG_CACHE.with(|cell| {
-        let mut cache = cell.borrow_mut();
-        if let Some(cached) = cache.get(root) {
-            return cached.clone();
-        }
-        let aliases = parse_tsconfig_paths(root);
-        cache.insert(root.to_path_buf(), aliases.clone());
-        aliases
-    })
+    let cache = get_tsconfig_cache();
+    if let Some(cached) = cache.read().unwrap().get(root) {
+        return cached.clone();
+    }
+    let aliases = parse_tsconfig_paths(root);
+    cache
+        .write()
+        .unwrap()
+        .insert(root.to_path_buf(), aliases.clone());
+    aliases
 }
 
 fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
@@ -430,24 +436,25 @@ fn probe_go_package(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathB
 }
 
 fn read_go_module_name(root: &Path) -> Option<String> {
-    GO_MODULE_CACHE.with(|cell| {
-        let mut cache = cell.borrow_mut();
-        if let Some(cached) = cache.get(root) {
-            return cached.clone();
-        }
+    let cache = get_go_module_cache();
+    if let Some(cached) = cache.read().unwrap().get(root) {
+        return cached.clone();
+    }
 
-        let module = std::fs::read_to_string(root.join("go.mod"))
-            .ok()
-            .and_then(|content| {
-                content.lines().find_map(|line| {
-                    line.trim()
-                        .strip_prefix("module ")
-                        .map(|module| module.trim().to_string())
-                })
-            });
-        cache.insert(root.to_path_buf(), module.clone());
-        module
-    })
+    let module = std::fs::read_to_string(root.join("go.mod"))
+        .ok()
+        .and_then(|content| {
+            content.lines().find_map(|line| {
+                line.trim()
+                    .strip_prefix("module ")
+                    .map(|module| module.trim().to_string())
+            })
+        });
+    cache
+        .write()
+        .unwrap()
+        .insert(root.to_path_buf(), module.clone());
+    module
 }
 
 // ── JVM (Java / Kotlin) ───────────────────────────────────────────────────────

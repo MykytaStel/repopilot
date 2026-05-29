@@ -66,7 +66,6 @@ pub struct RepoContextNode {
     pub is_config: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CachedRepoContextGraph {
     pub schema_version: u32,

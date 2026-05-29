@@ -42,7 +42,8 @@ fn collect_paths_with_matcher(
     let mut file_paths = Vec::new();
     let mut directories_count = 0usize;
 
-    for result in build_walker(path, matcher, skipped_repopilotignore) {
+    let skipped_clone = Arc::clone(&skipped_repopilotignore);
+    for result in build_walker(path, matcher, skipped_clone) {
         let entry = result.map_err(io::Error::other)?;
         let entry_path = entry.path();
 
@@ -61,10 +62,12 @@ fn collect_paths_with_matcher(
         }
     }
 
+    let files_skipped_repopilotignore = skipped_repopilotignore.load(Ordering::Relaxed);
+
     Ok(CollectedPaths {
         file_paths,
         directories_count,
-        files_skipped_repopilotignore: 0,
+        files_skipped_repopilotignore,
         repopilotignore_path: None,
     })
 }

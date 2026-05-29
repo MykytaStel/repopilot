@@ -17,6 +17,7 @@
 //! implementation detail for the CLI and may change during the pre-1.0 line.
 
 pub mod api;
+pub mod error;
 
 #[doc(hidden)]
 pub mod audits;
