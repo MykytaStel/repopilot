@@ -1,7 +1,7 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::sarif::findings_to_sarif;
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanMetadata, ScanSummary};
 use std::path::PathBuf;
 
 fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
@@ -30,7 +30,10 @@ fn make_finding_with_package(rule_id: &str, pkg: Option<&str>) -> Finding {
 #[test]
 fn renders_valid_sarif_scan_summary() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 
@@ -52,7 +55,10 @@ fn renders_valid_sarif_scan_summary() {
 #[test]
 fn sarif_driver_includes_version() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 

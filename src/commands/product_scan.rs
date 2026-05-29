@@ -106,7 +106,7 @@ pub fn enforce_diagnostics_exit_policy(
 }
 
 pub fn emit_report_only_diagnostics(summary: &ScanSummary) {
-    for diagnostic in &summary.diagnostics {
+    for diagnostic in &summary.artifacts.diagnostics {
         eprintln!(
             "[{:?}] {}: {}",
             diagnostic.severity, diagnostic.code, diagnostic.message

@@ -28,7 +28,7 @@ fn ignore_list_from_config_is_applied() {
     let summary = scan_path_with_config(temp.path(), &repo_config.to_scan_config())
         .expect("failed to scan temp project");
 
-    assert_eq!(summary.files_analyzed, 1);
+    assert_eq!(summary.metrics.files_analyzed, 1);
 }
 
 #[test]
@@ -57,6 +57,7 @@ fn custom_max_file_lines_from_config_affects_large_file_findings() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "architecture.large-file")
@@ -84,6 +85,7 @@ fn testing_detection_can_be_disabled_from_config() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| !finding.rule_id.starts_with("testing."))
@@ -114,6 +116,7 @@ fn secret_like_name_detection_can_be_disabled_from_config() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "security.secret-candidate")

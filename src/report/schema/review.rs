@@ -39,17 +39,17 @@ impl<'a> ReviewJsonReport<'a> {
             report: ReportEnvelope::review(),
             root_path: report.summary.root_path.to_string_lossy().to_string(),
             git_root: report.repo_root.to_string_lossy().to_string(),
-            files_analyzed: report.summary.files_analyzed,
-            directories_count: report.summary.directories_count,
-            non_empty_lines: report.summary.non_empty_lines,
+            files_analyzed: report.summary.metrics.files_analyzed,
+            directories_count: report.summary.metrics.directories_count,
+            non_empty_lines: report.summary.metrics.non_empty_lines,
             changed_files: &report.changed_files,
             blast_radius: report
                 .blast_radius
                 .iter()
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
-            context_graph_summary: report.summary.context_graph_summary.as_ref(),
-            context_graph_cache: report.summary.context_graph_cache.as_ref(),
+            context_graph_summary: report.summary.artifacts.context_graph_summary.as_ref(),
+            context_graph_cache: report.summary.artifacts.context_graph_cache.as_ref(),
             review: ReviewJsonMetadata {
                 in_diff_findings: report.in_diff_count(),
                 out_of_diff_findings: report.out_of_diff_count(),
@@ -57,10 +57,10 @@ impl<'a> ReviewJsonReport<'a> {
                 existing_in_diff_findings: report.existing_in_diff_count(),
                 severity_counts: report.severity_counts(),
             },
-            risk_summary: RiskSummary::from_findings(&report.summary.findings),
-            raw_signal_quality: report.summary.raw_signal_quality.clone(),
-            visible_signal_quality: report.summary.visible_signal_quality.clone(),
-            signal_quality: report.summary.signal_quality.clone(),
+            risk_summary: RiskSummary::from_findings(&report.summary.artifacts.findings),
+            raw_signal_quality: report.summary.artifacts.raw_signal_quality.clone(),
+            visible_signal_quality: report.summary.artifacts.visible_signal_quality.clone(),
+            signal_quality: report.summary.artifacts.signal_quality.clone(),
             baseline: ReviewBaselineJsonMetadata {
                 path: report
                     .baseline_path
@@ -69,9 +69,10 @@ impl<'a> ReviewJsonReport<'a> {
             },
             ci_gate: ci_gate.map(CiGateJsonMetadata::from),
             local_feedback: report.summary.local_feedback.as_ref(),
-            diagnostics: &report.summary.diagnostics,
+            diagnostics: &report.summary.artifacts.diagnostics,
             findings: report
                 .summary
+                .artifacts
                 .findings
                 .iter()
                 .enumerate()

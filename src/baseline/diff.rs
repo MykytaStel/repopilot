@@ -61,6 +61,7 @@ impl BaselineScanReport {
 
     pub fn findings_with_status(&self, status: BaselineStatus) -> Vec<&Finding> {
         self.summary
+            .artifacts
             .findings
             .iter()
             .enumerate()
@@ -80,6 +81,7 @@ impl BaselineScanReport {
     {
         let mut paired = self
             .summary
+            .artifacts
             .findings
             .drain(..)
             .zip(self.findings.drain(..))
@@ -88,7 +90,7 @@ impl BaselineScanReport {
         paired.retain(|(finding, _)| keep(finding));
 
         for (finding, status) in paired {
-            self.summary.findings.push(finding);
+            self.summary.artifacts.findings.push(finding);
             self.findings.push(status);
         }
 
@@ -104,12 +106,13 @@ pub fn diff_summary_against_baseline(
     let baseline_index = BaselineIndex::from_baseline(baseline);
 
     let mut findings = status_findings(&summary, &baseline_index);
+    let root_path = summary.root_path.clone();
     apply_baseline_overlay(
-        &mut summary.findings,
+        &mut summary.artifacts.findings,
         &findings,
-        summary.root_path.as_path(),
+        root_path.as_path(),
     );
-    sort_findings_with_status(&mut summary.findings, &mut findings);
+    sort_findings_with_status(&mut summary.artifacts.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -119,20 +122,22 @@ pub fn diff_summary_against_baseline(
 }
 
 pub fn all_findings_new(mut summary: ScanSummary) -> BaselineScanReport {
+    let root_path = summary.root_path.clone();
     let mut findings: Vec<FindingBaselineStatus> = summary
+        .artifacts
         .findings
         .iter()
         .map(|finding| FindingBaselineStatus {
-            key: stable_finding_key(finding, &summary.root_path),
+            key: stable_finding_key(finding, &root_path),
             status: BaselineStatus::New,
         })
         .collect();
     apply_baseline_overlay(
-        &mut summary.findings,
+        &mut summary.artifacts.findings,
         &findings,
-        summary.root_path.as_path(),
+        root_path.as_path(),
     );
-    sort_findings_with_status(&mut summary.findings, &mut findings);
+    sort_findings_with_status(&mut summary.artifacts.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -148,6 +153,7 @@ fn status_findings(
     let root = summary.root_path.as_path();
 
     summary
+        .artifacts
         .findings
         .iter()
         .map(|finding| {

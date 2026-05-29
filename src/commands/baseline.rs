@@ -115,7 +115,7 @@ impl SeverityCounts {
     fn from_summary(summary: &ScanSummary) -> Self {
         let mut counts = SeverityCounts::default();
 
-        for finding in &summary.findings {
+        for finding in &summary.artifacts.findings {
             match finding.severity {
                 Severity::Critical => counts.critical += 1,
                 Severity::High => counts.high += 1,

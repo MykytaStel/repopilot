@@ -14,7 +14,7 @@ use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -48,6 +48,7 @@ fn classify_findings(
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
     let mut findings: Vec<ReviewFindingStatus> = summary
+        .artifacts
         .findings
         .iter()
         .enumerate()
@@ -67,9 +68,9 @@ fn classify_findings(
         .iter()
         .map(|status| status.in_diff)
         .collect::<Vec<_>>();
-    apply_review_overlay(&mut summary.findings, &in_diff);
-    apply_blast_radius_overlay(&mut summary.findings, &repo_root, &blast_radius);
-    sort_findings_with_review_status(&mut summary.findings, &mut findings);
+    apply_review_overlay(&mut summary.artifacts.findings, &in_diff);
+    apply_blast_radius_overlay(&mut summary.artifacts.findings, &repo_root, &blast_radius);
+    sort_findings_with_review_status(&mut summary.artifacts.findings, &mut findings);
 
     ReviewReport {
         summary,
@@ -101,7 +102,7 @@ pub fn compute_blast_radius(
     repo_root: &Path,
     changed_files: &[ChangedFile],
 ) -> Vec<PathBuf> {
-    let graph = match &summary.coupling_graph {
+    let graph = match &summary.artifacts.coupling_graph {
         Some(graph) => graph,
         None => return Vec::new(),
     };
@@ -141,6 +142,7 @@ pub fn compute_blast_radius(
 pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
     let findings = report
         .summary
+        .artifacts
         .findings
         .iter()
         .enumerate()
@@ -157,44 +159,50 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
     let in_diff_findings_count = in_diff_findings.len();
     let in_diff_signal_quality = summarize_signal_quality(&in_diff_findings);
     let mut summary = ScanSummary {
-        root_path: report.summary.root_path.clone(),
-        mode: report.summary.mode,
-        base_ref: report.summary.base_ref.clone(),
-        changed_files_count: report.summary.changed_files_count,
-        repo_level_rules_included: report.summary.repo_level_rules_included,
-        files_discovered: report.summary.files_discovered,
-        files_analyzed: report.summary.files_analyzed,
-        directories_count: report.summary.directories_count,
-        non_empty_lines: report.summary.non_empty_lines,
-        large_files_skipped: report.summary.large_files_skipped,
-        files_skipped_low_signal: report.summary.files_skipped_low_signal,
-        binary_files_skipped: report.summary.binary_files_skipped,
-        skipped_bytes: report.summary.skipped_bytes,
-        languages: report.summary.languages.clone(),
-        detected_frameworks: report.summary.detected_frameworks.clone(),
-        framework_projects: report.summary.framework_projects.clone(),
-        react_native: report.summary.react_native.clone(),
-        findings: in_diff_findings,
-        coupling_graph: report.summary.coupling_graph.clone(),
-        context_graph_summary: report.summary.context_graph_summary.clone(),
-        context_graph_cache: report.summary.context_graph_cache.clone(),
-        scan_duration_us: report.summary.scan_duration_us,
-        health_score: 0,
-        raw_findings_count: in_diff_findings_count,
-        visible_findings_count: 0,
-        hidden_suggestions_count: report.summary.hidden_suggestions_count,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: report.summary.visibility_profile.clone(),
-        files_skipped_by_limit: report.summary.files_skipped_by_limit,
-        files_skipped_repopilotignore: report.summary.files_skipped_repopilotignore,
-        repopilotignore_path: report.summary.repopilotignore_path.clone(),
-        scan_timings: None,
-        cache_telemetry: report.summary.cache_telemetry.clone(),
-        local_feedback: report.summary.local_feedback.clone(),
-        diagnostics: report.summary.diagnostics.clone(),
-        raw_signal_quality: in_diff_signal_quality.clone(),
-        visible_signal_quality: in_diff_signal_quality.clone(),
-        signal_quality: in_diff_signal_quality,
+        metadata: ScanMetadata {
+            root_path: report.summary.root_path.clone(),
+            mode: report.summary.mode,
+            base_ref: report.summary.base_ref.clone(),
+            repo_level_rules_included: report.summary.repo_level_rules_included,
+            scan_duration_us: report.summary.scan_duration_us,
+            scan_timings: None,
+            cache_telemetry: report.summary.cache_telemetry.clone(),
+            local_feedback: report.summary.local_feedback.clone(),
+            visibility_profile: report.summary.visibility_profile.clone(),
+            repopilotignore_path: report.summary.repopilotignore_path.clone(),
+        },
+        metrics: ScanMetrics {
+            files_discovered: report.summary.metrics.files_discovered,
+            files_analyzed: report.summary.metrics.files_analyzed,
+            directories_count: report.summary.metrics.directories_count,
+            non_empty_lines: report.summary.metrics.non_empty_lines,
+            large_files_skipped: report.summary.metrics.large_files_skipped,
+            files_skipped_low_signal: report.summary.metrics.files_skipped_low_signal,
+            binary_files_skipped: report.summary.metrics.binary_files_skipped,
+            skipped_bytes: report.summary.metrics.skipped_bytes,
+            files_skipped_by_limit: report.summary.metrics.files_skipped_by_limit,
+            files_skipped_repopilotignore: report.summary.metrics.files_skipped_repopilotignore,
+            changed_files_count: report.summary.metrics.changed_files_count,
+            health_score: 0,
+            raw_findings_count: in_diff_findings_count,
+            visible_findings_count: 0,
+            hidden_suggestions_count: report.summary.metrics.hidden_suggestions_count,
+            languages: report.summary.metrics.languages.clone(),
+        },
+        artifacts: ScanArtifacts {
+            findings: in_diff_findings,
+            detected_frameworks: report.summary.artifacts.detected_frameworks.clone(),
+            framework_projects: report.summary.artifacts.framework_projects.clone(),
+            react_native: report.summary.artifacts.react_native.clone(),
+            coupling_graph: report.summary.artifacts.coupling_graph.clone(),
+            context_graph_summary: report.summary.artifacts.context_graph_summary.clone(),
+            context_graph_cache: report.summary.artifacts.context_graph_cache.clone(),
+            hidden_suggestions: Vec::new(),
+            diagnostics: report.summary.artifacts.diagnostics.clone(),
+            raw_signal_quality: in_diff_signal_quality.clone(),
+            visible_signal_quality: in_diff_signal_quality.clone(),
+            signal_quality: in_diff_signal_quality,
+        },
     };
     recompute_summary_metrics(&mut summary);
 

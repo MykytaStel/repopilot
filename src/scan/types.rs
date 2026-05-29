@@ -12,23 +12,33 @@ mod support;
 
 pub use support::*;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ScanSummary {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanMetadata {
     pub root_path: PathBuf,
     #[serde(default)]
     pub mode: ScanMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub base_ref: Option<String>,
-    #[serde(default)]
-    pub changed_files_count: usize,
     #[serde(default = "default_repo_level_rules_included")]
     pub repo_level_rules_included: bool,
-    /// Files found after gitignore, `.repopilotignore`, built-in ignores, and
-    /// `--exclude` path/name filters are applied.
+    #[serde(default)]
+    pub scan_duration_us: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scan_timings: Option<ScanTimings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_telemetry: Option<ScanCacheTelemetry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_feedback: Option<LocalFeedbackReport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repopilotignore_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanMetrics {
     #[serde(default)]
     pub files_discovered: usize,
-    /// Text files actually analyzed. Skipped large, binary, low-signal, and
-    /// `--max-files` capped files are not included.
     pub files_analyzed: usize,
     pub directories_count: usize,
     pub non_empty_lines: usize,
@@ -40,7 +50,25 @@ pub struct ScanSummary {
     pub binary_files_skipped: usize,
     #[serde(default)]
     pub skipped_bytes: u64,
+    #[serde(default)]
+    pub files_skipped_by_limit: usize,
+    #[serde(default)]
+    pub files_skipped_repopilotignore: usize,
+    #[serde(default)]
+    pub changed_files_count: usize,
+    #[serde(default)]
+    pub health_score: u8,
+    #[serde(default)]
+    pub raw_findings_count: usize,
+    #[serde(default)]
+    pub visible_findings_count: usize,
+    #[serde(default)]
+    pub hidden_suggestions_count: usize,
     pub languages: Vec<LanguageSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanArtifacts {
     pub findings: Vec<Finding>,
     #[serde(default)]
     pub detected_frameworks: Vec<DetectedFramework>,
@@ -54,64 +82,52 @@ pub struct ScanSummary {
     pub context_graph_summary: Option<ContextGraphSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_graph_cache: Option<ContextGraphCacheInfo>,
-    #[serde(default)]
-    pub scan_duration_us: u64,
-    /// 0–100 health score: 100 = no findings, decreases with severity-weighted finding density.
-    #[serde(default)]
-    pub health_score: u8,
-    #[serde(default)]
-    pub raw_findings_count: usize,
-    #[serde(default)]
-    pub visible_findings_count: usize,
-    #[serde(default)]
-    pub hidden_suggestions_count: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hidden_suggestions: Vec<HiddenSuggestionSummary>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visibility_profile: Option<String>,
-    #[serde(default)]
-    pub files_skipped_by_limit: usize,
-
-    #[serde(default)]
-    pub files_skipped_repopilotignore: usize,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub repopilotignore_path: Option<PathBuf>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scan_timings: Option<ScanTimings>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cache_telemetry: Option<ScanCacheTelemetry>,
-
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub local_feedback: Option<LocalFeedbackReport>,
-
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<ScanDiagnostic>,
-
     #[serde(default)]
     pub raw_signal_quality: SignalQualitySummary,
-
     #[serde(default)]
     pub visible_signal_quality: SignalQualitySummary,
-
     #[serde(default)]
     pub signal_quality: SignalQualitySummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanSummary {
+    #[serde(flatten)]
+    pub metadata: ScanMetadata,
+    #[serde(flatten)]
+    pub metrics: ScanMetrics,
+    #[serde(flatten)]
+    pub artifacts: ScanArtifacts,
 }
 
 fn default_repo_level_rules_included() -> bool {
     true
 }
 
-impl Default for ScanSummary {
+impl Default for ScanMetadata {
     fn default() -> Self {
         Self {
             root_path: PathBuf::new(),
             mode: ScanMode::Full,
             base_ref: None,
-            changed_files_count: 0,
             repo_level_rules_included: true,
+            scan_duration_us: 0,
+            scan_timings: None,
+            cache_telemetry: None,
+            local_feedback: None,
+            visibility_profile: None,
+            repopilotignore_path: None,
+        }
+    }
+}
+
+impl Default for ScanMetrics {
+    fn default() -> Self {
+        Self {
             files_discovered: 0,
             files_analyzed: 0,
             directories_count: 0,
@@ -120,7 +136,21 @@ impl Default for ScanSummary {
             files_skipped_low_signal: 0,
             binary_files_skipped: 0,
             skipped_bytes: 0,
+            files_skipped_by_limit: 0,
+            files_skipped_repopilotignore: 0,
+            changed_files_count: 0,
+            health_score: 0,
+            raw_findings_count: 0,
+            visible_findings_count: 0,
+            hidden_suggestions_count: 0,
             languages: Vec::new(),
+        }
+    }
+}
+
+impl Default for ScanArtifacts {
+    fn default() -> Self {
+        Self {
             findings: Vec::new(),
             detected_frameworks: Vec::new(),
             framework_projects: Vec::new(),
@@ -128,19 +158,7 @@ impl Default for ScanSummary {
             coupling_graph: None,
             context_graph_summary: None,
             context_graph_cache: None,
-            scan_duration_us: 0,
-            health_score: 0,
-            raw_findings_count: 0,
-            visible_findings_count: 0,
-            hidden_suggestions_count: 0,
             hidden_suggestions: Vec::new(),
-            visibility_profile: None,
-            files_skipped_by_limit: 0,
-            files_skipped_repopilotignore: 0,
-            repopilotignore_path: None,
-            scan_timings: None,
-            cache_telemetry: None,
-            local_feedback: None,
             diagnostics: Vec::new(),
             raw_signal_quality: SignalQualitySummary::default(),
             visible_signal_quality: SignalQualitySummary::default(),
@@ -149,15 +167,27 @@ impl Default for ScanSummary {
     }
 }
 
+impl Default for ScanSummary {
+    fn default() -> Self {
+        Self {
+            metadata: ScanMetadata::default(),
+            metrics: ScanMetrics::default(),
+            artifacts: ScanArtifacts::default(),
+        }
+    }
+}
+
 impl ScanSummary {
     pub fn has_error_diagnostics(&self) -> bool {
-        self.diagnostics
+        self.artifacts
+            .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
     }
 
     pub fn first_error_diagnostic(&self) -> Option<&ScanDiagnostic> {
-        self.diagnostics
+        self.artifacts
+            .diagnostics
             .iter()
             .find(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
     }
@@ -180,6 +210,19 @@ impl ScanSummary {
         let kloc = (non_empty_lines as f64 / 1000.0).max(0.5);
         let score = 100.0 - (penalty / kloc);
         score.clamp(0.0, 100.0) as u8
+    }
+}
+
+impl std::ops::Deref for ScanSummary {
+    type Target = ScanMetadata;
+    fn deref(&self) -> &Self::Target {
+        &self.metadata
+    }
+}
+
+impl std::ops::DerefMut for ScanSummary {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.metadata
     }
 }
 

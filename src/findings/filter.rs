@@ -52,32 +52,38 @@ impl FindingFilter {
 
     pub fn apply_to_summary(&self, summary: &mut ScanSummary) {
         if !self.is_empty() {
-            summary.findings.retain(|finding| self.matches(finding));
+            summary
+                .artifacts
+                .findings
+                .retain(|finding| self.matches(finding));
         }
         recompute_summary_metrics(summary);
     }
 }
 
 pub fn recompute_summary_metrics(summary: &mut ScanSummary) {
-    summary.visible_findings_count = summary.findings.len();
-    summary.health_score =
-        ScanSummary::compute_health_score(&summary.findings, summary.non_empty_lines);
-    let visible_signal_quality = summarize_signal_quality(&summary.findings);
-    if summary.raw_findings_count == 0
-        && summary.hidden_suggestions_count == 0
-        && !summary.findings.is_empty()
+    summary.metrics.visible_findings_count = summary.artifacts.findings.len();
+    summary.metrics.health_score = ScanSummary::compute_health_score(
+        &summary.artifacts.findings,
+        summary.metrics.non_empty_lines,
+    );
+    let visible_signal_quality = summarize_signal_quality(&summary.artifacts.findings);
+    if summary.metrics.raw_findings_count == 0
+        && summary.metrics.hidden_suggestions_count == 0
+        && !summary.artifacts.findings.is_empty()
     {
-        summary.raw_findings_count = summary.findings.len();
-        summary.raw_signal_quality = visible_signal_quality.clone();
+        summary.metrics.raw_findings_count = summary.artifacts.findings.len();
+        summary.artifacts.raw_signal_quality = visible_signal_quality.clone();
     }
-    summary.visible_signal_quality = visible_signal_quality.clone();
-    summary.signal_quality = visible_signal_quality;
+    summary.artifacts.visible_signal_quality = visible_signal_quality.clone();
+    summary.artifacts.signal_quality = visible_signal_quality;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::risk::RiskAssessment;
+    use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics};
     use std::path::PathBuf;
 
     fn finding(
@@ -219,29 +225,37 @@ mod tests {
             ..FindingFilter::default()
         };
         let mut summary = ScanSummary {
-            root_path: PathBuf::from("."),
-            non_empty_lines: 1_000,
-            findings: vec![
-                finding(
-                    "rule.keep",
-                    Severity::High,
-                    Confidence::Medium,
-                    RiskPriority::P3,
-                ),
-                finding(
-                    "rule.drop",
-                    Severity::Low,
-                    Confidence::Medium,
-                    RiskPriority::P3,
-                ),
-            ],
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("."),
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                non_empty_lines: 1_000,
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                findings: vec![
+                    finding(
+                        "rule.keep",
+                        Severity::High,
+                        Confidence::Medium,
+                        RiskPriority::P3,
+                    ),
+                    finding(
+                        "rule.drop",
+                        Severity::Low,
+                        Confidence::Medium,
+                        RiskPriority::P3,
+                    ),
+                ],
+                ..Default::default()
+            },
         };
 
         filter.apply_to_summary(&mut summary);
 
-        assert_eq!(summary.findings.len(), 1);
-        assert_eq!(summary.visible_findings_count, 1);
-        assert_eq!(summary.health_score, 95);
+        assert_eq!(summary.artifacts.findings.len(), 1);
+        assert_eq!(summary.metrics.visible_findings_count, 1);
+        assert_eq!(summary.metrics.health_score, 95);
     }
 }

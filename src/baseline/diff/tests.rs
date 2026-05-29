@@ -1,7 +1,7 @@
 use super::*;
 use crate::baseline::model::{BASELINE_SCHEMA_VERSION, BASELINE_TOOL, Baseline, BaselineFinding};
 use crate::findings::types::{Evidence, Finding, Severity};
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
 use std::path::PathBuf;
 
 fn make_finding(rule_id: &str, path: &str, line: usize) -> Finding {
@@ -22,8 +22,14 @@ fn make_finding(rule_id: &str, path: &str, line: usize) -> Finding {
 
 fn make_summary(findings: Vec<Finding>) -> ScanSummary {
     ScanSummary {
-        root_path: PathBuf::from("/project"),
-        findings,
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("/project"),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }

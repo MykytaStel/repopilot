@@ -75,6 +75,7 @@ impl ReviewReport {
 
     pub fn in_diff_findings(&self) -> Vec<&Finding> {
         self.summary
+            .artifacts
             .findings
             .iter()
             .enumerate()
@@ -88,6 +89,7 @@ impl ReviewReport {
 
     pub fn out_of_diff_findings(&self) -> Vec<&Finding> {
         self.summary
+            .artifacts
             .findings
             .iter()
             .enumerate()
@@ -123,6 +125,7 @@ impl ReviewReport {
     {
         let mut paired = self
             .summary
+            .artifacts
             .findings
             .drain(..)
             .zip(self.findings.drain(..))
@@ -131,7 +134,7 @@ impl ReviewReport {
         paired.retain(|(finding, _)| keep(finding));
 
         for (finding, status) in paired {
-            self.summary.findings.push(finding);
+            self.summary.artifacts.findings.push(finding);
             self.findings.push(status);
         }
 

@@ -42,18 +42,18 @@ fn render_full_with_options(summary: &ScanSummary, options: RenderOptions) -> St
     render_header(&mut output, summary, &stats);
     render_risk_summary(&mut output, &stats);
     render_signal_quality(&mut output, summary);
-    render_top_risk_clusters(&mut output, &summary.findings);
+    render_top_risk_clusters(&mut output, &summary.artifacts.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);
-    render_frameworks_section(&mut output, &summary.detected_frameworks);
-    render_framework_projects_section(&mut output, &summary.framework_projects);
-    if let Some(rn) = &summary.react_native {
+    render_frameworks_section(&mut output, &summary.artifacts.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.artifacts.framework_projects);
+    if let Some(rn) = &summary.artifacts.react_native {
         render_react_native_section(&mut output, rn);
     }
-    workspace_risk_table(&mut output, &summary.findings);
+    workspace_risk_table(&mut output, &summary.artifacts.findings);
     render_grouped_findings(
         &mut output,
-        &summary.findings,
+        &summary.artifacts.findings,
         options.findings_limit,
         |_| None,
     );
@@ -98,18 +98,18 @@ fn render_full_baseline_with_options(
     render_baseline_block(&mut output, report, ci_gate);
     render_risk_summary(&mut output, &stats);
     render_signal_quality(&mut output, summary);
-    render_top_risk_clusters(&mut output, &summary.findings);
+    render_top_risk_clusters(&mut output, &summary.artifacts.findings);
     render_top_rules(&mut output, &stats);
     render_languages_section(&mut output, summary);
-    render_frameworks_section(&mut output, &summary.detected_frameworks);
-    render_framework_projects_section(&mut output, &summary.framework_projects);
-    if let Some(rn) = &summary.react_native {
+    render_frameworks_section(&mut output, &summary.artifacts.detected_frameworks);
+    render_framework_projects_section(&mut output, &summary.artifacts.framework_projects);
+    if let Some(rn) = &summary.artifacts.react_native {
         render_react_native_section(&mut output, rn);
     }
-    workspace_risk_table(&mut output, &summary.findings);
+    workspace_risk_table(&mut output, &summary.artifacts.findings);
     render_grouped_findings(
         &mut output,
-        &summary.findings,
+        &summary.artifacts.findings,
         options.findings_limit,
         |index| Some(report.finding_status(index).lowercase_label()),
     );

@@ -1,6 +1,7 @@
 use super::*;
 use crate::findings::types::{Confidence, Evidence, FindingCategory, Severity};
 use crate::risk::{RiskAssessment, RiskPriority};
+use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics};
 use std::path::PathBuf;
 
 fn finding(rule_id: &str, category: FindingCategory, severity: Severity) -> Finding {
@@ -219,63 +220,85 @@ fn apply_default_profile_recomputes_visible_counts_and_hidden_breakdown() {
     );
 
     let mut summary = ScanSummary {
-        hidden_suggestions: Vec::new(),
-        non_empty_lines: 1_000,
-        findings: vec![visible, hidden],
-        ..Default::default()
+        metadata: ScanMetadata {
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            non_empty_lines: 1_000,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            hidden_suggestions: Vec::new(),
+            findings: vec![visible, hidden],
+            ..Default::default()
+        },
     };
 
     apply_visibility_profile(&mut summary, FindingVisibilityProfile::Default);
 
     assert_eq!(summary.visibility_profile.as_deref(), Some("default"));
-    assert_eq!(summary.raw_findings_count, 2);
-    assert_eq!(summary.visible_findings_count, 1);
-    assert_eq!(summary.hidden_suggestions_count, 1);
-    assert_eq!(summary.raw_signal_quality.findings_total, 2);
-    assert_eq!(summary.visible_signal_quality.findings_total, 1);
-    assert_eq!(summary.signal_quality.findings_total, 1);
-    assert_eq!(summary.hidden_suggestions.len(), 1);
-    assert_eq!(summary.hidden_suggestions[0].intent, "maintainability");
+    assert_eq!(summary.metrics.raw_findings_count, 2);
+    assert_eq!(summary.metrics.visible_findings_count, 1);
+    assert_eq!(summary.metrics.hidden_suggestions_count, 1);
+    assert_eq!(summary.artifacts.raw_signal_quality.findings_total, 2);
+    assert_eq!(summary.artifacts.visible_signal_quality.findings_total, 1);
+    assert_eq!(summary.artifacts.signal_quality.findings_total, 1);
+    assert_eq!(summary.artifacts.hidden_suggestions.len(), 1);
     assert_eq!(
-        summary.hidden_suggestions[0].rule_id,
+        summary.artifacts.hidden_suggestions[0].intent,
+        "maintainability"
+    );
+    assert_eq!(
+        summary.artifacts.hidden_suggestions[0].rule_id,
         "architecture.large-file"
     );
-    assert_eq!(summary.findings.len(), 1);
-    assert_eq!(summary.findings[0].rule_id, "security.secret-candidate");
+    assert_eq!(summary.artifacts.findings.len(), 1);
+    assert_eq!(
+        summary.artifacts.findings[0].rule_id,
+        "security.secret-candidate"
+    );
 }
 
 #[test]
 fn strict_profile_keeps_all_findings_and_clears_hidden_breakdown() {
     let mut summary = ScanSummary {
-        non_empty_lines: 1_000,
-        hidden_suggestions: vec![HiddenSuggestionSummary {
-            intent: "maintainability".to_string(),
-            rule_id: "architecture.large-file".to_string(),
-            category: "architecture".to_string(),
-            reason: "example".to_string(),
-            count: 1,
-        }],
-        findings: vec![
-            finding(
-                "security.secret-candidate",
-                FindingCategory::Security,
-                Severity::High,
-            ),
-            finding(
-                "architecture.large-file",
-                FindingCategory::Architecture,
-                Severity::High,
-            ),
-        ],
-        ..Default::default()
+        metadata: ScanMetadata {
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            non_empty_lines: 1_000,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "maintainability".to_string(),
+                rule_id: "architecture.large-file".to_string(),
+                category: "architecture".to_string(),
+                reason: "example".to_string(),
+                count: 1,
+            }],
+            findings: vec![
+                finding(
+                    "security.secret-candidate",
+                    FindingCategory::Security,
+                    Severity::High,
+                ),
+                finding(
+                    "architecture.large-file",
+                    FindingCategory::Architecture,
+                    Severity::High,
+                ),
+            ],
+            ..Default::default()
+        },
     };
 
     apply_visibility_profile(&mut summary, FindingVisibilityProfile::Strict);
 
     assert_eq!(summary.visibility_profile.as_deref(), Some("strict"));
-    assert_eq!(summary.raw_findings_count, 2);
-    assert_eq!(summary.visible_findings_count, 2);
-    assert_eq!(summary.hidden_suggestions_count, 0);
-    assert!(summary.hidden_suggestions.is_empty());
-    assert_eq!(summary.findings.len(), 2);
+    assert_eq!(summary.metrics.raw_findings_count, 2);
+    assert_eq!(summary.metrics.visible_findings_count, 2);
+    assert_eq!(summary.metrics.hidden_suggestions_count, 0);
+    assert!(summary.artifacts.hidden_suggestions.is_empty());
+    assert_eq!(summary.artifacts.findings.len(), 2);
 }

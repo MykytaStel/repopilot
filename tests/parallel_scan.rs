@@ -22,16 +22,16 @@ fn parallel_scan_matches_sequential_file_counts() {
     let parallel = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
 
     assert_eq!(
-        sequential.files_analyzed, parallel.files_analyzed,
+        sequential.files_analyzed, parallel.metrics.files_analyzed,
         "file count must match between sequential and parallel paths"
     );
     assert_eq!(
-        sequential.non_empty_lines, parallel.non_empty_lines,
+        sequential.non_empty_lines, parallel.metrics.non_empty_lines,
         "LOC count must match"
     );
     assert_eq!(
         sequential.languages.len(),
-        parallel.languages.len(),
+        parallel.metrics.languages.len(),
         "detected language count must match"
     );
 }
@@ -66,6 +66,7 @@ fn scan_timings_expose_pipeline_stage_breakdown() {
     let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
     let timings = summary
         .scan_timings
+        .as_ref()
         .expect("full scan should expose engine timings");
 
     assert_eq!(
@@ -92,8 +93,8 @@ fn parallel_scan_empty_directory() {
     let temp = tempdir().unwrap();
     let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
 
-    assert_eq!(summary.files_analyzed, 0);
-    assert_eq!(summary.non_empty_lines, 0);
+    assert_eq!(summary.metrics.files_analyzed, 0);
+    assert_eq!(summary.metrics.non_empty_lines, 0);
     // Project-level audits (e.g. missing-test-folder) may still produce findings
     // for an empty directory — that is expected behaviour.
 }

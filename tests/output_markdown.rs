@@ -4,80 +4,59 @@ use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
 use repopilot::scan::types::{
     ChangedFileCacheTelemetry, ChangedFileReasonSummary, HiddenSuggestionSummary, LanguageSummary,
-    ScanCacheTelemetry, ScanCacheTimings, ScanSummary,
+    ScanArtifacts, ScanCacheTelemetry, ScanCacheTimings, ScanMetadata, ScanMetrics, ScanSummary,
 };
 use std::path::PathBuf;
 
 #[test]
 fn renders_markdown_scan_summary() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo-project"),
-        mode: Default::default(),
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: 0,
-        files_analyzed: 2,
-        directories_count: 1,
-        non_empty_lines: 10,
-        large_files_skipped: 0,
-        files_skipped_low_signal: 0,
-        binary_files_skipped: 0,
-        skipped_bytes: 0,
-        languages: vec![
-            LanguageSummary {
-                name: "Rust".to_string(),
-                files_analyzed: 1,
-            },
-            LanguageSummary {
-                name: "TypeScript".to_string(),
-                files_analyzed: 1,
-            },
-        ],
-        findings: vec![Finding {
-            id: "code-marker.todo.src/main.rs:7".to_string(),
-            rule_id: "code-marker.todo".to_string(),
-            recommendation: Finding::recommendation_for_rule_id("code-marker.todo"),
-            title: "TODO marker found".to_string(),
-            description: "A TODO marker was found in the codebase and should be reviewed."
-                .to_string(),
-            category: FindingCategory::CodeQuality,
-            severity: Severity::Low,
-            confidence: Default::default(),
-            evidence: vec![Evidence {
-                path: PathBuf::from("src/main.rs"),
-                line_start: 7,
-                line_end: None,
-                snippet: "// TODO: improve architecture".to_string(),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo-project"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_analyzed: 2,
+            directories_count: 1,
+            non_empty_lines: 10,
+            languages: vec![
+                LanguageSummary {
+                    name: "Rust".to_string(),
+                    files_analyzed: 1,
+                },
+                LanguageSummary {
+                    name: "TypeScript".to_string(),
+                    files_analyzed: 1,
+                },
+            ],
+            raw_findings_count: 1,
+            visible_findings_count: 1,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![Finding {
+                id: "code-marker.todo.src/main.rs:7".to_string(),
+                rule_id: "code-marker.todo".to_string(),
+                recommendation: Finding::recommendation_for_rule_id("code-marker.todo"),
+                title: "TODO marker found".to_string(),
+                description: "A TODO marker was found in the codebase and should be reviewed."
+                    .to_string(),
+                category: FindingCategory::CodeQuality,
+                severity: Severity::Low,
+                confidence: Default::default(),
+                evidence: vec![Evidence {
+                    path: PathBuf::from("src/main.rs"),
+                    line_start: 7,
+                    line_end: None,
+                    snippet: "// TODO: improve architecture".to_string(),
+                }],
+                workspace_package: None,
+                docs_url: None,
+                provenance: Default::default(),
+                risk: Default::default(),
             }],
-            workspace_package: None,
-            docs_url: None,
-            provenance: Default::default(),
-            risk: Default::default(),
-        }],
-        detected_frameworks: vec![],
-        framework_projects: vec![],
-        react_native: None,
-        coupling_graph: None,
-        context_graph_summary: None,
-        context_graph_cache: None,
-        scan_duration_us: 0,
-        health_score: 0,
-        raw_findings_count: 1,
-        visible_findings_count: 1,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: None,
-        cache_telemetry: None,
-        local_feedback: None,
-        diagnostics: Vec::new(),
-        raw_signal_quality: Default::default(),
-        visible_signal_quality: Default::default(),
-        signal_quality: Default::default(),
+            ..Default::default()
+        },
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -112,44 +91,11 @@ fn renders_markdown_scan_summary() {
 #[test]
 fn renders_empty_markdown_sections() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("empty-project"),
-        mode: Default::default(),
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: 0,
-        files_analyzed: 0,
-        directories_count: 0,
-        non_empty_lines: 0,
-        large_files_skipped: 0,
-        files_skipped_low_signal: 0,
-        binary_files_skipped: 0,
-        skipped_bytes: 0,
-        languages: vec![],
-        findings: vec![],
-        detected_frameworks: vec![],
-        framework_projects: vec![],
-        react_native: None,
-        coupling_graph: None,
-        context_graph_summary: None,
-        context_graph_cache: None,
-        scan_duration_us: 0,
-        health_score: 0,
-        raw_findings_count: 0,
-        visible_findings_count: 0,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: None,
-        cache_telemetry: None,
-        local_feedback: None,
-        diagnostics: Vec::new(),
-        raw_signal_quality: Default::default(),
-        visible_signal_quality: Default::default(),
-        signal_quality: Default::default(),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("empty-project"),
+            ..Default::default()
+        },
+        ..Default::default()
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -165,58 +111,34 @@ fn renders_empty_markdown_sections() {
 #[test]
 fn renders_react_native_architecture_section_when_profile_present() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("rn-project"),
-        mode: Default::default(),
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: 0,
-        files_analyzed: 5,
-        directories_count: 2,
-        non_empty_lines: 100,
-        large_files_skipped: 0,
-        files_skipped_low_signal: 0,
-        binary_files_skipped: 0,
-        skipped_bytes: 0,
-        languages: vec![],
-        findings: vec![],
-        detected_frameworks: vec![],
-        framework_projects: vec![],
-        react_native: Some(ReactNativeArchitectureProfile {
-            detected: true,
-            react_native_version: Some("0.73.0".to_string()),
-            has_ios: true,
-            has_android: true,
-            has_metro_config: false,
-            has_react_native_config: false,
-            has_codegen_config: false,
-            android_new_arch_enabled: Some(false),
-            ios_new_arch_enabled: None,
-            hermes_enabled: Some(true),
-            android_gradle_properties_found: true,
-            ios_podfile_found: false,
-            ..ReactNativeArchitectureProfile::default()
-        }),
-        coupling_graph: None,
-        context_graph_summary: None,
-        context_graph_cache: None,
-        scan_duration_us: 0,
-        health_score: 0,
-        raw_findings_count: 0,
-        visible_findings_count: 0,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: None,
-        cache_telemetry: None,
-        local_feedback: None,
-        diagnostics: Vec::new(),
-        raw_signal_quality: Default::default(),
-        visible_signal_quality: Default::default(),
-        signal_quality: Default::default(),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("rn-project"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_analyzed: 5,
+            directories_count: 2,
+            non_empty_lines: 100,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            react_native: Some(ReactNativeArchitectureProfile {
+                detected: true,
+                react_native_version: Some("0.73.0".to_string()),
+                has_ios: true,
+                has_android: true,
+                has_metro_config: false,
+                has_react_native_config: false,
+                has_codegen_config: false,
+                android_new_arch_enabled: Some(false),
+                ios_new_arch_enabled: None,
+                hermes_enabled: Some(true),
+                android_gradle_properties_found: true,
+                ios_podfile_found: false,
+                ..ReactNativeArchitectureProfile::default()
+            }),
+            ..Default::default()
+        },
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -235,9 +157,11 @@ fn renders_react_native_architecture_section_when_profile_present() {
 #[test]
 fn react_native_section_absent_when_profile_is_none() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("web-project"),
-        react_native: None,
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("web-project"),
+            ..Default::default()
+        },
+        ..Default::default()
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -249,16 +173,24 @@ fn react_native_section_absent_when_profile_is_none() {
 #[test]
 fn markdown_output_includes_hidden_suggestion_breakdown() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        hidden_suggestions_count: 2,
-        hidden_suggestions: vec![HiddenSuggestionSummary {
-            intent: "testing-gap".to_string(),
-            rule_id: "testing.source-without-test".to_string(),
-            category: "testing".to_string(),
-            reason: "testing gaps are hidden in the default profile".to_string(),
-            count: 2,
-        }],
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            hidden_suggestions_count: 2,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "testing-gap".to_string(),
+                rule_id: "testing.source-without-test".to_string(),
+                category: "testing".to_string(),
+                reason: "testing gaps are hidden in the default profile".to_string(),
+                count: 2,
+            }],
+            ..Default::default()
+        },
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -271,9 +203,12 @@ fn markdown_output_includes_hidden_suggestion_breakdown() {
 #[test]
 fn markdown_output_includes_cache_telemetry() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        cache_telemetry: Some(cache_telemetry()),
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            cache_telemetry: Some(cache_telemetry()),
+            ..Default::default()
+        },
+        ..Default::default()
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Markdown)
@@ -332,12 +267,18 @@ fn cache_telemetry() -> ScanCacheTelemetry {
 fn duplicate_status_report() -> BaselineScanReport {
     BaselineScanReport {
         summary: ScanSummary {
-            root_path: PathBuf::from("demo"),
-            findings: vec![
-                duplicate_finding("existing", 7),
-                duplicate_finding("new", 8),
-            ],
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("demo"),
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                findings: vec![
+                    duplicate_finding("existing", 7),
+                    duplicate_finding("new", 8),
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
         },
         baseline_path: None,
         findings: vec![

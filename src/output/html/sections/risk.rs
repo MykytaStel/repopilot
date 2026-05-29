@@ -43,7 +43,7 @@ pub(super) fn render_risk_section(summary: &ScanSummary, stats: &ReportStats) ->
         )
     };
 
-    let hidden_note = if summary.hidden_suggestions_count > 0 {
+    let hidden_note = if summary.metrics.hidden_suggestions_count > 0 {
         render_hidden_suggestions(summary)
     } else {
         String::new()
@@ -57,15 +57,14 @@ pub(super) fn render_risk_section(summary: &ScanSummary, stats: &ReportStats) ->
 fn render_hidden_suggestions(summary: &ScanSummary) -> String {
     let mut output = format!(
         r#"<p class="meta">{} strict-only suggestions hidden. Run with <code>--profile strict</code> or <code>--include-maintainability</code> to view.</p>"#,
-        summary.hidden_suggestions_count
+        summary.metrics.hidden_suggestions_count
     );
 
-    if summary.hidden_suggestions.is_empty() {
+    if summary.artifacts.hidden_suggestions.is_empty() {
         return output;
     }
 
-    let rows = summary
-        .hidden_suggestions
+    let rows = summary.artifacts.hidden_suggestions
         .iter()
         .take(8)
         .map(|item| {
@@ -84,10 +83,10 @@ fn render_hidden_suggestions(summary: &ScanSummary) -> String {
         "<h3>Top Hidden Suggestions</h3><table><thead><tr><th>Category</th><th>Intent</th><th>Rule</th><th class=\"num-cell\">Count</th><th>Reason</th></tr></thead><tbody>{rows}</tbody></table>"
     ));
 
-    if summary.hidden_suggestions.len() > 8 {
+    if summary.artifacts.hidden_suggestions.len() > 8 {
         output.push_str(&format!(
             r#"<p class="meta">{} more hidden group(s).</p>"#,
-            summary.hidden_suggestions.len() - 8
+            summary.artifacts.hidden_suggestions.len() - 8
         ));
     }
 

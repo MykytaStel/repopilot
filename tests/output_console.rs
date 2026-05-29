@@ -2,41 +2,48 @@ use repopilot::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBasel
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
 use repopilot::scan::types::{
-    ChangedFileCacheTelemetry, ChangedFileReasonSummary, HiddenSuggestionSummary,
-    ScanCacheTelemetry, ScanCacheTimings, ScanSummary,
+    ChangedFileCacheTelemetry, ChangedFileReasonSummary, HiddenSuggestionSummary, ScanArtifacts,
+    ScanCacheTelemetry, ScanCacheTimings, ScanMetadata, ScanMetrics, ScanSummary,
 };
 use std::path::PathBuf;
 
 #[test]
 fn console_output_includes_versioned_summary_and_grouped_findings() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        files_discovered: 0,
-        files_analyzed: 1,
-        directories_count: 1,
-        non_empty_lines: 100,
-        findings: vec![Finding {
-            id: "finding-1".to_string(),
-            rule_id: "security.secret-candidate".to_string(),
-            recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
-            title: "Possible secret detected".to_string(),
-            description: "A real secret may be committed.".to_string(),
-            category: FindingCategory::Security,
-            severity: Severity::High,
-            confidence: Default::default(),
-            evidence: vec![Evidence {
-                path: PathBuf::from("src/config.rs"),
-                line_start: 7,
-                line_end: None,
-                snippet: "API_KEY = \"abc123xyz987\"".to_string(),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_analyzed: 1,
+            directories_count: 1,
+            non_empty_lines: 100,
+            health_score: 95,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![Finding {
+                id: "finding-1".to_string(),
+                rule_id: "security.secret-candidate".to_string(),
+                recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
+                title: "Possible secret detected".to_string(),
+                description: "A real secret may be committed.".to_string(),
+                category: FindingCategory::Security,
+                severity: Severity::High,
+                confidence: Default::default(),
+                evidence: vec![Evidence {
+                    path: PathBuf::from("src/config.rs"),
+                    line_start: 7,
+                    line_end: None,
+                    snippet: "API_KEY = \"abc123xyz987\"".to_string(),
+                }],
+                workspace_package: None,
+                docs_url: None,
+                provenance: Default::default(),
+                risk: Default::default(),
             }],
-            workspace_package: None,
-            docs_url: None,
-            provenance: Default::default(),
-            risk: Default::default(),
-        }],
-        health_score: 95,
-        ..ScanSummary::default()
+            ..Default::default()
+        },
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Console)
@@ -57,14 +64,20 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
 #[test]
 fn console_output_labels_max_files_remainder_as_limit_skipped() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        files_discovered: 3,
-        files_analyzed: 1,
-        directories_count: 1,
-        non_empty_lines: 10,
-        health_score: 100,
-        files_skipped_by_limit: 2,
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_discovered: 3,
+            files_analyzed: 1,
+            directories_count: 1,
+            non_empty_lines: 10,
+            health_score: 100,
+            files_skipped_by_limit: 2,
+            ..Default::default()
+        },
+        ..Default::default()
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Console)
@@ -77,16 +90,24 @@ fn console_output_labels_max_files_remainder_as_limit_skipped() {
 #[test]
 fn console_output_includes_hidden_suggestion_breakdown() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        hidden_suggestions_count: 3,
-        hidden_suggestions: vec![HiddenSuggestionSummary {
-            intent: "maintainability".to_string(),
-            rule_id: "architecture.large-file".to_string(),
-            category: "architecture".to_string(),
-            reason: "maintainability signals are hidden in the default profile".to_string(),
-            count: 3,
-        }],
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            hidden_suggestions_count: 3,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "maintainability".to_string(),
+                rule_id: "architecture.large-file".to_string(),
+                category: "architecture".to_string(),
+                reason: "maintainability signals are hidden in the default profile".to_string(),
+                count: 3,
+            }],
+            ..Default::default()
+        },
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Console)
@@ -99,9 +120,12 @@ fn console_output_includes_hidden_suggestion_breakdown() {
 #[test]
 fn console_output_includes_cache_telemetry_for_changed_scans() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        cache_telemetry: Some(cache_telemetry()),
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            cache_telemetry: Some(cache_telemetry()),
+            ..Default::default()
+        },
+        ..Default::default()
     };
 
     let output = render_scan_summary(&summary, OutputFormat::Console)
@@ -162,12 +186,18 @@ fn cache_telemetry() -> ScanCacheTelemetry {
 fn duplicate_status_report() -> BaselineScanReport {
     BaselineScanReport {
         summary: ScanSummary {
-            root_path: PathBuf::from("demo"),
-            findings: vec![
-                duplicate_finding("existing", 7),
-                duplicate_finding("new", 8),
-            ],
-            ..ScanSummary::default()
+            metadata: ScanMetadata {
+                root_path: PathBuf::from("demo"),
+                ..Default::default()
+            },
+            artifacts: ScanArtifacts {
+                findings: vec![
+                    duplicate_finding("existing", 7),
+                    duplicate_finding("new", 8),
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
         },
         baseline_path: None,
         findings: vec![

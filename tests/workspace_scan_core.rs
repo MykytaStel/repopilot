@@ -24,6 +24,7 @@ fn library_workspace_scan_merges_packages_without_duplicate_findings() {
 
     let summary = scan_workspace_with_config(root, &ScanConfig::default()).expect("workspace scan");
     let source_findings = summary
+        .artifacts
         .findings
         .iter()
         .filter(|finding| {

@@ -104,12 +104,13 @@ fn generated_findings_from_scan_pass_contract() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "security.secret-candidate"),
         "fixture should produce a generated security finding"
     );
-    let report = validate_findings_contract(&summary.findings);
+    let report = validate_findings_contract(&summary.artifacts.findings);
     assert!(
         report.violations.is_empty(),
         "generated findings should satisfy contract: {:?}",

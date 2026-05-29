@@ -27,7 +27,7 @@ fn main() {
     };
 
     let summary = scan_path_with_config(temp.path(), &config).expect("scan");
-    let risk = RiskSummary::from_findings(&summary.findings);
+    let risk = RiskSummary::from_findings(&summary.artifacts.findings);
 
     assert_eq!(risk.counts.p0, 0);
     assert_eq!(risk.counts.p1, 0);
@@ -53,7 +53,8 @@ pub fn render(value: Option<&str>) -> String {
     };
 
     let summary = scan_path_with_config(temp.path(), &config).expect("scan");
-    let render_findings = findings_for_rule(&summary.findings, "language.rust.panic-risk");
+    let render_findings =
+        findings_for_rule(&summary.artifacts.findings, "language.rust.panic-risk");
 
     assert_eq!(render_findings.len(), 3);
     assert!(render_findings.iter().all(|finding| {
@@ -90,8 +91,8 @@ func main() {}
     };
 
     let summary = scan_path_with_config(temp.path(), &config).expect("scan");
-    let secret = first_rule(&summary.findings, "security.secret-candidate");
-    let todo = first_rule(&summary.findings, "code-marker.todo");
+    let secret = first_rule(&summary.artifacts.findings, "security.secret-candidate");
+    let todo = first_rule(&summary.artifacts.findings, "code-marker.todo");
 
     assert!(secret.risk.score > todo.risk.score);
     assert!(matches!(
@@ -127,7 +128,10 @@ export function App() {
     };
 
     let summary = scan_path_with_config(temp.path(), &config).expect("scan");
-    let inline_style = first_rule(&summary.findings, "framework.react-native.inline-style");
+    let inline_style = first_rule(
+        &summary.artifacts.findings,
+        "framework.react-native.inline-style",
+    );
 
     assert_eq!(inline_style.risk.formula_version, "risk-v3");
     assert_ne!(inline_style.risk.priority, RiskPriority::P0);

@@ -18,7 +18,7 @@ pub fn scan_workspace_with_config(
     let plan = WorkspaceScanPlan::detect(path, scan_config);
     if plan.packages.is_empty() {
         let mut summary = scan_path_with_config(path, scan_config)?;
-        summary.diagnostics.push(
+        summary.artifacts.diagnostics.push(
             ScanDiagnostic::warning(
                 "workspace.no-packages",
                 "--workspace was requested but no workspace packages were found; scanned as a single package",
@@ -58,7 +58,7 @@ impl<'a> WorkspaceScanPlan<'a> {
         for package in self.scan_packages() {
             match package.result {
                 Ok(pkg_summary) => merge_package_summary(&mut merged, pkg_summary, &package.name),
-                Err(err) => merged.diagnostics.push(ScanDiagnostic::warning(
+                Err(err) => merged.artifacts.diagnostics.push(ScanDiagnostic::warning(
                     "workspace.package-scan-failed",
                     format!("failed to scan workspace package '{}': {err}", package.name),
                 )),
@@ -86,10 +86,10 @@ impl<'a> WorkspaceScanPlan<'a> {
 }
 
 fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
-    deduplicate_workspace_findings(&mut merged.findings);
-    apply_workspace_hotspot_overlay(&mut merged.findings);
-    apply_cluster_overlay(&mut merged.findings);
-    sort_findings(&mut merged.findings);
+    deduplicate_workspace_findings(&mut merged.artifacts.findings);
+    apply_workspace_hotspot_overlay(&mut merged.artifacts.findings);
+    apply_cluster_overlay(&mut merged.artifacts.findings);
+    sort_findings(&mut merged.artifacts.findings);
     recompute_summary_metrics(merged);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
 }
@@ -118,30 +118,37 @@ fn workspace_relative_path(root: &Path, package_root: &Path) -> Option<String> {
 }
 
 fn merge_package_summary(merged: &mut ScanSummary, mut package: ScanSummary, package_name: &str) {
-    for finding in &mut package.findings {
+    for finding in &mut package.artifacts.findings {
         finding.workspace_package = Some(package_name.to_string());
     }
 
-    merged.files_analyzed += package.files_analyzed;
-    merged.files_discovered += package.files_discovered;
-    merged.directories_count += package.directories_count;
-    merged.non_empty_lines += package.non_empty_lines;
-    merged.large_files_skipped += package.large_files_skipped;
-    merged.files_skipped_low_signal += package.files_skipped_low_signal;
-    merged.binary_files_skipped += package.binary_files_skipped;
-    merged.files_skipped_by_limit += package.files_skipped_by_limit;
-    merged.files_skipped_repopilotignore += package.files_skipped_repopilotignore;
+    merged.metrics.files_analyzed += package.metrics.files_analyzed;
+    merged.metrics.files_discovered += package.metrics.files_discovered;
+    merged.metrics.directories_count += package.metrics.directories_count;
+    merged.metrics.non_empty_lines += package.metrics.non_empty_lines;
+    merged.metrics.large_files_skipped += package.metrics.large_files_skipped;
+    merged.metrics.files_skipped_low_signal += package.metrics.files_skipped_low_signal;
+    merged.metrics.binary_files_skipped += package.metrics.binary_files_skipped;
+    merged.metrics.files_skipped_by_limit += package.metrics.files_skipped_by_limit;
+    merged.metrics.files_skipped_repopilotignore += package.metrics.files_skipped_repopilotignore;
 
     if merged.repopilotignore_path.is_none() {
         merged.repopilotignore_path = package.repopilotignore_path.clone();
     }
-    merged.skipped_bytes = merged.skipped_bytes.saturating_add(package.skipped_bytes);
-    merged.hidden_suggestions_count = merged
+    merged.metrics.skipped_bytes = merged
+        .metrics
+        .skipped_bytes
+        .saturating_add(package.metrics.skipped_bytes);
+    merged.metrics.hidden_suggestions_count = merged
+        .metrics
         .hidden_suggestions_count
-        .saturating_add(package.hidden_suggestions_count);
-    merged.diagnostics.extend(package.diagnostics);
-    merge_language_summaries(&mut merged.languages, package.languages);
-    merged.findings.extend(package.findings);
+        .saturating_add(package.metrics.hidden_suggestions_count);
+    merged
+        .artifacts
+        .diagnostics
+        .extend(package.artifacts.diagnostics);
+    merge_language_summaries(&mut merged.metrics.languages, package.metrics.languages);
+    merged.artifacts.findings.extend(package.artifacts.findings);
 }
 
 fn deduplicate_workspace_findings(findings: &mut Vec<Finding>) {

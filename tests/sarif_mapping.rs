@@ -1,18 +1,24 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::sarif::{findings_to_sarif, scan_summary_to_sarif};
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
 use std::path::{Path, PathBuf};
 
 #[test]
 fn scan_summary_maps_to_minimal_sarif_log() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("/repo"),
-        findings: vec![finding(
-            "architecture.large-file",
-            Severity::High,
-            Some("/repo/src/main.rs"),
-            12,
-        )],
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("/repo"),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![finding(
+                "architecture.large-file",
+                Severity::High,
+                Some("/repo/src/main.rs"),
+                12,
+            )],
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 
