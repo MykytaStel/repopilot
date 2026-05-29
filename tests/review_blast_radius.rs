@@ -5,7 +5,7 @@ use repopilot::review::render::{render_console, render_json};
 use repopilot::review::{build_review_report, compute_blast_radius};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -101,8 +101,14 @@ fn blast_radius_is_empty_without_coupling_graph() {
     write_file(&temp, "src/a.ts", "export const a = 1;\n");
 
     let summary = ScanSummary {
-        root_path: temp.path().to_path_buf(),
-        coupling_graph: None,
+        metadata: ScanMetadata {
+            root_path: temp.path().to_path_buf(),
+            ..ScanMetadata::default()
+        },
+        artifacts: ScanArtifacts {
+            coupling_graph: None,
+            ..ScanArtifacts::default()
+        },
         ..ScanSummary::default()
     };
     let changed_files = vec![changed_file("src/a.ts")];
@@ -124,11 +130,17 @@ fn render_console_includes_blast_radius_section_when_present() {
 
     let report = ReviewReport {
         summary: ScanSummary {
-            root_path: temp.path().to_path_buf(),
-            coupling_graph: Some(CouplingGraph {
-                edges: BTreeMap::new(),
-                nodes: BTreeSet::new(),
-            }),
+            metadata: ScanMetadata {
+                root_path: temp.path().to_path_buf(),
+                ..ScanMetadata::default()
+            },
+            artifacts: ScanArtifacts {
+                coupling_graph: Some(CouplingGraph {
+                    edges: BTreeMap::new(),
+                    nodes: BTreeSet::new(),
+                }),
+                ..ScanArtifacts::default()
+            },
             ..ScanSummary::default()
         },
         repo_root: temp.path().to_path_buf(),

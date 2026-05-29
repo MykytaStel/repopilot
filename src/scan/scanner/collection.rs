@@ -137,7 +137,7 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
     Ok(facts)
 }
 
-pub(super) fn collect_scan_facts_without_content(
+pub(crate) fn collect_scan_facts_without_content(
     path: &Path,
     config: &ScanConfig,
 ) -> io::Result<ScanFacts> {

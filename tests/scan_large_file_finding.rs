@@ -17,6 +17,7 @@ fn scan_adds_large_file_architecture_finding() {
     let summary = scan_path(temp.path()).expect("failed to scan temp project");
 
     let finding = summary
+        .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.large-file")

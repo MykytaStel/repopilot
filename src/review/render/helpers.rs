@@ -9,6 +9,7 @@ pub(super) fn status_for_finding(
 ) -> Option<BaselineStatus> {
     report
         .summary
+        .artifacts
         .findings
         .iter()
         .position(|candidate| candidate == finding)

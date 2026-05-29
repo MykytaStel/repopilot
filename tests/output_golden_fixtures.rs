@@ -5,7 +5,9 @@ use repopilot::output::{
     RenderOptions, render_scan_summary_with_options,
 };
 use repopilot::risk::{RiskInputs, assess_finding};
-use repopilot::scan::types::{HiddenSuggestionSummary, LanguageSummary, ScanSummary};
+use repopilot::scan::types::{
+    HiddenSuggestionSummary, LanguageSummary, ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -84,38 +86,46 @@ fn golden_summary() -> ScanSummary {
     let signal_quality = summarize_signal_quality(&findings);
 
     ScanSummary {
-        root_path: PathBuf::from("demo-project"),
-        files_discovered: 4,
-        files_analyzed: 2,
-        directories_count: 2,
-        non_empty_lines: 42,
-        languages: vec![
-            LanguageSummary {
-                name: "Rust".to_string(),
-                files_analyzed: 1,
-            },
-            LanguageSummary {
-                name: "TypeScript".to_string(),
-                files_analyzed: 1,
-            },
-        ],
-        findings,
-        health_score: 90,
-        raw_findings_count: 1,
-        visible_findings_count: 1,
-        hidden_suggestions_count: 2,
-        hidden_suggestions: vec![HiddenSuggestionSummary {
-            intent: "maintainability".to_string(),
-            rule_id: "code-quality.long-function".to_string(),
-            category: "code-quality".to_string(),
-            reason: "maintainability signals are hidden in the default profile".to_string(),
-            count: 2,
-        }],
-        visibility_profile: Some("default".to_string()),
-        raw_signal_quality: signal_quality.clone(),
-        visible_signal_quality: signal_quality.clone(),
-        signal_quality,
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo-project"),
+            visibility_profile: Some("default".to_string()),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_discovered: 4,
+            files_analyzed: 2,
+            directories_count: 2,
+            non_empty_lines: 42,
+            health_score: 90,
+            raw_findings_count: 1,
+            visible_findings_count: 1,
+            hidden_suggestions_count: 2,
+            languages: vec![
+                LanguageSummary {
+                    name: "Rust".to_string(),
+                    files_analyzed: 1,
+                },
+                LanguageSummary {
+                    name: "TypeScript".to_string(),
+                    files_analyzed: 1,
+                },
+            ],
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings,
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "maintainability".to_string(),
+                rule_id: "code-quality.long-function".to_string(),
+                category: "code-quality".to_string(),
+                reason: "maintainability signals are hidden in the default profile".to_string(),
+                count: 2,
+            }],
+            raw_signal_quality: signal_quality.clone(),
+            visible_signal_quality: signal_quality.clone(),
+            signal_quality,
+            ..Default::default()
+        },
     }
 }
 

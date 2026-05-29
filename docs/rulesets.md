@@ -98,6 +98,10 @@ usually keeps higher confidence.
 
 Security audits skip low-signal examples, fixtures, docs, lockfiles, and common
 test paths where appropriate to reduce false positives.
+For secret examples in application code or setup UI, prefer placeholders such as
+`<OPENAI_API_KEY>`, `${OPENAI_API_KEY}`, `your-openai-api-key`,
+`replace-with-*`, or `example-*`. Provider-looking or high-entropy values remain
+high-severity findings and should be rotated if committed.
 
 ## Testing Rules
 

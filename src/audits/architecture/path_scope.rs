@@ -1,50 +1,83 @@
 use std::path::{Component, Path};
 
-const NON_PRODUCTION_ARCHITECTURE_COMPONENTS: &[&str] = &[
-    ".git",
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ArchitecturePathScope {
+    Production,
+    Test,
+    Fixture,
+    Documentation,
+    Example,
+    Generated,
+    Vendor,
+    BuildOutput,
+    Tooling,
+}
+
+const TOOLING_ARCHITECTURE_COMPONENTS: &[&str] = &[".git", ".repopilot"];
+
+const BUILD_OUTPUT_ARCHITECTURE_COMPONENTS: &[&str] = &[
     ".next",
     ".nuxt",
-    ".repopilot",
     ".turbo",
-    "__fixtures__",
-    "__mocks__",
-    "__snapshots__",
-    "__tests__",
     "build",
     "coverage",
     "deriveddata",
     "dist",
-    "doc",
-    "docs",
-    "example",
-    "examples",
-    "fixture",
-    "fixtures",
-    "generated",
-    "mock",
-    "mocks",
-    "node_modules",
     "out",
-    "pods",
-    "snapshot",
-    "snapshots",
-    "spec",
-    "specs",
     "target",
-    "test",
-    "tests",
-    "vendor",
 ];
 
-/// Returns true when a path should be considered product/source architecture.
-///
-/// Architecture heuristics should not treat rule fixtures, test corpora, docs,
-/// generated code, vendor trees, or build output as production structure. Those
-/// paths may be intentionally deep or unusual because they describe scenarios,
-/// not product module boundaries.
-pub fn is_production_architecture_candidate(path: &Path) -> bool {
-    !has_blocked_path_component(path, NON_PRODUCTION_ARCHITECTURE_COMPONENTS)
-        && !is_test_or_generated_file_name(path)
+const VENDOR_ARCHITECTURE_COMPONENTS: &[&str] = &["node_modules", "pods", "vendor"];
+
+const GENERATED_ARCHITECTURE_COMPONENTS: &[&str] = &["generated"];
+
+const FIXTURE_ARCHITECTURE_COMPONENTS: &[&str] = &[
+    "__fixtures__",
+    "__mocks__",
+    "__snapshots__",
+    "fixture",
+    "fixtures",
+    "mock",
+    "mocks",
+    "snapshot",
+    "snapshots",
+];
+
+const TEST_ARCHITECTURE_COMPONENTS: &[&str] = &["__tests__", "spec", "specs", "test", "tests"];
+
+const DOCUMENTATION_ARCHITECTURE_COMPONENTS: &[&str] = &["doc", "docs"];
+
+const EXAMPLE_ARCHITECTURE_COMPONENTS: &[&str] = &["example", "examples"];
+
+pub(super) fn classify_architecture_path(path: &Path) -> ArchitecturePathScope {
+    if has_blocked_path_component(path, TOOLING_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::Tooling;
+    }
+    if has_blocked_path_component(path, BUILD_OUTPUT_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::BuildOutput;
+    }
+    if has_blocked_path_component(path, VENDOR_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::Vendor;
+    }
+    if has_blocked_path_component(path, DOCUMENTATION_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::Documentation;
+    }
+    if has_blocked_path_component(path, EXAMPLE_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::Example;
+    }
+    if has_blocked_path_component(path, FIXTURE_ARCHITECTURE_COMPONENTS) {
+        return ArchitecturePathScope::Fixture;
+    }
+    if has_blocked_path_component(path, TEST_ARCHITECTURE_COMPONENTS) || is_test_file_name(path) {
+        return ArchitecturePathScope::Test;
+    }
+    if has_blocked_path_component(path, GENERATED_ARCHITECTURE_COMPONENTS)
+        || is_generated_file_name(path)
+    {
+        return ArchitecturePathScope::Generated;
+    }
+
+    ArchitecturePathScope::Production
 }
 
 fn has_blocked_path_component(path: &Path, blocked_components: &[&str]) -> bool {
@@ -63,7 +96,7 @@ fn has_blocked_path_component(path: &Path, blocked_components: &[&str]) -> bool 
     })
 }
 
-fn is_test_or_generated_file_name(path: &Path) -> bool {
+fn is_test_file_name(path: &Path) -> bool {
     let file_name = path
         .file_name()
         .and_then(|value| value.to_str())
@@ -82,6 +115,19 @@ fn is_test_or_generated_file_name(path: &Path) -> bool {
             ".spec.jsx",
             "_test.rs",
             "_test.go",
+        ],
+    )
+}
+
+fn is_generated_file_name(path: &Path) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+
+    has_any_case_insensitive_suffix(
+        file_name,
+        &[
             ".generated.ts",
             ".generated.tsx",
             ".generated.js",
@@ -110,29 +156,37 @@ mod tests {
 
     #[test]
     fn accepts_production_source_paths() {
-        assert!(is_production_architecture_candidate(Path::new(
-            "./src/features/payments/checkout/session/domain/handler.ts"
-        )));
+        assert_eq!(
+            classify_architecture_path(Path::new(
+                "./src/features/payments/checkout/session/domain/handler.ts"
+            )),
+            ArchitecturePathScope::Production
+        );
     }
 
     #[test]
     fn rejects_rule_fixture_paths() {
-        assert!(!is_production_architecture_candidate(Path::new(
-            "./tests/fixtures/rules/security.secret-candidate/true_positive_env_value/src/config.ts"
-        )));
+        assert_ne!(
+            classify_architecture_path(Path::new(
+                "./tests/fixtures/rules/security.secret-candidate/true_positive_env_value/src/config.ts"
+            )),
+            ArchitecturePathScope::Production
+        );
     }
 
     #[test]
     fn rejects_test_corpora_and_test_files() {
-        assert!(!is_production_architecture_candidate(Path::new(
-            "./tests/unit/features/payments/session/service.ts"
-        )));
-        assert!(!is_production_architecture_candidate(Path::new(
-            "./src/features/payments/session/service.test.ts"
-        )));
-        assert!(!is_production_architecture_candidate(Path::new(
-            "./src/features/payments/session/service.spec.ts"
-        )));
+        for path in [
+            "./tests/unit/features/payments/session/service.ts",
+            "./src/features/payments/session/service.test.ts",
+            "./src/features/payments/session/service.spec.ts",
+        ] {
+            assert_ne!(
+                classify_architecture_path(Path::new(path)),
+                ArchitecturePathScope::Production,
+                "{path} should not be treated as product architecture"
+            );
+        }
     }
 
     #[test]
@@ -146,7 +200,10 @@ mod tests {
             "./dist/assets/js/chunks/deep/file.js",
         ] {
             assert!(
-                !is_production_architecture_candidate(Path::new(path)),
+                !matches!(
+                    classify_architecture_path(Path::new(path)),
+                    ArchitecturePathScope::Production
+                ),
                 "{path} should not be treated as product architecture"
             );
         }

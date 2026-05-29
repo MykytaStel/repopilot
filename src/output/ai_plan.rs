@@ -26,6 +26,7 @@ pub fn render(summary: &ScanSummary, opts: &AiPlanOptions) -> String {
     let budget_chars = opts.budget_tokens.saturating_mul(4);
 
     let findings: Vec<&Finding> = summary
+        .artifacts
         .findings
         .iter()
         .filter(|finding| {
@@ -44,7 +45,7 @@ pub fn render(summary: &ScanSummary, opts: &AiPlanOptions) -> String {
         "Prioritized remediation plan generated locally from RepoPilot findings. Start at P0 and stop when the remaining risk is acceptable for this release.\n"
     );
     render_summary(&mut out, &findings);
-    render_context_graph_plan(&mut out, summary.context_graph_summary.as_ref());
+    render_context_graph_plan(&mut out, summary.artifacts.context_graph_summary.as_ref());
 
     if findings.is_empty() {
         let _ = writeln!(out, "No findings matched the selected scope.");

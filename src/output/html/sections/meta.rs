@@ -7,7 +7,7 @@ pub(super) fn render_scan_meta(summary: &ScanSummary) -> String {
             .unwrap_or_else(|| " against <code>HEAD</code>".to_string());
         let mut output = format!(
             r#"<p class="meta">Scope: changed files{base}; {} changed file(s); repo-level rules skipped.</p>"#,
-            summary.changed_files_count
+            summary.metrics.changed_files_count
         );
         if let Some(cache) = &summary.cache_telemetry {
             output.push_str(&format!(

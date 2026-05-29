@@ -257,6 +257,37 @@ fn changed_scan_cache_hit_keeps_changed_file_imports_for_graph_patch() {
 }
 
 #[test]
+fn changed_scan_invalidates_repo_context_cache_after_branch_switch() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/old.rs"), "pub fn old() {}\n");
+    write(
+        temp.path().join("src/lib.rs"),
+        "use crate::old;\npub fn live() { old::old(); }\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    let initial_graph = inspect_graph_json(temp.path());
+    assert_eq!(initial_graph["context_graph_cache"]["status"], "write");
+
+    git(temp.path(), &["checkout", "-b", "feature"]);
+    write(temp.path().join("src/new.rs"), "pub fn new() {}\n");
+    write(
+        temp.path().join("src/lib.rs"),
+        "use crate::new;\npub fn live() { new::new(); }\n",
+    );
+    commit_all(temp.path(), "feature graph");
+
+    let changed = scan_changed_json(temp.path(), &["--since", "main"]);
+
+    assert_eq!(changed["context_graph_cache"]["status"], "miss");
+    assert!(
+        top_dependencies_include(&changed, "src/new.rs"),
+        "branch-local graph should be rebuilt instead of patched from another branch: {changed:#?}"
+    );
+}
+
+#[test]
 fn since_scan_uses_base_ref_scope() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());

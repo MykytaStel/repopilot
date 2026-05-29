@@ -124,7 +124,12 @@ fn baseline_create_stores_stable_keys_and_repo_relative_paths() {
         .find(|finding| finding["rule_id"] == "security.secret-candidate")
         .expect("expected secret finding");
 
-    assert_eq!(secret["key"], "security.secret-candidate:src/config.rs:1");
+    assert!(
+        secret["key"]
+            .as_str()
+            .expect("baseline key")
+            .starts_with("security.secret-candidate:src/config.rs:")
+    );
     assert_eq!(secret["path"], "src/config.rs");
     assert!(
         !secret["key"]

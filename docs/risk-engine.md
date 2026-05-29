@@ -39,6 +39,9 @@ reason, and `source`. Common signal families:
 - `workspace.hotspot` marks packages with repeated high-risk findings.
 - `graph.*` marks dependency hubs and shared dependencies.
 - `cluster.repeated` marks repeated rule patterns in the same repository area.
+- `category.testing-gap` and `knowledge.broad-maintainability` keep broad test,
+  size, and complexity heuristics below security/runtime findings unless review
+  diff, graph, or cluster evidence raises them.
 
 Signals are additive but clamped to the 0-100 score range. They are meant to
 explain ranking, not prove that a finding is always a defect.

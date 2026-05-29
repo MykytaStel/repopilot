@@ -297,7 +297,8 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/MykytaStel/repopilot/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/MykytaStel/repopilot/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/MykytaStel/repopilot/compare/v0.9.0...v0.10.0

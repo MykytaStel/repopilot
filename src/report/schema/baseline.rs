@@ -51,30 +51,30 @@ impl<'a> BaselineJsonReport<'a> {
             repopilot_version: REPOPILOT_VERSION,
             report: ReportEnvelope::baseline_scan(),
             root_path: report.summary.root_path.to_string_lossy().to_string(),
-            files_analyzed: report.summary.files_analyzed,
-            directories_count: report.summary.directories_count,
-            non_empty_lines: report.summary.non_empty_lines,
-            large_files_skipped: report.summary.large_files_skipped,
-            skipped_bytes: report.summary.skipped_bytes,
+            files_analyzed: report.summary.metrics.files_analyzed,
+            directories_count: report.summary.metrics.directories_count,
+            non_empty_lines: report.summary.metrics.non_empty_lines,
+            large_files_skipped: report.summary.metrics.large_files_skipped,
+            skipped_bytes: report.summary.metrics.skipped_bytes,
             mode: report.summary.mode,
             base_ref: report.summary.base_ref.as_deref(),
-            changed_files_count: report.summary.changed_files_count,
+            changed_files_count: report.summary.metrics.changed_files_count,
             repo_level_rules_included: report.summary.repo_level_rules_included,
-            raw_findings_count: report.summary.raw_findings_count,
-            visible_findings_count: report.summary.visible_findings_count,
-            hidden_suggestions_count: report.summary.hidden_suggestions_count,
-            hidden_suggestions: &report.summary.hidden_suggestions,
+            raw_findings_count: report.summary.metrics.raw_findings_count,
+            visible_findings_count: report.summary.metrics.visible_findings_count,
+            hidden_suggestions_count: report.summary.metrics.hidden_suggestions_count,
+            hidden_suggestions: &report.summary.artifacts.hidden_suggestions,
             visibility_profile: report.summary.visibility_profile.as_deref(),
             cache_telemetry: report.summary.cache_telemetry.as_ref(),
-            context_graph_summary: report.summary.context_graph_summary.as_ref(),
-            context_graph_cache: report.summary.context_graph_cache.as_ref(),
+            context_graph_summary: report.summary.artifacts.context_graph_summary.as_ref(),
+            context_graph_cache: report.summary.artifacts.context_graph_cache.as_ref(),
             local_feedback: report.summary.local_feedback.as_ref(),
-            diagnostics: &report.summary.diagnostics,
-            languages: &report.summary.languages,
-            risk_summary: RiskSummary::from_findings(&report.summary.findings),
-            raw_signal_quality: report.summary.raw_signal_quality.clone(),
-            visible_signal_quality: report.summary.visible_signal_quality.clone(),
-            signal_quality: report.summary.signal_quality.clone(),
+            diagnostics: &report.summary.artifacts.diagnostics,
+            languages: &report.summary.metrics.languages,
+            risk_summary: RiskSummary::from_findings(&report.summary.artifacts.findings),
+            raw_signal_quality: report.summary.artifacts.raw_signal_quality.clone(),
+            visible_signal_quality: report.summary.artifacts.visible_signal_quality.clone(),
+            signal_quality: report.summary.artifacts.signal_quality.clone(),
             baseline: BaselineJsonMetadata {
                 path: report
                     .baseline_path
@@ -86,6 +86,7 @@ impl<'a> BaselineJsonReport<'a> {
             ci_gate: ci_gate.map(CiGateJsonMetadata::from),
             findings: report
                 .summary
+                .artifacts
                 .findings
                 .iter()
                 .enumerate()

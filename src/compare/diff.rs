@@ -17,12 +17,14 @@ pub struct CompareSummary {
 
 pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSummary {
     let before_map: HashMap<String, &Finding> = before
+        .artifacts
         .findings
         .iter()
         .map(|f| (stable_finding_key(f, &before.root_path), f))
         .collect();
 
     let after_map: HashMap<String, &Finding> = after
+        .artifacts
         .findings
         .iter()
         .map(|f| (stable_finding_key(f, &after.root_path), f))
@@ -60,9 +62,9 @@ pub fn diff_summaries(before: &ScanSummary, after: &ScanSummary) -> CompareSumma
         new_findings,
         resolved_findings,
         severity_increased,
-        before_files: before.files_analyzed,
-        after_files: after.files_analyzed,
-        before_loc: before.non_empty_lines,
-        after_loc: after.non_empty_lines,
+        before_files: before.metrics.files_analyzed,
+        after_files: after.metrics.files_analyzed,
+        before_loc: before.metrics.non_empty_lines,
+        after_loc: after.metrics.non_empty_lines,
     }
 }

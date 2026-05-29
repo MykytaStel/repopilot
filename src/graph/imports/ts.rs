@@ -1,9 +1,49 @@
-use crate::graph::imports::common::{extract_string_literal, is_relative};
+use crate::graph::imports::common::extract_string_literal;
+use std::cell::RefCell;
 use std::collections::HashSet;
-use tree_sitter::{Language, Node, Parser};
+use tree_sitter::{Node, Parser};
+
+thread_local! {
+    static TS_PARSER: RefCell<Parser> = RefCell::new({
+        let mut p = Parser::new();
+        p.set_language(&tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into())
+            .expect("tree-sitter-typescript grammar should load");
+        p
+    });
+    static TSX_PARSER: RefCell<Parser> = RefCell::new({
+        let mut p = Parser::new();
+        p.set_language(&tree_sitter_typescript::LANGUAGE_TSX.into())
+            .expect("tree-sitter-tsx grammar should load");
+        p
+    });
+    static JS_PARSER: RefCell<Parser> = RefCell::new({
+        let mut p = Parser::new();
+        p.set_language(&tree_sitter_javascript::LANGUAGE.into())
+            .expect("tree-sitter-javascript grammar should load");
+        p
+    });
+}
 
 pub(super) fn extract(content: &str, language: Option<&str>) -> HashSet<String> {
-    let Some(tree) = parse(content, language) else {
+    let tree = match language {
+        Some("TypeScript React") => TSX_PARSER.with(|cell| {
+            let mut p = cell.borrow_mut();
+            p.reset();
+            p.parse(content, None)
+        }),
+        Some("TypeScript") => TS_PARSER.with(|cell| {
+            let mut p = cell.borrow_mut();
+            p.reset();
+            p.parse(content, None)
+        }),
+        _ => JS_PARSER.with(|cell| {
+            let mut p = cell.borrow_mut();
+            p.reset();
+            p.parse(content, None)
+        }),
+    };
+
+    let Some(tree) = tree else {
         return HashSet::new();
     };
 
@@ -12,29 +52,26 @@ pub(super) fn extract(content: &str, language: Option<&str>) -> HashSet<String> 
     result
 }
 
-fn parse(content: &str, language_name: Option<&str>) -> Option<tree_sitter::Tree> {
-    let language: Language = match language_name {
-        Some("TypeScript React") => tree_sitter_typescript::LANGUAGE_TSX.into(),
-        Some("TypeScript") => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
-        _ => tree_sitter_javascript::LANGUAGE.into(),
-    };
-    let mut parser = Parser::new();
-    parser.set_language(&language).ok()?;
-    parser.parse(content, None)
+fn is_candidate(path: &str) -> bool {
+    path.starts_with('.')
+        || path.starts_with('/')
+        || path.starts_with('@')
+        || path.starts_with("~/")
+        || path.starts_with('#')
 }
 
 fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
     match node.kind() {
         "import_statement" | "export_statement" => {
             if let Some(path) = module_source(node, content)
-                && is_relative(path)
+                && is_candidate(path)
             {
                 result.insert(path.to_string());
             }
         }
         "call_expression" => {
-            if let Some(path) = require_source(node, content)
-                && is_relative(path)
+            if let Some(path) = call_module_source(node, content)
+                && is_candidate(path)
             {
                 result.insert(path.to_string());
             }
@@ -58,9 +95,10 @@ fn module_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
     extract_from_path(text)
 }
 
-fn require_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
+fn call_module_source<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
     let function = node.child_by_field_name("function")?;
-    if function.utf8_text(content.as_bytes()).ok()? != "require" {
+    let function = function.utf8_text(content.as_bytes()).ok()?;
+    if function != "require" && function != "import" {
         return None;
     }
     let arguments = node.child_by_field_name("arguments")?;

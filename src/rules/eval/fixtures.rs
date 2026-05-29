@@ -124,6 +124,7 @@ fn evaluate_one_rule_fixture(
         let summary = scan_path_with_config(&scan_path, &config)?;
         cleanup_materialized_fixture(&scan_path, &path);
         let actual_rule_ids = summary
+            .artifacts
             .findings
             .iter()
             .filter(|finding| finding.rule_id == rule_id)
@@ -146,11 +147,11 @@ fn evaluate_one_rule_fixture(
         report.actual_findings += actual_rule_ids.len();
         report.missing_findings += missing_count(&expected, &actual_rule_ids);
         report.unexpected_findings += missing_count(&actual_rule_ids, &expected);
-        report.contract_violations += validate_findings_contract(&summary.findings)
+        report.contract_violations += validate_findings_contract(&summary.artifacts.findings)
             .violations
             .len();
 
-        if has_stable_id_failure(&summary.findings) {
+        if has_stable_id_failure(&summary.artifacts.findings) {
             report.stable_id_failures += 1;
         }
     }

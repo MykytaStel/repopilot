@@ -195,6 +195,28 @@ fn secret_candidate_skips_low_entropy_values() {
 }
 
 #[test]
+fn secret_candidate_skips_api_key_placeholders_and_shell_examples() {
+    for line in [
+        r#"echo 'export OPENAI_API_KEY="your-openai-api-key"'"#,
+        r#"echo 'export GEMINI_API_KEY="your-gemini-api-key"'"#,
+        r#"echo 'export ANTHROPIC_API_KEY="replace-with-anthropic-api-key"'"#,
+        r#"const setup = "export OPENAI_API_KEY=<OPENAI_API_KEY>";"#,
+        r#"const setup = "export GEMINI_API_KEY=${GEMINI_API_KEY}";"#,
+        r#"const setup = "export ANTHROPIC_API_KEY=example-anthropic-api-key";"#,
+    ] {
+        let f = file(
+            "src/features/settings/SettingsTab.tsx",
+            &format!("{line}\n"),
+        );
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "placeholder shell example must not be flagged: `{line}` -> {findings:?}"
+        );
+    }
+}
+
+#[test]
 fn secret_candidate_flags_high_entropy_values() {
     // High-entropy strings (mixed case + digits + symbols) are real credentials.
     for line in [
@@ -211,6 +233,32 @@ fn secret_candidate_flags_high_entropy_values() {
         assert_eq!(
             findings[0].confidence,
             repopilot::findings::types::Confidence::High
+        );
+    }
+}
+
+#[test]
+fn secret_candidate_flags_provider_looking_values_after_placeholder_filtering() {
+    for line in [
+        r#"OPENAI_API_KEY = "sk-proj-xK9mQ2pL8rT5vN3wY7";"#,
+        r#"GEMINI_API_KEY = "AIzaSyD4mmyKeyQ7m2vK9pL4xR8tN6zB3w";"#,
+        r#"GITHUB_TOKEN = "github_pat_11ABCDEFG0xK9mQ2pL8rT5vN3wY7";"#,
+        r#"AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE";"#,
+    ] {
+        let f = file("src/config.ts", &format!("{line}\n"));
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            !findings.is_empty(),
+            "provider-looking value must still be flagged: `{line}`"
+        );
+        assert_eq!(
+            findings[0].confidence,
+            repopilot::findings::types::Confidence::High
+        );
+        assert!(
+            !findings[0].evidence[0]
+                .snippet
+                .contains("xK9mQ2pL8rT5vN3wY7")
         );
     }
 }

@@ -1,14 +1,13 @@
-use crate::cli::CompareOutputFormatArg;
+use crate::cli::GraphOutputFormatArg;
 use crate::commands::product_scan::{
     ProductScanMode, ProductScanRequest, emit_report_only_diagnostics,
     enforce_diagnostics_exit_policy, run_product_scan,
 };
 use crate::commands::scan_config::ScanConfigOverrides;
-use crate::commands::{CliExit, EXIT_USAGE};
+
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::graph::context::{ContextGraphFileMetric, ContextGraphSummary};
-use repopilot::output::OutputFormat;
 use repopilot::report::writer::write_report;
 use repopilot::scan::types::ScanSummary;
 use serde::Serialize;
@@ -18,7 +17,7 @@ use std::path::PathBuf;
 pub fn run(
     path: PathBuf,
     config: Option<PathBuf>,
-    format: CompareOutputFormatArg,
+    format: GraphOutputFormatArg,
     output: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let scan_result = run_product_scan(ProductScanRequest {
@@ -35,7 +34,7 @@ pub fn run(
     let summary = scan_result.summary;
 
     emit_report_only_diagnostics(&summary);
-    let rendered = render_graph_inspection(&summary, OutputFormat::from(format))?;
+    let rendered = render_graph_inspection(&summary, format)?;
     write_report(&rendered, output.as_deref())?;
     enforce_diagnostics_exit_policy(&summary)?;
 
@@ -44,21 +43,16 @@ pub fn run(
 
 fn render_graph_inspection(
     summary: &ScanSummary,
-    format: OutputFormat,
+    format: GraphOutputFormatArg,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match format {
-        OutputFormat::Console => Ok(render_console(summary)),
-        OutputFormat::Markdown => Ok(render_markdown(summary)),
-        OutputFormat::Json => Ok(serde_json::to_string_pretty(
+        GraphOutputFormatArg::Console => Ok(render_console(summary)),
+        GraphOutputFormatArg::Markdown => Ok(render_markdown(summary)),
+        GraphOutputFormatArg::Json => Ok(serde_json::to_string_pretty(
             &GraphInspectJson::from_summary(summary),
         )?),
-        OutputFormat::Html | OutputFormat::Sarif => Err(Box::new(CliExit {
-            code: EXIT_USAGE,
-            message: format!(
-                "`inspect graph` supports only console, markdown, and json output; received {}",
-                output_format_name(format)
-            ),
-        })),
+        GraphOutputFormatArg::Dot => Ok(render_dot(summary)),
+        GraphOutputFormatArg::Mermaid => Ok(render_mermaid(summary)),
     }
 }
 
@@ -80,9 +74,9 @@ impl<'a> GraphInspectJson<'a> {
         Self {
             kind: "context-graph",
             root_path: summary.root_path.to_string_lossy().to_string(),
-            context_graph_summary: summary.context_graph_summary.as_ref(),
-            context_graph_cache: summary.context_graph_cache.as_ref(),
-            diagnostics: &summary.diagnostics,
+            context_graph_summary: summary.artifacts.context_graph_summary.as_ref(),
+            context_graph_cache: summary.artifacts.context_graph_cache.as_ref(),
+            diagnostics: &summary.artifacts.diagnostics,
         }
     }
 }
@@ -93,7 +87,7 @@ fn render_console(summary: &ScanSummary) -> String {
     let _ = writeln!(output, "Path: {}", summary.root_path.display());
     render_cache_console(&mut output, summary);
 
-    let Some(graph) = &summary.context_graph_summary else {
+    let Some(graph) = &summary.artifacts.context_graph_summary else {
         output.push_str("No context graph summary available.\n");
         return output;
     };
@@ -118,7 +112,7 @@ fn render_markdown(summary: &ScanSummary) -> String {
     let _ = writeln!(output, "- **Path:** `{}`", summary.root_path.display());
     render_cache_markdown(&mut output, summary);
 
-    let Some(graph) = &summary.context_graph_summary else {
+    let Some(graph) = &summary.artifacts.context_graph_summary else {
         output.push_str("\nNo context graph summary available.\n");
         return output;
     };
@@ -138,7 +132,7 @@ fn render_markdown(summary: &ScanSummary) -> String {
 }
 
 fn render_cache_console(output: &mut String, summary: &ScanSummary) {
-    if let Some(cache) = &summary.context_graph_cache {
+    if let Some(cache) = &summary.artifacts.context_graph_cache {
         let _ = writeln!(
             output,
             "Cache: {} ({}) at {}",
@@ -150,7 +144,7 @@ fn render_cache_console(output: &mut String, summary: &ScanSummary) {
 }
 
 fn render_cache_markdown(output: &mut String, summary: &ScanSummary) {
-    if let Some(cache) = &summary.context_graph_cache {
+    if let Some(cache) = &summary.artifacts.context_graph_cache {
         let _ = writeln!(
             output,
             "- **Cache:** `{}` ({}) at `{}`",
@@ -313,12 +307,53 @@ fn render_risky_clusters_markdown(output: &mut String, graph: &ContextGraphSumma
     }
 }
 
-fn output_format_name(format: OutputFormat) -> &'static str {
-    match format {
-        OutputFormat::Console => "console",
-        OutputFormat::Html => "html",
-        OutputFormat::Json => "json",
-        OutputFormat::Markdown => "markdown",
-        OutputFormat::Sarif => "sarif",
+fn render_dot(summary: &ScanSummary) -> String {
+    let mut out = String::new();
+    out.push_str("digraph {\n");
+    if let Some(graph) = &summary.artifacts.coupling_graph {
+        // Output all nodes first to ensure isolated nodes are rendered
+        for node in &graph.nodes {
+            let rel_path = node.strip_prefix(&summary.root_path).unwrap_or(node);
+            let _ = writeln!(out, "  {:?};", rel_path.to_string_lossy());
+        }
+        // Output edges
+        for (source, targets) in &graph.edges {
+            let rel_source = source.strip_prefix(&summary.root_path).unwrap_or(source);
+            let source_str = rel_source.to_string_lossy();
+            for target in targets {
+                let rel_target = target.strip_prefix(&summary.root_path).unwrap_or(target);
+                let target_str = rel_target.to_string_lossy();
+                let _ = writeln!(out, "  {:?} -> {:?};", source_str, target_str);
+            }
+        }
     }
+    out.push_str("}\n");
+    out
+}
+
+fn render_mermaid(summary: &ScanSummary) -> String {
+    let mut out = String::new();
+    out.push_str("graph TD\n");
+    if let Some(graph) = &summary.artifacts.coupling_graph {
+        let mut node_ids = std::collections::HashMap::new();
+        // Register and print nodes
+        for (id_counter, node) in graph.nodes.iter().enumerate() {
+            let rel_path = node.strip_prefix(&summary.root_path).unwrap_or(node);
+            let path_str = rel_path.to_string_lossy().replace('"', "\\\"");
+            let id = format!("n{}", id_counter);
+            node_ids.insert(node.clone(), id.clone());
+            let _ = writeln!(out, "  {}[\"{}\"]", id, path_str);
+        }
+        // Output edges
+        for (source, targets) in &graph.edges {
+            if let Some(source_id) = node_ids.get(source) {
+                for target in targets {
+                    if let Some(target_id) = node_ids.get(target) {
+                        let _ = writeln!(out, "  {} --> {}", source_id, target_id);
+                    }
+                }
+            }
+        }
+    }
+    out
 }

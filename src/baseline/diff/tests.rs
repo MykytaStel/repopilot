@@ -1,7 +1,7 @@
 use super::*;
 use crate::baseline::model::{BASELINE_SCHEMA_VERSION, BASELINE_TOOL, Baseline, BaselineFinding};
 use crate::findings::types::{Evidence, Finding, Severity};
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
 use std::path::PathBuf;
 
 fn make_finding(rule_id: &str, path: &str, line: usize) -> Finding {
@@ -22,8 +22,14 @@ fn make_finding(rule_id: &str, path: &str, line: usize) -> Finding {
 
 fn make_summary(findings: Vec<Finding>) -> ScanSummary {
     ScanSummary {
-        root_path: PathBuf::from("/project"),
-        findings,
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("/project"),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings,
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -75,6 +81,18 @@ fn finding_in_baseline_is_marked_existing() {
     assert_eq!(report.findings[0].status, BaselineStatus::Existing);
     assert_eq!(report.new_count(), 0);
     assert_eq!(report.existing_count(), 1);
+}
+
+#[test]
+fn legacy_line_based_baseline_key_matches_after_line_shift() {
+    let finding = make_finding("test.rule", "src/main.rs", 12);
+    let summary = make_summary(vec![finding]);
+    let baseline = baseline_with_keys(vec!["test.rule:src/main.rs:10".to_string()]);
+    let baseline_path = PathBuf::from(".repopilot/baseline.json");
+
+    let report = diff_summary_against_baseline(summary, &baseline, baseline_path);
+
+    assert_eq!(report.findings[0].status, BaselineStatus::Existing);
 }
 
 #[test]

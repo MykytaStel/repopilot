@@ -1,5 +1,6 @@
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
+pub use crate::scan::types::{LocalFeedbackReport, LocalSuppression};
 use crate::scan::types::{ScanDiagnostic, ScanSummary};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
@@ -8,29 +9,6 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LocalSuppression {
-    pub index: usize,
-    pub rule_id: String,
-    pub path: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct LocalFeedbackReport {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feedback_path: Option<PathBuf>,
-    pub suppressions_loaded: usize,
-    pub suppressed_findings_count: usize,
-    pub unmatched_suppressions_count: usize,
-    pub invalid_suppressions_count: usize,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unmatched_suppressions: Vec<LocalSuppression>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub parse_error: Option<String>,
-}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LocalFeedbackValidation {
@@ -67,7 +45,10 @@ pub fn apply_local_feedback(
         return Ok(LocalFeedbackReport::default());
     }
 
-    summary.diagnostics.extend(validation.diagnostics.clone());
+    summary
+        .artifacts
+        .diagnostics
+        .extend(validation.diagnostics.clone());
 
     let mut report = LocalFeedbackReport {
         feedback_path: Some(validation.feedback_path.clone()),
@@ -82,11 +63,11 @@ pub fn apply_local_feedback(
         return Ok(report);
     }
 
-    let original_count = summary.findings.len();
+    let original_count = summary.artifacts.findings.len();
     let mut matched_suppression_indices = BTreeSet::new();
     let suppression_index = build_suppression_index(&validation.suppressions);
 
-    summary.findings.retain(|finding| {
+    summary.artifacts.findings.retain(|finding| {
         let matched = matching_suppression_index(finding, &suppression_index);
         if let Some(index) = matched {
             matched_suppression_indices.insert(index);
@@ -96,7 +77,8 @@ pub fn apply_local_feedback(
         }
     });
 
-    report.suppressed_findings_count = original_count.saturating_sub(summary.findings.len());
+    report.suppressed_findings_count =
+        original_count.saturating_sub(summary.artifacts.findings.len());
     report.unmatched_suppressions = validation
         .suppressions
         .iter()
@@ -106,7 +88,7 @@ pub fn apply_local_feedback(
     report.unmatched_suppressions_count = report.unmatched_suppressions.len();
 
     if report.unmatched_suppressions_count > 0 {
-        summary.diagnostics.push(
+        summary.artifacts.diagnostics.push(
             ScanDiagnostic::warning(
                 "feedback.unmatched-suppressions",
                 format!(
@@ -140,7 +122,7 @@ pub fn validate_local_feedback(root: &Path) -> io::Result<LocalFeedbackValidatio
 }
 
 pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> LocalFeedbackValidation {
-    let parsed = match serde_norway::from_str::<RawFeedbackFile>(content) {
+    let parsed = match serde_yaml::from_str::<RawFeedbackFile>(content) {
         Ok(parsed) => parsed,
         Err(error) => {
             let message = error.to_string();

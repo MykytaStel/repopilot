@@ -26,6 +26,7 @@ fn reports_directory_with_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "architecture.too-many-modules")
@@ -55,6 +56,7 @@ fn flat_tests_directory_is_not_reported_as_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -81,6 +83,7 @@ fn docs_directory_is_not_reported_as_too_many_modules() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -114,6 +117,7 @@ fn documentation_files_do_not_inflate_module_count() {
 
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.too-many-modules")
@@ -123,9 +127,23 @@ fn documentation_files_do_not_inflate_module_count() {
 #[test]
 fn reports_deep_nesting_only_above_threshold() {
     let temp = tempdir().expect("failed to create temp dir");
-    let deep = temp.path().join("src/a/b/c");
+    let deep = temp.path().join("src");
     fs::create_dir_all(&deep).expect("failed to create nested dirs");
-    fs::write(deep.join("feature.rs"), "pub fn value() {}\n").expect("failed to write file");
+    fs::write(
+        deep.join("feature.rs"),
+        r#"
+        fn foo() {
+            if a {
+                if b {
+                    if c {
+                        println!("nested");
+                    }
+                }
+            }
+        }
+    "#,
+    )
+    .expect("failed to write file");
 
     let config = ScanConfig {
         max_directory_depth: 2,
@@ -135,6 +153,7 @@ fn reports_deep_nesting_only_above_threshold() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan");
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .any(|finding| finding.rule_id == "architecture.deep-nesting")
@@ -147,6 +166,7 @@ fn reports_deep_nesting_only_above_threshold() {
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan");
     assert!(
         summary
+            .artifacts
             .findings
             .iter()
             .all(|finding| finding.rule_id != "architecture.deep-nesting")

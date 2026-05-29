@@ -169,3 +169,38 @@ fn write_graph_fixture(root: &Path) {
     .expect("write lib");
     fs::write(root.join("src/a.rs"), "pub fn a() {}\n").expect("write a");
 }
+
+#[test]
+fn inspect_graph_renders_dot() {
+    let temp = tempdir().expect("temp dir");
+    write_graph_fixture(temp.path());
+
+    let output = repopilot()
+        .args(["inspect", "graph", ".", "--format", "dot"])
+        .current_dir(temp.path())
+        .output()
+        .expect("inspect graph dot");
+
+    assert!(output.status.success());
+    let dot = String::from_utf8_lossy(&output.stdout);
+    assert!(dot.contains("digraph {"));
+    assert!(dot.contains("src/lib.rs"));
+    assert!(dot.contains("src/a.rs"));
+}
+
+#[test]
+fn inspect_graph_renders_mermaid() {
+    let temp = tempdir().expect("temp dir");
+    write_graph_fixture(temp.path());
+
+    let output = repopilot()
+        .args(["inspect", "graph", ".", "--format", "mermaid"])
+        .current_dir(temp.path())
+        .output()
+        .expect("inspect graph mermaid");
+
+    assert!(output.status.success());
+    let mermaid = String::from_utf8_lossy(&output.stdout);
+    assert!(mermaid.contains("graph TD"));
+    assert!(mermaid.contains("[\"src/a.rs\"]") || mermaid.contains("[\"src/lib.rs\"]"));
+}

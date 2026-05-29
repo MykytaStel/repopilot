@@ -10,13 +10,14 @@ pub(super) fn render_findings_section<F>(summary: &ScanSummary, status_for: F) -
 where
     F: Fn(usize) -> Option<&'static str>,
 {
-    if summary.findings.is_empty() {
+    if summary.artifacts.findings.is_empty() {
         return "<p class=\"empty\">No findings found.</p>".to_string();
     }
 
     let mut output = String::new();
     for category in category_order() {
-        let category_findings = indexed_findings_for_category(&summary.findings, &category);
+        let category_findings =
+            indexed_findings_for_category(&summary.artifacts.findings, &category);
         if category_findings.is_empty() {
             continue;
         }

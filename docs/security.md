@@ -81,6 +81,26 @@ RepoPilot keeps `.github/dependabot.yml` for Cargo, npm, and GitHub Actions
 updates. Security updates still require Dependabot security updates to be enabled
 in the repository settings.
 
+## Secret handling
+
+RepoPilot treats real provider-looking tokens and high-entropy values assigned to
+secret-like names as security findings. Examples include OpenAI-style `sk-*`
+tokens, Google/Gemini `AIza*` keys, GitHub tokens, AWS access keys, JWT-like
+tokens, and other high-entropy literals.
+
+Use explicit placeholders in code samples and setup UI strings:
+
+```bash
+export OPENAI_API_KEY=<OPENAI_API_KEY>
+export GEMINI_API_KEY=${GEMINI_API_KEY}
+export ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+Placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`,
+`<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` are not treated as leaked secrets.
+If a real credential was committed, rotate it and consider the old value
+compromised even if it is later removed from the working tree.
+
 ## GitHub Actions permissions
 
 For scan-only workflows, prefer:

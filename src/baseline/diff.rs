@@ -1,12 +1,12 @@
-use crate::baseline::key::stable_finding_key;
-use crate::baseline::model::Baseline;
+use crate::baseline::key::{normalized_relative_path, stable_finding_key};
+use crate::baseline::model::{Baseline, BaselineFinding};
 use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::Finding;
 use crate::risk::apply_baseline_overlay;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -61,6 +61,7 @@ impl BaselineScanReport {
 
     pub fn findings_with_status(&self, status: BaselineStatus) -> Vec<&Finding> {
         self.summary
+            .artifacts
             .findings
             .iter()
             .enumerate()
@@ -80,6 +81,7 @@ impl BaselineScanReport {
     {
         let mut paired = self
             .summary
+            .artifacts
             .findings
             .drain(..)
             .zip(self.findings.drain(..))
@@ -88,7 +90,7 @@ impl BaselineScanReport {
         paired.retain(|(finding, _)| keep(finding));
 
         for (finding, status) in paired {
-            self.summary.findings.push(finding);
+            self.summary.artifacts.findings.push(finding);
             self.findings.push(status);
         }
 
@@ -101,19 +103,16 @@ pub fn diff_summary_against_baseline(
     baseline: &Baseline,
     baseline_path: PathBuf,
 ) -> BaselineScanReport {
-    let baseline_keys = baseline
-        .findings
-        .iter()
-        .map(|finding| finding.key.clone())
-        .collect::<HashSet<_>>();
+    let baseline_index = BaselineIndex::from_baseline(baseline);
 
-    let mut findings = status_findings(&summary, &baseline_keys);
+    let mut findings = status_findings(&summary, &baseline_index);
+    let root_path = summary.root_path.clone();
     apply_baseline_overlay(
-        &mut summary.findings,
+        &mut summary.artifacts.findings,
         &findings,
-        summary.root_path.as_path(),
+        root_path.as_path(),
     );
-    sort_findings_with_status(&mut summary.findings, &mut findings);
+    sort_findings_with_status(&mut summary.artifacts.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -123,20 +122,22 @@ pub fn diff_summary_against_baseline(
 }
 
 pub fn all_findings_new(mut summary: ScanSummary) -> BaselineScanReport {
+    let root_path = summary.root_path.clone();
     let mut findings: Vec<FindingBaselineStatus> = summary
+        .artifacts
         .findings
         .iter()
         .map(|finding| FindingBaselineStatus {
-            key: stable_finding_key(finding, &summary.root_path),
+            key: stable_finding_key(finding, &root_path),
             status: BaselineStatus::New,
         })
         .collect();
     apply_baseline_overlay(
-        &mut summary.findings,
+        &mut summary.artifacts.findings,
         &findings,
-        summary.root_path.as_path(),
+        root_path.as_path(),
     );
-    sort_findings_with_status(&mut summary.findings, &mut findings);
+    sort_findings_with_status(&mut summary.artifacts.findings, &mut findings);
 
     BaselineScanReport {
         summary,
@@ -147,16 +148,17 @@ pub fn all_findings_new(mut summary: ScanSummary) -> BaselineScanReport {
 
 fn status_findings(
     summary: &ScanSummary,
-    baseline_keys: &HashSet<String>,
+    baseline_index: &BaselineIndex,
 ) -> Vec<FindingBaselineStatus> {
     let root = summary.root_path.as_path();
 
     summary
+        .artifacts
         .findings
         .iter()
         .map(|finding| {
             let key = stable_finding_key(finding, root);
-            let status = if baseline_keys.contains(&key) {
+            let status = if baseline_index.contains_finding(finding, root, &key) {
                 BaselineStatus::Existing
             } else {
                 BaselineStatus::New
@@ -165,6 +167,97 @@ fn status_findings(
             FindingBaselineStatus { key, status }
         })
         .collect()
+}
+
+struct BaselineIndex {
+    keys: HashSet<String>,
+    legacy_descriptors: HashSet<BaselineDescriptor>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct BaselineDescriptor {
+    rule_id: String,
+    path: String,
+    message: String,
+}
+
+impl BaselineIndex {
+    fn from_baseline(baseline: &Baseline) -> Self {
+        let keys = baseline
+            .findings
+            .iter()
+            .map(|finding| finding.key.clone())
+            .collect::<HashSet<_>>();
+        let legacy_descriptors = baseline
+            .findings
+            .iter()
+            .filter(|finding| is_legacy_line_key(&finding.key))
+            .map(BaselineDescriptor::from_baseline_finding)
+            .collect::<HashSet<_>>();
+
+        Self {
+            keys,
+            legacy_descriptors,
+        }
+    }
+
+    fn contains_finding(&self, finding: &Finding, root: &Path, key: &str) -> bool {
+        self.keys.contains(key)
+            || self
+                .legacy_descriptors
+                .contains(&BaselineDescriptor::from_finding(finding, root))
+    }
+}
+
+impl BaselineDescriptor {
+    fn from_baseline_finding(finding: &BaselineFinding) -> Self {
+        Self {
+            rule_id: finding.rule_id.clone(),
+            path: clean_baseline_path(&finding.path),
+            message: finding.message.clone(),
+        }
+    }
+
+    fn from_finding(finding: &Finding, root: &Path) -> Self {
+        let path = finding
+            .evidence
+            .first()
+            .map(|evidence| normalized_relative_path(&evidence.path, root))
+            .unwrap_or_else(|| ".".to_string());
+
+        Self {
+            rule_id: finding.rule_id.clone(),
+            path: clean_baseline_path(&path),
+            message: finding.title.clone(),
+        }
+    }
+}
+
+fn is_legacy_line_key(key: &str) -> bool {
+    let Some((_, suffix)) = key.rsplit_once(':') else {
+        return false;
+    };
+
+    if let Some((start, end)) = suffix.split_once('-') {
+        return parse_positive_usize(start) && parse_positive_usize(end);
+    }
+
+    parse_positive_usize(suffix)
+}
+
+fn parse_positive_usize(value: &str) -> bool {
+    value.parse::<usize>().is_ok_and(|parsed| parsed > 0)
+}
+
+fn clean_baseline_path(path: &str) -> String {
+    let path = path.replace('\\', "/");
+    let path = path.trim_start_matches("./");
+
+    if path.is_empty() {
+        ".".to_string()
+    } else {
+        path.to_string()
+    }
 }
 
 fn sort_findings_with_status(

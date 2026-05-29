@@ -12,7 +12,3 @@ pub(super) fn extract_string_literal(s: &str) -> Option<&str> {
         None
     }
 }
-
-pub(super) fn is_relative(path: &str) -> bool {
-    path.starts_with("./") || path.starts_with("../")
-}

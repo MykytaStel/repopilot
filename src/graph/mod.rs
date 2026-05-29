@@ -6,19 +6,12 @@ pub use imports::extract_imports;
 pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-// ── Data structures ───────────────────────────────────────────────────────────
+pub use crate::scan::types::CouplingGraph;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct CouplingGraph {
-    /// Outgoing edges: source file → set of files it imports.
-    pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
-    /// Every scanned file, including those with no edges.
-    pub nodes: BTreeSet<PathBuf>,
-}
+// ── Data structures ───────────────────────────────────────────────────────────
 
 pub struct FileMetrics {
     pub path: PathBuf,
@@ -47,10 +40,6 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
-            if is_rust_module_declaration_edge(raw) {
-                continue;
-            }
-
             if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files) {
                 if target != normalized_source {
                     outgoing.insert(
@@ -71,9 +60,6 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
     }
 
     CouplingGraph { edges, nodes }
-}
-fn is_rust_module_declaration_edge(raw_import: &str) -> bool {
-    raw_import.starts_with("mod::")
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
@@ -111,6 +97,20 @@ pub fn compute_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
         .collect()
 }
 
+use std::cell::Cell;
+
+thread_local! {
+    static CYCLE_DETECTION_DEPTH_EXCEEDED: Cell<bool> = const { Cell::new(false) };
+}
+
+pub fn was_cycle_detection_depth_exceeded() -> bool {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.get())
+}
+
+pub fn clear_cycle_detection_depth_exceeded() {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(false));
+}
+
 // ── Cycle detection ───────────────────────────────────────────────────────────
 
 const MAX_DFS_DEPTH: usize = 512;
@@ -120,6 +120,7 @@ pub fn detect_cycles(graph: &CouplingGraph) -> Vec<Vec<PathBuf>> {
 }
 
 pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Vec<PathBuf>> {
+    clear_cycle_detection_depth_exceeded();
     if max_cycles == 0 {
         return Vec::new();
     }
@@ -189,6 +190,55 @@ pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Ve
     cycles
 }
 
+pub fn without_rust_module_containment_edges(graph: &CouplingGraph) -> CouplingGraph {
+    let edges = graph
+        .edges
+        .iter()
+        .map(|(source, targets)| {
+            (
+                source.clone(),
+                targets
+                    .iter()
+                    .filter(|target| !is_rust_module_containment_edge(source, target))
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+            )
+        })
+        .collect();
+
+    CouplingGraph {
+        edges,
+        nodes: graph.nodes.clone(),
+    }
+}
+
+fn is_rust_module_containment_edge(source: &Path, target: &Path) -> bool {
+    if source.extension().and_then(|ext| ext.to_str()) != Some("rs")
+        || target.extension().and_then(|ext| ext.to_str()) != Some("rs")
+    {
+        return false;
+    }
+
+    let Some(module_dir) = rust_declared_module_dir(source) else {
+        return false;
+    };
+
+    if target.parent() == Some(module_dir.as_path()) && target.file_name() != source.file_name() {
+        return true;
+    }
+
+    target.file_name().and_then(|name| name.to_str()) == Some("mod.rs")
+        && target.parent().and_then(Path::parent) == Some(module_dir.as_path())
+}
+
+fn rust_declared_module_dir(source: &Path) -> Option<PathBuf> {
+    match source.file_name().and_then(|name| name.to_str()) {
+        Some("lib.rs" | "main.rs" | "mod.rs") => source.parent().map(Path::to_path_buf),
+        Some(_) => Some(source.with_extension("")),
+        None => None,
+    }
+}
+
 struct CycleDfs<'a, 'b> {
     adj: &'a [Vec<usize>],
     state: &'a mut Vec<u8>,
@@ -204,6 +254,7 @@ impl CycleDfs<'_, '_> {
             return;
         }
         if depth > MAX_DFS_DEPTH {
+            CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(true));
             self.state[node] = 2;
             return;
         }
@@ -259,13 +310,6 @@ mod tests {
     }
 
     #[test]
-    fn rust_module_declaration_edges_are_not_coupling_edges() {
-        assert!(is_rust_module_declaration_edge("mod::child"));
-        assert!(!is_rust_module_declaration_edge("crate::child"));
-        assert!(!is_rust_module_declaration_edge("./child"));
-    }
-
-    #[test]
     fn detects_simple_two_node_cycle() {
         let graph = graph_from_edges(&[("a.rs", "b.rs"), ("b.rs", "a.rs")]);
 
@@ -292,6 +336,25 @@ mod tests {
         let cycles = detect_cycles(&graph);
 
         assert!(cycles.is_empty());
+    }
+
+    #[test]
+    fn rust_module_containment_edges_can_be_removed_before_cycle_detection() {
+        let graph = graph_from_edges(&[
+            ("src/lib.rs", "src/graph/mod.rs"),
+            ("src/graph/mod.rs", "src/graph/context.rs"),
+            ("src/graph/context.rs", "src/graph/mod.rs"),
+            ("src/a.rs", "src/b.rs"),
+            ("src/b.rs", "src/a.rs"),
+        ]);
+
+        let filtered = without_rust_module_containment_edges(&graph);
+        let cycles = detect_cycles(&filtered);
+
+        assert_eq!(
+            cycles,
+            vec![vec![PathBuf::from("src/a.rs"), PathBuf::from("src/b.rs")]]
+        );
     }
 
     #[test]

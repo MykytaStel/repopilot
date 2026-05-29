@@ -13,9 +13,13 @@ const SECRET_KEYS: &[&str] = &[
     "password",
     "passwd",
     "private_key",
+    "access_key_id",
+    "secret_access_key",
+    "access_key",
     "auth_token",
     "access_token",
     "refresh_token",
+    "token",
     "client_secret",
     "signing_key",
     "encryption_key",
@@ -97,19 +101,21 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         return None;
     }
 
-    let lower = line.to_lowercase();
+    if let Some(jwt) = find_jwt_like_token(line) {
+        return Some(build_finding(
+            line_number,
+            path,
+            "jwt-like token",
+            mask_token_in_line(line.trim(), jwt),
+        ));
+    }
 
-    if let Some(matched_key) = SECRET_KEYS.iter().find(|&&key| {
-        if !lower.contains(key) {
-            return false;
-        }
-        let after_key = lower
-            .split_once(key)
-            .map(|(_, after_key)| after_key)
-            .unwrap_or_default()
-            .trim_start();
-        assigned_value_after_key(after_key).is_some_and(is_secret_literal)
-    }) {
+    let lower = line.to_ascii_lowercase();
+
+    if let Some(matched_key) = SECRET_KEYS
+        .iter()
+        .find(|&&key| assigned_secret_value_for_key(line, &lower, key).is_some())
+    {
         return Some(build_finding(
             line_number,
             path,
@@ -118,13 +124,7 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         ));
     }
 
-    let jwt = find_jwt_like_token(line)?;
-    Some(build_finding(
-        line_number,
-        path,
-        "jwt-like token",
-        mask_token_in_line(line.trim(), jwt),
-    ))
+    None
 }
 
 include!("secret_candidate/helpers.rs");

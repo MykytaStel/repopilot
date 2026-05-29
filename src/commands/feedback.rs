@@ -70,9 +70,9 @@ impl FeedbackInspection {
         let mut summary = scan_path_with_config(path, &scan_config)?;
         let report = apply_local_feedback(&mut summary, path)?;
 
-        self.diagnostics = summary.diagnostics;
+        self.diagnostics = summary.artifacts.diagnostics;
         self.evaluation = Some(FeedbackEvaluation::from_report(
-            summary.findings.len(),
+            summary.artifacts.findings.len(),
             report,
         ));
         Ok(())

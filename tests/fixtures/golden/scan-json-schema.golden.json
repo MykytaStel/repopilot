@@ -34,7 +34,7 @@
       "rule_id": "security.secret-candidate",
       "title": "Possible hardcoded secret or API key",
       "description": "A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access.",
-      "recommendation": "Move the value to an environment variable or secrets manager. If already committed, rotate the credential and consider the old value compromised.",
+      "recommendation": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.",
       "category": "SECURITY",
       "severity": "HIGH",
       "confidence": "HIGH",

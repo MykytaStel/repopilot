@@ -3,7 +3,7 @@ use super::{AiContextRenderOptions, AiFocusCategory, render};
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::graph::context::{ContextGraphFileMetric, ContextGraphSummary, ContextRiskCluster};
 use crate::risk::RiskPriority;
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
 use std::path::PathBuf;
 
 fn make_finding(
@@ -38,14 +38,22 @@ fn make_finding(
 
 fn make_summary(findings: Vec<Finding>) -> ScanSummary {
     ScanSummary {
-        root_path: PathBuf::from("/my-project"),
-        files_discovered: 0,
-        files_analyzed: 42,
-        non_empty_lines: 3000,
-        directories_count: 10,
-        languages: vec![],
-        findings,
-        ..Default::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("/my-project"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_discovered: 0,
+            files_analyzed: 42,
+            non_empty_lines: 3000,
+            directories_count: 10,
+            languages: vec![],
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings,
+            ..Default::default()
+        },
     }
 }
 

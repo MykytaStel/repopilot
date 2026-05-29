@@ -1,6 +1,6 @@
 use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_scan_summary};
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanArtifacts, ScanMetadata, ScanSummary};
 use std::path::PathBuf;
 
 fn make_finding(pkg: Option<&str>, severity: Severity) -> Finding {
@@ -29,11 +29,17 @@ fn make_finding(pkg: Option<&str>, severity: Severity) -> Finding {
 #[test]
 fn workspace_risk_not_rendered_when_no_workspace_package() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("."),
-        findings: vec![
-            make_finding(None, Severity::High),
-            make_finding(None, Severity::Medium),
-        ],
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("."),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![
+                make_finding(None, Severity::High),
+                make_finding(None, Severity::Medium),
+            ],
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 
@@ -53,12 +59,18 @@ fn workspace_risk_not_rendered_when_no_workspace_package() {
 #[test]
 fn workspace_risk_table_aggregates_correctly() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("."),
-        findings: vec![
-            make_finding(Some("web"), Severity::Critical),
-            make_finding(Some("web"), Severity::High),
-            make_finding(Some("api"), Severity::Medium),
-        ],
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("."),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![
+                make_finding(Some("web"), Severity::Critical),
+                make_finding(Some("web"), Severity::High),
+                make_finding(Some("api"), Severity::Medium),
+            ],
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 
@@ -72,8 +84,14 @@ fn workspace_risk_table_aggregates_correctly() {
 #[test]
 fn workspace_risk_markdown_contains_table_header() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("."),
-        findings: vec![make_finding(Some("core"), Severity::High)],
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("."),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![make_finding(Some("core"), Severity::High)],
+            ..Default::default()
+        },
         ..ScanSummary::default()
     };
 

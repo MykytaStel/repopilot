@@ -2,14 +2,15 @@ use crate::output::html::escape::escape_html;
 use crate::scan::types::ScanSummary;
 
 pub(super) fn render_frameworks_section(summary: &ScanSummary) -> String {
-    if summary.detected_frameworks.is_empty()
-        && summary.framework_projects.is_empty()
-        && summary.react_native.is_none()
+    if summary.artifacts.detected_frameworks.is_empty()
+        && summary.artifacts.framework_projects.is_empty()
+        && summary.artifacts.react_native.is_none()
     {
         return String::new();
     }
 
     let labels: Vec<String> = summary
+        .artifacts
         .detected_frameworks
         .iter()
         .map(|f| format!(r#"<li class="pill">{}</li>"#, escape_html(&f.label())))
@@ -30,6 +31,7 @@ pub(super) fn render_frameworks_section(summary: &ScanSummary) -> String {
 
 fn render_framework_projects(summary: &ScanSummary, output: &mut String) {
     let nested_projects: Vec<_> = summary
+        .artifacts
         .framework_projects
         .iter()
         .filter(|project| project.path.as_path() != std::path::Path::new("."))
@@ -56,7 +58,7 @@ fn render_framework_projects(summary: &ScanSummary, output: &mut String) {
 }
 
 fn render_react_native(summary: &ScanSummary, output: &mut String) {
-    if let Some(rn) = &summary.react_native {
+    if let Some(rn) = &summary.artifacts.react_native {
         output.push_str(&format!(
             "<div class=\"panel\"><h3>React Native</h3><p class=\"meta\">Version {} | Android New Architecture {} | iOS New Architecture {} | Hermes {} | Codegen {}</p></div>",
             escape_html(rn.react_native_version.as_deref().unwrap_or("unknown")),

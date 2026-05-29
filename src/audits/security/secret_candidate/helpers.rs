@@ -13,6 +13,23 @@ fn assigned_value_after_key(after_key: &str) -> Option<&str> {
     Some(after_colon)
 }
 
+fn assigned_secret_value_for_key<'a>(line: &'a str, lower_line: &str, key: &str) -> Option<&'a str> {
+    let mut search_start = 0;
+
+    while let Some(offset) = lower_line[search_start..].find(key) {
+        let key_start = search_start + offset;
+        let after_key = &line[key_start + key.len()..];
+        if let Some(value) = assigned_value_after_key(after_key)
+            && is_secret_literal(value)
+        {
+            return Some(value);
+        }
+        search_start = key_start + key.len();
+    }
+
+    None
+}
+
 fn is_secret_literal(value: &str) -> bool {
     let value = value.trim().trim_end_matches([',', ';']).trim();
     let unquoted = value.trim_matches('"').trim_matches('\'');
@@ -26,6 +43,7 @@ fn is_secret_literal(value: &str) -> bool {
         || unquoted.starts_with('[')
         || unquoted.ends_with('…')
         || unquoted.ends_with("...")
+        || looks_like_placeholder_value(unquoted)
         || matches!(
             lower.as_str(),
             "null"
@@ -72,6 +90,55 @@ fn is_secret_literal(value: &str) -> bool {
     }
 
     is_unquoted_secret_token(unquoted)
+}
+
+fn looks_like_placeholder_value(value: &str) -> bool {
+    let lower = value.trim().to_ascii_lowercase();
+    if lower.is_empty() {
+        return true;
+    }
+
+    if lower.starts_with("replace-with-")
+        || lower.starts_with("replace_with_")
+        || lower.starts_with("your-")
+        || lower.starts_with("your_")
+        || lower.starts_with("example-")
+        || lower.starts_with("example_")
+        || lower.starts_with("sample-")
+        || lower.starts_with("sample_")
+        || lower.starts_with("fake-")
+        || lower.starts_with("fake_")
+        || lower.starts_with("dummy-")
+        || lower.starts_with("dummy_")
+        || lower.starts_with("placeholder-")
+        || lower.starts_with("placeholder_")
+    {
+        return true;
+    }
+
+    let compact = compact_secret_name(&lower);
+    if compact.is_empty() {
+        return true;
+    }
+
+    const PLACEHOLDER_PREFIXES: &[&str] = &[
+        "your",
+        "replacewith",
+        "replace",
+        "example",
+        "sample",
+        "dummy",
+        "fake",
+        "mock",
+        "demo",
+        "placeholder",
+        "insert",
+        "set",
+    ];
+
+    PLACEHOLDER_PREFIXES
+        .iter()
+        .any(|prefix| compact.starts_with(prefix) && looks_like_secret_name(&compact))
 }
 
 fn is_unquoted_secret_token(value: &str) -> bool {
@@ -221,7 +288,7 @@ fn build_finding(
         recommendation: Finding::recommendation_for_rule_id("security.secret-candidate"),
         title: "Possible secret detected".to_string(),
         description: format!(
-            "Line {line_number} in `{}` looks like it may contain a hardcoded secret (matched key: `{matched_key}`). Review and move to environment variables or a secrets manager.",
+            "Line {line_number} in `{}` looks like it may contain a hardcoded secret (matched key: `{matched_key}`). Move real credentials to environment variables or a secrets manager, and rotate the credential if it was committed.",
             path.display()
         ),
         category: FindingCategory::Security,

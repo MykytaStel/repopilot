@@ -151,4 +151,67 @@ mod tests {
             "error should include source name: {error}"
         );
     }
+
+    #[test]
+    fn bundled_knowledge_is_valid() {
+        use crate::knowledge::validate::validate_knowledge_base;
+        validate_knowledge_base(bundled_knowledge()).expect("bundled knowledge must validate");
+    }
+
+    #[test]
+    fn all_languages_have_support_and_matchers() {
+        for language in &bundled_knowledge().languages {
+            assert!(
+                !language.extensions.is_empty() || !language.filenames.is_empty(),
+                "{} must be discoverable",
+                language.id
+            );
+        }
+    }
+
+    #[test]
+    fn all_registered_rules_have_knowledge_applicability() {
+        use crate::rules::registry::all_rule_metadata;
+        use std::collections::HashSet;
+
+        let known_rules = bundled_knowledge()
+            .rule_applicability
+            .iter()
+            .map(|rule| rule.rule_id.as_str())
+            .collect::<HashSet<_>>();
+
+        for rule in all_rule_metadata() {
+            assert!(
+                known_rules.contains(rule.rule_id),
+                "{} must have a knowledge applicability entry",
+                rule.rule_id
+            );
+        }
+    }
+
+    #[test]
+    fn rule_lifecycle_requires_metadata_knowledge_and_recommendation() {
+        use crate::rules::registry::all_rule_metadata;
+        use std::collections::HashSet;
+
+        let known_rules = bundled_knowledge()
+            .rule_applicability
+            .iter()
+            .map(|rule| rule.rule_id.as_str())
+            .collect::<HashSet<_>>();
+
+        for rule in all_rule_metadata() {
+            assert!(
+                known_rules.contains(rule.rule_id),
+                "{} must have a Knowledge Engine applicability entry",
+                rule.rule_id
+            );
+            assert!(
+                rule.recommendation
+                    .is_some_and(|recommendation| !recommendation.trim().is_empty()),
+                "{} must have a user-facing recommendation",
+                rule.rule_id
+            );
+        }
+    }
 }

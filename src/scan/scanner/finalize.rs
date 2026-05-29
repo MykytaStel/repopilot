@@ -2,11 +2,12 @@ use super::summary::{ScanSummaryParts, build_scan_summary};
 use super::{ProjectAnalysisStage, ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
-    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, cache_diagnostic,
-    summarize_context_graph, write_repo_context_graph,
+    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
+    write_repo_context_graph,
 };
+use crate::scan::cache::config_fingerprint;
 use crate::scan::config::ScanConfig;
-use crate::scan::types::{ScanDiagnostic, ScanMode, ScanSummary, ScanTimings};
+use crate::scan::types::{ScanDiagnostic, ScanMode, ScanSummary, ScanTimings, cache_diagnostic};
 use std::path::Path;
 use std::time::Instant;
 
@@ -27,6 +28,12 @@ impl<'a> ScanEngine<'a> {
         let finalization_start = Instant::now();
         let context_graph = prepare_findings_and_context_graph(&mut project_stage);
         let mut diagnostics = diagnostics;
+        if crate::graph::was_cycle_detection_depth_exceeded() {
+            diagnostics.push(ScanDiagnostic::warning(
+                "graph.cycle-depth-exceeded",
+                "Cycle detection depth limit (512 hops) was exceeded; some deep transitive cycles may not have been reported.",
+            ));
+        }
         let context_graph_artifacts = build_context_graph_artifacts(
             &project_stage.facts.root_path,
             self.config,
@@ -69,7 +76,8 @@ fn build_context_graph_artifacts(
     diagnostics: &mut Vec<ScanDiagnostic>,
 ) -> ContextGraphArtifacts {
     let graph_summary = summarize_context_graph(context_graph, findings, &[]);
-    let cache = match write_repo_context_graph(root_path, config, context_graph) {
+    let fingerprint = config_fingerprint(config);
+    let cache = match write_repo_context_graph(root_path, &fingerprint, context_graph) {
         Ok(cache_info) => Some(cache_info),
         Err(error) => {
             diagnostics.push(cache_diagnostic(&error));

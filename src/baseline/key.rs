@@ -1,26 +1,25 @@
 use crate::findings::types::Finding;
+use crate::scan::cache::stable_hash_hex;
 use std::env;
 use std::path::Path;
 
 pub fn stable_finding_key(finding: &Finding, root: &Path) -> String {
     let Some(evidence) = finding.evidence.first() else {
-        return format!("{}:{}", finding.rule_id, normalize_key_part(&finding.title));
+        return format!(
+            "{}:{}",
+            finding.rule_id,
+            identity_fingerprint(&[finding.title.as_str(), finding.description.as_str(),])
+        );
     };
 
     let path = normalized_relative_path(&evidence.path, root);
-    let mut key = format!("{}:{path}", finding.rule_id);
+    let identity = if evidence.snippet.trim().is_empty() {
+        identity_fingerprint(&[finding.title.as_str(), finding.description.as_str()])
+    } else {
+        identity_fingerprint(&[finding.title.as_str(), evidence.snippet.as_str()])
+    };
 
-    if evidence.line_start > 0 {
-        key.push_str(&format!(":{}", evidence.line_start));
-    }
-
-    if let Some(line_end) = evidence.line_end
-        && line_end != evidence.line_start
-    {
-        key.push_str(&format!("-{line_end}"));
-    }
-
-    key
+    format!("{}:{path}:{identity}", finding.rule_id)
 }
 
 pub fn normalized_relative_path(path: &Path, root: &Path) -> String {
@@ -104,19 +103,79 @@ fn collapse_slashes(s: &str) -> String {
     result
 }
 
-fn normalize_key_part(value: &str) -> String {
-    value
-        .trim()
-        .to_lowercase()
+fn identity_fingerprint(parts: &[&str]) -> String {
+    let identity = parts
+        .iter()
+        .map(|part| normalize_identity_part(part))
+        .collect::<Vec<_>>()
+        .join("\n");
+    stable_hash_hex(identity.as_bytes())
         .chars()
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | '/') {
-                character
-            } else {
-                '-'
+        .take(16)
+        .collect()
+}
+
+fn normalize_identity_part(value: &str) -> String {
+    let without_string_values = mask_string_literal_values(value);
+    let mut normalized = String::with_capacity(without_string_values.len());
+    let mut previous_was_space = false;
+    let mut previous_was_digit = false;
+
+    for character in without_string_values.chars().flat_map(char::to_lowercase) {
+        if character.is_ascii_digit() {
+            if !previous_was_digit {
+                normalized.push('#');
             }
-        })
-        .collect::<String>()
-        .trim_matches('-')
-        .to_string()
+            previous_was_digit = true;
+            previous_was_space = false;
+            continue;
+        }
+
+        previous_was_digit = false;
+        if character.is_whitespace() {
+            if !previous_was_space {
+                normalized.push(' ');
+            }
+            previous_was_space = true;
+            continue;
+        }
+
+        normalized.push(character);
+        previous_was_space = false;
+    }
+
+    normalized.trim().to_string()
+}
+
+fn mask_string_literal_values(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for character in value.chars() {
+        if in_string {
+            match character {
+                '\\' if !escaped => {
+                    escaped = true;
+                }
+                '"' if !escaped => {
+                    output.push('"');
+                    in_string = false;
+                }
+                _ => {
+                    escaped = false;
+                }
+            }
+            continue;
+        }
+
+        output.push(character);
+        if character == '"' {
+            output.push('#');
+            in_string = true;
+            escaped = false;
+        }
+    }
+
+    output
 }

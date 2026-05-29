@@ -25,8 +25,8 @@ fn scanner_ignores_git_and_build_directories() {
 
     let summary = scan_path(temp.path()).expect("failed to scan");
 
-    assert_eq!(summary.files_analyzed, 1);
-    assert!(summary.findings.iter().all(|finding| {
+    assert_eq!(summary.metrics.files_analyzed, 1);
+    assert!(summary.artifacts.findings.iter().all(|finding| {
         finding
             .evidence
             .iter()
@@ -82,7 +82,7 @@ fn repopilotignore_accounting_uses_single_filtered_walk_for_files() {
 
     let summary = scan_path(temp.path()).expect("failed to scan");
 
-    assert_eq!(summary.files_discovered, 1);
-    assert_eq!(summary.files_analyzed, 1);
-    assert_eq!(summary.files_skipped_repopilotignore, 2);
+    assert_eq!(summary.metrics.files_discovered, 1);
+    assert_eq!(summary.metrics.files_analyzed, 1);
+    assert_eq!(summary.metrics.files_skipped_repopilotignore, 2);
 }

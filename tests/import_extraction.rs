@@ -111,6 +111,40 @@ fn ts_require_relative() {
 }
 
 #[test]
+fn ts_dynamic_import_relative() {
+    let code = r#"const route = import("./route");"#;
+    let imports = extract_imports(code, Some("TypeScript"));
+    assert!(imports.contains(&"./route".to_string()), "{imports:?}");
+}
+
+#[test]
+fn ts_alias_imports_are_extracted_for_resolution() {
+    let code = r##"
+        import { app } from "@app/foo";
+        import { shared } from "@/shared";
+        import theme from "~/theme";
+        import { client } from "#internal/client";
+        const route = import("@app/route");
+        const util = require("#internal/util");
+    "##;
+    let imports = extract_imports(code, Some("TypeScript"));
+
+    for expected in [
+        "@app/foo",
+        "@/shared",
+        "~/theme",
+        "#internal/client",
+        "@app/route",
+        "#internal/util",
+    ] {
+        assert!(
+            imports.contains(&expected.to_string()),
+            "expected {expected} in {imports:?}"
+        );
+    }
+}
+
+#[test]
 fn ts_type_import_and_export_from_relative() {
     let code = r#"
         import type { User } from "./types";
@@ -140,23 +174,22 @@ fn ts_non_relative_import_skipped() {
 }
 
 #[test]
-fn ts_absolute_path_skipped() {
-    // /foo/bar is an absolute path — not a local relative import
-    let code = r#"import foo from "/absolute/path";"#;
+fn ts_absolute_path_extracted_for_resolution() {
+    let code = r#"import foo from "/src/foo";"#;
     let imports = extract_imports(code, Some("TypeScript"));
     assert!(
-        imports.is_empty(),
-        "absolute path must be skipped: {imports:?}"
+        imports.contains(&"/src/foo".to_string()),
+        "root-absolute import should be passed to resolver: {imports:?}"
     );
 }
 
 #[test]
-fn ts_scoped_package_skipped() {
+fn ts_scoped_like_package_is_extracted_for_resolution() {
     let code = r#"import { x } from "@scope/package";"#;
     let imports = extract_imports(code, Some("TypeScript"));
     assert!(
-        imports.is_empty(),
-        "@-scoped package must be skipped: {imports:?}"
+        imports.contains(&"@scope/package".to_string()),
+        "@-prefixed imports should be passed to resolver: {imports:?}"
     );
 }
 
@@ -181,6 +214,21 @@ fn python_relative_double_dot() {
     let code = "from ..base import Thing\n";
     let imports = extract_imports(code, Some("Python"));
     assert!(imports.contains(&"..base".to_string()), "{imports:?}");
+}
+
+#[test]
+fn python_absolute_import() {
+    let code = "import app.models\n";
+    let imports = extract_imports(code, Some("Python"));
+    assert!(imports.contains(&"app.models".to_string()), "{imports:?}");
+}
+
+#[test]
+fn python_from_absolute_import_submodule() {
+    let code = "from app import models\n";
+    let imports = extract_imports(code, Some("Python"));
+    assert!(imports.contains(&"app".to_string()), "{imports:?}");
+    assert!(imports.contains(&"app.models".to_string()), "{imports:?}");
 }
 
 #[test]

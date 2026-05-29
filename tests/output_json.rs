@@ -4,54 +4,28 @@ use repopilot::frameworks::ReactNativeArchitectureProfile;
 use repopilot::output::{OutputFormat, render_scan_summary};
 use repopilot::risk::{RiskInputs, RiskSummary, assess_finding};
 use repopilot::scan::types::{
-    DiagnosticSeverity, HiddenSuggestionSummary, LanguageSummary, ScanDiagnostic, ScanSummary,
+    DiagnosticSeverity, HiddenSuggestionSummary, LanguageSummary, ScanArtifacts, ScanDiagnostic,
+    ScanMetadata, ScanMetrics, ScanSummary,
 };
 use std::path::PathBuf;
 
 #[test]
 fn renders_valid_json_scan_summary() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        mode: Default::default(),
-        base_ref: None,
-        changed_files_count: 0,
-        repo_level_rules_included: true,
-        files_discovered: 0,
-        files_analyzed: 1,
-        directories_count: 0,
-        non_empty_lines: 3,
-        large_files_skipped: 0,
-        files_skipped_low_signal: 0,
-        binary_files_skipped: 0,
-        skipped_bytes: 0,
-        languages: vec![LanguageSummary {
-            name: "Rust".to_string(),
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
             files_analyzed: 1,
-        }],
-        findings: vec![],
-        detected_frameworks: vec![],
-        framework_projects: vec![],
-        react_native: None,
-        coupling_graph: None,
-        context_graph_summary: None,
-        context_graph_cache: None,
-        scan_duration_us: 0,
-        health_score: 0,
-        raw_findings_count: 0,
-        visible_findings_count: 0,
-        hidden_suggestions_count: 0,
-        hidden_suggestions: Vec::new(),
-        visibility_profile: None,
-        files_skipped_by_limit: 0,
-        files_skipped_repopilotignore: 0,
-        repopilotignore_path: None,
-        scan_timings: None,
-        cache_telemetry: None,
-        local_feedback: None,
-        diagnostics: Vec::new(),
-        raw_signal_quality: Default::default(),
-        visible_signal_quality: Default::default(),
-        signal_quality: Default::default(),
+            non_empty_lines: 3,
+            languages: vec![LanguageSummary {
+                name: "Rust".to_string(),
+                files_analyzed: 1,
+            }],
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts::default(),
     };
 
     let output =
@@ -98,17 +72,25 @@ fn json_findings_include_confidence() {
     let findings = vec![finding];
     let signal_quality = summarize_signal_quality(&findings);
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        raw_findings_count: findings.len(),
-        raw_signal_quality: signal_quality.clone(),
-        visible_signal_quality: signal_quality.clone(),
-        signal_quality,
-        findings,
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            raw_findings_count: findings.len(),
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings,
+            raw_signal_quality: signal_quality.clone(),
+            visible_signal_quality: signal_quality.clone(),
+            signal_quality,
+            ..Default::default()
+        },
     };
-    let risk_summary = RiskSummary::from_findings(&summary.findings);
+    let risk_summary = RiskSummary::from_findings(&summary.artifacts.findings);
     assert_eq!(risk_summary.total, 1);
-    assert_eq!(risk_summary.counts.p2, 1);
+    assert_eq!(risk_summary.counts.p3, 1);
 
     let output =
         render_scan_summary(&summary, OutputFormat::Json).expect("failed to render json summary");
@@ -117,11 +99,11 @@ fn json_findings_include_confidence() {
 
     assert_eq!(parsed["findings"][0]["confidence"], "HIGH");
     assert_eq!(parsed["risk_summary"]["total"], 1);
-    assert_eq!(parsed["risk_summary"]["counts"]["p2"], 1);
-    assert_eq!(parsed["risk_summary"]["highest_priority"], "P2");
-    assert_eq!(parsed["risk_summary"]["average_score"], 50);
-    assert_eq!(parsed["findings"][0]["risk"]["priority"], "P2");
-    assert_eq!(parsed["findings"][0]["risk"]["score"], 50);
+    assert_eq!(parsed["risk_summary"]["counts"]["p3"], 1);
+    assert_eq!(parsed["risk_summary"]["highest_priority"], "P3");
+    assert_eq!(parsed["risk_summary"]["average_score"], 38);
+    assert_eq!(parsed["findings"][0]["risk"]["priority"], "P3");
+    assert_eq!(parsed["findings"][0]["risk"]["score"], 38);
     assert_eq!(
         parsed["findings"][0]["risk"]["signals"][0]["id"],
         "severity.medium"
@@ -148,27 +130,33 @@ fn json_findings_include_confidence() {
 #[test]
 fn react_native_profile_appears_in_json_when_present() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("rn-app"),
-        react_native: Some(ReactNativeArchitectureProfile {
-            detected: true,
-            react_native_version: Some("0.73.0".to_string()),
-            has_ios: true,
-            has_android: true,
-            has_metro_config: true,
-            has_react_native_config: false,
-            has_expo_config: true,
-            has_codegen_config: true,
-            expo_new_arch_enabled: Some(true),
-            android_new_arch_enabled: Some(true),
-            ios_new_arch_enabled: None,
-            android_hermes_enabled: Some(true),
-            hermes_enabled: Some(true),
-            package_manager: Some("npm".to_string()),
-            android_gradle_properties_found: true,
-            ios_podfile_found: false,
-            ..ReactNativeArchitectureProfile::default()
-        }),
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("rn-app"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics::default(),
+        artifacts: ScanArtifacts {
+            react_native: Some(ReactNativeArchitectureProfile {
+                detected: true,
+                react_native_version: Some("0.73.0".to_string()),
+                has_ios: true,
+                has_android: true,
+                has_metro_config: true,
+                has_react_native_config: false,
+                has_expo_config: true,
+                has_codegen_config: true,
+                expo_new_arch_enabled: Some(true),
+                android_new_arch_enabled: Some(true),
+                ios_new_arch_enabled: None,
+                android_hermes_enabled: Some(true),
+                hermes_enabled: Some(true),
+                package_manager: Some("npm".to_string()),
+                android_gradle_properties_found: true,
+                ios_podfile_found: false,
+                ..ReactNativeArchitectureProfile::default()
+            }),
+            ..Default::default()
+        },
     };
 
     let output =
@@ -193,16 +181,24 @@ fn react_native_profile_appears_in_json_when_present() {
 #[test]
 fn json_scan_report_includes_hidden_suggestion_breakdown() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        hidden_suggestions_count: 4,
-        hidden_suggestions: vec![HiddenSuggestionSummary {
-            intent: "maintainability".to_string(),
-            rule_id: "code-quality.long-function".to_string(),
-            category: "code-quality".to_string(),
-            reason: "maintainability signals are hidden in the default profile".to_string(),
-            count: 4,
-        }],
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            hidden_suggestions_count: 4,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            hidden_suggestions: vec![HiddenSuggestionSummary {
+                intent: "maintainability".to_string(),
+                rule_id: "code-quality.long-function".to_string(),
+                category: "code-quality".to_string(),
+                reason: "maintainability signals are hidden in the default profile".to_string(),
+                count: 4,
+            }],
+            ..Default::default()
+        },
     };
 
     let output =
@@ -222,14 +218,20 @@ fn json_scan_report_includes_hidden_suggestion_breakdown() {
 #[test]
 fn json_scan_report_includes_structured_diagnostics() {
     let summary = ScanSummary {
-        root_path: PathBuf::from("demo"),
-        diagnostics: vec![ScanDiagnostic {
-            code: "workspace.package-scan-failed".to_string(),
-            severity: DiagnosticSeverity::Warning,
-            message: "Package scan failed; results are partial.".to_string(),
-            path: Some(PathBuf::from("packages/api")),
-        }],
-        ..ScanSummary::default()
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("demo"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics::default(),
+        artifacts: ScanArtifacts {
+            diagnostics: vec![ScanDiagnostic {
+                code: "workspace.package-scan-failed".to_string(),
+                severity: DiagnosticSeverity::Warning,
+                message: "Package scan failed; results are partial.".to_string(),
+                path: Some(PathBuf::from("packages/api")),
+            }],
+            ..Default::default()
+        },
     };
 
     let output =

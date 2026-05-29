@@ -1,9 +1,14 @@
 use super::*;
+use sha2::{Digest, Sha256};
+use std::process::Command;
 
-pub fn load_repo_context_graph(root: &Path, config: &ScanConfig) -> Option<RepoContextGraphLoad> {
+pub fn load_repo_context_graph(
+    root: &Path,
+    config_fingerprint: &str,
+) -> Option<RepoContextGraphLoad> {
     let cache_path = context_graph_cache_path(root);
     let cached = read_cached_repo_context_graph(&cache_path)?;
-    if !valid_cached_graph(&cached, config) {
+    if !valid_cached_graph(&cached, root, config_fingerprint) {
         return None;
     }
 
@@ -21,7 +26,7 @@ pub fn load_repo_context_graph(root: &Path, config: &ScanConfig) -> Option<RepoC
 
 pub fn write_repo_context_graph(
     root: &Path,
-    config: &ScanConfig,
+    config_fingerprint: &str,
     graph: &RepoContextGraph,
 ) -> io::Result<ContextGraphCacheInfo> {
     let cache_path = context_graph_cache_path(root);
@@ -29,9 +34,10 @@ pub fn write_repo_context_graph(
         fs::create_dir_all(parent)?;
     }
     let (input_fingerprint, graph_fingerprint) = context_graph_fingerprints(graph);
+    let repository_fingerprint = repository_fingerprint(root);
 
     if let Some(cached) = read_cached_repo_context_graph(&cache_path)
-        && valid_cached_graph_metadata(&cached, config)
+        && valid_cached_graph_metadata(&cached, root, config_fingerprint)
         && cached.input_fingerprint == input_fingerprint
         && cached.graph_fingerprint == graph_fingerprint
     {
@@ -45,8 +51,9 @@ pub fn write_repo_context_graph(
     let cached = CachedRepoContextGraph {
         schema_version: CONTEXT_GRAPH_SCHEMA_VERSION,
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-        config_fingerprint: config_fingerprint(config),
+        config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
+        repository_fingerprint,
         input_fingerprint,
         graph_fingerprint,
         graph: graph.clone(),
@@ -69,15 +76,12 @@ pub fn context_graph_cache_miss(root: &Path, reason: &str) -> ContextGraphCacheI
     }
 }
 
-pub fn cache_diagnostic(error: &io::Error) -> ScanDiagnostic {
-    ScanDiagnostic::warning(
-        "context-graph.cache-write-failed",
-        format!("Could not write context graph cache: {error}"),
-    )
-}
-
-fn valid_cached_graph(cached: &CachedRepoContextGraph, config: &ScanConfig) -> bool {
-    if !valid_cached_graph_metadata(cached, config) {
+fn valid_cached_graph(
+    cached: &CachedRepoContextGraph,
+    root: &Path,
+    config_fingerprint: &str,
+) -> bool {
+    if !valid_cached_graph_metadata(cached, root, config_fingerprint) {
         return false;
     }
 
@@ -85,15 +89,25 @@ fn valid_cached_graph(cached: &CachedRepoContextGraph, config: &ScanConfig) -> b
     cached.input_fingerprint == input_fingerprint && cached.graph_fingerprint == graph_fingerprint
 }
 
-fn valid_cached_graph_metadata(cached: &CachedRepoContextGraph, config: &ScanConfig) -> bool {
+fn valid_cached_graph_metadata(
+    cached: &CachedRepoContextGraph,
+    root: &Path,
+    config_fingerprint: &str,
+) -> bool {
     cached.schema_version == CONTEXT_GRAPH_SCHEMA_VERSION
         && cached.repopilot_version == env!("CARGO_PKG_VERSION")
-        && cached.config_fingerprint == config_fingerprint(config)
+        && cached.config_fingerprint == config_fingerprint
         && cached.resolver_version == CONTEXT_GRAPH_RESOLVER_VERSION
+        && cached.repository_fingerprint == repository_fingerprint(root)
 }
 
 pub fn context_graph_cache_path(root: &Path) -> PathBuf {
-    cache_dir(root).join(CONTEXT_GRAPH_CACHE_NAME)
+    root.join(".repopilot/cache").join(CONTEXT_GRAPH_CACHE_NAME)
+}
+
+fn stable_hash_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
@@ -130,6 +144,32 @@ fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
 fn read_cached_repo_context_graph(path: &Path) -> Option<CachedRepoContextGraph> {
     let content = fs::read_to_string(path).ok()?;
     serde_json::from_str::<CachedRepoContextGraph>(&content).ok()
+}
+
+fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
+    let head_oid = git_output(root, &["rev-parse", "HEAD"])?;
+    let head_tree_oid = git_output(root, &["rev-parse", "HEAD^{tree}"])?;
+    let branch = git_output(root, &["branch", "--show-current"]).filter(|value| !value.is_empty());
+
+    Some(RepositoryFingerprint {
+        head_oid,
+        head_tree_oid,
+        branch,
+    })
+}
+
+fn git_output(root: &Path, args: &[&str]) -> Option<String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .ok()?;
+
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {

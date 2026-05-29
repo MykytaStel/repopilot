@@ -60,6 +60,10 @@ pub mod risk {
     };
 }
 
+pub mod error {
+    pub use crate::error::Error;
+}
+
 pub mod rules {
     pub use crate::rules::{
         RuleLifecycle, RuleMetadata, SignalSource, all_rule_metadata, lookup_rule_metadata,

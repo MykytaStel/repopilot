@@ -168,5 +168,12 @@ fn relative_edges(
 }
 
 fn relative_graph_path(root: &Path, path: &Path) -> PathBuf {
-    PathBuf::from(relative_cache_path(root, path))
+    let rel = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_start_matches("./")
+        .to_string();
+    PathBuf::from(rel)
 }

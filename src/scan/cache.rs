@@ -164,7 +164,81 @@ pub fn file_hash_entry(root: &Path, path: &Path) -> io::Result<FileHashEntry> {
     })
 }
 
-include!("cache/fingerprint.rs");
+pub fn config_fingerprint(config: &ScanConfig) -> String {
+    let input = CacheFingerprintInput {
+        cache_schema_version: CACHE_SCHEMA_VERSION,
+        repopilot_version: env!("CARGO_PKG_VERSION"),
+        scan_config: config,
+        file_audits: registered_file_audits(config)
+            .into_iter()
+            .map(|registration| AuditFingerprint {
+                audit_id: registration.metadata.audit_id,
+                kind: registration.metadata.kind.label(),
+                category: registration.metadata.category,
+                rule_ids: registration.metadata.rule_ids.to_vec(),
+            })
+            .collect(),
+        project_audits: registered_project_audits(config)
+            .into_iter()
+            .map(|registration| AuditFingerprint {
+                audit_id: registration.metadata.audit_id,
+                kind: registration.metadata.kind.label(),
+                category: registration.metadata.category,
+                rule_ids: registration.metadata.rule_ids.to_vec(),
+            })
+            .collect(),
+        rules: all_rule_metadata()
+            .map(|rule| RuleFingerprint {
+                rule_id: rule.rule_id,
+                title: rule.title,
+                category: rule.category.clone(),
+                default_severity: rule.default_severity,
+                docs_url: rule.docs_url,
+                description: rule.description,
+                recommendation: rule.recommendation,
+            })
+            .collect(),
+    };
+
+    match serde_json::to_vec(&input) {
+        Ok(bytes) => stable_hash_hex(&bytes),
+        Err(_) => stable_hash_hex(format!("{config:?}:{}", CACHE_SCHEMA_VERSION).as_bytes()),
+    }
+}
+
+pub fn stable_hash_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[derive(Serialize)]
+struct CacheFingerprintInput<'a> {
+    cache_schema_version: u32,
+    repopilot_version: &'static str,
+    scan_config: &'a ScanConfig,
+    file_audits: Vec<AuditFingerprint>,
+    project_audits: Vec<AuditFingerprint>,
+    rules: Vec<RuleFingerprint>,
+}
+
+#[derive(Serialize)]
+struct AuditFingerprint {
+    audit_id: &'static str,
+    kind: &'static str,
+    category: FindingCategory,
+    rule_ids: Vec<&'static str>,
+}
+
+#[derive(Serialize)]
+struct RuleFingerprint {
+    rule_id: &'static str,
+    title: &'static str,
+    category: FindingCategory,
+    default_severity: Severity,
+    docs_url: Option<&'static str>,
+    description: &'static str,
+    recommendation: Option<&'static str>,
+}
 
 pub fn relative_cache_path(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
@@ -223,19 +297,98 @@ impl CachePath for FindingsEntry {
     }
 }
 
+/// File-hash and file-role caches store only file metadata (path, hash, LOC,
+/// language). They do not depend on which rules are active, so they only need
+/// to be invalidated when the binary schema changes — not on every version
+/// bump. This lets incremental rescans stay warm across patch releases.
 fn valid_file_hashes_cache(cache: &FileHashesCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
-        && cache.repopilot_version == env!("CARGO_PKG_VERSION")
 }
 
+/// See `valid_file_hashes_cache` — same rationale.
 fn valid_file_roles_cache(cache: &FileRolesCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
-        && cache.repopilot_version == env!("CARGO_PKG_VERSION")
 }
 
+/// The findings cache header is also validated by schema version only.
+/// Per-entry invalidation is handled by `FindingsEntry::config_fingerprint`,
+/// which is a hash of every active rule + config setting computed by
+/// `config_fingerprint()` in `cache/fingerprint.rs`. When rules change,
+/// the fingerprint changes and that entry is skipped; unaffected entries
+/// remain valid across version bumps.
 fn valid_findings_cache(cache: &FindingsCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
-        && cache.repopilot_version == env!("CARGO_PKG_VERSION")
 }
 
-include!("cache/diagnostics.rs");
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CacheDiagnostics {
+    pub cache_dir: PathBuf,
+    pub exists: bool,
+    pub schema_version: u32,
+    pub repopilot_version: String,
+    pub approximate_size_bytes: u64,
+    pub file_hashes_count: usize,
+    pub file_roles_count: usize,
+    pub findings_count: usize,
+    pub stale_entries_count: usize,
+}
+
+pub fn inspect_cache(root: &Path) -> CacheDiagnostics {
+    let cache_root = cache_dir(root);
+    let exists = cache_root.is_dir();
+    let cache = ScanCache::load(root);
+
+    CacheDiagnostics {
+        cache_dir: cache_root.clone(),
+        exists,
+        schema_version: CACHE_SCHEMA_VERSION,
+        repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
+        approximate_size_bytes: directory_size_bytes(&cache_root),
+        file_hashes_count: cache.file_hashes.len(),
+        file_roles_count: cache.file_roles.len(),
+        findings_count: cache.findings.len(),
+        stale_entries_count: stale_cache_entries_count(&cache),
+    }
+}
+
+fn stale_cache_entries_count(cache: &ScanCache) -> usize {
+    let mut count = 0;
+
+    for key in cache.file_hashes.keys() {
+        if !cache.file_roles.contains_key(key) || !cache.findings.contains_key(key) {
+            count += 1;
+        }
+    }
+
+    for key in cache.file_roles.keys() {
+        if !cache.file_hashes.contains_key(key) {
+            count += 1;
+        }
+    }
+
+    for key in cache.findings.keys() {
+        if !cache.file_hashes.contains_key(key) {
+            count += 1;
+        }
+    }
+
+    count
+}
+
+fn directory_size_bytes(path: &Path) -> u64 {
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let entry_path = entry.path();
+            match entry.metadata() {
+                Ok(metadata) if metadata.is_file() => metadata.len(),
+                Ok(metadata) if metadata.is_dir() => directory_size_bytes(&entry_path),
+                _ => 0,
+            }
+        })
+        .sum()
+}

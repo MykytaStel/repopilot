@@ -44,7 +44,7 @@ fn top_recommendations_shown_for_high_findings() {
 #[test]
 fn ai_context_includes_context_risk_graph_sections() {
     let mut summary = make_summary(vec![]);
-    summary.context_graph_summary = Some(context_graph_summary());
+    summary.artifacts.context_graph_summary = Some(context_graph_summary());
 
     let output = render(&summary, &AiContextRenderOptions::default());
 

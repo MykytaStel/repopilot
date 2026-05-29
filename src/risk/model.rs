@@ -26,24 +26,49 @@ pub struct RiskFormula {
 }
 
 impl RiskFormula {
+    /// The default runtime calibration formula weights.
     pub const CURRENT: Self = Self {
         version: FORMULA_VERSION,
+        // Base severity scores (0-100 range)
+        // Critical findings represent immediate action items (e.g. committed credentials).
         severity_critical: 95,
+        // High findings point to high-impact architectural risks or severe issues.
         severity_high: 75,
+        // Medium findings capture common code quality and minor design flaws.
         severity_medium: 45,
+        // Low findings represent minor warnings with low potential runtime impact.
         severity_low: 20,
+        // Info findings are informational and carry negligible base risk.
         severity_info: 5,
+
+        // Confidence multipliers (percentage multipliers applied to base severity)
+        // Boost score slightly for high-confidence static findings.
         confidence_high_percent: 110,
+        // Keep standard score for medium-confidence findings.
         confidence_medium_percent: 100,
+        // Penalize/dampen score for lower confidence heuristics.
         confidence_low_percent: 80,
+
+        // Category & Context weights (added directly to final score)
+        // Security findings carry a high category penalty due to potential breach risks.
         security_category_weight: 12,
+        // Touch findings that appear directly in git diffs get higher visibility priority.
         review_in_diff_weight: 12,
+        // Hotspot files have higher density of findings/churn, increasing risk.
         workspace_hotspot_weight: 5,
+        // Graph hubs are heavily imported, so findings inside them spread risk downstream.
         graph_hub_weight: 8,
+        // Shared dependencies carry moderate graph propagation risk.
         graph_dependency_weight: 5,
+        // A wide downstream blast radius adds weight to the risk.
         blast_radius_weight: 6,
+
+        // Cluster weights (penalties for repeated/correlated findings in the same scope)
+        // Small cluster penalty (2-3 correlated findings).
         cluster_small_weight: 3,
+        // Medium cluster penalty (4-7 correlated findings).
         cluster_medium_weight: 5,
+        // Large cluster penalty (8+ correlated findings).
         cluster_large_weight: 7,
     };
 }

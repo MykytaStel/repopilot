@@ -14,7 +14,7 @@ const TOOL_NAME: &str = "RepoPilot";
 const TOOL_INFORMATION_URI: &str = "https://github.com/MykytaStel/repopilot";
 
 pub fn scan_summary_to_sarif(summary: &ScanSummary, root: &Path) -> SarifLog {
-    findings_to_sarif(&summary.findings, root)
+    findings_to_sarif(&summary.artifacts.findings, root)
 }
 
 pub fn render(summary: &ScanSummary) -> Result<String, serde_json::Error> {
@@ -45,6 +45,7 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
 fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
     let properties = report
         .summary
+        .artifacts
         .findings
         .iter()
         .enumerate()
@@ -65,7 +66,7 @@ fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
         .collect();
 
     findings_to_sarif_with_properties(
-        &report.summary.findings,
+        &report.summary.artifacts.findings,
         &report.summary.root_path,
         properties,
     )
