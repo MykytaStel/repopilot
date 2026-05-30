@@ -186,7 +186,7 @@ fn render_markdown(report: &ExplainReport) -> String {
     if let Some(lang_family) = &report.context.language_family {
         output.push_str(&format!("- **Language family:** `{}`\n\n", lang_family));
     } else {
-        output.push_str("\n");
+        output.push('\n');
     }
 
     output.push_str("## Rule decision\n\n");
