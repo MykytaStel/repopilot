@@ -86,6 +86,43 @@ fn is_control_flow_node(kind: &str, language: &str) -> bool {
                 | "match_statement"
                 | "try_statement"
         ),
+        "Go" => matches!(
+            kind,
+            "if_statement"
+                | "for_statement"
+                | "expression_switch_statement"
+                | "type_switch_statement"
+                | "select_statement"
+        ),
+        "Java" => matches!(
+            kind,
+            "if_statement"
+                | "for_statement"
+                | "enhanced_for_statement"
+                | "while_statement"
+                | "do_statement"
+                | "switch_statement"
+                | "try_statement"
+        ),
+        "CSharp" | "C#" => matches!(
+            kind,
+            "if_statement"
+                | "for_statement"
+                | "foreach_statement"
+                | "while_statement"
+                | "do_statement"
+                | "switch_statement"
+                | "try_statement"
+        ),
+        "Kotlin" => matches!(
+            kind,
+            "if_expression"
+                | "when_expression"
+                | "for_statement"
+                | "while_statement"
+                | "do_while_statement"
+                | "try_expression"
+        ),
         _ => matches!(
             kind,
             "if_statement"
@@ -102,12 +139,25 @@ fn is_control_flow_node(kind: &str, language: &str) -> bool {
 
 fn is_else_if(node: Node<'_>, language: &str) -> bool {
     let kind = node.kind();
-    if (language == "Rust" && kind == "if_expression")
-        || (language != "Rust" && kind == "if_statement")
-    {
+    let is_if = match language {
+        "Rust" | "Kotlin" => kind == "if_expression",
+        _ => kind == "if_statement",
+    };
+    if is_if {
         if let Some(parent) = node.parent() {
-            if parent.kind() == "else_clause" {
+            if parent.kind() == "else_clause" || parent.kind() == "else" {
                 return true;
+            }
+            if language == "Kotlin" && parent.kind() == "if_expression" {
+                let mut cursor = parent.walk();
+                let mut saw_else = false;
+                for child in parent.children(&mut cursor) {
+                    if child.kind() == "else" {
+                        saw_else = true;
+                    } else if child.id() == node.id() {
+                        return saw_else;
+                    }
+                }
             }
         }
     }
