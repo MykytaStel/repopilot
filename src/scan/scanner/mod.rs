@@ -3,6 +3,7 @@ mod changed_cache;
 mod changed_git;
 mod changed_telemetry;
 mod collection;
+mod contract_stage;
 mod file;
 mod finalize;
 mod summary;
@@ -12,13 +13,16 @@ use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
+use crate::findings::types::Finding;
 use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
     detect_react_native_architecture,
 };
+use crate::graph::CouplingGraph;
 use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
+use crate::scan::facts::ScanFacts;
 use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
@@ -42,8 +46,8 @@ pub struct ScanEngine<'a> {
 }
 
 struct FileAnalysisStage {
-    facts: crate::scan::facts::ScanFacts,
-    findings: Vec<crate::findings::types::Finding>,
+    facts: ScanFacts,
+    findings: Vec<Finding>,
     elapsed_us: u64,
 }
 
@@ -53,14 +57,14 @@ struct DiscoveryStage {
 }
 
 struct FrameworkDetectionStage {
-    facts: crate::scan::facts::ScanFacts,
+    facts: ScanFacts,
     elapsed_us: u64,
 }
 
 struct ProjectAnalysisStage {
-    facts: crate::scan::facts::ScanFacts,
-    findings: Vec<crate::findings::types::Finding>,
-    coupling_graph: crate::graph::CouplingGraph,
+    facts: ScanFacts,
+    findings: Vec<Finding>,
+    coupling_graph: CouplingGraph,
     elapsed_us: u64,
 }
 
@@ -84,7 +88,7 @@ impl<'a> ScanEngine<'a> {
             &mut project_stage.findings,
         );
         let contract_stage =
-            crate::engine::pipeline::validate_finding_contract_stage(&project_stage.findings);
+            contract_stage::validate_finding_contract_stage(&project_stage.findings);
         let signal_quality = summarize_signal_quality_with_contract_violations(
             &project_stage.findings,
             contract_stage.report.violations.len(),
@@ -138,10 +142,7 @@ impl<'a> ScanEngine<'a> {
         })
     }
 
-    fn run_framework_detection(
-        &self,
-        mut facts: crate::scan::facts::ScanFacts,
-    ) -> FrameworkDetectionStage {
+    fn run_framework_detection(&self, mut facts: ScanFacts) -> FrameworkDetectionStage {
         let start = Instant::now();
         facts.detected_frameworks = detect_frameworks(&facts.root_path);
         facts.framework_projects = detect_framework_projects(&facts.root_path);
@@ -170,8 +171,8 @@ impl<'a> ScanEngine<'a> {
 
     fn run_project_analysis(
         &self,
-        facts: crate::scan::facts::ScanFacts,
-        mut findings: Vec<crate::findings::types::Finding>,
+        facts: ScanFacts,
+        mut findings: Vec<Finding>,
     ) -> ProjectAnalysisStage {
         let start = Instant::now();
         let ((project_findings, framework_findings), (coupling_findings, coupling_graph)) =
@@ -198,9 +199,9 @@ impl<'a> ScanEngine<'a> {
 
     fn score_findings(
         &self,
-        facts: &crate::scan::facts::ScanFacts,
-        coupling_graph: &crate::graph::CouplingGraph,
-        findings: &mut [crate::findings::types::Finding],
+        facts: &ScanFacts,
+        coupling_graph: &CouplingGraph,
+        findings: &mut [Finding],
     ) -> u64 {
         let start = Instant::now();
         assess_findings(findings, facts);

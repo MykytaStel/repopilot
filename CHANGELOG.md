@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Stabilized `architecture.deep-nesting` rule semantics to analyze production directory nesting depth rather than AST control-flow nesting depth.
 - Scoped `architecture.deep-nesting` through a shared production architecture path policy so fixtures, tests, docs, examples, generated files, vendor trees, and build output do not become user-facing architecture findings.
+- Folded the thin internal `engine` module into the scan pipeline as a co-located `scan::scanner::contract_stage` finding-contract validation stage and tidied scan-engine imports. Internal refactor only; no behavior or public API change.
 
 ## [0.13.0] - 2026-05-25
 
