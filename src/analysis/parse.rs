@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn parsed_file_without_grammar_has_no_tree() {
-        assert!(ParsedFile::new("package main", Some("Go")).tree().is_none());
+        assert!(ParsedFile::new("class Main", Some("Ruby")).tree().is_none());
         assert!(ParsedFile::new("anything", None).tree().is_none());
     }
 
