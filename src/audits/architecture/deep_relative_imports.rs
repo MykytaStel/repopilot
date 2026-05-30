@@ -9,10 +9,15 @@ const MIN_DEEP_RELATIVE_DEPTH: usize = 3;
 pub struct DeepRelativeImportsAudit;
 
 impl ProjectAudit for DeepRelativeImportsAudit {
-    fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
+    fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
+        let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         facts
             .files
             .iter()
+            .filter(|file| {
+                let context = classifier.classify(file);
+                context.file_role == crate::analysis::FileRole::Production
+            })
             .filter_map(find_deep_relative_import)
             .collect()
     }

@@ -27,10 +27,68 @@ pub struct ScanConfig {
     pub instability_hub_min_fan_in: usize,
     pub instability_hub_min_instability_pct: usize,
     pub max_control_flow_depth: usize,
+    pub module_mappings: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 impl Default for ScanConfig {
     fn default() -> Self {
+        let mut module_mappings = std::collections::BTreeMap::new();
+        module_mappings.insert(
+            "feature".to_string(),
+            vec![
+                "**/features/**".to_string(),
+                "**/apps/**".to_string(),
+                "**/pages/**".to_string(),
+            ],
+        );
+        module_mappings.insert(
+            "shared".to_string(),
+            vec![
+                "**/shared/**".to_string(),
+                "**/utils/**".to_string(),
+                "**/common/**".to_string(),
+                "**/helpers/**".to_string(),
+            ],
+        );
+        module_mappings.insert(
+            "infrastructure".to_string(),
+            vec![
+                "**/infra/**".to_string(),
+                "**/infrastructure/**".to_string(),
+                "**/db/**".to_string(),
+                "**/database/**".to_string(),
+                "**/persistence/**".to_string(),
+                "**/gateways/**".to_string(),
+            ],
+        );
+        module_mappings.insert(
+            "domain".to_string(),
+            vec![
+                "**/domain/**".to_string(),
+                "**/domains/**".to_string(),
+                "**/model/**".to_string(),
+                "**/models/**".to_string(),
+                "**/entities/**".to_string(),
+            ],
+        );
+        module_mappings.insert(
+            "ui".to_string(),
+            vec![
+                "**/ui/**".to_string(),
+                "**/components/**".to_string(),
+                "**/views/**".to_string(),
+                "**/screens/**".to_string(),
+            ],
+        );
+        module_mappings.insert(
+            "cli".to_string(),
+            vec![
+                "**/cli/**".to_string(),
+                "**/bin/**".to_string(),
+                "**/commands/**".to_string(),
+            ],
+        );
+
         Self {
             ignored_paths: default_ignored_paths(),
             exclude_patterns: Vec::new(),
@@ -50,6 +108,7 @@ impl Default for ScanConfig {
             instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
             max_control_flow_depth: DEFAULT_MAX_CONTROL_FLOW_DEPTH,
+            module_mappings,
         }
     }
 }

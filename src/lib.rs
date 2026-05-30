@@ -16,6 +16,7 @@
 //! Rust embedding consumers should use the `api` facade. Other modules are
 //! implementation detail for the CLI and may change during the pre-1.0 line.
 
+pub mod analysis;
 pub mod api;
 pub mod error;
 

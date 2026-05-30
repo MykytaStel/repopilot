@@ -36,6 +36,10 @@ pub fn build_explain_report(
     };
 
     let audit_context = classify_file(&file);
+    let arch_context = crate::analysis::classify_file_architecture(
+        &file,
+        &crate::scan::config::ScanConfig::default(),
+    );
     let language_id = audit_context.language_id();
     let language_support =
         profile_by_id(language_id).map(|profile| support_level_label(profile.support).to_string());
@@ -65,6 +69,9 @@ pub fn build_explain_report(
             .collect(),
         is_test: audit_context.is_test,
         is_production_code: audit_context.is_production_code(),
+        architecture_role: Some(format!("{:?}", arch_context.file_role)),
+        module_kind: Some(format!("{:?}", arch_context.module_kind)),
+        language_family: Some(format!("{:?}", arch_context.language_family)),
     };
 
     let decision = rule_id.map(|rule_id| {

@@ -63,6 +63,15 @@ fn render_console(report: &ExplainReport) -> String {
         " Production code: {}\n",
         yes_no(report.context.is_production_code)
     ));
+    if let Some(arch_role) = &report.context.architecture_role {
+        output.push_str(&format!(" Architecture role: {}\n", arch_role));
+    }
+    if let Some(mod_kind) = &report.context.module_kind {
+        output.push_str(&format!(" Module kind: {}\n", mod_kind));
+    }
+    if let Some(lang_family) = &report.context.language_family {
+        output.push_str(&format!(" Language family: {}\n", lang_family));
+    }
 
     output.push_str("\nRule decision:\n");
     match &report.decision {
@@ -165,9 +174,20 @@ fn render_markdown(report: &ExplainReport) -> String {
         yes_no(report.context.is_test)
     ));
     output.push_str(&format!(
-        "- **Production code:** {}\n\n",
+        "- **Production code:** {}\n",
         yes_no(report.context.is_production_code)
     ));
+    if let Some(arch_role) = &report.context.architecture_role {
+        output.push_str(&format!("- **Architecture role:** `{}`\n", arch_role));
+    }
+    if let Some(mod_kind) = &report.context.module_kind {
+        output.push_str(&format!("- **Module kind:** `{}`\n", mod_kind));
+    }
+    if let Some(lang_family) = &report.context.language_family {
+        output.push_str(&format!("- **Language family:** `{}`\n\n", lang_family));
+    } else {
+        output.push('\n');
+    }
 
     output.push_str("## Rule decision\n\n");
     match &report.decision {

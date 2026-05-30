@@ -1,3 +1,4 @@
+use crate::analysis::{FileRole, classify_file_architecture};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
@@ -9,6 +10,11 @@ pub struct LargeFileAudit;
 
 impl FileAudit for LargeFileAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        let arch_ctx = classify_file_architecture(file, config);
+        if arch_ctx.file_role != FileRole::Production {
+            return vec![];
+        }
+
         detect_large_file_finding(&file.path, file.non_empty_lines, config)
             .and_then(|finding| apply_file_decision("architecture.large-file", file, finding, None))
             .into_iter()

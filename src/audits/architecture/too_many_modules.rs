@@ -13,8 +13,13 @@ pub struct TooManyModulesAudit;
 impl ProjectAudit for TooManyModulesAudit {
     fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
         let mut dir_file_counts: HashMap<PathBuf, usize> = HashMap::new();
+        let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
 
         for file in &facts.files {
+            let context = classifier.classify(file);
+            if context.file_role != crate::analysis::FileRole::Production {
+                continue;
+            }
             if is_low_signal_audit_path(&file.path) {
                 continue;
             }
