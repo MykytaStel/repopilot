@@ -31,8 +31,25 @@ Track `scan_timings.accounted_engine_us()` from the timing breakdown and
 numbers as supporting context only; the budget should focus on accounted engine
 timing so CI host variance does not create noisy failures.
 
+## Benchmark
+
+A Criterion benchmark builds a synthetic 480-file multi-language repository
+(Rust, TypeScript, Python, Go) in a temp directory and measures full-scan wall
+time:
+
+```bash
+cargo bench --bench scan_bench
+```
+
+The benchmark lives in `benches/scan_bench.rs`. Use it to record a baseline
+before scan-engine changes — notably the shared parsed-AST work — and to prove
+the expected speedup afterwards. Criterion stores results under
+`target/criterion` and reports the delta versus the previous run, so benchmark
+`main` first, then the change branch.
+
 ## Fixture Direction
 
 Add small, medium, and large synthetic repositories before enforcing this as a
 hard CI gate. The gate should fail on major regressions only after fixture timing
-is stable on the project CI runners.
+is stable on the project CI runners. The `scan_bench` synthetic repository is the
+first such fixture.

@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - Added architecture anti-pattern documentation describing production-scope policy and false-positive expectations for architecture rules.
+- Added a Criterion scan-throughput benchmark (`cargo bench --bench scan_bench`) over a generated 480-file multi-language synthetic repository to baseline full-scan performance ahead of the shared parsed-AST work.
 
 ### Changed
 
