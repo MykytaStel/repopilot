@@ -231,11 +231,17 @@ mod tests {
         use crate::graph::imports::extract_imports_from;
 
         let parsed = ParsedFile::new("use crate::foo::bar;\nfn main() {}", Some("Rust"));
-        assert!(!parsed.was_parsed(), "no parse before any consumer reads it");
+        assert!(
+            !parsed.was_parsed(),
+            "no parse before any consumer reads it"
+        );
 
         // First consumer: the import graph extracts module references.
         let imports = extract_imports_from(&parsed, Some("Rust"));
-        assert!(parsed.was_parsed(), "import extraction materializes the tree");
+        assert!(
+            parsed.was_parsed(),
+            "import extraction materializes the tree"
+        );
         assert!(imports.contains(&"crate::foo::bar".to_string()));
 
         // Second consumer: an AST audit reaches for the same syntax tree via the

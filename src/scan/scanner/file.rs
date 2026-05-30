@@ -242,9 +242,8 @@ pub(super) fn collect_file_facts(
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
 ) -> io::Result<()> {
-    let LoadedFile::Analyzable {
-        mut full_facts, ..
-    } = load_file_or_record_skip(path, facts, config)?
+    let LoadedFile::Analyzable { mut full_facts, .. } =
+        load_file_or_record_skip(path, facts, config)?
     else {
         return Ok(());
     };
@@ -252,8 +251,10 @@ pub(super) fn collect_file_facts(
     // No audits run on this path, so the parse view is built solely to extract
     // imports; it is still parsed at most once via the shared parsers. Bind the
     // result first so the view's borrow of `full_facts` ends before the write.
-    let imports =
-        extract_imports_from(&ParsedFile::for_facts(&full_facts), full_facts.language.as_deref());
+    let imports = extract_imports_from(
+        &ParsedFile::for_facts(&full_facts),
+        full_facts.language.as_deref(),
+    );
     full_facts.imports = imports;
 
     record_analyzed_file(facts, languages, &full_facts);
