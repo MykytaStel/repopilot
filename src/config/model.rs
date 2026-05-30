@@ -45,6 +45,9 @@ impl RepoPilotConfig {
         config.complexity_medium_threshold = self.code_quality.complexity_medium_threshold;
         config.complexity_high_threshold = self.code_quality.complexity_high_threshold;
         config.max_control_flow_depth = self.code_quality.max_control_flow_depth;
+        if !self.architecture.module_mappings.is_empty() {
+            config.module_mappings = self.architecture.module_mappings.clone();
+        }
         config
     }
 }
@@ -77,6 +80,7 @@ pub struct ArchitectureSection {
     pub max_fan_out: usize,
     pub instability_hub_min_fan_in: usize,
     pub instability_hub_min_instability_pct: usize,
+    pub module_mappings: std::collections::BTreeMap<String, Vec<String>>,
 }
 
 impl Default for ArchitectureSection {
@@ -90,6 +94,7 @@ impl Default for ArchitectureSection {
             max_fan_out: DEFAULT_MAX_FAN_OUT,
             instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
+            module_mappings: std::collections::BTreeMap::new(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::model::ArchitectureAnalysis;
+use crate::analysis::{ArchitectureClassifier, FileRole};
 use crate::audits::traits::ProjectAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::scan::config::ScanConfig;
@@ -9,16 +9,23 @@ pub struct DeepDirectoryNestingAudit;
 
 impl ProjectAudit for DeepDirectoryNestingAudit {
     fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
-        ArchitectureAnalysis::from_facts(facts)
-            .production_files()
+        let classifier = ArchitectureClassifier::new(&config.module_mappings);
+        facts
+            .files
+            .iter()
             .filter_map(|file| {
-                let depth = compute_directory_nesting(file.path());
-                if depth > config.max_directory_depth {
-                    Some(build_finding(
-                        file.path().to_path_buf(),
-                        depth,
-                        config.max_directory_depth,
-                    ))
+                let context = classifier.classify(file);
+                if context.file_role == FileRole::Production {
+                    let depth = compute_directory_nesting(&file.path);
+                    if depth > config.max_directory_depth {
+                        Some(build_finding(
+                            file.path.clone(),
+                            depth,
+                            config.max_directory_depth,
+                        ))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }

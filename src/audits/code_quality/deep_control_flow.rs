@@ -1,3 +1,4 @@
+use crate::analysis::{FileRole, classify_file_architecture};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
@@ -39,6 +40,11 @@ thread_local! {
 
 impl FileAudit for DeepControlFlowAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        let arch_ctx = classify_file_architecture(file, config);
+        if arch_ctx.file_role != FileRole::Production {
+            return vec![];
+        }
+
         let Some(content) = file.content.as_deref() else {
             return vec![];
         };

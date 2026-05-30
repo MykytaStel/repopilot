@@ -3,7 +3,4 @@ pub mod deep_directory_nesting;
 pub mod deep_relative_imports;
 pub mod import_coupling;
 pub mod large_file;
-mod model;
-mod path_scope;
-
 pub mod too_many_modules;

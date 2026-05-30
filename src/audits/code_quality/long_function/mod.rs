@@ -26,6 +26,13 @@ pub(super) struct LongFunctionPolicy {
 
 impl FileAudit for LongFunctionAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        let arch_ctx = crate::analysis::classify_file_architecture(file, config);
+        if arch_ctx.file_role != crate::analysis::FileRole::Production
+            && arch_ctx.file_role != crate::analysis::FileRole::Test
+        {
+            return vec![];
+        }
+
         if is_low_signal_audit_path(&file.path) {
             return vec![];
         }
