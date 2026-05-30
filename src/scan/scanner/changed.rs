@@ -112,7 +112,7 @@ impl<'a> ChangedScanEngine<'a> {
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
         let contract_stage =
-            crate::engine::pipeline::validate_finding_contract_stage(&file_stage.findings);
+            super::contract_stage::validate_finding_contract_stage(&file_stage.findings);
         let signal_quality = summarize_signal_quality_with_contract_violations(
             &file_stage.findings,
             contract_stage.report.violations.len(),
