@@ -227,6 +227,73 @@ fn kotlin_private_override_fun_detected() {
     );
 }
 
+// ── JavaScript / TypeScript ───────────────────────────────────────────────────
+
+#[test]
+fn javascript_function_under_threshold_no_finding() {
+    let content = "function short() {\n    const x = 1;\n}\n";
+    let file = make_file("JavaScript", content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn javascript_function_over_threshold_produces_finding() {
+    let body: String = (0..60).map(|i| format!("    let _{i} = {i};\n")).collect();
+    let content = format!("function longFn() {{\n{body}}}\n");
+    let file = make_file("JavaScript", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "code-quality.long-function");
+    assert!(findings[0].title.contains("longFn"));
+}
+
+#[test]
+fn typescript_arrow_function_over_threshold_produces_finding() {
+    let body: String = (0..60).map(|i| format!("    let _{i} = {i};\n")).collect();
+    let content = format!("const longArrow = () => {{\n{body}}};\n");
+    let file = make_file("TypeScript", &content);
+    let findings = LongFunctionAudit.audit(&file, &config_with_threshold(50));
+    assert_eq!(findings.len(), 1);
+    assert!(findings[0].title.contains("longArrow"));
+}
+
+#[test]
+fn typescript_react_component_uses_larger_threshold() {
+    // React component threshold is 3 * base_threshold (150 lines).
+    // So 80 lines should not trigger a finding, but 160 lines should.
+    let body_under: String = (0..80).map(|i| format!("    let _{i} = {i};\n")).collect();
+    let content_under = format!(
+        "import React from 'react';\nexport function MyComponent() {{\n{body_under}    return <div />;\n}}\n"
+    );
+    let file_under = make_file_at(
+        "src/components/MyComponent.tsx",
+        "TypeScript React",
+        &content_under,
+    );
+    let findings_under = LongFunctionAudit.audit(&file_under, &config_with_threshold(50));
+    assert!(
+        findings_under.is_empty(),
+        "80 lines React component should be under the 150 lines threshold"
+    );
+
+    let body_over: String = (0..160).map(|i| format!("    let _{i} = {i};\n")).collect();
+    let content_over = format!(
+        "import React from 'react';\nexport function MyComponent() {{\n{body_over}    return <div />;\n}}\n"
+    );
+    let file_over = make_file_at(
+        "src/components/MyComponent.tsx",
+        "TypeScript React",
+        &content_over,
+    );
+    let findings_over = LongFunctionAudit.audit(&file_over, &config_with_threshold(50));
+    assert_eq!(
+        findings_over.len(),
+        1,
+        "160 lines React component should exceed the 150 lines threshold"
+    );
+}
+
 // ── Unsupported language ──────────────────────────────────────────────────────
 
 #[test]

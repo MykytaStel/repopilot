@@ -25,11 +25,14 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::TextHeuristic,
+        signal_source: SignalSource::Ast,
         docs_url: None,
         description: "A function is longer than the configured line threshold. Long functions are harder to test, understand, and safely refactor.",
         recommendation: Some(
             "Break the function into smaller, single-purpose helpers. Aim for functions that fit on a single screen.",
+        ),
+        false_positive_notes: Some(
+            "Parseable languages (Rust, TypeScript/JavaScript, Python) measure real function spans from the syntax tree. Languages without a tree-sitter grammar (Go, Java, C#, Kotlin) fall back to a line/brace heuristic and are reported with text-heuristic provenance.",
         ),
         ..RuleMetadata::DEFAULT
     },
