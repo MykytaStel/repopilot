@@ -4,39 +4,10 @@ use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Sev
 use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
-use std::cell::RefCell;
 use std::path::Path;
-use tree_sitter::{Node, Parser};
+use tree_sitter::Node;
 
 pub struct DeepControlFlowAudit;
-
-thread_local! {
-    static RUST_PARSER: RefCell<Parser> = RefCell::new({
-        let mut parser = Parser::new();
-        let _ = parser.set_language(&tree_sitter_rust::LANGUAGE.into());
-        parser
-    });
-    static TS_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        let _ = p.set_language(&tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into());
-        p
-    });
-    static TSX_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        let _ = p.set_language(&tree_sitter_typescript::LANGUAGE_TSX.into());
-        p
-    });
-    static JS_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        let _ = p.set_language(&tree_sitter_javascript::LANGUAGE.into());
-        p
-    });
-    static PYTHON_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        let _ = p.set_language(&tree_sitter_python::LANGUAGE.into());
-        p
-    });
-}
 
 impl FileAudit for DeepControlFlowAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
@@ -57,7 +28,7 @@ impl FileAudit for DeepControlFlowAudit {
             return vec![];
         };
 
-        let Some(tree) = parse_content(content, language) else {
+        let Some(tree) = crate::analysis::parse::parse_label(content, language) else {
             return vec![];
         };
 
@@ -78,37 +49,6 @@ impl FileAudit for DeepControlFlowAudit {
                 apply_file_decision("code-quality.deep-control-flow", file, finding, None)
             })
             .collect()
-    }
-}
-
-fn parse_content(content: &str, language: &str) -> Option<tree_sitter::Tree> {
-    match language {
-        "Rust" => RUST_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "TypeScript" => TS_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "TypeScript React" => TSX_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "JavaScript" | "JavaScript React" => JS_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        "Python" => PYTHON_PARSER.with(|cell| {
-            let mut p = cell.borrow_mut();
-            p.reset();
-            p.parse(content, None)
-        }),
-        _ => None,
     }
 }
 
