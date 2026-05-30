@@ -80,6 +80,26 @@ fn function_like(node: Node<'_>, language: &str, content: &str) -> Option<(Strin
             .then(|| (field_name(node, content).unwrap_or_default(), false)),
         "Python" => (node.kind() == "function_definition")
             .then(|| (field_name(node, content).unwrap_or_default(), false)),
+        "Go" => match node.kind() {
+            "function_declaration" | "method_declaration" => {
+                Some((field_name(node, content).unwrap_or_default(), false))
+            }
+            _ => None,
+        },
+        "Java" => match node.kind() {
+            "method_declaration" | "constructor_declaration" => {
+                Some((field_name(node, content).unwrap_or_default(), false))
+            }
+            _ => None,
+        },
+        "CSharp" | "C#" => match node.kind() {
+            "method_declaration" | "constructor_declaration" | "local_function_statement" => {
+                Some((field_name(node, content).unwrap_or_default(), false))
+            }
+            _ => None,
+        },
+        "Kotlin" => (node.kind() == "function_declaration")
+            .then(|| (field_name(node, content).unwrap_or_default(), false)),
         // TypeScript, TSX, JavaScript, and JSX share the same node kinds.
         _ => match node.kind() {
             "function_declaration" | "generator_function_declaration" | "method_definition" => {
