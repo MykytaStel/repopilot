@@ -1,4 +1,4 @@
-use crate::analysis::{FileRole, classify_file_architecture};
+use crate::analysis::{FileRole, classify_file_architecture, parse::ParsedFile};
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
@@ -11,6 +11,22 @@ pub struct DeepControlFlowAudit;
 
 impl FileAudit for DeepControlFlowAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        // Direct entry (tests, non-pipeline callers): build a one-off parse view.
+        self.analyze(file, &ParsedFile::for_facts(file), config)
+    }
+
+    fn audit_parsed(
+        &self,
+        file: &FileFacts,
+        parsed: &ParsedFile,
+        config: &ScanConfig,
+    ) -> Vec<Finding> {
+        self.analyze(file, parsed, config)
+    }
+}
+
+impl DeepControlFlowAudit {
+    fn analyze(&self, file: &FileFacts, parsed: &ParsedFile, config: &ScanConfig) -> Vec<Finding> {
         let arch_ctx = classify_file_architecture(file, config);
         if arch_ctx.file_role != FileRole::Production {
             return vec![];
@@ -28,7 +44,7 @@ impl FileAudit for DeepControlFlowAudit {
             return vec![];
         };
 
-        let Some(tree) = crate::analysis::parse::parse_label(content, language) else {
+        let Some(tree) = parsed.tree() else {
             return vec![];
         };
 

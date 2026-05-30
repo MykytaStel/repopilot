@@ -1,5 +1,6 @@
 mod model;
-pub(crate) mod parse;
+#[doc(hidden)]
+pub mod parse;
 pub mod path_classifier;
 
 pub use model::{ArchitectureContext, FileRole, LanguageFamily, ModuleKind};
