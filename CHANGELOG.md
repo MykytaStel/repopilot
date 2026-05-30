@@ -19,6 +19,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Split the 519-line import `resolver` into per-language submodules (`graph::resolver::{rust, ts, python, go, jvm}`) with the dispatch entry point and shared `probe`/`normalize_path` helpers in the module root. Internal refactor only; no behavior or public API change.
 - Consolidated the four single-type `analysis` model files (`context`, `file_role`, `module_kind`, `language_family`) into one `analysis::model` module behind the existing `analysis::{ArchitectureContext, FileRole, ModuleKind, LanguageFamily}` re-exports. Internal refactor only; no behavior or public API change.
 - Centralized tree-sitter parser instances and grammar selection into a shared `analysis::parse` module (`ParseLanguage`, `parse`, `parse_label`) and migrated the deep-control-flow audit onto it, removing its duplicated thread-local parsers. Internal refactor only; no behavior or public API change.
+- Added a lazy, parse-once `ParsedFile` view and a defaulted `FileAudit::audit_parsed` method so the scan pipeline parses each file at most once and shares the syntax tree across audits. The deep-control-flow audit now consumes the shared tree; other file audits inherit the default and are unaffected. Internal change only; no behavior or finding change.
 
 ## [0.13.0] - 2026-05-25
 

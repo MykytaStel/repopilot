@@ -5,7 +5,8 @@
 //! thread keeps one reusable parser per grammar via `thread_local!`, so parsing
 //! is cheap to repeat and safe under the parallel file pipeline.
 
-use std::cell::RefCell;
+use crate::scan::facts::FileFacts;
+use std::cell::{OnceCell, RefCell};
 use tree_sitter::{Language, Parser, Tree};
 
 /// A source grammar RepoPilot can parse with tree-sitter.
@@ -77,6 +78,47 @@ pub(crate) fn parse_label(content: &str, label: &str) -> Option<Tree> {
     parse(content, ParseLanguage::from_label(label)?)
 }
 
+/// A parse-once view over a single file's source.
+///
+/// The syntax tree is produced lazily on the first [`ParsedFile::tree`] call and
+/// cached, so multiple audits inspecting the same file share one parse instead
+/// of re-parsing per audit. Files that no audit inspects are never parsed.
+pub struct ParsedFile<'a> {
+    content: &'a str,
+    language_label: Option<&'a str>,
+    tree: OnceCell<Option<Tree>>,
+}
+
+impl<'a> ParsedFile<'a> {
+    pub(crate) fn new(content: &'a str, language_label: Option<&'a str>) -> Self {
+        Self {
+            content,
+            language_label,
+            tree: OnceCell::new(),
+        }
+    }
+
+    /// Builds a parse view from a file's facts, borrowing its content and
+    /// detected language label. Parsing is deferred until [`ParsedFile::tree`].
+    pub(crate) fn for_facts(file: &'a FileFacts) -> Self {
+        Self::new(
+            file.content.as_deref().unwrap_or(""),
+            file.language.as_deref(),
+        )
+    }
+
+    /// Lazily parses (once) and returns the syntax tree, or `None` when the file
+    /// has no parseable grammar or tree-sitter cannot produce a tree.
+    pub(crate) fn tree(&self) -> Option<&Tree> {
+        self.tree
+            .get_or_init(|| {
+                self.language_label
+                    .and_then(|label| parse_label(self.content, label))
+            })
+            .as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +177,20 @@ mod tests {
         assert!(parse_label("fn main() {}", "Rust").is_some());
         assert!(parse_label("def f():\n    pass\n", "Python").is_some());
         assert!(parse_label("package main", "Go").is_none());
+    }
+
+    #[test]
+    fn parsed_file_parses_once_and_caches() {
+        let parsed = ParsedFile::new("fn main() {}", Some("Rust"));
+        let first = parsed.tree().expect("rust source should parse") as *const Tree;
+        let second = parsed.tree().expect("cached tree should be returned") as *const Tree;
+        // Same cached tree instance on repeat access => parsed at most once.
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn parsed_file_without_grammar_has_no_tree() {
+        assert!(ParsedFile::new("package main", Some("Go")).tree().is_none());
+        assert!(ParsedFile::new("anything", None).tree().is_none());
     }
 }

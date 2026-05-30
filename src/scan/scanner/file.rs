@@ -1,3 +1,4 @@
+use crate::analysis::parse::ParsedFile;
 use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
@@ -206,8 +207,13 @@ fn process_file_inner(
 
     let context = PerFileContext::from_file(&full_facts);
     let mut findings = Vec::new();
-    for audit in file_audits {
-        findings.extend(audit.audit(&full_facts, config));
+    {
+        // Parse the file at most once and share the syntax tree across audits.
+        // Scoped so the borrow of `full_facts` ends before it is moved below.
+        let parsed = ParsedFile::for_facts(&full_facts);
+        for audit in file_audits {
+            findings.extend(audit.audit_parsed(&full_facts, &parsed, config));
+        }
     }
 
     Ok(PerFileResult {
