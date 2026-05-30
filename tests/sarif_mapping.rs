@@ -128,7 +128,12 @@ fn finding_path_is_emitted_as_relative_forward_slash_uri() {
 #[test]
 fn finding_without_path_has_no_locations() {
     let sarif = findings_to_sarif(
-        &[finding("architecture.deep-nesting", Severity::Low, None, 0)],
+        &[finding(
+            "architecture.deep-directory-nesting",
+            Severity::Low,
+            None,
+            0,
+        )],
         Path::new("."),
     );
 
@@ -138,7 +143,12 @@ fn finding_without_path_has_no_locations() {
 #[test]
 fn empty_locations_are_omitted_from_serialized_result() {
     let sarif = findings_to_sarif(
-        &[finding("architecture.deep-nesting", Severity::Low, None, 0)],
+        &[finding(
+            "architecture.deep-directory-nesting",
+            Severity::Low,
+            None,
+            0,
+        )],
         Path::new("."),
     );
 

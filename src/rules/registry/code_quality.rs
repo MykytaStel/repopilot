@@ -78,4 +78,19 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ),
         ..RuleMetadata::DEFAULT
     },
+    RuleMetadata {
+        rule_id: "code-quality.deep-control-flow",
+        title: "Deep control flow nesting detected",
+        category: FindingCategory::CodeQuality,
+        default_severity: Severity::Low,
+        default_confidence: Confidence::Medium,
+        lifecycle: RuleLifecycle::Preview,
+        signal_source: SignalSource::Ast,
+        docs_url: None,
+        description: "A source file contains deeply nested control flow blocks (if, loops, match, try). High nesting depth makes code hard to read, maintain, and test.",
+        recommendation: Some(
+            "Extract nested blocks into separate helper functions or simplify the control flow.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
 ];

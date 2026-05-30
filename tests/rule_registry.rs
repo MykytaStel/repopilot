@@ -199,7 +199,7 @@ fn sarif_rule_uses_finding_docs_url_without_renderer_lookup() {
 fn all_architecture_rule_ids_are_registered() {
     for rule_id in &[
         "architecture.large-file",
-        "architecture.deep-nesting",
+        "architecture.deep-directory-nesting",
         "architecture.deep-relative-imports",
         "architecture.barrel-file-risk",
         "architecture.too-many-modules",
@@ -219,6 +219,7 @@ fn all_code_quality_rule_ids_are_registered() {
     for rule_id in &[
         "code-quality.complex-file",
         "code-quality.long-function",
+        "code-quality.deep-control-flow",
         "code-marker.todo",
         "code-marker.fixme",
         "code-marker.hack",
@@ -319,7 +320,7 @@ fn all_framework_django_rule_ids_are_registered() {
 fn static_rule_metadata_severities_match_emitted_findings() {
     let expected = [
         ("architecture.large-file", Severity::Medium),
-        ("architecture.deep-nesting", Severity::Low),
+        ("architecture.deep-directory-nesting", Severity::Low),
         ("architecture.deep-relative-imports", Severity::Low),
         ("architecture.barrel-file-risk", Severity::Low),
         ("architecture.too-many-modules", Severity::Medium),
@@ -328,6 +329,7 @@ fn static_rule_metadata_severities_match_emitted_findings() {
         ("architecture.high-instability-hub", Severity::High),
         ("code-quality.complex-file", Severity::Medium),
         ("code-quality.long-function", Severity::Medium),
+        ("code-quality.deep-control-flow", Severity::Low),
         ("language.rust.panic-risk", Severity::Medium),
         ("language.go.panic-exit-risk", Severity::Medium),
         ("language.python.exception-risk", Severity::Medium),

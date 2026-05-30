@@ -1,6 +1,6 @@
 use super::registration::{ProjectAuditRegistration, project_metadata};
 use crate::audits::architecture::barrel_file_risk::BarrelFileRiskAudit;
-use crate::audits::architecture::deep_nesting::DeepNestingAudit;
+use crate::audits::architecture::deep_directory_nesting::DeepDirectoryNestingAudit;
 use crate::audits::architecture::deep_relative_imports::DeepRelativeImportsAudit;
 use crate::audits::architecture::too_many_modules::TooManyModulesAudit;
 use crate::audits::security::env_file_committed::EnvFileCommittedAudit;
@@ -23,11 +23,11 @@ pub fn registered_project_audits(config: &ScanConfig) -> Vec<ProjectAuditRegistr
         ),
         ProjectAuditRegistration::new(
             project_metadata(
-                "audit.project.architecture.deep-nesting",
+                "audit.project.architecture.deep-directory-nesting",
                 FindingCategory::Architecture,
-                &["architecture.deep-nesting"],
+                &["architecture.deep-directory-nesting"],
             ),
-            Box::new(DeepNestingAudit),
+            Box::new(DeepDirectoryNestingAudit),
         ),
         ProjectAuditRegistration::new(
             project_metadata(

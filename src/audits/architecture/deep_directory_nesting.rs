@@ -5,9 +5,9 @@ use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 use std::path::{Component, Path, PathBuf};
 
-pub struct DeepNestingAudit;
+pub struct DeepDirectoryNestingAudit;
 
-impl ProjectAudit for DeepNestingAudit {
+impl ProjectAudit for DeepDirectoryNestingAudit {
     fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
         ArchitectureAnalysis::from_facts(facts)
             .production_files()
@@ -37,8 +37,8 @@ fn compute_directory_nesting(path: &Path) -> usize {
 fn build_finding(path: PathBuf, depth: usize, threshold: usize) -> Finding {
     Finding {
         id: String::new(),
-        rule_id: "architecture.deep-nesting".to_string(),
-        recommendation: Finding::recommendation_for_rule_id("architecture.deep-nesting"),
+        rule_id: "architecture.deep-directory-nesting".to_string(),
+        recommendation: Finding::recommendation_for_rule_id("architecture.deep-directory-nesting"),
         title: "Deep directory nesting detected".to_string(),
         description: format!(
             "This file is nested {depth} directories deep, exceeding the threshold \
@@ -137,12 +137,12 @@ mod tests {
         let findings = audit_with_depth(&facts, 5);
 
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].rule_id, "architecture.deep-nesting");
+        assert_eq!(findings[0].rule_id, "architecture.deep-directory-nesting");
         assert_eq!(findings[0].evidence[0].path, PathBuf::from(production_path));
     }
 
     fn audit_with_depth(facts: &ScanFacts, max_directory_depth: usize) -> Vec<Finding> {
-        let audit = DeepNestingAudit;
+        let audit = DeepDirectoryNestingAudit;
         let config = ScanConfig {
             max_directory_depth,
             ..ScanConfig::default()

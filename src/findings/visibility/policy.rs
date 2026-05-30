@@ -175,7 +175,7 @@ fn is_maintainability_rule(rule_id: &str) -> bool {
         rule_id,
         "testing.source-without-test"
             | "code-marker.todo"
-            | "architecture.deep-nesting"
+            | "architecture.deep-directory-nesting"
             | "architecture.too-many-modules"
             | "architecture.large-file"
             | "architecture.barrel-file-risk"
@@ -183,6 +183,7 @@ fn is_maintainability_rule(rule_id: &str) -> bool {
             | "code-quality.long-function"
             | "code-quality.complex-file"
             | "code-quality.cyclomatic-complexity"
+            | "code-quality.deep-control-flow"
     )
 }
 
@@ -203,7 +204,7 @@ fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
             | "code-marker.todo"
             | "code-marker.fixme"
             | "code-marker.hack"
-            | "architecture.deep-nesting"
+            | "architecture.deep-directory-nesting"
             | "architecture.too-many-modules"
             | "architecture.large-file"
             | "architecture.barrel-file-risk"
@@ -211,6 +212,7 @@ fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
             | "code-quality.long-function"
             | "code-quality.complex-file"
             | "code-quality.cyclomatic-complexity"
+            | "code-quality.deep-control-flow"
     )
 }
 
