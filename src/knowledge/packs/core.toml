@@ -692,7 +692,13 @@ role = "test"
 action = "suppress"
 
 [[rules]]
-rule_id = "architecture.deep-nesting"
+rule_id = "architecture.deep-directory-nesting"
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
+rule_id = "code-quality.deep-control-flow"
+languages = ["rust", "python", "typescript", "typescript-react", "javascript", "javascript-react"]
 suppress_low_signal = true
 suppress_generated = true
 

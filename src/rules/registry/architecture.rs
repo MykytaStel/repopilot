@@ -19,17 +19,17 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
-        rule_id: "architecture.deep-nesting",
-        title: "Deep control flow nesting detected",
+        rule_id: "architecture.deep-directory-nesting",
+        title: "Deep directory nesting detected",
         category: FindingCategory::Architecture,
         default_severity: Severity::Low,
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Experimental,
-        signal_source: SignalSource::Ast,
+        signal_source: SignalSource::TextHeuristic,
         docs_url: None,
-        description: "A source file contains deeply nested control flow blocks (if, loops, match, try). High nesting depth makes code hard to read, maintain, and test.",
+        description: "A file is nested deeply within the directory structure. Deep directory nesting makes the codebase harder to navigate, import from, and maintain.",
         recommendation: Some(
-            "Extract nested blocks into separate helper functions or simplify the control flow.",
+            "Simplify the directory structure or introduce path aliases to flatten the file layout. Adjust the max depth threshold using scan config.",
         ),
         ..RuleMetadata::DEFAULT
     },

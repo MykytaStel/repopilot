@@ -4,6 +4,7 @@ use super::registration::{
 use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
 use crate::audits::code_quality::complexity::ComplexityAudit;
+use crate::audits::code_quality::deep_control_flow::DeepControlFlowAudit;
 use crate::audits::code_quality::language_risk::LanguageRiskAudit;
 use crate::audits::code_quality::long_function::LongFunctionAudit;
 use crate::audits::code_quality::rust_panic_risk::RustPanicRiskAudit;
@@ -46,6 +47,14 @@ pub fn registered_file_audits(config: &ScanConfig) -> Vec<FileAuditRegistration>
                 &["code-quality.complex-file"],
             ),
             Box::new(ComplexityAudit),
+        ),
+        FileAuditRegistration::new(
+            file_metadata(
+                "audit.file.code-quality.deep-control-flow",
+                FindingCategory::CodeQuality,
+                &["code-quality.deep-control-flow"],
+            ),
+            Box::new(DeepControlFlowAudit),
         ),
         FileAuditRegistration::new(
             file_metadata(

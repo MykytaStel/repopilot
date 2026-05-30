@@ -125,7 +125,7 @@ fn documentation_files_do_not_inflate_module_count() {
 }
 
 #[test]
-fn reports_deep_nesting_only_above_threshold() {
+fn reports_deep_directory_nesting_only_above_threshold() {
     let temp = tempdir().expect("failed to create temp dir");
     let deep = temp.path().join("src");
     fs::create_dir_all(&deep).expect("failed to create nested dirs");
@@ -156,7 +156,7 @@ fn reports_deep_nesting_only_above_threshold() {
             .artifacts
             .findings
             .iter()
-            .any(|finding| finding.rule_id == "architecture.deep-nesting")
+            .any(|finding| finding.rule_id == "architecture.deep-directory-nesting")
     );
 
     let config = ScanConfig {
@@ -169,6 +169,6 @@ fn reports_deep_nesting_only_above_threshold() {
             .artifacts
             .findings
             .iter()
-            .all(|finding| finding.rule_id != "architecture.deep-nesting")
+            .all(|finding| finding.rule_id != "architecture.deep-directory-nesting")
     );
 }
