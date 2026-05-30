@@ -22,9 +22,23 @@ impl ImportCouplingAudit {
         let cycle_graph = without_rust_module_containment_edges(&graph);
         let cycles = detect_cycles(&cycle_graph);
 
+        let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
 
         for metric in &metrics {
+            let is_prod = facts
+                .files
+                .iter()
+                .find(|file| file.path == metric.path || root.join(&file.path) == metric.path)
+                .map(|file| {
+                    classifier.classify(file).file_role == crate::analysis::FileRole::Production
+                })
+                .unwrap_or(true);
+
+            if !is_prod {
+                continue;
+            }
+
             if metric.fan_out > config.max_fan_out {
                 findings.push(excessive_fan_out_finding(metric, root, config.max_fan_out));
             }
@@ -45,6 +59,21 @@ impl ImportCouplingAudit {
 
         let mut seen_cycles = BTreeSet::new();
         for cycle in cycles {
+            let is_prod_cycle = cycle.iter().all(|path| {
+                facts
+                    .files
+                    .iter()
+                    .find(|file| file.path == *path || root.join(&file.path) == *path)
+                    .map(|file| {
+                        classifier.classify(file).file_role == crate::analysis::FileRole::Production
+                    })
+                    .unwrap_or(true)
+            });
+
+            if !is_prod_cycle {
+                continue;
+            }
+
             if seen_cycles.insert(cycle.clone()) {
                 findings.push(circular_dependency_finding(&cycle, root));
             }

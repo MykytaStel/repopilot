@@ -12,10 +12,15 @@ const MEDIUM_WILDCARD_EXPORTS: usize = 6;
 pub struct BarrelFileRiskAudit;
 
 impl ProjectAudit for BarrelFileRiskAudit {
-    fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
+    fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
+        let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         facts
             .files
             .iter()
+            .filter(|file| {
+                let context = classifier.classify(file);
+                context.file_role == crate::analysis::FileRole::Production
+            })
             .filter_map(find_barrel_file_risk)
             .collect()
     }

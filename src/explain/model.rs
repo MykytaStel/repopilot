@@ -28,6 +28,12 @@ pub struct ExplainContext {
     pub runtimes: Vec<String>,
     pub is_test: bool,
     pub is_production_code: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub architecture_role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language_family: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
