@@ -1,26 +1,7 @@
-use std::cell::RefCell;
 use std::collections::HashSet;
-use tree_sitter::{Node, Parser};
+use tree_sitter::{Node, Tree};
 
-thread_local! {
-    static PYTHON_PARSER: RefCell<Parser> = RefCell::new({
-        let mut p = Parser::new();
-        p.set_language(&tree_sitter_python::LANGUAGE.into())
-            .expect("tree-sitter-python grammar should load");
-        p
-    });
-}
-
-pub(super) fn extract(content: &str) -> HashSet<String> {
-    let tree = PYTHON_PARSER.with(|cell| {
-        let mut p = cell.borrow_mut();
-        p.reset();
-        p.parse(content, None)
-    });
-    let Some(tree) = tree else {
-        return HashSet::new();
-    };
-
+pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     let mut result = HashSet::new();
     visit(tree.root_node(), content, &mut result);
     result

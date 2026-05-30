@@ -25,6 +25,15 @@ pub struct ScanTimings {
     /// Time spent loading files and running per-file audits (microseconds).
     #[serde(default)]
     pub file_analysis_us: u64,
+    /// Aggregate tree-sitter parsing time during file analysis (microseconds).
+    ///
+    /// A sub-measure of `file_analysis_us`: each file is parsed once and the
+    /// syntax tree is shared between import extraction and the AST audits. Summed
+    /// across parallel workers, so it can exceed wall-clock on multi-core
+    /// machines. It is intentionally excluded from `accounted_engine_us` because
+    /// it is already counted within `file_analysis_us`.
+    #[serde(default)]
+    pub parse_us: u64,
     /// Time spent walking the file tree and running per-file audits (microseconds).
     pub file_scan_us: u64,
     /// Time spent detecting frameworks (microseconds).

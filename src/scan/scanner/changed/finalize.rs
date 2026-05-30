@@ -47,6 +47,7 @@ impl<'a> ChangedScanEngine<'a> {
                 scan_timings: Some(ScanTimings {
                     discovery_us: discovery.elapsed_us,
                     file_analysis_us: file_stage.elapsed_us,
+                    parse_us: file_stage.parse_us,
                     file_scan_us,
                     framework_detection_us: repo_stage.elapsed_us,
                     post_scan_audits_us: 0,
@@ -93,6 +94,7 @@ impl<'a> ChangedScanEngine<'a> {
                 scan_timings: Some(ScanTimings {
                     discovery_us: discovery.elapsed_us,
                     file_analysis_us: 0,
+                    parse_us: 0,
                     file_scan_us: discovery.elapsed_us,
                     framework_detection_us: 0,
                     post_scan_audits_us: 0,

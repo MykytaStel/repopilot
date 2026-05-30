@@ -85,7 +85,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.17:
 | `visible_signal_quality` | object | Aggregate quality for findings visible in this report. |
 | `signal_quality` | object | Compatibility alias for `visible_signal_quality`. |
 | `cache_telemetry` | object | Optional changed-scan cache summary with hits, misses, changed-file reasons, per-file cache decisions, and cache timing impact. |
-| `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `enrichment_us`, `risk_scoring_us`, `contract_validation_us`, and `report_finalization_us`. |
+| `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `parse_us` (tree-sitter parsing within file analysis), `enrichment_us`, `risk_scoring_us`, `contract_validation_us`, and `report_finalization_us`. |
 | `local_feedback` | object | Optional summary of `.repopilot/feedback.yml` suppressions applied during this scan or review. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
 

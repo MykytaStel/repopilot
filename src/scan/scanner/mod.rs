@@ -49,6 +49,7 @@ struct FileAnalysisStage {
     facts: ScanFacts,
     findings: Vec<Finding>,
     elapsed_us: u64,
+    parse_us: u64,
 }
 
 struct DiscoveryStage {
@@ -98,6 +99,7 @@ impl<'a> ScanEngine<'a> {
         let timings = ScanTimings {
             discovery_us: discovery_stage.elapsed_us,
             file_analysis_us: file_stage.elapsed_us,
+            parse_us: file_stage.parse_us,
             file_scan_us: discovery_stage
                 .elapsed_us
                 .saturating_add(file_stage.elapsed_us),
@@ -132,13 +134,17 @@ impl<'a> ScanEngine<'a> {
         discovered: collection::DiscoveredScanPaths,
     ) -> io::Result<FileAnalysisStage> {
         let start = Instant::now();
+        let parse_nanos_before = crate::analysis::parse::parse_nanos_total();
         let file_audits = build_file_audits(self.config);
         let (facts, findings) =
             collection::analyze_discovered_files(discovered, &file_audits, self.config)?;
+        let parse_us =
+            crate::analysis::parse::parse_nanos_total().saturating_sub(parse_nanos_before) / 1_000;
         Ok(FileAnalysisStage {
             facts,
             findings,
             elapsed_us: start.elapsed().as_micros() as u64,
+            parse_us,
         })
     }
 
