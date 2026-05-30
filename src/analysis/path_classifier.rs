@@ -10,10 +10,7 @@ use crate::knowledge::language::language_kind_for_file;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 
-use super::context::ArchitectureContext;
-use super::file_role::FileRole;
-use super::language_family::LanguageFamily;
-use super::module_kind::ModuleKind;
+use super::model::{ArchitectureContext, FileRole, LanguageFamily, ModuleKind};
 
 pub struct ArchitectureClassifier {
     mappings: Vec<(ModuleKind, GlobSet)>,
