@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Added architecture anti-pattern documentation describing production-scope policy and false-positive expectations for architecture rules.
 - Added a Criterion scan-throughput benchmark (`cargo bench --bench scan_bench`) over a generated 480-file multi-language synthetic repository to baseline full-scan performance ahead of the shared parsed-AST work.
+- Added a `scan_timings.parse_us` field reporting aggregate tree-sitter parsing time during file analysis (a sub-measure of `file_analysis_us`, excluded from `accounted_engine_us`).
 
 ### Changed
 
@@ -20,6 +21,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Consolidated the four single-type `analysis` model files (`context`, `file_role`, `module_kind`, `language_family`) into one `analysis::model` module behind the existing `analysis::{ArchitectureContext, FileRole, ModuleKind, LanguageFamily}` re-exports. Internal refactor only; no behavior or public API change.
 - Centralized tree-sitter parser instances and grammar selection into a shared `analysis::parse` module (`ParseLanguage`, `parse`, `parse_label`) and migrated the deep-control-flow audit onto it, removing its duplicated thread-local parsers. Internal refactor only; no behavior or public API change.
 - Added a lazy, parse-once `ParsedFile` view and a defaulted `FileAudit::audit_parsed` method so the scan pipeline parses each file at most once and shares the syntax tree across audits. The deep-control-flow audit now consumes the shared tree; other file audits inherit the default and are unaffected. Internal change only; no behavior or finding change.
+- Migrated the import graph (`graph::imports`) onto the shared `analysis::parse` parsers and the per-file `ParsedFile`, removing the duplicated thread-local tree-sitter parsers in the Rust, TypeScript/JavaScript, and Python extractors. Import extraction and the AST audits now share a single parse per file instead of parsing it separately, roughly halving per-file parse work in full scans. Internal refactor only; no behavior, finding, or public API change.
 
 ## [0.13.0] - 2026-05-25
 

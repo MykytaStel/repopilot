@@ -3,7 +3,7 @@ use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
-use crate::graph::imports::extract_imports;
+use crate::graph::imports::extract_imports_from;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
@@ -95,15 +95,17 @@ pub(super) fn load_file(path: &Path, config: &ScanConfig) -> io::Result<LoadedFi
     let non_empty_lines = count_non_empty_lines(&content);
     let branch_count = count_branches(&content);
     let has_inline_tests = has_language_inline_tests(path, language.as_deref(), &content);
-    let imports = extract_imports(&content, language.as_deref());
 
+    // Imports are extracted later, from the shared `ParsedFile`, so a file's
+    // syntax tree is produced once and reused by the per-file audits rather than
+    // parsed separately here. See `process_file_inner` and `collect_file_facts`.
     Ok(LoadedFile::Analyzable {
         full_facts: FileFacts {
             path: path.to_path_buf(),
             language: language.clone(),
             non_empty_lines,
             branch_count,
-            imports,
+            imports: Vec::new(),
             has_inline_tests,
             content: Some(content),
         },
@@ -198,7 +200,7 @@ fn process_file_inner(
 ) -> io::Result<PerFileResult> {
     let loaded = load_file(path, config)?;
     let LoadedFile::Analyzable {
-        full_facts,
+        mut full_facts,
         language,
     } = loaded
     else {
@@ -207,14 +209,18 @@ fn process_file_inner(
 
     let context = PerFileContext::from_file(&full_facts);
     let mut findings = Vec::new();
-    {
-        // Parse the file at most once and share the syntax tree across audits.
-        // Scoped so the borrow of `full_facts` ends before it is moved below.
+    let imports = {
+        // Parse the file at most once and share the syntax tree across both
+        // import extraction and every audit. Scoped so the borrow of
+        // `full_facts` ends before `imports` is written back and it is moved.
         let parsed = ParsedFile::for_facts(&full_facts);
+        let imports = extract_imports_from(&parsed, full_facts.language.as_deref());
         for audit in file_audits {
             findings.extend(audit.audit_parsed(&full_facts, &parsed, config));
         }
-    }
+        imports
+    };
+    full_facts.imports = imports;
 
     Ok(PerFileResult {
         file_facts: if retain_content {
@@ -236,10 +242,20 @@ pub(super) fn collect_file_facts(
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
 ) -> io::Result<()> {
-    let LoadedFile::Analyzable { full_facts, .. } = load_file_or_record_skip(path, facts, config)?
+    let LoadedFile::Analyzable { mut full_facts, .. } =
+        load_file_or_record_skip(path, facts, config)?
     else {
         return Ok(());
     };
+
+    // No audits run on this path, so the parse view is built solely to extract
+    // imports; it is still parsed at most once via the shared parsers. Bind the
+    // result first so the view's borrow of `full_facts` ends before the write.
+    let imports = extract_imports_from(
+        &ParsedFile::for_facts(&full_facts),
+        full_facts.language.as_deref(),
+    );
+    full_facts.imports = imports;
 
     record_analyzed_file(facts, languages, &full_facts);
     facts.files.push(full_facts);

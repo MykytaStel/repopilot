@@ -6,6 +6,7 @@ impl<'a> ChangedScanEngine<'a> {
         discovery: &ChangedDiscoveryStage,
     ) -> io::Result<ChangedFileAnalysisStage> {
         let start = Instant::now();
+        let parse_nanos_before = crate::analysis::parse::parse_nanos_total();
         let file_audits = build_file_audits(self.config);
         let cache_load_start = Instant::now();
         let mut cache = ScanCache::load(&discovery.repo_root);
@@ -49,6 +50,9 @@ impl<'a> ChangedScanEngine<'a> {
         facts.directories_count = directories.len();
         facts.languages = build_language_summary(languages);
 
+        let parse_us =
+            crate::analysis::parse::parse_nanos_total().saturating_sub(parse_nanos_before) / 1_000;
+
         Ok(ChangedFileAnalysisStage {
             facts,
             findings,
@@ -57,6 +61,7 @@ impl<'a> ChangedScanEngine<'a> {
             cache_telemetry,
             changed_file_reasons,
             elapsed_us: start.elapsed().as_micros() as u64,
+            parse_us,
         })
     }
 

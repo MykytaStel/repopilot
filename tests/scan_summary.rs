@@ -215,6 +215,8 @@ fn timing_accounting_uses_granular_file_pipeline_when_available() {
     let timings = ScanTimings {
         discovery_us: 10,
         file_analysis_us: 40,
+        // A sub-measure of file_analysis_us; must not add to the accounted total.
+        parse_us: 25,
         file_scan_us: 40,
         framework_detection_us: 5,
         post_scan_audits_us: 7,

@@ -7,7 +7,22 @@
 
 use crate::scan::facts::FileFacts;
 use std::cell::{OnceCell, RefCell};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use tree_sitter::{Language, Parser, Tree};
+
+/// Process-global accumulator of time spent inside tree-sitter parsing, in
+/// nanoseconds. Summed across every [`parse`] call on every worker thread, so it
+/// reflects aggregate parse CPU time rather than wall-clock. Read as a delta
+/// (`after - before`) around a stage to attribute parse cost to that stage; the
+/// figure is exact when a single scan runs in the process (the CLI case) and an
+/// over-estimate only if scans run concurrently in one process.
+static PARSE_NANOS: AtomicU64 = AtomicU64::new(0);
+
+/// Total nanoseconds spent parsing so far in this process. See [`PARSE_NANOS`].
+pub(crate) fn parse_nanos_total() -> u64 {
+    PARSE_NANOS.load(Ordering::Relaxed)
+}
 
 /// A source grammar RepoPilot can parse with tree-sitter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,11 +80,14 @@ pub(crate) fn parse(content: &str, language: ParseLanguage) -> Option<Tree> {
         ParseLanguage::JavaScript => &JS_PARSER,
         ParseLanguage::Python => &PYTHON_PARSER,
     };
-    parser.with(|cell| {
+    let start = Instant::now();
+    let tree = parser.with(|cell| {
         let mut parser = cell.borrow_mut();
         parser.reset();
         parser.parse(content, None)
-    })
+    });
+    PARSE_NANOS.fetch_add(start.elapsed().as_nanos() as u64, Ordering::Relaxed);
+    tree
 }
 
 /// Convenience over [`parse`] that maps a language label first. Returns `None`
@@ -105,6 +123,20 @@ impl<'a> ParsedFile<'a> {
             file.content.as_deref().unwrap_or(""),
             file.language.as_deref(),
         )
+    }
+
+    /// The borrowed source text this view parses. Consumers that walk the tree
+    /// need the original bytes for `utf8_text`, and reading it here keeps the
+    /// content and its syntax tree paired to a single parse.
+    pub(crate) fn content(&self) -> &str {
+        self.content
+    }
+
+    /// Whether the syntax tree has been materialized yet. Used by tests to assert
+    /// that consumers sharing one view trigger at most one parse.
+    #[cfg(test)]
+    pub(crate) fn was_parsed(&self) -> bool {
+        self.tree.get().is_some()
     }
 
     /// Lazily parses (once) and returns the syntax tree, or `None` when the file
@@ -192,5 +224,29 @@ mod tests {
     fn parsed_file_without_grammar_has_no_tree() {
         assert!(ParsedFile::new("package main", Some("Go")).tree().is_none());
         assert!(ParsedFile::new("anything", None).tree().is_none());
+    }
+
+    #[test]
+    fn shared_view_is_parsed_once_across_import_extraction_and_audits() {
+        use crate::graph::imports::extract_imports_from;
+
+        let parsed = ParsedFile::new("use crate::foo::bar;\nfn main() {}", Some("Rust"));
+        assert!(
+            !parsed.was_parsed(),
+            "no parse before any consumer reads it"
+        );
+
+        // First consumer: the import graph extracts module references.
+        let imports = extract_imports_from(&parsed, Some("Rust"));
+        assert!(
+            parsed.was_parsed(),
+            "import extraction materializes the tree"
+        );
+        assert!(imports.contains(&"crate::foo::bar".to_string()));
+
+        // Second consumer: an AST audit reaches for the same syntax tree via the
+        // exact call audits use. The `OnceCell` guarantees it is not re-parsed.
+        assert!(parsed.tree().is_some());
+        assert!(parsed.was_parsed());
     }
 }

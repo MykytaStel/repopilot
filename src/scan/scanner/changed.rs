@@ -69,6 +69,7 @@ struct ChangedFileAnalysisStage {
     cache_telemetry: ScanCacheTelemetry,
     changed_file_reasons: BTreeMap<String, usize>,
     elapsed_us: u64,
+    parse_us: u64,
 }
 
 struct ChangedRepoContextStage {
