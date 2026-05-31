@@ -78,9 +78,9 @@ impl LongFunctionAudit {
         policy.severity = decision.severity.min(policy.severity);
 
         // A present syntax tree implies a parseable grammar, so measure real
-        // function spans from the AST. Languages without a grammar (Go, Java,
-        // C#, Kotlin) — or the rare parse failure — fall back to the line/brace
-        // heuristic, whose findings are stamped with text-heuristic provenance.
+        // function spans from the AST. Languages with no tree-sitter grammar, or
+        // the rare parse failure, fall back to the line/brace heuristic, whose
+        // findings are stamped with text-heuristic provenance.
         match parsed.tree() {
             Some(tree) => ast::detect_ast(tree, content, language, &file.path, policy),
             None => {
