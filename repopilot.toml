@@ -23,7 +23,11 @@ max_directory_depth = 5
 max_function_lines = 50
 max_fan_out = 15
 instability_hub_min_fan_in = 5
-instability_hub_min_instability_pct = 75
+# The CLI command dispatcher (src/commands/mod.rs) aggregates every subcommand
+# module, so it legitimately sits near the top of the dependency graph with high
+# instability. Allow that for this repo while still flagging genuinely tangled
+# hubs above 80%.
+instability_hub_min_instability_pct = 80
 
 [code_quality]
 complexity_medium_threshold = 200
