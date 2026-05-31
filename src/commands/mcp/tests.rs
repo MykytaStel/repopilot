@@ -44,7 +44,7 @@ fn initialize_reports_server_info_and_tools_capability() {
 }
 
 #[test]
-fn tools_list_advertises_review_change_with_schema() {
+fn tools_list_advertises_all_tools_with_schemas() {
     let responses = exchange(&[json!({
         "jsonrpc": "2.0",
         "id": 2,
@@ -54,9 +54,29 @@ fn tools_list_advertises_review_change_with_schema() {
     let tools = responses[0]["result"]["tools"]
         .as_array()
         .expect("tools array");
-    assert_eq!(tools.len(), 1);
-    assert_eq!(tools[0]["name"], "repopilot_review_change");
-    assert_eq!(tools[0]["inputSchema"]["type"], "object");
+
+    let names: Vec<&str> = tools
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "repopilot_review_change",
+            "repopilot_scan",
+            "repopilot_context",
+            "repopilot_explain_file",
+        ]
+    );
+
+    // Every advertised tool exposes an object input schema.
+    for tool in tools {
+        assert_eq!(
+            tool["inputSchema"]["type"], "object",
+            "tool {}",
+            tool["name"]
+        );
+    }
 }
 
 #[test]
