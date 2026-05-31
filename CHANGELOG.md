@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-05-31
+
+RepoPilot 0.14 is the AI-guardrail release. Every runtime-risk and code-quality
+rule now detects from a shared, parse-once syntax tree instead of line text —
+fewer false positives, restored `ast` provenance, and one parse per file. And a
+new local `repopilot mcp` server lets AI coding agents call RepoPilot's review,
+scan, context, and explain capabilities directly over stdio, with nothing
+uploaded and no AI service called.
+
 ### Added
 
 - Added `repopilot mcp`, a local Model Context Protocol server over stdio so AI agents (Claude Code, Cursor, …) can call RepoPilot as a tool. It speaks JSON-RPC 2.0 synchronously (no async runtime or extra dependencies) and exposes the `repopilot_review_change` tool, which runs the same local scan + diff review as `repopilot review` and returns a JSON report. Nothing is uploaded and no AI service is called.

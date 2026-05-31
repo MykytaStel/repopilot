@@ -92,6 +92,23 @@ repopilot scan . --format json --output repopilot-report.json --receipt .repopil
 repopilot scan . --format sarif --output repopilot.sarif
 ```
 
+## Use with AI agents (MCP)
+
+RepoPilot ships a local [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Code, Cursor, …) can call it as a tool — auditing what the agent just changed, without anything leaving your machine.
+
+```bash
+claude mcp add repopilot -- repopilot mcp
+```
+
+The server runs locally over stdio (JSON-RPC, no network, no AI calls) and exposes four tools:
+
+- `repopilot_review_change` — audit the current Git changes: in-diff vs out-of-diff findings plus blast radius.
+- `repopilot_scan` — full repository audit as a JSON report.
+- `repopilot_context` — a budgeted, AI-ready Markdown brief of the repo.
+- `repopilot_explain_file` — how a single file is classified and which rules apply.
+
+More: [docs/mcp.md](docs/mcp.md).
+
 ## What It Checks
 
 | Area | Examples |
@@ -121,7 +138,7 @@ More: [docs/trust-mode.md](docs/trust-mode.md).
 ## Core Commands
 
 ```text
-scan | review | baseline | compare | doctor | inspect | ai | init | cache
+scan | review | baseline | compare | doctor | inspect | ai | init | cache | mcp
 ```
 
 Common workflows:
