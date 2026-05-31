@@ -68,28 +68,97 @@ impl RustPanicRiskAudit {
                 fn visit<'a>(
                     node: Node<'a>,
                     content: &str,
+                    in_macro_args: bool,
                     candidates: &mut HashMap<usize, (Node<'a>, RustPanicPattern)>,
                 ) {
-                    if let Some(pattern) = detect_ast_node(node, content) {
-                        let line_number = node.start_position().row + 1;
-                        let keep = if let Some((_, existing_pattern)) = candidates.get(&line_number)
-                        {
-                            pattern.precedence() > existing_pattern.precedence()
-                        } else {
-                            true
-                        };
-                        if keep {
-                            candidates.insert(line_number, (node, pattern));
+                    let kind = node.kind();
+
+                    // Skip comments and string/char literals
+                    if matches!(
+                        kind,
+                        "line_comment"
+                            | "block_comment"
+                            | "string_literal"
+                            | "raw_string_literal"
+                            | "char_literal"
+                    ) {
+                        return;
+                    }
+
+                    if in_macro_args && (kind == "identifier" || kind == "field_identifier") {
+                        if let Ok(text) = node.utf8_text(content.as_bytes()) {
+                            let pattern = match text {
+                                "unwrap" => Some(RustPanicPattern::Unwrap),
+                                "unwrap_err" => Some(RustPanicPattern::UnwrapErr),
+                                "expect" => Some(RustPanicPattern::Expect),
+                                "expect_err" => Some(RustPanicPattern::ExpectErr),
+                                _ => None,
+                            };
+                            if let Some(pat) = pattern {
+                                if is_preceded_by_dot(node, content)
+                                    && is_followed_by_paren(node, content)
+                                {
+                                    let line_number = node.start_position().row + 1;
+                                    let keep = if let Some((_, existing_pattern)) =
+                                        candidates.get(&line_number)
+                                    {
+                                        pat.precedence() > existing_pattern.precedence()
+                                    } else {
+                                        true
+                                    };
+                                    if keep {
+                                        candidates.insert(line_number, (node, pat));
+                                    }
+                                }
+                            }
                         }
                     }
 
+                    let is_panic_macro = if kind == "macro_invocation" {
+                        if let Some(pattern) = detect_ast_node(node, content) {
+                            let line_number = node.start_position().row + 1;
+                            let keep =
+                                if let Some((_, existing_pattern)) = candidates.get(&line_number) {
+                                    pattern.precedence() > existing_pattern.precedence()
+                                } else {
+                                    true
+                                };
+                            if keep {
+                                candidates.insert(line_number, (node, pattern));
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+                    if !is_panic_macro {
+                        if let Some(pattern) = detect_ast_node(node, content) {
+                            let line_number = node.start_position().row + 1;
+                            let keep =
+                                if let Some((_, existing_pattern)) = candidates.get(&line_number) {
+                                    pattern.precedence() > existing_pattern.precedence()
+                                } else {
+                                    true
+                                };
+                            if keep {
+                                candidates.insert(line_number, (node, pattern));
+                            }
+                        }
+                    }
+
+                    let next_in_macro =
+                        in_macro_args || (kind == "macro_invocation" && !is_panic_macro);
+
                     let mut cursor = node.walk();
                     for child in node.children(&mut cursor) {
-                        visit(child, content, candidates);
+                        visit(child, content, next_in_macro, candidates);
                     }
                 }
 
-                visit(tree.root_node(), content, &mut candidates);
+                visit(tree.root_node(), content, false, &mut candidates);
 
                 let mut findings = Vec::new();
                 let mut sorted_lines: Vec<usize> = candidates.keys().copied().collect();
@@ -282,4 +351,26 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
             analysis_scope: AnalysisScope::File,
         };
     }
+}
+
+fn is_preceded_by_dot(node: Node<'_>, content: &str) -> bool {
+    let start_byte = node.start_byte();
+    if start_byte > 0 {
+        let pre_slice = &content.as_bytes()[..start_byte];
+        if let Some(last_char) = pre_slice.iter().rev().find(|&&b| !b.is_ascii_whitespace()) {
+            return *last_char == b'.';
+        }
+    }
+    false
+}
+
+fn is_followed_by_paren(node: Node<'_>, content: &str) -> bool {
+    let end_byte = node.end_byte();
+    if end_byte < content.len() {
+        let post_slice = &content.as_bytes()[end_byte..];
+        if let Some(first_char) = post_slice.iter().find(|&&b| !b.is_ascii_whitespace()) {
+            return *first_char == b'(';
+        }
+    }
+    false
 }
