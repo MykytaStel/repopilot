@@ -551,7 +551,9 @@ fn emit_csharp_node(
         "invocation_expression" => {
             // C# `invocation_expression` exposes the callee under the `function`
             // field; `child(0)` is a defensive fallback for older grammar shapes.
-            let name_node = node.child_by_field_name("function").or_else(|| node.child(0));
+            let name_node = node
+                .child_by_field_name("function")
+                .or_else(|| node.child(0));
             if let Some(name_node) = name_node {
                 if node_text(name_node, content) == Some("TODO") {
                     Some(ManagedRiskPattern::NotImplemented)
