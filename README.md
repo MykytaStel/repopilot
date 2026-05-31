@@ -15,6 +15,10 @@ RepoPilot is a fast Rust CLI that scans a repository locally, ranks evidence-bac
 scan -> review risk -> baseline adoption -> CI evidence -> local AI context
 ```
 
+<p align="center">
+  <img src="docs/demos/01-scan.gif" alt="RepoPilot scanning a repository" width="800">
+</p>
+
 RepoPilot is not a replacement for language linters, formatters, type checkers, or dedicated security scanners. It complements them with repository-level evidence: secrets, runtime footguns, architecture risk, review blast radius, baseline status, and report formats that work in CI.
 
 ## Install
@@ -77,6 +81,7 @@ Review a branch:
 ```bash
 repopilot review . --base origin/main
 ```
+![Reviewing branch changes](docs/demos/02-review.gif)
 
 Generate local AI context:
 
