@@ -563,6 +563,27 @@ repopilot inspect rules --lifecycle preview
 repopilot inspect rules --source text-heuristic
 ```
 
+### Signal sources: AST-backed vs heuristic
+
+Each rule reports a `signal_source`. The authoritative, always-current list is the
+tool itself — `repopilot inspect rules --source ast` and
+`repopilot inspect rules --source text-heuristic`. As of now:
+
+| Rule | Detection | Notes |
+|------|-----------|-------|
+| `code-quality.long-function` | AST | Function spans from the syntax tree for Rust, TypeScript/JavaScript, Python, Go, Java, C#, Kotlin; line/brace heuristic only on parse failure. |
+| `code-quality.deep-control-flow` | AST | Same language set as long-function. |
+| `language.go.panic-exit-risk` | AST | `panic`/`log.Fatal`/`os.Exit` calls from the syntax tree. |
+| `language.python.exception-risk` | AST | Bare `except`, `assert`, and `NotImplementedError` from the syntax tree. |
+| `language.javascript.runtime-exit-risk` | AST | `process.exit` calls and library-boundary `throw new Error(...)`. |
+| `language.managed.fatal-exception-risk` | Heuristic | Java/Kotlin/C# fatal exceptions; AST migration pending. |
+| `language.rust.panic-risk` | Heuristic | `unwrap`/`expect`/`panic` paths; AST migration pending. |
+| `code-quality.complex-file`, `code-marker.*`, `architecture.*`, `testing.*` | Heuristic | Structural/text signals by design. |
+
+AST-backed rules ignore risky tokens that appear only in comments or string
+literals; heuristic rules sanitize comments and strings line-by-line but cannot
+reason about full call structure.
+
 ---
 
 ## `inspect rule`

@@ -5,6 +5,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_in_comments_and_strings",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "language.go.panic-exit-risk",
