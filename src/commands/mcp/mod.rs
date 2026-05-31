@@ -8,8 +8,11 @@
 //! RepoPilot's local-first promise (nothing is uploaded; no AI service is
 //! called).
 
+mod context;
+mod explain_file;
 mod jsonrpc;
 mod review_change;
+mod scan;
 
 #[cfg(test)]
 mod tests;
@@ -89,7 +92,14 @@ fn initialize_result(params: &Value) -> Value {
 }
 
 fn tools_list_result() -> Value {
-    json!({ "tools": [review_change::definition()] })
+    json!({
+        "tools": [
+            review_change::definition(),
+            scan::definition(),
+            context::definition(),
+            explain_file::definition(),
+        ]
+    })
 }
 
 fn handle_tools_call(id: Value, params: &Value) -> Response {
@@ -104,6 +114,9 @@ fn handle_tools_call(id: Value, params: &Value) -> Response {
 
     let outcome = match name {
         review_change::TOOL_NAME => review_change::call(&arguments),
+        scan::TOOL_NAME => scan::call(&arguments),
+        context::TOOL_NAME => context::call(&arguments),
+        explain_file::TOOL_NAME => explain_file::call(&arguments),
         other => Err(format!("unknown tool: {other}")),
     };
 
