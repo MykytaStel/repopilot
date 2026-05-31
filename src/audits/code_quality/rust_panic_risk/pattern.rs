@@ -46,6 +46,21 @@ impl RustPanicPattern {
             | RustPanicPattern::Panic => Severity::Medium,
         }
     }
+
+    /// Precedence used to pick a single pattern when more than one risky site
+    /// lands on the same source line, mirroring the order of [`detect_pattern`]
+    /// so AST detection emits one finding per line just like the line scanner.
+    pub(super) fn precedence(self) -> u8 {
+        match self {
+            RustPanicPattern::Todo => 7,
+            RustPanicPattern::Unimplemented => 6,
+            RustPanicPattern::Panic => 5,
+            RustPanicPattern::UnwrapErr => 4,
+            RustPanicPattern::Unwrap => 3,
+            RustPanicPattern::ExpectErr => 2,
+            RustPanicPattern::Expect => 1,
+        }
+    }
 }
 
 pub(super) fn detect_pattern(trimmed: &str) -> Option<RustPanicPattern> {
@@ -153,7 +168,7 @@ pub(super) fn is_infallible_render_write_start(path: &std::path::Path, trimmed: 
         && (trimmed.starts_with("writeln!(") || trimmed.starts_with("write!("))
 }
 
-fn is_report_renderer_path(path: &std::path::Path) -> bool {
+pub(super) fn is_report_renderer_path(path: &std::path::Path) -> bool {
     let mut previous = None;
     for component in path
         .components()
@@ -165,6 +180,37 @@ fn is_report_renderer_path(path: &std::path::Path) -> bool {
         previous = Some(component);
     }
     false
+}
+
+pub(super) fn is_structural_infallible_render_write_unwrap(
+    node: tree_sitter::Node<'_>,
+    content: &str,
+) -> bool {
+    if node.kind() != "call_expression" {
+        return false;
+    }
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    if function.kind() != "field_expression" {
+        return false;
+    }
+    let Some(value) = function.child_by_field_name("value") else {
+        return false;
+    };
+    if value.kind() != "macro_invocation" {
+        return false;
+    }
+    let Some(macro_node) = value
+        .child_by_field_name("macro")
+        .or_else(|| value.child(0))
+    else {
+        return false;
+    };
+    let Ok(macro_name) = macro_node.utf8_text(content.as_bytes()) else {
+        return false;
+    };
+    macro_name == "write" || macro_name == "writeln"
 }
 
 pub(super) fn is_infallible_render_write_result_unwrap(
