@@ -15,10 +15,11 @@ use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::review::signals::composites;
 use crate::review::signals::{BoundarySignal, detect_boundary_signals};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 pub fn build_review_report(
@@ -54,10 +55,17 @@ fn classify_findings(
     baseline_report: BaselineScanReport,
     repo_root: PathBuf,
     changed_files: Vec<ChangedFile>,
-    boundary_signals: Vec<BoundarySignal>,
+    mut boundary_signals: Vec<BoundarySignal>,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
+    composites::enrich_blast_radius(
+        &mut boundary_signals,
+        summary.artifacts.coupling_graph.as_ref(),
+        &repo_root,
+    );
+    let boundary_missing_test =
+        composites::missing_test_for_code_boundary(&boundary_signals, &changed_files);
     let mut findings: Vec<ReviewFindingStatus> = summary
         .artifacts
         .findings
@@ -90,6 +98,7 @@ fn classify_findings(
         changed_files,
         blast_radius,
         boundary_signals,
+        boundary_missing_test,
         findings,
     }
 }
@@ -124,17 +133,7 @@ pub fn compute_blast_radius(
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
 
-    let mut importers_by_target: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
-
-    for (source, targets) in &graph.edges {
-        let source = normalized_review_path(source, repo_root);
-        for target in targets {
-            importers_by_target
-                .entry(normalized_review_path(target, repo_root))
-                .or_default()
-                .insert(source.clone());
-        }
-    }
+    let importers_by_target = composites::build_importers_by_target(graph, repo_root);
 
     let mut impacted = BTreeSet::new();
 
@@ -257,7 +256,7 @@ fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> 
     }
 }
 
-fn normalized_review_path(path: &Path, repo_root: &Path) -> PathBuf {
+pub(crate) fn normalized_review_path(path: &Path, repo_root: &Path) -> PathBuf {
     let repo_root = repo_root
         .canonicalize()
         .unwrap_or_else(|_| repo_root.to_path_buf());

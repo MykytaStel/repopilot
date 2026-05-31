@@ -149,6 +149,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         changed_files: vec![changed_file("src/a.ts")],
         blast_radius: vec![PathBuf::from("src/b.ts")],
         boundary_signals: vec![],
+        boundary_missing_test: false,
         findings: vec![],
     };
 

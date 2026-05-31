@@ -122,6 +122,81 @@ fn review_respects_disabled_boundary_config() {
     assert_eq!(json["review"]["boundary_signals"], 0);
 }
 
+#[test]
+fn review_reports_blast_radius_for_boundary_file() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    write(
+        temp.path(),
+        "src/auth/session.ts",
+        "export const session = 1;\n",
+    );
+    write(
+        temp.path(),
+        "src/app.ts",
+        "import { session } from \"./auth/session\";\nexport const app = session;\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    // Modify the boundary file so it lands in the diff; app.ts still imports it.
+    fs::write(
+        temp.path().join("src/auth/session.ts"),
+        "export const session = 2;\n",
+    )
+    .expect("failed to modify boundary file");
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+
+    let session = json["boundary_signals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|signal| signal["path"] == "src/auth/session.ts")
+        .expect("session.ts boundary signal");
+    assert_eq!(session["category"], "access-control");
+    assert_eq!(session["blast_radius"], 1);
+}
+
+#[test]
+fn review_flags_code_boundary_without_a_test_change() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path(),
+        "src/middleware/auth.ts",
+        "export const auth = () => {};\n",
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    assert_eq!(json["review"]["boundary_missing_test"], true);
+}
+
+#[test]
+fn review_silent_when_boundary_change_includes_a_test() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path(),
+        "src/middleware/auth.ts",
+        "export const auth = () => {};\n",
+    );
+    write(
+        temp.path(),
+        "tests/auth.test.ts",
+        "test('auth', () => {});\n",
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    assert_eq!(json["review"]["boundary_missing_test"], false);
+}
+
 fn run_review_json(root: &Path, args: &[&str]) -> Value {
     let output = repopilot()
         .args(args)

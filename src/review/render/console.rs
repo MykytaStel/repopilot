@@ -92,10 +92,25 @@ fn render_boundary_signals(output: &mut String, report: &ReviewReport) {
 
     for signal in &report.boundary_signals {
         output.push_str(&format!(
-            "  \u{2691} {:<15} {}\n",
+            "  \u{2691} {:<15} {}{}\n",
             signal.category.label(),
-            signal.path
+            signal.path,
+            render_reach_suffix(signal.blast_radius)
         ));
+    }
+
+    if report.boundary_missing_test {
+        output.push_str(
+            "  \u{26a0} A code boundary changed but no test did \u{2014} confirm it's still covered.\n",
+        );
+    }
+}
+
+fn render_reach_suffix(blast_radius: usize) -> String {
+    match blast_radius {
+        0 => String::new(),
+        1 => "  (imported by 1 file)".to_string(),
+        count => format!("  (imported by {count} files)"),
     }
 }
 
