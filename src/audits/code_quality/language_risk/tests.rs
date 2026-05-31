@@ -217,3 +217,83 @@ fn facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
         has_inline_tests: false,
     }
 }
+
+#[test]
+fn reports_kotlin_ast_fatal_exceptions_and_todo() {
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/UserService.kt",
+        Some("Kotlin"),
+        "fun test() {\n    // throw NotImplementedError()\n    val msg = \"TODO()\";\n    throw RuntimeException(\"err\")\n    TODO()\n}\n",
+    );
+
+    let mut findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    // Should find throw RuntimeException and TODO(), but NOT inside comments or strings.
+    assert_eq!(findings.len(), 2);
+    findings[0].populate_rule_metadata();
+    findings[1].populate_rule_metadata();
+    assert_eq!(findings[0].provenance.signal_source, SignalSource::Ast);
+    assert_eq!(findings[1].provenance.signal_source, SignalSource::Ast);
+}
+
+#[test]
+fn reports_java_ast_fatal_exceptions_and_todo() {
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/UserService.java",
+        Some("Java"),
+        "class Service {\n    void test() {\n        // throw new RuntimeException();\n        String val = \"TODO()\";\n        throw new IllegalStateException();\n        TODO();\n    }\n}\n",
+    );
+
+    let mut findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 2);
+    findings[0].populate_rule_metadata();
+    findings[1].populate_rule_metadata();
+    assert_eq!(findings[0].provenance.signal_source, SignalSource::Ast);
+    assert_eq!(findings[1].provenance.signal_source, SignalSource::Ast);
+}
+
+#[test]
+fn reports_csharp_ast_fatal_exceptions_and_todo() {
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/UserService.cs",
+        Some("C#"),
+        "class Service {\n    void Test() {\n        // throw new Exception();\n        string val = \"TODO()\";\n        throw new NotImplementedException();\n        TODO();\n    }\n}\n",
+    );
+
+    let mut findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 2);
+    findings[0].populate_rule_metadata();
+    findings[1].populate_rule_metadata();
+    assert_eq!(findings[0].provenance.signal_source, SignalSource::Ast);
+    assert_eq!(findings[1].provenance.signal_source, SignalSource::Ast);
+}
+
+#[test]
+fn managed_fallback_reports_text_heuristic_provenance() {
+    use crate::analysis::parse::ParsedFile;
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/UserService.kt",
+        Some("Kotlin"),
+        "fun test() { TODO() }\n",
+    );
+    // Force fallback by parsing with an unsupported label (no grammar)
+    let unparsed = ParsedFile::new(file.content.as_deref().unwrap(), Some("Ruby"));
+
+    let mut findings = LanguageRiskAudit.analyze(&file, &unparsed, &ScanConfig::default());
+    assert_eq!(findings.len(), 1);
+    findings[0].populate_rule_metadata();
+    assert_eq!(
+        findings[0].provenance.signal_source,
+        SignalSource::TextHeuristic
+    );
+}

@@ -68,7 +68,15 @@ impl LanguageRiskAudit {
 fn is_ast_runtime_language(language_id: &str) -> bool {
     matches!(
         language_id,
-        "python" | "go" | "typescript" | "typescript-react" | "javascript" | "javascript-react"
+        "python"
+            | "go"
+            | "typescript"
+            | "typescript-react"
+            | "javascript"
+            | "javascript-react"
+            | "java"
+            | "kotlin"
+            | "csharp"
     )
 }
 
