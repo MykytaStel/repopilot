@@ -1,4 +1,5 @@
 use super::*;
+use crate::review::signals::BoundarySignal;
 
 #[derive(Debug, Serialize)]
 pub struct ReviewJsonReport<'a> {
@@ -12,6 +13,7 @@ pub struct ReviewJsonReport<'a> {
     pub non_empty_lines: usize,
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
+    pub boundary_signals: &'a [BoundarySignal],
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_graph_summary: Option<&'a ContextGraphSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -48,6 +50,7 @@ impl<'a> ReviewJsonReport<'a> {
                 .iter()
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
+            boundary_signals: &report.boundary_signals,
             context_graph_summary: report.summary.artifacts.context_graph_summary.as_ref(),
             context_graph_cache: report.summary.artifacts.context_graph_cache.as_ref(),
             review: ReviewJsonMetadata {
@@ -55,6 +58,7 @@ impl<'a> ReviewJsonReport<'a> {
                 out_of_diff_findings: report.out_of_diff_count(),
                 new_in_diff_findings: report.new_in_diff_count(),
                 existing_in_diff_findings: report.existing_in_diff_count(),
+                boundary_signals: report.boundary_signals.len(),
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.artifacts.findings),
@@ -97,6 +101,7 @@ pub struct ReviewJsonMetadata {
     pub out_of_diff_findings: usize,
     pub new_in_diff_findings: usize,
     pub existing_in_diff_findings: usize,
+    pub boundary_signals: usize,
     pub severity_counts: SeverityCounts,
 }
 

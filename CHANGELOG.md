@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added security-boundary change signals to `repopilot review` (and the `repopilot_review_change` MCP tool). The review now flags when a change touches parts of the repo that decide *who can do what* (auth, sessions, permissions, CORS) or *how the app ships* (CI/workflows, Dockerfiles, IaC, dependency manifests, committed `.env`). It is path/filename classification over the diff — it flags, it does not prove a change is safe, so a false positive costs only a glance. Signals appear in the console and Markdown output and as a structured `boundary_signals` array in the JSON report. Configure or disable via a new `[security_boundary]` config section (`enabled`, `extra_patterns`). Ships at `preview`.
+
 ## [0.14.0] - 2026-05-31
 
 RepoPilot 0.14 is the AI-guardrail release. Every runtime-risk and code-quality

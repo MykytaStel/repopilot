@@ -63,6 +63,7 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
     }
 
     render_markdown_blast_radius(&mut output, report);
+    render_markdown_boundary_signals(&mut output, report);
     render_markdown_findings_group(
         &mut output,
         "In-Diff Findings",
@@ -97,6 +98,30 @@ fn render_markdown_blast_radius(output: &mut String, report: &ReviewReport) {
 
     for path in &report.blast_radius {
         output.push_str(&format!("- `{}`\n", path.display()));
+    }
+
+    output.push('\n');
+}
+
+fn render_markdown_boundary_signals(output: &mut String, report: &ReviewReport) {
+    if report.boundary_signals.is_empty() {
+        return;
+    }
+
+    output.push_str("## Security Boundary Changed (preview)\n\n");
+    output.push_str(
+        "These changes touch who-can-do-what or how the app ships — open the report before merging.\n\n",
+    );
+    output.push_str("| Category | Path | Status |\n");
+    output.push_str("| --- | --- | --- |\n");
+
+    for signal in &report.boundary_signals {
+        output.push_str(&format!(
+            "| {} | `{}` | {:?} |\n",
+            signal.category.label(),
+            signal.path,
+            signal.status
+        ));
     }
 
     output.push('\n');

@@ -39,5 +39,9 @@ detect_missing_tests = true
 [security]
 detect_secret_like_names = true
 
+[security_boundary]
+enabled = true
+extra_patterns = []
+
 [output]
 default_format = "console"
