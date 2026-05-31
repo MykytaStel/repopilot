@@ -155,6 +155,11 @@ fn still_reports_unwraps_inside_renderer_format_arguments() {
         false,
     );
 
+    let parsed = crate::analysis::parse::ParsedFile::for_facts(&file);
+    if let Some(tree) = parsed.tree() {
+        println!("AST TREE: {}", tree.root_node().to_sexp());
+    }
+
     let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
 
     assert_eq!(findings.len(), 1);
