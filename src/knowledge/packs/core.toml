@@ -698,7 +698,7 @@ suppress_generated = true
 
 [[rules]]
 rule_id = "code-quality.deep-control-flow"
-languages = ["rust", "python", "typescript", "typescript-react", "javascript", "javascript-react"]
+languages = ["rust", "python", "typescript", "typescript-react", "javascript", "javascript-react", "go", "java", "csharp", "kotlin"]
 suppress_low_signal = true
 suppress_generated = true
 

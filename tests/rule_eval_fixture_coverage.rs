@@ -32,6 +32,8 @@ const RUNTIME_RULES_WITH_013_FIXTURES: &[&str] = &[
     "language.managed.fatal-exception-risk",
 ];
 
+const CODE_QUALITY_RULES_WITH_013_FIXTURES: &[&str] = &["code-quality.long-function"];
+
 #[test]
 fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
@@ -70,6 +72,22 @@ fn given_runtime_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     let fixture_root = rule_fixture_root();
 
     for rule_id in RUNTIME_RULES_WITH_013_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_code_quality_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in CODE_QUALITY_RULES_WITH_013_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 

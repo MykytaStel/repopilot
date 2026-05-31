@@ -48,7 +48,7 @@ Walks the target path and runs all enabled audit rules.
 |----------|---------------|
 | Architecture | Oversized files, deep nesting, deep relative imports, risky barrel files, too many modules per directory |
 | Coupling | Excessive fan-out, high-instability hubs, circular dependencies |
-| Code quality | Cyclomatic complexity, long functions (Rust, Go, TypeScript, JavaScript, Python, Java, Kotlin), TODO/FIXME/HACK markers |
+| Code quality | Cyclomatic complexity, long functions and deep control-flow nesting (AST-based for Rust, TypeScript, JavaScript, Python, Go, Java, C#, Kotlin), TODO/FIXME/HACK markers |
 | Framework | JavaScript, React, React Native, Expo, New Architecture, Hermes, Codegen; Python (Django, Flask, FastAPI); Go (Gin, Echo, Fiber) |
 | Security | Hardcoded secret candidates, committed private keys, `.env` files, Django deployment settings and raw SQL formatting |
 | Testing | Missing test folder, source files without test counterparts |

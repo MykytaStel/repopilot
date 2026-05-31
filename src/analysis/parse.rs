@@ -32,6 +32,10 @@ pub(crate) enum ParseLanguage {
     Tsx,
     JavaScript,
     Python,
+    Go,
+    Java,
+    CSharp,
+    Kotlin,
 }
 
 impl ParseLanguage {
@@ -44,6 +48,10 @@ impl ParseLanguage {
             "TypeScript React" => Some(Self::Tsx),
             "JavaScript" | "JavaScript React" => Some(Self::JavaScript),
             "Python" => Some(Self::Python),
+            "Go" => Some(Self::Go),
+            "Java" => Some(Self::Java),
+            "CSharp" | "C#" => Some(Self::CSharp),
+            "Kotlin" => Some(Self::Kotlin),
             _ => None,
         }
     }
@@ -60,6 +68,14 @@ thread_local! {
         RefCell::new(parser_for(tree_sitter_javascript::LANGUAGE.into()));
     static PYTHON_PARSER: RefCell<Parser> =
         RefCell::new(parser_for(tree_sitter_python::LANGUAGE.into()));
+    static GO_PARSER: RefCell<Parser> =
+        RefCell::new(parser_for(tree_sitter_go::LANGUAGE.into()));
+    static JAVA_PARSER: RefCell<Parser> =
+        RefCell::new(parser_for(tree_sitter_java::LANGUAGE.into()));
+    static CSHARP_PARSER: RefCell<Parser> =
+        RefCell::new(parser_for(tree_sitter_c_sharp::LANGUAGE.into()));
+    static KOTLIN_PARSER: RefCell<Parser> =
+        RefCell::new(parser_for(tree_sitter_kotlin_ng::LANGUAGE.into()));
 }
 
 fn parser_for(language: Language) -> Parser {
@@ -79,6 +95,10 @@ pub(crate) fn parse(content: &str, language: ParseLanguage) -> Option<Tree> {
         ParseLanguage::Tsx => &TSX_PARSER,
         ParseLanguage::JavaScript => &JS_PARSER,
         ParseLanguage::Python => &PYTHON_PARSER,
+        ParseLanguage::Go => &GO_PARSER,
+        ParseLanguage::Java => &JAVA_PARSER,
+        ParseLanguage::CSharp => &CSHARP_PARSER,
+        ParseLanguage::Kotlin => &KOTLIN_PARSER,
     };
     let start = Instant::now();
     let tree = parser.with(|cell| {
@@ -178,12 +198,23 @@ mod tests {
             ParseLanguage::from_label("Python"),
             Some(ParseLanguage::Python)
         );
+        assert_eq!(ParseLanguage::from_label("Go"), Some(ParseLanguage::Go));
+        assert_eq!(ParseLanguage::from_label("Java"), Some(ParseLanguage::Java));
+        assert_eq!(
+            ParseLanguage::from_label("CSharp"),
+            Some(ParseLanguage::CSharp)
+        );
+        assert_eq!(ParseLanguage::from_label("C#"), Some(ParseLanguage::CSharp));
+        assert_eq!(
+            ParseLanguage::from_label("Kotlin"),
+            Some(ParseLanguage::Kotlin)
+        );
     }
 
     #[test]
     fn rejects_unparseable_labels() {
-        assert_eq!(ParseLanguage::from_label("Go"), None);
-        assert_eq!(ParseLanguage::from_label("Java"), None);
+        assert_eq!(ParseLanguage::from_label("Ruby"), None);
+        assert_eq!(ParseLanguage::from_label("PHP"), None);
         assert_eq!(ParseLanguage::from_label(""), None);
     }
 
@@ -194,6 +225,10 @@ mod tests {
         assert!(parse("const x = <div />;", ParseLanguage::Tsx).is_some());
         assert!(parse("const x = 1;", ParseLanguage::JavaScript).is_some());
         assert!(parse("x = 1\n", ParseLanguage::Python).is_some());
+        assert!(parse("package main\nfunc main() {}\n", ParseLanguage::Go).is_some());
+        assert!(parse("public class Main {}\n", ParseLanguage::Java).is_some());
+        assert!(parse("class Main {}\n", ParseLanguage::CSharp).is_some());
+        assert!(parse("fun main() {}\n", ParseLanguage::Kotlin).is_some());
     }
 
     #[test]
@@ -208,7 +243,7 @@ mod tests {
     fn parse_label_matches_grammar_dispatch() {
         assert!(parse_label("fn main() {}", "Rust").is_some());
         assert!(parse_label("def f():\n    pass\n", "Python").is_some());
-        assert!(parse_label("package main", "Go").is_none());
+        assert!(parse_label("package main\n", "Go").is_some());
     }
 
     #[test]
@@ -222,7 +257,7 @@ mod tests {
 
     #[test]
     fn parsed_file_without_grammar_has_no_tree() {
-        assert!(ParsedFile::new("package main", Some("Go")).tree().is_none());
+        assert!(ParsedFile::new("class Main", Some("Ruby")).tree().is_none());
         assert!(ParsedFile::new("anything", None).tree().is_none());
     }
 

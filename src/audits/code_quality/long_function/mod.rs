@@ -1,12 +1,16 @@
+use crate::analysis::parse::ParsedFile;
 use crate::audits::context::{AuditContext, FileRole, FrameworkKind, LanguageKind, classify_file};
 use crate::audits::traits::FileAudit;
+use crate::findings::provenance::{AnalysisScope, FindingProvenance};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::decide_for_audit_context;
+use crate::rules::{RuleLifecycle, SignalSource, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use crate::scan::path_classification::is_low_signal_audit_path;
 use std::path::Path;
 
+mod ast;
 mod brace;
 mod python;
 
@@ -26,6 +30,22 @@ pub(super) struct LongFunctionPolicy {
 
 impl FileAudit for LongFunctionAudit {
     fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        // Direct entry (tests, non-pipeline callers): build a one-off parse view.
+        self.analyze(file, &ParsedFile::for_facts(file), config)
+    }
+
+    fn audit_parsed(
+        &self,
+        file: &FileFacts,
+        parsed: &ParsedFile,
+        config: &ScanConfig,
+    ) -> Vec<Finding> {
+        self.analyze(file, parsed, config)
+    }
+}
+
+impl LongFunctionAudit {
+    fn analyze(&self, file: &FileFacts, parsed: &ParsedFile, config: &ScanConfig) -> Vec<Finding> {
         let arch_ctx = crate::analysis::classify_file_architecture(file, config);
         if arch_ctx.file_role != crate::analysis::FileRole::Production
             && arch_ctx.file_role != crate::analysis::FileRole::Test
@@ -57,7 +77,34 @@ impl FileAudit for LongFunctionAudit {
         let mut policy = long_function_policy(&context, config.long_function_loc_threshold);
         policy.severity = decision.severity.min(policy.severity);
 
-        detect_long_functions(content, language, &file.path, policy)
+        // A present syntax tree implies a parseable grammar, so measure real
+        // function spans from the AST. Languages with no tree-sitter grammar, or
+        // the rare parse failure, fall back to the line/brace heuristic, whose
+        // findings are stamped with text-heuristic provenance.
+        match parsed.tree() {
+            Some(tree) => ast::detect_ast(tree, content, language, &file.path, policy),
+            None => {
+                let mut findings = detect_long_functions(content, language, &file.path, policy);
+                mark_text_heuristic(&mut findings);
+                findings
+            }
+        }
+    }
+}
+
+/// Overrides provenance for heuristic-fallback findings so they report
+/// `text-heuristic` rather than inheriting the rule's `ast` signal source.
+fn mark_text_heuristic(findings: &mut [Finding]) {
+    let lifecycle = lookup_rule_metadata(RULE_ID)
+        .map(|metadata| metadata.lifecycle)
+        .unwrap_or(RuleLifecycle::Preview);
+    for finding in findings {
+        finding.provenance = FindingProvenance {
+            detector: RULE_ID.to_string(),
+            signal_source: SignalSource::TextHeuristic,
+            rule_lifecycle: lifecycle,
+            analysis_scope: AnalysisScope::File,
+        };
     }
 }
 
