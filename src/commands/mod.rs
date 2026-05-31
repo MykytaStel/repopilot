@@ -13,6 +13,7 @@ pub mod graph;
 pub mod init;
 pub mod knowledge;
 mod llm;
+pub mod mcp;
 pub(crate) mod product_scan;
 mod progress;
 pub mod prompt;
@@ -51,6 +52,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             options.include_low_signal,
             options.max_files,
         ),
+        Commands::Mcp(options) => mcp::run(options),
     }
 }
 

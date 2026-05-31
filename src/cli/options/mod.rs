@@ -4,6 +4,7 @@ pub mod cache;
 pub mod compare;
 pub mod doctor;
 pub mod inspect;
+pub mod mcp;
 pub mod review;
 pub mod scan;
 
@@ -13,6 +14,7 @@ pub use cache::{CacheCommands, CacheOptions};
 pub use compare::CompareOptions;
 pub use doctor::{DoctorOptions, InitOptions};
 pub use inspect::{InspectCommands, InspectOptions};
+pub use mcp::McpOptions;
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
 
@@ -174,4 +176,19 @@ repopilot doctor . --format json\n  \
 repopilot doctor . --format markdown --output doctor.md"
     )]
     Doctor(DoctorOptions),
+
+    /// Run a local Model Context Protocol server over stdio
+    #[command(
+        about = "Run a local Model Context Protocol server over stdio",
+        long_about = "Exposes RepoPilot to AI agents (Claude Code, Cursor, …) as MCP tools they can\n\
+call directly. The server speaks JSON-RPC 2.0 over stdin/stdout; nothing is\n\
+uploaded and no AI service is called — every tool runs the same local analysis as\n\
+the CLI.\n\n\
+Register it with your agent, for example:\n  \
+claude mcp add repopilot -- repopilot mcp",
+        after_help = "EXAMPLES:\n  \
+repopilot mcp                               # run the stdio server (clients launch this)\n  \
+claude mcp add repopilot -- repopilot mcp   # register with Claude Code"
+    )]
+    Mcp(McpOptions),
 }

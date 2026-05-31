@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added `repopilot mcp`, a local Model Context Protocol server over stdio so AI agents (Claude Code, Cursor, …) can call RepoPilot as a tool. It speaks JSON-RPC 2.0 synchronously (no async runtime or extra dependencies) and exposes the `repopilot_review_change` tool, which runs the same local scan + diff review as `repopilot review` and returns a JSON report. Nothing is uploaded and no AI service is called.
 - Added architecture anti-pattern documentation describing production-scope policy and false-positive expectations for architecture rules.
 - Added a Criterion scan-throughput benchmark (`cargo bench --bench scan_bench`) over a generated 480-file multi-language synthetic repository to baseline full-scan performance ahead of the shared parsed-AST work.
 - Added a `scan_timings.parse_us` field reporting aggregate tree-sitter parsing time during file analysis (a sub-measure of `file_analysis_us`, excluded from `accounted_engine_us`).
