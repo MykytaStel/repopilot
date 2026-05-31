@@ -35,6 +35,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
 | [`doctor`](#doctor) | `d` | Diagnose audit readiness |
 | [`init`](#init) | — | Generate a default `repopilot.toml` configuration file |
+| [`mcp`](#mcp) | — | Run a local Model Context Protocol server over stdio |
 
 ---
 
@@ -802,6 +803,39 @@ repopilot init [OPTIONS]
 repopilot init
 repopilot init --force
 repopilot init --path ./config/repopilot.toml
+```
+
+---
+
+## `mcp`
+
+Runs a local Model Context Protocol (MCP) server over stdio so AI agents can call RepoPilot as a tool. It speaks JSON-RPC 2.0 on stdin/stdout and is launched by the MCP client, not run interactively. Nothing is uploaded and no AI service is called; each tool runs the same local analysis as the CLI.
+
+See [docs/mcp.md](mcp.md) for the tool catalog, schemas, and agent registration.
+
+### Synopsis
+
+```
+repopilot mcp
+```
+
+### Tools
+
+| Tool | Description |
+|------|-------------|
+| `repopilot_review_change` | Audit the current Git changes: in-diff vs out-of-diff findings plus blast radius |
+| `repopilot_scan` | Full repository audit as a JSON report |
+| `repopilot_context` | Budgeted, AI-ready Markdown brief (optional `focus`, `budget`) |
+| `repopilot_explain_file` | How one file is classified and which rules and signals apply |
+
+### Examples
+
+```bash
+# Register with Claude Code
+claude mcp add repopilot -- repopilot mcp
+
+# Manual smoke test (list the available tools)
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | repopilot mcp
 ```
 
 ---

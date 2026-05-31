@@ -1,5 +1,7 @@
 /target
 .repopilot/cache/
+# Scan caches written under any nested project root (e.g. when scanning a subdir).
+**/.repopilot/cache/
 .claude/
 dist/
 .DS_Store

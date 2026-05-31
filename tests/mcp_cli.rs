@@ -1,0 +1,120 @@
+//! End-to-end test for the `repopilot mcp` stdio server: spawn the real binary,
+//! drive it with JSON-RPC over stdin, and assert the tool surface and a local
+//! tool call. The whole exchange runs offline from on-disk files, exercising the
+//! local-first promise (no network, no AI service).
+
+use serde_json::Value;
+use std::fs;
+use std::io::Write;
+use std::path::Path;
+use std::process::{Command, Stdio};
+
+/// Runs `repopilot mcp` over `requests` (one JSON-RPC message each) and returns
+/// the decoded responses in order. Closing stdin ends the server loop.
+fn run_mcp(requests: &[&str], cwd: &Path) -> Vec<Value> {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .arg("mcp")
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn `repopilot mcp`");
+
+    {
+        let mut stdin = child.stdin.take().expect("child stdin");
+        for request in requests {
+            stdin.write_all(request.as_bytes()).expect("write request");
+            stdin.write_all(b"\n").expect("write newline");
+        }
+        // Dropping stdin sends EOF, which ends the server's read loop.
+    }
+
+    let output = child.wait_with_output().expect("wait for `repopilot mcp`");
+    assert!(
+        output.status.success(),
+        "server exited with {:?}",
+        output.status.code()
+    );
+
+    String::from_utf8(output.stdout)
+        .expect("stdout is utf-8")
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str(line).expect("response line is json"))
+        .collect()
+}
+
+#[test]
+fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("src dir");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n",
+    )
+    .expect("source file");
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."}}}"#,
+        ],
+        temp.path(),
+    );
+
+    assert_eq!(responses.len(), 3, "one response per request");
+
+    // initialize advertises the server identity.
+    assert_eq!(responses[0]["result"]["serverInfo"]["name"], "repopilot");
+
+    // tools/list exposes the full tool surface in order.
+    let names: Vec<&str> = responses[1]["result"]["tools"]
+        .as_array()
+        .expect("tools array")
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "repopilot_review_change",
+            "repopilot_scan",
+            "repopilot_context",
+            "repopilot_explain_file",
+        ]
+    );
+
+    // tools/call runs the scan entirely from local files and returns a JSON report.
+    let result = &responses[2]["result"];
+    assert_eq!(result["isError"], false, "scan should succeed");
+    let text = result["content"][0]["text"].as_str().expect("text content");
+    let report: Value = serde_json::from_str(text).expect("scan report is json");
+    assert!(
+        report["schema_version"].is_string(),
+        "scan report carries schema metadata"
+    );
+    assert!(report["report"].is_object(), "scan report carries findings");
+}
+
+#[test]
+fn mcp_server_reports_unknown_tool_as_in_band_error() {
+    let temp = tempfile::tempdir().expect("temp dir");
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"nope","arguments":{}}}"#,
+        ],
+        temp.path(),
+    );
+
+    let result = &responses[0]["result"];
+    assert_eq!(result["isError"], true);
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .expect("text")
+            .contains("unknown tool")
+    );
+}
