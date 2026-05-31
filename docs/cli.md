@@ -560,6 +560,7 @@ repopilot inspect rules [OPTIONS]
 repopilot inspect rules
 repopilot inspect rules --format json
 repopilot inspect rules --lifecycle preview
+repopilot inspect rules --source ast
 repopilot inspect rules --source text-heuristic
 ```
 
