@@ -25,11 +25,14 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::TextHeuristic,
+        signal_source: SignalSource::Ast,
         docs_url: None,
         description: "Go panic and process-exit operations can terminate the program abruptly. Their risk depends on whether the file is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
             "Return errors from reusable code and reserve panic/log.Fatal/os.Exit for narrow process boundaries where callers cannot recover.",
+        ),
+        false_positive_notes: Some(
+            "`panic`, `log.Fatal`/`log.Fatalf`, and `os.Exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.",
         ),
         ..RuleMetadata::DEFAULT
     },

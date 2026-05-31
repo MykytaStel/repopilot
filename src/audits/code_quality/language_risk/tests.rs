@@ -148,6 +148,37 @@ fn js_throw_new_error_outside_library_boundary_is_not_flagged() {
     assert!(findings.is_empty());
 }
 
+#[test]
+fn go_ast_runtime_finding_reports_ast_provenance() {
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/user.go",
+        Some("Go"),
+        "package domain\nfunc Parse() { panic(\"bad\") }\n",
+    );
+
+    let mut findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+    assert_eq!(findings.len(), 1);
+
+    findings[0].populate_rule_metadata();
+    assert_eq!(findings[0].provenance.signal_source, SignalSource::Ast);
+}
+
+#[test]
+fn go_panic_inside_string_literal_is_not_flagged() {
+    let file = facts(
+        "src/domain/user.go",
+        Some("Go"),
+        "package domain\nfunc label() string { return \"panic(\" }\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    // The text `panic(` lives inside a string, not a call expression.
+    assert!(findings.is_empty());
+}
+
 fn facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),

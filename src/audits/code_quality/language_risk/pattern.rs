@@ -102,6 +102,7 @@ fn walk_tree(
 ) {
     match language_id {
         "python" => emit_python_node(node, content, path, file, findings),
+        "go" => emit_go_node(node, content, path, file, findings),
         "typescript" | "typescript-react" | "javascript" | "javascript-react" => {
             emit_js_node(node, content, path, file, findings)
         }
@@ -111,6 +112,52 @@ fn walk_tree(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         walk_tree(child, language_id, content, path, file, findings);
+    }
+}
+
+fn emit_go_node(
+    node: Node<'_>,
+    content: &str,
+    path: &Path,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    if node.kind() != "call_expression" {
+        return;
+    }
+    let Some(function) = node.child_by_field_name("function") else {
+        return;
+    };
+
+    let pattern = match function.kind() {
+        // `panic(...)`
+        "identifier" if node_text(function, content) == Some("panic") => Some(GoRiskPattern::Panic),
+        // `pkg.Fn(...)` — `log.Fatal`/`log.Fatalf` and `os.Exit`.
+        "selector_expression" => {
+            let package = function
+                .child_by_field_name("operand")
+                .and_then(|n| node_text(n, content));
+            let method = function
+                .child_by_field_name("field")
+                .and_then(|n| node_text(n, content));
+            match (package, method) {
+                (Some("log"), Some("Fatal" | "Fatalf")) => Some(GoRiskPattern::LogFatal),
+                (Some("os"), Some("Exit")) => Some(GoRiskPattern::OsExit),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+
+    if let Some(pattern) = pattern {
+        push_pattern_finding(
+            &pattern,
+            path,
+            line_of(node),
+            &snippet_of(node, content),
+            file,
+            findings,
+        );
     }
 }
 
