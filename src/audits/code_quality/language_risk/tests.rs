@@ -97,6 +97,57 @@ fn ignores_functional_iterator_style_without_risky_pattern() {
     assert!(findings.is_empty());
 }
 
+// ── AST detection: provenance + structural precision ────────────────────────────
+
+#[test]
+fn ast_runtime_finding_reports_ast_provenance() {
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/lib/runtime.js",
+        Some("JavaScript"),
+        "export function stop() { process.exit(1); }\n",
+    );
+
+    let mut findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+    assert_eq!(findings.len(), 1);
+
+    // Enrichment fills provenance from rule metadata for default-provenance
+    // findings, so an AST-path finding must resolve to `ast`, not text-heuristic.
+    findings[0].populate_rule_metadata();
+    assert_eq!(findings[0].provenance.signal_source, SignalSource::Ast);
+}
+
+#[test]
+fn python_bare_raise_not_implemented_is_flagged_exactly_once() {
+    let file = facts(
+        "src/service.py",
+        Some("Python"),
+        "def handler():\n    raise NotImplementedError\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    // The bare-identifier raise and the call form must not both match.
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.python.exception-risk");
+}
+
+#[test]
+fn js_throw_new_error_outside_library_boundary_is_not_flagged() {
+    let file = facts(
+        "src/cli/main.ts",
+        Some("TypeScript"),
+        "export function run() { throw new Error(\"boom\"); }\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    // `throw new Error` is only risky at a reusable library boundary, not in CLI
+    // entrypoint code.
+    assert!(findings.is_empty());
+}
+
 fn facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
