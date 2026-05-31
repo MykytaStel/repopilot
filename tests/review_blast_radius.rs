@@ -1,3 +1,4 @@
+use repopilot::config::model::SecurityBoundarySection;
 use repopilot::graph::CouplingGraph;
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
 use repopilot::review::model::ReviewReport;
@@ -147,6 +148,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         baseline_path: None,
         changed_files: vec![changed_file("src/a.ts")],
         blast_radius: vec![PathBuf::from("src/b.ts")],
+        boundary_signals: vec![],
         findings: vec![],
     };
 
@@ -158,8 +160,15 @@ fn render_console_includes_blast_radius_section_when_present() {
 
 fn run_review_json(root: &Path) -> Value {
     let summary = scan_path_with_config(root, &ScanConfig::default()).expect("failed to scan");
-    let report =
-        build_review_report(summary, root, None, None, None).expect("failed to build review");
+    let report = build_review_report(
+        summary,
+        root,
+        None,
+        None,
+        None,
+        &SecurityBoundarySection::default(),
+    )
+    .expect("failed to build review");
     let output = render_json(&report, None).expect("failed to render review json");
 
     serde_json::from_str(&output).expect("expected JSON output")

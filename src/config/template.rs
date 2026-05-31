@@ -43,6 +43,15 @@ detect_missing_tests = true
 [security]
 detect_secret_like_names = true
 
+[security_boundary]
+# `review` flags when a change touches who-can-do-what or how the app ships
+# (auth, CORS, CI/deploy, dependency manifests, committed .env). It flags, it
+# does not prove the change is safe. Set enabled = false to silence it.
+enabled = true
+# Extra glob patterns (repo-relative) to also treat as boundary changes:
+# extra_patterns = ["infra/**/*.tf", "**/secrets/**"]
+extra_patterns = []
+
 [output]
 default_format = "console"
 "#

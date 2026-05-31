@@ -56,6 +56,7 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
     }
 
     render_blast_radius(&mut output, report);
+    render_boundary_signals(&mut output, report);
     render_findings_group(&mut output, "In-diff findings", &report.in_diff_findings());
     render_findings_group(
         &mut output,
@@ -76,6 +77,25 @@ fn render_blast_radius(output: &mut String, report: &ReviewReport) {
 
     for path in &report.blast_radius {
         output.push_str(&format!("  - {}\n", path.display()));
+    }
+}
+
+fn render_boundary_signals(output: &mut String, report: &ReviewReport) {
+    if report.boundary_signals.is_empty() {
+        return;
+    }
+
+    output.push_str("\nSecurity boundary changed [preview]:\n");
+    output.push_str(
+        "  These changes touch who-can-do-what or how the app ships. Open the report before merging.\n",
+    );
+
+    for signal in &report.boundary_signals {
+        output.push_str(&format!(
+            "  \u{2691} {:<15} {}\n",
+            signal.category.label(),
+            signal.path
+        ));
     }
 }
 

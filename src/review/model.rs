@@ -2,6 +2,7 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::review::signals::BoundarySignal;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -13,6 +14,7 @@ pub struct ReviewReport {
     pub baseline_path: Option<PathBuf>,
     pub changed_files: Vec<ChangedFile>,
     pub blast_radius: Vec<PathBuf>,
+    pub boundary_signals: Vec<BoundarySignal>,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

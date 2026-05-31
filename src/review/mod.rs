@@ -1,6 +1,7 @@
 pub mod diff;
 pub mod model;
 pub mod render;
+pub mod signals;
 
 use crate::baseline::diff::{
     BaselineScanReport, BaselineStatus, FindingBaselineStatus, all_findings_new,
@@ -8,11 +9,13 @@ use crate::baseline::diff::{
 };
 use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
+use crate::config::model::SecurityBoundarySection;
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::review::signals::{BoundarySignal, detect_boundary_signals};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
 use std::collections::{BTreeMap, BTreeSet};
@@ -24,11 +27,13 @@ pub fn build_review_report(
     base: Option<&str>,
     head: Option<&str>,
     baseline: Option<(&Baseline, PathBuf)>,
+    boundary_config: &SecurityBoundarySection,
 ) -> Result<ReviewReport, diff::GitDiffError> {
     let repo_root = resolve_git_root(scan_path)?;
     let target = DiffTarget::from_refs(base, head);
     let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
     let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())?;
+    let boundary_signals = detect_boundary_signals(&changed_files, boundary_config);
 
     let baseline_report = match baseline {
         Some((baseline, baseline_path)) => {
@@ -37,13 +42,19 @@ pub fn build_review_report(
         None => all_findings_new(summary),
     };
 
-    Ok(classify_findings(baseline_report, repo_root, changed_files))
+    Ok(classify_findings(
+        baseline_report,
+        repo_root,
+        changed_files,
+        boundary_signals,
+    ))
 }
 
 fn classify_findings(
     baseline_report: BaselineScanReport,
     repo_root: PathBuf,
     changed_files: Vec<ChangedFile>,
+    boundary_signals: Vec<BoundarySignal>,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
@@ -78,6 +89,7 @@ fn classify_findings(
         baseline_path: baseline_report.baseline_path,
         changed_files,
         blast_radius,
+        boundary_signals,
         findings,
     }
 }

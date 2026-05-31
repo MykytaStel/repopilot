@@ -17,6 +17,7 @@ pub struct RepoPilotConfig {
     pub code_quality: CodeQualitySection,
     pub testing: TestingSection,
     pub security: SecuritySection,
+    pub security_boundary: SecurityBoundarySection,
     pub output: OutputSection,
 }
 
@@ -141,6 +142,29 @@ impl Default for SecuritySection {
     fn default() -> Self {
         Self {
             detect_secret_like_names: true,
+        }
+    }
+}
+
+/// Configures the `review` security-boundary change signals. The detector flags
+/// (it does not prove) when a change touches who-can-do-what or how the app
+/// ships. See `src/review/signals.rs`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct SecurityBoundarySection {
+    /// Whether to surface boundary signals at all. Defaults to enabled.
+    pub enabled: bool,
+    /// Extra glob patterns (matched against repo-relative paths) to flag as
+    /// boundary changes, in addition to the built-in defaults. Reported under
+    /// the `custom` category.
+    pub extra_patterns: Vec<String>,
+}
+
+impl Default for SecurityBoundarySection {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            extra_patterns: Vec::new(),
         }
     }
 }
