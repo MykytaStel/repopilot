@@ -179,6 +179,33 @@ fn go_panic_inside_string_literal_is_not_flagged() {
     assert!(findings.is_empty());
 }
 
+#[test]
+fn parse_failure_fallback_reports_text_heuristic_provenance() {
+    use crate::analysis::parse::ParsedFile;
+    use crate::rules::SignalSource;
+
+    // A parse view with no available grammar yields no tree — the same `None`
+    // tree-sitter returns on a parse failure — so this drives the line-scanner
+    // fallback for an AST runtime language.
+    let file = facts(
+        "src/domain/user.go",
+        Some("Go"),
+        "package domain\nfunc Parse() { panic(\"bad\") }\n",
+    );
+    let unparsed = ParsedFile::new(file.content.as_deref().unwrap(), Some("Ruby"));
+
+    let mut findings = LanguageRiskAudit.analyze(&file, &unparsed, &ScanConfig::default());
+    assert_eq!(findings.len(), 1);
+
+    // The fallback stamps the finding text-heuristic up front; enrichment must
+    // not overwrite that back to the rule's declared `ast` signal source.
+    findings[0].populate_rule_metadata();
+    assert_eq!(
+        findings[0].provenance.signal_source,
+        SignalSource::TextHeuristic
+    );
+}
+
 fn facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),

@@ -15,6 +15,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added true-positive and false-positive rule fixtures for `code-quality.long-function` so `inspect eval-rules` covers it.
 - Added AST-precision false-positive fixtures for the JavaScript/TypeScript, Python, and Go runtime-risk rules, asserting that risky tokens inside comments and string literals are not flagged.
 - Documented an AST-backed vs heuristic-fallback signal-source matrix for the rule catalog in the CLI reference.
+- Added a `log.Fatalf` case to the `language.go.panic-exit-risk` true-positive fixture so the variadic fatal-log form is covered by `inspect eval-rules`.
+- Added a regression test asserting the runtime-risk AST audits stamp `text-heuristic` provenance on the line-scanner fallback path and that enrichment does not overwrite it.
+- Added a `repopilot inspect rules --source ast` example to the CLI reference.
 
 ### Changed
 
