@@ -277,7 +277,6 @@ fn does_not_run_without_file_content() {
 
     assert!(findings.is_empty());
 }
-
 fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
     FileFacts {
         path: PathBuf::from(path),
@@ -288,4 +287,28 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
         content: Some(content.to_string()),
         has_inline_tests,
     }
+}
+
+#[test]
+fn falls_back_to_line_scanner_when_no_parsed_tree() {
+    use crate::analysis::parse::ParsedFile;
+    use crate::rules::SignalSource;
+
+    let file = facts(
+        "src/domain/parser.rs",
+        "let value = parse().unwrap();",
+        false,
+    );
+
+    // Create a ParsedFile with None for language label to force tree() to return None
+    let parsed = ParsedFile::new("let value = parse().unwrap();", None);
+
+    let findings = RustPanicRiskAudit.audit_parsed(&file, &parsed, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, RULE_ID);
+    assert_eq!(
+        findings[0].provenance.signal_source,
+        SignalSource::TextHeuristic
+    );
 }

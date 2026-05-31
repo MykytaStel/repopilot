@@ -10,11 +10,14 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::TextHeuristic,
+        signal_source: SignalSource::Ast,
         docs_url: None,
         description: "Rust panic-style operations such as unwrap(), expect(), panic!, todo!, and unimplemented! can be risky in reusable production code. Their severity depends on whether the code is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
             "Use context-aware error handling. Prefer Result, ?, typed errors, validation, or explicit fallback behavior in production and library code.",
+        ),
+        false_positive_notes: Some(
+            "`unwrap`/`expect`/`unwrap_err`/`expect_err` calls and `panic!`/`todo!`/`unimplemented!` macros are matched from the parsed syntax tree, so the same tokens inside comments or string literals (including multi-line raw strings) are not flagged, and infallible `write!`/`writeln!` result unwraps in report renderers are recognized structurally. Severity context (test/CLI/library/domain) and external-input escalation remain heuristic. A line scanner with text-heuristic provenance is used only when the file fails to parse.",
         ),
         ..RuleMetadata::DEFAULT
     },
