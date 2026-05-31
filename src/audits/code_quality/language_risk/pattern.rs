@@ -106,6 +106,9 @@ fn walk_tree(
         "typescript" | "typescript-react" | "javascript" | "javascript-react" => {
             emit_js_node(node, content, path, file, findings)
         }
+        "java" => emit_java_node(node, content, path, file, findings),
+        "kotlin" => emit_kotlin_node(node, content, path, file, findings),
+        "csharp" => emit_csharp_node(node, content, path, file, findings),
         _ => {}
     }
 
@@ -419,4 +422,159 @@ fn is_library_boundary_path(path: &Path) -> bool {
             })
             .unwrap_or(false)
     })
+}
+
+fn emit_java_node(
+    node: Node<'_>,
+    content: &str,
+    path: &Path,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    let pattern = match node.kind() {
+        "throw_statement" => {
+            let mut cursor = node.walk();
+            node.children(&mut cursor)
+                .find(|child| child.kind() == "object_creation_expression")
+                .and_then(|child| child.child_by_field_name("type"))
+                .and_then(|type_node| node_text(type_node, content))
+                .and_then(|type_name| match type_name {
+                    "RuntimeException" | "IllegalStateException" => {
+                        Some(ManagedRiskPattern::FatalException { is_csharp: false })
+                    }
+                    "NotImplementedException" | "NotImplementedError" => {
+                        Some(ManagedRiskPattern::NotImplemented)
+                    }
+                    _ => None,
+                })
+        }
+        "method_invocation" => {
+            if let Some(name_node) = node.child_by_field_name("name") {
+                if node_text(name_node, content) == Some("TODO") {
+                    Some(ManagedRiskPattern::NotImplemented)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
+    if let Some(pattern) = pattern {
+        push_pattern_finding(
+            &pattern,
+            path,
+            line_of(node),
+            &snippet_of(node, content),
+            file,
+            findings,
+        );
+    }
+}
+
+fn emit_kotlin_node(
+    node: Node<'_>,
+    content: &str,
+    path: &Path,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    let pattern = match node.kind() {
+        "throw_expression" => {
+            let mut cursor = node.walk();
+            node.children(&mut cursor)
+                .find(|child| child.kind() == "call_expression")
+                .and_then(|child| child.child(0))
+                .and_then(|callee| node_text(callee, content))
+                .and_then(|callee_name| match callee_name {
+                    "RuntimeException" | "IllegalStateException" => {
+                        Some(ManagedRiskPattern::FatalException { is_csharp: false })
+                    }
+                    "NotImplementedException" | "NotImplementedError" => {
+                        Some(ManagedRiskPattern::NotImplemented)
+                    }
+                    _ => None,
+                })
+        }
+        "call_expression" => {
+            if let Some(callee) = node.child(0) {
+                if node_text(callee, content) == Some("TODO") {
+                    Some(ManagedRiskPattern::NotImplemented)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
+    if let Some(pattern) = pattern {
+        push_pattern_finding(
+            &pattern,
+            path,
+            line_of(node),
+            &snippet_of(node, content),
+            file,
+            findings,
+        );
+    }
+}
+
+fn emit_csharp_node(
+    node: Node<'_>,
+    content: &str,
+    path: &Path,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    let pattern = match node.kind() {
+        "throw_statement" | "throw_expression" => {
+            let mut cursor = node.walk();
+            node.children(&mut cursor)
+                .find(|child| child.kind() == "object_creation_expression")
+                .and_then(|child| child.child_by_field_name("type"))
+                .and_then(|type_node| node_text(type_node, content))
+                .and_then(|type_name| match type_name {
+                    "Exception" | "RuntimeException" | "IllegalStateException" => {
+                        Some(ManagedRiskPattern::FatalException { is_csharp: true })
+                    }
+                    "NotImplementedException" | "NotImplementedError" => {
+                        Some(ManagedRiskPattern::NotImplemented)
+                    }
+                    _ => None,
+                })
+        }
+        "invocation_expression" => {
+            // C# `invocation_expression` exposes the callee under the `function`
+            // field; `child(0)` is a defensive fallback for older grammar shapes.
+            let name_node = node
+                .child_by_field_name("function")
+                .or_else(|| node.child(0));
+            if let Some(name_node) = name_node {
+                if node_text(name_node, content) == Some("TODO") {
+                    Some(ManagedRiskPattern::NotImplemented)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
+    if let Some(pattern) = pattern {
+        push_pattern_finding(
+            &pattern,
+            path,
+            line_of(node),
+            &snippet_of(node, content),
+            file,
+            findings,
+        );
+    }
 }

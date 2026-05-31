@@ -82,11 +82,14 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
-        signal_source: SignalSource::TextHeuristic,
+        signal_source: SignalSource::Ast,
         docs_url: None,
         description: "Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C# domain/library code can become runtime failures that callers cannot handle precisely.",
         recommendation: Some(
             "Replace placeholders with implemented behaviour and use domain-specific exception or result types where callers need to recover.",
+        ),
+        false_positive_notes: Some(
+            "Fatal exceptions and placeholder throw/TODO structures are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line scanner with text-heuristic provenance is used only when the file fails to parse.",
         ),
         ..RuleMetadata::DEFAULT
     },

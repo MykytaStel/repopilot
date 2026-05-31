@@ -577,8 +577,8 @@ tool itself — `repopilot inspect rules --source ast` and
 | `language.go.panic-exit-risk` | AST | `panic`/`log.Fatal`/`os.Exit` calls from the syntax tree. |
 | `language.python.exception-risk` | AST | Bare `except`, `assert`, and `NotImplementedError` from the syntax tree. |
 | `language.javascript.runtime-exit-risk` | AST | `process.exit` calls and library-boundary `throw new Error(...)`. |
-| `language.managed.fatal-exception-risk` | Heuristic | Java/Kotlin/C# fatal exceptions; AST migration pending. |
-| `language.rust.panic-risk` | Heuristic | `unwrap`/`expect`/`panic` paths; AST migration pending. |
+| `language.managed.fatal-exception-risk` | AST | Generic fatal `throw`s and `TODO()`/not-implemented placeholders in Java/Kotlin/C# from the syntax tree. |
+| `language.rust.panic-risk` | AST | `unwrap`/`expect`/`unwrap_err`/`expect_err` calls and `panic!`/`todo!`/`unimplemented!` macros from the syntax tree; severity context stays heuristic. |
 | `code-quality.complex-file`, `code-marker.*`, `architecture.*`, `testing.*` | Heuristic | Structural/text signals by design. |
 
 AST-backed rules ignore risky tokens that appear only in comments or string
