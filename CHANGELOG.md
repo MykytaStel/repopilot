@@ -13,6 +13,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a `scan_timings.parse_us` field reporting aggregate tree-sitter parsing time during file analysis (a sub-measure of `file_analysis_us`, excluded from `accounted_engine_us`).
 - Added tree-sitter grammars for Go, Java, C#, and Kotlin so code-quality AST audits analyze real syntax trees for those languages instead of line/brace heuristics.
 - Added true-positive and false-positive rule fixtures for `code-quality.long-function` so `inspect eval-rules` covers it.
+- Added AST-precision false-positive fixtures for the JavaScript/TypeScript and Python runtime-risk rules, asserting that risky tokens inside comments and string literals are not flagged.
 
 ### Changed
 
@@ -26,6 +27,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Migrated the import graph (`graph::imports`) onto the shared `analysis::parse` parsers and the per-file `ParsedFile`, removing the duplicated thread-local tree-sitter parsers in the Rust, TypeScript/JavaScript, and Python extractors. Import extraction and the AST audits now share a single parse per file instead of parsing it separately, roughly halving per-file parse work in full scans. Internal refactor only; no behavior, finding, or public API change.
 - Upgraded `code-quality.long-function` to AST-based function-span detection for every parseable language (Rust, TypeScript/JavaScript, Python, Go, Java, C#, Kotlin), restoring `ast` signal-source provenance and cutting heuristic false positives. The line/brace heuristic remains only as a parse-failure fallback and reports `text-heuristic` provenance.
 - Extended the `code-quality.deep-control-flow` audit to Go, Java, C#, and Kotlin with language-specific control-flow node handling, sharing the same parse-once syntax tree.
+- Upgraded `language.javascript.runtime-exit-risk` and `language.python.exception-risk` to AST-based detection over the shared parse view — `process.exit` calls, library-boundary `throw new Error(...)`, bare `except` clauses, `assert` statements, and `NotImplementedError` are matched from the syntax tree, so the same tokens inside comments or string literals are no longer flagged. This restores `ast` signal-source provenance; a sanitized line scanner with `text-heuristic` provenance remains only as a parse-failure fallback. Go, Java/Kotlin, and C# runtime-risk rules are unchanged (still text-heuristic).
 
 ## [0.13.0] - 2026-05-25
 
