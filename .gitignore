@@ -37,3 +37,5 @@ dist/
 !/.repopilot/config.toml
 !/.repopilot/config.example.toml
 .repopilot-patches/
+
+docs/demos/*.tape
