@@ -1,5 +1,6 @@
 pub mod diff;
 pub mod model;
+pub(crate) mod paths;
 pub mod render;
 pub mod signals;
 
@@ -15,6 +16,7 @@ use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::review::paths::normalized_review_path;
 use crate::review::signals::composites;
 use crate::review::signals::{BoundarySignal, detect_boundary_signals};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
@@ -254,19 +256,4 @@ fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> 
     } else {
         Some(relative)
     }
-}
-
-pub(crate) fn normalized_review_path(path: &Path, repo_root: &Path) -> PathBuf {
-    let repo_root = repo_root
-        .canonicalize()
-        .unwrap_or_else(|_| repo_root.to_path_buf());
-
-    let path = if path.is_absolute() {
-        path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
-    } else {
-        let repo_path = repo_root.join(path);
-        repo_path.canonicalize().unwrap_or(repo_path)
-    };
-
-    PathBuf::from(normalized_relative_path(&path, &repo_root))
 }

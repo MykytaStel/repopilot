@@ -8,7 +8,7 @@
 use super::BoundarySignal;
 use crate::audits::context::classify::helpers::is_test_file;
 use crate::review::diff::ChangedFile;
-use crate::review::normalized_review_path;
+use crate::review::paths::normalized_review_path;
 use crate::scan::types::CouplingGraph;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
