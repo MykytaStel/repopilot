@@ -10,6 +10,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Added security-boundary change signals to `repopilot review` (and the `repopilot_review_change` MCP tool). The review now flags when a change touches parts of the repo that decide *who can do what* (auth, sessions, permissions, CORS) or *how the app ships* (CI/workflows, Dockerfiles, IaC, dependency manifests, committed `.env`). It is path/filename classification over the diff — it flags, it does not prove a change is safe, so a false positive costs only a glance. Signals appear in the console and Markdown output and as a structured `boundary_signals` array in the JSON report. Configure or disable via a new `[security_boundary]` config section (`enabled`, `extra_patterns`). Ships at `preview`.
 - Enriched boundary signals with review context only RepoPilot has on hand: each signal now carries its **blast radius** (how many files import the changed boundary file, from the existing coupling graph), and the review reports `boundary_missing_test` when a *code* boundary (auth / request-trust) changed but no test moved in the same diff. Both surface in the console/Markdown output and the JSON report (`boundary_signals[].blast_radius`, `review.boundary_missing_test`).
+- Added a reproducible review demo: `scripts/demo-setup.sh` builds the "small login fix that quietly loosens CORS and touches auth without a test" scenario and `scripts/demo-boundary-review.sh` runs `repopilot review` on it, so the review demo GIF can be recorded reproducibly.
+
+### Changed
+
+- Repositioned and tightened the README around reviewing a change *before you merge* — for humans and for AI agents calling RepoPilot over MCP. The page now leads with the review/boundary workflow and the agent (MCP) angle, demotes `scan` and the rest to a compact capability table, and moves the encyclopedic sections (trust mode, commands, rule quality, reports, CI) to their `docs/` links. Cut from ~326 to ~124 lines, deterministic/local-first framing made explicit.
+- Reworked the README visuals to a single hero demo plus real, current console-output examples (scan, review with boundary signals, and a baseline gate catching a newly introduced secret) instead of a GIF per command. Removed the per-command GIFs, including a misleading baseline GIF that showed an already-adopted repo rather than the gate doing its job.
 
 ## [0.14.0] - 2026-05-31
 
