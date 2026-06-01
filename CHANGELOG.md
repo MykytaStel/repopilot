@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Internal: the `repopilot review` diff parser now captures each hunk's added and removed line text (`ChangedFile.hunks`), not just the changed-line ranges it derived before. This is the foundation for content-based review signals; `ranges` and all current output are unchanged and `hunks` is not serialized into the JSON report.
 - Repositioned and tightened the README around reviewing a change *before you merge* — for humans and for AI agents calling RepoPilot over MCP. The page now leads with the review/boundary workflow and the agent (MCP) angle, demotes `scan` and the rest to a compact capability table, and moves the encyclopedic sections (trust mode, commands, rule quality, reports, CI) to their `docs/` links. Cut from ~326 to ~124 lines, deterministic/local-first framing made explicit.
 - Reworked the README visuals to a single hero demo plus real, current console-output examples (scan, review with boundary signals, and a baseline gate catching a newly introduced secret) instead of a GIF per command. Removed the per-command GIFs, including a misleading baseline GIF that showed an already-adopted repo rather than the gate doing its job.
 

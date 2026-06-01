@@ -57,6 +57,7 @@ fn load_untracked_files(
                 path: PathBuf::from(path),
                 status: ChangeStatus::Untracked,
                 ranges,
+                hunks: Vec::new(),
             })
         })
         .collect()

@@ -17,6 +17,24 @@ pub struct ChangedFile {
     pub path: PathBuf,
     pub status: ChangeStatus,
     pub ranges: Vec<ChangedRange>,
+    /// Per-hunk added/removed line content. Internal to the review layer's
+    /// content-based signals; never serialized into the JSON report (`ranges`
+    /// already carries the public changed-line view).
+    #[serde(skip)]
+    pub hunks: Vec<DiffHunk>,
+}
+
+/// One diff hunk's added and removed line text. `--unified=0` is used, so every
+/// body line is either an addition or a removal — there are no context lines.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiffHunk {
+    /// Added-line range in the post-change file. `None` for a pure-deletion
+    /// hunk (`@@ -a,b +c,0 @@`), which carries only removed lines.
+    pub new_range: Option<ChangedRange>,
+    /// Lines added in this hunk, without the leading `+`.
+    pub added_lines: Vec<String>,
+    /// Lines removed in this hunk, without the leading `-`.
+    pub removed_lines: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -138,17 +156,19 @@ pub fn load_changed_files(
 pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
     let mut files = Vec::new();
     let mut current: Option<ChangedFile> = None;
+    let mut hunk: Option<DiffHunk> = None;
 
     for line in diff.lines() {
         if let Some((_, new_path)) = parse_diff_git_line(line) {
             if let Some(file) = current.take() {
-                files.push(file);
+                files.push(finalize_file(file, hunk.take()));
             }
 
             current = Some(ChangedFile {
                 path: PathBuf::from(new_path),
                 status: ChangeStatus::Modified,
                 ranges: Vec::new(),
+                hunks: Vec::new(),
             });
 
             continue;
@@ -191,16 +211,46 @@ pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
             continue;
         }
 
-        if let Some(range) = parse_hunk_added_range(line) {
-            file.ranges.push(range);
+        if line.starts_with("@@") {
+            if let Some(done) = hunk.take() {
+                file.hunks.push(done);
+            }
+            hunk = Some(DiffHunk {
+                new_range: parse_hunk_added_range(line),
+                added_lines: Vec::new(),
+                removed_lines: Vec::new(),
+            });
+            continue;
+        }
+
+        if let Some(active) = hunk.as_mut() {
+            if let Some(added) = line.strip_prefix('+') {
+                active.added_lines.push(added.to_string());
+            } else if let Some(removed) = line.strip_prefix('-') {
+                active.removed_lines.push(removed.to_string());
+            }
         }
     }
 
     if let Some(file) = current {
-        files.push(file);
+        files.push(finalize_file(file, hunk.take()));
     }
 
     files
+}
+
+/// Push the trailing hunk (if any) and derive the public `ranges` view from the
+/// captured hunks so existing range consumers see exactly what they did before.
+fn finalize_file(mut file: ChangedFile, trailing: Option<DiffHunk>) -> ChangedFile {
+    if let Some(done) = trailing {
+        file.hunks.push(done);
+    }
+    file.ranges = file
+        .hunks
+        .iter()
+        .filter_map(|hunk| hunk.new_range)
+        .collect();
+    file
 }
 
 include!("diff/helpers.rs");
