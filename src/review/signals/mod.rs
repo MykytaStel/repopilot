@@ -18,6 +18,7 @@
 
 mod classify;
 pub mod composites;
+pub mod content;
 #[cfg(test)]
 mod tests;
 

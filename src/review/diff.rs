@@ -153,6 +153,16 @@ pub fn load_changed_files(
     Ok(files)
 }
 
+/// Read a file's content at a git revision (`git show <reference>:<path>`).
+///
+/// Returns `None` when the path does not exist at that revision or git fails;
+/// callers treat an absent side as "no content to compare". `path` must be
+/// repo-relative with forward slashes (use [`ChangedFile::path_string`]).
+pub(crate) fn git_show(repo_root: &Path, reference: &str, path: &str) -> Option<String> {
+    let spec = format!("{reference}:{path}");
+    git_output(repo_root, &["show", spec.as_str()], "git show").ok()
+}
+
 pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
     let mut files = Vec::new();
     let mut current: Option<ChangedFile> = None;
