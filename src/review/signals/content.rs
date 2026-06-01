@@ -25,6 +25,14 @@ pub struct ReviewSource {
 }
 
 impl ReviewSource {
+    #[cfg(test)]
+    pub(crate) fn new(content: String, language_label: Option<String>) -> Self {
+        Self {
+            content,
+            language_label,
+        }
+    }
+
     /// The source text for this side of the change.
     pub fn content(&self) -> &str {
         &self.content

@@ -16,6 +16,9 @@
 //!   blast radius (how far the changed file reaches) and whether the change
 //!   touched a code boundary without touching any test.
 
+pub mod behavioral;
+#[cfg(test)]
+mod behavioral_tests;
 mod classify;
 pub mod composites;
 pub mod content;
