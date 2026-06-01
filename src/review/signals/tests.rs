@@ -12,6 +12,7 @@ fn changed(path: &str, status: ChangeStatus) -> ChangedFile {
         path: PathBuf::from(path),
         status,
         ranges: Vec::new(),
+        hunks: Vec::new(),
     }
 }
 

@@ -180,6 +180,7 @@ fn changed_file(path: &str) -> ChangedFile {
         path: PathBuf::from(path),
         status: ChangeStatus::Modified,
         ranges: Vec::new(),
+        hunks: Vec::new(),
     }
 }
 
