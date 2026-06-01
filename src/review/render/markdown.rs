@@ -112,15 +112,27 @@ fn render_markdown_boundary_signals(output: &mut String, report: &ReviewReport) 
     output.push_str(
         "These changes touch who-can-do-what or how the app ships — open the report before merging.\n\n",
     );
-    output.push_str("| Category | Path | Status |\n");
-    output.push_str("| --- | --- | --- |\n");
+
+    if report.boundary_missing_test {
+        output.push_str(
+            "> ⚠ A code boundary changed but no test did — confirm it's still covered.\n\n",
+        );
+    }
+
+    output.push_str("| Category | Path | Status | Reach |\n");
+    output.push_str("| --- | --- | --- | --- |\n");
 
     for signal in &report.boundary_signals {
+        let reach = match signal.blast_radius {
+            0 => "—".to_string(),
+            count => format!("imported by {count}"),
+        };
         output.push_str(&format!(
-            "| {} | `{}` | {:?} |\n",
+            "| {} | `{}` | {:?} | {} |\n",
             signal.category.label(),
             signal.path,
-            signal.status
+            signal.status,
+            reach
         ));
     }
 

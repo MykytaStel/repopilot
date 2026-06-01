@@ -15,6 +15,8 @@ pub struct ReviewReport {
     pub changed_files: Vec<ChangedFile>,
     pub blast_radius: Vec<PathBuf>,
     pub boundary_signals: Vec<BoundarySignal>,
+    /// A code boundary (auth / request-trust) changed but no test moved.
+    pub boundary_missing_test: bool,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

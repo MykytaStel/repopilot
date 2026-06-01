@@ -59,6 +59,7 @@ impl<'a> ReviewJsonReport<'a> {
                 new_in_diff_findings: report.new_in_diff_count(),
                 existing_in_diff_findings: report.existing_in_diff_count(),
                 boundary_signals: report.boundary_signals.len(),
+                boundary_missing_test: report.boundary_missing_test,
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.artifacts.findings),
@@ -102,6 +103,7 @@ pub struct ReviewJsonMetadata {
     pub new_in_diff_findings: usize,
     pub existing_in_diff_findings: usize,
     pub boundary_signals: usize,
+    pub boundary_missing_test: bool,
     pub severity_counts: SeverityCounts,
 }
 
