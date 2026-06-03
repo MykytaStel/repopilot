@@ -123,3 +123,22 @@ fn parse_hunk_added_range(line: &str) -> Option<ChangedRange> {
         end: start + count - 1,
     })
 }
+
+fn parse_hunk_removed_range(line: &str) -> Option<ChangedRange> {
+    let range = line.split_once("@@ -")?.1.split_once(" +")?.0;
+    let mut parts = range.split(',');
+    let start = parts.next()?.parse::<usize>().ok()?;
+    let count = parts
+        .next()
+        .and_then(|count| count.parse::<usize>().ok())
+        .unwrap_or(1);
+
+    if count == 0 {
+        return None;
+    }
+
+    Some(ChangedRange {
+        start,
+        end: start + count - 1,
+    })
+}

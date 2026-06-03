@@ -31,6 +31,9 @@ pub struct DiffHunk {
     /// Added-line range in the post-change file. `None` for a pure-deletion
     /// hunk (`@@ -a,b +c,0 @@`), which carries only removed lines.
     pub new_range: Option<ChangedRange>,
+    /// Removed-line range in the pre-change file. `None` for a pure-addition
+    /// hunk (`@@ -0,0 +c,d @@`), which carries only added lines.
+    pub old_range: Option<ChangedRange>,
     /// Lines added in this hunk, without the leading `+`.
     pub added_lines: Vec<String>,
     /// Lines removed in this hunk, without the leading `-`.
@@ -227,6 +230,7 @@ pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
             }
             hunk = Some(DiffHunk {
                 new_range: parse_hunk_added_range(line),
+                old_range: parse_hunk_removed_range(line),
                 added_lines: Vec::new(),
                 removed_lines: Vec::new(),
             });

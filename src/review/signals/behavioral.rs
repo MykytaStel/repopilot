@@ -10,7 +10,10 @@ mod go;
 mod js;
 mod jvm;
 mod python;
+mod removed;
 mod rust;
+
+pub use removed::detect_behavioral_removed;
 
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
@@ -28,6 +31,9 @@ pub enum BehavioralKind {
     DependencyImportAdded,
     MigrationAdded,
     RawSqlAdded,
+    ErrorHandlingRemoved,
+    TestDeletedOrEmptied,
+    AuthCheckRemoved,
 }
 
 /// A behavioral signal detected in a changed file.
