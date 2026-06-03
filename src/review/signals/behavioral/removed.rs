@@ -57,7 +57,9 @@ pub fn detect_behavioral_removed(
     let mut ast_success = false;
 
     if let (Some(pre_src), Some(post_src)) = (pre_source, post_source) {
-        if let (Some(pre_tree), Some(post_tree)) = (pre_src.parsed().tree(), post_src.parsed().tree()) {
+        if let (Some(pre_tree), Some(post_tree)) =
+            (pre_src.parsed().tree(), post_src.parsed().tree())
+        {
             let pre_try = count_try_blocks(pre_tree, pre_src.content(), file, ext, true);
             let post_try = count_try_blocks(post_tree, post_src.content(), file, ext, false);
 
@@ -99,19 +101,31 @@ pub fn detect_behavioral_removed(
         for hunk in &file.hunks {
             for line in &hunk.removed_lines {
                 let line_lower = line.to_lowercase();
-                if line_lower.contains("catch") || line_lower.contains("except:") || line_lower.contains("except ") {
+                if line_lower.contains("catch")
+                    || line_lower.contains("except:")
+                    || line_lower.contains("except ")
+                {
                     let added_has_catch = hunk.added_lines.iter().any(|l| {
                         let l_low = l.to_lowercase();
-                        l_low.contains("catch") || l_low.contains("except:") || l_low.contains("except ")
+                        l_low.contains("catch")
+                            || l_low.contains("except:")
+                            || l_low.contains("except ")
                     });
                     if !added_has_catch {
                         try_removed = true;
                     }
                 }
-                if line_lower.contains("auth") || line_lower.contains("login") || line_lower.contains("jwt") || line_lower.contains("permission") {
+                if line_lower.contains("auth")
+                    || line_lower.contains("login")
+                    || line_lower.contains("jwt")
+                    || line_lower.contains("permission")
+                {
                     let added_has_auth = hunk.added_lines.iter().any(|l| {
                         let l_low = l.to_lowercase();
-                        l_low.contains("auth") || l_low.contains("login") || l_low.contains("jwt") || l_low.contains("permission")
+                        l_low.contains("auth")
+                            || l_low.contains("login")
+                            || l_low.contains("jwt")
+                            || l_low.contains("permission")
                     });
                     if !added_has_auth {
                         auth_removed = true;
@@ -153,7 +167,7 @@ fn count_test_cases(source: &ReviewSource, ext: &str) -> Option<usize> {
 fn walk_tests(node: Node<'_>, content: &str, ext: &str, count: &mut usize) {
     let kind = node.kind();
     let text = node.utf8_text(content.as_bytes()).unwrap_or("");
-    
+
     match ext {
         "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => {
             if kind == "call_expression" {
@@ -195,18 +209,22 @@ fn walk_tests(node: Node<'_>, content: &str, ext: &str, count: &mut usize) {
             }
         }
         "java" | "kt" | "kts" => {
-            if (kind == "method_declaration" || kind == "function_declaration") && text.contains("@Test") {
+            if (kind == "method_declaration" || kind == "function_declaration")
+                && text.contains("@Test")
+            {
                 *count += 1;
             }
         }
-        "cs" => {
-            if kind == "method_declaration" && (text.contains("[Test]") || text.contains("[TestMethod]") || text.contains("[Fact]")) {
-                *count += 1;
-            }
+        "cs" if kind == "method_declaration"
+            && (text.contains("[Test]")
+                || text.contains("[TestMethod]")
+                || text.contains("[Fact]")) =>
+        {
+            *count += 1;
         }
         _ => {}
     }
-    
+
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         walk_tests(child, content, ext, count);
@@ -249,7 +267,7 @@ fn walk_try(
     if inside {
         let kind = node.kind();
         let text = node.utf8_text(content.as_bytes()).unwrap_or("");
-        
+
         let is_try = match ext {
             "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => kind == "try_statement",
             "py" => kind == "try_statement",
@@ -257,9 +275,10 @@ fn walk_try(
             "kt" | "kts" => kind == "try_expression",
             "go" => kind == "if_statement" && text.contains("err != nil"),
             "rs" => {
-                (kind == "match_expression" && text.contains("Err(")) 
-                || (kind == "if_let_expression" && text.contains("Err("))
-                || (kind == "call_expression" && (text.contains(".unwrap_or") || text.contains(".map_err")))
+                (kind == "match_expression" && text.contains("Err("))
+                    || (kind == "if_let_expression" && text.contains("Err("))
+                    || (kind == "call_expression"
+                        && (text.contains(".unwrap_or") || text.contains(".map_err")))
             }
             _ => false,
         };
@@ -310,7 +329,9 @@ fn walk_auth(
     if inside {
         let kind = node.kind();
         let is_call = match ext {
-            "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => kind == "call_expression",
+            "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => {
+                kind == "call_expression"
+            }
             "py" => kind == "call",
             "go" => kind == "call_expression",
             "rs" => kind == "call_expression",
@@ -321,9 +342,13 @@ fn walk_auth(
         if is_call {
             if let Ok(text) = node.utf8_text(content.as_bytes()) {
                 let text_lower = text.to_lowercase();
-                if text_lower.contains("auth") || text_lower.contains("login") 
-                   || text_lower.contains("jwt") || text_lower.contains("permission") 
-                   || text_lower.contains("session") || text_lower.contains("role") {
+                if text_lower.contains("auth")
+                    || text_lower.contains("login")
+                    || text_lower.contains("jwt")
+                    || text_lower.contains("permission")
+                    || text_lower.contains("session")
+                    || text_lower.contains("role")
+                {
                     *count += 1;
                 }
             }

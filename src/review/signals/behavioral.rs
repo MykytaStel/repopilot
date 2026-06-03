@@ -5,14 +5,13 @@
 //! imports, and raw SQL queries) whose start lines fall within the changed ranges.
 //! Also handles path-based migration detection for newly added files.
 
-mod js;
-mod python;
-mod go;
-mod rust;
-mod jvm;
 mod csharp;
+mod go;
+mod js;
+mod jvm;
+mod python;
 mod removed;
-pub(crate) mod helpers;
+mod rust;
 
 pub use removed::detect_behavioral_removed;
 
