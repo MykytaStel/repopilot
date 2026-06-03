@@ -5,12 +5,16 @@
 //! imports, and raw SQL queries) whose start lines fall within the changed ranges.
 //! Also handles path-based migration detection for newly added files.
 
-mod csharp;
-mod go;
 mod js;
-mod jvm;
 mod python;
+mod go;
 mod rust;
+mod jvm;
+mod csharp;
+mod removed;
+pub(crate) mod helpers;
+
+pub use removed::detect_behavioral_removed;
 
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
@@ -28,6 +32,9 @@ pub enum BehavioralKind {
     DependencyImportAdded,
     MigrationAdded,
     RawSqlAdded,
+    ErrorHandlingRemoved,
+    TestDeletedOrEmptied,
+    AuthCheckRemoved,
 }
 
 /// A behavioral signal detected in a changed file.
