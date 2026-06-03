@@ -65,16 +65,10 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     })
     .map_err(|error| format!("scan failed: {error}"))?;
 
-    let boundary_config = scan_result.repo_config.security_boundary;
-    let review_report = build_review_report(
-        scan_result.summary,
-        &path,
-        base,
-        head,
-        None,
-        &boundary_config,
-    )
-    .map_err(|error| format!("review failed: {error}"))?;
+    let repo_config = scan_result.repo_config;
+    let review_report =
+        build_review_report(scan_result.summary, &path, base, head, None, &repo_config)
+            .map_err(|error| format!("review failed: {error}"))?;
 
     render(&review_report, OutputFormat::Json, None)
         .map_err(|error| format!("render failed: {error}"))

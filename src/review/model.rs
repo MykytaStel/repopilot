@@ -3,6 +3,7 @@ use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::BoundarySignal;
+use crate::review::signals::tiered::TieredSignals;
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -17,6 +18,8 @@ pub struct ReviewReport {
     pub boundary_signals: Vec<BoundarySignal>,
     /// A code boundary (auth / request-trust) changed but no test moved.
     pub boundary_missing_test: bool,
+    /// Boundary + behavioral + algorithmic signals grouped by confidence tier.
+    pub tiered_signals: TieredSignals,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

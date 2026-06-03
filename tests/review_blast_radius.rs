@@ -1,8 +1,9 @@
-use repopilot::config::model::SecurityBoundarySection;
+use repopilot::config::model::RepoPilotConfig;
 use repopilot::graph::CouplingGraph;
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
 use repopilot::review::model::ReviewReport;
 use repopilot::review::render::{render_console, render_json};
+use repopilot::review::signals::tiered::TieredSignals;
 use repopilot::review::{build_review_report, compute_blast_radius};
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
@@ -150,6 +151,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         blast_radius: vec![PathBuf::from("src/b.ts")],
         boundary_signals: vec![],
         boundary_missing_test: false,
+        tiered_signals: TieredSignals::default(),
         findings: vec![],
     };
 
@@ -161,15 +163,8 @@ fn render_console_includes_blast_radius_section_when_present() {
 
 fn run_review_json(root: &Path) -> Value {
     let summary = scan_path_with_config(root, &ScanConfig::default()).expect("failed to scan");
-    let report = build_review_report(
-        summary,
-        root,
-        None,
-        None,
-        None,
-        &SecurityBoundarySection::default(),
-    )
-    .expect("failed to build review");
+    let report = build_review_report(summary, root, None, None, None, &RepoPilotConfig::default())
+        .expect("failed to build review");
     let output = render_json(&report, None).expect("failed to render review json");
 
     serde_json::from_str(&output).expect("expected JSON output")

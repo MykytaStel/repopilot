@@ -62,7 +62,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         options.base.as_deref(),
         options.head.as_deref(),
         baseline_ref,
-        &scan_result.repo_config.security_boundary,
+        &scan_result.repo_config,
     )?;
     if !priority_filter.is_empty() {
         review_report.apply_filter(&priority_filter);

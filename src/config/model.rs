@@ -18,6 +18,8 @@ pub struct RepoPilotConfig {
     pub testing: TestingSection,
     pub security: SecuritySection,
     pub security_boundary: SecurityBoundarySection,
+    pub behavioral: BehavioralSection,
+    pub algorithmic: AlgorithmicSection,
     pub output: OutputSection,
 }
 
@@ -166,6 +168,38 @@ impl Default for SecurityBoundarySection {
             enabled: true,
             extra_patterns: Vec::new(),
         }
+    }
+}
+
+/// Configures the `review` behavioral change signals (what a change *does* —
+/// network calls, subprocess/exec, env vars, migrations, removed error handling
+/// or tests, …). Detected from the changed lines; flags, does not prove.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct BehavioralSection {
+    /// Whether to surface behavioral signals at all. Defaults to enabled.
+    pub enabled: bool,
+}
+
+impl Default for BehavioralSection {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// Configures the `review` algorithmic change signals (structural deltas in the
+/// functions a change touched — nesting, nested loops, growth, recursion). The
+/// highest-noise family; reports the structural fact, never a verdict.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct AlgorithmicSection {
+    /// Whether to surface algorithmic signals at all. Defaults to enabled.
+    pub enabled: bool,
+}
+
+impl Default for AlgorithmicSection {
+    fn default() -> Self {
+        Self { enabled: true }
     }
 }
 

@@ -27,6 +27,9 @@ pub mod composites;
 pub mod content;
 #[cfg(test)]
 mod tests;
+pub mod tiered;
+#[cfg(test)]
+mod tiered_tests;
 
 use crate::config::model::SecurityBoundarySection;
 use crate::review::diff::{ChangeStatus, ChangedFile};
