@@ -10,15 +10,17 @@ use crate::baseline::diff::{
 };
 use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
-use crate::config::model::SecurityBoundarySection;
+use crate::config::model::RepoPilotConfig;
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::quality::summarize_signal_quality;
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::paths::normalized_review_path;
-use crate::review::signals::composites;
-use crate::review::signals::{BoundarySignal, detect_boundary_signals};
+use crate::review::signals::algorithmic::{self, AlgorithmicSignal};
+use crate::review::signals::behavioral::{self, BehavioralSignal};
+use crate::review::signals::content;
+use crate::review::signals::{BoundarySignal, composites, detect_boundary_signals, tiered};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary};
 use std::collections::BTreeSet;
@@ -30,13 +32,20 @@ pub fn build_review_report(
     base: Option<&str>,
     head: Option<&str>,
     baseline: Option<(&Baseline, PathBuf)>,
-    boundary_config: &SecurityBoundarySection,
+    config: &RepoPilotConfig,
 ) -> Result<ReviewReport, diff::GitDiffError> {
     let repo_root = resolve_git_root(scan_path)?;
     let target = DiffTarget::from_refs(base, head);
     let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
     let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())?;
-    let boundary_signals = detect_boundary_signals(&changed_files, boundary_config);
+    let boundary_signals = detect_boundary_signals(&changed_files, &config.security_boundary);
+    let (behavioral_signals, algorithmic_signals) = detect_content_signals(
+        &repo_root,
+        target,
+        &changed_files,
+        config.behavioral.enabled,
+        config.algorithmic.enabled,
+    );
 
     let baseline_report = match baseline {
         Some((baseline, baseline_path)) => {
@@ -50,7 +59,51 @@ pub fn build_review_report(
         repo_root,
         changed_files,
         boundary_signals,
+        behavioral_signals,
+        algorithmic_signals,
     ))
+}
+
+/// Run the content-based detectors (behavioral + algorithmic) over each changed
+/// file, re-reading its pre/post source via the content bridge. Each is gated by
+/// its config toggle; both off means no git reads at all.
+fn detect_content_signals(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
+    changed_files: &[ChangedFile],
+    behavioral_enabled: bool,
+    algorithmic_enabled: bool,
+) -> (Vec<BehavioralSignal>, Vec<AlgorithmicSignal>) {
+    let mut behavioral = Vec::new();
+    let mut algorithmic = Vec::new();
+    if !behavioral_enabled && !algorithmic_enabled {
+        return (behavioral, algorithmic);
+    }
+
+    for file in changed_files {
+        let post = content::post_change_source(repo_root, file, target);
+        let pre = content::pre_change_source(repo_root, file, target);
+
+        if behavioral_enabled {
+            if let Some(post) = &post {
+                behavioral.extend(behavioral::detect_behavioral_added(file, post));
+            }
+            behavioral.extend(behavioral::detect_behavioral_removed(
+                file,
+                pre.as_ref(),
+                post.as_ref(),
+            ));
+        }
+        if algorithmic_enabled {
+            algorithmic.extend(algorithmic::detect_algorithmic(
+                file,
+                pre.as_ref(),
+                post.as_ref(),
+            ));
+        }
+    }
+
+    (behavioral, algorithmic)
 }
 
 fn classify_findings(
@@ -58,6 +111,8 @@ fn classify_findings(
     repo_root: PathBuf,
     changed_files: Vec<ChangedFile>,
     mut boundary_signals: Vec<BoundarySignal>,
+    behavioral_signals: Vec<BehavioralSignal>,
+    algorithmic_signals: Vec<AlgorithmicSignal>,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
@@ -68,6 +123,19 @@ fn classify_findings(
     );
     let boundary_missing_test =
         composites::missing_test_for_code_boundary(&boundary_signals, &changed_files);
+
+    let mut tiered_signals = tiered::build_tiered(
+        &boundary_signals,
+        &behavioral_signals,
+        &algorithmic_signals,
+        &changed_files,
+    );
+    tiered::enrich_blast_radius(
+        &mut tiered_signals,
+        summary.artifacts.coupling_graph.as_ref(),
+        &repo_root,
+    );
+
     let mut findings: Vec<ReviewFindingStatus> = summary
         .artifacts
         .findings
@@ -101,6 +169,7 @@ fn classify_findings(
         blast_radius,
         boundary_signals,
         boundary_missing_test,
+        tiered_signals,
         findings,
     }
 }
