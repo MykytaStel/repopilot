@@ -26,7 +26,8 @@ fn kinds(signals: &[AlgorithmicSignal]) -> Vec<AlgorithmicKind> {
 
 #[test]
 fn flags_nested_loop_introduced() {
-    let pre = source("fn process(items: &[i32]) {\n    for i in items {\n        let _ = i;\n    }\n}\n");
+    let pre =
+        source("fn process(items: &[i32]) {\n    for i in items {\n        let _ = i;\n    }\n}\n");
     let post = source(
         "fn process(items: &[i32]) {\n    for i in items {\n        for j in items {\n            let _ = i + j;\n        }\n    }\n}\n",
     );
@@ -103,7 +104,8 @@ fn flags_new_function_with_nested_loop() {
 
 #[test]
 fn silent_when_shape_unchanged() {
-    let code = "fn calc(a: i32) -> i32 {\n    if a > 0 {\n        a\n    } else {\n        0\n    }\n}\n";
+    let code =
+        "fn calc(a: i32) -> i32 {\n    if a > 0 {\n        a\n    } else {\n        0\n    }\n}\n";
     let pre = source(code);
     let post = source(code);
     let file = changed("src/calc.rs");

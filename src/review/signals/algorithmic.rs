@@ -164,7 +164,10 @@ fn emit_signals(
     if post.has_nested_loop && !pre_nested_loop {
         push(
             AlgorithmicKind::NestedLoopIntroduced,
-            format!("fn `{}` introduces a nested loop (potential O(n^2))", post.name),
+            format!(
+                "fn `{}` introduces a nested loop (potential O(n^2))",
+                post.name
+            ),
         );
     }
     if post.is_recursive && !pre_recursive {
@@ -248,11 +251,7 @@ fn calls_name(text: &str, name: &str) -> usize {
     while let Some(rel) = text[search_start..].find(name) {
         let start = search_start + rel;
         let end = start + name.len();
-        let before_ok = start == 0
-            || !text[..start]
-                .chars()
-                .next_back()
-                .is_some_and(is_ident_char);
+        let before_ok = start == 0 || !text[..start].chars().next_back().is_some_and(is_ident_char);
         let after_ok = text[end..].trim_start().starts_with('(');
         if before_ok && after_ok {
             count += 1;

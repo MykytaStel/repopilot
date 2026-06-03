@@ -15,7 +15,10 @@ pub(super) fn function_name(node: Node<'_>, language: &str, content: &str) -> Op
         "Rust" => node.kind() == "function_item",
         "Python" => node.kind() == "function_definition",
         "Go" => matches!(node.kind(), "function_declaration" | "method_declaration"),
-        "Java" => matches!(node.kind(), "method_declaration" | "constructor_declaration"),
+        "Java" => matches!(
+            node.kind(),
+            "method_declaration" | "constructor_declaration"
+        ),
         "CSharp" | "C#" => matches!(
             node.kind(),
             "method_declaration" | "constructor_declaration" | "local_function_statement"
@@ -38,7 +41,10 @@ pub(super) fn function_name(node: Node<'_>, language: &str, content: &str) -> Op
 
 pub(super) fn is_loop_node(kind: &str, language: &str) -> bool {
     match language {
-        "Rust" => matches!(kind, "for_expression" | "while_expression" | "loop_expression"),
+        "Rust" => matches!(
+            kind,
+            "for_expression" | "while_expression" | "loop_expression"
+        ),
         "Python" => matches!(kind, "for_statement" | "while_statement"),
         "Go" => kind == "for_statement",
         "Java" => matches!(
@@ -49,7 +55,10 @@ pub(super) fn is_loop_node(kind: &str, language: &str) -> bool {
             kind,
             "for_statement" | "foreach_statement" | "while_statement" | "do_statement"
         ),
-        "Kotlin" => matches!(kind, "for_statement" | "while_statement" | "do_while_statement"),
+        "Kotlin" => matches!(
+            kind,
+            "for_statement" | "while_statement" | "do_while_statement"
+        ),
         _ => matches!(
             kind,
             "for_statement"
