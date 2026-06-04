@@ -4,6 +4,7 @@ use crate::findings::types::Finding;
 use crate::output::render_helpers::escape_table_cell;
 use crate::review::model::ReviewReport;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
+use crate::review::signals::tiered::ReviewSignal;
 
 pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
     let mut output = String::new();
@@ -63,7 +64,7 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
     }
 
     render_markdown_blast_radius(&mut output, report);
-    render_markdown_boundary_signals(&mut output, report);
+    render_markdown_tiered_signals(&mut output, report);
     render_markdown_findings_group(
         &mut output,
         "In-Diff Findings",
@@ -103,14 +104,18 @@ fn render_markdown_blast_radius(output: &mut String, report: &ReviewReport) {
     output.push('\n');
 }
 
-fn render_markdown_boundary_signals(output: &mut String, report: &ReviewReport) {
-    if report.boundary_signals.is_empty() {
+/// Render the unified, confidence-tiered "Review Signals" section: one sub-table
+/// per non-empty tier (definitely → maybe → noise). Boundary signals are folded
+/// into the `definitely` tier rather than getting their own block.
+fn render_markdown_tiered_signals(output: &mut String, report: &ReviewReport) {
+    let tiered = &report.tiered_signals;
+    if tiered.is_empty() {
         return;
     }
 
-    output.push_str("## Security Boundary Changed (preview)\n\n");
+    output.push_str("## Review Signals (preview)\n\n");
     output.push_str(
-        "These changes touch who-can-do-what or how the app ships — open the report before merging.\n\n",
+        "Where to look first in this diff — flags, not verdicts. Open the report before merging.\n\n",
     );
 
     if report.boundary_missing_test {
@@ -119,19 +124,44 @@ fn render_markdown_boundary_signals(output: &mut String, report: &ReviewReport) 
         );
     }
 
-    output.push_str("| Category | Path | Status | Reach |\n");
+    render_markdown_tier(output, "Definitely sensitive", &tiered.definitely);
+    render_markdown_tier(output, "Maybe sensitive", &tiered.maybe);
+    render_markdown_tier(output, "Large diff / noise", &tiered.noise);
+}
+
+fn render_markdown_tier(output: &mut String, label: &str, signals: &[ReviewSignal]) {
+    if signals.is_empty() {
+        return;
+    }
+
+    output.push_str(&format!("### {label}\n\n"));
+    output.push_str("| Signal | Location | Detail | Reach |\n");
     output.push_str("| --- | --- | --- | --- |\n");
 
-    for signal in &report.boundary_signals {
+    for signal in signals {
+        let location = if signal.path.is_empty() {
+            "—".to_string()
+        } else {
+            match signal.line {
+                Some(line) => format!("`{}:{line}`", signal.path),
+                None => format!("`{}`", signal.path),
+            }
+        };
+        let detail = signal
+            .detail
+            .as_deref()
+            .filter(|detail| !detail.is_empty())
+            .map(escape_table_cell)
+            .unwrap_or_else(|| "—".to_string());
         let reach = match signal.blast_radius {
             0 => "—".to_string(),
             count => format!("imported by {count}"),
         };
         output.push_str(&format!(
-            "| {} | `{}` | {:?} | {} |\n",
-            signal.category.label(),
-            signal.path,
-            signal.status,
+            "| {} | {} | {} | {} |\n",
+            escape_table_cell(&signal.headline),
+            location,
+            detail,
             reach
         ));
     }

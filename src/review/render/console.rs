@@ -2,6 +2,7 @@ use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::review::model::ReviewReport;
 use crate::review::render::helpers::render_ranges_suffix;
+use crate::review::signals::tiered::ReviewSignal;
 
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
     let mut output = String::new();
@@ -56,7 +57,7 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
     }
 
     render_blast_radius(&mut output, report);
-    render_boundary_signals(&mut output, report);
+    render_tiered_signals(&mut output, report);
     render_findings_group(&mut output, "In-diff findings", &report.in_diff_findings());
     render_findings_group(
         &mut output,
@@ -80,29 +81,62 @@ fn render_blast_radius(output: &mut String, report: &ReviewReport) {
     }
 }
 
-fn render_boundary_signals(output: &mut String, report: &ReviewReport) {
-    if report.boundary_signals.is_empty() {
+/// Render the unified, confidence-tiered "Review signals" block. Boundary,
+/// behavioral, and algorithmic signals are grouped into three tiers so the eye
+/// goes to the riskiest part of the diff first. The old standalone boundary
+/// block is folded into the `definitely` tier.
+fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
+    let tiered = &report.tiered_signals;
+    if tiered.is_empty() {
         return;
     }
 
-    output.push_str("\nSecurity boundary changed [preview]:\n");
+    output.push_str("\nReview signals [preview]:\n");
     output.push_str(
-        "  These changes touch who-can-do-what or how the app ships. Open the report before merging.\n",
+        "  Where to look first in this diff \u{2014} flags, not verdicts. Open the report before merging.\n",
     );
 
-    for signal in &report.boundary_signals {
-        output.push_str(&format!(
-            "  \u{2691} {:<15} {}{}\n",
-            signal.category.label(),
-            signal.path,
-            render_reach_suffix(signal.blast_radius)
-        ));
-    }
-
+    render_tier_group(output, "Definitely sensitive", &tiered.definitely);
     if report.boundary_missing_test {
         output.push_str(
-            "  \u{26a0} A code boundary changed but no test did \u{2014} confirm it's still covered.\n",
+            "    \u{26a0} A code boundary changed but no test did \u{2014} confirm it's still covered.\n",
         );
+    }
+    render_tier_group(output, "Maybe sensitive", &tiered.maybe);
+    render_tier_group(output, "Large diff / noise", &tiered.noise);
+}
+
+fn render_tier_group(output: &mut String, label: &str, signals: &[ReviewSignal]) {
+    if signals.is_empty() {
+        return;
+    }
+
+    output.push_str(&format!("  {label}:\n"));
+    for signal in signals {
+        output.push_str(&format!(
+            "    \u{2691} {}{}{}{}\n",
+            signal.headline,
+            render_signal_location(signal),
+            render_signal_detail(signal),
+            render_reach_suffix(signal.blast_radius),
+        ));
+    }
+}
+
+fn render_signal_location(signal: &ReviewSignal) -> String {
+    if signal.path.is_empty() {
+        return String::new();
+    }
+    match signal.line {
+        Some(line) => format!(" \u{2014} {}:{line}", signal.path),
+        None => format!(" \u{2014} {}", signal.path),
+    }
+}
+
+fn render_signal_detail(signal: &ReviewSignal) -> String {
+    match &signal.detail {
+        Some(detail) if !detail.is_empty() => format!("  {detail}"),
+        _ => String::new(),
     }
 }
 
