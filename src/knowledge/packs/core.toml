@@ -682,7 +682,7 @@ reason = "Infrastructure-oriented code often contains orchestration or declarati
 [[rules]]
 rule_id = "architecture.large-file"
 minimum_support = "import-aware"
-languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "c-header", "php", "ruby", "dart", "scala", "shell", "powershell", "sql", "html", "css", "scss"]
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin", "swift", "csharp", "c", "cpp", "c-header", "php", "ruby", "dart", "scala", "shell", "powershell", "sql"]
 suppress_low_signal = true
 suppress_config = true
 suppress_generated = true

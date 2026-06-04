@@ -94,6 +94,31 @@ fn large_file_audit_skips_non_code_files() {
 }
 
 #[test]
+fn large_file_audit_skips_stylesheet_and_markup_files() {
+    for (path, language) in [
+        ("src/styles.css", Some("CSS")),
+        ("src/theme.scss", Some("SCSS")),
+        ("src/index.html", Some("HTML")),
+    ] {
+        let file = FileFacts {
+            path: PathBuf::from(path),
+            language: language.map(str::to_string),
+            non_empty_lines: 5_000,
+            branch_count: 0,
+            imports: Vec::new(),
+            content: None,
+            has_inline_tests: false,
+        };
+
+        let findings = LargeFileAudit.audit(&file, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "stylesheet/markup file must not be flagged as large source: {path}"
+        );
+    }
+}
+
+#[test]
 fn large_file_audit_skips_test_and_fixture_paths() {
     for path in ["tests/large_scan.rs", "src/fixtures/generated.rs"] {
         let file = FileFacts {
