@@ -1,5 +1,6 @@
 use super::*;
 use crate::review::signals::BoundarySignal;
+use crate::review::signals::tiered::TieredSignals;
 
 #[derive(Debug, Serialize)]
 pub struct ReviewJsonReport<'a> {
@@ -14,6 +15,10 @@ pub struct ReviewJsonReport<'a> {
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
     pub boundary_signals: &'a [BoundarySignal],
+    /// Boundary + behavioral + algorithmic signals grouped by confidence tier.
+    /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
+    /// two are expected to collapse into this field in a future schema.
+    pub tiered_signals: &'a TieredSignals,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_graph_summary: Option<&'a ContextGraphSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -51,6 +56,7 @@ impl<'a> ReviewJsonReport<'a> {
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
             boundary_signals: &report.boundary_signals,
+            tiered_signals: &report.tiered_signals,
             context_graph_summary: report.summary.artifacts.context_graph_summary.as_ref(),
             context_graph_cache: report.summary.artifacts.context_graph_cache.as_ref(),
             review: ReviewJsonMetadata {
@@ -60,6 +66,12 @@ impl<'a> ReviewJsonReport<'a> {
                 existing_in_diff_findings: report.existing_in_diff_count(),
                 boundary_signals: report.boundary_signals.len(),
                 boundary_missing_test: report.boundary_missing_test,
+                tiered_signals: TierCounts {
+                    definitely: report.tiered_signals.definitely.len(),
+                    maybe: report.tiered_signals.maybe.len(),
+                    noise: report.tiered_signals.noise.len(),
+                    total: report.tiered_signals.total(),
+                },
                 severity_counts: report.severity_counts(),
             },
             risk_summary: RiskSummary::from_findings(&report.summary.artifacts.findings),
@@ -104,7 +116,18 @@ pub struct ReviewJsonMetadata {
     pub existing_in_diff_findings: usize,
     pub boundary_signals: usize,
     pub boundary_missing_test: bool,
+    pub tiered_signals: TierCounts,
     pub severity_counts: SeverityCounts,
+}
+
+/// Per-tier signal counts, mirroring `TieredSignals`, for a quick summary
+/// without walking the full `tiered_signals` arrays.
+#[derive(Debug, Serialize)]
+pub struct TierCounts {
+    pub definitely: usize,
+    pub maybe: usize,
+    pub noise: usize,
+    pub total: usize,
 }
 
 #[derive(Debug, Serialize)]

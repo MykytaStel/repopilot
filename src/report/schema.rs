@@ -169,7 +169,7 @@ mod review;
 
 pub use baseline::{BaselineJsonMetadata, BaselineJsonReport, FindingWithBaselineStatus};
 pub use review::{
-    ReviewBaselineJsonMetadata, ReviewJsonFinding, ReviewJsonMetadata, ReviewJsonReport,
+    ReviewBaselineJsonMetadata, ReviewJsonFinding, ReviewJsonMetadata, ReviewJsonReport, TierCounts,
 };
 
 pub(super) fn hidden_suggestions_empty(value: &&[HiddenSuggestionSummary]) -> bool {

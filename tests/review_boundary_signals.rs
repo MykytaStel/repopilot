@@ -94,7 +94,10 @@ fn review_console_shows_boundary_section() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Security boundary changed"));
+    // Boundary signals are now folded into the unified, confidence-tiered
+    // "Review signals" block, under the "definitely sensitive" tier.
+    assert!(stdout.contains("Review signals"));
+    assert!(stdout.contains("Definitely sensitive"));
     assert!(stdout.contains("access control"));
     assert!(stdout.contains("src/middleware/auth.ts"));
 }
