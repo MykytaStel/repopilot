@@ -129,7 +129,7 @@ pub fn build_tiered(
         let in_access = access_paths.contains(signal.path.as_str());
         tiered.push(ReviewSignal {
             family: SignalFamily::Behavioral,
-            tier: behavioral_tier(signal.kind, in_access),
+            tier: behavioral_tier(signal.kind, in_access, signal.is_coarse()),
             path: signal.path.clone(),
             line: Some(signal.line),
             headline: behavioral_headline(signal.kind).to_string(),
@@ -206,8 +206,13 @@ fn from_boundary(signal: &BoundarySignal) -> ReviewSignal {
     }
 }
 
-fn behavioral_tier(kind: BehavioralKind, in_access_boundary: bool) -> ConfidenceTier {
+fn behavioral_tier(kind: BehavioralKind, in_access_boundary: bool, coarse: bool) -> ConfidenceTier {
     use BehavioralKind::*;
+    // Coarse (non-AST) signals are best-effort hints from a file we couldn't
+    // parse; keep them visible but never above the large-diff/noise tier.
+    if coarse {
+        return ConfidenceTier::LargeDiffOrNoise;
+    }
     match kind {
         SubprocessAdded | EnvVarIntroduced | MigrationAdded | ErrorHandlingRemoved
         | TestDeletedOrEmptied | AuthCheckRemoved => ConfidenceTier::DefinitelySensitive,

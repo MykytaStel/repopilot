@@ -27,6 +27,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Hardened `repopilot review`'s coarse (non-AST) behavioral fallback, which scans raw diff lines when a changed file can't be parsed. It now matches whole tokens instead of substrings, so a removed `author` line no longer reads as a removed `auth` check and a `catchy` variable no longer reads as a removed `catch` block (high-specificity auth substrings like `oauth`/`jwt`/`authentic`/`authoriz` still match). Coarse fallback signals are also demoted out of the *definitely sensitive* tier into *large diff / noise* — they remain visible as hints but no longer sit beside AST-confirmed findings. AST-based detection on parseable files is unchanged.
+- `repopilot review` no longer raises a security-boundary signal for *test* files. A change to `auth_service_test.ts` previously matched the access-control boundary on its filename and landed in the *definitely sensitive* tier, even though a test for a boundary decides neither who-can-do-what nor how the app ships. Boundary detection now skips test files; whether a test *moved alongside* a code-boundary change remains a separate signal (`review.boundary_missing_test`), which is unchanged.
 - `architecture.large-file` no longer flags stylesheet and markup files (CSS, SCSS, HTML) as oversized source modules. They are now treated as non-logic the same way JSON, YAML, TOML, and Markdown already were — the rule applies only to logic languages — so a long stylesheet is no longer reported as a large file by `repopilot scan` (and the `repopilot_scan` MCP tool). The line-count threshold and behavior for real source files are unchanged.
 
 ## [0.14.0] - 2026-05-31

@@ -31,6 +31,7 @@ pub mod tiered;
 #[cfg(test)]
 mod tiered_tests;
 
+use crate::audits::context::classify::helpers::is_test_file;
 use crate::config::model::SecurityBoundarySection;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use serde::Serialize;
@@ -91,6 +92,13 @@ pub struct BoundarySignal {
 /// Returns at most one signal per changed file (the first category it matches,
 /// in priority order). Sorted by category then path for deterministic output.
 /// `blast_radius` is left at `0` here; callers enrich it via [`composites`].
+///
+/// Test files are skipped: a boundary signal means "the change touched code that
+/// decides who-can-do-what or how the app ships," and a test for that boundary
+/// decides neither. Without this, `auth_service_test.ts` would land in the
+/// top confidence tier as "access control changed." Whether a test *moved
+/// alongside* a code-boundary change is a separate signal — see
+/// [`composites::missing_test_for_code_boundary`].
 pub fn detect_boundary_signals(
     changed_files: &[ChangedFile],
     config: &SecurityBoundarySection,
@@ -103,6 +111,7 @@ pub fn detect_boundary_signals(
 
     let mut signals: Vec<BoundarySignal> = changed_files
         .iter()
+        .filter(|file| !is_test_file(&file.path, false))
         .filter_map(|file| {
             let path = file.path_string();
             classify::classify_boundary(&path, custom.as_ref()).map(|category| BoundarySignal {
