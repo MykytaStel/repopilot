@@ -25,6 +25,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Repositioned and tightened the README around reviewing a change *before you merge* — for humans and for AI agents calling RepoPilot over MCP. The page now leads with the review/boundary workflow and the agent (MCP) angle, demotes `scan` and the rest to a compact capability table, and moves the encyclopedic sections (trust mode, commands, rule quality, reports, CI) to their `docs/` links. Cut from ~326 to ~124 lines, deterministic/local-first framing made explicit.
 - Reworked the README visuals to a single hero demo plus real, current console-output examples (scan, review with boundary signals, and a baseline gate catching a newly introduced secret) instead of a GIF per command. Removed the per-command GIFs, including a misleading baseline GIF that showed an already-adopted repo rather than the gate doing its job.
 
+### Fixed
+
+- `architecture.large-file` no longer flags stylesheet and markup files (CSS, SCSS, HTML) as oversized source modules. They are now treated as non-logic the same way JSON, YAML, TOML, and Markdown already were — the rule applies only to logic languages — so a long stylesheet is no longer reported as a large file by `repopilot scan` (and the `repopilot_scan` MCP tool). The line-count threshold and behavior for real source files are unchanged.
+
 ## [0.14.0] - 2026-05-31
 
 RepoPilot 0.14 is the AI-guardrail release. Every runtime-risk and code-quality
