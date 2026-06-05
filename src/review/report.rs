@@ -62,7 +62,12 @@ fn build_review_report_with_target(
     let repo_root = resolve_git_root(scan_path)?;
     let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
     let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())?;
-    let boundary_signals = detect_boundary_signals(&changed_files, &config.security_boundary);
+    let boundary_signals = detect_boundary_signals(
+        &repo_root,
+        target,
+        &changed_files,
+        &config.security_boundary,
+    );
     let (behavioral_signals, algorithmic_signals) = detect_content_signals(
         &repo_root,
         target,

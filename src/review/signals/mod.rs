@@ -33,8 +33,9 @@ mod tiered_tests;
 
 use crate::audits::context::classify::helpers::is_test_file;
 use crate::config::model::SecurityBoundarySection;
-use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::review::diff::{ChangeStatus, ChangedFile, DiffTarget};
 use serde::Serialize;
+use std::path::Path;
 
 /// The kind of security boundary a changed file belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -100,6 +101,8 @@ pub struct BoundarySignal {
 /// alongside* a code-boundary change is a separate signal — see
 /// [`composites::missing_test_for_code_boundary`].
 pub fn detect_boundary_signals(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
     changed_files: &[ChangedFile],
     config: &SecurityBoundarySection,
 ) -> Vec<BoundarySignal> {
@@ -114,7 +117,15 @@ pub fn detect_boundary_signals(
         .filter(|file| !is_test_file(&file.path, false))
         .filter_map(|file| {
             let path = file.path_string();
-            classify::classify_boundary(&path, custom.as_ref()).map(|category| BoundarySignal {
+            let mut category = classify::classify_boundary(&path, custom.as_ref());
+
+            if category.is_none() {
+                if let Some(post_source) = content::post_change_source(repo_root, file, target) {
+                    category = classify::classify_boundary_ast(&file.path, post_source.content());
+                }
+            }
+
+            category.map(|category| BoundarySignal {
                 category,
                 path,
                 status: file.status,

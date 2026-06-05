@@ -2,7 +2,7 @@ use super::classify::classify_boundary;
 use super::composites::{any_test_changed, enrich_blast_radius, missing_test_for_code_boundary};
 use super::{BoundaryCategory, BoundarySignal, detect_boundary_signals};
 use crate::config::model::SecurityBoundarySection;
-use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::review::diff::{ChangeStatus, ChangedFile, DiffTarget};
 use crate::scan::types::CouplingGraph;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -141,7 +141,9 @@ fn disabled_config_yields_no_signals() {
         extra_patterns: Vec::new(),
     };
     let files = vec![changed("src/auth/login.ts", ChangeStatus::Modified)];
-    assert!(detect_boundary_signals(&files, &config).is_empty());
+    assert!(
+        detect_boundary_signals(Path::new(""), DiffTarget::WorkingTree, &files, &config).is_empty()
+    );
 }
 
 #[test]
@@ -154,7 +156,7 @@ fn extra_patterns_flag_custom_boundaries() {
         changed("ops/secrets/keys.yaml", ChangeStatus::Added),
         changed("src/utils/format.ts", ChangeStatus::Modified),
     ];
-    let signals = detect_boundary_signals(&files, &config);
+    let signals = detect_boundary_signals(Path::new(""), DiffTarget::WorkingTree, &files, &config);
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].category, BoundaryCategory::Custom);
     assert_eq!(signals[0].path, "ops/secrets/keys.yaml");
@@ -169,7 +171,7 @@ fn detect_skips_test_files_even_when_path_looks_like_a_boundary() {
         changed("tests/auth_service_test.py", ChangeStatus::Modified),
         changed("src/__tests__/cors.spec.ts", ChangeStatus::Modified),
     ];
-    let signals = detect_boundary_signals(&files, &config);
+    let signals = detect_boundary_signals(Path::new(""), DiffTarget::WorkingTree, &files, &config);
     // Only the production auth file is a boundary; the three test files are not.
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].path, "src/auth/login.ts");
@@ -184,7 +186,7 @@ fn detect_sorts_by_category_then_path() {
         changed("src/auth/login.ts", ChangeStatus::Modified),
         changed(".github/workflows/ci.yml", ChangeStatus::Modified),
     ];
-    let signals = detect_boundary_signals(&files, &config);
+    let signals = detect_boundary_signals(Path::new(""), DiffTarget::WorkingTree, &files, &config);
     let categories: Vec<_> = signals.iter().map(|signal| signal.category).collect();
     assert_eq!(
         categories,
@@ -262,4 +264,101 @@ fn enrich_blast_radius_is_noop_without_graph() {
     )];
     enrich_blast_radius(&mut signals, None, Path::new("/repo"));
     assert_eq!(signals[0].blast_radius, 0);
+}
+
+#[test]
+fn classify_boundary_ast_detects_security_patterns() {
+    use super::classify::classify_boundary_ast;
+
+    // TypeScript with decorators and imports
+    let ts_code = r#"
+        import passport from 'passport';
+        @withAuth
+        class UserController {}
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/controllers/user.ts"), ts_code),
+        Some(BoundaryCategory::AccessControl)
+    );
+
+    // Python with decorator
+    let py_code = r#"
+        @login_required
+        def get_user():
+            pass
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/user.py"), py_code),
+        Some(BoundaryCategory::AccessControl)
+    );
+
+    // Python with imports
+    let py_import = r#"
+        from flask_jwt_extended import jwt_required
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/utils.py"), py_import),
+        Some(BoundaryCategory::AccessControl)
+    );
+
+    // Rust with macro/attribute
+    let rust_code = r#"
+        #[requires_role("admin")]
+        fn perform_action() {}
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/admin.rs"), rust_code),
+        Some(BoundaryCategory::AccessControl)
+    );
+
+    // Go with import
+    let go_code = r#"
+        package main
+        import "github.com/casbin/casbin"
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("main.go"), go_code),
+        Some(BoundaryCategory::AccessControl)
+    );
+}
+
+#[test]
+fn classify_boundary_ast_ignores_lookalike_tokens() {
+    use super::classify::classify_boundary_ast;
+
+    // `author` must not read as `auth` (whole-token match, not substring).
+    assert_eq!(
+        classify_boundary_ast(
+            Path::new("src/author.ts"),
+            "import { author } from './author';"
+        ),
+        None
+    );
+
+    // `sessionStorage` must not read as a `session` boundary.
+    assert_eq!(
+        classify_boundary_ast(
+            Path::new("src/sessionStorage.ts"),
+            "const x = window.sessionStorage;"
+        ),
+        None
+    );
+
+    // A logging utility named `security_logger` is not a boundary import.
+    assert_eq!(
+        classify_boundary_ast(
+            Path::new("src/security_logger.py"),
+            "import security_logger"
+        ),
+        None
+    );
+
+    // `authority` / `roleplay` likewise stay clear of the auth/role tokens.
+    assert_eq!(
+        classify_boundary_ast(
+            Path::new("src/authority.py"),
+            "from authority import LocalAuthority"
+        ),
+        None
+    );
 }
