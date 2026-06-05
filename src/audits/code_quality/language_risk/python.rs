@@ -1,5 +1,8 @@
-use crate::findings::types::Severity;
+use super::{line_of, node_text, push_pattern_finding, snippet_of};
+use crate::findings::types::{Finding, Severity};
+use crate::scan::facts::FileFacts;
 use std::path::Path;
+use tree_sitter::Node;
 
 // ── Python ────────────────────────────────────────────────────────────────────
 
@@ -75,4 +78,61 @@ impl PythonRiskPattern {
             _ => Severity::Medium,
         }
     }
+}
+
+/// Emits Python runtime-risk findings from the syntax tree: bare `except:`,
+/// `assert` statements, and `NotImplementedError` placeholders.
+pub(super) fn emit_python_node(
+    node: Node<'_>,
+    content: &str,
+    path: &Path,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    let pattern = match node.kind() {
+        "except_clause" if is_bare_except(node) => Some(PythonRiskPattern::BroadExcept),
+        "assert_statement" => Some(PythonRiskPattern::Assert),
+        "call" if is_not_implemented_call(node, content) => Some(PythonRiskPattern::NotImplemented),
+        "raise_statement" if raises_bare_not_implemented(node, content) => {
+            Some(PythonRiskPattern::NotImplemented)
+        }
+        _ => None,
+    };
+    if let Some(pattern) = pattern {
+        push_pattern_finding(
+            &pattern,
+            path,
+            line_of(node),
+            &snippet_of(node, content),
+            file,
+            findings,
+        );
+    }
+}
+
+/// A bare `except:` clause — an `except_clause` with no exception type before
+/// its body block.
+fn is_bare_except(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    !node
+        .named_children(&mut cursor)
+        .any(|child| child.kind() != "block" && child.kind() != "comment")
+}
+
+/// A call to `NotImplementedError(...)`.
+fn is_not_implemented_call(node: Node<'_>, content: &str) -> bool {
+    node.child_by_field_name("function")
+        .and_then(|function| node_text(function, content))
+        .map(|text| text == "NotImplementedError" || text.ends_with(".NotImplementedError"))
+        .unwrap_or(false)
+}
+
+/// `raise NotImplementedError` with no call — the raised expression is the bare
+/// `NotImplementedError` identifier (the call form is handled separately so a
+/// single `raise NotImplementedError(...)` is not counted twice).
+fn raises_bare_not_implemented(node: Node<'_>, content: &str) -> bool {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor).any(|child| {
+        child.kind() == "identifier" && node_text(child, content) == Some("NotImplementedError")
+    })
 }
