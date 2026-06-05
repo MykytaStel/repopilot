@@ -1,42 +1,18 @@
-use super::changed_cache::{
-    CacheDecision, cache_decision, normalize_per_file_paths, record_cached_file,
-};
 use super::changed_git::collect_changed_scope;
-use super::changed_telemetry::{
-    change_status_label, finalize_cache_telemetry, record_skipped_cache_file,
-};
-use super::collection;
-use super::file::{SkipReason, process_file_with_content};
-use super::summary::{self, ScanSummaryParts, build_language_summary, build_scan_summary};
-use crate::audits::pipeline::build_file_audits;
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::{
     SignalQualitySummary, summarize_signal_quality_with_contract_violations,
 };
 use crate::findings::types::Finding;
-use crate::frameworks::{
-    DetectedFramework, detect_framework_projects, detect_frameworks,
-    detect_react_native_architecture,
-};
-use crate::graph::context::{
-    ContextGraphCacheInfo, RepoContextGraph, context_graph_cache_miss, load_repo_context_graph,
-    summarize_context_graph, write_repo_context_graph,
-};
-use crate::graph::{CouplingGraph, build_coupling_graph};
-use crate::review::diff::{ChangeStatus, ChangedFile};
-use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
-use crate::scan::cache::{
-    FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
-    relative_cache_path,
-};
+use crate::frameworks::{DetectedFramework, detect_react_native_architecture};
+use crate::graph::CouplingGraph;
+use crate::graph::context::{ContextGraphCacheInfo, RepoContextGraph};
+use crate::review::diff::ChangedFile;
+use crate::scan::cache::{ScanCache, relative_cache_path};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
-use crate::scan::types::cache_diagnostic;
-use crate::scan::types::{
-    ChangedFileCacheTelemetry, ScanCacheTelemetry, ScanDiagnostic, ScanMode, ScanSummary,
-    ScanTimings,
-};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use crate::scan::types::{ScanCacheTelemetry, ScanDiagnostic, ScanSummary};
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;

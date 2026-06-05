@@ -4,6 +4,7 @@
 [![npm](https://img.shields.io/npm/v/repopilot.svg)](https://www.npmjs.com/package/repopilot)
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
 [![GitHub Release](https://img.shields.io/github/v/release/MykytaStel/repopilot)](https://github.com/MykytaStel/repopilot/releases)
+[![Downloads](https://img.shields.io/crates/d/repopilot)](https://crates.io/crates/repopilot)
 [![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/MykytaStel/repopilot?style=social)](https://github.com/MykytaStel/repopilot)
 

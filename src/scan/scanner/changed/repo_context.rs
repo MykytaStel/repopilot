@@ -1,4 +1,20 @@
-use super::*;
+use super::super::collection;
+use super::{
+    ChangedDiscoveryStage, ChangedRepoContextStage, ChangedScanEngine, detect_react_native_profile,
+    relative_coupling_graph,
+};
+use crate::findings::types::Finding;
+use crate::frameworks::{detect_framework_projects, detect_frameworks};
+use crate::graph::build_coupling_graph;
+use crate::graph::context::{
+    RepoContextGraph, context_graph_cache_miss, load_repo_context_graph, write_repo_context_graph,
+};
+use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
+use crate::scan::cache::config_fingerprint;
+use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::types::cache_diagnostic;
+use std::io;
+use std::time::Instant;
 
 impl<'a> ChangedScanEngine<'a> {
     pub(super) fn run_repo_context(
@@ -37,7 +53,7 @@ impl<'a> ChangedScanEngine<'a> {
         }
 
         let mut repo_context =
-            super::collection::collect_scan_facts_without_content(repo_root, self.config)?;
+            collection::collect_scan_facts_without_content(repo_root, self.config)?;
 
         repo_context.detected_frameworks = detect_frameworks(repo_root);
         repo_context.framework_projects = detect_framework_projects(repo_root);

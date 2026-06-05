@@ -4,6 +4,7 @@ pub mod baseline;
 pub mod cache;
 pub mod cache_inspect;
 pub mod compare;
+mod dispatch;
 pub mod doctor;
 pub mod explain;
 pub mod feedback;
@@ -22,113 +23,4 @@ pub mod rules;
 pub mod scan;
 pub(crate) mod scan_config;
 
-use crate::cli::{AiCommands, Cli, Commands, InspectCommands};
-use std::fmt;
-
-pub const EXIT_FINDINGS: i32 = 1;
-pub const EXIT_USAGE: i32 = 2;
-pub const EXIT_RUNTIME: i32 = 3;
-
-pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    match cli.command {
-        Commands::Cache(options) => cache::run(options.command),
-        Commands::Scan(options) => scan::run(options),
-        Commands::Review(options) => review::run(options),
-        Commands::Baseline(options) => baseline::run(options.command),
-        Commands::Compare(options) => compare::run(
-            options.before,
-            options.after,
-            options.format,
-            options.output,
-        ),
-        Commands::Ai(options) => run_ai(options.command),
-        Commands::Inspect(options) => run_inspect(options.command),
-        Commands::Init(options) => init::run(options.force, options.path),
-        Commands::Doctor(options) => doctor::run(
-            options.path,
-            options.config,
-            options.format,
-            options.output,
-            options.include_low_signal,
-            options.max_files,
-        ),
-        Commands::Mcp(options) => mcp::run(options),
-    }
-}
-
-fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
-    match command {
-        AiCommands::Context(options) => ai_context::run(options),
-        AiCommands::Plan(options) => ai_plan::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-        AiCommands::Prompt(options) => prompt::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-    }
-}
-
-fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error>> {
-    match command {
-        InspectCommands::Explain(options) => explain::run(
-            options.path,
-            options.rule,
-            options.signal,
-            options.severity,
-            options.format,
-            options.output,
-        ),
-        InspectCommands::Knowledge(options) => {
-            knowledge::run(options.section, options.format, options.output)
-        }
-        InspectCommands::Cache(options) => {
-            cache_inspect::run(options.path, options.format, options.output)
-        }
-        InspectCommands::Graph(options) => {
-            graph::run(options.path, options.config, options.format, options.output)
-        }
-        InspectCommands::Feedback(options) => feedback::run(
-            options.path,
-            options.format,
-            options.output,
-            options.evaluate,
-        ),
-        InspectCommands::Rules(options) => rules::list_rules(
-            options.format,
-            options.lifecycle,
-            options.source,
-            options.output,
-        ),
-        InspectCommands::Rule(options) => {
-            rules::inspect_rule(options.rule_id, options.format, options.output)
-        }
-        InspectCommands::EvalRules(options) => rules::eval_rules(
-            options.rule,
-            options.fixtures,
-            options.format,
-            options.output,
-        ),
-    }
-}
-
-#[derive(Debug)]
-pub struct CliExit {
-    pub code: i32,
-    pub message: String,
-}
-
-impl fmt::Display for CliExit {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}", self.message)
-    }
-}
-
-impl std::error::Error for CliExit {}
+pub use dispatch::{CliExit, EXIT_FINDINGS, EXIT_RUNTIME, EXIT_USAGE, run};

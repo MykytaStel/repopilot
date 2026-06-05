@@ -1,4 +1,15 @@
-use super::*;
+use super::super::changed_telemetry::finalize_cache_telemetry;
+use super::super::summary::{self, ScanSummaryParts, build_scan_summary};
+use super::{
+    ChangedDiscoveryStage, ChangedFileAnalysisStage, ChangedFindingPipelineStage,
+    ChangedRepoContextStage, ChangedScanEngine,
+};
+use crate::findings::quality::SignalQualitySummary;
+use crate::graph::context::summarize_context_graph;
+use crate::scan::facts::ScanFacts;
+use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
+use std::io;
+use std::time::Instant;
 
 impl<'a> ChangedScanEngine<'a> {
     pub(super) fn finalize_report(
@@ -11,7 +22,7 @@ impl<'a> ChangedScanEngine<'a> {
     ) -> io::Result<ScanSummary> {
         let finalization_start = Instant::now();
 
-        super::summary::sort_findings(&mut file_stage.findings);
+        summary::sort_findings(&mut file_stage.findings);
         let context_graph_summary = summarize_context_graph(
             &repo_stage.context_graph,
             &file_stage.findings,

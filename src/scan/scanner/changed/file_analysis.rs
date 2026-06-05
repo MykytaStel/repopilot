@@ -1,4 +1,22 @@
-use super::*;
+use super::super::changed_cache::{
+    CacheDecision, cache_decision, normalize_per_file_paths, record_cached_file,
+};
+use super::super::changed_telemetry::{change_status_label, record_skipped_cache_file};
+use super::super::file::{SkipReason, process_file_with_content};
+use super::super::summary::build_language_summary;
+use super::{ChangedDiscoveryStage, ChangedFileAnalysisStage, ChangedScanEngine};
+use crate::audits::pipeline::build_file_audits;
+use crate::findings::types::Finding;
+use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::scan::cache::{
+    FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
+};
+use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::types::{ChangedFileCacheTelemetry, ScanCacheTelemetry};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 impl<'a> ChangedScanEngine<'a> {
     pub(super) fn run_file_analysis(
