@@ -119,3 +119,33 @@ index 5555555..6666666 100644
     assert_eq!(file.hunks[1].added_lines, vec!["added a", "added b"]);
     assert!(file.hunks[1].removed_lines.is_empty());
 }
+
+#[test]
+fn validates_git_references_correctly() {
+    // Valid refs should pass
+    assert!(validate_git_ref("main").is_ok());
+    assert!(validate_git_ref("refs/heads/feature-branch").is_ok());
+    assert!(validate_git_ref("HEAD").is_ok());
+    assert!(validate_git_ref("v1.0.0").is_ok());
+    assert!(validate_git_ref("a1b2c3d4").is_ok()); // commit sha
+
+    // Refs starting with hyphen should fail
+    let err = validate_git_ref("-f").unwrap_err();
+    assert!(err.to_string().contains("cannot start with a hyphen"));
+
+    let err2 = validate_git_ref("--help").unwrap_err();
+    assert!(err2.to_string().contains("cannot start with a hyphen"));
+
+    // Refs containing whitespace or control chars should fail
+    let err3 = validate_git_ref("main branch").unwrap_err();
+    assert!(
+        err3.to_string()
+            .contains("cannot contain whitespace or control characters")
+    );
+
+    let err4 = validate_git_ref("main\nbranch").unwrap_err();
+    assert!(
+        err4.to_string()
+            .contains("cannot contain whitespace or control characters")
+    );
+}
