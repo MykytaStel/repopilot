@@ -5,8 +5,10 @@
 //! `mod.rs` for the "flag, don't prove" philosophy.
 
 use super::BoundaryCategory;
+use crate::analysis::parse::ParsedFile;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::collections::HashSet;
+use std::path::Path;
 
 /// Classify a path into a boundary category, or `None` if it crosses none.
 ///
@@ -180,4 +182,150 @@ pub(super) fn build_custom_globset(patterns: &[String]) -> Option<GlobSet> {
         return None;
     }
     builder.build().ok()
+}
+
+/// Classify the syntax tree of a modified file using AST queries.
+///
+/// Scans the file contents for security-relevant decorators, annotations,
+/// macros, and specific library imports to detect access control or request trust boundaries.
+pub(super) fn classify_boundary_ast(path: &Path, content: &str) -> Option<BoundaryCategory> {
+    let language_label = crate::scan::language::detect_language(path)?;
+    let parsed = ParsedFile::new(content, Some(language_label));
+    let tree = parsed.tree()?;
+    walk_ast_for_boundary(tree.root_node(), content, language_label)
+}
+
+fn walk_ast_for_boundary(
+    node: tree_sitter::Node<'_>,
+    content: &str,
+    language_label: &str,
+) -> Option<BoundaryCategory> {
+    if let Some(category) = match_node_for_boundary(node, content, language_label) {
+        return Some(category);
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if let Some(category) = walk_ast_for_boundary(child, content, language_label) {
+            return Some(category);
+        }
+    }
+    None
+}
+
+/// Vague access-control words matched as **whole tokens** (after the same
+/// camelCase + separator splitting `classify_boundary` uses), so `author` does
+/// not read as `auth`, `roleplay` as `role`, `sessionStorage` as `session`, or
+/// `securityLogger` as a boundary. Applied to decorators/annotations/attributes
+/// and to import statements alike.
+const ACCESS_TOKENS: &[&str] = &[
+    "auth",
+    "authz",
+    "authn",
+    "login",
+    "logout",
+    "signin",
+    "signout",
+    "role",
+    "roles",
+    "permission",
+    "permissions",
+    "guard",
+    "guards",
+    "rbac",
+    "acl",
+    "jwt",
+    "jose",
+];
+
+/// High-specificity access-control needles safe to match as **substrings**: auth
+/// scheme stems and library/namespace names that do not collide with ordinary
+/// identifiers. `authentic` covers authenticate/authentication and `authoriz`
+/// covers authorize/authorization without matching the vaguer `authority`.
+const ACCESS_STRONG: &[&str] = &[
+    "oauth",
+    "authentic",
+    "authoriz",
+    "passport",
+    "jsonwebtoken",
+    "bcrypt",
+    "argon2",
+    "pwhash",
+    "passlib",
+    "authlib",
+    "flask_login",
+    "flask_jwt_extended",
+    "express-session",
+    "cookie-session",
+    "jwt-go",
+    "casbin",
+    "authboss",
+    "springframework.security",
+    "springsecurity",
+    "javax.security",
+    "jakarta.security",
+    "aspnetcore.authentication",
+    "aspnetcore.authorization",
+    "aspnetcore.identity",
+    "system.security",
+    "identitymodel",
+    "identityserver",
+    "cryptography",
+];
+
+/// Request-trust terms (CORS / security headers), matched as whole tokens.
+const REQUEST_TRUST_TOKENS: &[&str] = &["cors", "csp", "helmet"];
+
+/// Whether `text` (already lowercased) names a boundary concept: any
+/// high-specificity `strong` substring, or any vague `tokens` term as a whole
+/// token. The token path is what keeps `author`/`sessionStorage`/`security_logger`
+/// from being misread as boundaries — the same fix applied to the coarse
+/// behavioral fallback.
+fn text_names_boundary(text: &str, strong: &[&str], tokens: &[&str]) -> bool {
+    if strong.iter().any(|needle| text.contains(needle)) {
+        return true;
+    }
+    if tokens.is_empty() {
+        return false;
+    }
+    let found = tokenize(text);
+    tokens.iter().any(|token| found.contains(*token))
+}
+
+fn match_node_for_boundary(
+    node: tree_sitter::Node<'_>,
+    content: &str,
+    language: &str,
+) -> Option<BoundaryCategory> {
+    // Which node kinds carry a boundary signal differs per language, but the
+    // matching itself is shared and token-aware. `check_request_trust` is only
+    // set for import-like nodes, where a CORS/header library can appear.
+    let check_request_trust = match (language, node.kind()) {
+        ("JavaScript" | "JavaScript React" | "TypeScript" | "TypeScript React", "decorator")
+        | ("Python", "decorator")
+        | ("Rust", "attribute_item" | "use_declaration")
+        | ("Java" | "Kotlin", "annotation")
+        | ("CSharp", "attribute" | "using_directive") => false,
+        (
+            "JavaScript" | "JavaScript React" | "TypeScript" | "TypeScript React",
+            "import_statement" | "export_statement" | "call_expression",
+        )
+        | ("Python", "import_statement" | "import_from_statement")
+        | ("Go", "import_spec" | "import_declaration")
+        | ("Java" | "Kotlin", "import_declaration") => true,
+        _ => return None,
+    };
+
+    let text = node
+        .utf8_text(content.as_bytes())
+        .ok()?
+        .to_ascii_lowercase();
+
+    if text_names_boundary(&text, ACCESS_STRONG, ACCESS_TOKENS) {
+        return Some(BoundaryCategory::AccessControl);
+    }
+    if check_request_trust && text_names_boundary(&text, &[], REQUEST_TRUST_TOKENS) {
+        return Some(BoundaryCategory::RequestTrust);
+    }
+    None
 }
