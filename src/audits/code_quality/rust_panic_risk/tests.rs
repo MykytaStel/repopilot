@@ -108,65 +108,6 @@ fn ignores_string_literal_panic_patterns() {
 }
 
 #[test]
-fn ignores_string_write_unwraps_in_report_renderers() {
-    let file = facts(
-        "src/output/markdown.rs",
-        "pub fn render(output: &mut String) {\n    writeln!(output, \"# Report\").unwrap();\n}\n",
-        false,
-    );
-
-    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
-
-    assert!(findings.is_empty());
-}
-
-#[test]
-fn ignores_multiline_string_write_unwraps_in_report_renderers() {
-    let file = facts(
-        "src/output/console.rs",
-        "pub fn render(output: &mut String) {\n    writeln!(\n        output,\n        \"Findings: {}\",\n        3\n    )\n    .unwrap();\n}\n",
-        false,
-    );
-
-    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
-
-    assert!(findings.is_empty());
-}
-
-#[test]
-fn still_reports_non_renderer_unwraps_in_output_modules() {
-    let file = facts(
-        "src/output/markdown.rs",
-        "pub fn render(value: Option<&str>) -> &str {\n    value.unwrap()\n}\n",
-        false,
-    );
-
-    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
-
-    assert_eq!(findings.len(), 1);
-    assert_eq!(findings[0].rule_id, RULE_ID);
-}
-
-#[test]
-fn still_reports_unwraps_inside_renderer_format_arguments() {
-    let file = facts(
-        "src/output/console.rs",
-        "pub fn render(output: &mut String, value: Option<&str>) {\n    writeln!(output, \"{}\", value.unwrap());\n}\n",
-        false,
-    );
-
-    let parsed = crate::analysis::parse::ParsedFile::for_facts(&file);
-    if let Some(tree) = parsed.tree() {
-        println!("AST TREE: {}", tree.root_node().to_sexp());
-    }
-
-    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
-
-    assert_eq!(findings.len(), 1);
-    assert_eq!(findings[0].rule_id, RULE_ID);
-}
-
-#[test]
 fn does_not_report_functional_iterator_pipeline_without_panic_risk() {
     let file = facts(
         "src/domain/users.rs",

@@ -10,6 +10,8 @@ use crate::scan::types::{DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
 use std::path::Path;
 
+mod header;
+
 pub(crate) fn render_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
     let stats = build_report_stats(summary);
     let mut output = String::new();
@@ -58,10 +60,10 @@ fn render_summary_header(output: &mut String, summary: &ScanSummary, stats: &Rep
         display_path(summary.root_path.as_path())
     )
     .unwrap();
-    render_scope(output, summary);
-    render_scope_accounting(output, summary);
-    render_diagnostics_line(output, summary);
-    render_local_feedback_line(output, summary);
+    header::render_scope(output, summary);
+    header::render_scope_accounting(output, summary);
+    header::render_diagnostics_line(output, summary);
+    header::render_local_feedback_line(output, summary);
     output.push('\n');
 }
 
@@ -149,106 +151,6 @@ fn render_next_steps(output: &mut String, summary: &ScanSummary) {
     if summary.artifacts.findings.is_empty() && profile_label(summary) == "default" {
         output.push_str("  repopilot inspect eval-rules --format json\n");
     }
-}
-
-fn render_scope(output: &mut String, summary: &ScanSummary) {
-    if summary.mode != crate::scan::types::ScanMode::Changed {
-        return;
-    }
-
-    let base = summary
-        .base_ref
-        .as_ref()
-        .map(|base| format!(" since {base}"))
-        .unwrap_or_else(|| " against HEAD".to_string());
-    writeln!(
-        output,
-        "Scope: changed files{base} ({})",
-        summary.metrics.changed_files_count
-    )
-    .unwrap();
-}
-
-fn render_scope_accounting(output: &mut String, summary: &ScanSummary) {
-    let skipped = skipped_files_count(summary);
-    if skipped > 0 {
-        writeln!(
-            output,
-            "Files: {} discovered, {} analyzed, {skipped} skipped",
-            summary.metrics.files_discovered, summary.metrics.files_analyzed
-        )
-        .unwrap();
-    } else {
-        writeln!(
-            output,
-            "Files: {} discovered, {} analyzed",
-            summary.metrics.files_discovered, summary.metrics.files_analyzed
-        )
-        .unwrap();
-    }
-}
-
-fn skipped_files_count(summary: &ScanSummary) -> usize {
-    summary
-        .metrics
-        .files_skipped_low_signal
-        .saturating_add(summary.metrics.files_skipped_by_limit)
-        .saturating_add(summary.metrics.large_files_skipped)
-        .saturating_add(summary.metrics.binary_files_skipped)
-        .saturating_add(summary.metrics.files_skipped_repopilotignore)
-}
-
-fn render_diagnostics_line(output: &mut String, summary: &ScanSummary) {
-    if summary.artifacts.diagnostics.is_empty() {
-        return;
-    }
-
-    let warnings = summary
-        .artifacts
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
-        .count();
-    let errors = summary
-        .artifacts
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Error)
-        .count();
-
-    if errors > 0 && warnings > 0 {
-        writeln!(
-            output,
-            "Diagnostics: {errors} error(s), {warnings} warning(s)"
-        )
-        .unwrap();
-    } else if errors > 0 {
-        writeln!(output, "Diagnostics: {errors} error(s)").unwrap();
-    } else if warnings > 0 {
-        writeln!(output, "Diagnostics: {warnings} warning(s)").unwrap();
-    }
-}
-
-fn render_local_feedback_line(output: &mut String, summary: &ScanSummary) {
-    let Some(feedback) = &summary.local_feedback else {
-        return;
-    };
-
-    if feedback.suppressed_findings_count == 0
-        && feedback.unmatched_suppressions_count == 0
-        && feedback.invalid_suppressions_count == 0
-    {
-        return;
-    }
-
-    writeln!(
-        output,
-        "Local feedback: {} suppressed, {} unmatched, {} invalid",
-        feedback.suppressed_findings_count,
-        feedback.unmatched_suppressions_count,
-        feedback.invalid_suppressions_count
-    )
-    .unwrap();
 }
 
 fn status_label(summary: &ScanSummary, visible_count: usize) -> &'static str {

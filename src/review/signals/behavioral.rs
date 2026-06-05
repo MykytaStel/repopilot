@@ -12,6 +12,7 @@ mod jvm;
 mod keywords;
 mod python;
 mod removed;
+mod removed_ast;
 mod rust;
 
 pub use removed::detect_behavioral_removed;
