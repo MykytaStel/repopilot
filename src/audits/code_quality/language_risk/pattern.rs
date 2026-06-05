@@ -79,8 +79,8 @@ pub(super) fn emit_findings_for_line(
 
 /// Emits runtime-risk findings for `language_id` by walking the parsed syntax
 /// tree, so matches reflect real call/clause structure rather than line text.
-/// Only the AST-backed languages (Python, TypeScript/JavaScript) are handled
-/// here; other languages keep the line scanner in [`emit_findings_for_line`].
+/// Each language's node-level emitter lives in its sibling pattern module
+/// (`go`, `js`, `python`, `managed`); this dispatches to them and recurses.
 pub(super) fn emit_findings_for_tree(
     language_id: &str,
     tree: &Tree,
@@ -101,14 +101,14 @@ fn walk_tree(
     findings: &mut Vec<Finding>,
 ) {
     match language_id {
-        "python" => emit_python_node(node, content, path, file, findings),
-        "go" => emit_go_node(node, content, path, file, findings),
+        "python" => python::emit_python_node(node, content, path, file, findings),
+        "go" => go::emit_go_node(node, content, path, file, findings),
         "typescript" | "typescript-react" | "javascript" | "javascript-react" => {
-            emit_js_node(node, content, path, file, findings)
+            js::emit_js_node(node, content, path, file, findings)
         }
-        "java" => emit_java_node(node, content, path, file, findings),
-        "kotlin" => emit_kotlin_node(node, content, path, file, findings),
-        "csharp" => emit_csharp_node(node, content, path, file, findings),
+        "java" => managed::emit_java_node(node, content, path, file, findings),
+        "kotlin" => managed::emit_kotlin_node(node, content, path, file, findings),
+        "csharp" => managed::emit_csharp_node(node, content, path, file, findings),
         _ => {}
     }
 
@@ -118,107 +118,7 @@ fn walk_tree(
     }
 }
 
-fn emit_go_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    if node.kind() != "call_expression" {
-        return;
-    }
-    let Some(function) = node.child_by_field_name("function") else {
-        return;
-    };
-
-    let pattern = match function.kind() {
-        // `panic(...)`
-        "identifier" if node_text(function, content) == Some("panic") => Some(GoRiskPattern::Panic),
-        // `pkg.Fn(...)` — `log.Fatal`/`log.Fatalf` and `os.Exit`.
-        "selector_expression" => {
-            let package = function
-                .child_by_field_name("operand")
-                .and_then(|n| node_text(n, content));
-            let method = function
-                .child_by_field_name("field")
-                .and_then(|n| node_text(n, content));
-            match (package, method) {
-                (Some("log"), Some("Fatal" | "Fatalf")) => Some(GoRiskPattern::LogFatal),
-                (Some("os"), Some("Exit")) => Some(GoRiskPattern::OsExit),
-                _ => None,
-            }
-        }
-        _ => None,
-    };
-
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
-}
-
-fn emit_js_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    let pattern = match node.kind() {
-        "call_expression" if is_process_exit_call(node, content) => {
-            Some(JsRiskPattern::ProcessExit)
-        }
-        "throw_statement" if throws_new_error(node, content) && is_library_boundary_path(path) => {
-            Some(JsRiskPattern::ThrowError)
-        }
-        _ => None,
-    };
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
-}
-
-fn emit_python_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    let pattern = match node.kind() {
-        "except_clause" if is_bare_except(node) => Some(PythonRiskPattern::BroadExcept),
-        "assert_statement" => Some(PythonRiskPattern::Assert),
-        "call" if is_not_implemented_call(node, content) => Some(PythonRiskPattern::NotImplemented),
-        "raise_statement" if raises_bare_not_implemented(node, content) => {
-            Some(PythonRiskPattern::NotImplemented)
-        }
-        _ => None,
-    };
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
-}
+// ── Shared node helpers (used by the per-language emitters) ─────────────────────
 
 fn line_of(node: Node<'_>) -> usize {
     node.start_position().row + 1
@@ -237,66 +137,7 @@ fn node_text<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
     node.utf8_text(content.as_bytes()).ok()
 }
 
-/// `process.exit(...)` — a call whose callee is the `process.exit` member.
-fn is_process_exit_call(node: Node<'_>, content: &str) -> bool {
-    let Some(function) = node.child_by_field_name("function") else {
-        return false;
-    };
-    if function.kind() != "member_expression" {
-        return false;
-    }
-    let object = function
-        .child_by_field_name("object")
-        .and_then(|n| node_text(n, content));
-    let property = function
-        .child_by_field_name("property")
-        .and_then(|n| node_text(n, content));
-    object == Some("process") && property == Some("exit")
-}
-
-/// `throw new Error(...)` — a throw whose direct expression constructs `Error`.
-fn throws_new_error(node: Node<'_>, content: &str) -> bool {
-    let mut cursor = node.walk();
-    node.named_children(&mut cursor)
-        .any(|child| is_new_error(child, content))
-}
-
-fn is_new_error(node: Node<'_>, content: &str) -> bool {
-    node.kind() == "new_expression"
-        && node
-            .child_by_field_name("constructor")
-            .and_then(|c| node_text(c, content))
-            == Some("Error")
-}
-
-/// A bare `except:` clause — an `except_clause` with no exception type before
-/// its body block.
-fn is_bare_except(node: Node<'_>) -> bool {
-    let mut cursor = node.walk();
-    !node
-        .named_children(&mut cursor)
-        .any(|child| child.kind() != "block" && child.kind() != "comment")
-}
-
-/// A call to `NotImplementedError(...)`.
-fn is_not_implemented_call(node: Node<'_>, content: &str) -> bool {
-    node.child_by_field_name("function")
-        .and_then(|function| node_text(function, content))
-        .map(|text| text == "NotImplementedError" || text.ends_with(".NotImplementedError"))
-        .unwrap_or(false)
-}
-
-/// `raise NotImplementedError` with no call — the raised expression is the bare
-/// `NotImplementedError` identifier (the call form is handled separately so a
-/// single `raise NotImplementedError(...)` is not counted twice).
-fn raises_bare_not_implemented(node: Node<'_>, content: &str) -> bool {
-    let mut cursor = node.walk();
-    node.named_children(&mut cursor).any(|child| {
-        child.kind() == "identifier" && node_text(child, content) == Some("NotImplementedError")
-    })
-}
-
-// ── Shared ────────────────────────────────────────────────────────────────────
+// ── Shared finding construction ─────────────────────────────────────────────────
 
 trait RiskPattern {
     fn matches(&self, trimmed: &str, path: &Path) -> bool;
@@ -422,159 +263,4 @@ fn is_library_boundary_path(path: &Path) -> bool {
             })
             .unwrap_or(false)
     })
-}
-
-fn emit_java_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    let pattern = match node.kind() {
-        "throw_statement" => {
-            let mut cursor = node.walk();
-            node.children(&mut cursor)
-                .find(|child| child.kind() == "object_creation_expression")
-                .and_then(|child| child.child_by_field_name("type"))
-                .and_then(|type_node| node_text(type_node, content))
-                .and_then(|type_name| match type_name {
-                    "RuntimeException" | "IllegalStateException" => {
-                        Some(ManagedRiskPattern::FatalException { is_csharp: false })
-                    }
-                    "NotImplementedException" | "NotImplementedError" => {
-                        Some(ManagedRiskPattern::NotImplemented)
-                    }
-                    _ => None,
-                })
-        }
-        "method_invocation" => {
-            if let Some(name_node) = node.child_by_field_name("name") {
-                if node_text(name_node, content) == Some("TODO") {
-                    Some(ManagedRiskPattern::NotImplemented)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
-
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
-}
-
-fn emit_kotlin_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    let pattern = match node.kind() {
-        "throw_expression" => {
-            let mut cursor = node.walk();
-            node.children(&mut cursor)
-                .find(|child| child.kind() == "call_expression")
-                .and_then(|child| child.child(0))
-                .and_then(|callee| node_text(callee, content))
-                .and_then(|callee_name| match callee_name {
-                    "RuntimeException" | "IllegalStateException" => {
-                        Some(ManagedRiskPattern::FatalException { is_csharp: false })
-                    }
-                    "NotImplementedException" | "NotImplementedError" => {
-                        Some(ManagedRiskPattern::NotImplemented)
-                    }
-                    _ => None,
-                })
-        }
-        "call_expression" => {
-            if let Some(callee) = node.child(0) {
-                if node_text(callee, content) == Some("TODO") {
-                    Some(ManagedRiskPattern::NotImplemented)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
-
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
-}
-
-fn emit_csharp_node(
-    node: Node<'_>,
-    content: &str,
-    path: &Path,
-    file: &FileFacts,
-    findings: &mut Vec<Finding>,
-) {
-    let pattern = match node.kind() {
-        "throw_statement" | "throw_expression" => {
-            let mut cursor = node.walk();
-            node.children(&mut cursor)
-                .find(|child| child.kind() == "object_creation_expression")
-                .and_then(|child| child.child_by_field_name("type"))
-                .and_then(|type_node| node_text(type_node, content))
-                .and_then(|type_name| match type_name {
-                    "Exception" | "RuntimeException" | "IllegalStateException" => {
-                        Some(ManagedRiskPattern::FatalException { is_csharp: true })
-                    }
-                    "NotImplementedException" | "NotImplementedError" => {
-                        Some(ManagedRiskPattern::NotImplemented)
-                    }
-                    _ => None,
-                })
-        }
-        "invocation_expression" => {
-            // C# `invocation_expression` exposes the callee under the `function`
-            // field; `child(0)` is a defensive fallback for older grammar shapes.
-            let name_node = node
-                .child_by_field_name("function")
-                .or_else(|| node.child(0));
-            if let Some(name_node) = name_node {
-                if node_text(name_node, content) == Some("TODO") {
-                    Some(ManagedRiskPattern::NotImplemented)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
-
-    if let Some(pattern) = pattern {
-        push_pattern_finding(
-            &pattern,
-            path,
-            line_of(node),
-            &snippet_of(node, content),
-            file,
-            findings,
-        );
-    }
 }
