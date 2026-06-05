@@ -2,6 +2,7 @@ use repopilot::findings::types::Severity;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
 use std::fs;
+use std::path::Path;
 use tempfile::TempDir;
 
 const COUPLING_RULES: &[&str] = &[
@@ -42,6 +43,86 @@ fn excessive_fan_out_finding_is_emitted() {
         .iter()
         .find(|finding| finding.rule_id == "architecture.excessive-fan-out")
         .expect("expected excessive fan-out finding");
+    assert_eq!(finding.severity, Severity::Medium);
+}
+
+#[test]
+fn pure_rust_module_facade_does_not_emit_excessive_fan_out() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(
+        &temp,
+        "src/lib.rs",
+        r#"
+        pub mod a;
+        pub mod b;
+        pub mod c;
+        "#,
+    );
+    write_file(&temp, "src/a.rs", "pub fn a() {}\n");
+    write_file(&temp, "src/b.rs", "pub fn b() {}\n");
+    write_file(&temp, "src/c.rs", "pub fn c() {}\n");
+
+    let config = ScanConfig {
+        max_fan_out: 2,
+        instability_hub_min_fan_in: usize::MAX,
+        ..ScanConfig::default()
+    };
+
+    let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
+
+    assert!(
+        summary.artifacts.findings.iter().all(|finding| {
+            finding.rule_id != "architecture.excessive-fan-out"
+                || finding.evidence[0].path.as_path() != Path::new("src/lib.rs")
+        }),
+        "pure Rust facade should not be reported as excessive fan-out: {:#?}",
+        summary.artifacts.findings
+    );
+}
+
+#[test]
+fn rust_orchestration_file_still_emits_excessive_fan_out() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(
+        &temp,
+        "src/lib.rs",
+        r#"
+        use crate::a::a;
+        use crate::b::b;
+        use crate::c::c;
+
+        pub mod a;
+        pub mod b;
+        pub mod c;
+
+        pub fn run() {
+            a();
+            b();
+            c();
+        }
+        "#,
+    );
+    write_file(&temp, "src/a.rs", "pub fn a() {}\n");
+    write_file(&temp, "src/b.rs", "pub fn b() {}\n");
+    write_file(&temp, "src/c.rs", "pub fn c() {}\n");
+
+    let config = ScanConfig {
+        max_fan_out: 2,
+        instability_hub_min_fan_in: usize::MAX,
+        ..ScanConfig::default()
+    };
+
+    let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
+
+    let finding = summary
+        .artifacts
+        .findings
+        .iter()
+        .find(|finding| {
+            finding.rule_id == "architecture.excessive-fan-out"
+                && finding.evidence[0].path.as_path() == Path::new("src/lib.rs")
+        })
+        .expect("expected orchestration lib.rs to keep excessive fan-out finding");
     assert_eq!(finding.severity, Severity::Medium);
 }
 

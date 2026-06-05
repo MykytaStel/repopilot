@@ -64,6 +64,17 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high  # fail 
 repopilot ai context . --budget 4k                                       # budgeted, evidence-backed Markdown
 ```
 
+First five minutes for AI-assisted work:
+
+```bash
+repopilot doctor .          # confirm RepoPilot is ready for this repo
+repopilot scan .            # see current visible risk
+repopilot ai context .      # prepare local, evidence-backed context
+repopilot ai plan .         # get a prioritized remediation plan
+repopilot ai prompt .       # generate a paste-ready prompt for an assistant
+repopilot review .          # check the assistant's change before merging
+```
+
 ## Use with AI agents (MCP)
 
 RepoPilot ships a local [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Code, Cursor, …) can call it as a tool — the deterministic, private check an agent can run on its **own** edits before handing you the PR.

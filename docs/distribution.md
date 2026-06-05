@@ -115,10 +115,10 @@ Before publishing:
 
 See [docs/release.md](release.md) for the full release process.
 
-For RepoPilot 0.13.0, publish the GitHub Release assets first, then the platform
-npm packages, then the root npm package. The root `repopilot` package declares
-optional dependencies on the platform packages at the same version, so publishing
-the root package before the platform packages can create a broken install window.
+Publish the GitHub Release assets first, then the platform npm packages, then
+the root npm package. The root `repopilot` package declares optional
+dependencies on the platform packages at the same version, so publishing the
+root package before the platform packages can create a broken install window.
 
 After publishing, verify:
 
@@ -132,7 +132,7 @@ for pkg in \
   @repopilot/win32-x64-msvc; do
   npm view "$pkg" version
 done
-git ls-remote --tags origin v0.13.0
+git ls-remote --tags origin vX.Y.Z
 ```
 
 ## Homebrew (via tap)

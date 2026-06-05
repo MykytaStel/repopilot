@@ -1,0 +1,52 @@
+use crate::leaf1::leaf1;
+use crate::leaf2::leaf2;
+use crate::leaf3::leaf3;
+use crate::leaf4::leaf4;
+use crate::leaf5::leaf5;
+use crate::leaf6::leaf6;
+use crate::leaf7::leaf7;
+use crate::leaf8::leaf8;
+use crate::leaf9::leaf9;
+use crate::leaf10::leaf10;
+use crate::leaf11::leaf11;
+use crate::leaf12::leaf12;
+use crate::leaf13::leaf13;
+use crate::leaf14::leaf14;
+use crate::leaf15::leaf15;
+use crate::leaf16::leaf16;
+
+pub mod leaf1;
+pub mod leaf2;
+pub mod leaf3;
+pub mod leaf4;
+pub mod leaf5;
+pub mod leaf6;
+pub mod leaf7;
+pub mod leaf8;
+pub mod leaf9;
+pub mod leaf10;
+pub mod leaf11;
+pub mod leaf12;
+pub mod leaf13;
+pub mod leaf14;
+pub mod leaf15;
+pub mod leaf16;
+
+pub fn run_all() {
+    leaf1();
+    leaf2();
+    leaf3();
+    leaf4();
+    leaf5();
+    leaf6();
+    leaf7();
+    leaf8();
+    leaf9();
+    leaf10();
+    leaf11();
+    leaf12();
+    leaf13();
+    leaf14();
+    leaf15();
+    leaf16();
+}

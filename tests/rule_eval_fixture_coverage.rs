@@ -12,19 +12,21 @@ use repopilot::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
 // Unit tests should stay close to pure modules. This file is for end-to-end
 // fixture evaluation across real fixture projects.
 
-const SECURITY_RULES_WITH_013_FIXTURES: &[&str] = &[
+const SECURITY_RULES_WITH_FIXTURES: &[&str] = &[
     "security.env-file-committed",
     "security.secret-candidate",
     "security.private-key-candidate",
+    "framework.django.debug-true",
+    "framework.django.missing-allowed-hosts",
 ];
 
-const IMPORT_GRAPH_RULES_WITH_013_FIXTURES: &[&str] = &[
+const IMPORT_GRAPH_RULES_WITH_FIXTURES: &[&str] = &[
     "architecture.circular-dependency",
     "architecture.excessive-fan-out",
     "architecture.high-instability-hub",
 ];
 
-const RUNTIME_RULES_WITH_013_FIXTURES: &[&str] = &[
+const RUNTIME_RULES_WITH_FIXTURES: &[&str] = &[
     "language.rust.panic-risk",
     "language.go.panic-exit-risk",
     "language.python.exception-risk",
@@ -32,14 +34,24 @@ const RUNTIME_RULES_WITH_013_FIXTURES: &[&str] = &[
     "language.managed.fatal-exception-risk",
 ];
 
-const CODE_QUALITY_RULES_WITH_013_FIXTURES: &[&str] = &["code-quality.long-function"];
+const CODE_QUALITY_RULES_WITH_FIXTURES: &[&str] = &["code-quality.long-function"];
+
+const FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
+    "framework.react-native.deprecated-api",
+    "framework.react-native.async-storage-from-core",
+    "framework.react-native.direct-state-mutation",
+    "framework.react-native.architecture-mismatch",
+    "framework.rn-navigation-compat",
+    "framework.rn-reanimated-compat",
+    "framework.rn-gesture-handler-old",
+];
 
 #[test]
 fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
     let fixture_root = rule_fixture_root();
 
-    for rule_id in SECURITY_RULES_WITH_013_FIXTURES {
+    for rule_id in SECURITY_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 
@@ -55,7 +67,7 @@ fn given_import_graph_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass
     // Given
     let fixture_root = rule_fixture_root();
 
-    for rule_id in IMPORT_GRAPH_RULES_WITH_013_FIXTURES {
+    for rule_id in IMPORT_GRAPH_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 
@@ -71,7 +83,7 @@ fn given_runtime_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
     let fixture_root = rule_fixture_root();
 
-    for rule_id in RUNTIME_RULES_WITH_013_FIXTURES {
+    for rule_id in RUNTIME_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 
@@ -87,7 +99,23 @@ fn given_code_quality_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass
     // Given
     let fixture_root = rule_fixture_root();
 
-    for rule_id in CODE_QUALITY_RULES_WITH_013_FIXTURES {
+    for rule_id in CODE_QUALITY_RULES_WITH_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_framework_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in FRAMEWORK_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 

@@ -1,6 +1,6 @@
 # Finding Contract
 
-RepoPilot 0.13.0 validates every rendered finding against an internal contract.
+RepoPilot validates every rendered finding against an internal contract.
 Validation runs locally after the single enrichment pass and risk scoring. Normal
 scans report contract problems as diagnostics; tests and release checks should
 fail on them.
@@ -14,6 +14,13 @@ A valid finding has:
 - non-empty `risk.formula_version`;
 - at least one risk signal;
 - docs for high and critical findings.
+
+Field intent:
+
+- `description` explains why the signal matters when it is true.
+- `recommendation` gives concrete remediation guidance.
+- `evidence` records the local fact that triggered the finding.
+- `risk` explains prioritization and should not be treated as a separate finding.
 
 The contract is intentionally strict because findings are used by baselines,
 SARIF, JSON reports, AI context, and CI gates. RepoPilot should not silently

@@ -1,9 +1,9 @@
 # Signal Quality
 
-RepoPilot 0.13.0 adds a report-level `signal_quality` summary derived from the
-visible findings and the finding contract. The scan pipeline stores the summary
-on `ScanSummary` after enrichment, risk scoring, and contract validation so JSON,
-console, and Markdown renderers do not rebuild the same summary independently.
+RepoPilot reports a `signal_quality` summary derived from the visible findings
+and the finding contract. The scan pipeline stores the summary on `ScanSummary`
+after enrichment, risk scoring, and contract validation so JSON, console, and
+Markdown renderers do not rebuild the same summary independently.
 
 JSON reports include:
 

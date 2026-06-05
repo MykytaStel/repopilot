@@ -6,15 +6,15 @@ learn from telemetry.
 
 ## Runtime Source
 
-RepoPilot 0.13.0 uses the bundled core knowledge pack as the only runtime source:
+RepoPilot uses the bundled core knowledge pack as the only runtime source:
 
 ```text
 src/knowledge/packs/core.toml
 ```
 
 The loader has an explicit source boundary so future releases can add local
-overlays without rewriting rule decisions. In 0.13.0, custom external packs are
-not loaded by `scan`, `review`, `ai`, or CI.
+overlays without rewriting rule decisions. Custom external packs are not loaded
+by `scan`, `review`, `ai`, or CI.
 
 ## Concepts
 
@@ -24,7 +24,7 @@ not loaded by `scan`, `review`, `ai`, or CI.
 | Rule metadata | Title, category, default severity, docs URL, description, and recommendation in the rule registry. |
 | Applicability | Knowledge Engine data that defines which languages, frameworks, runtimes, paradigms, and file roles a rule applies to. |
 | Calibration | Deterministic severity, suppression, or risk adjustments based on local file/project context. |
-| Local overlay | A future local file that can tune known rules in an inspectable way. Not enabled in 0.13.0. |
+| Local overlay | A future local file that can tune known rules in an inspectable way. Not enabled by default. |
 | Local learning | User-controlled local calibration or fixtures, not model training or remote telemetry. |
 | Declarative context | Infrastructure, config, markup, query, and data-description files that should not be judged like imperative application code. |
 | Infrastructure context | Terraform, Dockerfile, Nix, Kubernetes, Helm, CI workflow, and infra-directory files where orchestration is expected. |
@@ -54,9 +54,9 @@ This matters because the same surface pattern can mean different things in diffe
 contexts. A long declarative infrastructure file, a functional pipeline, and an
 object-oriented service should not receive the same generic interpretation.
 
-0.13.0 keeps this taxonomy explicit with declarative and infrastructure context
-so future rules can narrow applicability instead of treating every file as normal
-application code.
+RepoPilot keeps this taxonomy explicit with declarative and infrastructure
+context so future rules can narrow applicability instead of treating every file
+as normal application code.
 
 ## Diagnostics
 
@@ -70,9 +70,9 @@ repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal r
 `inspect knowledge` shows bundled catalog data. `inspect explain` shows how a
 file is classified before rule decisions are applied.
 
-## 0.13.0 Boundaries
+## Runtime Boundaries
 
-0.13.0 intentionally does not add:
+RepoPilot intentionally does not add:
 
 - a stable `--knowledge-pack` flag;
 - external rule execution;

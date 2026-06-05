@@ -11,6 +11,9 @@ Update:
 - `package.json` version
 - `CHANGELOG.md`
 - `README.md` if user-facing behavior changed
+- current docs/examples so they do not advertise stale rule counts, old command
+  names, schema examples, or previous release pins outside archived/historical
+  material
 - archived release checklist for the target version when one exists, for example
   `docs/archive/release-checklist-0.13.md`
 
@@ -131,11 +134,10 @@ repopilot --version
 brew test repopilot
 ```
 
-For the 0.13.0 release, also verify that the public package and tag state moved
-to 0.13.0:
+Also verify that the public package and tag state moved to `X.Y.Z`:
 
 ```bash
-git ls-remote --tags origin v0.13.0
+git ls-remote --tags origin vX.Y.Z
 npm view repopilot version
 for pkg in \
   @repopilot/darwin-arm64 \
@@ -145,9 +147,9 @@ for pkg in \
   @repopilot/win32-x64-msvc; do
   npm view "$pkg" version
 done
-npm install -g repopilot@0.13.0
+npm install -g repopilot@X.Y.Z
 repopilot --version
-repopilot scan . --format json --output /tmp/repopilot-0.13-smoke.json
+repopilot scan . --format json --output /tmp/repopilot-X.Y.Z-smoke.json
 gh attestation verify path/to/repopilot-*.tar.gz --owner MykytaStel
 ```
 
