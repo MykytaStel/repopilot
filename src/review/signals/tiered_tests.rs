@@ -1,5 +1,5 @@
 use super::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
-use super::behavioral::{BehavioralKind, BehavioralSignal};
+use super::behavioral::{BehavioralKind, BehavioralSignal, BehavioralSignalSource};
 use super::tiered::{ConfidenceTier, build_tiered};
 use super::{BoundaryCategory, BoundarySignal};
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
@@ -20,6 +20,7 @@ fn behavioral(kind: BehavioralKind, path: &str) -> BehavioralSignal {
         path: path.to_string(),
         line: 1,
         detail: "detail".to_string(),
+        source: BehavioralSignalSource::Ast,
     }
 }
 
@@ -67,6 +68,40 @@ fn behavioral_kinds_tier_by_sensitivity() {
     // env var is a definite boundary crossing; a plain network call is maybe.
     assert_eq!(tiered.definitely.len(), 1);
     assert_eq!(tiered.maybe.len(), 1);
+}
+
+#[test]
+fn coarse_behavioral_signals_are_demoted_to_noise() {
+    // An AuthCheckRemoved from the coarse (non-AST) fallback would normally be
+    // "definitely sensitive"; its CoarseFallback source drops it to the noise tier.
+    let coarse = BehavioralSignal {
+        kind: BehavioralKind::AuthCheckRemoved,
+        path: "src/legacy.php".to_string(),
+        line: 1,
+        detail: "Authentication/authorization check removed (coarse fallback)".to_string(),
+        source: BehavioralSignalSource::CoarseFallback,
+    };
+    let tiered = build_tiered(&[], &[coarse], &[], &[]);
+    assert!(tiered.definitely.is_empty());
+    assert!(tiered.maybe.is_empty());
+    assert_eq!(tiered.noise.len(), 1);
+    assert_eq!(tiered.noise[0].tier, ConfidenceTier::LargeDiffOrNoise);
+}
+
+#[test]
+fn same_kind_is_definitely_when_ast_sourced() {
+    // The identical kind, but AST-sourced, stays in the definitely tier — proving
+    // the tier keys off `source`, not the kind or the detail text.
+    let ast = BehavioralSignal {
+        kind: BehavioralKind::AuthCheckRemoved,
+        path: "src/auth.ts".to_string(),
+        line: 1,
+        detail: "Authentication/authorization check removed (coarse fallback)".to_string(),
+        source: BehavioralSignalSource::Ast,
+    };
+    let tiered = build_tiered(&[], &[ast], &[], &[]);
+    assert_eq!(tiered.definitely.len(), 1);
+    assert!(tiered.noise.is_empty());
 }
 
 #[test]

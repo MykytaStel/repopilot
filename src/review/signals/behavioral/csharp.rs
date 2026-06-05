@@ -1,4 +1,6 @@
-use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal, truncate_str};
+use crate::review::signals::behavioral::{
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+};
 use tree_sitter::Node;
 
 pub(super) fn match_csharp(
@@ -16,6 +18,7 @@ pub(super) fn match_csharp(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("Process.Start") {
@@ -24,6 +27,7 @@ pub(super) fn match_csharp(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("File.WriteAll")
@@ -35,6 +39,7 @@ pub(super) fn match_csharp(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("Environment.GetEnvironmentVariable") {
@@ -43,6 +48,7 @@ pub(super) fn match_csharp(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -52,6 +58,7 @@ pub(super) fn match_csharp(
                 path: path_str.to_string(),
                 line,
                 detail: format!("Imported using namespace: {}", text.trim_end_matches(';')),
+                source: BehavioralSignalSource::Ast,
             });
         }
         _ => {}

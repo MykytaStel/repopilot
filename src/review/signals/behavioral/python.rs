@@ -1,4 +1,6 @@
-use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal, truncate_str};
+use crate::review::signals::behavioral::{
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+};
 use tree_sitter::Node;
 
 pub(super) fn match_python(
@@ -25,6 +27,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text.starts_with("subprocess.")
@@ -37,6 +40,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text.starts_with("pathlib.") && callee_text.contains("write") {
@@ -45,6 +49,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text == "open" {
@@ -64,6 +69,7 @@ pub(super) fn match_python(
                             path: path_str.to_string(),
                             line,
                             detail: truncate_str(text, 60),
+                            source: BehavioralSignalSource::Ast,
                         });
                     }
                 }
@@ -74,6 +80,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -89,6 +96,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -100,6 +108,7 @@ pub(super) fn match_python(
                     path: path_str.to_string(),
                     line,
                     detail: format!("Imported module: {text}"),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }

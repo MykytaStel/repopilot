@@ -1,5 +1,8 @@
+use super::keywords;
 use crate::review::diff::{ChangeStatus, ChangedFile};
-use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
+use crate::review::signals::behavioral::{
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource,
+};
 use crate::review::signals::content::ReviewSource;
 use tree_sitter::{Node, Tree};
 
@@ -21,6 +24,7 @@ pub fn detect_behavioral_removed(
                 path: path_str.clone(),
                 line: 1,
                 detail: "Test file was deleted".to_string(),
+                source: BehavioralSignalSource::Ast,
             });
             return signals;
         } else if file.status == ChangeStatus::Modified || file.status == ChangeStatus::Renamed {
@@ -34,6 +38,7 @@ pub fn detect_behavioral_removed(
                         path: path_str.clone(),
                         line: 1,
                         detail: "All test cases were removed from test file".to_string(),
+                        source: BehavioralSignalSource::Ast,
                     });
                 }
             } else if let Some(post_src) = post_source {
@@ -43,6 +48,7 @@ pub fn detect_behavioral_removed(
                         path: path_str.clone(),
                         line: 1,
                         detail: "Test file was emptied".to_string(),
+                        source: BehavioralSignalSource::Ast,
                     });
                 }
             }
@@ -72,6 +78,7 @@ pub fn detect_behavioral_removed(
                         "Error handling block(s) removed (try/catch blocks: {} -> {})",
                         pre_try, post_try
                     ),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
 
@@ -87,6 +94,7 @@ pub fn detect_behavioral_removed(
                         "Authentication/authorization check removed (auth calls: {} -> {})",
                         pre_auth, post_auth
                     ),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
 
@@ -95,41 +103,28 @@ pub fn detect_behavioral_removed(
     }
 
     if !ast_success {
+        // Coarse fallback: no parse tree, so scan raw diff lines. Token matching
+        // (not substring) keeps `catch` off `catchy` and `auth` off `author`.
+        // Signals carry `BehavioralSignalSource::CoarseFallback` so the tiered
+        // view demotes them — confidence keys off the source, not the detail text.
         let mut try_removed = false;
         let mut auth_removed = false;
 
         for hunk in &file.hunks {
+            let added_has_error = hunk
+                .added_lines
+                .iter()
+                .any(|line| keywords::line_has_error_handling(line));
+            let added_has_auth = hunk
+                .added_lines
+                .iter()
+                .any(|line| keywords::line_has_auth(line));
             for line in &hunk.removed_lines {
-                let line_lower = line.to_lowercase();
-                if line_lower.contains("catch")
-                    || line_lower.contains("except:")
-                    || line_lower.contains("except ")
-                {
-                    let added_has_catch = hunk.added_lines.iter().any(|l| {
-                        let l_low = l.to_lowercase();
-                        l_low.contains("catch")
-                            || l_low.contains("except:")
-                            || l_low.contains("except ")
-                    });
-                    if !added_has_catch {
-                        try_removed = true;
-                    }
+                if !added_has_error && keywords::line_has_error_handling(line) {
+                    try_removed = true;
                 }
-                if line_lower.contains("auth")
-                    || line_lower.contains("login")
-                    || line_lower.contains("jwt")
-                    || line_lower.contains("permission")
-                {
-                    let added_has_auth = hunk.added_lines.iter().any(|l| {
-                        let l_low = l.to_lowercase();
-                        l_low.contains("auth")
-                            || l_low.contains("login")
-                            || l_low.contains("jwt")
-                            || l_low.contains("permission")
-                    });
-                    if !added_has_auth {
-                        auth_removed = true;
-                    }
+                if !added_has_auth && keywords::line_has_auth(line) {
+                    auth_removed = true;
                 }
             }
         }
@@ -140,6 +135,7 @@ pub fn detect_behavioral_removed(
                 path: path_str.clone(),
                 line: get_first_removed_line(file).unwrap_or(1),
                 detail: "Error handling removed (coarse fallback)".to_string(),
+                source: BehavioralSignalSource::CoarseFallback,
             });
         }
         if auth_removed {
@@ -148,6 +144,7 @@ pub fn detect_behavioral_removed(
                 path: path_str.clone(),
                 line: get_first_removed_line(file).unwrap_or(1),
                 detail: "Authentication/authorization check removed (coarse fallback)".to_string(),
+                source: BehavioralSignalSource::CoarseFallback,
             });
         }
     }

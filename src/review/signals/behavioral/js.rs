@@ -1,5 +1,6 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, extract_string_literal, is_local_import, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, extract_string_literal,
+    is_local_import, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -27,6 +28,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text == "exec"
@@ -41,6 +43,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text.contains("writeFile")
@@ -56,6 +59,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if callee_text == "require" || callee_text == "import" {
@@ -68,6 +72,7 @@ pub(super) fn match_js(
                                 path: path_str.to_string(),
                                 line,
                                 detail: format!("Imported dependency '{val}'"),
+                                source: BehavioralSignalSource::Ast,
                             });
                         }
                     }
@@ -83,6 +88,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -95,6 +101,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: "new WebSocket(...)".to_string(),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -106,6 +113,7 @@ pub(super) fn match_js(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -119,6 +127,7 @@ pub(super) fn match_js(
                             path: path_str.to_string(),
                             line,
                             detail: format!("Imported dependency '{val}'"),
+                            source: BehavioralSignalSource::Ast,
                         });
                     }
                 }

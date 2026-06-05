@@ -161,6 +161,22 @@ fn extra_patterns_flag_custom_boundaries() {
 }
 
 #[test]
+fn detect_skips_test_files_even_when_path_looks_like_a_boundary() {
+    let config = SecurityBoundarySection::default();
+    let files = vec![
+        changed("src/auth/login.ts", ChangeStatus::Modified),
+        changed("src/auth/login.test.ts", ChangeStatus::Modified),
+        changed("tests/auth_service_test.py", ChangeStatus::Modified),
+        changed("src/__tests__/cors.spec.ts", ChangeStatus::Modified),
+    ];
+    let signals = detect_boundary_signals(&files, &config);
+    // Only the production auth file is a boundary; the three test files are not.
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].path, "src/auth/login.ts");
+    assert_eq!(signals[0].category, BoundaryCategory::AccessControl);
+}
+
+#[test]
 fn detect_sorts_by_category_then_path() {
     let config = SecurityBoundarySection::default();
     let files = vec![

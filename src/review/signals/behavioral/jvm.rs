@@ -1,4 +1,6 @@
-use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal, truncate_str};
+use crate::review::signals::behavioral::{
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+};
 use tree_sitter::Node;
 
 pub(super) fn match_jvm(
@@ -21,6 +23,7 @@ pub(super) fn match_jvm(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("ProcessBuilder") || text.contains(".exec(") {
@@ -29,6 +32,7 @@ pub(super) fn match_jvm(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("FileWriter")
@@ -41,6 +45,7 @@ pub(super) fn match_jvm(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("System.getenv") {
@@ -49,6 +54,7 @@ pub(super) fn match_jvm(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
             if text.contains("executeQuery")
@@ -60,6 +66,7 @@ pub(super) fn match_jvm(
                     path: path_str.to_string(),
                     line,
                     detail: truncate_str(text, 60),
+                    source: BehavioralSignalSource::Ast,
                 });
             }
         }
@@ -69,6 +76,7 @@ pub(super) fn match_jvm(
                 path: path_str.to_string(),
                 line,
                 detail: format!("Imported package: {}", text.trim_end_matches(';')),
+                source: BehavioralSignalSource::Ast,
             });
         }
         _ => {}

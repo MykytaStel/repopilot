@@ -1,4 +1,6 @@
-use super::behavioral::{BehavioralKind, detect_behavioral_added, detect_behavioral_removed};
+use super::behavioral::{
+    BehavioralKind, BehavioralSignalSource, detect_behavioral_added, detect_behavioral_removed,
+};
 use super::content::ReviewSource;
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
 use std::path::PathBuf;
@@ -198,6 +200,61 @@ doSomething();
 }
 
 #[test]
+fn coarse_fallback_uses_token_matching_no_ast() {
+    // With no sources the AST path is skipped, so the coarse fallback scans raw
+    // hunk lines. Real auth/error tokens fire and are marked coarse.
+    let file = file_with_hunk(
+        "src/legacy.php",
+        ChangeStatus::Modified,
+        Some((1, 4)),
+        Some((1, 2)),
+        vec![
+            "} catch (Exception $e) {",
+            "if (!isAuthenticated($req)) { abort(401); }",
+        ],
+        vec![],
+    );
+    let signals = detect_behavioral_removed(&file, None, None);
+    let kinds: Vec<_> = signals.iter().map(|s| s.kind).collect();
+    assert!(
+        kinds.contains(&BehavioralKind::ErrorHandlingRemoved),
+        "expected ErrorHandlingRemoved in {kinds:?}"
+    );
+    assert!(
+        kinds.contains(&BehavioralKind::AuthCheckRemoved),
+        "expected AuthCheckRemoved in {kinds:?}"
+    );
+    assert!(
+        signals
+            .iter()
+            .all(|signal| signal.source == BehavioralSignalSource::CoarseFallback),
+        "coarse fallback signals must carry the CoarseFallback source: {signals:?}"
+    );
+    assert!(
+        signals.iter().all(|signal| signal.is_coarse()),
+        "is_coarse() must be true for CoarseFallback signals: {signals:?}"
+    );
+}
+
+#[test]
+fn coarse_fallback_ignores_lookalike_tokens() {
+    // `author` and `catchy` must not be mistaken for `auth` and `catch`.
+    let file = file_with_hunk(
+        "src/legacy.php",
+        ChangeStatus::Modified,
+        Some((1, 3)),
+        Some((1, 1)),
+        vec!["$author = $post->author;", "$catchy = makeCatcher();"],
+        vec![],
+    );
+    let signals = detect_behavioral_removed(&file, None, None);
+    assert!(
+        signals.is_empty(),
+        "lookalike tokens (author, catchy) must not fire coarse signals: {signals:?}"
+    );
+}
+
+#[test]
 fn auth_check_removed() {
     let pre_code = r#"
 function run() {
@@ -224,4 +281,7 @@ function run() {
     let signals = detect_behavioral_removed(&file, Some(&pre_src), Some(&post_src));
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].kind, BehavioralKind::AuthCheckRemoved);
+    // AST-confirmed signals carry the Ast source and are not coarse.
+    assert_eq!(signals[0].source, BehavioralSignalSource::Ast);
+    assert!(!signals[0].is_coarse());
 }
