@@ -1,8 +1,11 @@
+mod ast;
 mod finding;
 mod pattern;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_render;
 
 use crate::analysis::parse::ParsedFile;
 use crate::audits::code_quality::sanitize::sanitize_c_style;
@@ -15,15 +18,12 @@ use crate::rules::{RuleLifecycle, SignalSource, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use crate::scan::path_classification::is_low_signal_audit_path;
-use std::collections::HashMap;
-use tree_sitter::Node;
 
 use self::finding::build_finding;
 use self::pattern::{
-    RustPanicPattern, detect_pattern, is_external_failure_path,
-    is_infallible_render_write_result_unwrap, is_infallible_render_write_start,
-    is_report_renderer_path, is_structural_infallible_render_write_unwrap,
-    should_ignore_contextual_panic_pattern,
+    detect_pattern, is_external_failure_path, is_infallible_render_write_result_unwrap,
+    is_infallible_render_write_start, is_report_renderer_path,
+    is_structural_infallible_render_write_unwrap, should_ignore_contextual_panic_pattern,
 };
 
 const RULE_ID: &str = "language.rust.panic-risk";
@@ -63,102 +63,7 @@ impl RustPanicRiskAudit {
 
         match parsed.tree() {
             Some(tree) => {
-                let mut candidates: HashMap<usize, (Node<'_>, RustPanicPattern)> = HashMap::new();
-
-                fn visit<'a>(
-                    node: Node<'a>,
-                    content: &str,
-                    in_macro_args: bool,
-                    candidates: &mut HashMap<usize, (Node<'a>, RustPanicPattern)>,
-                ) {
-                    let kind = node.kind();
-
-                    // Skip comments and string/char literals
-                    if matches!(
-                        kind,
-                        "line_comment"
-                            | "block_comment"
-                            | "string_literal"
-                            | "raw_string_literal"
-                            | "char_literal"
-                    ) {
-                        return;
-                    }
-
-                    if in_macro_args && (kind == "identifier" || kind == "field_identifier") {
-                        if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                            let pattern = match text {
-                                "unwrap" => Some(RustPanicPattern::Unwrap),
-                                "unwrap_err" => Some(RustPanicPattern::UnwrapErr),
-                                "expect" => Some(RustPanicPattern::Expect),
-                                "expect_err" => Some(RustPanicPattern::ExpectErr),
-                                _ => None,
-                            };
-                            if let Some(pat) = pattern {
-                                if is_preceded_by_dot(node, content)
-                                    && is_followed_by_paren(node, content)
-                                {
-                                    let line_number = node.start_position().row + 1;
-                                    let keep = if let Some((_, existing_pattern)) =
-                                        candidates.get(&line_number)
-                                    {
-                                        pat.precedence() > existing_pattern.precedence()
-                                    } else {
-                                        true
-                                    };
-                                    if keep {
-                                        candidates.insert(line_number, (node, pat));
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    let is_panic_macro = if kind == "macro_invocation" {
-                        if let Some(pattern) = detect_ast_node(node, content) {
-                            let line_number = node.start_position().row + 1;
-                            let keep =
-                                if let Some((_, existing_pattern)) = candidates.get(&line_number) {
-                                    pattern.precedence() > existing_pattern.precedence()
-                                } else {
-                                    true
-                                };
-                            if keep {
-                                candidates.insert(line_number, (node, pattern));
-                            }
-                            true
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
-
-                    if !is_panic_macro {
-                        if let Some(pattern) = detect_ast_node(node, content) {
-                            let line_number = node.start_position().row + 1;
-                            let keep =
-                                if let Some((_, existing_pattern)) = candidates.get(&line_number) {
-                                    pattern.precedence() > existing_pattern.precedence()
-                                } else {
-                                    true
-                                };
-                            if keep {
-                                candidates.insert(line_number, (node, pattern));
-                            }
-                        }
-                    }
-
-                    let next_in_macro =
-                        in_macro_args || (kind == "macro_invocation" && !is_panic_macro);
-
-                    let mut cursor = node.walk();
-                    for child in node.children(&mut cursor) {
-                        visit(child, content, next_in_macro, candidates);
-                    }
-                }
-
-                visit(tree.root_node(), content, false, &mut candidates);
+                let candidates = ast::collect_candidates(tree.root_node(), content);
 
                 let mut findings = Vec::new();
                 let mut sorted_lines: Vec<usize> = candidates.keys().copied().collect();
@@ -304,41 +209,6 @@ impl RustPanicRiskAudit {
     }
 }
 
-fn detect_ast_node(node: Node<'_>, content: &str) -> Option<RustPanicPattern> {
-    match node.kind() {
-        "macro_invocation" => {
-            let macro_node = node
-                .child_by_field_name("macro")
-                .or_else(|| node.child(0))?;
-            let text = macro_node.utf8_text(content.as_bytes()).ok()?;
-            let macro_name = text.split("::").last()?;
-            match macro_name {
-                "panic" => Some(RustPanicPattern::Panic),
-                "todo" => Some(RustPanicPattern::Todo),
-                "unimplemented" => Some(RustPanicPattern::Unimplemented),
-                _ => None,
-            }
-        }
-        "call_expression" => {
-            let function = node.child_by_field_name("function")?;
-            if function.kind() == "field_expression" {
-                let field = function.child_by_field_name("field")?;
-                let method_name = field.utf8_text(content.as_bytes()).ok()?;
-                match method_name {
-                    "unwrap" => Some(RustPanicPattern::Unwrap),
-                    "unwrap_err" => Some(RustPanicPattern::UnwrapErr),
-                    "expect" => Some(RustPanicPattern::Expect),
-                    "expect_err" => Some(RustPanicPattern::ExpectErr),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
 fn mark_text_heuristic(findings: &mut [Finding]) {
     for finding in findings {
         let lifecycle = lookup_rule_metadata(&finding.rule_id)
@@ -351,26 +221,4 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
             analysis_scope: AnalysisScope::File,
         };
     }
-}
-
-fn is_preceded_by_dot(node: Node<'_>, content: &str) -> bool {
-    let start_byte = node.start_byte();
-    if start_byte > 0 {
-        let pre_slice = &content.as_bytes()[..start_byte];
-        if let Some(last_char) = pre_slice.iter().rev().find(|&&b| !b.is_ascii_whitespace()) {
-            return *last_char == b'.';
-        }
-    }
-    false
-}
-
-fn is_followed_by_paren(node: Node<'_>, content: &str) -> bool {
-    let end_byte = node.end_byte();
-    if end_byte < content.len() {
-        let post_slice = &content.as_bytes()[end_byte..];
-        if let Some(first_char) = post_slice.iter().find(|&&b| !b.is_ascii_whitespace()) {
-            return *first_char == b'(';
-        }
-    }
-    false
 }

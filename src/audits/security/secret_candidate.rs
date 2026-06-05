@@ -128,3 +128,4 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
 }
 
 include!("secret_candidate/helpers.rs");
+include!("secret_candidate/finding.rs");

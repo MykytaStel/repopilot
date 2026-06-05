@@ -174,4 +174,6 @@ mod policy;
 pub use policy::classify_visibility;
 
 #[cfg(test)]
+mod profile_tests;
+#[cfg(test)]
 mod tests;
