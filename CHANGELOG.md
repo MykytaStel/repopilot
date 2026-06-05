@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-06-05
+
+RepoPilot 0.15 turns review from *scanning the code* into *understanding the
+change*. `repopilot review` now reads the diff itself — security boundaries,
+behavioral shifts (added network/subprocess/filesystem/SQL, removed error
+handling or auth checks), and algorithmic deltas (deeper nesting, a new nested
+loop, a function that grew or became recursive) — and presents them grouped into
+three confidence tiers, across the console, Markdown, and JSON outputs and over
+MCP to AI agents. Every signal is a structural fact, never a verdict: it flags,
+it does not prove. New `repopilot snapshot` + `review --since-snapshot` mark the
+repository before an agent or manual change and review everything since — the
+deterministic, local check an agent can run on its own edits before handing you
+the PR. Security-boundary detection now also reads file content via the shared
+syntax tree with token-aware matching. Everything new ships at `preview` and runs
+entirely locally — nothing uploaded, no AI service called.
+
 ### Added
 
 - Added true-positive and false-positive rule-evaluation fixtures so `inspect eval-rules` now covers `architecture.excessive-fan-out` (including the new Rust-facade false-positive case) and the Django and React Native framework rules (`framework.django.debug-true`, `framework.django.missing-allowed-hosts`, `framework.react-native.{architecture-mismatch, async-storage-from-core, deprecated-api, direct-state-mutation}`, `framework.rn-{navigation-compat, reanimated-compat, gesture-handler-old}`).
@@ -363,7 +379,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/MykytaStel/repopilot/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/MykytaStel/repopilot/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/MykytaStel/repopilot/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/MykytaStel/repopilot/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/MykytaStel/repopilot/compare/v0.10.0...v0.11.0

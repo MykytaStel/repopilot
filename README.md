@@ -9,7 +9,6 @@
 [![GitHub Stars](https://img.shields.io/github/stars/MykytaStel/repopilot?style=social)](https://github.com/MykytaStel/repopilot)
 
 **See what your AI agent — or you — just changed, before you merge.**
-
 RepoPilot is a fast, local-first Rust CLI that reviews a Git change and flags when it crossed a **security boundary** — the parts of your repo that decide *who can do what* (auth, sessions, permissions, CORS) and *how it ships* (CI, Dockerfiles, dependencies, committed `.env`) — then shows how far each changed file reaches. It's deterministic, runs entirely on your machine, and plugs into your AI coding agent over [MCP](#use-with-ai-agents-mcp). Nothing is uploaded.
 
 ```text
@@ -57,6 +56,8 @@ Security boundary changed [preview]:
 
 Boundary categories: **access control**, **request trust**, **deploy surface**, **supply chain**, **secret config**. Tune or disable them in `repopilot.toml` under `[security_boundary]` (ships at `preview`).
 
+Beyond boundaries, `repopilot review` also flags **behavioral** changes (added network/subprocess/filesystem/SQL, removed error handling or auth checks) and **algorithmic** changes (deeper nesting, a new nested loop, a function that grew or became recursive), grouped into three confidence tiers and reported as structural facts — never verdicts (ships at `preview`). To review a whole agent run, take a marker first: `repopilot snapshot`, let the agent edit, then `repopilot review --since-snapshot` covers every commit and uncommitted change since.
+
 Full audit, a CI gate that fails only on *new* risk, and a local brief for an assistant:
 
 ```bash
@@ -86,7 +87,7 @@ claude mcp add repopilot -- repopilot mcp
 
 It runs over stdio (JSON-RPC, no network, no AI calls) and exposes four tools:
 
-- `repopilot_review_change` — audit the current Git changes: in-diff vs out-of-diff findings, security-boundary signals, and blast radius (structured JSON).
+- `repopilot_review_change` — audit the current Git changes: in-diff vs out-of-diff findings, tiered review signals (security-boundary, behavioral, and algorithmic changes grouped by confidence), and blast radius (structured JSON).
 - `repopilot_scan` — full repository audit as JSON.
 - `repopilot_context` — a budgeted, AI-ready Markdown brief of the repo.
 - `repopilot_explain_file` — how a single file is classified and which rules apply.
@@ -97,7 +98,7 @@ More: [docs/mcp.md](docs/mcp.md).
 
 | Capability | What it does |
 |---|---|
-| **Review a change** | findings on changed lines, blast radius, and security-boundary signals — for you or your agent (`review`, MCP) |
+| **Review a change** | changed-line findings, blast radius, and tiered boundary/behavioral/algorithmic signals — including before/after an agent edit via `snapshot` + `review --since-snapshot` (`review`, MCP) |
 | Full scan | repo-wide, evidence-ranked findings — secrets, runtime footguns, architecture — quiet by default ([trust mode](docs/trust-mode.md)) |
 | Baseline + CI gate | accept current debt as a baseline; fail CI only on newly introduced risk |
 | Reports | Console, Markdown, JSON, [SARIF](docs/integrations/github-code-scanning.md), HTML, receipts |

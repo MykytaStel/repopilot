@@ -80,9 +80,9 @@ inputs:
     required: false
     default: ""
   version:
-    description: "npm version tag to install. Pin this for reproducible CI (e.g. 0.13.0)."
+    description: "npm version tag to install. Pin this for reproducible CI (e.g. 0.15.0)."
     required: false
-    default: "0.13.0"
+    default: "0.15.0"
   upload-sarif:
     description: "Automatically upload SARIF output to GitHub Code Scanning"
     required: false
