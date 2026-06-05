@@ -56,7 +56,7 @@ fn top_level_help_shows_stable_command_surface() {
     let help = stdout(&output);
 
     for command in [
-        "baseline", "compare", "scan", "review", "ai", "inspect", "init", "doctor",
+        "baseline", "compare", "scan", "review", "snapshot", "ai", "inspect", "init", "doctor",
     ] {
         assert!(help.contains(command), "help should show {command}\n{help}");
     }
@@ -84,6 +84,7 @@ fn scan_and_review_help_have_flag_descriptions() {
 
     assert!(review_help.contains("Path to project, folder, or file to review"));
     assert!(review_help.contains("Base Git ref for branch/CI review"));
+    assert!(review_help.contains("Review everything since the last `repopilot snapshot`"));
     assert!(review_help.contains("Exit with code 1 when in-diff findings"));
     assert!(review_help.contains("Disable progress indicators"));
 }

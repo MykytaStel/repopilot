@@ -9,7 +9,17 @@ use std::process::Command;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffTarget<'a> {
     WorkingTree,
-    Refs { base: &'a str, head: &'a str },
+    Refs {
+        base: &'a str,
+        head: &'a str,
+    },
+    /// A base ref compared against the *working tree* (`git diff <base>`), so the
+    /// review covers everything since `base` — commits made on top of it **and**
+    /// uncommitted edits. Used by `review --since-snapshot` to capture a whole
+    /// agent run from the marker the user took beforehand.
+    SinceRef {
+        base: &'a str,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -145,9 +155,17 @@ pub fn load_changed_files(
         DiffTarget::Refs { base, head } => {
             parse_diff(&git_diff_between_refs(repo_root, base, head, pathspec)?)
         }
+        DiffTarget::SinceRef { base } => {
+            parse_diff(&git_diff_since_ref(repo_root, base, pathspec)?)
+        }
     };
 
-    if target == DiffTarget::WorkingTree {
+    // Both targets that end at the working tree must also pick up untracked files,
+    // since a ref-vs-worktree `git diff` only reports tracked changes.
+    if matches!(
+        target,
+        DiffTarget::WorkingTree | DiffTarget::SinceRef { .. }
+    ) {
         files.extend(load_untracked_files(repo_root, pathspec)?);
     }
 

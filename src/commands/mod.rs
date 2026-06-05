@@ -22,5 +22,6 @@ pub mod review;
 pub mod rules;
 pub mod scan;
 pub(crate) mod scan_config;
+pub mod snapshot;
 
 pub use dispatch::{CliExit, EXIT_FINDINGS, EXIT_RUNTIME, EXIT_USAGE, run};

@@ -67,7 +67,10 @@ pub fn post_change_source(
     }
 
     let content = match target {
-        DiffTarget::WorkingTree => fs::read_to_string(repo_root.join(&file.path)).ok()?,
+        // Both end at the working tree, so the post-change source is the file on disk.
+        DiffTarget::WorkingTree | DiffTarget::SinceRef { .. } => {
+            fs::read_to_string(repo_root.join(&file.path)).ok()?
+        }
         DiffTarget::Refs { head, .. } => git_show(repo_root, head, &file.path_string())?,
     };
 
@@ -90,7 +93,7 @@ pub fn pre_change_source(
 
     let reference = match target {
         DiffTarget::WorkingTree => "HEAD",
-        DiffTarget::Refs { base, .. } => base,
+        DiffTarget::Refs { base, .. } | DiffTarget::SinceRef { base } => base,
     };
     let content = git_show(repo_root, reference, &file.path_string())?;
 
