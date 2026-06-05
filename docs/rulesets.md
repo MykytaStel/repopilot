@@ -1,8 +1,9 @@
 # Audit Rulesets
 
-RepoPilot findings are identified by a stable `rule_id`. RepoPilot 0.13.0 ships
-46 built-in rules. Each finding carries category, severity, confidence,
-recommendation, evidence, provenance, lifecycle, and signal-source metadata.
+RepoPilot findings are identified by a stable `rule_id`. RepoPilot ships built-in
+rules across architecture, code quality, testing, security, and framework
+categories. Each finding carries category, severity, confidence, recommendation,
+evidence, provenance, lifecycle, and signal-source metadata.
 
 ## Categories
 
@@ -177,6 +178,13 @@ Every finding includes these top-level fields:
 | `docs_url` | string? | Link to documentation for the rule, when set. |
 | `workspace_package` | string? | Package name in monorepos, when set. |
 | `evidence` | array | One or more evidence locations. |
+
+The core finding contract is intentionally compact:
+
+- `description` explains why the signal matters when it is true.
+- `recommendation` gives the remediation guidance.
+- `evidence` is the factual basis RepoPilot observed locally.
+- `risk` explains prioritization and does not replace severity or confidence.
 
 ## Evidence
 

@@ -19,6 +19,16 @@ Use this loop:
 doctor -> scan -> understand -> plan -> prompt -> change -> review
 ```
 
+Older pre-0.14 examples used separate command names for the same workflow:
+
+| Older name | Current command |
+|---|---|
+| `repopilot vibe` | `repopilot ai context` |
+| `repopilot harden` | `repopilot ai plan` |
+| `repopilot prompt` | `repopilot ai prompt` |
+
+Use the current `repopilot ai ...` commands for new docs, scripts, and CI.
+
 ## Generate context
 
 ```bash

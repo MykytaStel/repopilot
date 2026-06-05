@@ -5,9 +5,9 @@ useful in CI, dashboards, PR bots, and downstream tooling.
 
 ## Current direction
 
-Schema `0.17` is the current scan report schema for RepoPilot 0.13.0. It keeps
-`0.15` provenance and `risk-v3` fields, keeps `0.16` context graph diagnostics,
-and adds raw-vs-visible finding and signal-quality metrics.
+Schema `0.17` is the current scan report schema. It keeps `0.15` provenance and
+`risk-v3` fields, keeps `0.16` context graph diagnostics, and adds
+raw-vs-visible finding and signal-quality metrics.
 
 | Field | Where | Why |
 |---|---|---|
@@ -66,7 +66,7 @@ large_files_skipped <- skipped_files_count
 
 ## Compatibility policy
 
-RepoPilot `0.13.0` intentionally tightens current report readers. Commands such
-as `repopilot compare` require current scan reports with both top-level
+RepoPilot intentionally tightens current report readers. Commands such as
+`repopilot compare` require current scan reports with both top-level
 `schema_version` and `report.schema_version` matching the current schema.
 Baseline files keep their separate baseline schema policy.

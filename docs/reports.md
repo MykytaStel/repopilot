@@ -16,11 +16,11 @@ JSON scan reports include explicit schema metadata. The current schema is 0.17:
 ```json
 {
   "schema_version": "0.17",
-  "repopilot_version": "0.13.0",
+  "repopilot_version": "0.14.0",
   "report": {
     "kind": "scan",
     "schema_version": "0.17",
-    "repopilot_version": "0.13.0"
+    "repopilot_version": "0.14.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -112,13 +112,12 @@ for accuracy:
   scripts.
 
 Schema `0.14` adds optional `local_feedback` metadata to scan, baseline-scan,
-review, and receipt output. Starting with RepoPilot `0.13.0`, `repopilot compare`
+review, and receipt output. `repopilot compare`
 requires current scan reports with `schema_version` and `report.schema_version`
 matching the current schema.
 
 Schema `0.15` adds finding provenance, typed risk signal sources, `risk-v3`,
-finding-contract diagnostics, and `signal_quality` metrics. This is part of the
-0.13.0 trust and usability release.
+finding-contract diagnostics, and `signal_quality` metrics.
 
 Schema `0.16` adds context graph report and cache diagnostics. Schema `0.17`
 adds raw-vs-visible finding and signal-quality metrics so default-profile
@@ -141,11 +140,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.17",
-  "repopilot_version": "0.13.0",
+  "repopilot_version": "0.14.0",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.17",
-    "repopilot_version": "0.13.0"
+    "repopilot_version": "0.14.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -193,10 +192,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.13.0"
+    "repopilot_version": "0.14.0"
   },
   "tool": "repopilot",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

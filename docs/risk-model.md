@@ -1,6 +1,6 @@
 # Risk Model
 
-RepoPilot uses `risk-v3` in 0.13.0.
+RepoPilot uses `risk-v3`.
 
 `risk-v3` is deterministic and local. It combines severity, confidence, category,
 Knowledge Engine calibration, file role, baseline status, review diff context,

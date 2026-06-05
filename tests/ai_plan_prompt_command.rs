@@ -110,10 +110,16 @@ fn prompt_default_output_succeeds() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("# RepoPilot Remediation Prompt"));
     assert!(stdout.contains("You are an AI coding assistant"));
+    assert!(stdout.contains("## Repository Facts"));
+    assert!(stdout.contains("## Non-goals"));
     assert!(stdout.contains("## Operating Rules"));
     assert!(stdout.contains("## Triage Order"));
+    assert!(stdout.contains("## Required Checks"));
     assert!(stdout.contains("## Verification Contract"));
-    assert!(stdout.contains("## Final Response Format"));
+    assert!(stdout.contains("## Expected Output"));
+    assert!(stdout.contains("`repopilot scan .`"));
+    assert!(stdout.contains("`repopilot review . --base origin/main`"));
+    assert!(stdout.contains("`cargo test --all`"));
     assert!(stdout.contains("# RepoPilot AI Context"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("Move the value to an environment variable or secrets manager"));

@@ -5,7 +5,17 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_rust_facade",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
+      "expected_rule_ids": [
+        "architecture.excessive-fan-out"
+      ]
+    },
+    {
+      "path": "true_positive_rust_orchestration",
       "expected_rule_ids": [
         "architecture.excessive-fan-out"
       ]
