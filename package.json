@@ -1,6 +1,6 @@
 {
 	"name": "repopilot",
-	"version": "0.14.0",
+	"version": "0.15.0",
 	"description": "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.",
 	"license": "MIT OR Apache-2.0",
 	"repository": {
@@ -26,11 +26,11 @@
 		"LICENSE"
 	],
 	"optionalDependencies": {
-		"@repopilot/darwin-arm64": "0.14.0",
-		"@repopilot/darwin-x64": "0.14.0",
-		"@repopilot/linux-arm64-gnu": "0.14.0",
-		"@repopilot/linux-x64-gnu": "0.14.0",
-		"@repopilot/win32-x64-msvc": "0.14.0"
+		"@repopilot/darwin-arm64": "0.15.0",
+		"@repopilot/darwin-x64": "0.15.0",
+		"@repopilot/linux-arm64-gnu": "0.15.0",
+		"@repopilot/linux-x64-gnu": "0.15.0",
+		"@repopilot/win32-x64-msvc": "0.15.0"
 	},
 	"keywords": [
 		"cli",
