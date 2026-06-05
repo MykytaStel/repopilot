@@ -145,11 +145,47 @@ pub fn resolve_git_root(path: &Path) -> Result<PathBuf, GitDiffError> {
     Ok(PathBuf::from(output.trim()))
 }
 
+pub fn validate_git_ref(reference: &str) -> Result<(), GitDiffError> {
+    if reference.starts_with('-') {
+        return Err(GitDiffError::GitCommandFailed {
+            command: "validate_git_ref".to_string(),
+            stderr: format!(
+                "Invalid git reference: '{}' cannot start with a hyphen",
+                reference
+            ),
+        });
+    }
+    if reference
+        .chars()
+        .any(|c| c.is_whitespace() || c.is_control())
+    {
+        return Err(GitDiffError::GitCommandFailed {
+            command: "validate_git_ref".to_string(),
+            stderr: format!(
+                "Invalid git reference: '{}' cannot contain whitespace or control characters",
+                reference
+            ),
+        });
+    }
+    Ok(())
+}
+
 pub fn load_changed_files(
     repo_root: &Path,
     target: DiffTarget<'_>,
     pathspec: Option<&str>,
 ) -> Result<Vec<ChangedFile>, GitDiffError> {
+    match target {
+        DiffTarget::WorkingTree => {}
+        DiffTarget::Refs { base, head } => {
+            validate_git_ref(base)?;
+            validate_git_ref(head)?;
+        }
+        DiffTarget::SinceRef { base } => {
+            validate_git_ref(base)?;
+        }
+    }
+
     let mut files = match target {
         DiffTarget::WorkingTree => parse_diff(&git_diff_against_head(repo_root, pathspec)?),
         DiffTarget::Refs { base, head } => {
@@ -180,6 +216,7 @@ pub fn load_changed_files(
 /// callers treat an absent side as "no content to compare". `path` must be
 /// repo-relative with forward slashes (use [`ChangedFile::path_string`]).
 pub(crate) fn git_show(repo_root: &Path, reference: &str, path: &str) -> Option<String> {
+    validate_git_ref(reference).ok()?;
     let spec = format!("{reference}:{path}");
     git_output(repo_root, &["show", spec.as_str()], "git show").ok()
 }
