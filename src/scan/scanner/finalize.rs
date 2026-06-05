@@ -1,5 +1,5 @@
 use super::summary::{ScanSummaryParts, build_scan_summary};
-use super::{ProjectAnalysisStage, ScanEngine, summary};
+use super::{full::ProjectAnalysisStage, full::ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
     ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
