@@ -10,6 +10,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Cache(options) => super::cache::run(options.command),
         Commands::Scan(options) => super::scan::run(options),
         Commands::Review(options) => super::review::run(options),
+        Commands::Snapshot(options) => super::snapshot::run(options),
         Commands::Baseline(options) => super::baseline::run(options.command),
         Commands::Compare(options) => super::compare::run(
             options.before,

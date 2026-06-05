@@ -10,4 +10,4 @@ pub mod signals;
 
 pub use blast_radius::compute_blast_radius;
 pub use ci::review_report_for_ci;
-pub use report::build_review_report;
+pub use report::{build_review_report, build_review_report_since};

@@ -7,6 +7,7 @@ pub mod inspect;
 pub mod mcp;
 pub mod review;
 pub mod scan;
+pub mod snapshot;
 
 pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
@@ -17,6 +18,7 @@ pub use inspect::{InspectCommands, InspectOptions};
 pub use mcp::McpOptions;
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
+pub use snapshot::SnapshotOptions;
 
 use clap::Subcommand;
 
@@ -112,6 +114,7 @@ When `--fail-on` is used, the CI gate evaluates only in-diff findings so unrelat
 pre-existing issues do not block the pipeline.",
         after_help = "EXAMPLES:\n  \
 repopilot review .\n  \
+repopilot review . --since-snapshot\n  \
 repopilot review . --base origin/main\n  \
 repopilot review . --base origin/main --head HEAD\n  \
 repopilot review . --base origin/main --format markdown --output review.md\n  \
@@ -119,6 +122,20 @@ repopilot review . --baseline .repopilot/baseline.json --fail-on new-high\n  \
 repopilot review . --format json --output review.json"
     )]
     Review(ReviewOptions),
+
+    /// Mark the repository state before a change for `review --since-snapshot`
+    #[command(
+        about = "Mark the repository state before an agent or manual change",
+        long_about = "Records the current HEAD commit (and whether the working tree is already\n\
+dirty) to .repopilot/snapshot.json — a \"before\" marker you take right before an\n\
+AI agent or a manual edit changes the repository.\n\n\
+Afterwards, `repopilot review --since-snapshot` reviews everything that happened\n\
+since the marker: commits made on top of it and any uncommitted edits.",
+        after_help = "EXAMPLES:\n  \
+repopilot snapshot                          # mark the current state\n  \
+repopilot review --since-snapshot           # review everything since the marker"
+    )]
+    Snapshot(SnapshotOptions),
 
     /// Generate local AI-ready context, plans, and prompts
     #[command(

@@ -50,7 +50,7 @@ pub mod graph {
 pub mod review {
     pub use crate::review::diff::{ChangeStatus, ChangedFile};
     pub use crate::review::model::{ReviewFindingStatus, ReviewReport};
-    pub use crate::review::{build_review_report, review_report_for_ci};
+    pub use crate::review::{build_review_report, build_review_report_since, review_report_for_ci};
 }
 
 pub mod risk {

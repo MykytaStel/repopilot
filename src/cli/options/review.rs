@@ -16,6 +16,11 @@ pub struct ReviewOptions {
     #[arg(long)]
     pub head: Option<String>,
 
+    /// Review everything since the last `repopilot snapshot` (commits and
+    /// uncommitted edits); cannot be combined with --base/--head
+    #[arg(long, conflicts_with_all = ["base", "head"])]
+    pub since_snapshot: bool,
+
     /// Path to a repopilot.toml config file
     #[arg(long)]
     pub config: Option<PathBuf>,

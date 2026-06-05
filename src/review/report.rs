@@ -23,8 +23,43 @@ pub fn build_review_report(
     baseline: Option<(&Baseline, PathBuf)>,
     config: &RepoPilotConfig,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
+    build_review_report_with_target(
+        summary,
+        scan_path,
+        DiffTarget::from_refs(base, head),
+        baseline,
+        config,
+    )
+}
+
+/// Build a review report for everything changed since `base` — commits on top of
+/// it *and* uncommitted working-tree edits (`git diff <base>`). This is the
+/// `review --since-snapshot` path: `base` is the `HEAD` sha recorded by
+/// `repopilot snapshot` before an agent run.
+pub fn build_review_report_since(
+    summary: ScanSummary,
+    scan_path: &Path,
+    base: &str,
+    baseline: Option<(&Baseline, PathBuf)>,
+    config: &RepoPilotConfig,
+) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
+    build_review_report_with_target(
+        summary,
+        scan_path,
+        DiffTarget::SinceRef { base },
+        baseline,
+        config,
+    )
+}
+
+fn build_review_report_with_target(
+    summary: ScanSummary,
+    scan_path: &Path,
+    target: DiffTarget<'_>,
+    baseline: Option<(&Baseline, PathBuf)>,
+    config: &RepoPilotConfig,
+) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
     let repo_root = resolve_git_root(scan_path)?;
-    let target = DiffTarget::from_refs(base, head);
     let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
     let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())?;
     let boundary_signals = detect_boundary_signals(&changed_files, &config.security_boundary);

@@ -7,6 +7,23 @@ fn git_diff_against_head(repo_root: &Path, pathspec: Option<&str>) -> Result<Str
     git_output(repo_root, &args, "git diff --unified=0 --no-ext-diff HEAD")
 }
 
+fn git_diff_since_ref(
+    repo_root: &Path,
+    base: &str,
+    pathspec: Option<&str>,
+) -> Result<String, GitDiffError> {
+    let mut args = vec!["diff", "--unified=0", "--no-ext-diff", base, "--"];
+    if let Some(pathspec) = pathspec {
+        args.push(pathspec);
+    }
+
+    git_output(
+        repo_root,
+        &args,
+        &format!("git diff --unified=0 --no-ext-diff {base}"),
+    )
+}
+
 fn git_diff_between_refs(
     repo_root: &Path,
     base: &str,

@@ -10,7 +10,7 @@ use repopilot::baseline::reader::read_baseline;
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::report::writer::write_report;
 use repopilot::review::render::render;
-use repopilot::review::{build_review_report, review_report_for_ci};
+use repopilot::review::{build_review_report, build_review_report_since, review_report_for_ci};
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let pre_diff_filter = review_pre_diff_filter(&options);
@@ -28,6 +28,13 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         return Err(Box::new(CliExit {
             code: EXIT_USAGE,
             message: "`repopilot review --head` requires --base".to_string(),
+        }));
+    }
+
+    if options.since_snapshot && (options.base.is_some() || options.head.is_some()) {
+        return Err(Box::new(CliExit {
+            code: EXIT_USAGE,
+            message: "`--since-snapshot` cannot be used with --base or --head".to_string(),
         }));
     }
 
@@ -56,14 +63,25 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let baseline_ref = baseline_file
         .as_ref()
         .map(|(baseline, path)| (baseline, path.clone()));
-    let mut review_report = build_review_report(
-        summary,
-        &options.path,
-        options.base.as_deref(),
-        options.head.as_deref(),
-        baseline_ref,
-        &scan_result.repo_config,
-    )?;
+    let mut review_report = if options.since_snapshot {
+        let snapshot = crate::commands::snapshot::read_snapshot(&options.path)?;
+        build_review_report_since(
+            summary,
+            &options.path,
+            &snapshot.head,
+            baseline_ref,
+            &scan_result.repo_config,
+        )?
+    } else {
+        build_review_report(
+            summary,
+            &options.path,
+            options.base.as_deref(),
+            options.head.as_deref(),
+            baseline_ref,
+            &scan_result.repo_config,
+        )?
+    };
     if !priority_filter.is_empty() {
         review_report.apply_filter(&priority_filter);
     }
