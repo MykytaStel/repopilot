@@ -1,7 +1,7 @@
 {
 	"name": "repopilot",
 	"version": "0.16.0",
-	"description": "Local-first CLI for repository audit, architecture risk detection, baseline tracking, and CI-friendly code review.",
+	"description": "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge.",
 	"license": "MIT OR Apache-2.0",
 	"repository": {
 		"type": "git",
@@ -19,6 +19,7 @@
 		"test:npm": "node --test tests/npm_wrapper.test.js",
 		"release:check": "bash scripts/verify-release.sh",
 		"product:smoke": "bash scripts/smoke-product.sh",
+		"release:contract": "python3 scripts/release-contract.py check",
 		"review:performance": "node scripts/check-review-performance.js",
 		"vscode:check": "npm --prefix editors/vscode run check"
 	},

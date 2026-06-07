@@ -23,14 +23,14 @@
 
 <!-- Why is this change needed? What problem does it solve? -->
 
-## Architecture notes
+## Contract and ownership
 
-<!-- Explain module boundaries if this touches architecture. -->
+<!-- Identify the subsystem and any public behavior or schema affected. -->
 
-- [ ] No god files introduced
-- [ ] Logic is split into focused modules
-- [ ] Scanner, audits, output, and report responsibilities remain separated
-- [ ] Findings include evidence where applicable
+- [ ] The change stays within a clear subsystem or ownership boundary
+- [ ] CLI, JSON, SARIF, baseline, Action, and MCP compatibility were considered
+- [ ] New or changed findings/signals include deterministic evidence and tests
+- [ ] No unrelated refactor or generated-file churn is included
 
 ## Changelog
 
@@ -44,5 +44,6 @@
 cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
-cargo run -- scan .
+npm run release:contract
+./scripts/smoke-product.sh
 ```

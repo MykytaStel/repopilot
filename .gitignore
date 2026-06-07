@@ -30,6 +30,7 @@ dist/
 *.jar
 *.war
 *.ear
+__pycache__/
 
 # RepoPilot local state and generated audit artifacts
 /.repopilot/*
@@ -39,4 +40,5 @@ dist/
 .repopilot-patches/
 
 docs/demos/*.tape
+!docs/demos/02-review.tape
 docs/demos/*.log

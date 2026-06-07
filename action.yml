@@ -1,5 +1,5 @@
 name: RepoPilot
-description: "Run RepoPilot static analysis on your repository"
+description: "Review Git changes for security boundaries, behavioral risk, and blast radius"
 author: "MykytaStel"
 
 branding:

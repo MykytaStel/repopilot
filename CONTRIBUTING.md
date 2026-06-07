@@ -21,7 +21,7 @@ cargo run -- scan .
 Unit and integration tests:
 
 ```bash
-cargo test
+cargo test --all
 ```
 
 Run a specific integration test suite:
@@ -41,9 +41,11 @@ cargo test -- test_name_here
 ## Before submitting
 
 ```bash
-cargo fmt --check
+cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test
+cargo test --all
+npm run test:npm
+npm run release:contract
 ```
 
 Fix formatting automatically with `cargo fmt` (no flags).
@@ -55,5 +57,7 @@ Please keep PRs focused and small.
 Good PRs include:
 
 - clear motivation in the description;
+- a focused ownership and behavioral scope;
 - tests for new behavior;
+- compatibility notes for CLI, JSON, SARIF, baseline, or Action changes;
 - documentation updates for user-facing changes.

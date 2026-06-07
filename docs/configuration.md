@@ -141,3 +141,40 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 
 Do not refresh the baseline just to silence CI. Refresh it only when the team
 explicitly accepts the current findings as technical debt.
+
+## Local Feedback
+
+RepoPilot reads repository-local suppressions from `.repopilot/feedback.yml`.
+Finding suppressions use `rule_id + path`; review-signal suppressions use
+namespaced `kind + path`.
+
+```yaml
+suppressions:
+  - rule_id: architecture.large-file
+    path: "src/generated/schema.rs"
+    reason: generated schema boundary
+  - kind: behavioral.network-call-added
+    path: "src/generated/**"
+    reason: generated client transport
+    expires: "2026-12-31"
+```
+
+Validate the file without running a scan:
+
+```bash
+repopilot inspect feedback .
+```
+
+Evaluate matched and unmatched suppressions against current findings:
+
+```bash
+repopilot inspect feedback . --evaluate --format json
+```
+
+Use `--ignore-feedback` on `scan` or `review` for an unsuppressed report.
+Expired review suppressions no longer apply. Reports expose suppression counts
+through `local_feedback` metadata so policy never hides findings silently.
+
+Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
+suppression is a reviewed team policy; keep temporary or personal suppressions
+local.

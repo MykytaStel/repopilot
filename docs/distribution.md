@@ -1,6 +1,7 @@
 # Distribution
 
-This document describes how RepoPilot is currently distributed and what future channels are planned.
+RepoPilot's official CLI channels are crates.io, npm, Homebrew, and GitHub
+Releases.
 
 ## Current: crates.io
 
@@ -81,6 +82,10 @@ The release workflow builds binaries for the following targets on every `v*` tag
 Binaries and `.sha256` checksum files are attached to GitHub Releases. The
 release workflow also requests GitHub artifact attestations for each release
 archive and checksum file when the tag workflow runs with OIDC permissions.
+
+GitHub Releases also contain platform-specific VSIX packages as a preview editor
+integration. The extension is not currently published to the VS Code
+Marketplace. PyPI is not a supported distribution channel.
 
 ## Runtime and Artifact Security Model
 

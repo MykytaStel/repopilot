@@ -4,6 +4,10 @@ RepoPilot risk scoring is local, deterministic, and explainable. It does not use
 telemetry, hosted analysis, or machine learning. The goal is to rank review work
 better than severity alone while keeping every score auditable.
 
+The current model is `risk-v3`. It combines severity, confidence, category,
+Knowledge Engine calibration, file role, baseline and review status, workspace
+hotspots, import-graph impact, and repeated-rule clusters.
+
 ## Formula v3
 
 `risk-v3` scores each finding on a 0-100 scale:

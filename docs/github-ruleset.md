@@ -8,9 +8,9 @@ Set these repository fields in **Settings -> General**:
 
 | Setting | Value |
 |---|---|
-| Description | `Local-first CLI for repository audits, architecture risk detection, SARIF, CI gates, and AI-ready remediation context.` |
+| Description | `Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge.` |
 | Website | `https://github.com/MykytaStel/repopilot#readme` |
-| Topics | `rust`, `cli`, `static-analysis`, `code-review`, `security`, `security-tools`, `architecture`, `sarif`, `github-actions`, `ai-tools`, `react-native`, `expo`, `npm` |
+| Topics | `rust`, `cli`, `code-review`, `security`, `static-analysis`, `sarif`, `github-actions`, `ai-tools`, `npm` |
 
 Recommended feature toggles:
 
@@ -67,20 +67,20 @@ Go to **Settings → Rules → Rulesets → New ruleset** and configure the foll
 | Restrict deletions | Enabled |
 | Require linear history | Enabled |
 | Require a pull request before merging | Enabled |
-| — Required approvals | `1` |
-| — Dismiss stale approvals when new commits are pushed | Enabled |
+| — Required approvals | `0` for the current single-maintainer repository |
+| — Require review conversation resolution | Enabled |
 | — Require review from Code Owners | Disabled (no `CODEOWNERS` file yet) |
 | Require status checks to pass | Enabled |
 | — Required status check | `Rust MSRV 1.87` |
 | — Required status check | `Rust checks` |
 | — Required status check | `Security and maintenance checks` |
-| — Required status check | `CodeQL` |
 | — Require branches to be up to date before merging | Enabled |
 | Block force pushes | Enabled |
 
 ### Bypass list
 
-Add **Repository admin** to the bypass list. This allows merging hotfixes in an emergency without being blocked by the ruleset. Keep the bypass list minimal.
+Keep the bypass list empty. Emergency changes should still use a short pull
+request and the required checks.
 
 ## CODEOWNERS (future)
 
@@ -95,5 +95,7 @@ src/audits/   @MykytaStel
 
 Open a draft PR targeting `main` and confirm:
 
-- The `Rust checks` status check is listed as required.
-- Merging is blocked until the check passes and at least one approval is given.
+- all three required checks are listed;
+- merging is blocked until checks pass and review conversations are resolved;
+- only squash merge is available;
+- merged head branches are deleted automatically.

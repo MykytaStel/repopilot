@@ -125,6 +125,19 @@ reports do not look clean when meaningful strict-only findings were hidden.
 Schema `0.18` adds the stable review-signal contract, suppression/gate metadata,
 and the explicit review gate result.
 
+Migration from pre-`0.13` reports is intentionally consumer-owned:
+
+| Historical field | Current field |
+|---|---|
+| `files_count` | `files_analyzed` |
+| `lines_of_code` | `non_empty_lines` |
+| `skipped_files_count` | `large_files_skipped` |
+
+The current reader accepts `0.16`, `0.17`, and `0.18` scan reports during the
+transition. `repopilot compare` remains stricter: both top-level and envelope
+schema versions must match a supported current report shape. Baseline files
+follow their separate baseline schema policy.
+
 ## Baseline JSON reports
 
 When a scan is rendered with a baseline, the JSON report also includes the same
