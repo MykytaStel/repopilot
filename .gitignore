@@ -39,3 +39,4 @@ dist/
 .repopilot-patches/
 
 docs/demos/*.tape
+docs/demos/*.log
