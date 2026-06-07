@@ -46,6 +46,12 @@ jobs:
       - name: Test
         run: cargo test --all
 
+      - name: Build release binary for performance gate
+        run: cargo build --release
+
+      - name: Changed review performance gate
+        run: npm run review:performance
+
       - name: RepoPilot CI gate
         shell: bash
         run: |
@@ -84,6 +90,44 @@ jobs:
 
       - name: Verify npm package
         run: npm pack --dry-run
+
+  vscode:
+    name: VS Code smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install extension dependencies
+        working-directory: editors/vscode
+        run: npm ci
+
+      - name: Type-check extension
+        working-directory: editors/vscode
+        run: npm run check
+
+      - name: Run extension smoke test (Linux)
+        if: runner.os == 'Linux'
+        working-directory: editors/vscode
+        run: xvfb-run -a npm test
+
+      - name: Run extension smoke test
+        if: runner.os != 'Linux'
+        working-directory: editors/vscode
+        run: npm test
 
   security:
     name: Security and maintenance checks

@@ -3,10 +3,12 @@ use serde_json::Value;
 
 #[test]
 fn current_schema_fixture_documents_scan_report_contract() {
-    let current: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v017.json"))
-        .expect("current report fixture should be valid JSON");
+    let current_text =
+        include_str!("fixtures/reports/scan-v017.json").replace("\"0.17\"", "\"0.18\"");
+    let current: Value =
+        serde_json::from_str(&current_text).expect("current report fixture should be valid JSON");
 
-    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.17");
+    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.18");
     assert_eq!(current["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
     assert_eq!(current["report"]["kind"], "scan");
     assert_eq!(
@@ -32,7 +34,9 @@ fn current_schema_fixture_documents_scan_report_contract() {
 
 #[test]
 fn strict_reader_accepts_current_scan_report_shape() {
-    let current = parse_scan_summary_json(include_str!("fixtures/reports/scan-v017.json"))
+    let current_text =
+        include_str!("fixtures/reports/scan-v017.json").replace("\"0.17\"", "\"0.18\"");
+    let current = parse_scan_summary_json(&current_text)
         .expect("current report should parse into ScanSummary");
 
     assert_eq!(current.metrics.files_discovered, 2);
@@ -63,11 +67,12 @@ fn strict_reader_accepts_current_scan_report_shape() {
 
 #[test]
 fn strict_reader_accepts_previous_scan_report_shapes() {
+    let previous_v017 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v017.json"))
+        .expect("0.17 report should parse during 0.18 transition");
     let previous_v016 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v016.json"))
-        .expect("0.16 report should parse during 0.17 transition");
-    let previous_v015 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v015.json"))
-        .expect("0.15 report should parse during 0.17 transition");
+        .expect("0.16 report should parse during 0.18 transition");
 
+    assert_eq!(previous_v017.metrics.files_discovered, 2);
     assert_eq!(previous_v016.metrics.files_discovered, 2);
     assert_eq!(
         previous_v016
@@ -77,8 +82,6 @@ fn strict_reader_accepts_previous_scan_report_shapes() {
             .map(|graph| graph.files),
         Some(2)
     );
-    assert_eq!(previous_v015.metrics.files_discovered, 2);
-    assert!(previous_v015.artifacts.context_graph_summary.is_none());
 }
 
 #[test]
@@ -86,7 +89,9 @@ fn strict_reader_rejects_legacy_report_shapes() {
     let legacy = parse_scan_summary_json(include_str!("fixtures/reports/scan-v010.json"));
     let previous_envelope =
         parse_scan_summary_json(include_str!("fixtures/reports/scan-v014.json"));
+    let previous_v015 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v015.json"));
 
     assert!(legacy.is_err());
     assert!(previous_envelope.is_err());
+    assert!(previous_v015.is_err());
 }

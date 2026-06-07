@@ -1,9 +1,9 @@
 {
-  "schema_version": "0.17",
+  "schema_version": "0.18",
   "repopilot_version": "{{VERSION}}",
   "report": {
     "kind": "scan",
-    "schema_version": "0.17",
+    "schema_version": "0.18",
     "repopilot_version": "{{VERSION}}"
   },
   "root_path": "demo-project",

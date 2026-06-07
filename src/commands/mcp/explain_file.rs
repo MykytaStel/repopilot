@@ -31,6 +31,13 @@ pub fn definition() -> Value {
             },
             "required": ["path"],
             "additionalProperties": false
+        },
+        "outputSchema": { "type": "object", "additionalProperties": true },
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
         }
     })
 }

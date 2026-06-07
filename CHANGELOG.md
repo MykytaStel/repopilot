@@ -6,9 +6,59 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-06-07
+
+RepoPilot 0.16 makes change review the fast, low-noise default and turns the
+existing local engine into a practical PR, MCP, and editor integration surface.
+Review signals now have stable machine-readable contracts and an explicit
+opt-in gate, while the GitHub Action and VS Code extension consume the same
+single-pass JSON/SARIF review.
+
 ### Added
 
 - Added taint-lite review signals at `preview` for JavaScript/TypeScript, Python, and Go. `repopilot review` now follows HTTP request fields and process arguments through direct use and simple local assignment chains into raw SQL, subprocess/exec, filesystem-write, and outbound-network sinks. Analysis is intra-procedural, limited to changed sink lines, skips test files, and treats parameterized SQL as safe. Signals join the existing confidence tiers under the new `taint` family and can be disabled with `[taint] enabled = false`.
+- Added `review --scope changed|full`, `--profile default|strict`,
+  `--fail-on-review none|definitely`, and `--sarif-output PATH`. Changed/default
+  is now the standard review; full/strict preserves the previous repository
+  audit behavior.
+- Added stable review signal IDs, namespaced kinds, confidence, line ranges,
+  provenance, suppression state, gate eligibility, and merged evidence lines.
+- Added review-signal suppressions by `kind` and path glob in
+  `.repopilot/feedback.yml`, with a reason and optional expiry date.
+- Added a reusable, fork-safe PR workflow and expanded the first-party Action
+  with automatic PR refs, JSON/SARIF artifacts, capped annotations, job
+  summaries, typed outputs, verified binary caching, and opt-in sticky comments.
+- Expanded MCP stdio support for protocol versions `2025-11-25` and
+  `2024-11-05`, structured tool output, output schemas, read-only annotations,
+  parse errors, workspace-root confinement, cached last-result resources, a
+  rule catalog resource, and review/fix prompts.
+- Added a platform-specific VS Code extension under `editors/vscode` with
+  bundled checksum-verified binaries, Problems diagnostics, Markdown reports,
+  status, commands, and MCP registration.
+- Added true-positive and false-positive fixtures for six high-confidence React
+  Native rules.
+
+### Changed
+
+- Changed review scope now loads the Git diff once, passes resolved changed
+  files into the scanner, preserves repository graph context, and removes
+  out-of-diff findings from the report.
+- Human review surfaces show at most 20 detailed signals/findings and aggregate
+  the remainder; JSON remains complete.
+- Review SARIF contains in-diff scan findings and concrete taint issues without
+  rerunning the scan.
+- Bumped the JSON report schema to `0.18`; readers continue to accept `0.16` and
+  `0.17` transition reports.
+
+### Fixed
+
+- `review --fail-on-review definitely` now returns exit code `1` for
+  unsuppressed, gate-eligible definitely-sensitive signals. Existing
+  `--fail-on` and `--fail-on-priority` remain finding-only gates.
+- Malformed MCP JSON now produces a JSON-RPC parse error instead of being
+  silently ignored.
+- JavaScript `process.exit` in the npm CLI entrypoint no longer creates an
+  expected-wrapper runtime-risk finding.
 
 ## [0.15.0] - 2026-06-05
 
@@ -383,7 +433,8 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/MykytaStel/repopilot/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/MykytaStel/repopilot/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/MykytaStel/repopilot/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/MykytaStel/repopilot/compare/v0.12.0...v0.13.0

@@ -22,6 +22,40 @@ pub enum DiffTarget<'a> {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OwnedDiffTarget {
+    WorkingTree,
+    Refs { base: String, head: String },
+    SinceRef { base: String },
+}
+
+impl OwnedDiffTarget {
+    pub fn from_refs(base: Option<&str>, head: Option<&str>) -> Self {
+        match base {
+            Some(base) => Self::Refs {
+                base: base.to_string(),
+                head: head.unwrap_or("HEAD").to_string(),
+            },
+            None => Self::WorkingTree,
+        }
+    }
+
+    pub fn as_borrowed(&self) -> DiffTarget<'_> {
+        match self {
+            Self::WorkingTree => DiffTarget::WorkingTree,
+            Self::Refs { base, head } => DiffTarget::Refs { base, head },
+            Self::SinceRef { base } => DiffTarget::SinceRef { base },
+        }
+    }
+
+    pub fn base_ref(&self) -> Option<&str> {
+        match self {
+            Self::WorkingTree => None,
+            Self::Refs { base, .. } | Self::SinceRef { base } => Some(base),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ChangedFile {
     pub path: PathBuf,

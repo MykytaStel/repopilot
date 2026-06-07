@@ -53,6 +53,10 @@ ignore = [
 ]
 max_file_bytes = 2097152
 
+[review]
+scope = "changed"
+fail_on = "none"
+
 [architecture]
 max_file_lines = 300
 huge_file_lines = 1000
@@ -71,6 +75,14 @@ detect_secret_like_names = true
 
 [output]
 default_format = "console"
+```
+
+`[review] scope` accepts `changed` or `full`. `[review] fail_on` accepts `none`
+or `definitely`. CLI flags have higher priority:
+
+```bash
+repopilot review . --scope full --profile strict
+repopilot review . --fail-on-review definitely
 ```
 
 ## Common CLI overrides

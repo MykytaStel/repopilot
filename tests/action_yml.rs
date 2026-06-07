@@ -52,7 +52,7 @@ fn action_supports_doctor_as_markdown_auto_command() {
     let action = fs::read_to_string(action_path).expect("read action.yml");
 
     assert!(action.contains("scan | review | compare | doctor | ai-context"));
-    assert!(action.contains("review/compare/doctor"));
+    assert!(action.contains("JSON for review"));
 
     let helper_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
     let helper = fs::read_to_string(helper_path).expect("read action helper");
@@ -60,6 +60,30 @@ fn action_supports_doctor_as_markdown_auto_command() {
     assert!(helper.contains("SARIF output and upload are only supported by 'scan'"));
     assert!(helper.contains("GITHUB_STEP_SUMMARY"));
     assert!(!helper.contains("ai-context|vibe"));
+}
+
+#[test]
+fn action_exposes_review_outputs_and_fork_safe_defaults() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let action = fs::read_to_string(root.join("action.yml")).expect("read action.yml");
+    let workflow = fs::read_to_string(root.join(".github/workflows/repopilot-pr-review.yml"))
+        .expect("read reusable workflow");
+
+    for output in [
+        "review-json-file:",
+        "review-sarif-file:",
+        "conclusion:",
+        "findings-count:",
+        "signals-count:",
+        "gate-result:",
+    ] {
+        assert!(action.contains(output), "missing action output {output}");
+    }
+    assert!(action.contains("scripts/install-action-binary.sh"));
+    assert!(action.contains("default: \"false\""));
+    assert!(workflow.contains("fetch-depth: 0"));
+    assert!(workflow.contains("actions/upload-artifact@v7"));
+    assert!(!workflow.contains("pull_request_target"));
 }
 
 #[test]
@@ -85,6 +109,7 @@ printf '%s\n' "$@" > "$CAPTURE_ARGS"
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
     let output = Command::new("bash")
         .arg(helper)
+        .env_remove("GITHUB_EVENT_PATH")
         .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
         .env("CAPTURE_ARGS", &capture)
         .env("GITHUB_OUTPUT", &github_output)
@@ -140,6 +165,7 @@ printf '%s\n' "$@" > "$CAPTURE_ARGS"
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
     let output = Command::new("bash")
         .arg(helper)
+        .env_remove("GITHUB_EVENT_PATH")
         .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
         .env("CAPTURE_ARGS", &capture)
         .env("INPUT_COMMAND", "review")
@@ -182,6 +208,7 @@ printf '# Fake RepoPilot Report\n\n- ok\n'
     let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
     let output = Command::new("bash")
         .arg(helper)
+        .env_remove("GITHUB_EVENT_PATH")
         .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
         .env("CAPTURE_ARGS", &capture)
         .env("GITHUB_STEP_SUMMARY", &step_summary)
@@ -202,4 +229,119 @@ printf '# Fake RepoPilot Report\n\n- ok\n'
     assert!(summary.contains("## RepoPilot"));
     assert!(summary.contains("Exit status:** passed"));
     assert!(summary.contains("# Fake RepoPilot Report"));
+}
+
+#[test]
+#[cfg(unix)]
+fn action_helper_emits_review_artifacts_outputs_and_deferred_failure() {
+    let temp = tempdir().expect("tempdir");
+    let capture = temp.path().join("args.txt");
+    let github_output = temp.path().join("github-output.txt");
+    let fake_bin = temp.path().join("bin");
+    fs::create_dir(&fake_bin).expect("create fake bin");
+    let fake_repopilot = fake_bin.join("repopilot");
+    fs::write(
+        &fake_repopilot,
+        r#"#!/usr/bin/env bash
+printf '%s\n' "$@" > "$CAPTURE_ARGS"
+output=""
+sarif=""
+while (($#)); do
+  case "$1" in
+    --output) output="$2"; shift 2 ;;
+    --sarif-output) sarif="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+cat > "$output" <<'JSON'
+{
+  "review": {
+    "in_diff_findings": 1,
+    "tiered_signals": { "definitely": 1, "maybe": 0, "noise": 0, "total": 1 }
+  },
+  "review_gate": { "status": "failed" },
+  "tiered_signals": {
+    "definitely": [{
+      "headline": "Access control changed",
+      "detail": "Role check changed",
+      "path": "src/auth.rs",
+      "line_start": 4,
+      "suppressed": false
+    }],
+    "maybe": [],
+    "noise": []
+  },
+  "findings": [{
+    "title": "Finding",
+    "in_diff": true,
+    "evidence": [{ "path": "src/auth.rs", "line_start": 4 }]
+  }]
+}
+JSON
+printf '{"version":"2.1.0","runs":[]}\n' > "$sarif"
+exit 1
+"#,
+    )
+    .expect("write fake repopilot");
+    let mut permissions = fs::metadata(&fake_repopilot).unwrap().permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&fake_repopilot, permissions).expect("chmod fake repopilot");
+
+    let helper = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
+    let output = Command::new("bash")
+        .arg(helper)
+        .env_remove("GITHUB_EVENT_PATH")
+        .current_dir(temp.path())
+        .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
+        .env("CAPTURE_ARGS", &capture)
+        .env("GITHUB_OUTPUT", &github_output)
+        .env("REPOPILOT_DEFER_FAILURE", "true")
+        .env("INPUT_COMMAND", "review")
+        .env("INPUT_FORMAT", "auto")
+        .env("INPUT_SCOPE", "changed")
+        .env("INPUT_PROFILE", "default")
+        .env("INPUT_FAIL_ON_REVIEW", "definitely")
+        .output()
+        .expect("run helper");
+
+    assert!(
+        output.status.success(),
+        "deferred helper failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let args = fs::read_to_string(capture).expect("read captured args");
+    for expected in [
+        "--fail-on-review",
+        "definitely",
+        "--scope",
+        "changed",
+        "--profile",
+        "default",
+        "--sarif-output",
+        "repopilot-review.sarif",
+        "--format",
+        "json",
+    ] {
+        assert!(
+            args.lines().any(|arg| arg == expected),
+            "missing {expected}"
+        );
+    }
+
+    let outputs = fs::read_to_string(github_output).expect("read github outputs");
+    for expected in [
+        "review_json_file=repopilot-review.json",
+        "review_sarif_file=repopilot-review.sarif",
+        "sarif_file=repopilot-review.sarif",
+        "findings_count=1",
+        "signals_count=1",
+        "gate_result=failed",
+        "conclusion=failed",
+        "exit_code=1",
+    ] {
+        assert!(outputs.contains(expected), "missing output {expected}");
+    }
+    assert!(temp.path().join("repopilot-review.json").is_file());
+    assert!(temp.path().join("repopilot-review.sarif").is_file());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("::warning file=src/auth.rs"));
 }

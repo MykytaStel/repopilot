@@ -5,9 +5,8 @@ useful in CI, dashboards, PR bots, and downstream tooling.
 
 ## Current direction
 
-Schema `0.17` is the current scan report schema. It keeps `0.15` provenance and
-`risk-v3` fields, keeps `0.16` context graph diagnostics, and adds
-raw-vs-visible finding and signal-quality metrics.
+Schema `0.18` is the current report schema. It keeps `0.17` scan accounting and
+adds stable review-signal identity, provenance, suppression, and gate metadata.
 
 | Field | Where | Why |
 |---|---|---|
@@ -20,9 +19,15 @@ raw-vs-visible finding and signal-quality metrics.
 | `provenance` | finding | Explains detector, lifecycle, signal source, and analysis scope. |
 | `risk.signals[].source` | finding risk signal | Gives machine-readable source families for risk explanations. |
 | `scan_timings.contract_validation_us` | scan timings | Exposes finding-contract validation timing separately. |
+| `tiered_signals[].signal_id` | review signal | Stable identity derived from kind and path. |
+| `tiered_signals[].kind` | review signal | Namespaced signal kind such as `taint.sql`. |
+| `tiered_signals[].provenance` | review signal | Detector, lifecycle, source, and analysis scope. |
+| `tiered_signals[].suppressed` | review signal | Shows local policy suppression without deleting JSON evidence. |
+| `tiered_signals[].gate_eligible` | review signal | Separates advisory/noise signals from explicit policy gates. |
+| `review_gate` | review | Result of the independent `--fail-on-review` policy. |
 
-RepoPilot's current reader accepts `0.15`, `0.16`, and `0.17` scan reports
-during the transition. New reports are emitted as `0.17`.
+RepoPilot's current reader accepts `0.16`, `0.17`, and `0.18` scan reports
+during the transition. New reports are emitted as `0.18`.
 
 Schema `0.14` added optional local feedback transparency:
 

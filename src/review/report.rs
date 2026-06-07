@@ -6,14 +6,56 @@ use crate::baseline::diff::{
 use crate::baseline::key::{normalized_relative_path, stable_finding_key};
 use crate::baseline::model::Baseline;
 use crate::config::model::RepoPilotConfig;
+use crate::findings::feedback::{ReviewSuppression, validate_local_feedback};
 use crate::findings::types::{Evidence, Finding, FindingCategory};
-use crate::review::diff::{ChangedFile, DiffTarget, load_changed_files, resolve_git_root};
+use crate::review::diff::{ChangedFile, OwnedDiffTarget, load_changed_files, resolve_git_root};
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, detect_boundary_signals, tiered};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::types::ScanSummary;
 use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone)]
+pub struct ReviewInput {
+    pub repo_root: PathBuf,
+    pub target: OwnedDiffTarget,
+    pub changed_files: Vec<ChangedFile>,
+}
+
+pub fn load_review_input(
+    scan_path: &Path,
+    base: Option<&str>,
+    head: Option<&str>,
+) -> Result<ReviewInput, crate::review::diff::GitDiffError> {
+    load_review_input_with_target(scan_path, OwnedDiffTarget::from_refs(base, head))
+}
+
+pub fn load_review_input_since(
+    scan_path: &Path,
+    base: &str,
+) -> Result<ReviewInput, crate::review::diff::GitDiffError> {
+    load_review_input_with_target(
+        scan_path,
+        OwnedDiffTarget::SinceRef {
+            base: base.to_string(),
+        },
+    )
+}
+
+fn load_review_input_with_target(
+    scan_path: &Path,
+    target: OwnedDiffTarget,
+) -> Result<ReviewInput, crate::review::diff::GitDiffError> {
+    let repo_root = resolve_git_root(scan_path)?;
+    let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
+    let changed_files = load_changed_files(&repo_root, target.as_borrowed(), pathspec.as_deref())?;
+    Ok(ReviewInput {
+        repo_root,
+        target,
+        changed_files,
+    })
+}
 
 pub fn build_review_report(
     summary: ScanSummary,
@@ -23,13 +65,8 @@ pub fn build_review_report(
     baseline: Option<(&Baseline, PathBuf)>,
     config: &RepoPilotConfig,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
-    build_review_report_with_target(
-        summary,
-        scan_path,
-        DiffTarget::from_refs(base, head),
-        baseline,
-        config,
-    )
+    let input = load_review_input(scan_path, base, head)?;
+    build_review_report_from_input(summary, input, baseline, config)
 }
 
 /// Build a review report for everything changed since `base` — commits on top of
@@ -43,25 +80,22 @@ pub fn build_review_report_since(
     baseline: Option<(&Baseline, PathBuf)>,
     config: &RepoPilotConfig,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
-    build_review_report_with_target(
-        summary,
-        scan_path,
-        DiffTarget::SinceRef { base },
-        baseline,
-        config,
-    )
+    let input = load_review_input_since(scan_path, base)?;
+    build_review_report_from_input(summary, input, baseline, config)
 }
 
-fn build_review_report_with_target(
+pub fn build_review_report_from_input(
     summary: ScanSummary,
-    scan_path: &Path,
-    target: DiffTarget<'_>,
+    input: ReviewInput,
     baseline: Option<(&Baseline, PathBuf)>,
     config: &RepoPilotConfig,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
-    let repo_root = resolve_git_root(scan_path)?;
-    let pathspec = pathspec_for_scan_path(scan_path, &repo_root);
-    let changed_files = load_changed_files(&repo_root, target, pathspec.as_deref())?;
+    let ReviewInput {
+        repo_root,
+        target,
+        changed_files,
+    } = input;
+    let target = target.as_borrowed();
     let boundary_signals = detect_boundary_signals(
         &repo_root,
         target,
@@ -124,6 +158,7 @@ fn classify_findings(
         summary.artifacts.coupling_graph.as_ref(),
         &repo_root,
     );
+    apply_review_feedback(&mut tiered_signals, &mut summary, &repo_root);
 
     let mut findings: Vec<ReviewFindingStatus> = summary
         .artifacts
@@ -159,8 +194,59 @@ fn classify_findings(
         boundary_signals,
         boundary_missing_test,
         tiered_signals,
+        timings: Default::default(),
         findings,
     }
+}
+
+fn apply_review_feedback(
+    tiered: &mut crate::review::signals::tiered::TieredSignals,
+    summary: &mut ScanSummary,
+    repo_root: &Path,
+) {
+    if summary.local_feedback.is_none() {
+        return;
+    }
+    let Ok(validation) = validate_local_feedback(repo_root) else {
+        return;
+    };
+    let mut suppressed = 0;
+    for signal in tiered.iter_mut() {
+        let Some(suppression) = validation
+            .review_suppressions
+            .iter()
+            .find(|suppression| review_suppression_matches(suppression, signal))
+        else {
+            continue;
+        };
+        signal.suppressed = true;
+        signal.gate_eligible = false;
+        signal.suppression_reason = suppression.reason.clone();
+        suppressed += 1;
+    }
+    if let Some(report) = summary.local_feedback.as_mut() {
+        report.suppressed_review_signals_count = suppressed;
+    }
+}
+
+fn review_suppression_matches(
+    suppression: &ReviewSuppression,
+    signal: &crate::review::signals::tiered::ReviewSignal,
+) -> bool {
+    if suppression.kind != signal.kind || review_suppression_expired(suppression) {
+        return false;
+    }
+    globset::Glob::new(&suppression.path)
+        .map(|glob| glob.compile_matcher().is_match(&signal.path))
+        .unwrap_or(false)
+}
+
+fn review_suppression_expired(suppression: &ReviewSuppression) -> bool {
+    suppression
+        .expires
+        .as_deref()
+        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        .is_some_and(|date| date < chrono::Utc::now().date_naive())
 }
 
 fn sort_findings_with_review_status(

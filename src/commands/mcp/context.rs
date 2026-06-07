@@ -30,9 +30,23 @@ pub fn definition() -> Value {
                 "budget": {
                     "type": "integer",
                     "description": "Optional approximate token budget for the brief. Defaults to the standard budget."
-                }
+                },
+                "config": { "type": "string", "description": "Optional repopilot.toml path." },
+                "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" }
             },
             "additionalProperties": false
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": { "markdown": { "type": "string" } },
+            "required": ["markdown"],
+            "additionalProperties": false
+        },
+        "annotations": {
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": false
         }
     })
 }
@@ -45,16 +59,25 @@ pub fn call(arguments: &Value) -> Result<String, String> {
         .get("budget")
         .and_then(Value::as_u64)
         .map_or(DEFAULT_TOKEN_BUDGET, |budget| budget as usize);
+    let config_path = arguments
+        .get("config")
+        .and_then(Value::as_str)
+        .map(PathBuf::from);
+    let visibility_profile = match arguments.get("profile").and_then(Value::as_str) {
+        Some("strict") => FindingVisibilityProfile::Strict,
+        Some("default") | None => FindingVisibilityProfile::Default,
+        Some(other) => return Err(format!("invalid profile: {other}")),
+    };
 
     let scan_result = run_product_scan(ProductScanRequest {
         path,
-        config_path: None,
+        config_path,
         overrides: ScanConfigOverrides::default(),
         preset: None,
         mode: ProductScanMode::Full,
         no_progress: true,
         ignore_feedback: false,
-        visibility_profile: FindingVisibilityProfile::Default,
+        visibility_profile,
         pre_visibility_filter: FindingFilter::default(),
     })
     .map_err(|error| format!("scan failed: {error}"))?;

@@ -198,16 +198,17 @@ when the cache directory does not exist.
 
 ## `review`
 
-Scans the repository and separates findings into two groups:
-
-- **in-diff** — findings on lines that appear in the current Git diff
-- **out-of-diff** — findings elsewhere in the codebase
+Reviews changed files with the default finding profile and repository graph
+context. `--scope changed` is the default and omits out-of-diff findings.
+Use `--scope full --profile strict` for the previous full-repository audit view.
 
 When coupling data is available, review also shows **blast radius**: files that import changed files and may need extra attention.
 
 By default, review compares the working tree against `HEAD` (staged, unstaged, and untracked changes). Pass `--base` to review a branch range for CI.
 
-When `--fail-on` is used, the gate evaluates **only in-diff findings** so unrelated pre-existing issues do not block the pipeline.
+`--fail-on` and `--fail-on-priority` evaluate only scan findings.
+`--fail-on-review definitely` is a separate, opt-in gate for unsuppressed,
+gate-eligible definitely-sensitive review signals.
 
 ### Synopsis
 
@@ -228,12 +229,17 @@ repopilot r [PATH] [OPTIONS]
 |------|------|---------|-------------|
 | `--base` | git ref | — | Base ref for the diff; without this, compares working tree to `HEAD` |
 | `--head` | git ref | `HEAD` | Head ref; requires `--base` |
+| `--since-snapshot` | flag | — | Review committed and uncommitted work since the last `repopilot snapshot` |
+| `--scope` | `changed\|full` | `changed` | Analyze changed files or retain full-repository findings |
+| `--profile` | `default\|strict` | scope-dependent | Finding visibility; changed defaults to default, full defaults to strict |
 | `--format` | `console\|json\|markdown` | `console` | Output format |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
+| `--sarif-output` | path | — | Write secondary review SARIF without a second scan |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file |
 | `--fail-on` | threshold | — | Exit code 1 when **in-diff** findings meet this threshold |
 | `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Exit code 1 when **in-diff** findings meet this risk priority threshold |
+| `--fail-on-review` | `none\|definitely` | `none` | Exit code 1 for eligible definitely-sensitive review signals |
 | `--no-progress` | flag | — | Disable progress indicators |
 | `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
@@ -248,7 +254,7 @@ repopilot r [PATH] [OPTIONS]
 | Code | Meaning |
 |------|---------|
 | `0` | Success (no threshold breach) |
-| `1` | In-diff findings exceed the `--fail-on` threshold |
+| `1` | A finding gate or explicit review-signal gate failed |
 | `2` | Invalid CLI/config/user input |
 | `3` | Runtime or environment failure |
 
@@ -266,9 +272,16 @@ repopilot review . --base origin/main --no-progress
 # Save a Markdown review report
 repopilot review . --base origin/main --format markdown --output review.md
 
+# Preserve the previous full-repository strict review
+repopilot review . --scope full --profile strict
+
+# Emit machine-readable JSON and SARIF from one review
+repopilot review . --format json --output review.json --sarif-output review.sarif
+
 # Baseline-aware CI gate on in-diff findings only
 repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
 repopilot review . --base origin/main --fail-on-priority p1
+repopilot review . --base origin/main --fail-on-review definitely
 
 # Review without local feedback suppressions
 repopilot review . --ignore-feedback
@@ -816,14 +829,14 @@ See [docs/mcp.md](mcp.md) for the tool catalog, schemas, and agent registration.
 ### Synopsis
 
 ```
-repopilot mcp
+repopilot mcp [--root PATH]
 ```
 
 ### Tools
 
 | Tool | Description |
 |------|-------------|
-| `repopilot_review_change` | Audit the current Git changes: in-diff vs out-of-diff findings plus blast radius |
+| `repopilot_review_change` | Changed/full review with findings, tiered signals, blast radius, and gate result |
 | `repopilot_scan` | Full repository audit as a JSON report |
 | `repopilot_context` | Budgeted, AI-ready Markdown brief (optional `focus`, `budget`) |
 | `repopilot_explain_file` | How one file is classified and which rules and signals apply |
@@ -832,10 +845,10 @@ repopilot mcp
 
 ```bash
 # Register with Claude Code
-claude mcp add repopilot -- repopilot mcp
+claude mcp add repopilot -- repopilot mcp --root .
 
 # Manual smoke test (list the available tools)
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | repopilot mcp
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | repopilot mcp --root .
 ```
 
 ---

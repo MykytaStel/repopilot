@@ -2,7 +2,7 @@
 //!
 //! MCP frames each message as one line of JSON on stdin/stdout. We deserialize
 //! requests and serialize responses with `serde_json` (already a dependency),
-//! which keeps the server synchronous and free of an async runtime.
+//! keeping the transport free of an async runtime.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

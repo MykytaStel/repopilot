@@ -1,10 +1,21 @@
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
+use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
 use crate::review::render::helpers::render_ranges_suffix;
 use crate::review::signals::tiered::ReviewSignal;
 
+const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
+
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
+    render_console_with_gates(report, ci_gate, None)
+}
+
+pub fn render_console_with_gates(
+    report: &ReviewReport,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> String {
     let mut output = String::new();
 
     output.push_str("RepoPilot Review\n");
@@ -16,8 +27,11 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
     }
     if let Some(feedback) = &report.summary.local_feedback {
         output.push_str(&format!(
-            "Local feedback: {} suppression(s) loaded, {} finding(s) suppressed\n",
-            feedback.suppressions_loaded, feedback.suppressed_findings_count
+            "Local feedback: {} finding + {} review suppression(s) loaded, {} finding(s) + {} review signal(s) suppressed\n",
+            feedback.suppressions_loaded,
+            feedback.review_suppressions_loaded,
+            feedback.suppressed_findings_count,
+            feedback.suppressed_review_signals_count,
         ));
     }
     output.push('\n');
@@ -40,6 +54,18 @@ pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> 
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
         output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
+    }
+    if let Some(review_gate) = review_gate {
+        let status = if review_gate.passed() {
+            "passed"
+        } else {
+            "failed"
+        };
+        output.push_str(&format!(
+            "Review gate: {status} ({}, {} signal(s))\n",
+            review_gate.label(),
+            review_gate.failed_signals
+        ));
     }
 
     output.push_str("\nChanged files:\n");
@@ -96,29 +122,52 @@ fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
         "  Where to look first in this diff \u{2014} flags, not verdicts. Open the report before merging.\n",
     );
 
-    render_tier_group(output, "Definitely sensitive", &tiered.definitely);
+    let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
+    render_tier_group(
+        output,
+        "Definitely sensitive",
+        &tiered.definitely,
+        &mut remaining,
+    );
     if report.boundary_missing_test {
         output.push_str(
             "    \u{26a0} A code boundary changed but no test did \u{2014} confirm it's still covered.\n",
         );
     }
-    render_tier_group(output, "Maybe sensitive", &tiered.maybe);
-    render_tier_group(output, "Large diff / noise", &tiered.noise);
+    render_tier_group(output, "Maybe sensitive", &tiered.maybe, &mut remaining);
+    render_tier_group(output, "Large diff / noise", &tiered.noise, &mut remaining);
 }
 
-fn render_tier_group(output: &mut String, label: &str, signals: &[ReviewSignal]) {
-    if signals.is_empty() {
+fn render_tier_group(
+    output: &mut String,
+    label: &str,
+    signals: &[ReviewSignal],
+    remaining: &mut usize,
+) {
+    let active = signals
+        .iter()
+        .filter(|signal| !signal.suppressed)
+        .collect::<Vec<_>>();
+    if active.is_empty() {
         return;
     }
 
     output.push_str(&format!("  {label}:\n"));
-    for signal in signals {
+    let shown = active.len().min(*remaining);
+    for signal in active.iter().take(shown) {
         output.push_str(&format!(
             "    \u{2691} {}{}{}{}\n",
             signal.headline,
             render_signal_location(signal),
             render_signal_detail(signal),
             render_reach_suffix(signal.blast_radius),
+        ));
+    }
+    *remaining = remaining.saturating_sub(shown);
+    if active.len() > shown {
+        output.push_str(&format!(
+            "    ... {} additional signal(s) omitted; use JSON for the full list\n",
+            active.len() - shown
         ));
     }
 }

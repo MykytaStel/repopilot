@@ -1,4 +1,6 @@
 use super::changed_git::collect_changed_scope;
+use crate::audits::architecture::import_coupling::ImportCouplingAudit;
+use crate::audits::pipeline::{run_framework_audits, run_project_audits};
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::{
     SignalQualitySummary, summarize_signal_quality_with_contract_violations,
@@ -7,6 +9,7 @@ use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, detect_react_native_architecture};
 use crate::graph::CouplingGraph;
 use crate::graph::context::{ContextGraphCacheInfo, RepoContextGraph};
+use crate::knowledge::decision::apply_project_decisions;
 use crate::review::diff::ChangedFile;
 use crate::scan::cache::{ScanCache, relative_cache_path};
 use crate::scan::config::ScanConfig;
@@ -25,10 +28,21 @@ pub fn scan_changed_with_config(
     ChangedScanEngine::new(path, config, base_ref).run()
 }
 
+pub fn scan_resolved_changed_with_config(
+    path: &Path,
+    config: &ScanConfig,
+    repo_root: PathBuf,
+    changed_files: Vec<ChangedFile>,
+    base_ref: Option<&str>,
+) -> io::Result<ScanSummary> {
+    ChangedScanEngine::resolved(path, config, repo_root, changed_files, base_ref).run()
+}
+
 struct ChangedScanEngine<'a> {
     path: &'a Path,
     config: &'a ScanConfig,
     base_ref: Option<&'a str>,
+    resolved_scope: Option<ChangedDiscoveryStage>,
 }
 
 struct ChangedDiscoveryStage {
@@ -58,6 +72,7 @@ struct ChangedRepoContextStage {
 }
 
 struct ChangedFindingPipelineStage {
+    post_scan_audits_us: u64,
     enrichment_us: u64,
     risk_scoring_us: u64,
     contract_validation_us: u64,
@@ -71,12 +86,35 @@ impl<'a> ChangedScanEngine<'a> {
             path,
             config,
             base_ref,
+            resolved_scope: None,
         }
     }
 
-    fn run(self) -> io::Result<ScanSummary> {
+    fn resolved(
+        path: &'a Path,
+        config: &'a ScanConfig,
+        repo_root: PathBuf,
+        changed_files: Vec<ChangedFile>,
+        base_ref: Option<&'a str>,
+    ) -> Self {
+        Self {
+            path,
+            config,
+            base_ref,
+            resolved_scope: Some(ChangedDiscoveryStage {
+                repo_root,
+                changed_files,
+                elapsed_us: 0,
+            }),
+        }
+    }
+
+    fn run(mut self) -> io::Result<ScanSummary> {
         let start = Instant::now();
-        let discovery = self.run_discovery()?;
+        let discovery = match self.resolved_scope.take() {
+            Some(discovery) => discovery,
+            None => self.run_discovery()?,
+        };
         if discovery.changed_files.is_empty() {
             return self.finalize_empty_changed(start, discovery);
         }
@@ -86,6 +124,29 @@ impl<'a> ChangedScanEngine<'a> {
             &mut file_stage.facts,
             &file_stage.graph_patch_files,
         )?;
+        let project_start = Instant::now();
+        let ((project_findings, framework_findings), (coupling_findings, _)) = rayon::join(
+            || {
+                rayon::join(
+                    || run_project_audits(&repo_stage.repo_context, self.config),
+                    || run_framework_audits(&repo_stage.repo_context, self.config),
+                )
+            },
+            || {
+                ImportCouplingAudit.audit_with_graph(
+                    &repo_stage.repo_context,
+                    self.config,
+                    &discovery.repo_root,
+                )
+            },
+        );
+        file_stage.findings.extend(project_findings);
+        file_stage.findings.extend(framework_findings);
+        file_stage.findings.extend(apply_project_decisions(
+            &repo_stage.repo_context,
+            coupling_findings,
+        ));
+        let post_scan_audits_us = project_start.elapsed().as_micros() as u64;
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
         let contract_stage =
@@ -95,6 +156,7 @@ impl<'a> ChangedScanEngine<'a> {
             contract_stage.report.violations.len(),
         );
         let finding_pipeline = ChangedFindingPipelineStage {
+            post_scan_audits_us,
             enrichment_us,
             risk_scoring_us,
             contract_validation_us: contract_stage.elapsed_us,

@@ -1,0 +1,71 @@
+name: RepoPilot PR Review
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: RepoPilot version to run
+        type: string
+        default: "0.16.0"
+      fail-on-review:
+        description: Review signal gate policy
+        type: string
+        default: "none"
+      fail-on-priority:
+        description: Finding priority gate
+        type: string
+        default: ""
+      comment:
+        description: Update a sticky PR comment
+        type: boolean
+        default: false
+      upload-sarif:
+        description: Upload SARIF to GitHub Code Scanning
+        type: boolean
+        default: false
+    outputs:
+      conclusion:
+        description: RepoPilot conclusion
+        value: ${{ jobs.review.outputs.conclusion }}
+      findings-count:
+        description: In-diff finding count
+        value: ${{ jobs.review.outputs.findings-count }}
+      signals-count:
+        description: Review signal count
+        value: ${{ jobs.review.outputs.signals-count }}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    outputs:
+      conclusion: ${{ steps.repopilot.outputs.conclusion }}
+      findings-count: ${{ steps.repopilot.outputs.findings-count }}
+      signals-count: ${{ steps.repopilot.outputs.signals-count }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Review pull request
+        id: repopilot
+        uses: MykytaStel/repopilot@v0.16.0
+        with:
+          command: review
+          version: ${{ inputs.version }}
+          scope: changed
+          profile: default
+          fail-on-review: ${{ inputs.fail-on-review }}
+          fail-on-priority: ${{ inputs.fail-on-priority }}
+          comment: ${{ inputs.comment }}
+          upload-sarif: ${{ inputs.upload-sarif }}
+
+      - name: Upload RepoPilot reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: repopilot-review
+          path: |
+            repopilot-review.json
+            repopilot-review.sarif
+            repopilot-review-summary.md
+          if-no-files-found: warn

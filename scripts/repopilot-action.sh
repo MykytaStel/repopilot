@@ -8,6 +8,9 @@ CONFIG="${INPUT_CONFIG:-}"
 BASELINE="${INPUT_BASELINE:-}"
 FAIL_ON="${INPUT_FAIL_ON:-}"
 FAIL_ON_PRIORITY="${INPUT_FAIL_ON_PRIORITY:-}"
+FAIL_ON_REVIEW="${INPUT_FAIL_ON_REVIEW:-none}"
+SCOPE="${INPUT_SCOPE:-}"
+PROFILE="${INPUT_PROFILE:-}"
 MIN_SEVERITY="${INPUT_MIN_SEVERITY:-}"
 MIN_PRIORITY="${INPUT_MIN_PRIORITY:-}"
 RULE_INPUT="${INPUT_RULE:-}"
@@ -19,6 +22,7 @@ BUDGET="${INPUT_BUDGET:-}"
 OUTPUT="${INPUT_OUTPUT:-}"
 RECEIPT="${INPUT_RECEIPT:-}"
 ARGS="${INPUT_ARGS:-}"
+SARIF_OUTPUT=""
 
 RUN_ARGS=()
 case "$COMMAND" in
@@ -43,6 +47,8 @@ esac
 if [[ "$FORMAT" == "auto" ]]; then
   if [[ "$COMMAND" == "scan" ]]; then
     FORMAT="sarif"
+  elif [[ "$COMMAND" == "review" ]]; then
+    FORMAT="json"
   else
     FORMAT="markdown"
   fi
@@ -81,6 +87,11 @@ if [[ "$COMMAND" == "scan" || "$COMMAND" == "review" ]]; then
   if [[ -n "$MIN_SEVERITY" ]]; then RUN_ARGS+=(--min-severity "$MIN_SEVERITY"); fi
   if [[ -n "$MIN_PRIORITY" ]]; then RUN_ARGS+=(--min-priority "$MIN_PRIORITY"); fi
 fi
+if [[ "$COMMAND" == "review" ]]; then
+  if [[ -n "$FAIL_ON_REVIEW" ]]; then RUN_ARGS+=(--fail-on-review "$FAIL_ON_REVIEW"); fi
+  if [[ -n "$SCOPE" ]]; then RUN_ARGS+=(--scope "$SCOPE"); fi
+  if [[ -n "$PROFILE" ]]; then RUN_ARGS+=(--profile "$PROFILE"); fi
+fi
 if [[ "$COMMAND" == "scan" && -n "$RULE_INPUT" ]]; then
   read -r -a RULES <<< "$RULE_INPUT"
   for RULE in "${RULES[@]}"; do
@@ -88,11 +99,28 @@ if [[ "$COMMAND" == "scan" && -n "$RULE_INPUT" ]]; then
   done
 fi
 if [[ "$COMMAND" == "scan" && "$TIMING" == "true" ]]; then RUN_ARGS+=(--timing); fi
-if [[ "$COMMAND" == "review" && -n "$BASE" ]]; then RUN_ARGS+=(--base "$BASE"); fi
-if [[ "$COMMAND" == "review" && -n "$HEAD" ]]; then RUN_ARGS+=(--head "$HEAD"); fi
+if [[ "$COMMAND" == "review" && -n "${GITHUB_EVENT_PATH:-}" && -f "$GITHUB_EVENT_PATH" ]]; then
+  if [[ -z "$BASE" ]]; then BASE="$(jq -r '.pull_request.base.sha // empty' "$GITHUB_EVENT_PATH")"; fi
+  if [[ -z "$HEAD" ]]; then HEAD="$(jq -r '.pull_request.head.sha // empty' "$GITHUB_EVENT_PATH")"; fi
+fi
+if [[ "$COMMAND" == "review" && -n "$BASE" ]]; then
+  git cat-file -e "${BASE}^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$BASE"
+  RUN_ARGS+=(--base "$BASE")
+fi
+if [[ "$COMMAND" == "review" && -n "$HEAD" ]]; then
+  git cat-file -e "${HEAD}^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$HEAD"
+  RUN_ARGS+=(--head "$HEAD")
+fi
 if [[ "$IS_AI" == "true" && -n "$FOCUS" ]]; then RUN_ARGS+=(--focus "$FOCUS"); fi
 if [[ "$IS_AI" == "true" && -n "$BUDGET" ]]; then RUN_ARGS+=(--budget "$BUDGET"); fi
+if [[ "$COMMAND" == "review" && "$FORMAT" == "json" && -z "$OUTPUT" ]]; then
+  OUTPUT="repopilot-review.json"
+fi
 if [[ -n "$OUTPUT" && "$FORMAT" != "sarif" ]]; then RUN_ARGS+=(--output "$OUTPUT"); fi
+if [[ "$COMMAND" == "review" ]]; then
+  SARIF_OUTPUT="repopilot-review.sarif"
+  RUN_ARGS+=(--sarif-output "$SARIF_OUTPUT")
+fi
 if [[ -n "$RECEIPT" ]]; then RUN_ARGS+=(--receipt "$RECEIPT"); fi
 
 if [[ -n "$ARGS" ]]; then
@@ -102,6 +130,7 @@ fi
 
 SUMMARY_SOURCE=""
 TMP_SUMMARY_OUTPUT=""
+REVIEW_SUMMARY_FILE=""
 
 append_job_summary() {
   local status="$1"
@@ -190,14 +219,66 @@ else
   set -e
 fi
 
+if [[ "$COMMAND" == "review" && "$FORMAT" == "json" && -f "$OUTPUT" ]]; then
+  REVIEW_SUMMARY_FILE="repopilot-review-summary.md"
+  {
+    echo "## RepoPilot Review"
+    echo
+    echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$OUTPUT")"
+    echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$OUTPUT")"
+    echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$OUTPUT")"
+    echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$OUTPUT")"
+    echo
+    jq -r '
+      [.tiered_signals.definitely[], .tiered_signals.maybe[]]
+      | map(select(.suppressed == false))[0:20][]
+      | "- **\(.headline)** — `\(.path)\(if .line_start then ":\(.line_start)" else "" end)`\(if .detail then ": \(.detail)" else "" end)"
+    ' "$OUTPUT"
+  } > "$REVIEW_SUMMARY_FILE"
+  SUMMARY_SOURCE="$REVIEW_SUMMARY_FILE"
+
+  while IFS=$'\t' read -r level path line message; do
+    [[ -n "$path" ]] || continue
+    message="${message//%/%25}"
+    message="${message//$'\r'/'%0D'}"
+    message="${message//$'\n'/'%0A'}"
+    echo "::${level} file=${path},line=${line:-1}::${message}"
+  done < <(
+    jq -r '
+      ([.tiered_signals.definitely[] | select(.suppressed == false) | ["warning", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
+       + [.tiered_signals.maybe[] | select(.suppressed == false) | ["notice", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
+       + [.findings[] | select(.in_diff == true) | ["warning", (.evidence[0].path // ""), (.evidence[0].line_start // 1), .title]])[0:20][]
+      | @tsv
+    ' "$OUTPUT"
+  )
+
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    {
+      echo "review_json_file=$OUTPUT"
+      echo "review_sarif_file=$SARIF_OUTPUT"
+      echo "sarif_file=$SARIF_OUTPUT"
+      echo "summary_file=$REVIEW_SUMMARY_FILE"
+      echo "findings_count=$(jq -r '.review.in_diff_findings' "$OUTPUT")"
+      echo "signals_count=$(jq -r '.review.tiered_signals.total' "$OUTPUT")"
+      echo "gate_result=$(jq -r '.review_gate.status // "not-configured"' "$OUTPUT")"
+    } >> "$GITHUB_OUTPUT"
+  fi
+fi
+
 if [[ -n "$RECEIPT" && -n "${GITHUB_OUTPUT:-}" ]]; then
   echo "receipt_file=$RECEIPT" >> "$GITHUB_OUTPUT"
 fi
 
 if [[ "$RUN_STATUS" -eq 0 ]]; then
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then echo "conclusion=passed" >> "$GITHUB_OUTPUT"; fi
   append_job_summary "passed" "$SUMMARY_SOURCE"
 else
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then echo "conclusion=failed" >> "$GITHUB_OUTPUT"; fi
   append_job_summary "failed (exit ${RUN_STATUS})" "$SUMMARY_SOURCE"
 fi
 
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then echo "exit_code=$RUN_STATUS" >> "$GITHUB_OUTPUT"; fi
+if [[ "${REPOPILOT_DEFER_FAILURE:-false}" == "true" ]]; then
+  exit 0
+fi
 exit "$RUN_STATUS"

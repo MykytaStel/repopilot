@@ -246,7 +246,9 @@ repopilot inspect eval-rules --format json
 
 ## Reviewing changes
 
-`repopilot review` scans the full repository but separates findings into **in-diff** (on changed lines) and **out-of-diff** groups. This makes it easier to focus on what the current change introduces.
+`repopilot review` defaults to `--scope changed --profile default`: it scans
+changed files, keeps repository graph/framework context, and omits out-of-diff
+findings. Use `--scope full --profile strict` for a repository audit.
 
 ### Local review (working tree vs HEAD)
 
@@ -262,10 +264,22 @@ Covers staged, unstaged, and untracked files.
 repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
 repopilot review . --base origin/main --fail-on-priority p1
+repopilot review . --base origin/main --fail-on-review definitely
 ```
 
 When `--fail-on` is used with `review`, only **in-diff findings** trigger a failure — unrelated pre-existing issues do not block CI.
 `--fail-on-priority` works the same way, but evaluates P0/P1/P2/P3 risk priority instead of severity.
+`--fail-on-review` is independent: `definitely` blocks only unsuppressed,
+gate-eligible definitely-sensitive signals. Volume notes and coarse fallback
+signals never block.
+
+Write JSON and secondary SARIF from the same review:
+
+```bash
+repopilot review . \
+  --format json --output repopilot-review.json \
+  --sarif-output repopilot-review.sarif
+```
 
 ### Blast radius
 

@@ -194,7 +194,11 @@ pub struct LocalFeedbackReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback_path: Option<PathBuf>,
     pub suppressions_loaded: usize,
+    #[serde(default)]
+    pub review_suppressions_loaded: usize,
     pub suppressed_findings_count: usize,
+    #[serde(default)]
+    pub suppressed_review_signals_count: usize,
     pub unmatched_suppressions_count: usize,
     pub invalid_suppressions_count: usize,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

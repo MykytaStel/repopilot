@@ -1,0 +1,3 @@
+use_react_native!(
+  :hermes_enabled => true
+)

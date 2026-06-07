@@ -1,0 +1,87 @@
+{
+  "name": "repopilot-vscode",
+  "displayName": "RepoPilot",
+  "description": "Local-first repository review, diagnostics, and MCP integration.",
+  "version": "0.16.0",
+  "publisher": "MykytaStel",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MykytaStel/repopilot.git"
+  },
+  "homepage": "https://github.com/MykytaStel/repopilot",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Linters",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onCommand:repopilot.scanWorkspace",
+    "onCommand:repopilot.reviewChanges",
+    "onCommand:repopilot.explainCurrentFile",
+    "onCommand:repopilot.refreshDiagnostics",
+    "onCommand:repopilot.openReport"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "repopilot.scanWorkspace",
+        "title": "RepoPilot: Scan Workspace"
+      },
+      {
+        "command": "repopilot.reviewChanges",
+        "title": "RepoPilot: Review Changes"
+      },
+      {
+        "command": "repopilot.explainCurrentFile",
+        "title": "RepoPilot: Explain Current File"
+      },
+      {
+        "command": "repopilot.refreshDiagnostics",
+        "title": "RepoPilot: Refresh Diagnostics"
+      },
+      {
+        "command": "repopilot.openReport",
+        "title": "RepoPilot: Open Review Report"
+      }
+    ],
+    "configuration": {
+      "title": "RepoPilot",
+      "properties": {
+        "repopilot.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to a RepoPilot binary. Platform VSIX packages include one by default."
+        },
+        "repopilot.reviewBase": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Git base ref used by Review Changes."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "check": "tsc -p . --noEmit",
+    "pretest": "npm run compile",
+    "test": "node ./dist/test/runTest.js",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^2.5.0",
+    "@vscode/vsce": "^3.5.0",
+    "mocha": "^11.0.0",
+    "typescript": "^5.8.0"
+  },
+  "overrides": {
+    "diff": "8.0.3",
+    "serialize-javascript": "7.0.5"
+  }
+}

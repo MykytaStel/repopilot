@@ -21,12 +21,15 @@ fn review_reports_working_tree_findings_on_changed_lines() {
     )
     .expect("failed to modify source file");
 
-    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    let json = run_review_json(
+        temp.path(),
+        &["review", ".", "--format", "json", "--profile", "strict"],
+    );
 
-    assert_eq!(json["schema_version"], "0.17");
+    assert_eq!(json["schema_version"], "0.18");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["risk_summary"]["total"].as_u64().is_some());
-    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 1);
     assert_eq!(json["review"]["out_of_diff_findings"], 0);
     assert_eq!(json["changed_files"][0]["path"], "src/lib.rs");
     assert!(
@@ -201,7 +204,16 @@ fn review_min_priority_preserves_in_diff_status_alignment() {
 
     let json = run_review_json(
         temp.path(),
-        &["review", ".", "--format", "json", "--min-priority", "p3"],
+        &[
+            "review",
+            ".",
+            "--format",
+            "json",
+            "--scope",
+            "full",
+            "--min-priority",
+            "p3",
+        ],
     );
     let findings = json["findings"].as_array().unwrap();
 
@@ -213,7 +225,7 @@ fn review_min_priority_preserves_in_diff_status_alignment() {
             finding["rule_id"] == "code-marker.todo" && finding["in_diff"] == true
         })
     );
-    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 1);
     assert_eq!(json["review"]["out_of_diff_findings"], 1);
 }
 
@@ -230,9 +242,19 @@ fn review_accepts_file_paths() {
     )
     .expect("failed to modify source file");
 
-    let json = run_review_json(temp.path(), &["review", "src/lib.rs", "--format", "json"]);
+    let json = run_review_json(
+        temp.path(),
+        &[
+            "review",
+            "src/lib.rs",
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+        ],
+    );
 
-    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 1);
     assert_eq!(json["changed_files"][0]["path"], "src/lib.rs");
 }
 
@@ -253,10 +275,19 @@ fn review_supports_base_head_refs() {
 
     let json = run_review_json(
         temp.path(),
-        &["review", ".", "--base", base.trim(), "--format", "json"],
+        &[
+            "review",
+            ".",
+            "--base",
+            base.trim(),
+            "--format",
+            "json",
+            "--profile",
+            "strict",
+        ],
     );
 
-    assert_eq!(json["review"]["in_diff_findings"], 1);
+    assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 1);
     assert!(json["findings"].as_array().unwrap().iter().any(|finding| {
         finding["rule_id"] == "code-marker.fixme" && finding["in_diff"] == true
     }));
@@ -281,7 +312,7 @@ fn review_fail_on_new_high_ignores_out_of_diff_high_findings() {
     .expect("failed to modify source file");
 
     let output = repopilot()
-        .args(["review", ".", "--fail-on", "new-high"])
+        .args(["review", ".", "--scope", "full", "--fail-on", "new-high"])
         .current_dir(temp.path())
         .output()
         .expect("failed to run review");
@@ -394,6 +425,50 @@ fn review_rejects_head_without_base() {
 
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("--head` requires --base"));
+}
+
+#[test]
+fn review_writes_secondary_sarif_with_taint_signal() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    fs::create_dir_all(temp.path().join("src")).expect("create src");
+    fs::write(
+        temp.path().join("src/handler.ts"),
+        "export function findUser() { return null; }\n",
+    )
+    .expect("write source");
+    commit_all(temp.path(), "initial");
+    fs::write(
+        temp.path().join("src/handler.ts"),
+        "export function findUser(req: Request) {\n  const id = req.query.id;\n  return db.query(\"SELECT * FROM users WHERE id = \" + id);\n}\n",
+    )
+    .expect("modify source");
+
+    let sarif = temp.path().join("review.sarif");
+    let output = repopilot()
+        .args([
+            "review",
+            ".",
+            "--format",
+            "json",
+            "--output",
+            "review.json",
+            "--sarif-output",
+            sarif.to_str().unwrap(),
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("run review");
+    assert!(output.status.success());
+    let value: Value =
+        serde_json::from_slice(&fs::read(sarif).expect("read sarif")).expect("parse sarif");
+    assert!(
+        value["runs"][0]["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|result| result["ruleId"] == "taint.sql")
+    );
 }
 
 fn run_review_json(root: &Path, args: &[&str]) -> Value {

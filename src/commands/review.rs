@@ -1,4 +1,5 @@
 use crate::cli::ReviewOptions;
+use crate::cli::{ReviewFailOnArg, ReviewScopeArg, ScanProfileArg};
 use crate::commands::filters::{review_pre_diff_filter, review_priority_filter};
 use crate::commands::product_scan::{
     ProductScanMode, ProductScanRequest, enforce_diagnostics_exit_policy, run_product_scan,
@@ -7,10 +8,17 @@ use crate::commands::scan_config::ScanConfigOverrides;
 use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
+use repopilot::config::loader::{load_default_config, load_optional_config};
+use repopilot::config::model::{ReviewFailOn, ReviewScope};
 use repopilot::findings::visibility::FindingVisibilityProfile;
+use repopilot::output::OutputFormat;
 use repopilot::report::writer::write_report;
-use repopilot::review::render::render;
-use repopilot::review::{build_review_report, build_review_report_since, review_report_for_ci};
+use repopilot::review::render::{render, render_review_sarif};
+use repopilot::review::{
+    ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_input,
+    load_review_input, load_review_input_since, review_report_for_ci,
+};
+use std::time::{Duration, Instant};
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let pre_diff_filter = review_pre_diff_filter(&options);
@@ -38,6 +46,50 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         }));
     }
 
+    let configured = match &options.config {
+        Some(path) => load_optional_config(path)?,
+        None => load_default_config()?,
+    };
+    let scope = match options.scope {
+        Some(ReviewScopeArg::Changed) => ReviewScope::Changed,
+        Some(ReviewScopeArg::Full) => ReviewScope::Full,
+        None => configured.review.scope,
+    };
+    let visibility_profile = match options.profile {
+        Some(ScanProfileArg::Default) => FindingVisibilityProfile::Default,
+        Some(ScanProfileArg::Strict) => FindingVisibilityProfile::Strict,
+        None if scope == ReviewScope::Full => FindingVisibilityProfile::Strict,
+        None => FindingVisibilityProfile::Default,
+    };
+    let review_gate_policy = match options.fail_on_review {
+        Some(ReviewFailOnArg::None) => ReviewSignalGatePolicy::None,
+        Some(ReviewFailOnArg::Definitely) => ReviewSignalGatePolicy::Definitely,
+        None => match configured.review.fail_on {
+            ReviewFailOn::None => ReviewSignalGatePolicy::None,
+            ReviewFailOn::Definitely => ReviewSignalGatePolicy::Definitely,
+        },
+    };
+    let diff_started = Instant::now();
+    let review_input = if options.since_snapshot {
+        let snapshot = crate::commands::snapshot::read_snapshot(&options.path)?;
+        load_review_input_since(&options.path, &snapshot.head)?
+    } else {
+        load_review_input(
+            &options.path,
+            options.base.as_deref(),
+            options.head.as_deref(),
+        )?
+    };
+    let diff_loading_us = duration_us(diff_started.elapsed());
+    let scan_mode = match scope {
+        ReviewScope::Changed => ProductScanMode::ResolvedChanged {
+            repo_root: review_input.repo_root.clone(),
+            changed_files: review_input.changed_files.clone(),
+            base_ref: review_input.target.base_ref().map(str::to_string),
+        },
+        ReviewScope::Full => ProductScanMode::Full,
+    };
+
     let scan_result = run_product_scan(ProductScanRequest {
         path: options.path.clone(),
         config_path: options.config.clone(),
@@ -48,10 +100,10 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
             ..ScanConfigOverrides::default()
         },
         preset: None,
-        mode: ProductScanMode::Full,
+        mode: scan_mode,
         no_progress: options.no_progress,
         ignore_feedback: options.ignore_feedback,
-        visibility_profile: FindingVisibilityProfile::Strict,
+        visibility_profile,
         pre_visibility_filter: pre_diff_filter,
     })?;
     let summary = scan_result.summary;
@@ -63,29 +115,23 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let baseline_ref = baseline_file
         .as_ref()
         .map(|(baseline, path)| (baseline, path.clone()));
-    let mut review_report = if options.since_snapshot {
-        let snapshot = crate::commands::snapshot::read_snapshot(&options.path)?;
-        build_review_report_since(
-            summary,
-            &options.path,
-            &snapshot.head,
-            baseline_ref,
-            &scan_result.repo_config,
-        )?
-    } else {
-        build_review_report(
-            summary,
-            &options.path,
-            options.base.as_deref(),
-            options.head.as_deref(),
-            baseline_ref,
-            &scan_result.repo_config,
-        )?
-    };
+    let review_started = Instant::now();
+    let mut review_report = build_review_report_from_input(
+        summary,
+        review_input,
+        baseline_ref,
+        &scan_result.repo_config,
+    )?;
+    review_report.timings.diff_loading_us = diff_loading_us;
+    review_report.timings.review_signals_us = duration_us(review_started.elapsed());
+    if scope == ReviewScope::Changed {
+        review_report.retain_in_diff_findings();
+    }
     if !priority_filter.is_empty() {
         review_report.apply_filter(&priority_filter);
     }
 
+    let gating_started = Instant::now();
     let ci_report = review_report_for_ci(&review_report);
     let ci_gate = options
         .fail_on
@@ -95,9 +141,30 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
             fail_on_priority
                 .map(|priority| evaluate_ci_gate(&ci_report, FailOn::Priority(priority)))
         });
-    let rendered_report = render(&review_report, options.format.into(), ci_gate.as_ref())?;
+    let review_gate = ReviewSignalGateResult::evaluate(&review_report, review_gate_policy);
+    review_report.timings.gating_us = duration_us(gating_started.elapsed());
+    let output_format: OutputFormat = options.format.into();
+    let rendering_started = Instant::now();
+    let mut rendered_report = render(
+        &review_report,
+        output_format,
+        ci_gate.as_ref(),
+        Some(&review_gate),
+    )?;
+    review_report.timings.rendering_us = duration_us(rendering_started.elapsed());
+    if output_format == OutputFormat::Json {
+        rendered_report = render(
+            &review_report,
+            output_format,
+            ci_gate.as_ref(),
+            Some(&review_gate),
+        )?;
+    }
 
     write_report(&rendered_report, options.output.as_deref())?;
+    if let Some(path) = options.sarif_output.as_deref() {
+        write_report(&render_review_sarif(&review_report)?, Some(path))?;
+    }
     enforce_diagnostics_exit_policy(&review_report.summary)?;
 
     if let Some(ci_gate) = ci_gate
@@ -108,6 +175,19 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
             message,
         }));
     }
+    if !review_gate.passed() {
+        return Err(Box::new(CliExit {
+            code: EXIT_FINDINGS,
+            message: format!(
+                "RepoPilot review gate failed: {} definitely-sensitive signal(s)",
+                review_gate.failed_signals
+            ),
+        }));
+    }
 
     Ok(())
+}
+
+fn duration_us(duration: Duration) -> u64 {
+    duration.as_micros().min(u128::from(u64::MAX)) as u64
 }
