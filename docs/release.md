@@ -1,205 +1,117 @@
-# Release process
+# Release Process
 
-RepoPilot releases are prepared in the repository, verified locally and in CI, tagged from `main`, and published by the release workflow when the required secrets are configured.
+RepoPilot releases are prepared in a short pull request, verified locally and in
+CI, tagged from `main`, and published by the tag workflow.
 
-## 1. Prepare the release
+## Product Contract
 
-Update:
+RepoPilot is a review-first local CLI. A release should improve at least one of:
 
-- `Cargo.toml` version
-- `Cargo.lock` package version, if needed
-- `package.json` version
-- `CHANGELOG.md`
-- `README.md` if user-facing behavior changed
-- current docs/examples so they do not advertise stale rule counts, old command
-  names, schema examples, or previous release pins outside archived/historical
-  material
-- archived release checklist for the target version when one exists, for example
-  `docs/archive/release-checklist-0.13.md`
+- review precision or lower false-positive noise;
+- stable CLI and machine-readable contracts;
+- predictable CI and release behavior;
+- clear first-run documentation;
+- local-first trust and artifact security.
 
-Use the current date for the release entry in `CHANGELOG.md`.
+More commands, rules, formats, or distribution channels are not release goals by
+themselves.
 
-## 2. Verify locally
+Official channels are crates.io, npm, Homebrew, and GitHub Releases. VSIX files
+are a preview GitHub Release artifact, not a Marketplace channel.
 
-Run the full release gate:
+## Prepare
+
+Update the version consistently in Cargo, npm, the Action, reusable workflow,
+and VS Code manifests. Add a dated `CHANGELOG.md` section and leave
+`[Unreleased]` ready for the next change.
+
+Run the release contract:
+
+```bash
+python3 scripts/release-contract.py check
+```
+
+It verifies:
+
+- all release versions and action pins agree;
+- the matching changelog section exists and can produce release notes;
+- local Markdown links resolve;
+- stale npm installer claims are absent;
+- `cargo package --list` contains only Cargo metadata, README, LICENSE, and
+  `src/**`.
+
+## Verify
+
+Run the complete local gate:
 
 ```bash
 ./scripts/verify-release.sh
 ```
 
-The release gate runs formatting, clippy, tests, dependency checks, packaging
-dry-runs, rule evaluation, self-scan signal quality, and the install-like product
-smoke suite.
+The gate runs formatting, clippy, all Rust tests, release-contract checks,
+dependency policy and security checks, shell and workflow validation, Cargo and
+npm package dry-runs, rule evaluation, self-scan signal quality, and the
+install-like product smoke suite.
 
-The core checks are:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all
-npm run test:npm
-repopilot inspect eval-rules --format json
-repopilot scan . --format json --output /tmp/repopilot-self-scan.json
-python3 scripts/check-signal-quality.py --scan-json /tmp/repopilot-self-scan.json
-cargo audit
-cargo deny check advisories licenses
-cargo package --list
-cargo publish --dry-run
-./scripts/smoke-product.sh --binary ./target/release/repopilot --repo . --tmp-dir /tmp/repopilot-release-smoke
-mapfile -d '' shell_scripts < <({ [[ -f install.sh ]] && printf '%s\0' install.sh; [[ -d scripts ]] && find scripts -maxdepth 1 -type f -name '*.sh' -print0; })
-((${#shell_scripts[@]} == 0)) || bash -n "${shell_scripts[@]}"
-((${#shell_scripts[@]} == 0)) || shellcheck "${shell_scripts[@]}"
-mapfile -d '' workflows < <(find .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \) -print0)
-((${#workflows[@]} == 0)) || actionlint "${workflows[@]}"
-npm pack --dry-run
-```
-
-Review the package contents from `cargo package --list` before publishing.
-When release archives already exist in `dist/`, verify npm platform package
-generation with:
-
-```bash
-node scripts/build-npm-platform-packages.js --dist dist --out /tmp/repopilot-npm-platform-packages
-```
-
-Install `cargo-audit`, `cargo-deny`, `shellcheck`, and `actionlint` before running the local release checks.
-For older version-specific gate lists, use `docs/archive/release-checklist-*.md`.
-The product smoke suite validates the install-like adoption flow: `scan`,
-`review`, `baseline create`, `scan --baseline --fail-on new-high`, `ai context`,
-`inspect eval-rules`, JSON, SARIF, Markdown, and receipt generation.
-
-## npm Trusted Publishing setup
-
-Before the first npm publish, configure npm Publishing Access for `repopilot` and
-each `@repopilot/*` platform package:
+Required product workflows include:
 
 ```text
-Publisher: GitHub Actions
-Repository owner: MykytaStel
-Repository name: repopilot
-Workflow filename: publish-npm.yml
-Environment name: npm
+version and help
+init and doctor
+review
+scan in console, JSON, Markdown, and SARIF
+baseline create and new-high gate
+AI context, plan, and prompt
+knowledge, rule, feedback, and explain inspection
 ```
 
-Keep package publishing access set to "Require two-factor authentication and
-disallow tokens". The `publish-npm.yml` job uses the `npm` GitHub Environment and
-OIDC, so no `NPM_TOKEN` secret is required.
+The release should not be blocked only because no new rules were added. Stable
+behavior, low noise, and safe packaging take priority.
 
-## 3. Create release branch
+## Pull Request And Tag
+
+Create a short release branch and PR:
 
 ```bash
-git checkout -b release/vX.Y.Z
+git switch -c release/vX.Y.Z
+git commit -am "chore: prepare vX.Y.Z"
+git push -u origin release/vX.Y.Z
 ```
 
-## 4. Commit
+Merge only after required CI passes. Then tag the exact reviewed `main` commit:
 
 ```bash
-git add .
-git commit -m "chore: prepare vX.Y.Z release"
-```
-
-## 5. Merge after CI passes
-
-Open a pull request, wait for CI, review the package metadata and docs, then merge into `main`.
-
-## 6. Tag
-
-```bash
-git checkout main
-git pull
+git switch main
+git pull --ff-only
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-The tag workflow builds GitHub Release artifacts, creates or updates the GitHub
-Release once, generates artifact attestations for release archives and checksum
-files, runs `cargo publish --dry-run`, publishes crates.io with
-`CRATES_IO_TOKEN`, and updates the Homebrew tap with `HOMEBREW_TAP_TOKEN`. The
-separate `publish-npm.yml` workflow downloads the GitHub Release artifacts,
-generates checksum-verified `@repopilot/*` platform packages, publishes those
-packages first, then publishes the root `repopilot` package through npm Trusted
-Publishing / GitHub OIDC. Optional secret-backed channels are skipped when their
-secret is absent.
+The release workflow validates the tag against repository metadata before any
+build. It extracts the GitHub Release body from the matching changelog section,
+builds and attests platform archives and preview VSIX files, publishes crates.io
+when configured, and updates the Homebrew tap. The npm workflow publishes
+checksum-verified platform packages before the root package through Trusted
+Publishing.
 
-## 7. Verify publishing
+## Verify Public Channels
 
-After the tag workflow passes, verify all configured distribution channels:
-
-```bash
-cargo install repopilot --force
-npm install -g repopilot@X.Y.Z
-brew tap mykytastel/repopilot
-brew install repopilot
-repopilot --version
-brew test repopilot
-```
-
-Also verify that the public package and tag state moved to `X.Y.Z`:
+After the workflows finish:
 
 ```bash
 git ls-remote --tags origin vX.Y.Z
 npm view repopilot version
-for pkg in \
-  @repopilot/darwin-arm64 \
-  @repopilot/darwin-x64 \
-  @repopilot/linux-arm64-gnu \
-  @repopilot/linux-x64-gnu \
-  @repopilot/win32-x64-msvc; do
-  npm view "$pkg" version
-done
-npm install -g repopilot@X.Y.Z
+cargo search repopilot --limit 1
+brew update
+brew upgrade repopilot
 repopilot --version
-repopilot scan . --format json --output /tmp/repopilot-X.Y.Z-smoke.json
-gh attestation verify path/to/repopilot-*.tar.gz --owner MykytaStel
 ```
 
-If a publishing secret is intentionally absent, publish that channel manually from the exact tagged commit and a clean worktree.
-
-For Homebrew failures, check the custom tap first: `MykytaStel/homebrew-repopilot` must exist, contain a `Formula/` directory, and be writable by `HOMEBREW_TAP_TOKEN`.
-
-## 8. Review GitHub Release
-
-Title:
-
-```text
-RepoPilot vX.Y.Z — short release name
-```
-
-Include:
-
-- highlights;
-- install commands for npm, cargo, and quick install;
-- upgrade command;
-- example usage;
-- React Native example when relevant;
-- link to [CHANGELOG.md](../CHANGELOG.md).
-
-Example release body:
-
-````md
-## Highlights
-
-- ...
-
-## Install
-
-```bash
-npm install -g repopilot
-cargo install repopilot
-```
-
-## Upgrade
-
-```bash
-npm update -g repopilot
-cargo install repopilot --force
-```
-
-## Example
+Also verify each `@repopilot/*` native package, GitHub Release assets and
+checksums, artifact attestations, the preview VSIX manifest, and the Homebrew
+formula. Install one public CLI channel and run:
 
 ```bash
 repopilot review . --base origin/main
+repopilot scan . --format json --output /tmp/repopilot-X.Y.Z.json
 ```
-
-See [CHANGELOG.md](https://github.com/MykytaStel/repopilot/blob/main/CHANGELOG.md) for details.
-````

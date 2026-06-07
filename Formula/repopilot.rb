@@ -12,7 +12,7 @@
 #   brew install repopilot
 
 class Repopilot < Formula
-  desc "Local-first CLI for repository audit and architecture risk detection"
+  desc "Local-first CLI for reviewing Git changes before merge"
   homepage "https://github.com/MykytaStel/repopilot"
   version "{{VERSION}}"
   license "MIT OR Apache-2.0"

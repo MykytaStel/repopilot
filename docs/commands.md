@@ -1,522 +1,167 @@
-# Commands Guide
+# Common Workflows
 
-Task-oriented guide to RepoPilot commands. For a complete flag reference see [docs/cli.md](cli.md).
+This guide covers the main RepoPilot workflows. Use the [CLI reference](cli.md)
+for every command and flag.
 
----
+## Review Before Merge
 
-## Quick start
-
-```bash
-repopilot init          # generate repopilot.toml
-repopilot doctor .      # check adoption readiness
-repopilot scan .        # scan the current directory
-repopilot ai context .  # prepare local AI remediation context
-```
-
-For React Native or Expo projects:
-
-```bash
-repopilot scan . --format markdown --output repopilot-report.md
-repopilot review . --base origin/main --baseline .repopilot/baseline.json --fail-on new-high
-```
-
----
-
-## Scanning a project
-
-`repopilot scan` is the primary command. It walks the target path, runs all audit rules, and prints a report.
-For JavaScript workspaces, the summary includes detected framework projects and React Native architecture metadata when present.
-Python projects are scanned for Django, Flask, and FastAPI (detected from `requirements.txt`), including Django deployment settings and raw SQL checks when Django is present. Go projects are scanned for Gin, Echo, and Fiber (detected from `go.mod`). Detected frameworks appear in the tech-stack summary produced by `repopilot ai context`.
-The walker respects gitignore, `.repopilotignore`, and built-in ignores for common build, cache, vendor, and platform directories, including `.git`, `target`, `node_modules`, `dist`, `build`, `.next`, `.nuxt`, `.cache`, `coverage`, `vendor`, `Pods`, and `DerivedData`.
-
-```bash
-repopilot scan .
-repopilot scan src/payments/
-repopilot scan src/payments/processor.rs
-```
-
-### Scanning changed files
-
-Use changed scans when you want a fast file-level pass for the current diff.
-RepoPilot writes local cache files under `.repopilot/cache/` and skips
-repo-level architecture, framework, testing, and coupling rules in this mode.
-Changed-scan summaries include cache hits, misses, skipped changed files,
-changed-file reasons, cache decisions, and cache timing impact.
-
-```bash
-repopilot scan . --changed
-repopilot scan . --since main
-repopilot cache clear .
-```
-
-Use a regular full scan when you need authoritative repository-wide risk.
-
-### Scanning workspaces
-
-Use `--workspace` in npm, Yarn, pnpm, or Cargo monorepos to scan each package root separately and group findings by package. Console and Markdown output include a compact workspace risk summary.
-
-```bash
-repopilot scan . --workspace
-repopilot scan . --workspace --min-severity medium
-```
-
-When no workspace packages are detected, RepoPilot falls back to a normal single-project scan and prints a warning.
-
-### Saving reports
-
-Use `--output` to write to a file instead of stdout. The format is inferred from `--format`:
-
-```bash
-repopilot scan . --format json --output report.json
-repopilot scan . --format markdown --output report.md
-repopilot scan . --format html --output report.html
-repopilot scan . --format sarif --output repopilot.sarif
-repopilot scan . --format markdown --output repopilot-report.md --receipt .repopilot/receipt.json
-```
-
-Use `--receipt` when you need compact JSON evidence for CI artifacts or release
-records. The receipt includes schema version, RepoPilot version, git state, scan
-scope, finding counts, language counts, and health score.
-
-### Overriding thresholds
-
-CLI flags override `repopilot.toml` and built-in defaults:
-
-```bash
-repopilot scan . --max-file-loc 500
-repopilot scan . --max-directory-modules 30
-repopilot scan . --max-directory-depth 8
-```
-
-Use presets for one-shot tuning without editing config:
-
-```bash
-repopilot scan . --preset strict
-repopilot scan . --preset lenient
-```
-
-### Limiting scan input
-
-Use `--exclude` for exact relative paths or file/directory names, `--max-file-size` to skip large files, and `--max-files` to cap how many discovered files are analyzed:
-
-```bash
-repopilot scan . --exclude generated --exclude fixtures
-repopilot scan . --max-file-size 1mb
-repopilot scan . --max-files 1000
-```
-
-Size values accept raw bytes plus `kb`, `mb`, and `gb` suffixes. By default, low-signal audit paths such as tests, fixtures, examples, generated files, and benchmarks are skipped; pass `--include-low-signal` to analyze them.
-
-JSON reports expose this accounting with `files_discovered`, `files_analyzed` (analyzed text files), `files_skipped_low_signal`, `binary_files_skipped`, `large_files_skipped`, and `skipped_bytes`.
-
-### CI and output controls
-
-Use `--quiet` for CI logs where status and findings should remain visible but
-next-step hints and progress indicators should be suppressed. Use
-`--no-progress` when only the spinner should be disabled.
-
-```bash
-repopilot scan . --quiet
-repopilot scan . --no-progress
-```
-
-Use `--max-findings` to cap rendered human-format finding details. JSON and
-SARIF stay complete unless you apply a real filter such as `--min-severity`,
-`--min-priority`, or `--rule`.
-
-```bash
-repopilot scan . --max-findings 20
-repopilot scan . --max-findings none
-```
-
-### Filtering by severity, confidence, and priority
-
-Use `--min-severity` and `--min-confidence` to reduce local report noise while keeping the same rules enabled:
-
-```bash
-repopilot scan . --min-severity high
-repopilot review . --min-severity high
-repopilot scan . --min-confidence high
-repopilot review . --base origin/main --min-confidence medium
-```
-
-Use `--min-priority` when you want risk-ranked output instead of severity-only
-filtering, and `--rule` when investigating one detector:
-
-```bash
-repopilot scan . --min-priority p2
-repopilot review . --base origin/main --min-priority p1
-repopilot scan . --rule language.rust.panic-risk --timing
-```
-
-The default console report is compact. Use `--output-style full` when you need
-the diagnostic report with scan input, signal quality, hidden suggestion
-breakdown, risk clusters, rule counts, language inventory, and full finding
-details:
-
-```bash
-repopilot scan . --output-style full
-```
-
-Use `--color auto|always|never` or `--no-color` to control ANSI color. Auto mode
-only emits color for terminal stdout outside CI.
-
-Use `--verbose` when you need scan and render timing:
-
-```bash
-repopilot scan . --verbose
-```
-
-Use `--timing` when you need the engine pipeline breakdown. It reports
-discovery, file analysis, framework detection, project audits, enrichment, risk
-scoring, finding-contract validation, and report finalization separately.
-
----
-
-## AI workflows
-
-`repopilot ai context` scans the project and emits structured Markdown with risk summary, grouped findings, evidence snippets, recommendations, and an approximate token count.
-
-```bash
-repopilot ai context .
-repopilot ai context . --focus security --budget 2k
-repopilot ai context . --output ai-context.md
-repopilot ai context . --no-header | pbcopy
-```
-
-Use `--focus security`, `--focus arch`, `--focus quality`, or `--focus framework` to narrow the context before pasting it into Claude Code, Cursor, ChatGPT, or another LLM assistant.
-The GitHub Action can run `command: ai-context`; it defaults the path to `.` and does not pass `--format` because AI commands are Markdown-only.
-
-### AI plan
-
-Use `ai plan` when you want a deterministic remediation plan before editing code. It groups findings into P0/P1/P2/P3 priorities, clusters repeated rule patterns by repository area, and includes verification commands.
-
-```bash
-repopilot ai plan .
-repopilot ai plan . --focus security --budget 2k
-repopilot ai plan . --output ai-plan.md
-```
-
-### AI-ready prompt
-
-Use `ai prompt` when you want one paste-ready instruction block for a coding assistant. It includes remediation constraints and embedded RepoPilot context.
-
-```bash
-repopilot ai prompt .
-repopilot ai prompt . --focus security --budget 2k
-repopilot ai prompt . --output prompt.md
-```
-
-The GitHub Action can also run `command: ai-plan` and `command: ai-prompt`; both commands are Markdown-only.
-
----
-
-## Command surface policy
-
-Before v1, new user-facing behavior should fit the existing command families:
-
-- New detectors and checks become rules under `scan`.
-- New AI-ready outputs become `ai` subcommands or flags.
-- New debugging and rule-author tools become `inspect` subcommands.
-
-Top-level commands should stay focused on stable workflows: audit, review, baseline, compare, AI assistance, inspection, initialization, and readiness diagnostics.
-
-### Rule inspection and local evaluation
-
-Rule catalog inspection is local and read-only:
-
-```bash
-repopilot inspect rules
-repopilot inspect rules --format json
-repopilot inspect rules --lifecycle preview
-repopilot inspect rules --source text-heuristic
-repopilot inspect rule security.secret-candidate
-```
-
-Local rule evaluation runs bundled fixture projects without telemetry, upload, or
-remote training:
-
-```bash
-repopilot inspect eval-rules
-repopilot inspect eval-rules --rule security.secret-candidate
-repopilot inspect eval-rules --format json
-```
-
----
-
-## Reviewing changes
-
-`repopilot review` defaults to `--scope changed --profile default`: it scans
-changed files, keeps repository graph/framework context, and omits out-of-diff
-findings. Use `--scope full --profile strict` for a repository audit.
-
-### Local review (working tree vs HEAD)
+Review local staged, unstaged, and untracked changes:
 
 ```bash
 repopilot review .
 ```
 
-Covers staged, unstaged, and untracked files.
-
-### Branch review (CI)
+Review a branch range:
 
 ```bash
 repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
-repopilot review . --base origin/main --fail-on-priority p1
-repopilot review . --base origin/main --fail-on-review definitely
 ```
 
-When `--fail-on` is used with `review`, only **in-diff findings** trigger a failure — unrelated pre-existing issues do not block CI.
-`--fail-on-priority` works the same way, but evaluates P0/P1/P2/P3 risk priority instead of severity.
-`--fail-on-review` is independent: `definitely` blocks only unsuppressed,
-gate-eligible definitely-sensitive signals. Volume notes and coarse fallback
-signals never block.
-
-Write JSON and secondary SARIF from the same review:
+Write machine-readable JSON and SARIF from the same review:
 
 ```bash
 repopilot review . \
-  --format json --output repopilot-review.json \
-  --sarif-output repopilot-review.sarif
+  --base origin/main \
+  --format json \
+  --output review.json \
+  --sarif-output review.sarif
 ```
 
-### Blast radius
-
-When coupling data is available, `review` also lists files that **import** the changed files. These files may be affected by the change and worth an extra look.
-
----
-
-## Comparing two scans
-
-`repopilot compare` diffs two JSON scan reports and shows what changed between them:
+Finding gates and review-signal gates are independent:
 
 ```bash
-repopilot scan . --format json --output before.json
-# make your changes
-repopilot scan . --format json --output after.json
-repopilot compare before.json after.json
+repopilot review . --baseline .repopilot/baseline.json --fail-on new-high
+repopilot review . --fail-on-priority p1
+repopilot review . --fail-on-review definitely
 ```
 
-Useful for understanding the impact of a refactor or a dependency update without needing a Git diff.
+Use `--scope full --profile strict` only when a change review also needs the
+complete repository audit.
 
----
+## Review An Agent Run
 
-## Baseline workflow
-
-A baseline lets you adopt RepoPilot in a repository that already has findings, without failing CI on pre-existing issues.
-
-### Step 1 — create the baseline
+Create a marker before an agent starts editing:
 
 ```bash
-repopilot baseline create . --output .repopilot/baseline.json
+repopilot snapshot
 ```
 
-This scans the project and writes all current findings to `.repopilot/baseline.json`. Commit the file.
-
-### Step 2 — scan with the baseline
+Review every commit and working-tree change made after the marker:
 
 ```bash
-repopilot scan . --baseline .repopilot/baseline.json
+repopilot review --since-snapshot
 ```
 
-Findings present in the baseline are marked `existing`. Findings not in the baseline are marked `new`.
+## Adopt The Full Scan
 
-### Step 3 — gate CI on new findings only
-
-```bash
-repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
-```
-
-The pipeline fails only when a **new** high or critical finding appears. Pre-existing issues do not block the build.
-
-### Refreshing the baseline
-
-Refresh only when the team explicitly accepts the current findings as technical debt:
-
-```bash
-repopilot baseline create . --output .repopilot/baseline.json --force
-```
-
-`.repopilot/baseline.json` is accepted existing debt. Commit or update it only
-after intentional review, and include a PR note explaining why the findings are
-accepted. Do not refresh it just to make CI green; that defeats the purpose of
-gating only new risk while allowing gradual adoption. For first-time setup, use
-`repopilot baseline create . --output .repopilot/baseline.json`.
-
----
-
-## CI integration
-
-Minimal CI step that gates on new high findings:
-
-```yaml
-- name: Install RepoPilot
-  run: cargo install repopilot
-
-- name: Scan
-  run: repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
-```
-
-For SARIF upload to GitHub Code Scanning:
-
-```yaml
-- name: Scan (SARIF)
-  run: repopilot scan . --format sarif --output repopilot.sarif
-
-- name: Upload to GitHub Code Scanning
-  uses: github/codeql-action/upload-sarif@v4
-  if: always()
-  with:
-    sarif_file: repopilot.sarif
-```
-
-See [docs/integrations/github-code-scanning.md](integrations/github-code-scanning.md) for the full workflow with required permissions.
-
----
-
-## Generating a config file
+Check the repository and confirm the initial setup:
 
 ```bash
 repopilot init
+repopilot doctor .
+repopilot scan .
 ```
 
-Writes `repopilot.toml` with all thresholds at their defaults. Edit the file and commit it. RepoPilot reads it automatically on each `scan`.
+Adopt existing debt as a reviewed baseline:
 
 ```bash
-repopilot init --force            # overwrite an existing config
-repopilot init --path ./cfg/repopilot.toml
+repopilot baseline create .
+repopilot scan . \
+  --baseline .repopilot/baseline.json \
+  --fail-on new-high
 ```
 
----
+Do not refresh the baseline only to make CI pass. A baseline update is an
+explicit acceptance of current findings.
 
-## Common patterns
-
-### Fail only on critical findings in CI
+Default scans prioritize high-trust findings. Use strict mode for cleanup and
+rule calibration:
 
 ```bash
-repopilot scan . --fail-on critical
+repopilot scan . --profile strict
 ```
 
-### Save a Markdown report as a CI artifact
+## Reports
 
 ```bash
-repopilot review . --base origin/main --format markdown --output review.md
+repopilot scan . --format markdown --output repopilot-report.md
+repopilot scan . --format json --output repopilot-report.json
+repopilot scan . --format sarif --output repopilot.sarif
+repopilot scan . --format html --output repopilot.html
 ```
 
-### Scan a monorepo without low-severity noise
+Add a compact receipt when CI or a release needs provenance:
 
 ```bash
-repopilot scan . --workspace --min-severity medium
+repopilot scan . \
+  --format markdown \
+  --output repopilot-report.md \
+  --receipt .repopilot/receipt.json
 ```
 
-### Compare before and after a large refactor
+See [Reports](reports.md) for schema and compatibility details.
 
-```bash
-git stash
-repopilot scan . --format json --output before.json
-git stash pop
-repopilot scan . --format json --output after.json
-repopilot compare before.json after.json --format markdown
-```
+## GitHub Pull Requests
 
-### Scan a single file
-
-```bash
-repopilot scan src/payments/processor.rs
-```
-
----
-
-## `inspect cache`
-
-Inspect local changed-scan cache diagnostics.
-
-```bash
-repopilot inspect cache .
-repopilot inspect cache . --format json
-repopilot inspect cache . --format markdown --output cache.md
-```
-
-The command is read-only and reports cache entry counts, schema version,
-approximate cache size, and stale entry count.
-
----
-
-## `inspect graph`
-
-Inspect the local Context Risk Graph for top dependencies, import hubs, cycles,
-risky clusters, and changed-file blast radius when changed context is available.
-
-```bash
-repopilot inspect graph .
-repopilot inspect graph . --format json
-repopilot inspect graph . --format markdown --output graph.md
-```
-
-The command runs a local scan by default so graph metadata reflects the current
-working tree. RepoPilot stores the graph cache under `.repopilot/cache/`; clear
-it with `repopilot cache clear .` when you want to discard local cache state.
-Large graph sections are capped so console, Markdown, and JSON output stay
-readable. If a section is truncated, the graph summary lists the truncated
-section names.
-
-Changed-scope graph and blast-radius details are available only when the scan
-summary has changed-file context; full graph inspection does not invent a diff.
-
-Performance note: `inspect graph` builds its view from a local scan summary. It should not scan again during rendering. Large graph sections are bounded and listed in the `truncated` field when capped.
-
----
-
-## `inspect feedback`
-
-Validate local feedback suppressions. By default this only parses
-`.repopilot/feedback.yml` and renders diagnostics; it does not scan the
-repository.
-
-```bash
-repopilot inspect feedback .
-repopilot inspect feedback . --format json
-repopilot inspect feedback . --evaluate
-repopilot inspect feedback . --evaluate --format json
-repopilot inspect feedback . --format markdown --output feedback.md
-```
-
-The command parses `.repopilot/feedback.yml` with a YAML parser, reports
-malformed entries, and shows suppression counts. Use `--evaluate` when you need
-matched and unmatched suppression results against current findings. Evaluation is
-heavier because it runs a repository scan before applying local feedback.
-
----
-
-## Local feedback suppressions
-
-RepoPilot reads `.repopilot/feedback.yml` by default:
+Use the reusable workflow:
 
 ```yaml
-suppressions:
-  - rule_id: architecture.large-file
-    path: "src/generated/schema.rs"
-    reason: generated schema boundary
+jobs:
+  repopilot:
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.16.0
+    with:
+      fail-on-review: none
+      upload-sarif: false
 ```
 
-Use raw output without local suppressions:
+Or use the Action directly:
+
+```yaml
+- uses: MykytaStel/repopilot@v0.16.0
+  with:
+    command: review
+    scope: changed
+```
+
+See [GitHub pull request integration](integrations/github-code-scanning.md) for
+permissions, artifacts, SARIF, and sticky comments.
+
+## AI Context
+
+RepoPilot formats local evidence for an assistant without calling an AI service:
 
 ```bash
-repopilot scan . --ignore-feedback
-repopilot review . --ignore-feedback
+repopilot ai context . --budget 4k
+repopilot ai plan . --focus security
+repopilot ai prompt . --focus quality
 ```
 
-When suppressions are applied, console, Markdown, JSON, and receipt output show
-the local feedback counts so findings are visibly suppressed rather than
-silently disappearing.
+For direct agent integration, run the local MCP server:
 
-Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
-suppressions are intentionally team-reviewed and part of repository policy.
-Personal or temporary suppressions should stay local and uncommitted.
+```bash
+repopilot mcp --root .
+```
 
-## Engine pipeline contract
+## Diagnostics
 
-RepoPilot commands should scan once and render many outputs from the resulting
-`ScanSummary`. Renderers are not allowed to trigger repository scans. This keeps
-large repositories predictable and makes timing/cache metadata easier to trust.
+```bash
+repopilot doctor .
+repopilot inspect feedback .
+repopilot inspect cache .
+repopilot inspect graph .
+repopilot inspect rules
+repopilot inspect eval-rules
+repopilot inspect explain src/main.rs
+```
+
+Changed scans use `.repopilot/cache/` and skip repository-wide audits:
+
+```bash
+repopilot scan . --changed
+repopilot scan . --since origin/main
+repopilot cache clear .
+```
+
+Use a normal full scan when repository-wide architecture and framework findings
+must be authoritative.

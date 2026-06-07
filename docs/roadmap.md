@@ -1,117 +1,52 @@
 # RepoPilot Roadmap
 
-This roadmap describes the pre-1.0 line. The core product bet is a fast,
-local-first audit/review tool for maintainers who do not want SaaS, telemetry,
-or source upload.
+RepoPilot is a review-first, local CLI for maintainers and coding agents. The
+product should help answer: what changed, which boundaries moved, and how far
+the change reaches before merge.
 
-## Product Direction
+## Now: 0.16
 
-RepoPilot should stay on this path:
+- ship changed-scope review as the default;
+- stabilize review signal identity, provenance, suppression, and opt-in gates;
+- keep GitHub Action, MCP, and preview VSIX consumers on the same JSON/SARIF
+  review;
+- simplify packaging, documentation, branches, and release automation;
+- keep Cargo, npm, Homebrew, and GitHub Releases reliable.
 
-```text
-local scan -> evidence-backed findings -> risk-ranked review -> baseline adoption -> AI-ready local context -> CI gate
-```
+## Next: 0.17
 
-AI commands remain a local formatting layer. They should package scan evidence
-for Claude Code, ChatGPT, Cursor, or another assistant, not become the primary
-product dependency.
+- reduce false positives in boundary, behavioral, algorithmic, and taint-lite
+  signals;
+- expand true-positive and false-positive fixtures for default-visible review;
+- measure adoption through reproducible demos, issues, and user feedback rather
+  than new channel count;
+- improve first-run docs and CI evidence;
+- document compatibility expectations for review JSON, SARIF, Action outputs,
+  and MCP schemas.
 
-## Aggressive Product Cut
+No new rule family, Marketplace channel, PyPI package, hosted service, telemetry,
+or implicit LLM integration should enter `0.17` without demonstrated user
+demand and a maintenance owner.
 
-Do not add new rule families before 0.20.0 unless the existing families have:
+## Later
 
-- true-positive and false-positive fixtures;
-- false-positive coverage for default-visible behavior;
-- complete metadata and false-positive notes;
-- docs for high/critical findings;
-- a documented visibility policy;
-- clean self-audit behavior;
-- clean `repopilot inspect eval-rules --format json` output.
+- finalize deprecations and compatibility policy before `1.0`;
+- review whether preview VSIX distribution has enough demand for a supported
+  Marketplace channel;
+- consider curated knowledge packs only after existing signal quality remains
+  healthy;
+- define the smallest stable `1.0` command and schema contract.
 
-Default scans should show only high-trust/high-priority findings. Broad
-heuristics such as long functions, complex files, TODO/FIXME/HACK markers, and
-testing gaps belong in `--profile strict` unless they become contextually precise
-enough to earn default visibility.
+## Release Gates
 
-## 0.13.x: Smart Baseline
+Every release must keep:
 
-0.13.x is a trust and adoption release line.
+- local-only runtime behavior;
+- deterministic findings and review signals;
+- fixture-backed stable rules;
+- transparent suppressions and hidden suggestions;
+- clean self-scan and rule-quality gates;
+- compatible CLI, JSON, SARIF, baseline, receipt, Action, and MCP surfaces;
+- verified official distribution channels.
 
-Focus:
-
-- lock the audit-first positioning;
-- keep the stable top-level surface to `scan`, `review`, `baseline`, `compare`,
-  `doctor`, `inspect`, `ai`, `init`, and `cache`;
-- harden `src/scan/scanner/mod.rs::finalize_report` and the scan finalization
-  path;
-- expand `inspect eval-rules` fixtures for default-visible and stable rules;
-- reduce README/docs IA to install, first five minutes, core promise, and links;
-- archive old GTM and release announcement/checklist docs.
-
-Core rule families to strengthen before expanding:
-
-- secrets and private keys;
-- Rust panic/runtime risk;
-- JavaScript, Python, Go, JVM, and .NET runtime exits;
-- import graph risk;
-- review diff and blast-radius behavior.
-
-## Release Train
-
-| Version | Theme | Main outcome |
-|---|---|---|
-| 0.13.x | Smart Baseline | Trustable default scan, fixture-backed stable rules, slimmer docs, baseline/review adoption. |
-| 0.14 | Rule-author workflow | Broader fixture coverage, false-positive suites, and clearer rule decision debugging. |
-| 0.15 | Change intelligence | Boundary, behavioral, algorithmic, and taint-lite review signals with snapshot-based agent review. |
-| 0.16 | Integration and noise control | Changed-scope review, explicit signal gating, GitHub PR workflow, structured MCP, and platform VS Code packages. |
-| 0.17 | Curated packs | First-party rule/knowledge packs only if the lifecycle gate stays healthy. |
-| 0.18 | Compatibility docs | Migration, support, and schema compatibility policy for v1. |
-| 0.19 | v1 cleanup prep | Final deprecations, alias policy, and schema migration notes. |
-| 0.20 | v1 candidate review | Confirm the exact 1.0.0 scope and block unproven expansion. |
-
-## Test Plan
-
-Keep the test pyramid:
-
-- unit tests for pure logic;
-- fixture tests for rule precision and false positives;
-- schema/golden tests for JSON, SARIF, and reports;
-- minimal CLI smoke tests for command paths.
-
-Do not mechanically reduce the current test count. Remove duplicates only when
-they exercise the same renderer or CLI path without covering a new risk, and
-prefer table-driven cases for repeated rule/renderer checks.
-
-Required release gates:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all
-npm run test:npm
-npm run vscode:check
-npm run review:performance
-./scripts/smoke-product.sh
-repopilot inspect eval-rules --format json
-repopilot scan .
-```
-
-## 1.0.0 Gates
-
-RepoPilot can move to 1.0.0 only after the 0.20 review confirms:
-
-- the stable top-level command surface is limited to `scan`, `review`,
-  `baseline`, `compare`, `doctor`, `inspect`, `ai`, `init`, and `cache`;
-- JSON, SARIF, baseline, receipt, report-envelope, and diagnostics schemas have
-  compatibility rules;
-- local feedback metadata is visible so suppressions never silently hide risk;
-- the local-first trust model has no telemetry, source upload, hosted scanner,
-  or implicit LLM API calls;
-- release verification and product smoke suites pass from a clean release branch;
-- self-audit produces no P0/P1 findings and no high/critical findings by default;
-- distribution channels are verified for npm, crates.io, GitHub Releases,
-  Homebrew, and curl install.
-
-1.0.0 should require a trustworthy product contract, not every possible rule
-family. More rules can ship after v1 only if the lifecycle, evidence, docs, and
-tests remain disciplined.
+The goal is a trustworthy product contract, not the largest rule catalog.

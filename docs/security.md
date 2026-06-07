@@ -1,6 +1,7 @@
 # Security
 
-RepoPilot is designed as a local-first repository audit tool.
+RepoPilot is designed as a local-first Git change review and repository audit
+tool.
 
 ## Runtime trust model
 

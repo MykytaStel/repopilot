@@ -38,6 +38,9 @@ updates:
       time: "10:00"
       timezone: Europe/Kiev
     open-pull-requests-limit: 5
+    ignore:
+      # The MSRV job intentionally tests the package's declared Rust floor.
+      - dependency-name: dtolnay/rust-toolchain
     labels:
       - dependencies
       - ci

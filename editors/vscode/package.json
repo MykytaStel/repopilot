@@ -1,7 +1,7 @@
 {
   "name": "repopilot-vscode",
   "displayName": "RepoPilot",
-  "description": "Local-first repository review, diagnostics, and MCP integration.",
+  "description": "Preview local Git change review, diagnostics, and MCP integration.",
   "version": "0.16.0",
   "publisher": "MykytaStel",
   "license": "MIT OR Apache-2.0",

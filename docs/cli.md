@@ -496,7 +496,9 @@ repopilot inspect feedback . --format markdown --output feedback.md
 
 ## `inspect cache`
 
-Reports local changed-scan cache path, cache existence, entry counts, and cache metadata. It is read-only.
+Reports local changed-scan cache path, cache existence, schema version, entry
+counts, stale or unmatched entries, approximate size, and cache metadata. It is
+read-only. Changed-file scans store this cache under `.repopilot/cache/`.
 
 ### Synopsis
 
@@ -517,6 +519,7 @@ repopilot inspect cache [PATH] [OPTIONS]
 repopilot inspect cache .
 repopilot inspect cache . --format json
 repopilot inspect cache . --format markdown --output cache.md
+repopilot cache clear .
 ```
 
 ---

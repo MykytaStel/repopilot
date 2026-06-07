@@ -21,6 +21,9 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "==> Rust tests"
 cargo test --all
 
+echo "==> Release contract"
+python3 scripts/release-contract.py check
+
 echo "==> Rust dependency security audit"
 cargo audit
 
@@ -67,10 +70,10 @@ echo "==> CLI release smoke tests"
 cargo test --test cli_release_smoke
 
 echo "==> Cargo package contents"
-cargo package --list
+cargo package --list --allow-dirty
 
 echo "==> Cargo publish dry-run"
-cargo publish --dry-run
+cargo publish --dry-run --allow-dirty
 
 echo "==> npm wrapper tests"
 npm run test:npm
@@ -80,8 +83,6 @@ npm pack --dry-run
 
 echo "==> Build release binary"
 cargo build --release
-
-
 
 echo "==> Rule evaluation JSON smoke"
 ./target/release/repopilot inspect eval-rules --format json > "$VERIFY_TMP_DIR/eval-rules.json"
