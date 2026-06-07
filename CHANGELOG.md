@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- `repopilot review` taint-lite now clears taint when a tracked local is reassigned to a clean value (`x = req.query.id; x = "static"; …`), removing false positives at later sinks. Compound assignment (`x += …`) still keeps taint because it combines with the prior value. Detection stays intra-procedural and at `preview`.
+
 ## [0.16.0] - 2026-06-07
 
 RepoPilot 0.16 makes change review the fast, low-noise default and turns the

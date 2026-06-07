@@ -171,6 +171,37 @@ function runsQuery(id: string) {
     assert!(signals.is_empty());
 }
 
+#[test]
+fn js_clean_reassignment_clears_taint() {
+    // `id` is tainted, then overwritten with a constant before the sink.
+    let signals = run(
+        "src/handler.ts",
+        "TypeScript",
+        r#"
+let id = req.query.id;
+id = "static";
+db.query("SELECT * FROM t WHERE id = " + id);
+"#,
+    );
+    assert!(signals.is_empty(), "a clean reassignment must clear taint");
+}
+
+#[test]
+fn js_reassignment_to_a_source_starts_tainting() {
+    // The reverse: clean first, then reassigned from a request field.
+    let signals = run(
+        "src/handler.ts",
+        "TypeScript",
+        r#"
+let id = "static";
+id = req.query.id;
+db.query("SELECT * FROM t WHERE id = " + id);
+"#,
+    );
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].sink, SinkKind::Sql);
+}
+
 // ── Python ────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -264,6 +295,22 @@ open(path, mode="w")
     );
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].sink, SinkKind::FsWrite);
+}
+
+#[test]
+fn python_compound_assignment_keeps_taint() {
+    // `q += " more"` combines with the tainted value, so taint must NOT clear.
+    let signals = run(
+        "src/views.py",
+        "Python",
+        r#"
+q = request.args.get("id")
+q += " ORDER BY 1"
+cursor.execute("SELECT * FROM t WHERE id = " + q)
+"#,
+    );
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].sink, SinkKind::Sql);
 }
 
 // ── Go ────────────────────────────────────────────────────────────────────────

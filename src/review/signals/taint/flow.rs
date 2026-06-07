@@ -21,10 +21,6 @@ use crate::review::signals::behavioral::truncate_str;
 use std::collections::HashMap;
 use tree_sitter::Node;
 
-/// Maximum seeding passes — enough for realistic `a = src; b = a; c = b` chains
-/// without unbounded work on pathological inputs.
-const MAX_SEED_PASSES: usize = 4;
-
 pub(super) fn detect(
     root: Node<'_>,
     content: &str,
@@ -67,42 +63,61 @@ fn detect_nested_scopes(
 // ── Seeding ─────────────────────────────────────────────────────────────────
 
 fn seed_tainted(root: Node<'_>, content: &str, lang: TaintLang) -> HashMap<String, SourceKind> {
-    let mut assignments: Vec<(Vec<String>, Node<'_>)> = Vec::new();
+    let mut assignments: Vec<Assignment<'_>> = Vec::new();
     collect_assignments(root, lang, content, &mut assignments);
+    // Process in document order so a later reassignment overrides an earlier one;
+    // a single forward pass then resolves `a = src; b = a; c = b` chains.
+    assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
 
     let mut tainted: HashMap<String, SourceKind> = HashMap::new();
-    for _ in 0..MAX_SEED_PASSES {
-        let mut changed = false;
-        for (names, rhs) in &assignments {
-            let Some(kind) = node_has_source(*rhs, content, lang)
-                .or_else(|| node_mentions_tainted(*rhs, content, lang, &tainted))
-            else {
-                continue;
-            };
-            for name in names {
-                if tainted.insert(name.clone(), kind).is_none() {
-                    changed = true;
+    for assignment in &assignments {
+        match node_has_source(assignment.rhs, content, lang)
+            .or_else(|| node_mentions_tainted(assignment.rhs, content, lang, &tainted))
+        {
+            // A tainted/source value sets (or re-sets) taint for each target name.
+            Some(kind) => {
+                for name in &assignment.names {
+                    tainted.insert(name.clone(), kind);
                 }
             }
-        }
-        if !changed {
-            break;
+            // A clean reassignment clears taint — `x = req.query.id; x = "safe"`.
+            // Compound assignment (`x += …`) combines with the old value, so it
+            // never clears.
+            None if !assignment.augmenting => {
+                for name in &assignment.names {
+                    tainted.remove(name);
+                }
+            }
+            None => {}
         }
     }
     tainted
+}
+
+/// One assignment found in a scope: the local names it targets, its value node,
+/// and whether it is a compound assignment (`+=`, …) that combines with the old
+/// value rather than replacing it.
+struct Assignment<'a> {
+    names: Vec<String>,
+    rhs: Node<'a>,
+    augmenting: bool,
 }
 
 fn collect_assignments<'a>(
     node: Node<'a>,
     lang: TaintLang,
     content: &str,
-    out: &mut Vec<(Vec<String>, Node<'a>)>,
+    out: &mut Vec<Assignment<'a>>,
 ) {
     if let Some((lhs, rhs)) = assignment_parts(node, lang) {
         let mut names = Vec::new();
         collect_lhs_names(lhs, content, &mut names);
         if !names.is_empty() {
-            out.push((names, rhs));
+            out.push(Assignment {
+                names,
+                rhs,
+                augmenting: is_augmenting(node, lang),
+            });
         }
     }
     let mut cursor = node.walk();
@@ -110,6 +125,30 @@ fn collect_assignments<'a>(
         if !lang.is_flow_scope(child) {
             collect_assignments(child, lang, content, out);
         }
+    }
+}
+
+/// Whether `node` is a compound assignment that combines with the existing value
+/// (`x += …`), as opposed to a plain replacement (`x = …`, `x := …`).
+fn is_augmenting(node: Node<'_>, lang: TaintLang) -> bool {
+    match lang {
+        TaintLang::Python => node.kind() == "augmented_assignment",
+        TaintLang::Go => {
+            node.kind() == "assignment_statement" && {
+                let mut cursor = node.walk();
+                node.children(&mut cursor).any(|child| {
+                    matches!(
+                        child.kind(),
+                        "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
+                            | "&^="
+                    )
+                })
+            }
+        }
+        // tree-sitter-javascript models `x += …` as a distinct
+        // `augmented_assignment_expression` node that `assignment_parts` does not
+        // collect, so anything collected here is a plain `=`.
+        TaintLang::Js => false,
     }
 }
 
