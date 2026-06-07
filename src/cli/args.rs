@@ -73,6 +73,18 @@ pub enum ScanProfileArg {
     Strict,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum ReviewScopeArg {
+    Changed,
+    Full,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum ReviewFailOnArg {
+    None,
+    Definitely,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MaxFindingsArg {
     Limit(usize),

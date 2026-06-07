@@ -22,7 +22,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
 
     let first = scan_changed_json(temp.path(), &["--changed"]);
     assert_eq!(first["mode"], "changed");
-    assert_eq!(first["repo_level_rules_included"], false);
+    assert_eq!(first["repo_level_rules_included"], true);
     assert_eq!(first["changed_files_count"], 1);
     assert_eq!(first["cache_telemetry"]["hits"], 0);
     assert_eq!(first["cache_telemetry"]["misses"], 1);

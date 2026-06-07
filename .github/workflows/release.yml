@@ -109,12 +109,46 @@ jobs:
       - name: Publish dry run
         run: cargo publish --dry-run
 
+  build-vscode:
+    name: Build VS Code extensions
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Build platform VSIX packages
+        run: node scripts/build-vscode-platform-packages.js --version "${GITHUB_REF_NAME#v}"
+
+      - name: Attest VSIX packages
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/vscode/*.vsix
+            dist/vscode/manifest.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-vscode
+          path: dist/vscode
+          if-no-files-found: error
+
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs:
       - build
       - verify-crates-package
+      - build-vscode
     steps:
       - uses: actions/checkout@v6
 
@@ -132,6 +166,8 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/*.sha256
+            dist/*.vsix
+            dist/manifest.json
           body_path: .github/release_template.md
           generate_release_notes: true
 

@@ -62,8 +62,8 @@ Core rule families to strengthen before expanding:
 |---|---|---|
 | 0.13.x | Smart Baseline | Trustable default scan, fixture-backed stable rules, slimmer docs, baseline/review adoption. |
 | 0.14 | Rule-author workflow | Broader fixture coverage, false-positive suites, and clearer rule decision debugging. |
-| 0.15 | Adoption hardening | Workspace noise reduction, baseline ergonomics, and performance budgets for larger repositories. |
-| 0.16 | Distribution trust | Release artifact attestations and tighter npm, crates.io, Homebrew, and installer verification. |
+| 0.15 | Change intelligence | Boundary, behavioral, algorithmic, and taint-lite review signals with snapshot-based agent review. |
+| 0.16 | Integration and noise control | Changed-scope review, explicit signal gating, GitHub PR workflow, structured MCP, and platform VS Code packages. |
 | 0.17 | Curated packs | First-party rule/knowledge packs only if the lifecycle gate stays healthy. |
 | 0.18 | Compatibility docs | Migration, support, and schema compatibility policy for v1. |
 | 0.19 | v1 cleanup prep | Final deprecations, alias policy, and schema migration notes. |
@@ -89,6 +89,8 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 npm run test:npm
+npm run vscode:check
+npm run review:performance
 ./scripts/smoke-product.sh
 repopilot inspect eval-rules --format json
 repopilot scan .

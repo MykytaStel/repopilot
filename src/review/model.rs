@@ -8,6 +8,14 @@ use crate::scan::types::ScanSummary;
 use serde::Serialize;
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub struct ReviewTimings {
+    pub diff_loading_us: u64,
+    pub review_signals_us: u64,
+    pub gating_us: u64,
+    pub rendering_us: u64,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ReviewReport {
     pub summary: ScanSummary,
@@ -20,6 +28,7 @@ pub struct ReviewReport {
     pub boundary_missing_test: bool,
     /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     pub tiered_signals: TieredSignals,
+    pub timings: ReviewTimings,
     pub findings: Vec<ReviewFindingStatus>,
 }
 
@@ -145,6 +154,22 @@ impl ReviewReport {
             self.findings.push(status);
         }
 
+        recompute_summary_metrics(&mut self.summary);
+    }
+
+    pub fn retain_in_diff_findings(&mut self) {
+        let mut paired = self
+            .summary
+            .artifacts
+            .findings
+            .drain(..)
+            .zip(self.findings.drain(..))
+            .collect::<Vec<_>>();
+        paired.retain(|(_, status)| status.in_diff);
+        for (finding, status) in paired {
+            self.summary.artifacts.findings.push(finding);
+            self.findings.push(status);
+        }
         recompute_summary_metrics(&mut self.summary);
     }
 }

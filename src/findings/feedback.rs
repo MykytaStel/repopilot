@@ -15,6 +15,7 @@ pub struct LocalFeedbackValidation {
     pub feedback_path: PathBuf,
     pub exists: bool,
     pub suppressions: Vec<LocalSuppression>,
+    pub review_suppressions: Vec<ReviewSuppression>,
     pub invalid_suppressions_count: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parse_error: Option<String>,
@@ -31,8 +32,21 @@ struct RawFeedbackFile {
 #[derive(Debug, Default, Deserialize)]
 struct RawSuppression {
     rule_id: Option<String>,
+    kind: Option<String>,
     path: Option<String>,
     reason: Option<String>,
+    expires: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReviewSuppression {
+    pub index: usize,
+    pub kind: String,
+    pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires: Option<String>,
 }
 
 pub fn apply_local_feedback(
@@ -53,6 +67,7 @@ pub fn apply_local_feedback(
     let mut report = LocalFeedbackReport {
         feedback_path: Some(validation.feedback_path.clone()),
         suppressions_loaded: validation.suppressions.len(),
+        review_suppressions_loaded: validation.review_suppressions.len(),
         invalid_suppressions_count: validation.invalid_suppressions_count,
         parse_error: validation.parse_error.clone(),
         ..LocalFeedbackReport::default()
@@ -143,29 +158,53 @@ pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> Local
     };
 
     let mut suppressions = Vec::new();
+    let mut review_suppressions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut invalid_suppressions_count = 0;
 
     for (offset, raw) in parsed.suppressions.into_iter().enumerate() {
         let index = offset + 1;
         let rule_id = clean_optional_value(raw.rule_id);
+        let kind = clean_optional_value(raw.kind);
         let path = clean_optional_value(raw.path);
         let reason = clean_optional_value(raw.reason);
+        let expires = clean_optional_value(raw.expires);
 
-        match (rule_id, path) {
-            (Some(rule_id), Some(path)) => suppressions.push(LocalSuppression {
+        if let Some(expires) = expires.as_deref()
+            && chrono::NaiveDate::parse_from_str(expires, "%Y-%m-%d").is_err()
+        {
+            invalid_suppressions_count += 1;
+            diagnostics.push(
+                ScanDiagnostic::warning(
+                    "feedback.invalid-expiry",
+                    format!("Suppression #{index} has invalid expires date `{expires}`."),
+                )
+                .with_path(feedback_path.clone()),
+            );
+            continue;
+        }
+
+        match (rule_id, kind, path) {
+            (Some(rule_id), None, Some(path)) => suppressions.push(LocalSuppression {
                 index,
                 rule_id,
                 path: normalize_path_text(&path),
                 reason,
             }),
-            (rule_id, path) => {
+            (None, Some(kind), Some(path)) => review_suppressions.push(ReviewSuppression {
+                index,
+                kind,
+                path: normalize_path_text(&path),
+                reason,
+                expires,
+            }),
+            (rule_id, kind, path) => {
                 invalid_suppressions_count += 1;
-                let missing = match (rule_id.is_none(), path.is_none()) {
-                    (true, true) => "rule_id and path",
-                    (true, false) => "rule_id",
+                let missing = match (rule_id.is_none() && kind.is_none(), path.is_none()) {
+                    (true, true) => "rule_id or kind, and path",
+                    (true, false) => "rule_id or kind",
                     (false, true) => "path",
-                    (false, false) => "required field",
+                    (false, false) => "exactly one of rule_id or kind",
                 };
                 diagnostics.push(
                     ScanDiagnostic::warning(
@@ -182,6 +221,7 @@ pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> Local
         feedback_path,
         exists: true,
         suppressions,
+        review_suppressions,
         invalid_suppressions_count,
         parse_error: None,
         diagnostics,

@@ -2,11 +2,22 @@ use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::render_helpers::escape_table_cell;
+use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::signals::tiered::ReviewSignal;
 
+const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
+
 pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
+    render_markdown_with_gates(report, ci_gate, None)
+}
+
+pub fn render_markdown_with_gates(
+    report: &ReviewReport,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> String {
     let mut output = String::new();
 
     output.push_str("# RepoPilot Review Report\n\n");
@@ -33,8 +44,11 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
     ));
     if let Some(feedback) = &report.summary.local_feedback {
         output.push_str(&format!(
-            "- **Local feedback:** {} suppression(s) loaded, {} finding(s) suppressed\n",
-            feedback.suppressions_loaded, feedback.suppressed_findings_count
+            "- **Local feedback:** {} finding + {} review suppression(s) loaded, {} finding(s) + {} review signal(s) suppressed\n",
+            feedback.suppressions_loaded,
+            feedback.review_suppressions_loaded,
+            feedback.suppressed_findings_count,
+            feedback.suppressed_review_signals_count,
         ));
     }
 
@@ -43,6 +57,18 @@ pub fn render_markdown(report: &ReviewReport, ci_gate: Option<&CiGateResult>) ->
         output.push_str(&format!(
             "- **CI gate:** {status} (`{}`)\n",
             ci_gate.label()
+        ));
+    }
+    if let Some(review_gate) = review_gate {
+        let status = if review_gate.passed() {
+            "passed"
+        } else {
+            "failed"
+        };
+        output.push_str(&format!(
+            "- **Review gate:** {status} (`{}`, {} signal(s))\n",
+            review_gate.label(),
+            review_gate.failed_signals
         ));
     }
 
@@ -124,13 +150,28 @@ fn render_markdown_tiered_signals(output: &mut String, report: &ReviewReport) {
         );
     }
 
-    render_markdown_tier(output, "Definitely sensitive", &tiered.definitely);
-    render_markdown_tier(output, "Maybe sensitive", &tiered.maybe);
-    render_markdown_tier(output, "Large diff / noise", &tiered.noise);
+    let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
+    render_markdown_tier(
+        output,
+        "Definitely sensitive",
+        &tiered.definitely,
+        &mut remaining,
+    );
+    render_markdown_tier(output, "Maybe sensitive", &tiered.maybe, &mut remaining);
+    render_markdown_tier(output, "Large diff / noise", &tiered.noise, &mut remaining);
 }
 
-fn render_markdown_tier(output: &mut String, label: &str, signals: &[ReviewSignal]) {
-    if signals.is_empty() {
+fn render_markdown_tier(
+    output: &mut String,
+    label: &str,
+    signals: &[ReviewSignal],
+    remaining: &mut usize,
+) {
+    let active = signals
+        .iter()
+        .filter(|signal| !signal.suppressed)
+        .collect::<Vec<_>>();
+    if active.is_empty() {
         return;
     }
 
@@ -138,7 +179,8 @@ fn render_markdown_tier(output: &mut String, label: &str, signals: &[ReviewSigna
     output.push_str("| Signal | Location | Detail | Reach |\n");
     output.push_str("| --- | --- | --- | --- |\n");
 
-    for signal in signals {
+    let shown = active.len().min(*remaining);
+    for signal in active.iter().take(shown) {
         let location = if signal.path.is_empty() {
             "—".to_string()
         } else {
@@ -166,6 +208,13 @@ fn render_markdown_tier(output: &mut String, label: &str, signals: &[ReviewSigna
         ));
     }
 
+    *remaining = remaining.saturating_sub(shown);
+    if active.len() > shown {
+        output.push_str(&format!(
+            "\n_{} additional signal(s) omitted; use JSON for the full list._\n",
+            active.len() - shown
+        ));
+    }
     output.push('\n');
 }
 

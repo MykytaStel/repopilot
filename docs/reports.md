@@ -11,16 +11,16 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.17:
+JSON scan reports include explicit schema metadata. The current schema is 0.18:
 
 ```json
 {
-  "schema_version": "0.17",
-  "repopilot_version": "0.15.0",
+  "schema_version": "0.18",
+  "repopilot_version": "0.16.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.17",
-    "repopilot_version": "0.15.0"
+    "schema_version": "0.18",
+    "repopilot_version": "0.16.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -122,6 +122,8 @@ finding-contract diagnostics, and `signal_quality` metrics.
 Schema `0.16` adds context graph report and cache diagnostics. Schema `0.17`
 adds raw-vs-visible finding and signal-quality metrics so default-profile
 reports do not look clean when meaningful strict-only findings were hidden.
+Schema `0.18` adds the stable review-signal contract, suppression/gate metadata,
+and the explicit review gate result.
 
 ## Baseline JSON reports
 
@@ -139,12 +141,12 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.17",
-  "repopilot_version": "0.15.0",
+  "schema_version": "0.18",
+  "repopilot_version": "0.16.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.17",
-    "repopilot_version": "0.15.0"
+    "schema_version": "0.18",
+    "repopilot_version": "0.16.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -170,7 +172,12 @@ Example shape:
 `report.kind = "review"`. Review reports include scan scope, changed files,
 blast-radius files, `risk_summary`, structured diagnostics, baseline metadata,
 optional `local_feedback`, CI gate metadata when requested, and per-finding
-`in_diff` / `baseline_status` classification.
+`in_diff` / `baseline_status` classification. `tiered_signals` entries include
+`signal_id`, namespaced `kind`, `family`, `tier`, `confidence`, path and line
+ranges, merged evidence lines, headline/detail/blast radius, provenance,
+suppression state, and gate eligibility. `review_gate` is independent from the
+finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
+`review_signals_us`, `gating_us`, and `rendering_us`.
 
 ## Audit receipt JSON
 
@@ -192,10 +199,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.15.0"
+    "repopilot_version": "0.16.0"
   },
   "tool": "repopilot",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

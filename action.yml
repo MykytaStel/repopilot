@@ -12,7 +12,7 @@ inputs:
     required: false
     default: "scan"
   format:
-    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan and markdown for review/compare/doctor; AI commands emit Markdown."
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan, JSON for review, and Markdown for compare/doctor/AI commands."
     required: false
     default: "auto"
   path:
@@ -33,6 +33,18 @@ inputs:
     default: ""
   fail-on-priority:
     description: "Optional scan/review failure threshold by risk priority: p0 | p1 | p2 | p3."
+    required: false
+    default: ""
+  fail-on-review:
+    description: "Optional review-signal gate: none | definitely."
+    required: false
+    default: "none"
+  scope:
+    description: "Review scope: changed | full."
+    required: false
+    default: ""
+  profile:
+    description: "Finding visibility profile: default | strict."
     required: false
     default: ""
   min-severity:
@@ -80,28 +92,60 @@ inputs:
     required: false
     default: ""
   version:
-    description: "npm version tag to install. Pin this for reproducible CI (e.g. 0.15.0)."
+    description: "GitHub Release version to install and checksum-verify."
     required: false
-    default: "0.15.0"
+    default: "0.16.0"
   upload-sarif:
     description: "Automatically upload SARIF output to GitHub Code Scanning"
     required: false
-    default: "true"
+    default: "false"
+  comment:
+    description: "Update a sticky PR comment. Requires pull-requests: write."
+    required: false
+    default: "false"
 
 outputs:
   sarif-file:
-    description: "Path to the generated SARIF file (only set when format is sarif)"
+    description: "Path to the generated scan or review SARIF file."
     value: ${{ steps.run.outputs.sarif_file }}
   receipt-file:
     description: "Path to the generated audit receipt JSON file (only set when receipt is provided for scan)"
     value: ${{ steps.run.outputs.receipt_file }}
+  review-json-file:
+    description: "Path to the generated review JSON file."
+    value: ${{ steps.run.outputs.review_json_file }}
+  review-sarif-file:
+    description: "Path to the generated review SARIF file."
+    value: ${{ steps.run.outputs.review_sarif_file }}
+  conclusion:
+    description: "RepoPilot conclusion: passed or failed."
+    value: ${{ steps.run.outputs.conclusion }}
+  findings-count:
+    description: "Number of in-diff findings."
+    value: ${{ steps.run.outputs.findings_count }}
+  signals-count:
+    description: "Number of review signals."
+    value: ${{ steps.run.outputs.signals_count }}
+  gate-result:
+    description: "Review gate status."
+    value: ${{ steps.run.outputs.gate_result }}
+  exit-code:
+    description: "RepoPilot process exit code."
+    value: ${{ steps.run.outputs.exit_code }}
 
 runs:
   using: composite
   steps:
-    - name: Install repopilot
+    - name: Cache RepoPilot binary
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/repopilot-action
+        key: repopilot-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
+
+    - name: Install verified RepoPilot binary
+      id: install
       shell: bash
-      run: npm install -g repopilot@${{ inputs.version }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/install-action-binary.sh" "${{ inputs.version }}"
 
     - name: Run repopilot
       id: run
@@ -114,6 +158,9 @@ runs:
         INPUT_BASELINE: ${{ inputs.baseline }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_FAIL_ON_PRIORITY: ${{ inputs.fail-on-priority }}
+        INPUT_FAIL_ON_REVIEW: ${{ inputs.fail-on-review }}
+        INPUT_SCOPE: ${{ inputs.scope }}
+        INPUT_PROFILE: ${{ inputs.profile }}
         INPUT_MIN_SEVERITY: ${{ inputs.min-severity }}
         INPUT_MIN_PRIORITY: ${{ inputs.min-priority }}
         INPUT_RULE: ${{ inputs.rule }}
@@ -125,6 +172,7 @@ runs:
         INPUT_OUTPUT: ${{ inputs.output }}
         INPUT_RECEIPT: ${{ inputs.receipt }}
         INPUT_ARGS: ${{ inputs.args }}
+        REPOPILOT_DEFER_FAILURE: "true"
       run: |
         bash "$GITHUB_ACTION_PATH/scripts/repopilot-action.sh"
 
@@ -133,3 +181,40 @@ runs:
       uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: ${{ steps.run.outputs.sarif_file }}
+
+    - name: Update RepoPilot PR comment
+      if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.run.outputs.summary_file != ''
+      uses: actions/github-script@v8
+      env:
+        REPOPILOT_SUMMARY_FILE: ${{ steps.run.outputs.summary_file }}
+      with:
+        script: |
+          const fs = require('fs');
+          const marker = '<!-- repopilot-review -->';
+          const body = `${marker}\n${fs.readFileSync(process.env.REPOPILOT_SUMMARY_FILE, 'utf8')}`;
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          const existing = comments.find(comment => comment.body?.startsWith(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+          }
+
+    - name: Enforce RepoPilot result
+      if: steps.run.outputs.exit_code != '' && steps.run.outputs.exit_code != '0'
+      shell: bash
+      run: exit "${{ steps.run.outputs.exit_code }}"

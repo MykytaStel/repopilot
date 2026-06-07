@@ -7,12 +7,13 @@ use crate::config::defaults::{
 };
 use crate::output::OutputFormat;
 use crate::scan::config::ScanConfig;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct RepoPilotConfig {
     pub scan: ScanSection,
+    pub review: ReviewSection,
     pub architecture: ArchitectureSection,
     pub code_quality: CodeQualitySection,
     pub testing: TestingSection,
@@ -22,6 +23,29 @@ pub struct RepoPilotConfig {
     pub algorithmic: AlgorithmicSection,
     pub taint: TaintSection,
     pub output: OutputSection,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReviewScope {
+    #[default]
+    Changed,
+    Full,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReviewFailOn {
+    #[default]
+    None,
+    Definitely,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct ReviewSection {
+    pub scope: ReviewScope,
+    pub fail_on: ReviewFailOn,
 }
 
 impl RepoPilotConfig {

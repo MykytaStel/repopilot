@@ -37,7 +37,11 @@ pub fn write_repo_context_graph(
     let repository_fingerprint = repository_fingerprint(root);
 
     if let Some(cached) = read_cached_repo_context_graph(&cache_path)
-        && valid_cached_graph_metadata(&cached, root, config_fingerprint)
+        && valid_cached_graph_metadata_for_repository(
+            &cached,
+            config_fingerprint,
+            &repository_fingerprint,
+        )
         && cached.input_fingerprint == input_fingerprint
         && cached.graph_fingerprint == graph_fingerprint
     {
@@ -94,11 +98,20 @@ fn valid_cached_graph_metadata(
     root: &Path,
     config_fingerprint: &str,
 ) -> bool {
+    let repository_fingerprint = repository_fingerprint(root);
+    valid_cached_graph_metadata_for_repository(cached, config_fingerprint, &repository_fingerprint)
+}
+
+fn valid_cached_graph_metadata_for_repository(
+    cached: &CachedRepoContextGraph,
+    config_fingerprint: &str,
+    repository_fingerprint: &Option<RepositoryFingerprint>,
+) -> bool {
     cached.schema_version == CONTEXT_GRAPH_SCHEMA_VERSION
         && cached.repopilot_version == env!("CARGO_PKG_VERSION")
         && cached.config_fingerprint == config_fingerprint
         && cached.resolver_version == CONTEXT_GRAPH_RESOLVER_VERSION
-        && cached.repository_fingerprint == repository_fingerprint(root)
+        && &cached.repository_fingerprint == repository_fingerprint
 }
 
 pub fn context_graph_cache_path(root: &Path) -> PathBuf {

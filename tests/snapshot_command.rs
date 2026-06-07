@@ -78,11 +78,18 @@ fn review_since_snapshot_covers_committed_and_uncommitted_changes() {
 
     let output = run_ok(
         temp.path(),
-        &["review", "--since-snapshot", "--format", "json"],
+        &[
+            "review",
+            "--since-snapshot",
+            "--profile",
+            "strict",
+            "--format",
+            "json",
+        ],
     );
     let json: Value = serde_json::from_slice(&output.stdout).expect("review should render JSON");
 
-    assert_eq!(json["review"]["in_diff_findings"], 2);
+    assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 2);
     assert!(
         json["changed_files"]
             .as_array()

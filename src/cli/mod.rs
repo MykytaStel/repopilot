@@ -3,9 +3,9 @@ mod options;
 
 pub use args::{
     ColorArg, CompareOutputFormatArg, ConfidenceArg, FailOnArg, GraphOutputFormatArg,
-    KnowledgeSectionArg, MaxFindingsArg, OutputFormatArg, PriorityArg, RuleLifecycleArg,
-    ScanOutputStyleArg, ScanProfileArg, SeverityArg, SignalSourceArg, parse_byte_size,
-    parse_max_findings, parse_token_budget,
+    KnowledgeSectionArg, MaxFindingsArg, OutputFormatArg, PriorityArg, ReviewFailOnArg,
+    ReviewScopeArg, RuleLifecycleArg, ScanOutputStyleArg, ScanProfileArg, SeverityArg,
+    SignalSourceArg, parse_byte_size, parse_max_findings, parse_token_budget,
 };
 pub use options::*;
 

@@ -13,6 +13,10 @@ suppressions:
   - rule_id: architecture.large-file
     path: "src/generated/schema.rs"
     reason: generated schema boundary
+  - kind: behavioral.network-call-added
+    path: "src/generated/**"
+    reason: generated client transport
+    expires: "2026-12-31"
 ```
 
 Run normally. RepoPilot applies matching suppressions before rendering console,
@@ -43,8 +47,10 @@ repopilot scan . --ignore-feedback
 repopilot review . --ignore-feedback
 ```
 
-RepoPilot validates feedback as structured YAML. Malformed YAML and entries
-without `rule_id` or `path` are reported as diagnostics during validation.
+RepoPilot validates feedback as structured YAML. Finding suppressions use
+`rule_id + path`; review-signal suppressions use namespaced `kind + path`.
+Include a reason for auditability. Review suppressions may include an ISO `expires` date;
+expired entries no longer suppress or affect the gate.
 Suppressions that do not match current findings are reported when feedback is
 evaluated by `inspect feedback --evaluate`, `scan`, or `review`. Matching
 suppressions are counted in `local_feedback`:
@@ -54,7 +60,9 @@ suppressions are counted in `local_feedback`:
   "local_feedback": {
     "feedback_path": ".repopilot/feedback.yml",
     "suppressions_loaded": 1,
+    "review_suppressions_loaded": 1,
     "suppressed_findings_count": 1,
+    "suppressed_review_signals_count": 1,
     "unmatched_suppressions_count": 0,
     "invalid_suppressions_count": 0,
     "unmatched_suppressions": [],

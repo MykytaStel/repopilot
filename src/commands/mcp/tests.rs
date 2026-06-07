@@ -17,6 +17,25 @@ fn exchange(requests: &[Value]) -> Vec<Value> {
     decode(output)
 }
 
+fn initialized_exchange(requests: &[Value]) -> Vec<Value> {
+    let mut all = vec![
+        json!({
+            "jsonrpc": "2.0",
+            "id": "initialize",
+            "method": "initialize",
+            "params": { "protocolVersion": "2025-11-25" }
+        }),
+        json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+        }),
+    ];
+    all.extend_from_slice(requests);
+    let mut responses = exchange(&all);
+    responses.remove(0);
+    responses
+}
+
 fn decode(output: Vec<u8>) -> Vec<Value> {
     String::from_utf8(output)
         .expect("responses are utf-8")
@@ -28,24 +47,33 @@ fn decode(output: Vec<u8>) -> Vec<Value> {
 
 #[test]
 fn initialize_reports_server_info_and_tools_capability() {
-    let responses = exchange(&[json!({
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": { "protocolVersion": "2025-06-18" }
-    })]);
+    let responses = exchange(&[
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "protocolVersion": "2025-06-18" }
+        }),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "initialize",
+            "params": { "protocolVersion": "2024-11-05" }
+        }),
+    ]);
 
-    assert_eq!(responses.len(), 1);
+    assert_eq!(responses.len(), 2);
     let result = &responses[0]["result"];
     assert_eq!(result["serverInfo"]["name"], "repopilot");
     assert!(result["capabilities"]["tools"].is_object());
-    // The client's requested protocol version is echoed back.
-    assert_eq!(result["protocolVersion"], "2025-06-18");
+    // Unsupported client versions negotiate to the latest server version.
+    assert_eq!(result["protocolVersion"], "2025-11-25");
+    assert_eq!(responses[1]["result"]["protocolVersion"], "2024-11-05");
 }
 
 #[test]
 fn tools_list_advertises_all_tools_with_schemas() {
-    let responses = exchange(&[json!({
+    let responses = initialized_exchange(&[json!({
         "jsonrpc": "2.0",
         "id": 2,
         "method": "tools/list"
@@ -76,6 +104,8 @@ fn tools_list_advertises_all_tools_with_schemas() {
             "tool {}",
             tool["name"]
         );
+        assert!(tool["outputSchema"].is_object());
+        assert_eq!(tool["annotations"]["readOnlyHint"], true);
     }
 }
 
@@ -92,7 +122,7 @@ fn notifications_receive_no_response() {
 
 #[test]
 fn unknown_method_returns_method_not_found() {
-    let responses = exchange(&[json!({
+    let responses = initialized_exchange(&[json!({
         "jsonrpc": "2.0",
         "id": 3,
         "method": "does/not/exist"
@@ -103,7 +133,7 @@ fn unknown_method_returns_method_not_found() {
 
 #[test]
 fn unknown_tool_returns_in_band_error_result() {
-    let responses = exchange(&[json!({
+    let responses = initialized_exchange(&[json!({
         "jsonrpc": "2.0",
         "id": 4,
         "method": "tools/call",
@@ -122,15 +152,51 @@ fn unknown_tool_returns_in_band_error_result() {
 }
 
 #[test]
-fn malformed_line_is_skipped_and_server_continues() {
-    // A non-JSON line must be skipped without tearing down the server, which
-    // then answers the following valid request.
+fn malformed_line_returns_parse_error_and_server_continues() {
     let input = "this is not json\n{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"ping\"}";
     let mut output = Vec::new();
     serve(Cursor::new(input), &mut output).expect("serve");
 
     let responses = decode(output);
-    assert_eq!(responses.len(), 1);
-    assert_eq!(responses[0]["id"], 9);
-    assert!(responses[0]["result"].is_object());
+    assert_eq!(responses.len(), 2);
+    assert_eq!(responses[0]["error"]["code"], -32700);
+    assert_eq!(responses[1]["id"], 9);
+    assert!(responses[1]["result"].is_object());
+}
+
+#[test]
+fn lists_resources_and_prompts() {
+    let responses = initialized_exchange(&[
+        json!({"jsonrpc":"2.0","id":1,"method":"resources/list"}),
+        json!({"jsonrpc":"2.0","id":2,"method":"prompts/list"}),
+        json!({
+            "jsonrpc":"2.0",
+            "id":3,
+            "method":"prompts/get",
+            "params":{"name":"review-change"}
+        }),
+    ]);
+
+    assert!(
+        responses[0]["result"]["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|resource| resource["uri"] == "repopilot://rules")
+    );
+    assert!(
+        responses[0]["result"]["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|resource| resource["uri"] == "repopilot://repository-summary")
+    );
+    assert_eq!(
+        responses[1]["result"]["prompts"].as_array().unwrap().len(),
+        2
+    );
+    assert_eq!(
+        responses[2]["result"]["messages"][0]["content"]["type"],
+        "text"
+    );
 }

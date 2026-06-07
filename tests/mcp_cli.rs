@@ -54,12 +54,18 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
         "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n",
     )
     .expect("source file");
+    fs::write(
+        temp.path().join("src/config.ts"),
+        "export const API_KEY = \"abc123xyz987\";\n",
+    )
+    .expect("secret fixture");
 
     let responses = run_mcp(
         &[
-            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
             r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
-            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."}}}"#,
+            r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":".","profile":"strict","filters":{"rules":["security.secret-candidate"]}}}}"#,
         ],
         temp.path(),
     );
@@ -89,6 +95,7 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
     // tools/call runs the scan entirely from local files and returns a JSON report.
     let result = &responses[2]["result"];
     assert_eq!(result["isError"], false, "scan should succeed");
+    assert!(result["structuredContent"].is_object());
     let text = result["content"][0]["text"].as_str().expect("text content");
     let report: Value = serde_json::from_str(text).expect("scan report is json");
     assert!(
@@ -96,6 +103,13 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
         "scan report carries schema metadata"
     );
     assert!(report["report"].is_object(), "scan report carries findings");
+    let findings = report["findings"].as_array().expect("findings");
+    assert!(!findings.is_empty());
+    assert!(
+        findings
+            .iter()
+            .all(|finding| finding["rule_id"] == "security.secret-candidate")
+    );
 }
 
 #[test]
@@ -104,12 +118,14 @@ fn mcp_server_reports_unknown_tool_as_in_band_error() {
 
     let responses = run_mcp(
         &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
             r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"nope","arguments":{}}}"#,
         ],
         temp.path(),
     );
 
-    let result = &responses[0]["result"];
+    let result = &responses[1]["result"];
     assert_eq!(result["isError"], true);
     assert!(
         result["content"][0]["text"]
@@ -117,4 +133,88 @@ fn mcp_server_reports_unknown_tool_as_in_band_error() {
             .expect("text")
             .contains("unknown tool")
     );
+}
+
+#[test]
+fn mcp_server_rejects_paths_outside_workspace_root() {
+    let root = tempfile::tempdir().expect("root temp dir");
+    let outside = tempfile::tempdir().expect("outside temp dir");
+    let request = format!(
+        r#"{{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{{"name":"repopilot_scan","arguments":{{"path":"{}"}}}}}}"#,
+        outside.path().display()
+    );
+
+    let responses = run_mcp(&[&request], root.path());
+    assert_eq!(responses[0]["error"]["code"], -32002);
+
+    let initialized = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            &request,
+        ],
+        root.path(),
+    );
+    let result = &initialized[1]["result"];
+    assert_eq!(result["isError"], true);
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .expect("text")
+            .contains("must stay within MCP root")
+    );
+}
+
+#[test]
+fn mcp_server_emits_progress_for_tool_calls() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::write(temp.path().join("lib.rs"), "pub fn live() {}\n").expect("source");
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."},"_meta":{"progressToken":"scan-7"}}}"#,
+        ],
+        temp.path(),
+    );
+
+    let progress = responses
+        .iter()
+        .filter(|message| message["method"] == "notifications/progress")
+        .collect::<Vec<_>>();
+    assert_eq!(progress.len(), 2);
+    assert_eq!(progress[0]["params"]["progressToken"], "scan-7");
+    assert_eq!(progress[0]["params"]["progress"], 0);
+    assert_eq!(progress[1]["params"]["progress"], 1);
+    assert!(responses.iter().any(|message| message["id"] == 7));
+}
+
+#[test]
+fn mcp_server_cancels_background_tool_calls() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::create_dir(temp.path().join("src")).expect("src");
+    for index in 0..200 {
+        fs::write(
+            temp.path().join("src").join(format!("module{index}.rs")),
+            format!("pub fn value_{index}() -> usize {{ {index} }}\n"),
+        )
+        .expect("source");
+    }
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."}}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":9,"reason":"test cancellation"}}"#,
+        ],
+        temp.path(),
+    );
+
+    let cancelled = responses
+        .iter()
+        .find(|message| message["id"] == 9)
+        .expect("cancelled response");
+    assert_eq!(cancelled["error"]["code"], -32800);
 }

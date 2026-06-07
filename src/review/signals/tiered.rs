@@ -17,6 +17,8 @@
 //! verdict. The existing `boundary_signals` view is kept untouched; this is an
 //! additive, forward-looking surface.
 
+use crate::findings::provenance::AnalysisScope;
+use crate::findings::types::Confidence;
 use crate::review::diff::ChangedFile;
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::BoundarySignal;
@@ -24,9 +26,11 @@ use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
 use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
 use crate::review::signals::composites;
 use crate::review::signals::taint::{SinkKind, TaintSignal};
+use crate::rules::{RuleLifecycle, SignalSource};
+use crate::scan::cache::stable_hash_hex;
 use crate::scan::types::CouplingGraph;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 /// A big diff is only called out as "noise" once it crosses both of these and
@@ -56,20 +60,43 @@ pub enum SignalFamily {
     Volume,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReviewSignalProvenance {
+    pub detector: String,
+    pub lifecycle: RuleLifecycle,
+    pub signal_source: SignalSource,
+    pub analysis_scope: AnalysisScope,
+}
+
 /// One unified review signal, ready to render under its tier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReviewSignal {
+    pub signal_id: String,
+    pub kind: String,
     pub family: SignalFamily,
     pub tier: ConfidenceTier,
+    pub confidence: Confidence,
     pub path: String,
+    /// Compatibility alias retained for 0.17 consumers.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_start: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_end: Option<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub evidence_lines: Vec<usize>,
     /// Neutral structural fact, e.g. "network call added" / "nesting 2 → 4".
     pub headline: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
     /// How many files import the signal's file (reach), from the coupling graph.
     pub blast_radius: usize,
+    pub provenance: ReviewSignalProvenance,
+    pub suppressed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suppression_reason: Option<String>,
+    pub gate_eligible: bool,
 }
 
 /// The review's signals grouped by confidence tier.
@@ -107,6 +134,20 @@ impl TieredSignals {
             });
         }
     }
+
+    pub fn gate_eligible_definitely_count(&self) -> usize {
+        self.definitely
+            .iter()
+            .filter(|signal| signal.gate_eligible && !signal.suppressed)
+            .count()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ReviewSignal> {
+        self.definitely
+            .iter_mut()
+            .chain(self.maybe.iter_mut())
+            .chain(self.noise.iter_mut())
+    }
 }
 
 /// Fold the four signal families into one tiered view.
@@ -132,37 +173,51 @@ pub fn build_tiered(
     }
     for signal in behavioral {
         let in_access = access_paths.contains(signal.path.as_str());
-        tiered.push(ReviewSignal {
-            family: SignalFamily::Behavioral,
-            tier: behavioral_tier(signal.kind, in_access, signal.is_coarse()),
-            path: signal.path.clone(),
-            line: Some(signal.line),
-            headline: behavioral_headline(signal.kind).to_string(),
-            detail: Some(signal.detail.clone()),
-            blast_radius: 0,
-        });
+        tiered.push(build_signal(
+            behavioral_kind(signal.kind),
+            SignalFamily::Behavioral,
+            behavioral_tier(signal.kind, in_access, signal.is_coarse()),
+            if signal.is_coarse() {
+                Confidence::Low
+            } else {
+                Confidence::High
+            },
+            signal.path.clone(),
+            Some(signal.line),
+            behavioral_headline(signal.kind),
+            Some(signal.detail.clone()),
+            if signal.is_coarse() {
+                SignalSource::TextHeuristic
+            } else {
+                SignalSource::Ast
+            },
+        ));
     }
     for signal in algorithmic {
-        tiered.push(ReviewSignal {
-            family: SignalFamily::Algorithmic,
-            tier: ConfidenceTier::MaybeSensitive,
-            path: signal.path.clone(),
-            line: Some(signal.line),
-            headline: algorithmic_headline(signal.kind).to_string(),
-            detail: Some(signal.detail.clone()),
-            blast_radius: 0,
-        });
+        tiered.push(build_signal(
+            algorithmic_kind(signal.kind),
+            SignalFamily::Algorithmic,
+            ConfidenceTier::MaybeSensitive,
+            Confidence::Medium,
+            signal.path.clone(),
+            Some(signal.line),
+            algorithmic_headline(signal.kind),
+            Some(signal.detail.clone()),
+            SignalSource::Ast,
+        ));
     }
     for signal in taint {
-        tiered.push(ReviewSignal {
-            family: SignalFamily::Taint,
-            tier: taint_tier(signal.sink),
-            path: signal.path.clone(),
-            line: Some(signal.line),
-            headline: taint_headline(signal.sink).to_string(),
-            detail: Some(signal.detail.clone()),
-            blast_radius: 0,
-        });
+        tiered.push(build_signal(
+            taint_kind(signal.sink),
+            SignalFamily::Taint,
+            taint_tier(signal.sink),
+            Confidence::High,
+            signal.path.clone(),
+            Some(signal.line),
+            taint_headline(signal.sink),
+            Some(signal.detail.clone()),
+            SignalSource::Ast,
+        ));
     }
 
     // Only call out raw volume when nothing else fired — otherwise the flagged
@@ -170,18 +225,21 @@ pub fn build_tiered(
     if tiered.definitely.is_empty() && tiered.maybe.is_empty() {
         let (files, lines) = diff_size(changed_files);
         if files > LARGE_DIFF_FILES && lines > LARGE_DIFF_LINES {
-            tiered.push(ReviewSignal {
-                family: SignalFamily::Volume,
-                tier: ConfidenceTier::LargeDiffOrNoise,
-                path: String::new(),
-                line: None,
-                headline: "large diff, no review signal flagged".to_string(),
-                detail: Some(format!("{files} files, ~{lines} changed lines")),
-                blast_radius: 0,
-            });
+            tiered.push(build_signal(
+                "volume.large-diff",
+                SignalFamily::Volume,
+                ConfidenceTier::LargeDiffOrNoise,
+                Confidence::Low,
+                String::new(),
+                None,
+                "large diff, no review signal flagged",
+                Some(format!("{files} files, ~{lines} changed lines")),
+                SignalSource::GitDiff,
+            ));
         }
     }
 
+    deduplicate(&mut tiered);
     tiered.sort();
     tiered
 }
@@ -211,14 +269,131 @@ pub fn enrich_blast_radius(
 }
 
 fn from_boundary(signal: &BoundarySignal) -> ReviewSignal {
+    let mut review_signal = build_signal(
+        boundary_kind(signal.category),
+        SignalFamily::Boundary,
+        ConfidenceTier::DefinitelySensitive,
+        Confidence::High,
+        signal.path.clone(),
+        None,
+        &format!("{} changed", signal.category.label()),
+        None,
+        SignalSource::GitDiff,
+    );
+    review_signal.blast_radius = signal.blast_radius;
+    review_signal
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_signal(
+    kind: &str,
+    family: SignalFamily,
+    tier: ConfidenceTier,
+    confidence: Confidence,
+    path: String,
+    line: Option<usize>,
+    headline: &str,
+    detail: Option<String>,
+    signal_source: SignalSource,
+) -> ReviewSignal {
+    let signal_id = stable_hash_hex(format!("{kind}\0{path}").as_bytes())[..16].to_string();
     ReviewSignal {
-        family: SignalFamily::Boundary,
-        tier: ConfidenceTier::DefinitelySensitive,
-        path: signal.path.clone(),
-        line: None,
-        headline: format!("{} changed", signal.category.label()),
-        detail: None,
-        blast_radius: signal.blast_radius,
+        signal_id,
+        kind: kind.to_string(),
+        family,
+        tier,
+        confidence,
+        path,
+        line,
+        line_start: line,
+        line_end: line,
+        evidence_lines: line.into_iter().collect(),
+        headline: headline.to_string(),
+        detail,
+        blast_radius: 0,
+        provenance: ReviewSignalProvenance {
+            detector: kind.to_string(),
+            lifecycle: RuleLifecycle::Preview,
+            signal_source,
+            analysis_scope: AnalysisScope::GitDiff,
+        },
+        suppressed: false,
+        suppression_reason: None,
+        gate_eligible: tier == ConfidenceTier::DefinitelySensitive,
+    }
+}
+
+fn deduplicate(tiered: &mut TieredSignals) {
+    let mut groups: BTreeMap<(String, String), ReviewSignal> = BTreeMap::new();
+    for signal in tiered
+        .definitely
+        .drain(..)
+        .chain(tiered.maybe.drain(..))
+        .chain(tiered.noise.drain(..))
+    {
+        let key = (signal.kind.clone(), signal.path.clone());
+        groups
+            .entry(key)
+            .and_modify(|existing| {
+                existing.evidence_lines.extend(signal.evidence_lines.iter());
+                existing.evidence_lines.sort_unstable();
+                existing.evidence_lines.dedup();
+                existing.line_start = existing.evidence_lines.first().copied();
+                existing.line_end = existing.evidence_lines.last().copied();
+                existing.line = existing.line_start;
+                existing.blast_radius = existing.blast_radius.max(signal.blast_radius);
+            })
+            .or_insert(signal);
+    }
+    for signal in groups.into_values() {
+        tiered.push(signal);
+    }
+}
+
+fn boundary_kind(category: crate::review::signals::BoundaryCategory) -> &'static str {
+    use crate::review::signals::BoundaryCategory::*;
+    match category {
+        AccessControl => "boundary.access-control",
+        RequestTrust => "boundary.request-trust",
+        DeploySurface => "boundary.deploy-surface",
+        SupplyChain => "boundary.supply-chain",
+        SecretConfig => "boundary.secret-config",
+        Custom => "boundary.custom",
+    }
+}
+
+fn behavioral_kind(kind: BehavioralKind) -> &'static str {
+    use BehavioralKind::*;
+    match kind {
+        NetworkCallAdded => "behavioral.network-call-added",
+        SubprocessAdded => "behavioral.subprocess-added",
+        FsWriteAdded => "behavioral.fs-write-added",
+        EnvVarIntroduced => "behavioral.env-var-introduced",
+        DependencyImportAdded => "behavioral.dependency-import-added",
+        MigrationAdded => "behavioral.migration-added",
+        RawSqlAdded => "behavioral.raw-sql-added",
+        ErrorHandlingRemoved => "behavioral.error-handling-removed",
+        TestDeletedOrEmptied => "behavioral.test-deleted-or-emptied",
+        AuthCheckRemoved => "behavioral.auth-check-removed",
+    }
+}
+
+fn algorithmic_kind(kind: AlgorithmicKind) -> &'static str {
+    use AlgorithmicKind::*;
+    match kind {
+        ComplexityIncreased => "algorithmic.complexity-increased",
+        NestedLoopIntroduced => "algorithmic.nested-loop-introduced",
+        FunctionGrew => "algorithmic.function-grew",
+        RecursionIntroduced => "algorithmic.recursion-introduced",
+    }
+}
+
+fn taint_kind(sink: SinkKind) -> &'static str {
+    match sink {
+        SinkKind::Sql => "taint.sql",
+        SinkKind::Exec => "taint.exec",
+        SinkKind::FsWrite => "taint.fs-write",
+        SinkKind::Network => "taint.network",
     }
 }
 

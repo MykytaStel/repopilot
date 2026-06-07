@@ -1,4 +1,5 @@
 use super::*;
+use crate::review::ReviewSignalGateResult;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 
@@ -19,6 +20,9 @@ pub struct ReviewJsonReport<'a> {
     /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
     /// two are expected to collapse into this field in a future schema.
     pub tiered_signals: &'a TieredSignals,
+    pub review_timings: crate::review::model::ReviewTimings,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scan_timings: Option<&'a ScanTimings>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_graph_summary: Option<&'a ContextGraphSummary>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,6 +36,8 @@ pub struct ReviewJsonReport<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ci_gate: Option<CiGateJsonMetadata>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_gate: Option<&'a ReviewSignalGateResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
@@ -39,7 +45,11 @@ pub struct ReviewJsonReport<'a> {
 }
 
 impl<'a> ReviewJsonReport<'a> {
-    pub fn from_report(report: &'a ReviewReport, ci_gate: Option<&CiGateResult>) -> Self {
+    pub fn from_report(
+        report: &'a ReviewReport,
+        ci_gate: Option<&CiGateResult>,
+        review_gate: Option<&'a ReviewSignalGateResult>,
+    ) -> Self {
         Self {
             schema_version: SCAN_REPORT_SCHEMA_VERSION,
             repopilot_version: REPOPILOT_VERSION,
@@ -57,6 +67,8 @@ impl<'a> ReviewJsonReport<'a> {
                 .collect(),
             boundary_signals: &report.boundary_signals,
             tiered_signals: &report.tiered_signals,
+            review_timings: report.timings,
+            scan_timings: report.summary.scan_timings.as_ref(),
             context_graph_summary: report.summary.artifacts.context_graph_summary.as_ref(),
             context_graph_cache: report.summary.artifacts.context_graph_cache.as_ref(),
             review: ReviewJsonMetadata {
@@ -85,6 +97,7 @@ impl<'a> ReviewJsonReport<'a> {
                     .map(|path| path.to_string_lossy().to_string()),
             },
             ci_gate: ci_gate.map(CiGateJsonMetadata::from),
+            review_gate,
             local_feedback: report.summary.local_feedback.as_ref(),
             diagnostics: &report.summary.artifacts.diagnostics,
             findings: report

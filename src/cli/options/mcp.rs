@@ -1,11 +1,11 @@
 use clap::Args;
+use std::path::PathBuf;
 
 /// Options for `repopilot mcp`.
 ///
-/// The server speaks the Model Context Protocol over stdio, so it takes no
-/// flags today: an MCP client launches it and drives it with JSON-RPC requests.
-/// Per-call inputs (such as the repository path) are tool arguments, not CLI
-/// flags. The struct exists so the subcommand can grow options without a
-/// breaking change.
 #[derive(Args)]
-pub struct McpOptions {}
+pub struct McpOptions {
+    /// Restrict all MCP file access to this workspace root
+    #[arg(long, default_value = ".")]
+    pub root: PathBuf,
+}

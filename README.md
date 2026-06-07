@@ -48,15 +48,15 @@ Blast radius:
   - src/admin.ts
   - src/routes.ts
 
-Security boundary changed [preview]:
-  ⚑ access control  src/middleware/auth.ts  (imported by 2 files)
-  ⚑ request trust   src/server/cors.ts
-  ⚠ A code boundary changed but no test did — confirm it's still covered.
+Review signals (preview):
+  Definitely sensitive:
+  - Access-control boundary changed  src/middleware/auth.ts:12
+  - Network call added in request-trust code  src/server/cors.ts:28
 ```
 
 Boundary categories: **access control**, **request trust**, **deploy surface**, **supply chain**, **secret config**. Tune or disable them in `repopilot.toml` under `[security_boundary]` (ships at `preview`).
 
-Beyond boundaries, `repopilot review` also flags **behavioral** changes (added network/subprocess/filesystem/SQL, removed error handling or auth checks), **algorithmic** changes (deeper nesting, a new nested loop, a function that grew or became recursive), and **taint-lite reachability** (request or process input reaching SQL, exec, filesystem-write, or outbound-network sinks within a changed function). They are grouped into three confidence tiers and reported as structural facts — never verdicts (ships at `preview`). To review a whole agent run, take a marker first: `repopilot snapshot`, let the agent edit, then `repopilot review --since-snapshot` covers every commit and uncommitted change since.
+Beyond boundaries, `repopilot review` also flags **behavioral** changes (added network/subprocess/filesystem/SQL, removed error handling or auth checks), **algorithmic** changes (deeper nesting, a new nested loop, a function that grew or became recursive), and **taint-lite reachability** (request or process input reaching SQL, exec, filesystem-write, or outbound-network sinks within a changed function). They are grouped into three confidence tiers and reported as structural facts — never verdicts (ships at `preview`). Changed/default is the standard scope; use `--scope full --profile strict` for the previous full audit. Signal blocking is opt-in with `--fail-on-review definitely`. To review a whole agent run, take a marker first: `repopilot snapshot`, let the agent edit, then `repopilot review --since-snapshot` covers every commit and uncommitted change since.
 
 Full audit, a CI gate that fails only on *new* risk, and a local brief for an assistant:
 
@@ -82,12 +82,13 @@ repopilot review .          # check the assistant's change before merging
 RepoPilot ships a local [Model Context Protocol](https://modelcontextprotocol.io) server so AI coding agents (Claude Code, Cursor, …) can call it as a tool — the deterministic, private check an agent can run on its **own** edits before handing you the PR.
 
 ```bash
-claude mcp add repopilot -- repopilot mcp
+claude mcp add repopilot -- repopilot mcp --root .
 ```
 
-It runs over stdio (JSON-RPC, no network, no AI calls) and exposes four tools:
+It runs over stdio (JSON-RPC, no network, no AI calls), confines file access to
+the selected root, and exposes structured tools, resources, and prompts:
 
-- `repopilot_review_change` — audit the current Git changes: in-diff vs out-of-diff findings, tiered review signals (security-boundary, behavioral, algorithmic, and taint-lite changes grouped by confidence), and blast radius (structured JSON).
+- `repopilot_review_change` — changed/full review with findings, tiered signals, blast radius, suppression, and gate metadata.
 - `repopilot_scan` — full repository audit as JSON.
 - `repopilot_context` — a budgeted, AI-ready Markdown brief of the repo.
 - `repopilot_explain_file` — how a single file is classified and which rules apply.
@@ -102,6 +103,7 @@ More: [docs/mcp.md](docs/mcp.md).
 | Full scan | repo-wide, evidence-ranked findings — secrets, runtime footguns, architecture — quiet by default ([trust mode](docs/trust-mode.md)) |
 | Baseline + CI gate | accept current debt as a baseline; fail CI only on newly introduced risk |
 | Reports | Console, Markdown, JSON, [SARIF](docs/integrations/github-code-scanning.md), HTML, receipts |
+| GitHub + VS Code | fork-safe reusable PR workflow and platform VSIX packages with bundled verified binaries |
 | AI context | local, budgeted, evidence-backed Markdown brief for coding assistants |
 
 Rules carry an `experimental -> preview -> stable` lifecycle and a quality gate (fixtures, stable IDs, evidence). See [docs/rule-quality-gate.md](docs/rule-quality-gate.md).

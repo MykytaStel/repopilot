@@ -17,7 +17,7 @@ impl JsRiskPattern {
 
     pub(super) fn matches(self, trimmed: &str, path: &Path) -> bool {
         match self {
-            Self::ProcessExit => trimmed.contains("process.exit("),
+            Self::ProcessExit => trimmed.contains("process.exit(") && !is_node_bin_path(path),
             Self::ThrowError => {
                 trimmed.contains("throw new Error(") && is_library_boundary_path(path)
             }
@@ -78,7 +78,10 @@ pub(super) fn emit_js_node(
     findings: &mut Vec<Finding>,
 ) {
     let pattern = match node.kind() {
-        "call_expression" if is_process_exit_call(node, content) => {
+        "call_expression"
+            if is_process_exit_call(node, content)
+                && !is_expected_cli_entrypoint(path, content) =>
+        {
             Some(JsRiskPattern::ProcessExit)
         }
         "throw_statement" if throws_new_error(node, content) && is_library_boundary_path(path) => {
@@ -96,6 +99,15 @@ pub(super) fn emit_js_node(
             findings,
         );
     }
+}
+
+fn is_expected_cli_entrypoint(path: &Path, content: &str) -> bool {
+    is_node_bin_path(path) && content.starts_with("#!/usr/bin/env node")
+}
+
+fn is_node_bin_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    normalized.starts_with("bin/") || normalized.contains("/bin/")
 }
 
 /// `process.exit(...)` — a call whose callee is the `process.exit` member.

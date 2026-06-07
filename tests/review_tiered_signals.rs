@@ -48,6 +48,12 @@ fn review_groups_signals_into_tiers_in_json() {
         signal["family"] == "boundary"
             && signal["tier"] == "definitely-sensitive"
             && signal["path"] == "src/auth/session.ts"
+            && signal["kind"] == "boundary.access-control"
+            && signal["confidence"] == "HIGH"
+            && signal["provenance"]["analysis_scope"] == "git-diff"
+            && signal["signal_id"]
+                .as_str()
+                .is_some_and(|id| id.len() == 16)
     }));
 
     // Maybe: the behavioral network call added in an ordinary file.
@@ -70,6 +76,17 @@ fn review_groups_signals_into_tiers_in_json() {
         counts["total"],
         (definitely.len() + maybe.len() + noise.len()) as u64
     );
+    for field in [
+        "diff_loading_us",
+        "review_signals_us",
+        "gating_us",
+        "rendering_us",
+    ] {
+        assert!(
+            json["review_timings"][field].is_number(),
+            "missing review timing {field}"
+        );
+    }
 
     // Backward-thoughtful: the legacy boundary view still ships unchanged.
     assert!(
@@ -79,6 +96,67 @@ fn review_groups_signals_into_tiers_in_json() {
             .is_empty()
     );
     assert_eq!(json["review"]["boundary_signals"], 1);
+}
+
+#[test]
+fn review_gate_is_opt_in_and_blocks_definitely_sensitive_signals() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_definitely_and_maybe(temp.path());
+
+    let advisory = repopilot()
+        .args(["review", "."])
+        .current_dir(temp.path())
+        .output()
+        .expect("run advisory review");
+    assert!(advisory.status.success());
+
+    let blocking = repopilot()
+        .args(["review", ".", "--fail-on-review", "definitely"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run blocking review");
+    assert_eq!(blocking.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&blocking.stderr).contains("review gate failed"),
+        "{}",
+        String::from_utf8_lossy(&blocking.stderr)
+    );
+}
+
+#[test]
+fn review_feedback_suppresses_signal_by_kind_and_path_glob() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_definitely_and_maybe(temp.path());
+    write(
+        temp.path(),
+        ".repopilot/feedback.yml",
+        r#"
+suppressions:
+  - kind: boundary.access-control
+    path: "src/auth/**"
+    reason: reviewed boundary migration
+    expires: "2099-01-01"
+"#,
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    let signal = json["tiered_signals"]["definitely"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|signal| signal["kind"] == "boundary.access-control")
+        .expect("boundary signal");
+    assert_eq!(signal["suppressed"], true);
+    assert_eq!(signal["gate_eligible"], false);
+    assert_eq!(signal["suppression_reason"], "reviewed boundary migration");
+    assert_eq!(json["local_feedback"]["suppressed_review_signals_count"], 1);
+
+    let gated = repopilot()
+        .args(["review", ".", "--fail-on-review", "definitely"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run gated review");
+    assert!(gated.status.success());
 }
 
 #[test]

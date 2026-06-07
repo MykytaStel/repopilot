@@ -1,4 +1,7 @@
-use crate::cli::{CompareOutputFormatArg, ConfidenceArg, FailOnArg, PriorityArg, SeverityArg};
+use crate::cli::{
+    CompareOutputFormatArg, ConfidenceArg, FailOnArg, PriorityArg, ReviewFailOnArg, ReviewScopeArg,
+    ScanProfileArg, SeverityArg,
+};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -21,6 +24,14 @@ pub struct ReviewOptions {
     #[arg(long, conflicts_with_all = ["base", "head"])]
     pub since_snapshot: bool,
 
+    /// Review only changed files (default) or include full-repository findings
+    #[arg(long, value_enum)]
+    pub scope: Option<ReviewScopeArg>,
+
+    /// Finding visibility profile; defaults to default for changed scope and strict for full scope
+    #[arg(long, value_enum)]
+    pub profile: Option<ScanProfileArg>,
+
     /// Path to a repopilot.toml config file
     #[arg(long)]
     pub config: Option<PathBuf>,
@@ -37,6 +48,10 @@ pub struct ReviewOptions {
     #[arg(long, value_enum)]
     pub fail_on_priority: Option<PriorityArg>,
 
+    /// Exit with code 1 when review signals breach the selected policy
+    #[arg(long, value_enum)]
+    pub fail_on_review: Option<ReviewFailOnArg>,
+
     /// Output format for the review report
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
@@ -48,6 +63,10 @@ pub struct ReviewOptions {
     /// Write report to a file instead of stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
+
+    /// Write an additional SARIF report without running the review twice
+    #[arg(long, value_name = "PATH")]
+    pub sarif_output: Option<PathBuf>,
 
     /// Override the large-file LOC threshold
     #[arg(long)]

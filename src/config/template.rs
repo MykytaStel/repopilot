@@ -23,6 +23,12 @@ ignore = [
 ]
 max_file_bytes = {DEFAULT_MAX_FILE_BYTES}
 
+[review]
+# Review changed files by default. Use "full" for the pre-0.16 repository-wide view.
+scope = "changed"
+# Review signals are advisory unless explicitly enabled as a gate.
+fail_on = "none"
+
 [architecture]
 max_file_lines = {DEFAULT_MAX_FILE_LINES}
 huge_file_lines = {DEFAULT_HUGE_FILE_LINES}

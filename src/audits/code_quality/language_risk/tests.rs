@@ -56,6 +56,19 @@ fn downgrades_js_process_exit_in_script_paths() {
 }
 
 #[test]
+fn ignores_process_exit_in_node_bin_entrypoint() {
+    let file = facts(
+        "bin/repopilot.js",
+        Some("JavaScript"),
+        "#!/usr/bin/env node\nprocess.exit(1);\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
 fn reports_js_process_exit_in_library_code_as_high() {
     let file = facts(
         "src/lib/runtime.js",

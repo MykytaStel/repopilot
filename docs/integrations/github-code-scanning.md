@@ -1,80 +1,13 @@
-# GitHub Code Scanning
+# GitHub Pull Request Integration
 
-RepoPilot can write SARIF so GitHub Code Scanning can display findings in the repository security tab and annotate pull requests.
+RepoPilot 0.16 can produce a job summary, capped workflow annotations, JSON and
+SARIF artifacts, typed outputs, and an optional sticky PR comment from one
+review run.
 
-## Generate SARIF locally
+## Reusable Workflow
 
-```bash
-repopilot scan . --format sarif --output repopilot.sarif
-```
-
-If your installed RepoPilot version does not support `--output`, redirect stdout instead:
-
-```bash
-repopilot scan . --format sarif > repopilot.sarif
-```
-
-When validating changes from a RepoPilot source checkout, use the local binary:
-
-```bash
-cargo run -- scan . --format sarif --output repopilot.sarif
-```
-
-## GitHub Actions
-
-Copy [`.github/workflows/repopilot-sarif.yml.example`](../../.github/workflows/repopilot-sarif.yml.example) to `.github/workflows/repopilot-sarif.yml` in a repository where you want RepoPilot findings uploaded to GitHub Code Scanning.
-For baseline-aware gating plus SARIF upload, copy [`.github/workflows/repopilot-baseline-sarif.yml.example`](../../.github/workflows/repopilot-baseline-sarif.yml.example).
-
-```yaml
-name: RepoPilot SARIF
-
-on:
-  pull_request:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
-  security-events: write
-
-jobs:
-  repopilot:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install RepoPilot
-        run: cargo install repopilot
-
-      - name: Run RepoPilot SARIF scan
-        run: repopilot scan . --format sarif --output repopilot.sarif
-
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: repopilot.sarif
-          category: repopilot
-```
-
-The workflow needs `security-events: write`; without it, GitHub rejects the SARIF upload. `contents: read` is enough for checkout.
-
-For RepoPilot's own repository or another Rust project where installing from crates.io is too slow during CI, run the local checkout binary instead:
-
-```yaml
-      - name: Run RepoPilot SARIF scan
-        run: cargo run -- scan . --format sarif --output repopilot.sarif
-```
-
-Keep the SARIF file name consistent between the scan step and the upload step. The examples above write and upload `repopilot.sarif`.
-
-## First-party action with receipt artifact
-
-The first-party action can generate SARIF and a compact audit receipt from the
-same scan. `receipt` is only valid with `command: scan`.
-For Markdown, console, review, doctor, compare, and AI command output, the
-action also writes a short GitHub job summary through `GITHUB_STEP_SUMMARY`.
+Copy `.github/workflows/repopilot-pr-review.yml` into the repository that hosts
+the reusable workflow, then call it from a PR workflow:
 
 ```yaml
 name: RepoPilot
@@ -84,72 +17,101 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
-  repopilot:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Run RepoPilot
-        id: repopilot
-        uses: MykytaStel/repopilot@v0.15.0
-        with:
-          command: scan
-          baseline: .repopilot/baseline.json
-          fail-on: new-high
-          min-priority: p2
-          receipt: repopilot-receipt.json
-
-      - name: Upload audit receipt
-        uses: actions/upload-artifact@v4
-        if: always() && steps.repopilot.outputs.receipt-file != ''
-        with:
-          name: repopilot-receipt
-          path: ${{ steps.repopilot.outputs.receipt-file }}
+  review:
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.16.0
+    with:
+      fail-on-review: definitely
+      fail-on-priority: p1
 ```
 
-For review-only gates, use `command: review` without `receipt`:
+The workflow checks out full history, derives base/head SHAs from the PR event,
+runs one changed-scope JSON review, writes secondary SARIF, emits at most 20
+detailed annotations, and uploads the JSON/SARIF/Markdown artifacts.
+
+This default is read-only and works for fork PRs. It does not use
+`pull_request_target`.
+
+## First-Party Action
 
 ```yaml
-      - name: RepoPilot review gate
-        uses: MykytaStel/repopilot@v0.15.0
-        with:
-          command: review
-          base: origin/main
-          baseline: .repopilot/baseline.json
-          fail-on-priority: p1
-          upload-sarif: "false"
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+
+- name: RepoPilot review
+  id: repopilot
+  uses: MykytaStel/repopilot@v0.16.0
+  with:
+    command: review
+    scope: changed
+    profile: default
+    fail-on-review: definitely
+    fail-on-priority: p1
 ```
 
-For adoption diagnostics or focused rule investigations, use the same first-party
-action without SARIF upload:
+The Action checksum-verifies and caches the exact release binary by
+version/OS/architecture. It exposes:
+
+- `conclusion`, `exit-code`, and `gate-result`;
+- `findings-count` and `signals-count`;
+- `review-json-file`, `review-sarif-file`, and `sarif-file`.
+
+## SARIF Upload
+
+SARIF upload is opt-in because `security-events: write` is not available to all
+fork PR contexts:
 
 ```yaml
-      - name: RepoPilot doctor
-        uses: MykytaStel/repopilot@v0.15.0
-        with:
-          command: doctor
-          format: markdown
-          output: repopilot-doctor.md
-          upload-sarif: "false"
+permissions:
+  contents: read
+  security-events: write
 
-      - name: RepoPilot focused scan
-        uses: MykytaStel/repopilot@v0.15.0
-        with:
-          command: scan
-          rule: language.rust.panic-risk
-          min-priority: p2
-          timing: "true"
-          upload-sarif: "false"
+steps:
+  - uses: MykytaStel/repopilot@v0.16.0
+    with:
+      command: review
+      upload-sarif: "true"
 ```
 
-## Choosing an output format
+Review SARIF contains in-diff scan findings and concrete taint issues.
+Boundary and algorithmic facts remain workflow annotations rather than Code
+Scanning alerts.
 
-Use JSON when a script or service will parse RepoPilot results directly.
+Generate the same artifacts locally:
 
-Use Markdown when you want a human-readable report for pull request comments, job summaries, or issue descriptions.
+```bash
+repopilot review . --base origin/main \
+  --format json --output repopilot-review.json \
+  --sarif-output repopilot-review.sarif
+```
 
-Use SARIF when you want CI and code scanning integrations, including GitHub Code Scanning.
+## Sticky Comment
+
+Comments are opt-in:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+
+steps:
+  - uses: MykytaStel/repopilot@v0.16.0
+    with:
+      command: review
+      comment: "true"
+```
+
+Use comment mode only where `pull-requests: write` is intentionally granted.
+The default job summary and artifacts do not need it.
+
+## Full Scan
+
+Repository-wide SARIF remains available:
+
+```bash
+repopilot scan . --format sarif --output repopilot.sarif
+```
+
+Use `scan` for scheduled/full audits and changed-scope `review` for PR feedback.

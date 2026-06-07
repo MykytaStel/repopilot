@@ -1,124 +1,91 @@
-# MCP server
+# MCP Server
 
-`repopilot mcp` runs a local [Model Context Protocol](https://modelcontextprotocol.io)
-server so AI coding agents (Claude Code, Cursor, and other MCP clients) can call
-RepoPilot as a tool — for example, to audit a change the agent just made before
-proposing it.
+`repopilot mcp --root PATH` runs RepoPilot as a local Model Context Protocol
+server over stdio. It supports protocol versions `2025-11-25` and `2024-11-05`.
+No source, telemetry, or tool result leaves the machine.
 
-It is the same engine as the CLI, exposed over a different transport:
+All filesystem arguments are resolved under `--root`; paths outside that
+workspace are rejected.
 
-- **Local-first.** The server runs on your machine over stdio. No source is
-  uploaded, no telemetry is sent, and no AI service is called. Every tool runs
-  the same on-disk analysis as the corresponding command.
-- **Lean and synchronous.** The transport is a small JSON-RPC 2.0 loop over
-  stdin/stdout — no async runtime and no extra dependencies. The protocol surface
-  is intentionally small enough to audit.
-
-## Register with an agent
-
-The client launches `repopilot mcp` for you; you only register the command once.
-
-Claude Code:
+## Register
 
 ```bash
-claude mcp add repopilot -- repopilot mcp
+claude mcp add repopilot -- repopilot mcp --root .
 ```
 
-Any other MCP client uses the same idea — a stdio server whose command is
-`repopilot mcp`. A typical client config entry:
+Generic client configuration:
 
 ```json
 {
   "mcpServers": {
     "repopilot": {
       "command": "repopilot",
-      "args": ["mcp"]
+      "args": ["mcp", "--root", "."]
     }
   }
 }
 ```
 
-Make sure `repopilot` is on `PATH` (see [install.md](install.md)).
+## Tool Contract
 
-## Tools
+Tools advertise `outputSchema`, return `structuredContent`, and retain text
+content as a fallback for older clients. They are annotated as read-only,
+non-destructive, idempotent, and closed-world.
 
-All tools take a `path` that defaults to the current working directory and return
-their result as text content (JSON, except `repopilot_context` which returns
-Markdown). A tool that fails returns an MCP error result (`isError: true`) with a
-message, rather than tearing down the connection.
+| Tool | Purpose | Additional inputs |
+|---|---|---|
+| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, and gate result | `base`, `head`, `config`, `baseline`, `scope`, `profile`, `fail_on_review`, `detail` |
+| `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base` |
+| `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget` |
+| `repopilot_explain_file` | File classification and applicable rules | `rule`, `signal` |
 
-### `repopilot_review_change`
+Every tool accepts a workspace-relative `path` where applicable. Review defaults
+to `scope=changed`, `profile=default`, `fail_on_review=none`, and
+`detail=compact`. Compact output caps detailed findings and each signal tier at
+20 total review signals; `detail=full` returns the complete JSON report. Scan
+and review accept `filters.min_severity`, `filters.min_confidence`,
+`filters.min_priority`, and `filters.rules`.
 
-Audit the current Git changes: scans the repository, splits findings into those
-touching changed diff lines vs. the rest, and reports blast radius (files that
-import the changed files). Mirrors `repopilot review`.
+Tool failures use MCP `isError: true`. Malformed input produces JSON-RPC error
+`-32700` instead of being skipped.
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `path` | string | Repository path. Defaults to the current directory. |
-| `base` | string | Base Git ref to diff against (e.g. `origin/main`). Optional; defaults to the working tree vs `HEAD`. |
-| `head` | string | Head Git ref. Optional; only valid together with `base`. |
+## Resources
 
-Returns the JSON review report (findings, in-diff status, blast radius).
+The server exposes:
 
-### `repopilot_scan`
+- `repopilot://rules`: the rule catalog;
+- `repopilot://repository-summary`: workspace/config/baseline/feedback and
+  session-result availability without triggering a scan;
+- `repopilot://last-scan`: the last successful scan in this session;
+- `repopilot://last-review`: the last successful review in this session.
 
-Full repository audit across architecture, coupling, code quality, security, and
-testing. Mirrors `repopilot scan`.
+Last-result resources appear after the corresponding tool has run. Identical
+tool calls are served from the session cache.
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `path` | string | Path to scan. Defaults to the current directory. |
+## Prompts
 
-Returns the JSON scan report (findings, metrics, risk summary).
+- `review-change`: prepare an agent to inspect the current change.
+- `fix-top-risk`: prepare a constrained remediation pass over the highest risk.
 
-### `repopilot_context`
+## Lifecycle
 
-A budgeted, AI-ready Markdown brief of the repository (risks, hotspots, structure)
-for the agent to reason over before editing. Mirrors `repopilot ai context`.
+Clients must call `initialize`, send `notifications/initialized`, then use
+`tools/*`, `resources/*`, or `prompts/*`. Tool calls run through one background
+worker built with standard-library channels, so the stdio loop can receive
+`notifications/cancelled` while analysis is running. Calls that include
+`_meta.progressToken` receive start/completion `notifications/progress`.
+No async runtime is used.
 
-| Argument | Type | Description |
-|----------|------|-------------|
-| `path` | string | Repository path. Defaults to the current directory. |
-| `focus` | string | Optional focus: `security`, `architecture` (or `arch`), `quality`, `framework`, or `all`. |
-| `budget` | integer | Optional approximate token budget. Defaults to the standard budget. |
+HTTP transport, hosted MCP, sampling, and source upload are outside the 0.16
+scope.
 
-Returns the brief as Markdown.
-
-### `repopilot_explain_file`
-
-Explains how RepoPilot classifies one file (role, language, test/production
-context) and which rules and signals apply, with the resulting severity
-decisions. Mirrors `repopilot inspect explain`.
-
-| Argument | Type | Description |
-|----------|------|-------------|
-| `path` | string | Path to the file to explain. Required. |
-| `rule` | string | Optional rule id to focus the explanation on. |
-| `signal` | string | Optional signal id to focus on. |
-
-Returns the JSON explanation.
-
-## How it works
-
-The server handles the MCP `initialize`, `tools/list`, and `tools/call` methods.
-On `tools/call` it dispatches to one of the tools above, which calls the same
-library entry points the CLI uses (`build_review_report`, the product scan,
-`ai_context::render`, and the explain builder) and returns the rendered result.
-
-Because stdout carries the JSON-RPC stream, the tools always run with progress
-output disabled so nothing corrupts the protocol.
-
-## Manual smoke test
-
-You can drive the server by hand with newline-delimited JSON-RPC messages:
+## Manual Smoke Test
 
 ```bash
 printf '%s\n' \
-  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}' \
+  '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-  '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."}}}' \
-  | repopilot mcp
+  '{"jsonrpc":"2.0","id":3,"method":"resources/list"}' \
+  | repopilot mcp --root .
 ```
-
-Each response is one line of JSON on stdout.

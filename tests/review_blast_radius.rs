@@ -152,6 +152,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         boundary_signals: vec![],
         boundary_missing_test: false,
         tiered_signals: TieredSignals::default(),
+        timings: Default::default(),
         findings: vec![],
     };
 

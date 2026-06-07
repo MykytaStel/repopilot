@@ -17,8 +17,8 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.17";
-const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.15", "0.16", SCAN_REPORT_SCHEMA_VERSION];
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.18";
+const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.16", "0.17", SCAN_REPORT_SCHEMA_VERSION];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

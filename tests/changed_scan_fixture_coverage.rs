@@ -30,7 +30,8 @@ fn changed_scan_tracks_untracked_deleted_and_cache_paths() {
     let json = scan_changed_json(temp.path(), &["--changed"]);
 
     assert_eq!(json["mode"], "changed");
-    assert_eq!(json["repo_level_rules_included"], false);
+    assert_eq!(json["repo_level_rules_included"], true);
+    assert!(json["coupling_graph"].is_object());
     assert_changed_reason(&json, "deleted", 1);
     assert_changed_reason(&json, "untracked", 1);
 

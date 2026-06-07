@@ -7,7 +7,10 @@ use repopilot::config::presets::{Preset, apply_preset};
 use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
-use repopilot::scan::scanner::{scan_changed_with_config, scan_path_with_config};
+use repopilot::review::diff::ChangedFile;
+use repopilot::scan::scanner::{
+    scan_changed_with_config, scan_path_with_config, scan_resolved_changed_with_config,
+};
 use repopilot::scan::types::ScanSummary;
 use repopilot::scan::workspace_scan::scan_workspace_with_config;
 use std::path::PathBuf;
@@ -16,7 +19,14 @@ use std::time::{Duration, Instant};
 pub enum ProductScanMode {
     Full,
     Workspace,
-    Changed { since: Option<String> },
+    Changed {
+        since: Option<String>,
+    },
+    ResolvedChanged {
+        repo_root: PathBuf,
+        changed_files: Vec<ChangedFile>,
+        base_ref: Option<String>,
+    },
 }
 
 pub struct ProductScanRequest {
@@ -66,6 +76,17 @@ pub fn run_product_scan(
         ProductScanMode::Changed { since } => {
             scan_changed_with_config(&request.path, &scan_config, since.as_deref())
         }
+        ProductScanMode::ResolvedChanged {
+            repo_root,
+            changed_files,
+            base_ref,
+        } => scan_resolved_changed_with_config(
+            &request.path,
+            &scan_config,
+            repo_root.clone(),
+            changed_files.clone(),
+            base_ref.as_deref(),
+        ),
     };
     let scan_elapsed = scan_start.elapsed();
     finish_spinner(pb);
