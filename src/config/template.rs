@@ -52,6 +52,17 @@ enabled = true
 # extra_patterns = ["infra/**/*.tf", "**/secrets/**"]
 extra_patterns = []
 
+[behavioral]
+enabled = true
+
+[algorithmic]
+enabled = true
+
+[taint]
+# `review` follows request/argv input into SQL, subprocess, filesystem-write,
+# and outbound-network sinks within a changed function.
+enabled = true
+
 [output]
 default_format = "console"
 "#

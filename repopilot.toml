@@ -43,5 +43,14 @@ detect_secret_like_names = true
 enabled = true
 extra_patterns = []
 
+[behavioral]
+enabled = true
+
+[algorithmic]
+enabled = true
+
+[taint]
+enabled = true
+
 [output]
 default_format = "console"

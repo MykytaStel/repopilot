@@ -1,5 +1,6 @@
 use super::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
 use super::behavioral::{BehavioralKind, BehavioralSignal, BehavioralSignalSource};
+use super::taint::{SinkKind, SourceKind, TaintSignal};
 use super::tiered::{ConfidenceTier, build_tiered};
 use super::{BoundaryCategory, BoundarySignal};
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
@@ -33,6 +34,16 @@ fn algorithmic(kind: AlgorithmicKind, path: &str) -> AlgorithmicSignal {
     }
 }
 
+fn taint(sink: SinkKind, path: &str) -> TaintSignal {
+    TaintSignal {
+        source: SourceKind::HttpRequest,
+        sink,
+        path: path.to_string(),
+        line: 1,
+        detail: "detail".to_string(),
+    }
+}
+
 /// A large diff with `count` files of 40 changed lines each (no signals).
 fn large_diff(count: usize) -> Vec<ChangedFile> {
     (0..count)
@@ -52,6 +63,7 @@ fn boundary_signals_land_in_definitely() {
         &[],
         &[],
         &[],
+        &[],
     );
     assert_eq!(tiered.definitely.len(), 1);
     assert!(tiered.maybe.is_empty());
@@ -64,7 +76,7 @@ fn behavioral_kinds_tier_by_sensitivity() {
         behavioral(BehavioralKind::EnvVarIntroduced, "src/config.ts"),
         behavioral(BehavioralKind::NetworkCallAdded, "src/api.ts"),
     ];
-    let tiered = build_tiered(&[], &signals, &[], &[]);
+    let tiered = build_tiered(&[], &signals, &[], &[], &[]);
     // env var is a definite boundary crossing; a plain network call is maybe.
     assert_eq!(tiered.definitely.len(), 1);
     assert_eq!(tiered.maybe.len(), 1);
@@ -81,7 +93,7 @@ fn coarse_behavioral_signals_are_demoted_to_noise() {
         detail: "Authentication/authorization check removed (coarse fallback)".to_string(),
         source: BehavioralSignalSource::CoarseFallback,
     };
-    let tiered = build_tiered(&[], &[coarse], &[], &[]);
+    let tiered = build_tiered(&[], &[coarse], &[], &[], &[]);
     assert!(tiered.definitely.is_empty());
     assert!(tiered.maybe.is_empty());
     assert_eq!(tiered.noise.len(), 1);
@@ -99,7 +111,7 @@ fn same_kind_is_definitely_when_ast_sourced() {
         detail: "Authentication/authorization check removed (coarse fallback)".to_string(),
         source: BehavioralSignalSource::Ast,
     };
-    let tiered = build_tiered(&[], &[ast], &[], &[]);
+    let tiered = build_tiered(&[], &[ast], &[], &[], &[]);
     assert_eq!(tiered.definitely.len(), 1);
     assert!(tiered.noise.is_empty());
 }
@@ -109,6 +121,7 @@ fn network_call_in_an_auth_path_is_escalated() {
     let tiered = build_tiered(
         &[boundary(BoundaryCategory::AccessControl, "src/auth.ts")],
         &[behavioral(BehavioralKind::NetworkCallAdded, "src/auth.ts")],
+        &[],
         &[],
         &[],
     );
@@ -127,14 +140,32 @@ fn algorithmic_signals_are_maybe() {
             "src/x.rs",
         )],
         &[],
+        &[],
     );
     assert_eq!(tiered.maybe.len(), 1);
     assert!(tiered.definitely.is_empty());
 }
 
 #[test]
+fn taint_tiers_by_sink_severity() {
+    // SQL/exec injection is top tier; filesystem/network reach is maybe.
+    let tiered = build_tiered(
+        &[],
+        &[],
+        &[],
+        &[
+            taint(SinkKind::Sql, "src/db.ts"),
+            taint(SinkKind::FsWrite, "src/files.ts"),
+        ],
+        &[],
+    );
+    assert_eq!(tiered.definitely.len(), 1);
+    assert_eq!(tiered.maybe.len(), 1);
+}
+
+#[test]
 fn noise_tier_fires_only_for_a_large_diff_with_nothing_flagged() {
-    let tiered = build_tiered(&[], &[], &[], &large_diff(6));
+    let tiered = build_tiered(&[], &[], &[], &[], &large_diff(6));
     assert_eq!(tiered.noise.len(), 1);
     assert_eq!(tiered.noise[0].tier, ConfidenceTier::LargeDiffOrNoise);
 }
@@ -145,6 +176,7 @@ fn noise_tier_is_suppressed_when_a_signal_is_present() {
         &[],
         &[behavioral(BehavioralKind::FsWriteAdded, "src/f0.rs")],
         &[],
+        &[],
         &large_diff(6),
     );
     assert!(tiered.noise.is_empty());
@@ -153,6 +185,6 @@ fn noise_tier_is_suppressed_when_a_signal_is_present() {
 
 #[test]
 fn small_diff_with_nothing_flagged_is_silent() {
-    let tiered = build_tiered(&[], &[], &[], &large_diff(2));
+    let tiered = build_tiered(&[], &[], &[], &[], &large_diff(2));
     assert!(tiered.is_empty());
 }

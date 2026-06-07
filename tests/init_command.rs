@@ -23,6 +23,9 @@ fn init_creates_default_config() {
 
     assert!(config.contains("[scan]"));
     assert!(config.contains("[architecture]"));
+    assert!(config.contains("[behavioral]"));
+    assert!(config.contains("[algorithmic]"));
+    assert!(config.contains("[taint]"));
     assert!(config.contains("[output]"));
 }
 

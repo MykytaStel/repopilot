@@ -20,6 +20,7 @@ pub struct RepoPilotConfig {
     pub security_boundary: SecurityBoundarySection,
     pub behavioral: BehavioralSection,
     pub algorithmic: AlgorithmicSection,
+    pub taint: TaintSection,
     pub output: OutputSection,
 }
 
@@ -198,6 +199,23 @@ pub struct AlgorithmicSection {
 }
 
 impl Default for AlgorithmicSection {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// Configures the `review` taint-lite reachability signals (untrusted input — an
+/// HTTP request field or process argv — reaching a SQL/exec/filesystem/network
+/// sink within a changed function). Intra-procedural; flags that a path exists,
+/// does not prove exploitability.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct TaintSection {
+    /// Whether to surface taint-lite signals at all. Defaults to enabled.
+    pub enabled: bool,
+}
+
+impl Default for TaintSection {
     fn default() -> Self {
         Self { enabled: true }
     }
