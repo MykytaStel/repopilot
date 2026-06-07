@@ -139,7 +139,15 @@ fn is_augmenting(node: Node<'_>, lang: TaintLang) -> bool {
                 node.children(&mut cursor).any(|child| {
                     matches!(
                         child.kind(),
-                        "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
+                        "+=" | "-="
+                            | "*="
+                            | "/="
+                            | "%="
+                            | "&="
+                            | "|="
+                            | "^="
+                            | "<<="
+                            | ">>="
                             | "&^="
                     )
                 })
@@ -211,6 +219,10 @@ fn node_mentions_tainted(
     tainted: &HashMap<String, SourceKind>,
 ) -> Option<SourceKind> {
     if lang.is_flow_scope(node) {
+        return None;
+    }
+    // A sanitizer/coercion call neutralizes whatever it wraps; do not descend.
+    if super::sanitizers::is_sanitizer_call(node, content, lang) {
         return None;
     }
     if node.kind() == "identifier" {
