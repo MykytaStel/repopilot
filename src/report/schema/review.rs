@@ -15,7 +15,7 @@ pub struct ReviewJsonReport<'a> {
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
     pub boundary_signals: &'a [BoundarySignal],
-    /// Boundary + behavioral + algorithmic signals grouped by confidence tier.
+    /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
     /// two are expected to collapse into this field in a future schema.
     pub tiered_signals: &'a TieredSignals,

@@ -18,7 +18,7 @@ pub struct ReviewReport {
     pub boundary_signals: Vec<BoundarySignal>,
     /// A code boundary (auth / request-trust) changed but no test moved.
     pub boundary_missing_test: bool,
-    /// Boundary + behavioral + algorithmic signals grouped by confidence tier.
+    /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     pub tiered_signals: TieredSignals,
     pub findings: Vec<ReviewFindingStatus>,
 }

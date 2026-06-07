@@ -95,3 +95,17 @@ fn scan_max_file_bytes_is_parsed() {
     assert_eq!(config.scan.max_file_bytes, 12345);
     assert_eq!(config.to_scan_config().max_file_bytes, 12345);
 }
+
+#[test]
+fn taint_review_signals_can_be_disabled() {
+    let config = parse_config(
+        r#"
+        [taint]
+        enabled = false
+        "#,
+        None,
+    )
+    .expect("valid config should parse");
+
+    assert!(!config.taint.enabled);
+}

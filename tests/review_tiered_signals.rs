@@ -82,6 +82,74 @@ fn review_groups_signals_into_tiers_in_json() {
 }
 
 #[test]
+fn review_surfaces_taint_flow_in_json() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path(),
+        "src/handler.ts",
+        "export function findUser() { return null; }\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path(),
+        "src/handler.ts",
+        r#"export function findUser(req: Request) {
+  const id = req.query.id;
+  return db.query("SELECT * FROM users WHERE id = " + id);
+}
+"#,
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    let definitely = json["tiered_signals"]["definitely"]
+        .as_array()
+        .expect("definitely array");
+
+    assert!(definitely.iter().any(|signal| {
+        signal["family"] == "taint"
+            && signal["headline"] == "untrusted input reaches raw SQL"
+            && signal["path"] == "src/handler.ts"
+            && signal["line"] == 3
+    }));
+}
+
+#[test]
+fn review_respects_disabled_taint_config() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write(temp.path(), "repopilot.toml", "[taint]\nenabled = false\n");
+    write(
+        temp.path(),
+        "src/handler.ts",
+        "export function findUser() { return null; }\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path(),
+        "src/handler.ts",
+        r#"export function findUser(req: Request) {
+  const id = req.query.id;
+  return db.query("SELECT * FROM users WHERE id = " + id);
+}
+"#,
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    for tier in ["definitely", "maybe", "noise"] {
+        assert!(
+            json["tiered_signals"][tier]
+                .as_array()
+                .expect("tier array")
+                .iter()
+                .all(|signal| signal["family"] != "taint")
+        );
+    }
+}
+
+#[test]
 fn review_surfaces_large_diff_as_noise_tier() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());
@@ -89,7 +157,7 @@ fn review_surfaces_large_diff_as_noise_tier() {
     commit_all(temp.path(), "initial");
 
     // Six plain files, ~40 lines each: a big diff with no boundary / behavioral /
-    // algorithmic hit (`.txt` is not one of the analyzed grammars).
+    // algorithmic / taint hit (`.txt` is not one of the analyzed grammars).
     let body = "lorem ipsum dolor sit amet\n".repeat(40);
     for index in 0..6 {
         write(temp.path(), &format!("notes/note_{index}.txt"), &body);

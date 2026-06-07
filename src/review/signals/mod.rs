@@ -25,6 +25,7 @@ mod behavioral_tests;
 mod classify;
 pub mod composites;
 pub mod content;
+pub mod taint;
 #[cfg(test)]
 mod tests;
 pub mod tiered;

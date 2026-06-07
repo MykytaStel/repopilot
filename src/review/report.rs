@@ -1,5 +1,5 @@
 use super::blast_radius::compute_blast_radius;
-use super::content_signals::detect_content_signals;
+use super::content_signals::{ContentToggles, detect_content_signals};
 use crate::baseline::diff::{
     BaselineScanReport, BaselineStatus, all_findings_new, diff_summary_against_baseline,
 };
@@ -68,12 +68,15 @@ fn build_review_report_with_target(
         &changed_files,
         &config.security_boundary,
     );
-    let (behavioral_signals, algorithmic_signals) = detect_content_signals(
+    let content_signals = detect_content_signals(
         &repo_root,
         target,
         &changed_files,
-        config.behavioral.enabled,
-        config.algorithmic.enabled,
+        ContentToggles {
+            behavioral: config.behavioral.enabled,
+            algorithmic: config.algorithmic.enabled,
+            taint: config.taint.enabled,
+        },
     );
 
     let baseline_report = match baseline {
@@ -88,8 +91,7 @@ fn build_review_report_with_target(
         repo_root,
         changed_files,
         boundary_signals,
-        behavioral_signals,
-        algorithmic_signals,
+        content_signals,
     ))
 }
 
@@ -98,8 +100,7 @@ fn classify_findings(
     repo_root: PathBuf,
     changed_files: Vec<ChangedFile>,
     mut boundary_signals: Vec<BoundarySignal>,
-    behavioral_signals: Vec<crate::review::signals::behavioral::BehavioralSignal>,
-    algorithmic_signals: Vec<crate::review::signals::algorithmic::AlgorithmicSignal>,
+    content_signals: super::content_signals::ContentSignals,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
@@ -113,8 +114,9 @@ fn classify_findings(
 
     let mut tiered_signals = tiered::build_tiered(
         &boundary_signals,
-        &behavioral_signals,
-        &algorithmic_signals,
+        &content_signals.behavioral,
+        &content_signals.algorithmic,
+        &content_signals.taint,
         &changed_files,
     );
     tiered::enrich_blast_radius(

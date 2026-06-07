@@ -1,14 +1,15 @@
 //! Unified, confidence-tiered view over the review's change signals.
 //!
-//! Boundary, behavioral, and algorithmic signals all converge into one
+//! Boundary, behavioral, algorithmic, and taint-lite signals converge into one
 //! [`ReviewSignal`] type, grouped into three trust tiers so a reviewer's eye
 //! goes to the right place first:
 //!
 //! - **definitely sensitive** — boundary changes and unambiguous behavior
 //!   crossings (env var, migration, subprocess, removed error handling / auth /
-//!   test, a network call in an auth path).
+//!   test, a network call in an auth path), plus input reaching raw SQL or exec.
 //! - **maybe sensitive** — behavior in ordinary files (network call, fs write,
-//!   new dependency, raw SQL) and every algorithmic delta.
+//!   new dependency, raw SQL), every algorithmic delta, and input reaching a
+//!   filesystem write or outbound network call.
 //! - **large-diff-or-noise** — a big diff with nothing flagged, surfaced once so
 //!   volume is visible without pretending to understand it.
 //!
@@ -22,6 +23,7 @@ use crate::review::signals::BoundarySignal;
 use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
 use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
 use crate::review::signals::composites;
+use crate::review::signals::taint::{SinkKind, TaintSignal};
 use crate::scan::types::CouplingGraph;
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -48,6 +50,8 @@ pub enum SignalFamily {
     Boundary,
     Behavioral,
     Algorithmic,
+    /// Untrusted input reaching a dangerous sink (taint-lite reachability).
+    Taint,
     /// The single large-diff/volume note, which belongs to no detector family.
     Volume,
 }
@@ -105,11 +109,12 @@ impl TieredSignals {
     }
 }
 
-/// Fold the three signal families into one tiered view.
+/// Fold the four signal families into one tiered view.
 pub fn build_tiered(
     boundary: &[BoundarySignal],
     behavioral: &[BehavioralSignal],
     algorithmic: &[AlgorithmicSignal],
+    taint: &[TaintSignal],
     changed_files: &[ChangedFile],
 ) -> TieredSignals {
     let mut tiered = TieredSignals::default();
@@ -148,6 +153,17 @@ pub fn build_tiered(
             blast_radius: 0,
         });
     }
+    for signal in taint {
+        tiered.push(ReviewSignal {
+            family: SignalFamily::Taint,
+            tier: taint_tier(signal.sink),
+            path: signal.path.clone(),
+            line: Some(signal.line),
+            headline: taint_headline(signal.sink).to_string(),
+            detail: Some(signal.detail.clone()),
+            blast_radius: 0,
+        });
+    }
 
     // Only call out raw volume when nothing else fired — otherwise the flagged
     // signals already point the eye.
@@ -159,7 +175,7 @@ pub fn build_tiered(
                 tier: ConfidenceTier::LargeDiffOrNoise,
                 path: String::new(),
                 line: None,
-                headline: "large diff, no boundary or behavior flagged".to_string(),
+                headline: "large diff, no review signal flagged".to_string(),
                 detail: Some(format!("{files} files, ~{lines} changed lines")),
                 blast_radius: 0,
             });
@@ -236,6 +252,24 @@ fn behavioral_headline(kind: BehavioralKind) -> &'static str {
         ErrorHandlingRemoved => "error handling removed",
         TestDeletedOrEmptied => "test deleted or emptied",
         AuthCheckRemoved => "auth check removed",
+    }
+}
+
+/// SQL/exec injection lands in the top tier; filesystem/network reach is real but
+/// more often legitimate, so it stays *maybe sensitive*.
+fn taint_tier(sink: SinkKind) -> ConfidenceTier {
+    match sink {
+        SinkKind::Sql | SinkKind::Exec => ConfidenceTier::DefinitelySensitive,
+        SinkKind::FsWrite | SinkKind::Network => ConfidenceTier::MaybeSensitive,
+    }
+}
+
+fn taint_headline(sink: SinkKind) -> &'static str {
+    match sink {
+        SinkKind::Sql => "untrusted input reaches raw SQL",
+        SinkKind::Exec => "untrusted input reaches subprocess/exec",
+        SinkKind::FsWrite => "untrusted input reaches filesystem write",
+        SinkKind::Network => "untrusted input reaches network call",
     }
 }
 

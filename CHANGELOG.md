@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Added taint-lite review signals at `preview` for JavaScript/TypeScript, Python, and Go. `repopilot review` now follows HTTP request fields and process arguments through direct use and simple local assignment chains into raw SQL, subprocess/exec, filesystem-write, and outbound-network sinks. Analysis is intra-procedural, limited to changed sink lines, skips test files, and treats parameterized SQL as safe. Signals join the existing confidence tiers under the new `taint` family and can be disabled with `[taint] enabled = false`.
+
 ## [0.15.0] - 2026-06-05
 
 RepoPilot 0.15 turns review from *scanning the code* into *understanding the
