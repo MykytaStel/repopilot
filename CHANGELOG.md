@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Changed
 
 - `repopilot review` taint-lite now clears taint when a tracked local is reassigned to a clean value (`x = req.query.id; x = "static"; …`), removing false positives at later sinks. Compound assignment (`x += …`) still keeps taint because it combines with the prior value. Detection stays intra-procedural and at `preview`.
+- `repopilot review` taint-lite now treats numeric/boolean coercions (`Number`, `parseInt`, `parseFloat`, `int`, `float`, `bool`, `strconv.Atoi`, …) as neutralizing: a request value coerced to a number/bool before a SQL/exec/filesystem/network sink is no longer flagged, while an un-coerced sibling in the same expression still is. Context-specific sanitizers (shell quoting, URL/HTML encoding) are intentionally not yet recognized.
 
 ## [0.16.0] - 2026-06-07
 

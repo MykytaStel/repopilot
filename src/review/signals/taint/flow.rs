@@ -221,6 +221,10 @@ fn node_mentions_tainted(
     if lang.is_flow_scope(node) {
         return None;
     }
+    // A sanitizer/coercion call neutralizes whatever it wraps; do not descend.
+    if super::sanitizers::is_sanitizer_call(node, content, lang) {
+        return None;
+    }
     if node.kind() == "identifier" {
         let text = node.utf8_text(content.as_bytes()).ok()?;
         if let Some(source) = tainted.get(text) {

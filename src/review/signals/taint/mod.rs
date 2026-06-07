@@ -22,6 +22,7 @@
 
 mod ast;
 mod flow;
+mod sanitizers;
 mod sinks;
 mod sources;
 #[cfg(test)]

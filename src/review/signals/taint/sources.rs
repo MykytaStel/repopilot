@@ -104,6 +104,10 @@ fn node_has_patterns(node: Node<'_>, content: &str, lang: TaintLang, patterns: &
     if lang.is_flow_scope(node) {
         return false;
     }
+    // A sanitizer/coercion call neutralizes whatever it wraps; do not descend.
+    if super::sanitizers::is_sanitizer_call(node, content, lang) {
+        return false;
+    }
 
     let is_access = match lang {
         TaintLang::Js => node.kind() == "member_expression",
