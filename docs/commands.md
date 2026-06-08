@@ -129,12 +129,14 @@ permissions, artifacts, SARIF, and sticky comments.
 
 ## AI Context
 
-RepoPilot formats local evidence for an assistant without calling an AI service:
+RepoPilot formats local evidence into one assistant-ready handoff without calling
+an AI service — context, evidence, a prioritized P0–P3 plan, edit order, working
+rules, and verification in a single document:
 
 ```bash
 repopilot ai context . --budget 4k
-repopilot ai plan . --focus security
-repopilot ai prompt . --focus quality
+repopilot ai context . --focus security --output ai-context.md
+repopilot ai context . --no-task | pbcopy
 ```
 
 For an agent-assisted change, mark the starting state, prepare focused context,

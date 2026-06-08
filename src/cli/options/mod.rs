@@ -140,16 +140,16 @@ repopilot review --since-snapshot           # review everything since the marker
     )]
     Snapshot(SnapshotOptions),
 
-    /// Generate local AI-ready context, plans, and prompts
+    /// Generate a local AI-ready handoff (context, plan, and guidance)
     #[command(
-        about = "Generate local AI-ready context, plans, and prompts",
-        long_about = "Groups RepoPilot's AI-assisted remediation outputs under one stable command family.\n\n\
-These commands scan locally and emit Markdown. RepoPilot does not call AI services\n\
-or upload source code.",
+        about = "Generate a local AI-ready handoff (context, plan, and guidance)",
+        long_about = "Turns a local scan into one assistant-ready Markdown handoff: repository\n\
+context and evidence, a prioritized P0–P3 remediation plan, working rules, and a\n\
+verification checklist. RepoPilot does not call AI services or upload source code.",
         after_help = "EXAMPLES:\n  \
 repopilot ai context . --focus security\n  \
-repopilot ai plan . --budget 4k\n  \
-repopilot ai prompt . --output prompt.md"
+repopilot ai context . --budget 8k\n  \
+repopilot ai context . --no-task --output ai-context.md"
     )]
     Ai(AiOptions),
 

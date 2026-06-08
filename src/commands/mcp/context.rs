@@ -82,11 +82,15 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     })
     .map_err(|error| format!("scan failed: {error}"))?;
 
+    // Agents that call this tool bring their own instructions, so return the
+    // fact-only context (facts, evidence, prioritized plan, edit order) — the
+    // same form `repopilot ai context --no-task` emits — and omit the human task
+    // preamble, working rules, and verification checklist.
     let options = AiContextRenderOptions {
         focus,
         budget_tokens,
         no_header: false,
-        no_task: false,
+        no_task: true,
     };
 
     Ok(render(&scan_result.summary, &options))

@@ -1,5 +1,5 @@
 pub mod ai_context;
-pub mod ai_plan;
+pub(crate) mod ai_plan;
 pub mod color;
 pub mod console;
 mod dispatch;
@@ -7,7 +7,6 @@ pub(crate) mod finding_helpers;
 pub mod html;
 pub mod json;
 pub mod markdown;
-pub mod prompt;
 pub(crate) mod render_helpers;
 pub(crate) mod report_stats;
 pub(crate) mod report_text;

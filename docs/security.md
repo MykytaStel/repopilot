@@ -9,15 +9,13 @@ RepoPilot commands analyze files on disk and write reports to stdout or explicit
 output paths. Runtime commands do not upload source code, call AI providers, send
 telemetry, or contact RepoPilot servers.
 
-AI workflow commands are formatting commands:
+The AI handoff command is a formatting command:
 
 ```bash
 repopilot ai context .
-repopilot ai plan .
-repopilot ai prompt .
 ```
 
-They generate local Markdown from local scan findings. They do not call an LLM API.
+It generates local Markdown from local scan findings. It does not call an LLM API.
 
 ## Installation security
 

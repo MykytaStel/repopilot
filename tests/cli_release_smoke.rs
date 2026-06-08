@@ -278,68 +278,11 @@ fn stable_ai_context_writes_llm_ready_markdown() {
         "ai context output should include security-focused context\n{}",
         content
     );
-}
 
-#[test]
-fn stable_ai_plan_writes_prioritized_remediation_plan() {
-    let project = create_demo_project();
-    let output_path = project.path().join("ai-plan.md");
-
-    run_ok(
-        project.path(),
-        [
-            "ai",
-            "plan",
-            ".",
-            "--focus",
-            "all",
-            "--budget",
-            "4k",
-            "--output",
-            output_path.to_str().expect("non-utf8 output path"),
-        ],
-    );
-
-    let content = read_non_empty(&output_path);
-
+    // The handoff now folds in the prioritized plan that `ai plan` used to emit.
     assert!(
-        content.contains("P0")
-            || content.contains("P1")
-            || content.contains("Priority")
-            || content.contains("Remediation"),
-        "ai plan output should look like a remediation plan\n{}",
-        content
-    );
-}
-
-#[test]
-fn stable_ai_prompt_writes_ai_ready_prompt() {
-    let project = create_demo_project();
-    let output_path = project.path().join("ai-prompt.md");
-
-    run_ok(
-        project.path(),
-        [
-            "ai",
-            "prompt",
-            ".",
-            "--focus",
-            "quality",
-            "--budget",
-            "4k",
-            "--output",
-            output_path.to_str().expect("non-utf8 output path"),
-        ],
-    );
-
-    let content = read_non_empty(&output_path);
-
-    assert!(
-        content.contains("RepoPilot")
-            || content.contains("prompt")
-            || content.contains("fix")
-            || content.contains("Findings"),
-        "prompt output should include AI remediation context\n{}",
+        content.contains("Remediation Plan") || content.contains("P0"),
+        "ai context should embed the prioritized remediation plan\n{}",
         content
     );
 }

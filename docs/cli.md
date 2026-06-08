@@ -18,9 +18,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 |---------|-------|-------------|
 | [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
 | [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
-| [`ai context`](#ai-context) | — | Generate LLM-ready context from a scan |
-| [`ai plan`](#ai-plan) | — | Generate a prioritized remediation plan |
-| [`ai prompt`](#ai-prompt) | — | Generate an AI-ready remediation prompt |
+| [`ai context`](#ai-context) | — | Generate an LLM-ready handoff (context, plan, and guidance) from a scan |
 | [`inspect explain`](#inspect-explain) | — | Explain file classification and rule decisions |
 | [`inspect knowledge`](#inspect-knowledge) | — | Inspect bundled Knowledge Engine data |
 | [`inspect cache`](#inspect-cache) | — | Inspect local changed-scan cache diagnostics |
@@ -297,9 +295,10 @@ repopilot review . --min-severity high
 
 ## `ai context`
 
-Scans the repository and formats findings as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another LLM assistant.
+Scans the repository and formats one LLM-ready handoff as structured Markdown for pasting into Claude Code, Cursor, ChatGPT, or another assistant — or for piping to the clipboard.
 
-The output includes a risk summary, tech stack signals, findings grouped by category, evidence snippets, finding recommendations, and an approximate token count.
+The handoff bundles a risk summary, tech stack signals, findings grouped by category with evidence snippets, the Context Risk Graph edit order, a prioritized P0–P3 remediation plan, working rules, a verification checklist, and an approximate token count. The standalone `ai plan` and `ai prompt` commands were folded into this single handoff. Pass `--no-task` to drop the agent guidance (task, rules, and verification) and emit fact-only context — the same form the MCP `context` tool returns.
+
 `ai context` emits Markdown only and does not accept `--format`.
 
 ### Synopsis
@@ -323,6 +322,8 @@ repopilot ai context <PATH> [OPTIONS]
 | `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget |
 | `-o, --output` | path | stdout | Write output to a file instead of stdout |
 | `--no-header` | flag | — | Omit the intro header block |
+| `--no-task` | flag | — | Omit the AI task instruction preamble |
+| `--show-breakdown` | flag | — | Print a per-section token breakdown to stderr (automatic when stdout is a TTY) |
 
 ### Examples
 
@@ -330,71 +331,7 @@ repopilot ai context <PATH> [OPTIONS]
 repopilot ai context .
 repopilot ai context . --focus security --budget 2k
 repopilot ai context . --output ai-context.md
-repopilot ai context . --no-header | pbcopy
-```
-
----
-
-## `ai plan`
-
-Scans the repository and formats findings as a Markdown AI plan with P0/P1/P2/P3 priorities, locations, rule IDs, finding recommendations, and verification commands.
-
-`ai plan` emits Markdown only and does not accept `--format`.
-
-### Synopsis
-
-```
-repopilot ai plan <PATH> [OPTIONS]
-```
-
-### Options
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
-| `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit output to a category |
-| `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget |
-| `-o, --output` | path | stdout | Write output to a file instead of stdout |
-
-### Examples
-
-```bash
-repopilot ai plan .
-repopilot ai plan . --focus security --budget 2k
-repopilot ai plan . --output ai-plan.md
-```
-
----
-
-## `ai prompt`
-
-Scans the repository and emits a Markdown prompt for a coding assistant, including remediation instructions and embedded RepoPilot context.
-
-`ai prompt` emits Markdown only; it does not call an AI service or accept `--format`.
-
-The removed 0.x `repopilot prompt` alias is no longer part of the executable command surface; use `repopilot ai prompt`.
-
-### Synopsis
-
-```
-repopilot ai prompt <PATH> [OPTIONS]
-```
-
-### Options
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
-| `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit embedded context to a category |
-| `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget for embedded context |
-| `-o, --output` | path | stdout | Write output to a file instead of stdout |
-
-### Examples
-
-```bash
-repopilot ai prompt .
-repopilot ai prompt . --focus security --budget 2k
-repopilot ai prompt . --output prompt.md
+repopilot ai context . --no-task --output ai-context.md
 ```
 
 ---

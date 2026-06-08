@@ -91,9 +91,35 @@ repopilot scan . \
 Default scans hide broad maintainability noise. Use `--profile strict` for the
 full audit surface.
 
-## AI Agents And MCP
+## AI Handoff
 
-RepoPilot exposes local review, scan, context, and explain tools over stdio:
+When you want an external assistant to drive a fix, `repopilot ai context` turns a
+scan into one compact, copy-paste-ready Markdown handoff — locally, with no network
+or LLM calls:
+
+```bash
+repopilot ai context .
+repopilot ai context . --focus security --budget 8k
+repopilot ai context . --no-task --output ai-context.md   # fact-only, for embedding
+```
+
+The handoff bundles everything an assistant needs in one document: repository facts
+and risk, the findings with evidence, a prioritized **P0–P3 remediation plan** with
+the Context Risk Graph edit order, working rules, and a verification checklist. Three
+controls shape it:
+
+- `--focus` — `security`, `arch`, `quality`, `framework`, or `all` (default);
+- `--budget` — `2k`/`4k`/`8k`/`16k` or an integer token target (default `4k`,
+  roughly four characters per token), so the output fits your model's context;
+- `--output FILE` — write Markdown to a file instead of stdout (or pipe to your
+  clipboard, e.g. `| pbcopy`). Pass `--no-task` to drop the agent guidance and emit
+  fact-only context.
+
+## MCP Server
+
+`repopilot mcp` exposes that context — fact-only, the way `--no-task` emits it —
+plus review, scan, and explain, as tools over stdio so coding agents can call it
+directly:
 
 ```bash
 claude mcp add repopilot -- repopilot mcp --root .

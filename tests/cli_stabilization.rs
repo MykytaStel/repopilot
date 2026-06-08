@@ -105,13 +105,17 @@ fn grouped_ai_commands_work() {
         ],
         project.path(),
     );
-    assert!(stdout(&context).contains("RepoPilot AI Context"));
+    let context_out = stdout(&context);
+    assert!(context_out.contains("RepoPilot AI Context"));
 
-    let plan = run_ok(&["ai", "plan", ".", "--budget", "2k"], project.path());
-    assert!(stdout(&plan).contains("RepoPilot AI Plan"));
-
-    let prompt = run_ok(&["ai", "prompt", ".", "--budget", "2k"], project.path());
-    assert!(stdout(&prompt).contains("RepoPilot Remediation Prompt"));
+    // The standalone `ai plan`/`ai prompt` were folded into `ai context`.
+    for removed in [["ai", "plan", "."], ["ai", "prompt", "."]] {
+        let output = run(&removed, project.path());
+        assert!(
+            !output.status.success(),
+            "removed AI subcommand {removed:?} should no longer be accepted"
+        );
+    }
 }
 
 #[test]
