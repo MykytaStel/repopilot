@@ -19,6 +19,8 @@ LLM integration enters `0.17`.
 
 ## Next
 
+- move toward a fact-based analysis platform without adding new public
+  diagnostic commands;
 - collect adoption evidence through reproducible reports, issues, and user
   feedback;
 - improve first-run examples from observed user failures;
