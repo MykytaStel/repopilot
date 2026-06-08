@@ -372,3 +372,54 @@ function run() {
     assert_eq!(signals[0].source, BehavioralSignalSource::Ast);
     assert!(!signals[0].is_coarse());
 }
+
+#[test]
+fn auth_check_ignores_keyword_in_call_arguments() {
+    // `session` appears only as an argument; the callee is a plain getter, so
+    // removing the call must not be reported as a removed auth check.
+    let pre_code = "function run() {\n    getUserProfile(session.userId);\n    doAction();\n}\n";
+    let post_code = "function run() {\n    doAction();\n}\n";
+    let file = file_with_hunk(
+        "src/main.js",
+        ChangeStatus::Modified,
+        Some((2, 2)),
+        Some((2, 2)),
+        vec!["    getUserProfile(session.userId);"],
+        vec![],
+    );
+    let pre_src = ReviewSource::new(pre_code.to_string(), Some("JavaScript".to_string()));
+    let post_src = ReviewSource::new(post_code.to_string(), Some("JavaScript".to_string()));
+
+    let signals = detect_behavioral_removed(&file, Some(&pre_src), Some(&post_src));
+    assert!(
+        !signals
+            .iter()
+            .any(|s| s.kind == BehavioralKind::AuthCheckRemoved),
+        "argument keyword must not trigger AuthCheckRemoved: {signals:?}"
+    );
+}
+
+#[test]
+fn auth_check_ignores_keyword_in_string_literal() {
+    // The word "authenticate" lives in a logged string, not the callee.
+    let pre_code = "function run() {\n    log(\"authenticate the user\");\n    doAction();\n}\n";
+    let post_code = "function run() {\n    doAction();\n}\n";
+    let file = file_with_hunk(
+        "src/main.js",
+        ChangeStatus::Modified,
+        Some((2, 2)),
+        Some((2, 2)),
+        vec!["    log(\"authenticate the user\");"],
+        vec![],
+    );
+    let pre_src = ReviewSource::new(pre_code.to_string(), Some("JavaScript".to_string()));
+    let post_src = ReviewSource::new(post_code.to_string(), Some("JavaScript".to_string()));
+
+    let signals = detect_behavioral_removed(&file, Some(&pre_src), Some(&post_src));
+    assert!(
+        !signals
+            .iter()
+            .any(|s| s.kind == BehavioralKind::AuthCheckRemoved),
+        "string-literal keyword must not trigger AuthCheckRemoved: {signals:?}"
+    );
+}

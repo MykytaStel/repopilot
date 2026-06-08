@@ -36,6 +36,15 @@ const AUTH_TOKENS: &[&str] = &[
     "roles",
 ];
 
+/// Leading verbs that mutate/assign an auth artifact rather than *check* it.
+/// `applyRole`, `setSession`, and `grantPermission` change authz state; they are
+/// not auth verifications and must not count as a removed auth check.
+const MUTATION_VERBS: &[&str] = &[
+    "set", "apply", "assign", "create", "delete", "remove", "update", "add", "grant", "revoke",
+    "clear", "drop", "insert", "save", "store", "write", "build", "make", "register", "init",
+    "reset", "destroy", "unset", "put",
+];
+
 /// True when a removed/added line carries an error-handling keyword as a token.
 pub(super) fn line_has_error_handling(line: &str) -> bool {
     let tokens = tokenize(line);
@@ -53,10 +62,39 @@ pub(super) fn line_has_auth(line: &str) -> bool {
     AUTH_TOKENS.iter().any(|needle| tokens.contains(*needle))
 }
 
-/// Split text into lowercase alphanumeric tokens, breaking on separators and on
-/// lowercase→uppercase transitions so `requireAuth` yields `auth`.
-fn tokenize(text: &str) -> HashSet<String> {
-    let mut tokens = HashSet::new();
+/// True when a call's callee — its `object.method` path with arguments stripped —
+/// names an authentication/authorization *check*.
+///
+/// Used by the AST removed-signal path so that only the callee, never the
+/// arguments or string literals, decides whether a call is an auth check:
+/// `getUserProfile(session.userId)` and `log("authenticate")` do not count.
+/// Strong auth tokens (`jwt`, `authentic`, …) always qualify; the shorter
+/// ambiguous nouns (`role`, `session`, …) qualify only when the leading token is
+/// not a mutation verb, so `applyRole(x)`/`setSession(s)` are excluded.
+pub(super) fn callee_is_auth_check(callee: &str) -> bool {
+    let lower = callee.to_ascii_lowercase();
+    if AUTH_STRONG.iter().any(|needle| lower.contains(needle)) {
+        return true;
+    }
+    let tokens = ordered_tokens(callee);
+    if !tokens
+        .iter()
+        .any(|token| AUTH_TOKENS.contains(&token.as_str()))
+    {
+        return false;
+    }
+    // The leading token is the verb; a mutation verb means this changes the auth
+    // artifact rather than checking it.
+    !tokens
+        .first()
+        .is_some_and(|first| MUTATION_VERBS.contains(&first.as_str()))
+}
+
+/// Split text into ordered lowercase alphanumeric tokens, breaking on separators
+/// and on lowercase→uppercase transitions so `requireAuth` yields `[require,
+/// auth]`. Order is preserved so callers can inspect the leading (verb) token.
+fn ordered_tokens(text: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
     let mut current = String::new();
 
     for ch in text.chars() {
@@ -78,15 +116,40 @@ fn tokenize(text: &str) -> HashSet<String> {
     tokens
 }
 
-fn flush(current: &mut String, tokens: &mut HashSet<String>) {
+/// Whole-token set, for membership checks that do not care about order.
+fn tokenize(text: &str) -> HashSet<String> {
+    ordered_tokens(text).into_iter().collect()
+}
+
+fn flush(current: &mut String, tokens: &mut Vec<String>) {
     if !current.is_empty() {
-        tokens.insert(std::mem::take(current));
+        tokens.push(std::mem::take(current));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{line_has_auth, line_has_error_handling};
+    use super::{callee_is_auth_check, line_has_auth, line_has_error_handling};
+
+    #[test]
+    fn callee_auth_check_matches_checks_not_args_or_mutations() {
+        // Real auth checks (callee names) still qualify.
+        assert!(callee_is_auth_check("checkPermission"));
+        assert!(callee_is_auth_check("isAuthenticated"));
+        assert!(callee_is_auth_check("req.isAuthenticated"));
+        assert!(callee_is_auth_check("requireAuth"));
+        assert!(callee_is_auth_check("verifyJWT"));
+        assert!(callee_is_auth_check("hasRole"));
+        // Callees that are not auth checks must not qualify.
+        assert!(!callee_is_auth_check("getUserProfile")); // arg `session.userId` is not the callee
+        assert!(!callee_is_auth_check("log")); // arg "authenticate" is not the callee
+        assert!(!callee_is_auth_check("applyRole")); // mutation, not a check
+        assert!(!callee_is_auth_check("setSession"));
+        assert!(!callee_is_auth_check("grantPermission"));
+        // Lookalikes must not fire.
+        assert!(!callee_is_auth_check("getAuthor"));
+        assert!(!callee_is_auth_check("authority"));
+    }
 
     #[test]
     fn error_handling_matches_real_catch_not_lookalikes() {

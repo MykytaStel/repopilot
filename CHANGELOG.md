@@ -33,6 +33,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   RepoPilot `0.x` now builds with the pinned Rust `1.95.0` release/CI toolchain without
   promising compatibility with an older compiler floor.
 
+### Fixed
+
+- Hardened the AST `AuthCheckRemoved` and `ErrorHandlingRemoved` review signals to
+  match only a call's callee (its `object.method` path), never its arguments or
+  string literals, and to count each call once. Removing
+  `getUserProfile(session.userId)`, `log("authenticate")`, or a role-mutation such
+  as `applyRole(x)` no longer reports a removed auth check, and nested calls no
+  longer inflate the count. The Go `if err != nil` and Rust `.map_err`/`.unwrap_or`
+  error-handling detectors likewise inspect only the condition/callee.
+
 ### Removed
 
 - Removed the preview VS Code extension, platform VSIX packaging, editor CI
