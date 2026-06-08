@@ -79,15 +79,18 @@ These capabilities are the foundation for the next architecture. The goal is to
 compose and deepen them, not replace working product paths with parallel
 commands.
 
-The first internal implementation step now exists in `src/facts`: a facts-core
-skeleton with repository, file, source, confidence, and diagnostic types. It is
-not yet connected to scan, review, report output, AI context, or MCP.
+The first internal implementation steps now exist in `src/facts`: a facts-core
+skeleton, a minimal `ScanFacts -> RepoFacts` bridge, and an internal `RepoFacts`
+summary projection. The bridge currently preserves only repository root, file
+path, language, and non-empty line count. The summary provides aggregate file,
+language, line, and diagnostic counts without exposing raw facts. Neither is
+yet exposed through scan, review, report output, AI context, or MCP.
 
 ## What Is Missing
 
 RepoPilot still needs a deeper fact-based platform with:
 
-- a populated `RepoFacts` model assembled from existing file and scan facts;
+- a richer `RepoFacts` model beyond the initial scan-facts bridge;
 - a first-class dependency graph with explicit core types and contracts;
 - symbol facts for definitions, references, ownership, and relationships;
 - rule capabilities that declare which facts and analysis levels a rule needs;
@@ -145,12 +148,11 @@ without creating a durable user workflow.
 
 ## Next Planned Implementation Steps
 
-1. Add a `ScanFacts -> RepoFacts` bridge.
-2. Expose facts through scan JSON and AI context, not `inspect`.
-3. Design graph v2.
-4. Add graph v2 core types.
-5. Feed graph v2 into scan, review, and AI context.
-6. Add rule capabilities metadata.
-7. Add language support tiers.
-8. Add runtime evidence ingestion.
-9. Add evaluation fixtures.
+1. Feed the facts summary into AI context without exposing raw `RepoFacts`.
+2. Design graph v2.
+3. Add graph v2 core types.
+4. Feed graph v2 into scan, review, and AI context.
+5. Add rule capabilities metadata.
+6. Add language support tiers.
+7. Add runtime evidence ingestion.
+8. Add evaluation fixtures.
