@@ -6,6 +6,7 @@
 //! Also handles path-based migration detection for newly added files.
 
 mod csharp;
+mod dependency;
 mod go;
 mod js;
 mod jvm;
@@ -21,7 +22,6 @@ use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::Path;
 use tree_sitter::Node;
 
@@ -78,34 +78,20 @@ pub struct DependencyContext {
 }
 
 impl DependencyContext {
+    /// Build the set of names/prefixes that count as *local* — the repo's own
+    /// package(s) and, in a monorepo, its workspace members — so cross-package
+    /// imports are not mistaken for newly added external dependencies.
     pub fn from_repo_root(root: &Path) -> Self {
         let mut context = Self::default();
 
-        if let Ok(content) = fs::read_to_string(root.join("Cargo.toml"))
-            && let Ok(value) = toml::from_str::<toml::Value>(&content)
-            && let Some(name) = value
-                .get("package")
-                .and_then(|package| package.get("name"))
-                .and_then(toml::Value::as_str)
-        {
-            context.add_local_name(name);
+        for name in dependency::cargo_local_names(root) {
+            context.add_local_name(&name);
         }
-
-        if let Ok(content) = fs::read_to_string(root.join("package.json"))
-            && let Ok(value) = serde_json::from_str::<serde_json::Value>(&content)
-            && let Some(name) = value.get("name").and_then(serde_json::Value::as_str)
-        {
-            context.add_local_name(name);
+        for name in dependency::npm_local_names(root) {
+            context.add_local_name(&name);
         }
-
-        if let Ok(content) = fs::read_to_string(root.join("go.mod"))
-            && let Some(module) = content
-                .lines()
-                .find_map(|line| line.trim().strip_prefix("module "))
-        {
-            context
-                .local_import_prefixes
-                .insert(module.trim().to_string());
+        for prefix in dependency::go_local_prefixes(root) {
+            context.local_import_prefixes.insert(prefix);
         }
 
         context
@@ -116,13 +102,12 @@ impl DependencyContext {
         if normalized.is_empty() {
             return;
         }
+        // Match the full package name (and its `-`→`_` spelling). The bare last
+        // path segment is intentionally *not* inserted: a repo named `@acme/core`
+        // must not swallow an unrelated bare `core` import.
         self.local_package_names.insert(normalized.to_string());
         self.local_package_names
             .insert(normalized.replace('-', "_"));
-        if let Some(last) = normalized.rsplit('/').next() {
-            self.local_package_names.insert(last.to_string());
-            self.local_package_names.insert(last.replace('-', "_"));
-        }
     }
 
     pub(super) fn is_local_package(&self, name: &str) -> bool {

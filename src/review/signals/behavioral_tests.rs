@@ -139,6 +139,49 @@ fn standard_library_and_local_imports_are_not_dependency_signals() {
 }
 
 #[test]
+fn workspace_member_imports_are_not_dependency_signals() {
+    let temp = tempfile::tempdir().expect("temp repo");
+    let root = temp.path();
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/*\"]\n",
+    )
+    .expect("write workspace manifest");
+    std::fs::create_dir_all(root.join("crates/engine")).expect("create member dir");
+    std::fs::write(
+        root.join("crates/engine/Cargo.toml"),
+        "[package]\nname = \"acme-engine\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("write member manifest");
+
+    let dependencies = DependencyContext::from_repo_root(root);
+    assert!(
+        dependencies.is_local_package("acme_engine"),
+        "sibling workspace crate must be local: {dependencies:?}"
+    );
+
+    // A changed file in another member imports the sibling crate and an external one.
+    let source = ReviewSource::new(
+        "use acme_engine::run;\nuse serde::Serialize;\n".to_string(),
+        Some("Rust".to_string()),
+    );
+    let file = file_with_range("crates/cli/src/main.rs", ChangeStatus::Modified, 1, 2);
+    let deps: Vec<_> = detect_behavioral_added(&file, &source, &dependencies)
+        .into_iter()
+        .filter(|s| s.kind == BehavioralKind::DependencyImportAdded)
+        .map(|s| s.detail)
+        .collect();
+    assert!(
+        deps.iter().any(|detail| detail.contains("serde")),
+        "external crate must be flagged: {deps:?}"
+    );
+    assert!(
+        !deps.iter().any(|detail| detail.contains("acme_engine")),
+        "workspace crate must not be flagged: {deps:?}"
+    );
+}
+
+#[test]
 fn runtime_side_effects_in_test_files_are_not_review_signals() {
     let content = r#"
 use std::fs;
