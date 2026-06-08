@@ -35,6 +35,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Made review dependency detection workspace-aware: `DependencyContext` now
+  collects local package names from Cargo `[workspace].members`, npm `workspaces`,
+  and `go.work` members, so importing one local package from another in a monorepo
+  is no longer reported as a newly added external dependency. The repo's own scoped
+  name (e.g. `@acme/core`) no longer swallows an unrelated bare `core` import, and a
+  manifest that exists but fails to parse is reported once on stderr instead of
+  silently making every import look external.
 - Hardened the AST `AuthCheckRemoved` and `ErrorHandlingRemoved` review signals to
   match only a call's callee (its `object.method` path), never its arguments or
   string literals, and to count each call once. Removing
