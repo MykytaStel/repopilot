@@ -8,15 +8,15 @@ branding:
 
 inputs:
   command:
-    description: "Command to run: scan | review | compare | doctor | ai-context"
+    description: "Command to run: scan | review | ai-context"
     required: false
     default: "scan"
   format:
-    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan, JSON for review, and Markdown for compare/doctor/AI commands."
+    description: "Output format: auto | console | json | markdown | sarif. auto uses sarif for scan, JSON for review, and Markdown for ai-context."
     required: false
     default: "auto"
   path:
-    description: "Path passed to scan, review, doctor, or AI commands."
+    description: "Path passed to scan, review, or AI commands."
     required: false
     default: "."
   config:

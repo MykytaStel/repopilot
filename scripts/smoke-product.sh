@@ -251,9 +251,6 @@ assert_contains "$TMP_DIR/help.txt" "inspect"
 run_repopilot init --force --path "$TMP_DIR/repopilot.toml"
 assert_non_empty "$TMP_DIR/repopilot.toml"
 
-run_repopilot doctor . --format markdown --output "$TMP_DIR/doctor.md"
-assert_non_empty "$TMP_DIR/doctor.md"
-
 run_repopilot scan . --format json --output "$TMP_DIR/scan.json" --receipt "$TMP_DIR/receipt.json"
 assert_non_empty "$TMP_DIR/scan.json"
 validate_json_if_possible "$TMP_DIR/scan.json"

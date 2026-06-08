@@ -1,8 +1,7 @@
 pub mod ai;
 pub mod baseline;
 pub mod cache;
-pub mod compare;
-pub mod doctor;
+pub mod init;
 pub mod inspect;
 pub mod mcp;
 pub mod review;
@@ -12,8 +11,7 @@ pub mod snapshot;
 pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use cache::{CacheCommands, CacheOptions};
-pub use compare::CompareOptions;
-pub use doctor::{DoctorOptions, InitOptions};
+pub use init::InitOptions;
 pub use inspect::{InspectCommands, InspectOptions};
 pub use mcp::McpOptions;
 pub use review::ReviewOptions;
@@ -50,25 +48,6 @@ repopilot baseline create . --output ./baseline.json\n  \
 repopilot baseline create . --force   # overwrite existing baseline"
     )]
     Baseline(BaselineOptions),
-
-    /// Compare two JSON scan reports and show what changed (alias: cmp)
-    #[command(
-        alias = "cmp",
-        about = "Compare two JSON scan reports and show what changed",
-        long_about = "Diffs two RepoPilot JSON scan reports and reports which findings are new,\n\
-resolved, or unchanged between them.\n\n\
-Typical workflow:\n  \
-1. Scan the project before a change: `repopilot scan . --format json --output before.json`\n  \
-2. Make your changes.\n  \
-3. Scan again: `repopilot scan . --format json --output after.json`\n  \
-4. Diff the two: `repopilot compare before.json after.json`\n\n\
-Output can be formatted as console (default), JSON, or Markdown.",
-        after_help = "EXAMPLES:\n  \
-repopilot compare before.json after.json\n  \
-repopilot compare before.json after.json --format markdown\n  \
-repopilot compare before.json after.json --format json --output diff.json"
-    )]
-    Compare(CompareOptions),
 
     /// Scan a project, folder, or file for findings (alias: s)
     #[command(
@@ -181,21 +160,6 @@ repopilot init --force            # overwrite existing config\n  \
 repopilot init --path ./config/repopilot.toml"
     )]
     Init(InitOptions),
-
-    /// Diagnose RepoPilot audit readiness for a repository (alias: d)
-    #[command(
-        alias = "d",
-        about = "Diagnose RepoPilot audit readiness",
-        long_about = "Runs a lightweight audit readiness check for a repository.\n\n\
-It scans the target path, reports audit scope accounting, checks whether RepoPilot\n\
-configuration, .repopilotignore, baseline, Git, and GitHub workflows are present,\n\
-then recommends the next command to run.",
-        after_help = "EXAMPLES:\n  \
-repopilot doctor .\n  \
-repopilot doctor . --format json\n  \
-repopilot doctor . --format markdown --output doctor.md"
-    )]
-    Doctor(DoctorOptions),
 
     /// Run a local Model Context Protocol server over stdio
     #[command(

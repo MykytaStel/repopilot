@@ -100,7 +100,6 @@ After installing from any channel:
 
 ```bash
 repopilot --version
-repopilot doctor .
 repopilot review .
 repopilot scan . --min-severity high
 ```

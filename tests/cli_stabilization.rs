@@ -62,12 +62,20 @@ fn top_level_help_shows_stable_command_surface() {
     );
 
     for command in [
-        "baseline", "compare", "scan", "review", "snapshot", "ai", "inspect", "init", "doctor",
+        "baseline", "scan", "review", "snapshot", "ai", "inspect", "init",
     ] {
         assert!(help.contains(command), "help should show {command}\n{help}");
     }
 
-    for removed in ["vibe", "harden", "prompt", "explain", "knowledge"] {
+    for removed in [
+        "vibe",
+        "harden",
+        "prompt",
+        "explain",
+        "knowledge",
+        "compare",
+        "doctor",
+    ] {
         assert!(
             !help.contains(&format!("  {removed}  ")),
             "top-level help should not list removed command {removed} as a subcommand\n{help}"
@@ -162,7 +170,15 @@ fn inspect_commands_work() {
 fn legacy_commands_are_removed_from_executable_surface() {
     let project = create_project();
 
-    for command in ["vibe", "harden", "prompt", "explain", "knowledge"] {
+    for command in [
+        "vibe",
+        "harden",
+        "prompt",
+        "explain",
+        "knowledge",
+        "compare",
+        "doctor",
+    ] {
         let output = run(&[command, "."], project.path());
         assert_eq!(
             output.status.code(),

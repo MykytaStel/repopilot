@@ -63,11 +63,11 @@ Required product workflows include:
 
 ```text
 version and help
-init and doctor
+init
 review
 scan in console, JSON, Markdown, and SARIF
 baseline create and new-high gate
-AI context, plan, and prompt
+AI context
 knowledge, rule, feedback, and explain inspection
 ```
 

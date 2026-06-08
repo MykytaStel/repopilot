@@ -10,7 +10,7 @@ the change reaches before merge.
 - keep self-scan and review-quality gates free of accepted local suppressions;
 - make release inputs, Actions, tools, and official channel publication
   deterministic;
-- keep CLI help, doctor, docs, Action, and MCP aligned around change review;
+- keep CLI help, docs, Action, and MCP aligned around change review;
 - preserve JSON/SARIF, Action output, and MCP compatibility while signals remain
   at preview.
 
