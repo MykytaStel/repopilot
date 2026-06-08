@@ -116,9 +116,7 @@ for accuracy:
   scripts.
 
 Schema `0.14` adds optional `local_feedback` metadata to scan, baseline-scan,
-review, and receipt output. `repopilot compare`
-requires current scan reports with `schema_version` and `report.schema_version`
-matching the current schema.
+review, and receipt output.
 
 Schema `0.15` adds finding provenance, typed risk signal sources, `risk-v3`,
 finding-contract diagnostics, and `signal_quality` metrics.
@@ -138,9 +136,7 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `skipped_files_count` | `large_files_skipped` |
 
 The current reader accepts `0.16`, `0.17`, and `0.18` scan reports during the
-transition. `repopilot compare` remains stricter: both top-level and envelope
-schema versions must match a supported current report shape. Baseline files
-follow their separate baseline schema policy.
+transition. Baseline files follow their separate baseline schema policy.
 
 ## Baseline JSON reports
 
@@ -319,12 +315,10 @@ For local review:
 repopilot scan . --format markdown --output repopilot-report.md
 ```
 
-For scripts and comparisons:
+For scripts:
 
 ```bash
-repopilot scan . --format json --output before.json
-repopilot scan . --format json --output after.json
-repopilot compare before.json after.json --format markdown
+repopilot scan . --format json --output report.json
 ```
 
 

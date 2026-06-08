@@ -42,6 +42,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Removed
 
+- Removed the `compare` and `doctor` commands and their modules. `compare`
+  duplicated the baseline/review change story (a JSON-report diff); `doctor`
+  diagnosed a setup surface that barely exists for a single static binary, and
+  `scan`/`review` already error clearly. `init` keeps config scaffolding
+  (`InitOptions` moved to `src/cli/options/init.rs`). This is an intentional
+  breaking change under `0.x`: the `repopilot compare`/`repopilot doctor` CLI
+  commands and the (previously doc-hidden) `repopilot::compare`/`repopilot::doctor`
+  library modules are gone. Track changes and risk with `scan --baseline` +
+  `review` instead — the before/after JSON diff is not coming back as a command.
 - Removed the standalone `ai plan` and `ai prompt` commands; their prioritized
   plan and operating-rules output is now folded into `ai context`.
 - Removed the preview VS Code extension, platform VSIX packaging, editor CI

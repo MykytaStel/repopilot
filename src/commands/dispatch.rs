@@ -12,23 +12,9 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Review(options) => super::review::run(options),
         Commands::Snapshot(options) => super::snapshot::run(options),
         Commands::Baseline(options) => super::baseline::run(options.command),
-        Commands::Compare(options) => super::compare::run(
-            options.before,
-            options.after,
-            options.format,
-            options.output,
-        ),
         Commands::Ai(options) => run_ai(options.command),
         Commands::Inspect(options) => run_inspect(options.command),
         Commands::Init(options) => super::init::run(options.force, options.path),
-        Commands::Doctor(options) => super::doctor::run(
-            options.path,
-            options.config,
-            options.format,
-            options.output,
-            options.include_low_signal,
-            options.max_files,
-        ),
         Commands::Mcp(options) => super::mcp::run(options),
     }
 }

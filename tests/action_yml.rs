@@ -47,16 +47,20 @@ fn action_exposes_priority_and_rule_parity_inputs() {
 }
 
 #[test]
-fn action_supports_doctor_as_markdown_auto_command() {
+fn action_command_surface_is_scan_review_ai_context() {
     let action_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("action.yml");
     let action = fs::read_to_string(action_path).expect("read action.yml");
 
-    assert!(action.contains("scan | review | compare | doctor | ai-context"));
+    assert!(action.contains("scan | review | ai-context"));
     assert!(action.contains("JSON for review"));
+    // compare and doctor were removed from the product surface.
+    assert!(!action.contains("doctor"));
+    assert!(!action.contains("compare"));
 
     let helper_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("scripts/repopilot-action.sh");
     let helper = fs::read_to_string(helper_path).expect("read action helper");
-    assert!(helper.contains("doctor) RUN_ARGS=(doctor \"$PATH_INPUT\") ;;"));
+    assert!(helper.contains("ai-context) RUN_ARGS=(ai context \"$PATH_INPUT\") ;;"));
+    assert!(!helper.contains("doctor)"));
     assert!(helper.contains("SARIF output and upload are only supported by 'scan'"));
     assert!(helper.contains("GITHUB_STEP_SUMMARY"));
     assert!(!helper.contains("ai-context|vibe"));
@@ -215,7 +219,7 @@ printf '# Fake RepoPilot Report\n\n- ok\n'
         .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
         .env("CAPTURE_ARGS", &capture)
         .env("GITHUB_STEP_SUMMARY", &step_summary)
-        .env("INPUT_COMMAND", "doctor")
+        .env("INPUT_COMMAND", "ai-context")
         .env("INPUT_FORMAT", "auto")
         .env("INPUT_PATH", ".")
         .output()

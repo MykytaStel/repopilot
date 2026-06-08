@@ -25,11 +25,7 @@ pub mod audits;
 #[doc(hidden)]
 pub mod baseline;
 #[doc(hidden)]
-pub mod compare;
-#[doc(hidden)]
 pub mod config;
-#[doc(hidden)]
-pub mod doctor;
 #[doc(hidden)]
 pub mod explain;
 #[doc(hidden)]

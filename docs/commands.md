@@ -59,7 +59,6 @@ Check the repository and confirm the initial setup:
 
 ```bash
 repopilot init
-repopilot doctor .
 repopilot scan .
 ```
 
@@ -159,7 +158,6 @@ repopilot mcp --root .
 ## Diagnostics
 
 ```bash
-repopilot doctor .
 repopilot inspect feedback .
 repopilot inspect cache .
 repopilot inspect graph .

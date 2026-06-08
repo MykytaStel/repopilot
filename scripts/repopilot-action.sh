@@ -28,11 +28,9 @@ RUN_ARGS=()
 case "$COMMAND" in
   scan) RUN_ARGS=(scan "$PATH_INPUT") ;;
   review) RUN_ARGS=(review "$PATH_INPUT") ;;
-  compare) RUN_ARGS=(compare) ;;
-  doctor) RUN_ARGS=(doctor "$PATH_INPUT") ;;
   ai-context) RUN_ARGS=(ai context "$PATH_INPUT") ;;
   *)
-    echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, doctor, or ai-context."
+    echo "::error::Unsupported command '$COMMAND'. Expected scan, review, or ai-context."
     exit 2
     ;;
 esac
@@ -77,7 +75,7 @@ if [[ "$TIMING" == "true" && "$COMMAND" != "scan" ]]; then
   exit 2
 fi
 
-if [[ -n "$CONFIG" && "$COMMAND" != "compare" ]]; then RUN_ARGS+=(--config "$CONFIG"); fi
+if [[ -n "$CONFIG" ]]; then RUN_ARGS+=(--config "$CONFIG"); fi
 if [[ "$COMMAND" == "scan" || "$COMMAND" == "review" ]]; then
   if [[ -n "$BASELINE" ]]; then RUN_ARGS+=(--baseline "$BASELINE"); fi
   if [[ -n "$FAIL_ON" ]]; then RUN_ARGS+=(--fail-on "$FAIL_ON"); fi

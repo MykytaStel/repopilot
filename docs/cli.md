@@ -27,11 +27,9 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`inspect rules`](#inspect-rules) | — | List registered rules with lifecycle and signal metadata |
 | [`inspect rule`](#inspect-rule) | — | Inspect one registered rule |
 | [`inspect eval-rules`](#inspect-eval-rules) | — | Evaluate registered rules against bundled fixtures |
-| [`compare`](#compare) | `cmp` | Compare two JSON scan reports and show what changed |
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
-| [`doctor`](#doctor) | `d` | Diagnose local review and repository-audit readiness |
 | [`init`](#init) | — | Generate a default `repopilot.toml` configuration file |
 | [`mcp`](#mcp) | — | Run a local Model Context Protocol server over stdio |
 
@@ -596,49 +594,6 @@ repopilot inspect eval-rules --format json
 
 ---
 
-## `compare`
-
-Diffs two RepoPilot JSON scan reports and shows which findings are new, resolved, or unchanged.
-
-### Synopsis
-
-```
-repopilot compare <BEFORE> <AFTER> [OPTIONS]
-repopilot cmp <BEFORE> <AFTER> [OPTIONS]
-```
-
-### Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `<BEFORE>` | Path to the earlier scan report (JSON) |
-| `<AFTER>` | Path to the more recent scan report (JSON) |
-
-### Options
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--format` | `console\|json\|markdown` | `console` | Output format |
-| `-o, --output` | path | stdout | Write report to a file instead of stdout |
-
-### Examples
-
-```bash
-# Capture before/after and compare
-repopilot scan . --format json --output before.json
-# ... make your changes ...
-repopilot scan . --format json --output after.json
-repopilot compare before.json after.json
-
-# Markdown diff report
-repopilot compare before.json after.json --format markdown
-
-# JSON diff for scripting
-repopilot compare before.json after.json --format json --output diff.json
-```
-
----
-
 ## `baseline`
 
 Manages the accepted baseline file. Currently exposes one subcommand: [`baseline create`](#baseline-create).
@@ -693,44 +648,6 @@ repopilot baseline create . --output .repopilot/baseline.json --force
 Treat `.repopilot/baseline.json` as accepted existing debt. Commit or update it
 only after intentional review, and include a PR note explaining why the findings
 are accepted. Do not update it just to make CI green.
-
----
-
-## `doctor`
-
-Runs a review and repository-audit readiness check. It reports scan scope
-accounting, checks for config, `.repopilotignore`, baseline, Git, generic CI,
-RepoPilot-specific CI gates, and report/receipt output readiness, then
-recommends a review-first next command.
-
-### Synopsis
-
-```
-repopilot doctor [PATH] [OPTIONS]
-repopilot d [PATH] [OPTIONS]
-```
-
-### Options
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
-| `--format` | `console\|json\|markdown` | `console` | Output format |
-| `-o, --output` | path | stdout | Write report to a file instead of stdout |
-| `--include-low-signal` | flag | — | Analyze low-signal paths skipped by default |
-| `--max-files` | integer | — | Analyze at most this many discovered files |
-
-### Examples
-
-```bash
-repopilot doctor .
-repopilot doctor . --format json
-repopilot doctor . --format markdown --output doctor.md
-```
-
-Doctor keeps its JSON shape additive: new readiness checks appear as extra
-`checks[]` entries such as `config_readable`, `baseline_readable`,
-`repopilot_ci`, and `report_receipt`.
 
 ---
 
@@ -823,9 +740,9 @@ The `--min-severity` flag filters rendered findings before baseline or CI gate e
 
 | Format | Available in | Best for |
 |--------|-------------|----------|
-| `console` | `scan`, `review`, `compare` | Versioned terminal report with risk summary, top risk clusters, and grouped findings |
-| `json` | `scan`, `review`, `compare` | Machine consumption, piping to scripts |
-| `markdown` | `scan`, `review`, `compare` | Versioned human-readable report with top rules and findings index |
+| `console` | `scan`, `review` | Versioned terminal report with risk summary, top risk clusters, and grouped findings |
+| `json` | `scan`, `review` | Machine consumption, piping to scripts |
+| `markdown` | `scan`, `review` | Versioned human-readable report with top rules and findings index |
 | `html` | `scan` | Standalone visual report with severity, category, and rule filters |
 | `sarif` | `scan` | GitHub Code Scanning, CI security tooling |
 
