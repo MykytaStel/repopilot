@@ -1,5 +1,5 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, DependencyContext, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -8,6 +8,7 @@ pub(super) fn match_csharp(
     content: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     let text = node.utf8_text(content.as_bytes()).unwrap_or("").trim();
     match node.kind() {
@@ -53,6 +54,13 @@ pub(super) fn match_csharp(
             }
         }
         "using_directive" => {
+            let imported = text
+                .trim_start_matches("using ")
+                .trim_end_matches(';')
+                .trim();
+            if imported.starts_with("System") || dependencies.is_local_package(imported) {
+                return None;
+            }
             return Some(BehavioralSignal {
                 kind: BehavioralKind::DependencyImportAdded,
                 path: path_str.to_string(),

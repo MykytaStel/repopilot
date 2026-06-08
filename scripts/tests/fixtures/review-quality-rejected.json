@@ -1,0 +1,31 @@
+{
+  "tiered_signals": {
+    "definitely": [
+      {
+        "kind": "behavioral.network-call-added",
+        "path": "tests/fixtures/client.test.ts",
+        "provenance": {
+          "signal_source": "ast"
+        }
+      },
+      {
+        "kind": "behavioral.auth-check-removed",
+        "path": "docs/security.md",
+        "provenance": {
+          "signal_source": "text-heuristic"
+        }
+      }
+    ],
+    "maybe": [
+      {
+        "kind": "behavioral.dependency-import-added",
+        "path": "scripts/check.py",
+        "detail": "Imported module: from pathlib import Path",
+        "provenance": {
+          "signal_source": "ast"
+        }
+      }
+    ],
+    "noise": []
+  }
+}

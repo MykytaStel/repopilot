@@ -72,6 +72,37 @@ fn flags_recursion_introduced() {
 }
 
 #[test]
+fn method_with_same_name_is_not_treated_as_recursion() {
+    let pre = source("fn read_text(path: &Path) -> String {\n    String::new()\n}\n");
+    let post = source(
+        "fn read_text(path: &Path) -> String {\n    path.read_text().unwrap_or_default()\n}\n",
+    );
+    let file = changed("src/read.rs");
+    let signals = detect_algorithmic(&file, Some(&pre), Some(&post));
+
+    assert!(
+        !kinds(&signals).contains(&AlgorithmicKind::RecursionIntroduced),
+        "{signals:?}"
+    );
+}
+
+#[test]
+fn nested_function_call_does_not_make_outer_function_recursive() {
+    let pre = source("fn outer() {}\n");
+    let post =
+        source("fn outer() {\n    fn nested() {\n        outer();\n    }\n    nested();\n}\n");
+    let file = changed("src/nested.rs");
+    let signals = detect_algorithmic(&file, Some(&pre), Some(&post));
+
+    assert!(
+        !signals.iter().any(|signal| {
+            signal.kind == AlgorithmicKind::RecursionIntroduced && signal.detail.contains("`outer`")
+        }),
+        "{signals:?}"
+    );
+}
+
+#[test]
 fn flags_function_grew() {
     let pre = source("fn build() {\n    let x = 1;\n}\n");
     let mut body = String::from("fn build() {\n");

@@ -137,6 +137,17 @@ repopilot ai plan . --focus security
 repopilot ai prompt . --focus quality
 ```
 
+For an agent-assisted change, mark the starting state, prepare focused context,
+and review the complete result:
+
+```text
+snapshot -> context/plan -> change -> review
+```
+
+Keep remediation prompts scoped to one risk category or priority group. Require
+the agent to preserve unrelated behavior, add focused tests, and report any
+verification it could not run.
+
 For direct agent integration, run the local MCP server:
 
 ```bash

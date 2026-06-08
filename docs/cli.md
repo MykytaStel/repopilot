@@ -16,8 +16,8 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
 | [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
+| [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
 | [`ai context`](#ai-context) | — | Generate LLM-ready context from a scan |
 | [`ai plan`](#ai-plan) | — | Generate a prioritized remediation plan |
 | [`ai prompt`](#ai-prompt) | — | Generate an AI-ready remediation prompt |
@@ -33,7 +33,7 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
 | [`baseline create`](#baseline-create) | — | Scan a path and store current findings as accepted debt |
-| [`doctor`](#doctor) | `d` | Diagnose audit readiness |
+| [`doctor`](#doctor) | `d` | Diagnose local review and repository-audit readiness |
 | [`init`](#init) | — | Generate a default `repopilot.toml` configuration file |
 | [`mcp`](#mcp) | — | Run a local Model Context Protocol server over stdio |
 
@@ -761,7 +761,10 @@ are accepted. Do not update it just to make CI green.
 
 ## `doctor`
 
-Runs an audit-readiness check for a repository. It reports scan scope accounting, checks for config, `.repopilotignore`, baseline, Git, generic CI, RepoPilot-specific CI gates, and report/receipt output readiness, then recommends the next adoption command to run.
+Runs a review and repository-audit readiness check. It reports scan scope
+accounting, checks for config, `.repopilotignore`, baseline, Git, generic CI,
+RepoPilot-specific CI gates, and report/receipt output readiness, then
+recommends a review-first next command.
 
 ### Synopsis
 

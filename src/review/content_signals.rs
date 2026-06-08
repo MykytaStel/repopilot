@@ -1,6 +1,6 @@
 use crate::review::diff::{ChangedFile, DiffTarget};
 use crate::review::signals::algorithmic::{self, AlgorithmicSignal};
-use crate::review::signals::behavioral::{self, BehavioralSignal};
+use crate::review::signals::behavioral::{self, BehavioralSignal, DependencyContext};
 use crate::review::signals::content;
 use crate::review::signals::taint::{self, TaintSignal};
 use std::path::Path;
@@ -36,6 +36,7 @@ pub(super) fn detect_content_signals(
     if !toggles.behavioral && !toggles.algorithmic && !toggles.taint {
         return signals;
     }
+    let dependencies = DependencyContext::from_repo_root(repo_root);
 
     for file in changed_files {
         let post = content::post_change_source(repo_root, file, target);
@@ -49,7 +50,11 @@ pub(super) fn detect_content_signals(
             if let Some(post) = &post {
                 signals
                     .behavioral
-                    .extend(behavioral::detect_behavioral_added(file, post));
+                    .extend(behavioral::detect_behavioral_added(
+                        file,
+                        post,
+                        &dependencies,
+                    ));
             }
             signals
                 .behavioral

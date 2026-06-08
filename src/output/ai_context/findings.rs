@@ -167,18 +167,17 @@ pub(super) fn render_finding_entry(
 
     let _ = writeln!(out, "**{index}. [{sev}] {}**{loc_str}", finding.title);
 
-    if snippet_lines > 0 {
-        if let Some(ev) = finding.evidence.first() {
-            if !ev.snippet.is_empty() {
-                let snippet = ev
-                    .snippet
-                    .lines()
-                    .take(snippet_lines)
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                let _ = writeln!(out, "```\n{snippet}\n```");
-            }
-        }
+    if snippet_lines > 0
+        && let Some(ev) = finding.evidence.first()
+        && !ev.snippet.is_empty()
+    {
+        let snippet = ev
+            .snippet
+            .lines()
+            .take(snippet_lines)
+            .collect::<Vec<_>>()
+            .join("\n");
+        let _ = writeln!(out, "```\n{snippet}\n```");
     }
 
     let _ = writeln!(out, "> **Confidence:** {}", finding.confidence.label());

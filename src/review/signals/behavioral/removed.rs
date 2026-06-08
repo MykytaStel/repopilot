@@ -41,18 +41,19 @@ pub fn detect_behavioral_removed(
                         source: BehavioralSignalSource::Ast,
                     });
                 }
-            } else if let Some(post_src) = post_source {
-                if post_src.content().trim().is_empty() {
-                    signals.push(BehavioralSignal {
-                        kind: BehavioralKind::TestDeletedOrEmptied,
-                        path: path_str.clone(),
-                        line: 1,
-                        detail: "Test file was emptied".to_string(),
-                        source: BehavioralSignalSource::Ast,
-                    });
-                }
+            } else if let Some(post_src) = post_source
+                && post_src.content().trim().is_empty()
+            {
+                signals.push(BehavioralSignal {
+                    kind: BehavioralKind::TestDeletedOrEmptied,
+                    path: path_str.clone(),
+                    line: 1,
+                    detail: "Test file was emptied".to_string(),
+                    source: BehavioralSignalSource::Ast,
+                });
             }
         }
+        return signals;
     }
 
     if matches!(file.status, ChangeStatus::Added | ChangeStatus::Untracked) {
@@ -62,47 +63,46 @@ pub fn detect_behavioral_removed(
     let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let mut ast_success = false;
 
-    if let (Some(pre_src), Some(post_src)) = (pre_source, post_source) {
-        if let (Some(pre_tree), Some(post_tree)) =
+    if let (Some(pre_src), Some(post_src)) = (pre_source, post_source)
+        && let (Some(pre_tree), Some(post_tree)) =
             (pre_src.parsed().tree(), post_src.parsed().tree())
-        {
-            let pre_try = count_try_blocks(pre_tree, pre_src.content(), file, ext, true);
-            let post_try = count_try_blocks(post_tree, post_src.content(), file, ext, false);
+    {
+        let pre_try = count_try_blocks(pre_tree, pre_src.content(), file, ext, true);
+        let post_try = count_try_blocks(post_tree, post_src.content(), file, ext, false);
 
-            if pre_try > post_try {
-                signals.push(BehavioralSignal {
-                    kind: BehavioralKind::ErrorHandlingRemoved,
-                    path: path_str.clone(),
-                    line: get_first_removed_line(file).unwrap_or(1),
-                    detail: format!(
-                        "Error handling block(s) removed (try/catch blocks: {} -> {})",
-                        pre_try, post_try
-                    ),
-                    source: BehavioralSignalSource::Ast,
-                });
-            }
-
-            let pre_auth = count_auth_checks(pre_tree, pre_src.content(), file, ext, true);
-            let post_auth = count_auth_checks(post_tree, post_src.content(), file, ext, false);
-
-            if pre_auth > post_auth {
-                signals.push(BehavioralSignal {
-                    kind: BehavioralKind::AuthCheckRemoved,
-                    path: path_str.clone(),
-                    line: get_first_removed_line(file).unwrap_or(1),
-                    detail: format!(
-                        "Authentication/authorization check removed (auth calls: {} -> {})",
-                        pre_auth, post_auth
-                    ),
-                    source: BehavioralSignalSource::Ast,
-                });
-            }
-
-            ast_success = true;
+        if pre_try > post_try {
+            signals.push(BehavioralSignal {
+                kind: BehavioralKind::ErrorHandlingRemoved,
+                path: path_str.clone(),
+                line: get_first_removed_line(file).unwrap_or(1),
+                detail: format!(
+                    "Error handling block(s) removed (try/catch blocks: {} -> {})",
+                    pre_try, post_try
+                ),
+                source: BehavioralSignalSource::Ast,
+            });
         }
+
+        let pre_auth = count_auth_checks(pre_tree, pre_src.content(), file, ext, true);
+        let post_auth = count_auth_checks(post_tree, post_src.content(), file, ext, false);
+
+        if pre_auth > post_auth {
+            signals.push(BehavioralSignal {
+                kind: BehavioralKind::AuthCheckRemoved,
+                path: path_str.clone(),
+                line: get_first_removed_line(file).unwrap_or(1),
+                detail: format!(
+                    "Authentication/authorization check removed (auth calls: {} -> {})",
+                    pre_auth, post_auth
+                ),
+                source: BehavioralSignalSource::Ast,
+            });
+        }
+
+        ast_success = true;
     }
 
-    if !ast_success {
+    if !ast_success && supports_coarse_removed_detection(ext) {
         // Coarse fallback: no parse tree, so scan raw diff lines. Token matching
         // (not substring) keeps `catch` off `catchy` and `auth` off `author`.
         // Signals carry `BehavioralSignalSource::CoarseFallback` so the tiered
@@ -150,6 +150,13 @@ pub fn detect_behavioral_removed(
     }
 
     signals
+}
+
+fn supports_coarse_removed_detection(ext: &str) -> bool {
+    matches!(
+        ext,
+        "bash" | "c" | "cc" | "cpp" | "h" | "hpp" | "php" | "rb" | "sh" | "swift" | "zsh"
+    )
 }
 
 fn get_first_removed_line(file: &ChangedFile) -> Option<usize> {

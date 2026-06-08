@@ -77,7 +77,7 @@ pub struct ReviewSignal {
     pub tier: ConfidenceTier,
     pub confidence: Confidence,
     pub path: String,
-    /// Compatibility alias retained for 0.17 consumers.
+    /// Compatibility alias retained throughout the pre-1.0 schema line.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]

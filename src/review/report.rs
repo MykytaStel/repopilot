@@ -1,14 +1,14 @@
 use super::blast_radius::compute_blast_radius;
 use super::content_signals::{ContentToggles, detect_content_signals};
-use crate::baseline::diff::{
+use crate::baseline::Baseline;
+use crate::baseline::{
     BaselineScanReport, BaselineStatus, all_findings_new, diff_summary_against_baseline,
+    normalized_relative_path, stable_finding_key,
 };
-use crate::baseline::key::{normalized_relative_path, stable_finding_key};
-use crate::baseline::model::Baseline;
 use crate::config::model::RepoPilotConfig;
-use crate::findings::feedback::{ReviewSuppression, validate_local_feedback};
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, OwnedDiffTarget, load_changed_files, resolve_git_root};
+use crate::review::feedback::apply_review_feedback;
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, detect_boundary_signals, tiered};
@@ -197,56 +197,6 @@ fn classify_findings(
         timings: Default::default(),
         findings,
     }
-}
-
-fn apply_review_feedback(
-    tiered: &mut crate::review::signals::tiered::TieredSignals,
-    summary: &mut ScanSummary,
-    repo_root: &Path,
-) {
-    if summary.local_feedback.is_none() {
-        return;
-    }
-    let Ok(validation) = validate_local_feedback(repo_root) else {
-        return;
-    };
-    let mut suppressed = 0;
-    for signal in tiered.iter_mut() {
-        let Some(suppression) = validation
-            .review_suppressions
-            .iter()
-            .find(|suppression| review_suppression_matches(suppression, signal))
-        else {
-            continue;
-        };
-        signal.suppressed = true;
-        signal.gate_eligible = false;
-        signal.suppression_reason = suppression.reason.clone();
-        suppressed += 1;
-    }
-    if let Some(report) = summary.local_feedback.as_mut() {
-        report.suppressed_review_signals_count = suppressed;
-    }
-}
-
-fn review_suppression_matches(
-    suppression: &ReviewSuppression,
-    signal: &crate::review::signals::tiered::ReviewSignal,
-) -> bool {
-    if suppression.kind != signal.kind || review_suppression_expired(suppression) {
-        return false;
-    }
-    globset::Glob::new(&suppression.path)
-        .map(|glob| glob.compile_matcher().is_match(&signal.path))
-        .unwrap_or(false)
-}
-
-fn review_suppression_expired(suppression: &ReviewSuppression) -> bool {
-    suppression
-        .expires
-        .as_deref()
-        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
-        .is_some_and(|date| date < chrono::Utc::now().date_naive())
 }
 
 fn sort_findings_with_review_status(

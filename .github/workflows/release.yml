@@ -6,27 +6,52 @@ on:
       - "v*"
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUST_STABLE: "1.95.0"
 
 jobs:
   verify-contract:
     name: Verify release contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Verify tag, versions, docs, and package contents
         run: python3 scripts/release-contract.py check --tag "${GITHUB_REF_NAME}"
+
+      - name: Verify publishing credentials
+        env:
+          CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          test -n "$CRATES_IO_TOKEN" || {
+            echo "::error::CRATES_IO_TOKEN is required for an official release"
+            exit 1
+          }
+          test -n "$HOMEBREW_TAP_TOKEN" || {
+            echo "::error::HOMEBREW_TAP_TOKEN is required for an official release"
+            exit 1
+          }
 
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     needs: verify-contract
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -48,16 +73,17 @@ jobs:
             archive: zip
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
+          toolchain: ${{ env.RUST_STABLE }}
           targets: ${{ matrix.target }}
 
       - name: Install cross (Linux aarch64 only)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --rev f8151ae777290430cf2108efacf3976d9528500b --locked
 
       - name: Build (cross)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -94,14 +120,14 @@ jobs:
           echo "CHECKSUM=dist/${AssetName}.zip.sha256" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Generate artifact attestations
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@b3e506e8c389afc651c5bacf2b8f2a1ea0557215 # v4
         with:
           subject-path: |
             ${{ env.ASSET }}
             ${{ env.CHECKSUM }}
 
       - name: Upload packaged artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-${{ matrix.target }}
           path: |
@@ -114,46 +140,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: verify-contract
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Publish dry run
         run: cargo publish --dry-run
-
-  build-vscode:
-    name: Build VS Code extensions
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: release-*
-          path: dist
-          merge-multiple: true
-
-      - name: Build platform VSIX packages
-        run: node scripts/build-vscode-platform-packages.js --version "${GITHUB_REF_NAME#v}"
-
-      - name: Attest VSIX packages
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: |
-            dist/vscode/*.vsix
-            dist/vscode/manifest.json
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: release-vscode
-          path: dist/vscode
-          if-no-files-found: error
 
   release:
     name: Create GitHub Release
@@ -161,12 +156,13 @@ jobs:
     needs:
       - build
       - verify-crates-package
-      - build-vscode
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Download packaged artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: release-*
           path: dist
@@ -179,15 +175,13 @@ jobs:
             --output dist/release-notes.md
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
           name: RepoPilot ${{ github.ref_name }}
           files: |
             dist/*.tar.gz
             dist/*.zip
             dist/*.sha256
-            dist/*.vsix
-            dist/manifest.json
           body_path: dist/release-notes.md
           generate_release_notes: false
 
@@ -199,20 +193,27 @@ jobs:
     env:
       CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
     steps:
-      - name: Skip when CRATES_IO_TOKEN is not configured
-        if: ${{ env.CARGO_REGISTRY_TOKEN == '' }}
-        run: echo "CRATES_IO_TOKEN is not configured; skipping crates.io publish."
-
-      - uses: actions/checkout@v6
-        if: ${{ env.CARGO_REGISTRY_TOKEN != '' }}
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Install Rust toolchain
-        if: ${{ env.CARGO_REGISTRY_TOKEN != '' }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
 
       - name: Publish
-        if: ${{ env.CARGO_REGISTRY_TOKEN != '' }}
         run: cargo publish
+
+  publish-npm:
+    name: Publish npm packages
+    needs:
+      - release
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
 
   update-homebrew-tap:
     name: Update Homebrew tap
@@ -222,23 +223,16 @@ jobs:
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
-      - name: Skip when HOMEBREW_TAP_TOKEN is not configured
-        if: ${{ env.HOMEBREW_TAP_TOKEN == '' }}
-        run: echo "HOMEBREW_TAP_TOKEN is not configured; skipping Homebrew tap update."
-
-      - uses: actions/checkout@v6
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Download release artifacts
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: release-*
           path: dist
           merge-multiple: true
 
       - name: Extract checksums
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         run: |
           V="${{ github.ref_name }}"
           MACOS_ARM="$(awk '{print $1}' "dist/repopilot-${V}-aarch64-apple-darwin.tar.gz.sha256")"
@@ -254,15 +248,13 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Checkout homebrew tap
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: MykytaStel/homebrew-repopilot
           path: tap
           token: ${{ env.HOMEBREW_TAP_TOKEN }}
 
       - name: Write formula
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         run: |
           sed -e "s/{{VERSION}}/${{ env.VER }}/g" \
               -e "s/{{MACOS_ARM_SHA}}/${{ env.MACOS_ARM }}/g" \
@@ -272,7 +264,6 @@ jobs:
               Formula/repopilot.rb > tap/Formula/repopilot.rb
 
       - name: Push formula update
-        if: ${{ env.HOMEBREW_TAP_TOKEN != '' }}
         working-directory: tap
         run: |
           git config user.name "github-actions[bot]"
@@ -280,3 +271,59 @@ jobs:
           git add Formula/repopilot.rb
           git diff --cached --quiet || git commit -m "repopilot ${{ env.VER }}"
           git push
+
+  verify-publication:
+    name: Verify public release channels
+    runs-on: ubuntu-latest
+    needs:
+      - publish-crates
+      - publish-npm
+      - update-homebrew-tap
+    permissions:
+      contents: read
+    steps:
+      - name: Verify GitHub, crates.io, npm, and Homebrew
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION_NUMBER="${VERSION#v}"
+
+          assets="$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          for target in \
+            x86_64-unknown-linux-gnu \
+            aarch64-unknown-linux-gnu \
+            x86_64-apple-darwin \
+            aarch64-apple-darwin \
+            x86_64-pc-windows-msvc; do
+            grep -q "repopilot-${VERSION}-${target}" <<<"$assets"
+          done
+
+          for attempt in {1..20}; do
+            echo "Publication verification attempt ${attempt}/20"
+            crate_version="$(curl -fsSL "https://crates.io/api/v1/crates/repopilot/${VERSION_NUMBER}" | jq -r '.version.num' || true)"
+            npm_version="$(npm view repopilot version 2>/dev/null || true)"
+            formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" || true)"
+            npm_platforms_ready=true
+            for package in \
+              @repopilot/darwin-arm64 \
+              @repopilot/darwin-x64 \
+              @repopilot/linux-arm64-gnu \
+              @repopilot/linux-x64-gnu \
+              @repopilot/win32-x64-msvc; do
+              if [[ "$(npm view "$package" version 2>/dev/null || true)" != "$VERSION_NUMBER" ]]; then
+                npm_platforms_ready=false
+              fi
+            done
+            if [[ "$crate_version" == "$VERSION_NUMBER" \
+              && "$npm_version" == "$VERSION_NUMBER" \
+              && "$formula" == *"repopilot-${VERSION}-"* \
+              && "$npm_platforms_ready" == true ]]; then
+              exit 0
+            fi
+            sleep 15
+          done
+
+          echo "::error::One or more public release channels did not converge to ${VERSION_NUMBER}"
+          exit 1

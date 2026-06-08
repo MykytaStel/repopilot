@@ -12,26 +12,25 @@ impl ProjectAudit for HermesDisabledAudit {
         let mut findings = Vec::new();
 
         let podfile = facts.root_path.join("ios/Podfile");
-        if let Ok(content) = std::fs::read_to_string(&podfile) {
-            if content.contains("hermes_enabled: false")
-                || content.contains("hermes_enabled => false")
-            {
-                findings.push(hermes_finding(podfile, "hermes_enabled: false"));
-            }
+        if let Ok(content) = std::fs::read_to_string(&podfile)
+            && (content.contains("hermes_enabled: false")
+                || content.contains("hermes_enabled => false"))
+        {
+            findings.push(hermes_finding(podfile, "hermes_enabled: false"));
         }
 
         let gradle = facts.root_path.join("android/app/build.gradle");
-        if let Ok(content) = std::fs::read_to_string(&gradle) {
-            if content.contains("enableHermes: false") || content.contains("enableHermes : false") {
-                findings.push(hermes_finding(gradle, "enableHermes: false"));
-            }
+        if let Ok(content) = std::fs::read_to_string(&gradle)
+            && (content.contains("enableHermes: false") || content.contains("enableHermes : false"))
+        {
+            findings.push(hermes_finding(gradle, "enableHermes: false"));
         }
 
         let gradle_props = facts.root_path.join("android/gradle.properties");
-        if let Ok(content) = std::fs::read_to_string(&gradle_props) {
-            if gradle_properties_hermes_disabled(&content) {
-                findings.push(hermes_finding(gradle_props, "hermesEnabled=false"));
-            }
+        if let Ok(content) = std::fs::read_to_string(&gradle_props)
+            && gradle_properties_hermes_disabled(&content)
+        {
+            findings.push(hermes_finding(gradle_props, "hermesEnabled=false"));
         }
 
         findings

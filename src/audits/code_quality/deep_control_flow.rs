@@ -143,20 +143,18 @@ fn is_else_if(node: Node<'_>, language: &str) -> bool {
         "Rust" | "Kotlin" => kind == "if_expression",
         _ => kind == "if_statement",
     };
-    if is_if {
-        if let Some(parent) = node.parent() {
-            if parent.kind() == "else_clause" || parent.kind() == "else" {
-                return true;
-            }
-            if language == "Kotlin" && parent.kind() == "if_expression" {
-                let mut cursor = parent.walk();
-                let mut saw_else = false;
-                for child in parent.children(&mut cursor) {
-                    if child.kind() == "else" {
-                        saw_else = true;
-                    } else if child.id() == node.id() {
-                        return saw_else;
-                    }
+    if is_if && let Some(parent) = node.parent() {
+        if parent.kind() == "else_clause" || parent.kind() == "else" {
+            return true;
+        }
+        if language == "Kotlin" && parent.kind() == "if_expression" {
+            let mut cursor = parent.walk();
+            let mut saw_else = false;
+            for child in parent.children(&mut cursor) {
+                if child.kind() == "else" {
+                    saw_else = true;
+                } else if child.id() == node.id() {
+                    return saw_else;
                 }
             }
         }

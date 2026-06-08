@@ -46,8 +46,13 @@ pub fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
         .unwrap_or_default();
 
     path_text.starts_with("tests/")
+        || path_text.starts_with("tests\\")
         || path_text.contains("/tests/")
         || path_text.contains("\\tests\\")
+        || path_text.starts_with("fixtures/")
+        || path_text.starts_with("fixtures\\")
+        || path_text.contains("/fixtures/")
+        || path_text.contains("\\fixtures\\")
         || path_text.contains("/__tests__/")
         || path_text.contains("\\__tests__\\")
         || file_name.ends_with(".test.ts")
@@ -59,6 +64,7 @@ pub fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
         || file_name.ends_with(".spec.js")
         || file_name.ends_with(".spec.jsx")
         || file_name.ends_with("_test.rs")
+        || file_name.ends_with("_tests.rs")
         || file_name.ends_with("_test.go")
         || file_name.ends_with("_test.py")
         || file_name.starts_with("test_")
@@ -147,7 +153,7 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::path_contains_component;
+    use super::{is_test_file, path_contains_component};
     use std::path::Path;
 
     #[test]
@@ -159,6 +165,19 @@ mod tests {
         assert!(path_contains_component(
             Path::new(r"src\domain\model.rs"),
             &["domain"],
+        ));
+    }
+
+    #[test]
+    fn test_classification_covers_rust_test_modules_and_fixtures() {
+        assert!(is_test_file(Path::new("src/behavioral_tests.rs"), false));
+        assert!(is_test_file(
+            Path::new("tests/fixtures/runtime/client.rs"),
+            false
+        ));
+        assert!(is_test_file(
+            Path::new(r"fixtures\runtime\client.rs"),
+            false
         ));
     }
 }

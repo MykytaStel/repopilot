@@ -98,6 +98,10 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
+Binary `0.17.x` continues to emit schema `0.18` unless the serialized contract
+changes. Schema numbers are monotonic contract revisions, not predictions of the
+next RepoPilot package version.
+
 ### Compatibility
 
 RepoPilot renders JSON through explicit report DTOs instead of serializing the

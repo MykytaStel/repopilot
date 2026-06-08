@@ -20,6 +20,9 @@ pub use removed::detect_behavioral_removed;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 use serde::Serialize;
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::Path;
 use tree_sitter::Node;
 
 /// The category of behavioral change.
@@ -68,12 +71,86 @@ impl BehavioralSignal {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct DependencyContext {
+    local_package_names: BTreeSet<String>,
+    local_import_prefixes: BTreeSet<String>,
+}
+
+impl DependencyContext {
+    pub fn from_repo_root(root: &Path) -> Self {
+        let mut context = Self::default();
+
+        if let Ok(content) = fs::read_to_string(root.join("Cargo.toml"))
+            && let Ok(value) = toml::from_str::<toml::Value>(&content)
+            && let Some(name) = value
+                .get("package")
+                .and_then(|package| package.get("name"))
+                .and_then(toml::Value::as_str)
+        {
+            context.add_local_name(name);
+        }
+
+        if let Ok(content) = fs::read_to_string(root.join("package.json"))
+            && let Ok(value) = serde_json::from_str::<serde_json::Value>(&content)
+            && let Some(name) = value.get("name").and_then(serde_json::Value::as_str)
+        {
+            context.add_local_name(name);
+        }
+
+        if let Ok(content) = fs::read_to_string(root.join("go.mod"))
+            && let Some(module) = content
+                .lines()
+                .find_map(|line| line.trim().strip_prefix("module "))
+        {
+            context
+                .local_import_prefixes
+                .insert(module.trim().to_string());
+        }
+
+        context
+    }
+
+    fn add_local_name(&mut self, name: &str) {
+        let normalized = name.trim().trim_start_matches('@');
+        if normalized.is_empty() {
+            return;
+        }
+        self.local_package_names.insert(normalized.to_string());
+        self.local_package_names
+            .insert(normalized.replace('-', "_"));
+        if let Some(last) = normalized.rsplit('/').next() {
+            self.local_package_names.insert(last.to_string());
+            self.local_package_names.insert(last.replace('-', "_"));
+        }
+    }
+
+    pub(super) fn is_local_package(&self, name: &str) -> bool {
+        let normalized = name.trim().trim_start_matches('@');
+        let root = normalized
+            .split(['/', ':', '.'])
+            .next()
+            .unwrap_or(normalized);
+        self.local_package_names.contains(normalized)
+            || self.local_package_names.contains(root)
+            || self
+                .local_import_prefixes
+                .iter()
+                .any(|prefix| normalized == prefix || normalized.starts_with(&format!("{prefix}/")))
+    }
+}
+
 /// Detects newly added behavioral signals in a post-change source.
 pub fn detect_behavioral_added(
     file: &ChangedFile,
     post_source: &ReviewSource,
+    dependencies: &DependencyContext,
 ) -> Vec<BehavioralSignal> {
     let mut signals = Vec::new();
+
+    if crate::audits::context::classify::helpers::is_test_file(&file.path, false) {
+        return signals;
+    }
 
     // 1. Path-based MigrationAdded detection (only if status is Added)
     if file.status == ChangeStatus::Added && is_migration_path(&file.path_string()) {
@@ -101,6 +178,7 @@ pub fn detect_behavioral_added(
         file,
         ext,
         &path_str,
+        dependencies,
         &mut signals,
     );
 
@@ -132,18 +210,19 @@ fn walk_node(
     file: &ChangedFile,
     ext: &str,
     path_str: &str,
+    dependencies: &DependencyContext,
     signals: &mut Vec<BehavioralSignal>,
 ) {
     let line = node.start_position().row + 1;
-    if file.contains_line(line) {
-        if let Some(signal) = match_node(node, content, ext, path_str, line) {
-            signals.push(signal);
-        }
+    if file.contains_line(line)
+        && let Some(signal) = match_node(node, content, ext, path_str, line, dependencies)
+    {
+        signals.push(signal);
     }
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        walk_node(child, content, file, ext, path_str, signals);
+        walk_node(child, content, file, ext, path_str, dependencies, signals);
     }
 }
 
@@ -153,35 +232,34 @@ fn match_node(
     ext: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     let kind = node.kind();
 
     // Check Raw SQL (common across all languages)
     let is_string = kind.contains("string") || kind == "character_literal";
-    if is_string {
-        if let Ok(text) = node.utf8_text(content.as_bytes()) {
-            let unquoted = extract_string_literal(text).unwrap_or(text);
-            if is_sql_query(unquoted) {
-                return Some(BehavioralSignal {
-                    kind: BehavioralKind::RawSqlAdded,
-                    path: path_str.to_string(),
-                    line,
-                    detail: format!("Raw SQL query: {}", truncate_str(unquoted, 60)),
-                    source: BehavioralSignalSource::Ast,
-                });
-            }
+    if is_string && let Ok(text) = node.utf8_text(content.as_bytes()) {
+        let unquoted = extract_string_literal(text).unwrap_or(text);
+        if is_sql_query(unquoted) {
+            return Some(BehavioralSignal {
+                kind: BehavioralKind::RawSqlAdded,
+                path: path_str.to_string(),
+                line,
+                detail: format!("Raw SQL query: {}", truncate_str(unquoted, 60)),
+                source: BehavioralSignalSource::Ast,
+            });
         }
     }
 
     match ext {
         "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => {
-            js::match_js(node, content, path_str, line)
+            js::match_js(node, content, path_str, line, dependencies)
         }
-        "py" => python::match_python(node, content, path_str, line),
-        "go" => go::match_go(node, content, path_str, line),
-        "rs" => rust::match_rust(node, content, path_str, line),
-        "java" | "kt" | "kts" => jvm::match_jvm(node, content, path_str, line),
-        "cs" => csharp::match_csharp(node, content, path_str, line),
+        "py" => python::match_python(node, content, path_str, line, dependencies),
+        "go" => go::match_go(node, content, path_str, line, dependencies),
+        "rs" => rust::match_rust(node, content, path_str, line, dependencies),
+        "java" | "kt" | "kts" => jvm::match_jvm(node, content, path_str, line, dependencies),
+        "cs" => csharp::match_csharp(node, content, path_str, line, dependencies),
         _ => None,
     }
 }

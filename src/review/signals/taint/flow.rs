@@ -249,22 +249,22 @@ fn check_sinks(
 ) {
     if let Some(sink) = classify_sink(node, content, lang) {
         let line = node.start_position().row + 1;
-        if file.contains_line(line) {
-            if let Some(source) = sink_taint(&sink, content, lang, tainted) {
-                let call_text = node.utf8_text(content.as_bytes()).unwrap_or("");
-                out.push(TaintSignal {
-                    source,
-                    sink: sink.kind,
-                    path: file.path_string(),
-                    line,
-                    detail: format!(
-                        "{} reaches {}: {}",
-                        source.label(),
-                        sink.kind.label(),
-                        truncate_str(call_text, 60)
-                    ),
-                });
-            }
+        if file.contains_line(line)
+            && let Some(source) = sink_taint(&sink, content, lang, tainted)
+        {
+            let call_text = node.utf8_text(content.as_bytes()).unwrap_or("");
+            out.push(TaintSignal {
+                source,
+                sink: sink.kind,
+                path: file.path_string(),
+                line,
+                detail: format!(
+                    "{} reaches {}: {}",
+                    source.label(),
+                    sink.kind.label(),
+                    truncate_str(call_text, 60)
+                ),
+            });
         }
     }
 

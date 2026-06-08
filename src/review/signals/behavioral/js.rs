@@ -1,6 +1,6 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, BehavioralSignalSource, extract_string_literal,
-    is_local_import, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, DependencyContext,
+    extract_string_literal, is_local_import, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -9,6 +9,7 @@ pub(super) fn match_js(
     content: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     match node.kind() {
         "call_expression" => {
@@ -62,20 +63,20 @@ pub(super) fn match_js(
                     source: BehavioralSignalSource::Ast,
                 });
             }
-            if callee_text == "require" || callee_text == "import" {
-                if let Some(args) = node.child_by_field_name("arguments") {
-                    let arg_text = args.utf8_text(content.as_bytes()).ok()?;
-                    if let Some(val) = extract_string_literal(arg_text.trim()) {
-                        if !is_local_import(val) {
-                            return Some(BehavioralSignal {
-                                kind: BehavioralKind::DependencyImportAdded,
-                                path: path_str.to_string(),
-                                line,
-                                detail: format!("Imported dependency '{val}'"),
-                                source: BehavioralSignalSource::Ast,
-                            });
-                        }
-                    }
+            if (callee_text == "require" || callee_text == "import")
+                && let Some(args) = node.child_by_field_name("arguments")
+            {
+                let arg_text = args.utf8_text(content.as_bytes()).ok()?;
+                if let Some(val) = extract_string_literal(arg_text.trim())
+                    && is_external_js_import(val, dependencies)
+                {
+                    return Some(BehavioralSignal {
+                        kind: BehavioralKind::DependencyImportAdded,
+                        path: path_str.to_string(),
+                        line,
+                        detail: format!("Imported dependency '{val}'"),
+                        source: BehavioralSignalSource::Ast,
+                    });
                 }
             }
             if callee_text.ends_with(".query")
@@ -120,20 +121,54 @@ pub(super) fn match_js(
         "import_statement" | "export_statement" => {
             if let Some(source) = node.child_by_field_name("source") {
                 let text = source.utf8_text(content.as_bytes()).ok()?.trim();
-                if let Some(val) = extract_string_literal(text) {
-                    if !is_local_import(val) {
-                        return Some(BehavioralSignal {
-                            kind: BehavioralKind::DependencyImportAdded,
-                            path: path_str.to_string(),
-                            line,
-                            detail: format!("Imported dependency '{val}'"),
-                            source: BehavioralSignalSource::Ast,
-                        });
-                    }
+                if let Some(val) = extract_string_literal(text)
+                    && is_external_js_import(val, dependencies)
+                {
+                    return Some(BehavioralSignal {
+                        kind: BehavioralKind::DependencyImportAdded,
+                        path: path_str.to_string(),
+                        line,
+                        detail: format!("Imported dependency '{val}'"),
+                        source: BehavioralSignalSource::Ast,
+                    });
                 }
             }
         }
         _ => {}
     }
     None
+}
+
+fn is_external_js_import(path: &str, dependencies: &DependencyContext) -> bool {
+    const NODE_BUILTINS: &[&str] = &[
+        "assert",
+        "buffer",
+        "child_process",
+        "crypto",
+        "events",
+        "fs",
+        "http",
+        "https",
+        "module",
+        "net",
+        "os",
+        "path",
+        "process",
+        "stream",
+        "string_decoder",
+        "timers",
+        "tls",
+        "tty",
+        "url",
+        "util",
+        "v8",
+        "vm",
+        "worker_threads",
+        "zlib",
+    ];
+    if is_local_import(path) || path.starts_with("node:") || dependencies.is_local_package(path) {
+        return false;
+    }
+    let root = path.split('/').next().unwrap_or(path);
+    !NODE_BUILTINS.contains(&root)
 }

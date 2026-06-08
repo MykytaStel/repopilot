@@ -2,20 +2,11 @@ use super::changed_git::collect_changed_scope;
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{run_framework_audits, run_project_audits};
 use crate::findings::enrichment::enrich_findings_timed;
-use crate::findings::quality::{
-    SignalQualitySummary, summarize_signal_quality_with_contract_violations,
-};
-use crate::findings::types::Finding;
-use crate::frameworks::{DetectedFramework, detect_react_native_architecture};
-use crate::graph::CouplingGraph;
-use crate::graph::context::{ContextGraphCacheInfo, RepoContextGraph};
+use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::knowledge::decision::apply_project_decisions;
 use crate::review::diff::ChangedFile;
-use crate::scan::cache::{ScanCache, relative_cache_path};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileFacts, ScanFacts};
-use crate::scan::types::{ScanCacheTelemetry, ScanDiagnostic, ScanSummary};
-use std::collections::BTreeMap;
+use crate::scan::types::ScanSummary;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -43,41 +34,6 @@ struct ChangedScanEngine<'a> {
     config: &'a ScanConfig,
     base_ref: Option<&'a str>,
     resolved_scope: Option<ChangedDiscoveryStage>,
-}
-
-struct ChangedDiscoveryStage {
-    repo_root: PathBuf,
-    changed_files: Vec<ChangedFile>,
-    elapsed_us: u64,
-}
-
-struct ChangedFileAnalysisStage {
-    facts: ScanFacts,
-    findings: Vec<Finding>,
-    graph_patch_files: Vec<FileFacts>,
-    cache: ScanCache,
-    cache_telemetry: ScanCacheTelemetry,
-    changed_file_reasons: BTreeMap<String, usize>,
-    elapsed_us: u64,
-    parse_us: u64,
-}
-
-struct ChangedRepoContextStage {
-    repo_context: ScanFacts,
-    coupling_graph: CouplingGraph,
-    context_graph: RepoContextGraph,
-    cache_info: ContextGraphCacheInfo,
-    diagnostics: Vec<ScanDiagnostic>,
-    elapsed_us: u64,
-}
-
-struct ChangedFindingPipelineStage {
-    post_scan_audits_us: u64,
-    enrichment_us: u64,
-    risk_scoring_us: u64,
-    contract_validation_us: u64,
-    diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
-    signal_quality: SignalQualitySummary,
 }
 
 impl<'a> ChangedScanEngine<'a> {
@@ -181,42 +137,5 @@ impl<'a> ChangedScanEngine<'a> {
 mod file_analysis;
 mod finalize;
 mod repo_context;
-
-fn detect_react_native_profile(
-    facts: &ScanFacts,
-) -> Option<crate::frameworks::ReactNativeArchitectureProfile> {
-    if facts
-        .detected_frameworks
-        .iter()
-        .any(|f| matches!(f, DetectedFramework::ReactNative { .. }))
-    {
-        let profile = detect_react_native_architecture(&facts.root_path);
-        if profile.detected {
-            return Some(profile);
-        }
-    }
-    None
-}
-
-fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
-    CouplingGraph {
-        edges: graph
-            .edges
-            .into_iter()
-            .map(|(source, targets)| {
-                (
-                    PathBuf::from(relative_cache_path(repo_root, &source)),
-                    targets
-                        .into_iter()
-                        .map(|target| PathBuf::from(relative_cache_path(repo_root, &target)))
-                        .collect(),
-                )
-            })
-            .collect(),
-        nodes: graph
-            .nodes
-            .into_iter()
-            .map(|node| PathBuf::from(relative_cache_path(repo_root, &node)))
-            .collect(),
-    }
-}
+mod stages;
+use stages::*;

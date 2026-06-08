@@ -1,5 +1,5 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, DependencyContext, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -8,6 +8,7 @@ pub(super) fn match_jvm(
     content: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     let text = node.utf8_text(content.as_bytes()).unwrap_or("").trim();
     match node.kind() {
@@ -71,6 +72,17 @@ pub(super) fn match_jvm(
             }
         }
         "import_declaration" => {
+            let imported = text
+                .trim_start_matches("import ")
+                .trim_start_matches("static ")
+                .trim_end_matches(';');
+            if imported.starts_with("java.")
+                || imported.starts_with("javax.")
+                || imported.starts_with("kotlin.")
+                || dependencies.is_local_package(imported)
+            {
+                return None;
+            }
             return Some(BehavioralSignal {
                 kind: BehavioralKind::DependencyImportAdded,
                 path: path_str.to_string(),

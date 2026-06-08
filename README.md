@@ -105,10 +105,7 @@ See [MCP server](https://github.com/MykytaStel/repopilot/blob/main/docs/mcp.md).
 ## Distribution
 
 Official CLI channels are crates.io, npm, Homebrew, and GitHub Releases.
-
-Platform-specific VSIX files are attached to GitHub Releases as a **preview**
-integration. RepoPilot is not currently published to the VS Code Marketplace or
-PyPI.
+Editor extensions and PyPI packages are not supported distribution channels.
 
 ## Documentation
 

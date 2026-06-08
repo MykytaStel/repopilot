@@ -137,7 +137,7 @@ runs:
   using: composite
   steps:
     - name: Cache RepoPilot binary
-      uses: actions/cache@v4
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: ~/.cache/repopilot-action
         key: repopilot-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
@@ -178,13 +178,13 @@ runs:
 
     - name: Upload SARIF to GitHub Code Scanning
       if: inputs.upload-sarif == 'true' && steps.run.outputs.sarif_file != ''
-      uses: github/codeql-action/upload-sarif@v4
+      uses: github/codeql-action/upload-sarif@411bbbe57033eedfc1a82d68c01345aa96c737d7 # v4
       with:
         sarif_file: ${{ steps.run.outputs.sarif_file }}
 
     - name: Update RepoPilot PR comment
       if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.run.outputs.summary_file != ''
-      uses: actions/github-script@v8
+      uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
       env:
         REPOPILOT_SUMMARY_FILE: ${{ steps.run.outputs.summary_file }}
       with:

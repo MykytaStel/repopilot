@@ -13,7 +13,7 @@ cargo build
 Verify your build works:
 
 ```bash
-cargo run -- scan .
+cargo run -- review .
 ```
 
 ## Running tests
@@ -45,6 +45,7 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all
 npm run test:npm
+npm run test:release-contract
 npm run release:contract
 ```
 

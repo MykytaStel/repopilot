@@ -1,5 +1,5 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, BehavioralSignalSource, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, DependencyContext, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -8,6 +8,7 @@ pub(super) fn match_python(
     content: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     match node.kind() {
         "call" => {
@@ -52,26 +53,26 @@ pub(super) fn match_python(
                     source: BehavioralSignalSource::Ast,
                 });
             }
-            if callee_text == "open" {
-                if let Some(args) = node.child_by_field_name("arguments") {
-                    let args_text = args.utf8_text(content.as_bytes()).unwrap_or("");
-                    if args_text.contains("'w'")
-                        || args_text.contains("\"w\"")
-                        || args_text.contains("'wb'")
-                        || args_text.contains("\"wb\"")
-                        || args_text.contains("'a'")
-                        || args_text.contains("\"a\"")
-                        || args_text.contains("'ab'")
-                        || args_text.contains("\"ab\"")
-                    {
-                        return Some(BehavioralSignal {
-                            kind: BehavioralKind::FsWriteAdded,
-                            path: path_str.to_string(),
-                            line,
-                            detail: truncate_str(text, 60),
-                            source: BehavioralSignalSource::Ast,
-                        });
-                    }
+            if callee_text == "open"
+                && let Some(args) = node.child_by_field_name("arguments")
+            {
+                let args_text = args.utf8_text(content.as_bytes()).unwrap_or("");
+                if args_text.contains("'w'")
+                    || args_text.contains("\"w\"")
+                    || args_text.contains("'wb'")
+                    || args_text.contains("\"wb\"")
+                    || args_text.contains("'a'")
+                    || args_text.contains("\"a\"")
+                    || args_text.contains("'ab'")
+                    || args_text.contains("\"ab\"")
+                {
+                    return Some(BehavioralSignal {
+                        kind: BehavioralKind::FsWriteAdded,
+                        path: path_str.to_string(),
+                        line,
+                        detail: truncate_str(text, 60),
+                        source: BehavioralSignalSource::Ast,
+                    });
                 }
             }
             if callee_text.ends_with(".execute") || callee_text.ends_with(".query") {
@@ -102,7 +103,10 @@ pub(super) fn match_python(
         }
         "import_statement" | "import_from_statement" => {
             let text = node.utf8_text(content.as_bytes()).ok()?.trim();
-            if !text.contains("import .") && !text.starts_with("from .") {
+            if let Some(root) = imported_python_root(text)
+                && !PYTHON_STDLIB.contains(&root)
+                && !dependencies.is_local_package(root)
+            {
                 return Some(BehavioralSignal {
                     kind: BehavioralKind::DependencyImportAdded,
                     path: path_str.to_string(),
@@ -115,4 +119,50 @@ pub(super) fn match_python(
         _ => {}
     }
     None
+}
+
+const PYTHON_STDLIB: &[&str] = &[
+    "argparse",
+    "asyncio",
+    "collections",
+    "contextlib",
+    "csv",
+    "dataclasses",
+    "datetime",
+    "enum",
+    "functools",
+    "hashlib",
+    "http",
+    "importlib",
+    "io",
+    "itertools",
+    "json",
+    "logging",
+    "math",
+    "os",
+    "pathlib",
+    "re",
+    "shutil",
+    "socket",
+    "sqlite3",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "threading",
+    "time",
+    "typing",
+    "unittest",
+    "urllib",
+    "uuid",
+];
+
+fn imported_python_root(text: &str) -> Option<&str> {
+    let text = text.trim();
+    if let Some(rest) = text.strip_prefix("from ") {
+        let root = rest.split_whitespace().next()?.split('.').next()?;
+        return (!root.is_empty() && root != ".").then_some(root);
+    }
+    let rest = text.strip_prefix("import ")?;
+    let root = rest.split([',', ' ', '.']).next()?;
+    (!root.is_empty() && root != ".").then_some(root)
 }

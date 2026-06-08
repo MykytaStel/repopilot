@@ -1,0 +1,24 @@
+{
+  "tiered_signals": {
+    "definitely": [
+      {
+        "kind": "behavioral.network-call-added",
+        "path": "src/client.ts",
+        "provenance": {
+          "signal_source": "ast"
+        }
+      }
+    ],
+    "maybe": [
+      {
+        "kind": "algorithmic.recursion-introduced",
+        "path": "src/tree.rs",
+        "detail": "fn `walk` is now recursive",
+        "provenance": {
+          "signal_source": "ast"
+        }
+      }
+    ],
+    "noise": []
+  }
+}

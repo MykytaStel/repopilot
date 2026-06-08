@@ -73,6 +73,7 @@ repopilot compare before.json after.json --format json --output diff.json"
     /// Scan a project, folder, or file for findings (alias: s)
     #[command(
         alias = "s",
+        display_order = 2,
         about = "Scan a project, folder, or file for findings",
         long_about = "Walks the target path and runs all enabled audit rules:\n\n\
   Architecture  — oversized files, deep nesting, deep imports, risky barrels\n  \
@@ -102,6 +103,7 @@ repopilot scan . --exclude generated --max-file-size 1mb --max-files 1000"
     /// Review findings that touch changed Git diff lines (alias: r)
     #[command(
         alias = "r",
+        display_order = 1,
         about = "Review findings that touch changed Git diff lines",
         long_about = "Scans the repository and separates findings into two groups:\n  \
 in-diff   — findings on lines that appear in the current Git diff\n  \
@@ -125,6 +127,7 @@ repopilot review . --format json --output review.json"
 
     /// Mark the repository state before a change for `review --since-snapshot`
     #[command(
+        display_order = 3,
         about = "Mark the repository state before an agent or manual change",
         long_about = "Records the current HEAD commit (and whether the working tree is already\n\
 dirty) to .repopilot/snapshot.json — a \"before\" marker you take right before an\n\

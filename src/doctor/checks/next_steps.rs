@@ -31,6 +31,12 @@ pub fn build_next_steps(
     }
 
     steps.push(DoctorNextStep {
+        command: format!("repopilot review {path}"),
+        reason: "Review the current working-tree change before broader repository adoption."
+            .to_string(),
+    });
+
+    steps.push(DoctorNextStep {
         command: format!(
             "repopilot scan {path} --format markdown --output {REPORT_FILE_PATH} --receipt {RECEIPT_FILE_PATH}"
         ),
@@ -75,13 +81,9 @@ pub fn build_next_command(path: &Path, has_baseline: bool) -> String {
     let path = command_path(path);
 
     if has_baseline {
-        format!(
-            "repopilot review {path} --base origin/main --baseline .repopilot/baseline.json --fail-on new-high"
-        )
+        format!("repopilot review {path} --baseline .repopilot/baseline.json --fail-on new-high")
     } else {
-        format!(
-            "repopilot scan {path} --format markdown --output {REPORT_FILE_PATH} --receipt {RECEIPT_FILE_PATH}"
-        )
+        format!("repopilot review {path}")
     }
 }
 
@@ -111,6 +113,11 @@ mod tests {
             steps
                 .iter()
                 .any(|step| step.command.contains("--receipt .repopilot/receipt.json"))
+        );
+        assert!(
+            steps
+                .iter()
+                .any(|step| step.command == "repopilot review .")
         );
         assert!(
             steps

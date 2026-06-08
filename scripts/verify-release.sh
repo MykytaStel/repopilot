@@ -24,6 +24,9 @@ cargo test --all
 echo "==> Release contract"
 python3 scripts/release-contract.py check
 
+echo "==> Release contract tests"
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
 echo "==> Rust dependency security audit"
 cargo audit
 
@@ -83,6 +86,23 @@ npm pack --dry-run
 
 echo "==> Build release binary"
 cargo build --release
+
+echo "==> Self-review signal quality"
+REVIEW_BASE="$(git tag --sort=-version:refname --merged HEAD | head -n 1 || true)"
+if [[ -z "$(git status --porcelain)" ]] &&
+  git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+  REVIEW_BASE="$(git tag --sort=-version:refname --merged HEAD | sed -n '2p')"
+fi
+if [[ -n "$REVIEW_BASE" ]]; then
+  ./target/release/repopilot review . \
+    --base "$REVIEW_BASE" \
+    --format json \
+    --output "$VERIFY_TMP_DIR/self-review.json"
+  python3 scripts/check-review-quality.py \
+    --review-json "$VERIFY_TMP_DIR/self-review.json"
+else
+  echo "==> No previous release tag found; skipping self-review quality replay"
+fi
 
 echo "==> Rule evaluation JSON smoke"
 ./target/release/repopilot inspect eval-rules --format json > "$VERIFY_TMP_DIR/eval-rules.json"

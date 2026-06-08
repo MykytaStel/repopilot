@@ -85,18 +85,19 @@ fn from_cargo_workspace(root: &Path) -> Vec<WorkspacePackage> {
             };
             for entry in entries.filter_map(Result::ok) {
                 let path = entry.path();
-                if path.is_dir() && path.join("Cargo.toml").is_file() {
-                    if let Some(name) = package_name_from_path(&path) {
-                        packages.push(WorkspacePackage { name, root: path });
-                    }
+                if path.is_dir()
+                    && path.join("Cargo.toml").is_file()
+                    && let Some(name) = package_name_from_path(&path)
+                {
+                    packages.push(WorkspacePackage { name, root: path });
                 }
             }
         } else {
             let path = root.join(trimmed);
-            if path.join("Cargo.toml").is_file() {
-                if let Some(name) = package_name_from_path(&path) {
-                    packages.push(WorkspacePackage { name, root: path });
-                }
+            if path.join("Cargo.toml").is_file()
+                && let Some(name) = package_name_from_path(&path)
+            {
+                packages.push(WorkspacePackage { name, root: path });
             }
         }
     }

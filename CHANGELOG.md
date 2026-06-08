@@ -6,7 +6,47 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-No changes yet.
+### Added
+
+- Added regression coverage and a release self-review quality gate for
+  standard-library/local dependency imports, AST-confirmed recursion,
+  prose-only removed-behavior text, and side effects in tests/fixtures.
+- Added stdlib Python tests for release-note extraction, version validation,
+  Cargo package allowlisting, pinned Actions, npm orchestration, and removed
+  editor packaging.
+- Added a real schema `0.18` report fixture and documented report schema
+  versioning independently from package versions.
+
+### Changed
+
+- Changed the CLI help, doctor guidance, contributor setup, and documentation to
+  lead with changed-code review while preserving full scan and baseline flows.
+- Changed the release workflow to pin third-party Actions and installed tools,
+  use job-level permissions, serialize releases per tag, call npm publishing
+  directly, and require every official publishing channel to succeed.
+- Updated `actions/github-script` to v9, `ignore` to 0.4.26, and `chrono` to
+  0.4.45. `actions/cache` remains on v4 for compatibility with older
+  self-hosted runners.
+- Changed the repository self-gate to reject current P0/P1 findings without a
+  committed baseline.
+- Removed the unsupported Rust `1.87` MSRV declaration and dedicated CI check.
+  RepoPilot `0.x` now builds with the pinned Rust `1.95.0` release/CI toolchain without
+  promising compatibility with an older compiler floor.
+
+### Removed
+
+- Removed the preview VS Code extension, platform VSIX packaging, editor CI
+  matrix, release assets, and related active documentation.
+- Removed the stale repository baseline that still referenced deleted files.
+
+### Fixed
+
+- Dependency-import review signals no longer treat standard libraries or the
+  repository's own package as newly introduced dependencies.
+- Recursion signals now require an AST call to the function itself instead of a
+  repeated method name in the function text.
+- Behavioral runtime side effects are no longer emitted from tests/fixtures,
+  and removed auth/error coarse fallbacks no longer run on prose documents.
 
 ## [0.16.0] - 2026-06-08
 

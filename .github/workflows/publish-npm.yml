@@ -1,18 +1,26 @@
 name: Publish npm
 
 on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to publish
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
         description: "Release tag to publish, e.g. v0.13.0. Defaults to package.json version."
         required: false
         type: string
-  release:
-    types: [published]
 
 permissions:
   contents: read
   id-token: write
+
+concurrency:
+  group: publish-npm-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish-npm:
@@ -22,21 +30,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
 
       - name: Resolve release tag
         env:
-          EVENT_TAG: ${{ github.event.release.tag_name }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${EVENT_TAG:-${INPUT_TAG:-}}"
+          TAG="${INPUT_TAG:-}"
           if [[ -z "$TAG" ]]; then
             TAG="v$(node -p 'require("./package.json").version')"
           fi

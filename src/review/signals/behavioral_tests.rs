@@ -1,5 +1,6 @@
 use super::behavioral::{
-    BehavioralKind, BehavioralSignalSource, detect_behavioral_added, detect_behavioral_removed,
+    BehavioralKind, BehavioralSignalSource, DependencyContext, detect_behavioral_added,
+    detect_behavioral_removed,
 };
 use super::content::ReviewSource;
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
@@ -29,7 +30,7 @@ const data = await fetch("https://example.com/inside");
     let file = file_with_range("src/api.js", ChangeStatus::Modified, 5, 7);
     let source = ReviewSource::new(content.to_string(), Some("JavaScript".to_string()));
 
-    let signals = detect_behavioral_added(&file, &source);
+    let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
 
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].kind, BehavioralKind::NetworkCallAdded);
@@ -51,7 +52,7 @@ def run():
     let file = file_with_range("app.py", ChangeStatus::Modified, 6, 8);
     let source = ReviewSource::new(content.to_string(), Some("Python".to_string()));
 
-    let signals = detect_behavioral_added(&file, &source);
+    let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
 
     let kinds: Vec<_> = signals.iter().map(|s| s.kind).collect();
     assert!(
@@ -80,7 +81,7 @@ fn save() {
     let file = file_with_range("src/lib.rs", ChangeStatus::Modified, 5, 7);
     let source = ReviewSource::new(content.to_string(), Some("Rust".to_string()));
 
-    let signals = detect_behavioral_added(&file, &source);
+    let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
 
     let kinds: Vec<_> = signals.iter().map(|s| s.kind).collect();
     assert!(
@@ -96,6 +97,75 @@ fn save() {
 }
 
 #[test]
+fn standard_library_and_local_imports_are_not_dependency_signals() {
+    let node = ReviewSource::new(
+        "import * as path from \"node:path\";\n".to_string(),
+        Some("TypeScript".to_string()),
+    );
+    let node_file = file_with_range("src/path.ts", ChangeStatus::Modified, 1, 1);
+    assert!(detect_behavioral_added(&node_file, &node, &DependencyContext::default()).is_empty());
+
+    let python = ReviewSource::new(
+        "import argparse\nfrom pathlib import Path\n".to_string(),
+        Some("Python".to_string()),
+    );
+    let python_file = file_with_range("tools/check.py", ChangeStatus::Modified, 1, 2);
+    assert!(
+        detect_behavioral_added(&python_file, &python, &DependencyContext::default()).is_empty()
+    );
+
+    let temp = tempfile::tempdir().expect("temp repo");
+    std::fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"demo-core\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .expect("write Cargo.toml");
+    let manifest = std::fs::read_to_string(temp.path().join("Cargo.toml")).expect("read manifest");
+    let parsed = toml::from_str::<toml::Value>(&manifest).expect("parse manifest");
+    assert_eq!(parsed["package"]["name"].as_str(), Some("demo-core"));
+    let rust = ReviewSource::new(
+        "mod lang;\npub mod diff;\nuse std::path::Path;\nuse demo_core::review::run;\nuse lang::parse;\npub use diff::Report;\n"
+            .to_string(),
+        Some("Rust".to_string()),
+    );
+    let rust_file = file_with_range("src/main.rs", ChangeStatus::Modified, 1, 6);
+    let dependencies = DependencyContext::from_repo_root(temp.path());
+    assert!(
+        dependencies.is_local_package("demo_core"),
+        "{dependencies:?}"
+    );
+    let rust_signals = detect_behavioral_added(&rust_file, &rust, &dependencies);
+    assert!(rust_signals.is_empty(), "{rust_signals:?}");
+}
+
+#[test]
+fn runtime_side_effects_in_test_files_are_not_review_signals() {
+    let content = r#"
+use std::fs;
+use std::process::Command;
+
+#[test]
+fn writes_fixture() {
+    fs::write("fixture.txt", "demo").unwrap();
+    Command::new("echo").arg("demo").status().unwrap();
+}
+"#;
+    let source = ReviewSource::new(content.to_string(), Some("Rust".to_string()));
+
+    for path in [
+        "tests/fixture_builder.rs",
+        "src/behavioral_tests.rs",
+        "fixtures/runtime/fixture_builder.rs",
+    ] {
+        let file = file_with_range(path, ChangeStatus::Modified, 1, 9);
+        assert!(
+            detect_behavioral_added(&file, &source, &DependencyContext::default()).is_empty(),
+            "unexpected side-effect signal for {path}"
+        );
+    }
+}
+
+#[test]
 fn migration_added_path() {
     let file = ChangedFile {
         path: PathBuf::from("db/migrations/20260601_init.sql"),
@@ -104,7 +174,7 @@ fn migration_added_path() {
         hunks: Vec::new(),
     };
     let source = ReviewSource::new("".to_string(), None);
-    let signals = detect_behavioral_added(&file, &source);
+    let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].kind, BehavioralKind::MigrationAdded);
 }
@@ -252,6 +322,23 @@ fn coarse_fallback_ignores_lookalike_tokens() {
         signals.is_empty(),
         "lookalike tokens (author, catchy) must not fire coarse signals: {signals:?}"
     );
+}
+
+#[test]
+fn prose_files_do_not_use_removed_behavior_fallbacks() {
+    let file = file_with_hunk(
+        "docs/security.md",
+        ChangeStatus::Modified,
+        Some((1, 2)),
+        Some((1, 1)),
+        vec![
+            "Authentication is checked before every request.",
+            "Handle errors explicitly.",
+        ],
+        vec![],
+    );
+
+    assert!(detect_behavioral_removed(&file, None, None).is_empty());
 }
 
 #[test]

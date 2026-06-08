@@ -39,8 +39,11 @@ updates:
       timezone: Europe/Kiev
     open-pull-requests-limit: 5
     ignore:
-      # The MSRV job intentionally tests the package's declared Rust floor.
-      - dependency-name: dtolnay/rust-toolchain
+      # v5 requires self-hosted Actions Runner 2.327.1 or newer. Keep the
+      # public composite action compatible with older supported runners.
+      - dependency-name: actions/cache
+        update-types:
+          - version-update:semver-major
     labels:
       - dependencies
       - ci

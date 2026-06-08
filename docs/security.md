@@ -54,12 +54,6 @@ REPOPILOT_BINARY_PATH=/path/to/repopilot
 If optional dependencies are omitted or blocked by policy, set
 `REPOPILOT_BINARY_PATH` or use the Cargo, Homebrew, or GitHub Releases channel.
 
-### IDE schema warnings
-
-Warnings such as VS Code failing to load `http://json.schemastore.org/nodemon.json`
-are editor schema-trust diagnostics. They do not indicate that RepoPilot's npm
-package runs install-time code or contacts Schema Store at runtime.
-
 ### Homebrew
 
 The Homebrew formula uses versioned GitHub Release artifacts and SHA256 checksums.

@@ -20,8 +20,8 @@
 		"release:check": "bash scripts/verify-release.sh",
 		"product:smoke": "bash scripts/smoke-product.sh",
 		"release:contract": "python3 scripts/release-contract.py check",
-		"review:performance": "node scripts/check-review-performance.js",
-		"vscode:check": "npm --prefix editors/vscode run check"
+		"test:release-contract": "python3 -m unittest discover -s scripts/tests -p 'test_*.py'",
+		"review:performance": "node scripts/check-review-performance.js"
 	},
 	"files": [
 		"bin",

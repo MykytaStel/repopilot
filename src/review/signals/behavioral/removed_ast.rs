@@ -22,50 +22,42 @@ fn walk_tests(node: Node<'_>, content: &str, ext: &str, count: &mut usize) {
 
     match ext {
         "js" | "mjs" | "cjs" | "ts" | "mts" | "cts" | "tsx" | "jsx" => {
-            if kind == "call_expression" {
-                if let Some(callee) = node.child_by_field_name("function") {
-                    if let Ok(callee_text) = callee.utf8_text(content.as_bytes()) {
-                        let val = callee_text.trim();
-                        if val == "test" || val == "it" || val == "describe" {
-                            *count += 1;
-                        }
-                    }
+            if kind == "call_expression"
+                && let Some(callee) = node.child_by_field_name("function")
+                && let Ok(callee_text) = callee.utf8_text(content.as_bytes())
+            {
+                let val = callee_text.trim();
+                if val == "test" || val == "it" || val == "describe" {
+                    *count += 1;
                 }
             }
         }
         "py" => {
-            if kind == "function_definition" {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    if let Ok(name_text) = name_node.utf8_text(content.as_bytes()) {
-                        if name_text.starts_with("test_") {
-                            *count += 1;
-                        }
-                    }
-                }
-            }
-        }
-        "go" => {
-            if kind == "function_declaration" {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    if let Ok(name_text) = name_node.utf8_text(content.as_bytes()) {
-                        if name_text.starts_with("Test") {
-                            *count += 1;
-                        }
-                    }
-                }
-            }
-        }
-        "rs" => {
-            if kind == "function_item" && text.contains("#[test]") {
-                *count += 1;
-            }
-        }
-        "java" | "kt" | "kts" => {
-            if (kind == "method_declaration" || kind == "function_declaration")
-                && text.contains("@Test")
+            if kind == "function_definition"
+                && let Some(name_node) = node.child_by_field_name("name")
+                && let Ok(name_text) = name_node.utf8_text(content.as_bytes())
+                && name_text.starts_with("test_")
             {
                 *count += 1;
             }
+        }
+        "go" => {
+            if kind == "function_declaration"
+                && let Some(name_node) = node.child_by_field_name("name")
+                && let Ok(name_text) = name_node.utf8_text(content.as_bytes())
+                && name_text.starts_with("Test")
+            {
+                *count += 1;
+            }
+        }
+        "rs" if kind == "function_item" && text.contains("#[test]") => {
+            *count += 1;
+        }
+        "java" | "kt" | "kts"
+            if (kind == "method_declaration" || kind == "function_declaration")
+                && text.contains("@Test") =>
+        {
+            *count += 1;
         }
         "cs" if kind == "method_declaration"
             && (text.contains("[Test]")
@@ -194,18 +186,16 @@ fn walk_auth(
             "cs" => kind == "invocation_expression",
             _ => false,
         };
-        if is_call {
-            if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                let text_lower = text.to_lowercase();
-                if text_lower.contains("auth")
-                    || text_lower.contains("login")
-                    || text_lower.contains("jwt")
-                    || text_lower.contains("permission")
-                    || text_lower.contains("session")
-                    || text_lower.contains("role")
-                {
-                    *count += 1;
-                }
+        if is_call && let Ok(text) = node.utf8_text(content.as_bytes()) {
+            let text_lower = text.to_lowercase();
+            if text_lower.contains("auth")
+                || text_lower.contains("login")
+                || text_lower.contains("jwt")
+                || text_lower.contains("permission")
+                || text_lower.contains("session")
+                || text_lower.contains("role")
+            {
+                *count += 1;
             }
         }
     }
