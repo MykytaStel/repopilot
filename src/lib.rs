@@ -29,6 +29,8 @@ pub mod config;
 #[doc(hidden)]
 pub mod explain;
 #[doc(hidden)]
+pub mod facts;
+#[doc(hidden)]
 pub mod findings;
 #[doc(hidden)]
 pub mod frameworks;

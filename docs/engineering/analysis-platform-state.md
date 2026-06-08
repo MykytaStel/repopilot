@@ -79,12 +79,15 @@ These capabilities are the foundation for the next architecture. The goal is to
 compose and deepen them, not replace working product paths with parallel
 commands.
 
+The first internal implementation step now exists in `src/facts`: a facts-core
+skeleton with repository, file, source, confidence, and diagnostic types. It is
+not yet connected to scan, review, report output, AI context, or MCP.
+
 ## What Is Missing
 
 RepoPilot still needs a deeper fact-based platform with:
 
-- `RepoFacts`: a repository-level fact model assembled from file and scan
-  facts;
+- a populated `RepoFacts` model assembled from existing file and scan facts;
 - a first-class dependency graph with explicit core types and contracts;
 - symbol facts for definitions, references, ownership, and relationships;
 - rule capabilities that declare which facts and analysis levels a rule needs;
@@ -142,13 +145,12 @@ without creating a durable user workflow.
 
 ## Next Planned Implementation Steps
 
-1. Add a facts-core skeleton.
-2. Add a `ScanFacts -> RepoFacts` bridge.
-3. Expose facts through scan JSON and AI context, not `inspect`.
-4. Design graph v2.
-5. Add graph v2 core types.
-6. Feed graph v2 into scan, review, and AI context.
-7. Add rule capabilities metadata.
-8. Add language support tiers.
-9. Add runtime evidence ingestion.
-10. Add evaluation fixtures.
+1. Add a `ScanFacts -> RepoFacts` bridge.
+2. Expose facts through scan JSON and AI context, not `inspect`.
+3. Design graph v2.
+4. Add graph v2 core types.
+5. Feed graph v2 into scan, review, and AI context.
+6. Add rule capabilities metadata.
+7. Add language support tiers.
+8. Add runtime evidence ingestion.
+9. Add evaluation fixtures.
