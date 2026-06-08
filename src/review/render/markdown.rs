@@ -159,6 +159,11 @@ fn render_markdown_tiered_signals(output: &mut String, report: &ReviewReport) {
     );
     render_markdown_tier(output, "Maybe sensitive", &tiered.maybe, &mut remaining);
     render_markdown_tier(output, "Large diff / noise", &tiered.noise, &mut remaining);
+    if tiered.has_taint_signal() {
+        output.push_str(
+            "> Taint signals trace input → sink reachability — a path exists, not a confirmed vulnerability. Verify before acting.\n\n",
+        );
+    }
 }
 
 fn render_markdown_tier(

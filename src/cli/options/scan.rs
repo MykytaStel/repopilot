@@ -55,11 +55,11 @@ pub struct ScanOptions {
     #[arg(long)]
     pub baseline: Option<PathBuf>,
 
-    /// Exit with code 1 when findings meet this severity/status threshold
+    /// Finding gate: exit 1 when findings meet this severity/status threshold (excludes --fail-on-priority)
     #[arg(long, value_enum)]
     pub fail_on: Option<FailOnArg>,
 
-    /// Exit with code 1 when findings meet this risk priority threshold
+    /// Finding gate: exit 1 when findings meet this risk-priority threshold (excludes --fail-on)
     #[arg(long, value_enum)]
     pub fail_on_priority: Option<PriorityArg>,
 

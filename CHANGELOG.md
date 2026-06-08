@@ -16,8 +16,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   editor packaging.
 - Added a real schema `0.18` report fixture and documented report schema
   versioning independently from package versions.
+- Review now prints a one-line taint disclaimer when taint-lite signals are
+  present (console and Markdown): they trace input → sink *reachability*, a path
+  that exists, not a confirmed vulnerability.
 
 ### Changed
+
+- Documented the gate model as one coherent two-axis story: a **finding gate**
+  (`--fail-on` by severity/status, or the mutually exclusive `--fail-on-priority`
+  by risk; in-diff only on `review`) and a separate, opt-in **review-signal gate**
+  (`--fail-on-review`, config peer `[review] fail_on`). Harmonized the `scan` and
+  `review` flag help and the CLI/configuration references so the config key
+  `[review] fail_on` is no longer mistaken for the CLI `--fail-on`. No flags or
+  behavior changed — only help text and documentation.
 
 - Consolidated the AI handoff into a single `ai context` command. Its output now
   bundles repository facts, evidence, the Context Risk Graph edit order, a
@@ -85,6 +96,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   repeated method name in the function text.
 - Behavioral runtime side effects are no longer emitted from tests/fixtures,
   and removed auth/error coarse fallbacks no longer run on prose documents.
+- Corrected the taint flow module's doc comment: taint seeding is a single
+  document-order forward pass (chains like `a = src; b = a` carry through), not
+  the "iterated to a small fixpoint" the header previously claimed.
 
 ## [0.16.0] - 2026-06-08
 

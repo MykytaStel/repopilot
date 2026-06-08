@@ -73,8 +73,8 @@ repopilot s <PATH> [OPTIONS]
 | `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
-| `--fail-on` | threshold | — | Exit code 1 when findings meet this threshold (see [Thresholds](#thresholds)) |
-| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Exit code 1 when findings meet this risk priority threshold |
+| `--fail-on` | threshold | — | Finding gate by severity/status; exit code 1 on a breach (see [Gates](#gates)) |
+| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority; mutually exclusive with `--fail-on` |
 | `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
@@ -102,8 +102,8 @@ repopilot s <PATH> [OPTIONS]
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success (no threshold breach) |
-| `1` | Findings exceed the `--fail-on` threshold |
+| `0` | Success (no gate breach) |
+| `1` | The finding gate (`--fail-on` / `--fail-on-priority`) was breached |
 | `2` | Invalid CLI/config/user input |
 | `3` | Runtime or environment failure |
 
@@ -193,9 +193,11 @@ When coupling data is available, review also shows **blast radius**: files that 
 
 By default, review compares the working tree against `HEAD` (staged, unstaged, and untracked changes). Pass `--base` to review a branch range for CI.
 
-`--fail-on` and `--fail-on-priority` evaluate only scan findings.
-`--fail-on-review definitely` is a separate, opt-in gate for unsuppressed,
-gate-eligible definitely-sensitive review signals.
+Review has two independent gate axes (see [Gates](#gates)): the **finding gate**
+(`--fail-on` by severity or `--fail-on-priority` by risk, scoped to in-diff
+findings) and the **review-signal gate** (`--fail-on-review definitely`, an
+opt-in gate for unsuppressed, gate-eligible definitely-sensitive review signals).
+They compose: either one failing exits non-zero.
 
 ### Synopsis
 
@@ -224,9 +226,9 @@ repopilot r [PATH] [OPTIONS]
 | `--sarif-output` | path | — | Write secondary review SARIF without a second scan |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file |
-| `--fail-on` | threshold | — | Exit code 1 when **in-diff** findings meet this threshold |
-| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Exit code 1 when **in-diff** findings meet this risk priority threshold |
-| `--fail-on-review` | `none\|definitely` | `none` | Exit code 1 for eligible definitely-sensitive review signals |
+| `--fail-on` | threshold | — | Finding gate by severity/status on **in-diff** findings (see [Gates](#gates)) |
+| `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority on **in-diff** findings; mutually exclusive with `--fail-on` |
+| `--fail-on-review` | `none\|definitely` | `none` | Review-signal gate; config peer `[review] fail_on` |
 | `--no-progress` | flag | — | Disable progress indicators |
 | `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
@@ -444,7 +446,25 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | repopilot mcp -
 
 ---
 
-## Thresholds
+## Gates
+
+RepoPilot has two independent gate axes. Each can exit the process with code `1`;
+they compose, so a build fails if **either** trips.
+
+| Gate | Flags | Acts on | Available in |
+|------|-------|---------|--------------|
+| **Finding gate** | `--fail-on` (severity/status) **or** `--fail-on-priority` (risk) | Rule findings | `scan`, `review` |
+| **Review-signal gate** | `--fail-on-review` / config `[review] fail_on` | Review signals (behavioral/boundary/taint) | `review` |
+
+- The two finding-gate flags are **mutually exclusive** — pick severity *or*
+  priority, not both. On `review` the finding gate evaluates only **in-diff**
+  findings; on `scan` it evaluates the whole report.
+- The review-signal gate is a **different axis** from the finding gate: despite
+  the similar name, the config key `[review] fail_on` (`none`/`definitely`) is the
+  peer of `--fail-on-review`, **not** of `--fail-on`. `definitely` fails on
+  unsuppressed, gate-eligible definitely-sensitive review signals.
+
+### Finding-gate thresholds
 
 The `--fail-on` flag accepts the following values:
 
@@ -461,9 +481,10 @@ The `--fail-on` flag accepts the following values:
 
 `new-*` thresholds require a `--baseline` to distinguish new from existing findings. Without a baseline, all current findings are treated as new.
 
-For `review`, `--fail-on` evaluates only **in-diff** findings.
+`--fail-on-priority` accepts `p0`, `p1`, `p2`, or `p3` and fails on any finding at
+or above that risk priority.
 
-The `--min-severity` flag filters rendered findings before baseline or CI gate evaluation. Use it when a local report is too noisy, for example `--min-severity high` during fast review or `--workspace --min-severity medium` in monorepos.
+The `--min-severity` flag filters rendered findings before gate evaluation, and is not itself a gate. Use it when a local report is too noisy, for example `--min-severity high` during fast review or `--workspace --min-severity medium` in monorepos.
 
 ---
 

@@ -142,6 +142,16 @@ impl TieredSignals {
             .count()
     }
 
+    /// Whether any visible tier carries a taint-lite reachability signal. Used to
+    /// surface the "a path exists, not a confirmed vulnerability" disclaimer once
+    /// per report rather than repeating it on every taint row.
+    pub fn has_taint_signal(&self) -> bool {
+        [&self.definitely, &self.maybe, &self.noise]
+            .into_iter()
+            .flatten()
+            .any(|signal| !signal.suppressed && signal.family == SignalFamily::Taint)
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ReviewSignal> {
         self.definitely
             .iter_mut()
