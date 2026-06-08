@@ -10,7 +10,6 @@ pub mod markdown;
 pub(crate) mod render_helpers;
 pub(crate) mod report_stats;
 pub(crate) mod report_text;
-pub mod rules;
 pub mod sarif;
 
 use serde::Deserialize;

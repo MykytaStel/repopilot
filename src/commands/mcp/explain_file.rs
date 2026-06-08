@@ -1,5 +1,5 @@
 //! The `repopilot_explain_file` MCP tool: how RepoPilot classifies one file and
-//! which rules/signals apply, wrapping the `inspect explain` builder.
+//! which rules/signals apply, wrapping the `repopilot::explain` report builder.
 
 use repopilot::explain::{build_explain_report, render_explain_report};
 use repopilot::findings::types::Severity;

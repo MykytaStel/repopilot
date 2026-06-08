@@ -104,30 +104,6 @@ else
   echo "==> No previous release tag found; skipping self-review quality replay"
 fi
 
-echo "==> Rule evaluation JSON smoke"
-./target/release/repopilot inspect eval-rules --format json > "$VERIFY_TMP_DIR/eval-rules.json"
-if command -v python3 >/dev/null 2>&1; then
-  python3 -m json.tool "$VERIFY_TMP_DIR/eval-rules.json" >/dev/null
-  python3 - "$VERIFY_TMP_DIR/eval-rules.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    report = json.load(handle)
-
-fields = [
-    "missing_findings",
-    "unexpected_findings",
-    "contract_violations",
-    "stable_id_failures",
-    "quality_gate_failures",
-]
-failures = {field: report.get(field) for field in fields if report.get(field) != 0}
-if failures:
-    raise SystemExit(f"Rule quality gate failed: {failures}")
-PY
-fi
-
 echo "==> Self-scan signal quality"
 ./target/release/repopilot scan . --format json --output "$VERIFY_TMP_DIR/self-scan.json"
 if command -v python3 >/dev/null 2>&1 && [[ -f scripts/check-signal-quality.py ]]; then

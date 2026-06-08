@@ -224,7 +224,7 @@ fn changed_scan_cache_hit_keeps_changed_file_imports_for_graph_patch() {
     );
     commit_all(temp.path(), "initial");
 
-    let initial_graph = inspect_graph_json(temp.path());
+    let initial_graph = scan_graph_json(temp.path());
     assert_eq!(initial_graph["context_graph_cache"]["status"], "write");
     let stale_graph_cache =
         fs::read(temp.path().join(".repopilot/cache/repo_context.json")).expect("read graph cache");
@@ -267,7 +267,7 @@ fn changed_scan_invalidates_repo_context_cache_after_branch_switch() {
     );
     commit_all(temp.path(), "initial");
 
-    let initial_graph = inspect_graph_json(temp.path());
+    let initial_graph = scan_graph_json(temp.path());
     assert_eq!(initial_graph["context_graph_cache"]["status"], "write");
 
     git(temp.path(), &["checkout", "-b", "feature"]);
@@ -366,16 +366,18 @@ fn scan_changed_json(root: &Path, args: &[&str]) -> Value {
     serde_json::from_slice(&output.stdout).expect("json output")
 }
 
-fn inspect_graph_json(root: &Path) -> Value {
+// The context graph (and its cache status) is part of the scan report, so a full
+// scan is the supported way to observe it now that `inspect graph` is gone.
+fn scan_graph_json(root: &Path) -> Value {
     let output = repopilot()
-        .args(["inspect", "graph", ".", "--format", "json"])
+        .args(["scan", ".", "--format", "json"])
         .current_dir(root)
         .output()
-        .expect("run repopilot inspect graph");
+        .expect("run repopilot scan");
 
     assert!(
         output.status.success(),
-        "inspect graph failed\nstdout:\n{}\nstderr:\n{}",
+        "scan failed\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );

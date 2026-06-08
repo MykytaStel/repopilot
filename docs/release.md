@@ -68,7 +68,6 @@ review
 scan in console, JSON, Markdown, and SARIF
 baseline create and new-high gate
 AI context
-knowledge, rule, feedback, and explain inspection
 ```
 
 The release should not be blocked only because no new rules were added. Stable

@@ -155,16 +155,7 @@ For direct agent integration, run the local MCP server:
 repopilot mcp --root .
 ```
 
-## Diagnostics
-
-```bash
-repopilot inspect feedback .
-repopilot inspect cache .
-repopilot inspect graph .
-repopilot inspect rules
-repopilot inspect eval-rules
-repopilot inspect explain src/main.rs
-```
+## Changed scans
 
 Changed scans use `.repopilot/cache/` and skip repository-wide audits:
 
