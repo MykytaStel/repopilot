@@ -34,23 +34,8 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
-    match command {
-        AiCommands::Context(options) => super::ai_context::run(options),
-        AiCommands::Plan(options) => super::ai_plan::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-        AiCommands::Prompt(options) => super::prompt::run(
-            options.path,
-            options.config,
-            options.focus,
-            options.budget,
-            options.output,
-        ),
-    }
+    let AiCommands::Context(options) = command;
+    super::ai_context::run(options)
 }
 
 fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error>> {

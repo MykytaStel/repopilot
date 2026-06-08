@@ -19,6 +19,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Consolidated the AI handoff into a single `ai context` command. Its output now
+  bundles repository facts, evidence, the Context Risk Graph edit order, a
+  prioritized P0–P3 remediation plan, working rules, and a verification checklist
+  in one document. `--no-task` drops the agent guidance (task, rules, verification)
+  to emit fact-only context — the form the MCP `context` tool now returns for
+  agents that bring their own instructions. The README, CLI reference, GitHub
+  Action, and smoke checks now describe one handoff.
 - Changed the CLI help, doctor guidance, contributor setup, and documentation to
   lead with changed-code review while preserving full scan and baseline flows.
 - Changed the release workflow to pin third-party Actions and installed tools,
@@ -32,6 +39,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Removed the unsupported Rust `1.87` MSRV declaration and dedicated CI check.
   RepoPilot `0.x` now builds with the pinned Rust `1.95.0` release/CI toolchain without
   promising compatibility with an older compiler floor.
+
+### Removed
+
+- Removed the standalone `ai plan` and `ai prompt` commands; their prioritized
+  plan and operating-rules output is now folded into `ai context`.
+- Removed the preview VS Code extension, platform VSIX packaging, editor CI
+  matrix, release assets, and related active documentation.
+- Removed the stale repository baseline that still referenced deleted files.
 
 ### Fixed
 
@@ -49,17 +64,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   as `applyRole(x)` no longer reports a removed auth check, and nested calls no
   longer inflate the count. The Go `if err != nil` and Rust `.map_err`/`.unwrap_or`
   error-handling detectors likewise inspect only the condition/callee.
-
-### Removed
-
-- Removed the preview VS Code extension, platform VSIX packaging, editor CI
-  matrix, release assets, and related active documentation.
-- Removed the stale repository baseline that still referenced deleted files.
-
-### Fixed
-
-- Dependency-import review signals no longer treat standard libraries or the
-  repository's own package as newly introduced dependencies.
 - Recursion signals now require an AST call to the function itself instead of a
   repeated method name in the function text.
 - Behavioral runtime side effects are no longer emitted from tests/fixtures,

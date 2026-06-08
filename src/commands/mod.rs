@@ -1,5 +1,4 @@
 pub mod ai_context;
-pub mod ai_plan;
 pub mod baseline;
 pub mod cache;
 pub mod cache_inspect;
@@ -17,7 +16,6 @@ mod llm;
 pub mod mcp;
 pub(crate) mod product_scan;
 mod progress;
-pub mod prompt;
 pub mod review;
 pub mod rules;
 pub mod scan;

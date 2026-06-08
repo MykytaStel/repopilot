@@ -1,5 +1,5 @@
 #[test]
-fn top_recommendations_include_medium_clusters_when_no_high_findings() {
+fn remediation_plan_clusters_medium_findings() {
     let findings = vec![
         make_finding(
             "architecture.large-file",
@@ -20,13 +20,14 @@ fn top_recommendations_include_medium_clusters_when_no_high_findings() {
     ];
     let summary = make_summary(findings);
     let output = render(&summary, &AiContextRenderOptions::default());
-    assert!(output.contains("## Top Recommendations"));
-    assert!(output.contains("MEDIUM 2 finding(s)"));
+    assert!(output.contains("## Remediation Plan"));
+    assert!(output.contains("P2 - Quality and maintainability"));
+    assert!(output.contains("2 findings"));
 }
 
 
 #[test]
-fn top_recommendations_shown_for_high_findings() {
+fn remediation_plan_shows_high_security_as_p0() {
     let findings = vec![make_finding(
         "security.secret",
         "Hardcoded secret",
@@ -37,7 +38,8 @@ fn top_recommendations_shown_for_high_findings() {
     )];
     let summary = make_summary(findings);
     let output = render(&summary, &AiContextRenderOptions::default());
-    assert!(output.contains("## Top Recommendations"));
+    assert!(output.contains("## Remediation Plan"));
+    assert!(output.contains("P0 - Immediate risk"));
 }
 
 

@@ -59,6 +59,43 @@ fn ai_context_default_output_succeeds() {
 }
 
 #[test]
+fn ai_context_handoff_includes_plan_rules_and_verify() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let run_md = |args: &[&str]| {
+        let output = repopilot()
+            .args(args)
+            .current_dir(temp.path())
+            .output()
+            .expect("failed to run repopilot ai context");
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).expect("stdout should be UTF-8")
+    };
+
+    // Default handoff carries the task guidance and the prioritized plan.
+    let full = run_md(&["ai", "context", "."]);
+    assert!(full.contains("## How To Work"), "rules missing\n{full}");
+    assert!(full.contains("## Remediation Plan"), "plan missing\n{full}");
+    assert!(full.contains("## Verify"), "verification missing\n{full}");
+
+    // --no-task drops the agent guidance but keeps the fact-based plan.
+    let lean = run_md(&["ai", "context", ".", "--no-task"]);
+    assert!(
+        !lean.contains("## How To Work"),
+        "rules should be hidden under --no-task\n{lean}"
+    );
+    assert!(
+        !lean.contains("## Verify"),
+        "verification should be hidden under --no-task\n{lean}"
+    );
+    assert!(
+        lean.contains("## Remediation Plan"),
+        "plan should remain under --no-task\n{lean}"
+    );
+}
+
+#[test]
 fn ai_context_focus_security_with_budget_succeeds() {
     let temp = tempdir().expect("failed to create temp dir");
     write_sample_project(temp.path());

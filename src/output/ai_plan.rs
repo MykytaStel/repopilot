@@ -1,70 +1,54 @@
+//! Prioritized remediation plan sections, embedded by the unified `ai context`
+//! handoff (`super::ai_context`). The plan groups findings into P0–P3 clusters
+//! and surfaces the Context Risk Graph edit order; it is no longer a standalone
+//! command.
+
 use crate::findings::types::{Finding, FindingCategory, Severity};
-use crate::graph::context::{ContextGraphFileMetric, ContextGraphSummary};
-use crate::output::ai_context::{AiFocusCategory, DEFAULT_TOKEN_BUDGET, project_name};
+use crate::output::ai_context::AiFocusCategory;
 use crate::output::finding_helpers::{
     RuleCluster, category_rank, clusters_by_rule_scope, example_locations, finding_recommendation,
 };
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
-pub struct AiPlanOptions {
-    pub focus: Option<AiFocusCategory>,
-    pub budget_tokens: usize,
-}
-
-impl Default for AiPlanOptions {
-    fn default() -> Self {
-        Self {
-            focus: None,
-            budget_tokens: DEFAULT_TOKEN_BUDGET,
-        }
-    }
-}
-
-pub fn render(summary: &ScanSummary, opts: &AiPlanOptions) -> String {
-    let project_name = project_name(summary);
-    let budget_chars = opts.budget_tokens.saturating_mul(4);
-
+/// Renders the prioritized P0–P3 remediation clusters for embedding in the
+/// `ai context` handoff — no document title or footer. The Context Risk Graph
+/// edit order is rendered separately by `super::ai_context`'s hot-files section,
+/// so it is not repeated here. Emits nothing when no finding matches `focus`.
+pub(crate) fn render_plan_section(
+    out: &mut String,
+    summary: &ScanSummary,
+    focus: Option<&AiFocusCategory>,
+    budget_chars: usize,
+) {
     let findings: Vec<&Finding> = summary
         .artifacts
         .findings
         .iter()
-        .filter(|finding| {
-            opts.focus
-                .as_ref()
-                .is_none_or(|focus| focus.matches(&finding.category))
-        })
+        .filter(|finding| focus.is_none_or(|focus| focus.matches(&finding.category)))
         .collect();
+    if findings.is_empty() {
+        return;
+    }
     let mut clusters = clusters_by_rule_scope(&findings);
     sort_ai_plan_clusters(&mut clusters);
 
-    let mut out = String::new();
-    let _ = writeln!(out, "# RepoPilot AI Plan - {project_name}\n");
     let _ = writeln!(
         out,
-        "Prioritized remediation plan generated locally from RepoPilot findings. Start at P0 and stop when the remaining risk is acceptable for this release.\n"
+        "\n## Remediation Plan\n\nPrioritized from RepoPilot findings — start at P0 and stop when the remaining risk is acceptable for this release."
     );
-    render_summary(&mut out, &findings);
-    render_context_graph_plan(&mut out, summary.artifacts.context_graph_summary.as_ref());
-
-    if findings.is_empty() {
-        let _ = writeln!(out, "No findings matched the selected scope.");
-        render_footer(&mut out, summary.scan_duration_us);
-        return out;
-    }
 
     let mut current_priority = None;
     let content_start = out.len();
-
     for (index, cluster) in clusters.iter().enumerate() {
         let priority = priority_label(cluster_priority(cluster));
         if current_priority != Some(priority) {
-            let _ = writeln!(out, "\n## {priority}");
+            let _ = writeln!(out, "\n### {priority}");
             current_priority = Some(priority);
         }
 
         let len_before = out.len();
-        render_cluster_plan(&mut out, cluster, index + 1);
+        render_cluster_plan(out, cluster, index + 1);
         let content_used = out.len().saturating_sub(content_start);
         if content_used > budget_chars {
             if index == 0 {
@@ -79,12 +63,7 @@ pub fn render(summary: &ScanSummary, opts: &AiPlanOptions) -> String {
             break;
         }
     }
-
-    render_verification(&mut out);
-    render_footer(&mut out, summary.scan_duration_us);
-    out
 }
 
-include!("ai_plan/summary.rs");
 include!("ai_plan/cluster.rs");
 include!("ai_plan/priority.rs");

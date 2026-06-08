@@ -319,12 +319,6 @@ fi
 run_repopilot ai context . --focus security --budget 2k --output "$TMP_DIR/ai-context.md"
 assert_non_empty "$TMP_DIR/ai-context.md"
 
-run_repopilot ai plan . --focus all --budget 2k --output "$TMP_DIR/ai-plan.md"
-assert_non_empty "$TMP_DIR/ai-plan.md"
-
-run_repopilot ai prompt . --focus quality --budget 2k --output "$TMP_DIR/ai-prompt.md"
-assert_non_empty "$TMP_DIR/ai-prompt.md"
-
 run_repopilot inspect knowledge --format json --output "$TMP_DIR/inspect-knowledge.json"
 assert_non_empty "$TMP_DIR/inspect-knowledge.json"
 validate_json_if_possible "$TMP_DIR/inspect-knowledge.json"

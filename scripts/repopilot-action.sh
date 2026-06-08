@@ -31,17 +31,15 @@ case "$COMMAND" in
   compare) RUN_ARGS=(compare) ;;
   doctor) RUN_ARGS=(doctor "$PATH_INPUT") ;;
   ai-context) RUN_ARGS=(ai context "$PATH_INPUT") ;;
-  ai-plan) RUN_ARGS=(ai plan "$PATH_INPUT") ;;
-  ai-prompt) RUN_ARGS=(ai prompt "$PATH_INPUT") ;;
   *)
-    echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, doctor, ai-context, ai-plan, or ai-prompt."
+    echo "::error::Unsupported command '$COMMAND'. Expected scan, review, compare, doctor, or ai-context."
     exit 2
     ;;
 esac
 
 IS_AI=false
 case "$COMMAND" in
-  ai-context|ai-plan|ai-prompt) IS_AI=true ;;
+  ai-context) IS_AI=true ;;
 esac
 
 if [[ "$FORMAT" == "auto" ]]; then

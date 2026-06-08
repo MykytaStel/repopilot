@@ -89,7 +89,7 @@ Editor extensions and PyPI packages are not supported distribution channels.
 
 - Runtime scans read files from disk and write reports to stdout or an explicit `--output` path.
 - Runtime commands do not call AI providers, telemetry endpoints, or RepoPilot servers.
-- AI workflow commands (`ai context`, `ai plan`, `ai prompt`) only format local scan findings as Markdown.
+- The AI handoff command (`ai context`) only formats local scan findings as Markdown.
 - The curl installer downloads a GitHub Release artifact and its `.sha256` checksum, then fails closed if the checksum file cannot be downloaded, no SHA256 tool is available, or verification fails.
 - npm installation uses platform-specific optional packages and does not run a downloader script.
 - Platform npm packages are generated from GitHub Release archives only after their SHA256 checksum files are verified.

@@ -1,5 +1,6 @@
 mod budget;
 mod findings;
+mod guardrails;
 mod header;
 mod hotfiles;
 mod recommendations;
@@ -112,10 +113,13 @@ fn render_internal(
     let mut out = String::new();
     let mut sections: Vec<BreakdownSection> = Vec::new();
 
-    // Task instruction block (shown before header so AI sees intent first).
+    // Task instruction + working rules (shown before header so the AI sees
+    // intent first). These are agent guidance, so they are suppressed with the
+    // task block — an agent supplying its own instructions gets fact-only context.
     if !opts.no_header && !opts.no_task {
         let pre = out.len();
         header::render_task_instruction(&mut out, &findings, summary);
+        guardrails::render_working_rules(&mut out);
         let added = out.len() - pre;
         if added > 0 {
             sections.push(BreakdownSection {
@@ -164,15 +168,35 @@ fn render_internal(
         }
     }
 
-    // Recommendation clusters.
+    // Remediation plan: Context Risk Graph edit order + P0–P3 finding clusters.
+    // Replaces the lighter "Top Recommendations" list — same clustering, but
+    // prioritized and ordered for action.
     let pre = out.len();
-    recommendations::render_top_recommendations(&mut out, &findings);
-    let rec_added = out.len() - pre;
-    if rec_added > 0 {
+    crate::output::ai_plan::render_plan_section(
+        &mut out,
+        summary,
+        opts.focus.as_ref(),
+        budget_chars,
+    );
+    let plan_added = out.len() - pre;
+    if plan_added > 0 {
         sections.push(BreakdownSection {
-            label: "Recommendations".into(),
-            tokens: rec_added / 4,
+            label: "Remediation Plan".into(),
+            tokens: plan_added / 4,
         });
+    }
+
+    // Verification checklist — part of the AI task guidance.
+    if !opts.no_header && !opts.no_task {
+        let pre = out.len();
+        crate::output::ai_plan::render_verification(&mut out);
+        let added = out.len() - pre;
+        if added > 0 {
+            sections.push(BreakdownSection {
+                label: "Verify".into(),
+                tokens: added / 4,
+            });
+        }
     }
 
     // Footer.
