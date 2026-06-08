@@ -75,7 +75,7 @@ fn doctor_console_recommends_next_command() {
     assert!(stdout.contains("Audit scope:"));
     assert!(stdout.contains("Checks:"));
     assert!(stdout.contains("Recommended next command:"));
-    assert!(stdout.contains("repopilot scan ."));
+    assert!(stdout.contains("repopilot review ."));
 }
 
 #[test]

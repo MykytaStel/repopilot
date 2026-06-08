@@ -83,9 +83,7 @@ Binaries and `.sha256` checksum files are attached to GitHub Releases. The
 release workflow also requests GitHub artifact attestations for each release
 archive and checksum file when the tag workflow runs with OIDC permissions.
 
-GitHub Releases also contain platform-specific VSIX packages as a preview editor
-integration. The extension is not currently published to the VS Code
-Marketplace. PyPI is not a supported distribution channel.
+Editor extensions and PyPI packages are not supported distribution channels.
 
 ## Runtime and Artifact Security Model
 
@@ -101,13 +99,17 @@ Marketplace. PyPI is not a supported distribution channel.
 
 ## Publishing Policy
 
-The release workflow runs `cargo publish --dry-run` for release tags. Publishing is automated when the corresponding channel is configured:
+The release workflow runs `cargo publish --dry-run` for release tags. An
+official release is complete only when all four channels publish successfully:
 
 - `CRATES_IO_TOKEN` publishes the crate to crates.io.
 - `publish-npm.yml` publishes the platform npm packages first, then the root npm package, through npm Trusted Publishing / GitHub OIDC, without an npm token secret.
 - `HOMEBREW_TAP_TOKEN` updates the Homebrew tap formula.
 
-If an optional publishing secret is absent, that channel is skipped without failing the release workflow. The GitHub Release binaries are still built and attached.
+`CRATES_IO_TOKEN` and `HOMEBREW_TAP_TOKEN` are required release credentials.
+The release fails before packaging if either is missing. npm publishing is
+called directly by the tag workflow; manual dispatch remains available only for
+recovery.
 
 Before publishing:
 

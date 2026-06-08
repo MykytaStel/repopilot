@@ -16,8 +16,10 @@ repopilot --version
 ## Command
 
 ```bash
-repopilot scan .
+repopilot review .
 ```
+
+Include `--base`, `--scope`, output format, and gate flags when applicable.
 
 ## Expected Behavior
 

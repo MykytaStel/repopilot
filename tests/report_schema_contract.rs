@@ -3,10 +3,9 @@ use serde_json::Value;
 
 #[test]
 fn current_schema_fixture_documents_scan_report_contract() {
-    let current_text =
-        include_str!("fixtures/reports/scan-v017.json").replace("\"0.17\"", "\"0.18\"");
+    let current_text = include_str!("fixtures/reports/scan-v018.json");
     let current: Value =
-        serde_json::from_str(&current_text).expect("current report fixture should be valid JSON");
+        serde_json::from_str(current_text).expect("current report fixture should be valid JSON");
 
     assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.18");
     assert_eq!(current["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
@@ -34,9 +33,8 @@ fn current_schema_fixture_documents_scan_report_contract() {
 
 #[test]
 fn strict_reader_accepts_current_scan_report_shape() {
-    let current_text =
-        include_str!("fixtures/reports/scan-v017.json").replace("\"0.17\"", "\"0.18\"");
-    let current = parse_scan_summary_json(&current_text)
+    let current_text = include_str!("fixtures/reports/scan-v018.json");
+    let current = parse_scan_summary_json(current_text)
         .expect("current report should parse into ScanSummary");
 
     assert_eq!(current.metrics.files_discovered, 2);

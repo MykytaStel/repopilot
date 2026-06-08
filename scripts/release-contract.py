@@ -19,6 +19,8 @@ RELEASE_HEADING = re.compile(
     r"^## \[(?P<version>\d+\.\d+\.\d+)\] - (?P<date>\d{4}-\d{2}-\d{2})$",
     re.MULTILINE,
 )
+ACTION_USE = re.compile(r"^\s*-?\s*uses:\s*([^@\s]+)@([^\s#]+)", re.MULTILINE)
+PINNED_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 class ContractError(RuntimeError):
@@ -105,17 +107,10 @@ def release_section(version: str) -> str:
 
 def check_versions(version: str) -> None:
     package = json_file("package.json")
-    vscode = json_file("editors/vscode/package.json")
-    vscode_lock = json_file("editors/vscode/package-lock.json")
 
     versions = {
         "Cargo.lock": cargo_lock_version(),
         "package.json": package["version"],
-        "editors/vscode/package.json": vscode["version"],
-        "editors/vscode/package-lock.json": vscode_lock["version"],
-        "editors/vscode/package-lock.json packages['']": vscode_lock["packages"][""][
-            "version"
-        ],
         "action.yml version input": yaml_default_version("action.yml", "version"),
         "reusable workflow version input": yaml_default_version(
             ".github/workflows/repopilot-pr-review.yml", "version"
@@ -144,7 +139,6 @@ def markdown_files() -> list[Path]:
         ROOT / "README.md",
         ROOT / "CONTRIBUTING.md",
         ROOT / "SECURITY.md",
-        ROOT / "editors/vscode/README.md",
     ]
     files.extend(sorted((ROOT / "docs").rglob("*.md")))
     return files
@@ -220,6 +214,53 @@ def check_cargo_package() -> None:
         )
 
 
+def workflow_files() -> list[Path]:
+    return [ROOT / "action.yml", *sorted((ROOT / ".github/workflows").glob("*.y*ml"))]
+
+
+def check_action_pins() -> None:
+    failures: list[str] = []
+    for workflow in workflow_files():
+        for action, ref in ACTION_USE.findall(read_text(workflow)):
+            if action.startswith("./") or action == "MykytaStel/repopilot":
+                continue
+            if not PINNED_SHA.fullmatch(ref):
+                failures.append(f"{workflow.relative_to(ROOT)} -> {action}@{ref}")
+    if failures:
+        raise ContractError(
+            "Third-party GitHub Actions must use commit SHAs:\n  "
+            + "\n  ".join(failures)
+        )
+
+
+def check_release_orchestration() -> None:
+    release = read_text(ROOT / ".github/workflows/release.yml")
+    npm = read_text(ROOT / ".github/workflows/publish-npm.yml")
+    if "uses: ./.github/workflows/publish-npm.yml" not in release:
+        raise ContractError("Release workflow does not call the npm publishing workflow")
+    if "workflow_call:" not in npm or "workflow_dispatch:" not in npm:
+        raise ContractError(
+            "npm publishing must support workflow_call and manual recovery"
+        )
+    if re.search(r"(?i)\b(vsix|vscode|marketplace)\b", release):
+        raise ContractError("Release workflow still contains a VS Code/VSIX surface")
+
+
+def check_removed_vscode_surface() -> None:
+    stale_paths = [
+        ROOT / "editors/vscode/package.json",
+        ROOT / "editors/vscode/package-lock.json",
+        ROOT / "editors/vscode/src/extension.ts",
+        ROOT / "scripts/build-vscode-platform-packages.js",
+    ]
+    existing = [path.relative_to(ROOT) for path in stale_paths if path.exists()]
+    if existing:
+        raise ContractError(
+            "Removed VS Code surface still exists:\n  "
+            + "\n  ".join(map(str, existing))
+        )
+
+
 def check_contract(tag: str | None) -> None:
     version = expected_version(tag)
     check_versions(version)
@@ -227,6 +268,9 @@ def check_contract(tag: str | None) -> None:
     check_markdown_links()
     check_npm_claims()
     check_cargo_package()
+    check_action_pins()
+    check_release_orchestration()
+    check_removed_vscode_surface()
     print(f"Release contract passed for {version}")
 
 

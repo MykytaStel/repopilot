@@ -54,6 +54,12 @@ fn top_level_help_shows_stable_command_surface() {
     let temp = tempfile::tempdir().expect("temp dir");
     let output = run_ok(&["--help"], temp.path());
     let help = stdout(&output);
+    let review_position = help.find("review").expect("review command");
+    let scan_position = help.find("scan").expect("scan command");
+    assert!(
+        review_position < scan_position,
+        "review must be presented before scan\n{help}"
+    );
 
     for command in [
         "baseline", "compare", "scan", "review", "snapshot", "ai", "inspect", "init", "doctor",

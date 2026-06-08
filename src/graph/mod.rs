@@ -40,15 +40,15 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
-            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files) {
-                if target != normalized_source {
-                    outgoing.insert(
-                        known_file_by_normalized
-                            .get(&target)
-                            .cloned()
-                            .unwrap_or(target),
-                    );
-                }
+            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files)
+                && target != normalized_source
+            {
+                outgoing.insert(
+                    known_file_by_normalized
+                        .get(&target)
+                        .cloned()
+                        .unwrap_or(target),
+                );
             }
         }
     }

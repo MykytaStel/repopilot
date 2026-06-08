@@ -82,7 +82,10 @@ fn action_exposes_review_outputs_and_fork_safe_defaults() {
     assert!(action.contains("scripts/install-action-binary.sh"));
     assert!(action.contains("default: \"false\""));
     assert!(workflow.contains("fetch-depth: 0"));
-    assert!(workflow.contains("actions/upload-artifact@v7"));
+    assert!(
+        workflow.contains("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7")
+    );
+    assert!(!workflow.contains("actions/upload-artifact@v7"));
     assert!(!workflow.contains("pull_request_target"));
 }
 

@@ -71,7 +71,6 @@ Go to **Settings → Rules → Rulesets → New ruleset** and configure the foll
 | — Require review conversation resolution | Enabled |
 | — Require review from Code Owners | Disabled (no `CODEOWNERS` file yet) |
 | Require status checks to pass | Enabled |
-| — Required status check | `Rust MSRV 1.87` |
 | — Required status check | `Rust checks` |
 | — Required status check | `Security and maintenance checks` |
 | — Require branches to be up to date before merging | Enabled |

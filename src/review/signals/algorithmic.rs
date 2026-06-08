@@ -15,7 +15,7 @@ mod lang;
 use crate::review::diff::ChangedFile;
 use crate::review::signals::content::ReviewSource;
 use crate::scan::language::detect_language;
-use lang::{function_name, is_control_flow_node, is_else_if, is_loop_node};
+use lang::{function_name, is_call_node, is_control_flow_node, is_else_if, is_loop_node};
 use serde::Serialize;
 use std::collections::HashMap;
 use tree_sitter::Node;
@@ -194,12 +194,11 @@ fn collect_visit(node: Node<'_>, content: &str, language: &str, out: &mut Vec<Fn
     if let Some(name) = function_name(node, language, content) {
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
-        let fn_text = node.utf8_text(content.as_bytes()).unwrap_or("");
         out.push(FnMetrics {
             max_nesting: subtree_max_nesting(node, language, 0),
             has_nested_loop: subtree_has_nested_loop(node, language, false),
             line_span: end_line.saturating_sub(start_line) + 1,
-            is_recursive: calls_name(fn_text, &name) >= 2,
+            is_recursive: subtree_calls_function(node, language, content, &name, true),
             name,
             start_line,
             end_line,
@@ -240,27 +239,35 @@ fn subtree_has_nested_loop(node: Node<'_>, language: &str, inside_loop: bool) ->
     false
 }
 
-/// Counts word-boundaried `name(` call sites in `text`. The function's own
-/// declaration is one such site, so a count `>= 2` means it calls itself.
-fn calls_name(text: &str, name: &str) -> usize {
-    if name.is_empty() {
-        return 0;
+fn subtree_calls_function(
+    node: Node<'_>,
+    language: &str,
+    content: &str,
+    function: &str,
+    is_root: bool,
+) -> bool {
+    if !is_root && function_name(node, language, content).is_some() {
+        return false;
     }
-    let mut count = 0;
-    let mut search_start = 0;
-    while let Some(rel) = text[search_start..].find(name) {
-        let start = search_start + rel;
-        let end = start + name.len();
-        let before_ok = start == 0 || !text[..start].chars().next_back().is_some_and(is_ident_char);
-        let after_ok = text[end..].trim_start().starts_with('(');
-        if before_ok && after_ok {
-            count += 1;
-        }
-        search_start = end;
+    if is_call_node(node, language)
+        && call_target(node, content).is_some_and(|target| {
+            target == function
+                || target == format!("self.{function}")
+                || target == format!("this.{function}")
+                || target == format!("Self::{function}")
+        })
+    {
+        return true;
     }
-    count
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .any(|child| subtree_calls_function(child, language, content, function, false))
 }
 
-fn is_ident_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+fn call_target<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {
+    let target = node
+        .child_by_field_name("function")
+        .or_else(|| node.child_by_field_name("name"))
+        .or_else(|| node.named_child(0))?;
+    target.utf8_text(content.as_bytes()).ok().map(str::trim)
 }

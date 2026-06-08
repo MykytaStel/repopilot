@@ -52,37 +52,40 @@ impl ProjectAudit for RnDepHealthAudit {
             .get("@react-navigation/native")
             .and_then(|v| v.as_str())
             .and_then(parse_version);
-        if let Some(nav_ver) = nav_ver {
-            if nav_ver.0 < 6 && rn_ver.map(|rn| rn >= (0, 73, 0)).unwrap_or(false) {
-                findings.push(Finding {
-                    id: String::new(),
-                    rule_id: "framework.rn-navigation-compat".to_string(),
-        recommendation: Finding::recommendation_for_rule_id("framework.rn-navigation-compat"),
-                    title: "React Navigation version is incompatible with this React Native version"
-                        .to_string(),
-                    description: format!(
-                        "`@react-navigation/native` v{}.x is not compatible with `react-native` ≥0.73. \
+        if let Some(nav_ver) = nav_ver
+            && nav_ver.0 < 6
+            && rn_ver.map(|rn| rn >= (0, 73, 0)).unwrap_or(false)
+        {
+            findings.push(Finding {
+                id: String::new(),
+                rule_id: "framework.rn-navigation-compat".to_string(),
+                recommendation: Finding::recommendation_for_rule_id(
+                    "framework.rn-navigation-compat",
+                ),
+                title: "React Navigation version is incompatible with this React Native version"
+                    .to_string(),
+                description: format!(
+                    "`@react-navigation/native` v{}.x is not compatible with `react-native` ≥0.73. \
                          Upgrade to v6 or later: `npm install @react-navigation/native@latest`",
-                        nav_ver.0
+                    nav_ver.0
+                ),
+                category: FindingCategory::Framework,
+                severity: Severity::High,
+                confidence: Default::default(),
+                evidence: vec![Evidence {
+                    path: facts.root_path.join("package.json"),
+                    line_start: 1,
+                    line_end: None,
+                    snippet: format!(
+                        "@react-navigation/native: v{}.{}.{} — upgrade to v6+",
+                        nav_ver.0, nav_ver.1, nav_ver.2
                     ),
-                    category: FindingCategory::Framework,
-                    severity: Severity::High,
-                    confidence: Default::default(),
-                    evidence: vec![Evidence {
-                        path: facts.root_path.join("package.json"),
-                        line_start: 1,
-                        line_end: None,
-                        snippet: format!(
-                            "@react-navigation/native: v{}.{}.{} — upgrade to v6+",
-                            nav_ver.0, nav_ver.1, nav_ver.2
-                        ),
-                    }],
-                    workspace_package: None,
-                    docs_url: Some("https://reactnavigation.org/docs/getting-started".to_string()),
-            provenance: Default::default(),
-            risk: Default::default(),
-                });
-            }
+                }],
+                workspace_package: None,
+                docs_url: Some("https://reactnavigation.org/docs/getting-started".to_string()),
+                provenance: Default::default(),
+                risk: Default::default(),
+            });
         }
 
         // 3. react-native-reanimated <3 with RN >= 0.73
@@ -90,9 +93,11 @@ impl ProjectAudit for RnDepHealthAudit {
             .get("react-native-reanimated")
             .and_then(|v| v.as_str())
             .and_then(parse_version);
-        if let Some(rea_ver) = rea_ver {
-            if rea_ver.0 < 3 && rn_ver.map(|rn| rn >= (0, 73, 0)).unwrap_or(false) {
-                findings.push(Finding {
+        if let Some(rea_ver) = rea_ver
+            && rea_ver.0 < 3
+            && rn_ver.map(|rn| rn >= (0, 73, 0)).unwrap_or(false)
+        {
+            findings.push(Finding {
                     id: String::new(),
                     rule_id: "framework.rn-reanimated-compat".to_string(),
         recommendation: Finding::recommendation_for_rule_id("framework.rn-reanimated-compat"),
@@ -121,7 +126,6 @@ impl ProjectAudit for RnDepHealthAudit {
             provenance: Default::default(),
             risk: Default::default(),
                 });
-            }
         }
 
         // 4. react-native-gesture-handler <2 with RN >= 0.72
@@ -129,37 +133,44 @@ impl ProjectAudit for RnDepHealthAudit {
             .get("react-native-gesture-handler")
             .and_then(|v| v.as_str())
             .and_then(parse_version);
-        if let Some(gh_ver) = gh_ver {
-            if gh_ver.0 < 2 && rn_ver.map(|rn| rn >= (0, 72, 0)).unwrap_or(false) {
-                findings.push(Finding {
-                    id: String::new(),
-                    rule_id: "framework.rn-gesture-handler-old".to_string(),
-        recommendation: Finding::recommendation_for_rule_id("framework.rn-gesture-handler-old"),
-                    title: "react-native-gesture-handler v1 is incompatible with this React Native version"
+        if let Some(gh_ver) = gh_ver
+            && gh_ver.0 < 2
+            && rn_ver.map(|rn| rn >= (0, 72, 0)).unwrap_or(false)
+        {
+            findings.push(Finding {
+                id: String::new(),
+                rule_id: "framework.rn-gesture-handler-old".to_string(),
+                recommendation: Finding::recommendation_for_rule_id(
+                    "framework.rn-gesture-handler-old",
+                ),
+                title:
+                    "react-native-gesture-handler v1 is incompatible with this React Native version"
                         .to_string(),
-                    description: format!(
-                        "`react-native-gesture-handler` v{}.x does not support React Native ≥0.72. \
+                description: format!(
+                    "`react-native-gesture-handler` v{}.x does not support React Native ≥0.72. \
                          Upgrade to v2+: `npm install react-native-gesture-handler@latest`",
-                        gh_ver.0
+                    gh_ver.0
+                ),
+                category: FindingCategory::Framework,
+                severity: Severity::High,
+                confidence: Default::default(),
+                evidence: vec![Evidence {
+                    path: facts.root_path.join("package.json"),
+                    line_start: 1,
+                    line_end: None,
+                    snippet: format!(
+                        "react-native-gesture-handler: v{}.{}.{} — upgrade to v2+",
+                        gh_ver.0, gh_ver.1, gh_ver.2
                     ),
-                    category: FindingCategory::Framework,
-                    severity: Severity::High,
-                    confidence: Default::default(),
-                    evidence: vec![Evidence {
-                        path: facts.root_path.join("package.json"),
-                        line_start: 1,
-                        line_end: None,
-                        snippet: format!(
-                            "react-native-gesture-handler: v{}.{}.{} — upgrade to v2+",
-                            gh_ver.0, gh_ver.1, gh_ver.2
-                        ),
-                    }],
-                    workspace_package: None,
-                    docs_url: Some("https://docs.swmansion.com/react-native-gesture-handler/docs/installation".to_string()),
-            provenance: Default::default(),
-            risk: Default::default(),
-                });
-            }
+                }],
+                workspace_package: None,
+                docs_url: Some(
+                    "https://docs.swmansion.com/react-native-gesture-handler/docs/installation"
+                        .to_string(),
+                ),
+                provenance: Default::default(),
+                risk: Default::default(),
+            });
         }
 
         // 5. Known New Architecture incompatible packages (when RN >= 0.71)

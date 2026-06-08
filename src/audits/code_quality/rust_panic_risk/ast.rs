@@ -30,27 +30,29 @@ fn visit<'a>(
         return;
     }
 
-    if in_macro_args && (kind == "identifier" || kind == "field_identifier") {
-        if let Ok(text) = node.utf8_text(content.as_bytes()) {
-            let pattern = match text {
-                "unwrap" => Some(RustPanicPattern::Unwrap),
-                "unwrap_err" => Some(RustPanicPattern::UnwrapErr),
-                "expect" => Some(RustPanicPattern::Expect),
-                "expect_err" => Some(RustPanicPattern::ExpectErr),
-                _ => None,
+    if in_macro_args
+        && (kind == "identifier" || kind == "field_identifier")
+        && let Ok(text) = node.utf8_text(content.as_bytes())
+    {
+        let pattern = match text {
+            "unwrap" => Some(RustPanicPattern::Unwrap),
+            "unwrap_err" => Some(RustPanicPattern::UnwrapErr),
+            "expect" => Some(RustPanicPattern::Expect),
+            "expect_err" => Some(RustPanicPattern::ExpectErr),
+            _ => None,
+        };
+        if let Some(pat) = pattern
+            && is_preceded_by_dot(node, content)
+            && is_followed_by_paren(node, content)
+        {
+            let line_number = node.start_position().row + 1;
+            let keep = if let Some((_, existing_pattern)) = candidates.get(&line_number) {
+                pat.precedence() > existing_pattern.precedence()
+            } else {
+                true
             };
-            if let Some(pat) = pattern {
-                if is_preceded_by_dot(node, content) && is_followed_by_paren(node, content) {
-                    let line_number = node.start_position().row + 1;
-                    let keep = if let Some((_, existing_pattern)) = candidates.get(&line_number) {
-                        pat.precedence() > existing_pattern.precedence()
-                    } else {
-                        true
-                    };
-                    if keep {
-                        candidates.insert(line_number, (node, pat));
-                    }
-                }
+            if keep {
+                candidates.insert(line_number, (node, pat));
             }
         }
     }
@@ -74,17 +76,15 @@ fn visit<'a>(
         false
     };
 
-    if !is_panic_macro {
-        if let Some(pattern) = detect_ast_node(node, content) {
-            let line_number = node.start_position().row + 1;
-            let keep = if let Some((_, existing_pattern)) = candidates.get(&line_number) {
-                pattern.precedence() > existing_pattern.precedence()
-            } else {
-                true
-            };
-            if keep {
-                candidates.insert(line_number, (node, pattern));
-            }
+    if !is_panic_macro && let Some(pattern) = detect_ast_node(node, content) {
+        let line_number = node.start_position().row + 1;
+        let keep = if let Some((_, existing_pattern)) = candidates.get(&line_number) {
+            pattern.precedence() > existing_pattern.precedence()
+        } else {
+            true
+        };
+        if keep {
+            candidates.insert(line_number, (node, pattern));
         }
     }
 

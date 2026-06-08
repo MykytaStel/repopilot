@@ -120,10 +120,10 @@ pub fn detect_boundary_signals(
             let path = file.path_string();
             let mut category = classify::classify_boundary(&path, custom.as_ref());
 
-            if category.is_none() {
-                if let Some(post_source) = content::post_change_source(repo_root, file, target) {
-                    category = classify::classify_boundary_ast(&file.path, post_source.content());
-                }
+            if category.is_none()
+                && let Some(post_source) = content::post_change_source(repo_root, file, target)
+            {
+                category = classify::classify_boundary_ast(&file.path, post_source.content());
             }
 
             category.map(|category| BoundarySignal {

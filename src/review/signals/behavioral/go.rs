@@ -1,5 +1,6 @@
 use crate::review::signals::behavioral::{
-    BehavioralKind, BehavioralSignal, BehavioralSignalSource, extract_string_literal, truncate_str,
+    BehavioralKind, BehavioralSignal, BehavioralSignalSource, DependencyContext,
+    extract_string_literal, truncate_str,
 };
 use tree_sitter::Node;
 
@@ -8,6 +9,7 @@ pub(super) fn match_go(
     content: &str,
     path_str: &str,
     line: usize,
+    dependencies: &DependencyContext,
 ) -> Option<BehavioralSignal> {
     match node.kind() {
         "call_expression" => {
@@ -71,7 +73,10 @@ pub(super) fn match_go(
         "import_spec" => {
             if let Some(path_node) = node.child_by_field_name("path") {
                 let path_text = path_node.utf8_text(content.as_bytes()).ok()?.trim();
-                if let Some(val) = extract_string_literal(path_text) {
+                if let Some(val) = extract_string_literal(path_text)
+                    && val.contains('.')
+                    && !dependencies.is_local_package(val)
+                {
                     return Some(BehavioralSignal {
                         kind: BehavioralKind::DependencyImportAdded,
                         path: path_str.to_string(),

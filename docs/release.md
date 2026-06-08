@@ -16,13 +16,16 @@ RepoPilot is a review-first local CLI. A release should improve at least one of:
 More commands, rules, formats, or distribution channels are not release goals by
 themselves.
 
-Official channels are crates.io, npm, Homebrew, and GitHub Releases. VSIX files
-are a preview GitHub Release artifact, not a Marketplace channel.
+Official channels are crates.io, npm, Homebrew, and GitHub Releases.
+
+RepoPilot `0.x` does not declare a minimum supported Rust version. CI and
+release workflows pin an explicit Rust toolchain for reproducibility; that pin
+is a build input, not a compatibility promise for older compilers.
 
 ## Prepare
 
-Update the version consistently in Cargo, npm, the Action, reusable workflow,
-and VS Code manifests. Add a dated `CHANGELOG.md` section and leave
+Update the version consistently in Cargo, npm, the Action, and reusable
+workflow. Add a dated `CHANGELOG.md` section and leave
 `[Unreleased]` ready for the next change.
 
 Run the release contract:
@@ -37,6 +40,9 @@ It verifies:
 - the matching changelog section exists and can produce release notes;
 - local Markdown links resolve;
 - stale npm installer claims are absent;
+- third-party GitHub Actions are pinned to commit SHAs;
+- the tag workflow directly calls reusable npm publishing;
+- removed editor packaging does not return;
 - `cargo package --list` contains only Cargo metadata, README, LICENSE, and
   `src/**`.
 
@@ -89,10 +95,10 @@ git push origin vX.Y.Z
 
 The release workflow validates the tag against repository metadata before any
 build. It extracts the GitHub Release body from the matching changelog section,
-builds and attests platform archives and preview VSIX files, publishes crates.io
-when configured, and updates the Homebrew tap. The npm workflow publishes
-checksum-verified platform packages before the root package through Trusted
-Publishing.
+builds and attests platform archives, publishes crates.io, calls npm publishing,
+and updates the Homebrew tap. The npm workflow publishes checksum-verified
+platform packages before the root package through Trusted Publishing. Missing
+Cargo or Homebrew credentials fail the release before packaging.
 
 ## Verify Public Channels
 
@@ -107,9 +113,9 @@ brew upgrade repopilot
 repopilot --version
 ```
 
-Also verify each `@repopilot/*` native package, GitHub Release assets and
-checksums, artifact attestations, the preview VSIX manifest, and the Homebrew
-formula. Install one public CLI channel and run:
+The final workflow job verifies each `@repopilot/*` native package, GitHub
+Release assets and checksums, crates.io, npm, and the Homebrew formula. Also
+install one public CLI channel and run:
 
 ```bash
 repopilot review . --base origin/main

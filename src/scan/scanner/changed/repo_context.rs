@@ -1,19 +1,20 @@
 use super::super::collection;
-use super::{
-    ChangedDiscoveryStage, ChangedRepoContextStage, ChangedScanEngine, detect_react_native_profile,
-    relative_coupling_graph,
-};
+use super::{ChangedDiscoveryStage, ChangedRepoContextStage, ChangedScanEngine};
 use crate::findings::types::Finding;
-use crate::frameworks::{detect_framework_projects, detect_frameworks};
-use crate::graph::build_coupling_graph;
+use crate::frameworks::{
+    DetectedFramework, detect_framework_projects, detect_frameworks,
+    detect_react_native_architecture,
+};
 use crate::graph::context::{
     RepoContextGraph, context_graph_cache_miss, load_repo_context_graph, write_repo_context_graph,
 };
+use crate::graph::{CouplingGraph, build_coupling_graph};
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
-use crate::scan::cache::config_fingerprint;
+use crate::scan::cache::{config_fingerprint, relative_cache_path};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::types::cache_diagnostic;
 use std::io;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 impl<'a> ChangedScanEngine<'a> {
@@ -96,5 +97,44 @@ impl<'a> ChangedScanEngine<'a> {
         apply_graph_overlay(findings, &repo_stage.coupling_graph);
         apply_cluster_overlay(findings);
         start.elapsed().as_micros() as u64
+    }
+}
+
+fn detect_react_native_profile(
+    facts: &ScanFacts,
+) -> Option<crate::frameworks::ReactNativeArchitectureProfile> {
+    if facts
+        .detected_frameworks
+        .iter()
+        .any(|framework| matches!(framework, DetectedFramework::ReactNative { .. }))
+    {
+        let profile = detect_react_native_architecture(&facts.root_path);
+        if profile.detected {
+            return Some(profile);
+        }
+    }
+    None
+}
+
+fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
+    CouplingGraph {
+        edges: graph
+            .edges
+            .into_iter()
+            .map(|(source, targets)| {
+                (
+                    PathBuf::from(relative_cache_path(repo_root, &source)),
+                    targets
+                        .into_iter()
+                        .map(|target| PathBuf::from(relative_cache_path(repo_root, &target)))
+                        .collect(),
+                )
+            })
+            .collect(),
+        nodes: graph
+            .nodes
+            .into_iter()
+            .map(|node| PathBuf::from(relative_cache_path(repo_root, &node)))
+            .collect(),
     }
 }

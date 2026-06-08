@@ -70,6 +70,15 @@ pub(super) fn is_loop_node(kind: &str, language: &str) -> bool {
     }
 }
 
+pub(super) fn is_call_node(node: Node<'_>, language: &str) -> bool {
+    match language {
+        "Python" => node.kind() == "call",
+        "Java" => node.kind() == "method_invocation",
+        "CSharp" | "C#" => node.kind() == "invocation_expression",
+        _ => node.kind() == "call_expression",
+    }
+}
+
 pub(super) fn is_control_flow_node(kind: &str, language: &str) -> bool {
     match language {
         "Rust" => matches!(
