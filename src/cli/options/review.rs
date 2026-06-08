@@ -40,15 +40,15 @@ pub struct ReviewOptions {
     #[arg(long)]
     pub baseline: Option<PathBuf>,
 
-    /// Exit with code 1 when in-diff findings meet this severity threshold
+    /// Finding gate: exit 1 when in-diff findings meet this severity threshold (excludes --fail-on-priority)
     #[arg(long, value_enum)]
     pub fail_on: Option<FailOnArg>,
 
-    /// Exit with code 1 when in-diff findings meet this risk priority threshold
+    /// Finding gate: exit 1 when in-diff findings meet this risk-priority threshold (excludes --fail-on)
     #[arg(long, value_enum)]
     pub fail_on_priority: Option<PriorityArg>,
 
-    /// Exit with code 1 when review signals breach the selected policy
+    /// Review-signal gate: exit 1 on gate-eligible definitely-sensitive signals; config peer [review] fail_on
     #[arg(long, value_enum)]
     pub fail_on_review: Option<ReviewFailOnArg>,
 

@@ -2,7 +2,8 @@
 //!
 //! Two passes per function/module scope: seed a set of tainted local names from
 //! assignments whose right-hand side reads a [`source`](super::sources) or
-//! references an already-tainted name (iterated to a small fixpoint for chains),
+//! references an already-tainted name — the assignments are processed in a single
+//! document-order forward pass, so `a = src; b = a; c = b` chains carry through —
 //! then report each [`sink`](super::sinks) call — gated to the changed lines —
 //! whose arguments carry a tainted value. Nested functions are analyzed with a
 //! fresh map so local names do not leak between procedures.

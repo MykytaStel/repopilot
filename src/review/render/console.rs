@@ -136,6 +136,11 @@ fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
     }
     render_tier_group(output, "Maybe sensitive", &tiered.maybe, &mut remaining);
     render_tier_group(output, "Large diff / noise", &tiered.noise, &mut remaining);
+    if tiered.has_taint_signal() {
+        output.push_str(
+            "  Taint signals trace input \u{2192} sink reachability \u{2014} a path exists, not a confirmed vulnerability. Verify before acting.\n",
+        );
+    }
 }
 
 fn render_tier_group(

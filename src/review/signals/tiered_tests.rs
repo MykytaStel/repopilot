@@ -164,6 +164,21 @@ fn taint_tiers_by_sink_severity() {
 }
 
 #[test]
+fn has_taint_signal_detects_taint_family_only() {
+    let with_taint = build_tiered(&[], &[], &[], &[taint(SinkKind::Sql, "src/db.ts")], &[]);
+    assert!(with_taint.has_taint_signal());
+
+    let without_taint = build_tiered(
+        &[boundary(BoundaryCategory::AccessControl, "src/auth.ts")],
+        &[behavioral(BehavioralKind::FsWriteAdded, "src/f0.rs")],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(!without_taint.has_taint_signal());
+}
+
+#[test]
 fn noise_tier_fires_only_for_a_large_diff_with_nothing_flagged() {
     let tiered = build_tiered(&[], &[], &[], &[], &large_diff(6));
     assert_eq!(tiered.noise.len(), 1);

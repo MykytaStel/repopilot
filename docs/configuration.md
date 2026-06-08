@@ -78,12 +78,18 @@ default_format = "console"
 ```
 
 `[review] scope` accepts `changed` or `full`. `[review] fail_on` accepts `none`
-or `definitely`. CLI flags have higher priority:
+or `definitely` and is the **review-signal gate** — the config peer of the
+`--fail-on-review` flag, **not** of the CLI `--fail-on` finding gate (which takes
+severity/status thresholds). It fails the review on unsuppressed, gate-eligible
+definitely-sensitive review signals. CLI flags have higher priority:
 
 ```bash
 repopilot review . --scope full --profile strict
 repopilot review . --fail-on-review definitely
 ```
+
+See [CLI reference → Gates](cli.md#gates) for the full two-axis gate model
+(finding gate vs review-signal gate).
 
 ## Common CLI overrides
 
