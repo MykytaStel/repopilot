@@ -23,7 +23,7 @@ discovery
 - Renderers must never trigger a repository scan.
 - AI output commands should consume the same product scan path as normal scans.
 - Review should not scan once for review and again for report metadata.
-- `inspect graph` should build graph output from an existing scan summary.
+- Context-graph output must be built from an existing scan summary, never a re-scan.
 - Changed scans must be honest about scope and must not pretend to include all
   full-repository rules.
 - Expensive graph/risk summaries should be computed once per command path.

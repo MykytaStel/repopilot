@@ -193,45 +193,6 @@ PY
   fi
 }
 
-find_explain_file() {
-  local preferred="$REPO_PATH/src/main.rs"
-
-  if [[ -f "$preferred" ]]; then
-    printf '%s\n' "$preferred"
-    return 0
-  fi
-
-  local discovered=""
-  while IFS= read -r candidate; do
-    discovered="$candidate"
-    break
-  done < <(
-    find "$REPO_PATH" \
-      -path "$REPO_PATH/.git" -prune -o \
-      -path "$REPO_PATH/target" -prune -o \
-      -path "$REPO_PATH/node_modules" -prune -o \
-      -type f \( \
-        -name '*.rs' -o \
-        -name '*.ts' -o \
-        -name '*.tsx' -o \
-        -name '*.js' -o \
-        -name '*.jsx' -o \
-        -name '*.py' -o \
-        -name '*.go' \
-      \) \
-      -print
-  )
-
-  if [[ -n "$discovered" && -f "$discovered" ]]; then
-    printf '%s\n' "$discovered"
-    return 0
-  fi
-
-  printf '%s\n' "$REPO_PATH/Cargo.toml"
-}
-
-EXPLAIN_FILE="$(find_explain_file)"
-
 echo "==> RepoPilot product smoke suite"
 echo "Binary: $BINARY"
 echo "Repo:   $REPO_PATH"
@@ -246,7 +207,6 @@ assert_non_empty "$TMP_DIR/help.txt"
 assert_contains "$TMP_DIR/help.txt" "scan"
 assert_contains "$TMP_DIR/help.txt" "review"
 assert_contains "$TMP_DIR/help.txt" "ai"
-assert_contains "$TMP_DIR/help.txt" "inspect"
 
 run_repopilot init --force --path "$TMP_DIR/repopilot.toml"
 assert_non_empty "$TMP_DIR/repopilot.toml"
@@ -315,30 +275,6 @@ fi
 
 run_repopilot ai context . --focus security --budget 2k --output "$TMP_DIR/ai-context.md"
 assert_non_empty "$TMP_DIR/ai-context.md"
-
-run_repopilot inspect knowledge --format json --output "$TMP_DIR/inspect-knowledge.json"
-assert_non_empty "$TMP_DIR/inspect-knowledge.json"
-validate_json_if_possible "$TMP_DIR/inspect-knowledge.json"
-
-run_repopilot inspect knowledge --section rules --format markdown --output "$TMP_DIR/inspect-knowledge-rules.md"
-assert_non_empty "$TMP_DIR/inspect-knowledge-rules.md"
-
-run_repopilot inspect feedback . --format json --output "$TMP_DIR/inspect-feedback.json"
-assert_non_empty "$TMP_DIR/inspect-feedback.json"
-validate_json_if_possible "$TMP_DIR/inspect-feedback.json"
-
-run_repopilot inspect eval-rules --format json --output "$TMP_DIR/eval-rules.json"
-assert_non_empty "$TMP_DIR/eval-rules.json"
-validate_json_if_possible "$TMP_DIR/eval-rules.json"
-assert_json_number_field "$TMP_DIR/eval-rules.json" "missing_findings" 0
-assert_json_number_field "$TMP_DIR/eval-rules.json" "unexpected_findings" 0
-assert_json_number_field "$TMP_DIR/eval-rules.json" "contract_violations" 0
-assert_json_number_field "$TMP_DIR/eval-rules.json" "stable_id_failures" 0
-assert_json_number_field "$TMP_DIR/eval-rules.json" "quality_gate_failures" 0
-
-run_repopilot inspect explain "$EXPLAIN_FILE" --format json --output "$TMP_DIR/inspect-explain.json"
-assert_non_empty "$TMP_DIR/inspect-explain.json"
-validate_json_if_possible "$TMP_DIR/inspect-explain.json"
 
 echo
 echo "==> Product smoke suite passed"

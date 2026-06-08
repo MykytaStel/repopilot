@@ -61,9 +61,7 @@ fn top_level_help_shows_stable_command_surface() {
         "review must be presented before scan\n{help}"
     );
 
-    for command in [
-        "baseline", "scan", "review", "snapshot", "ai", "inspect", "init",
-    ] {
+    for command in ["baseline", "scan", "review", "snapshot", "ai", "init"] {
         assert!(help.contains(command), "help should show {command}\n{help}");
     }
 
@@ -75,6 +73,7 @@ fn top_level_help_shows_stable_command_surface() {
         "knowledge",
         "compare",
         "doctor",
+        "inspect",
     ] {
         assert!(
             !help.contains(&format!("  {removed}  ")),
@@ -127,46 +126,6 @@ fn grouped_ai_commands_work() {
 }
 
 #[test]
-fn inspect_commands_work() {
-    let project = create_project();
-
-    let explain = run_ok(
-        &[
-            "inspect",
-            "explain",
-            "src/lib.rs",
-            "--format",
-            "json",
-            "--rule",
-            "language.rust.panic-risk",
-            "--signal",
-            "rust.unwrap",
-        ],
-        project.path(),
-    );
-
-    let explain_json: Value =
-        serde_json::from_slice(&explain.stdout).expect("inspect explain json");
-    assert!(explain_json["context"].is_object());
-
-    let knowledge = run_ok(
-        &[
-            "inspect",
-            "knowledge",
-            "--section",
-            "rules",
-            "--format",
-            "json",
-        ],
-        project.path(),
-    );
-
-    let knowledge_json: Value =
-        serde_json::from_slice::<Value>(&knowledge.stdout).expect("knowledge json");
-    assert!(knowledge_json["summary"].is_object());
-}
-
-#[test]
 fn legacy_commands_are_removed_from_executable_surface() {
     let project = create_project();
 
@@ -178,6 +137,7 @@ fn legacy_commands_are_removed_from_executable_surface() {
         "knowledge",
         "compare",
         "doctor",
+        "inspect",
     ] {
         let output = run(&[command, "."], project.path());
         assert_eq!(

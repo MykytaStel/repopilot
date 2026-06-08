@@ -60,15 +60,9 @@ as normal application code.
 
 ## Diagnostics
 
-Use the inspection commands when debugging rule behavior:
-
-```bash
-repopilot inspect knowledge --section rules --format markdown
-repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap
-```
-
-`inspect knowledge` shows bundled catalog data. `inspect explain` shows how a
-file is classified before rule decisions are applied.
+The Knowledge Engine is consumed internally by `scan` and `review`. Its decisions
+surface through finding severity, provenance, and the signal contract rather than a
+dedicated inspection command.
 
 ## Runtime Boundaries
 
@@ -109,8 +103,8 @@ local copy of the same path or language checks inside an individual audit.
 ## Local Feedback And Future Overlays
 
 RepoPilot's first local calibration surface is `.repopilot/feedback.yml` for
-explicit suppressions plus `repopilot inspect feedback` for validation. Future
-overlays should remain inspectable local calibration, not a plugin runtime.
+explicit suppressions, applied by `scan` and `review`. Future overlays should
+remain inspectable local calibration, not a plugin runtime.
 Local overlays should be normal files that users can review, commit, diff, or
 delete. They may tune known rule severity, confidence, or suppression decisions,
 but they must not execute arbitrary code, load remote packs, or change scan

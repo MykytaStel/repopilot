@@ -1,4 +1,4 @@
-use crate::cli::{AiCommands, Cli, Commands, InspectCommands};
+use crate::cli::{AiCommands, Cli, Commands};
 use std::fmt;
 
 pub const EXIT_FINDINGS: i32 = 1;
@@ -13,7 +13,6 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Snapshot(options) => super::snapshot::run(options),
         Commands::Baseline(options) => super::baseline::run(options.command),
         Commands::Ai(options) => run_ai(options.command),
-        Commands::Inspect(options) => run_inspect(options.command),
         Commands::Init(options) => super::init::run(options.force, options.path),
         Commands::Mcp(options) => super::mcp::run(options),
     }
@@ -22,49 +21,6 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 fn run_ai(command: AiCommands) -> Result<(), Box<dyn std::error::Error>> {
     let AiCommands::Context(options) = command;
     super::ai_context::run(options)
-}
-
-fn run_inspect(command: InspectCommands) -> Result<(), Box<dyn std::error::Error>> {
-    match command {
-        InspectCommands::Explain(options) => super::explain::run(
-            options.path,
-            options.rule,
-            options.signal,
-            options.severity,
-            options.format,
-            options.output,
-        ),
-        InspectCommands::Knowledge(options) => {
-            super::knowledge::run(options.section, options.format, options.output)
-        }
-        InspectCommands::Cache(options) => {
-            super::cache_inspect::run(options.path, options.format, options.output)
-        }
-        InspectCommands::Graph(options) => {
-            super::graph::run(options.path, options.config, options.format, options.output)
-        }
-        InspectCommands::Feedback(options) => super::feedback::run(
-            options.path,
-            options.format,
-            options.output,
-            options.evaluate,
-        ),
-        InspectCommands::Rules(options) => super::rules::list_rules(
-            options.format,
-            options.lifecycle,
-            options.source,
-            options.output,
-        ),
-        InspectCommands::Rule(options) => {
-            super::rules::inspect_rule(options.rule_id, options.format, options.output)
-        }
-        InspectCommands::EvalRules(options) => super::rules::eval_rules(
-            options.rule,
-            options.fixtures,
-            options.format,
-            options.output,
-        ),
-    }
 }
 
 #[derive(Debug)]

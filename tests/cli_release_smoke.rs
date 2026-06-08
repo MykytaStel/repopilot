@@ -142,34 +142,6 @@ fn scan_writes_valid_json_report() {
 }
 
 #[test]
-fn release_smoke_covers_rule_quality_gate() {
-    let temp = tempfile::tempdir().expect("failed to create temp dir");
-    let output_path = temp.path().join("eval-rules.json");
-
-    run_ok(
-        temp.path(),
-        [
-            "inspect",
-            "eval-rules",
-            "--format",
-            "json",
-            "--output",
-            output_path.to_str().expect("non-utf8 output path"),
-        ],
-    );
-
-    let content = read_non_empty(&output_path);
-    let json: Value =
-        serde_json::from_str(&content).expect("eval-rules output should be valid JSON");
-
-    assert_eq!(json["missing_findings"], 0);
-    assert_eq!(json["unexpected_findings"], 0);
-    assert_eq!(json["contract_violations"], 0);
-    assert_eq!(json["stable_id_failures"], 0);
-    assert_eq!(json["quality_gate_failures"], 0);
-}
-
-#[test]
 fn release_smoke_covers_baseline_adoption_path() {
     let project = create_demo_project();
     let baseline_path = project.path().join(".repopilot").join("baseline.json");
@@ -283,69 +255,6 @@ fn stable_ai_context_writes_llm_ready_markdown() {
     assert!(
         content.contains("Remediation Plan") || content.contains("P0"),
         "ai context should embed the prioritized remediation plan\n{}",
-        content
-    );
-}
-
-#[test]
-fn inspect_knowledge_writes_valid_json() {
-    let project = create_demo_project();
-    let output_path = project.path().join("knowledge.json");
-
-    run_ok(
-        project.path(),
-        [
-            "inspect",
-            "knowledge",
-            "--section",
-            "languages",
-            "--format",
-            "json",
-            "--output",
-            output_path.to_str().expect("non-utf8 output path"),
-        ],
-    );
-
-    let content = read_non_empty(&output_path);
-    let json: Value =
-        serde_json::from_str(&content).expect("knowledge output should be valid JSON");
-
-    assert!(
-        json["languages"].is_array(),
-        "knowledge JSON should include languages array\n{}",
-        content
-    );
-}
-
-#[test]
-fn inspect_explain_writes_valid_json() {
-    let project = create_demo_project();
-    let output_path = project.path().join("explain.json");
-
-    run_ok(
-        project.path(),
-        [
-            "inspect",
-            "explain",
-            "src/index.ts",
-            "--format",
-            "json",
-            "--output",
-            output_path.to_str().expect("non-utf8 output path"),
-        ],
-    );
-
-    let content = read_non_empty(&output_path);
-    let json: Value = serde_json::from_str(&content).expect("explain output should be valid JSON");
-
-    assert!(
-        json["source"].is_object(),
-        "explain JSON should include source object\n{}",
-        content
-    );
-    assert!(
-        json["context"].is_object(),
-        "explain JSON should include context object\n{}",
         content
     );
 }

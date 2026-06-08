@@ -2,7 +2,6 @@ pub mod ai;
 pub mod baseline;
 pub mod cache;
 pub mod init;
-pub mod inspect;
 pub mod mcp;
 pub mod review;
 pub mod scan;
@@ -12,7 +11,6 @@ pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use cache::{CacheCommands, CacheOptions};
 pub use init::InitOptions;
-pub use inspect::{InspectCommands, InspectOptions};
 pub use mcp::McpOptions;
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
@@ -131,21 +129,6 @@ repopilot ai context . --budget 8k\n  \
 repopilot ai context . --no-task --output ai-context.md"
     )]
     Ai(AiOptions),
-
-    /// Inspect RepoPilot classification and bundled knowledge
-    #[command(
-        about = "Inspect RepoPilot classification and bundled knowledge",
-        long_about = "Advanced diagnostics for rule authors and power users.\n\n\
-Use `inspect explain` to understand file context classification and rule decisions.\n\
-Use `inspect knowledge` to inspect the bundled Knowledge Engine catalog.\n\
-Use `inspect feedback` to validate local .repopilot/feedback.yml suppressions.",
-        after_help = "EXAMPLES:\n  \
-repopilot inspect explain src/main.rs\n  \
-repopilot inspect explain src/main.rs --rule language.rust.panic-risk --signal rust.unwrap\n  \
-repopilot inspect knowledge --section rules --format json\n  \
-repopilot inspect feedback . --format markdown"
-    )]
-    Inspect(InspectOptions),
 
     /// Generate a default repopilot.toml configuration file
     #[command(

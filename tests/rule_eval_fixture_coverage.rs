@@ -6,7 +6,7 @@ use repopilot::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
 // Test taxonomy for this file:
 //
 // Layer: integration / fixture contract tests
-// Scope: inspect eval-rules quality gate
+// Scope: rule quality gate (the `evaluate_rule_fixtures` engine path)
 // Style: BDD-style Given / When / Then
 //
 // Unit tests should stay close to pure modules. This file is for end-to-end

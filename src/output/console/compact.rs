@@ -148,9 +148,6 @@ fn render_next_steps(output: &mut String, summary: &ScanSummary) {
         "  repopilot scan {path} --format markdown --output report.md"
     )
     .unwrap();
-    if summary.artifacts.findings.is_empty() && profile_label(summary) == "default" {
-        output.push_str("  repopilot inspect eval-rules --format json\n");
-    }
 }
 
 fn status_label(summary: &ScanSummary, visible_count: usize) -> &'static str {

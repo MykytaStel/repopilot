@@ -159,17 +159,8 @@ suppressions:
     expires: "2026-12-31"
 ```
 
-Validate the file without running a scan:
-
-```bash
-repopilot inspect feedback .
-```
-
-Evaluate matched and unmatched suppressions against current findings:
-
-```bash
-repopilot inspect feedback . --evaluate --format json
-```
+Suppressions are applied by `scan` and `review`; malformed entries surface as
+report diagnostics rather than silently dropping findings.
 
 Use `--ignore-feedback` on `scan` or `review` for an unsuppressed report.
 Expired review suppressions no longer apply. Reports expose suppression counts

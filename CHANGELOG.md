@@ -42,6 +42,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Removed
 
+- Removed the `inspect` command group (`explain`, `knowledge`, `cache`, `graph`,
+  `feedback`, `rules`, `rule`, `eval-rules`) — maintainer/rule-author diagnostics
+  that exposed internal concepts (knowledge catalog, rule registry, context graph,
+  cache, feedback validation) as product surface. The engines stay: the Knowledge
+  Engine, rule registry, and Context Risk Graph still drive `scan`/`review`/`ai
+  context`/`mcp`. The rule quality gate moved fully to `cargo test`
+  (`tests/rule_eval_fixture_coverage.rs`); the context graph is observable in the
+  `scan --format json` report.
 - Removed the `compare` and `doctor` commands and their modules. `compare`
   duplicated the baseline/review change story (a JSON-report diff); `doctor`
   diagnosed a setup surface that barely exists for a single static binary, and

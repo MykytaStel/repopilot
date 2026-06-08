@@ -19,13 +19,9 @@ Signal sources are explicit: `text-heuristic`, `ast`, `config-file`,
 `dependency-manifest`, `import-graph`, `framework-detector`, `git-diff`, or
 `mixed`. A text heuristic must not claim AST provenance.
 
-Inspect the catalog locally:
-
-```bash
-repopilot inspect rules
-repopilot inspect rule security.secret-candidate
-repopilot inspect eval-rules --format json
-```
+The rule catalog and its quality gate are validated by `cargo test`
+(`tests/rule_eval_fixture_coverage.rs`), which runs every rule against its bundled
+true-positive/false-positive fixtures.
 
 ## Finding Contract
 
