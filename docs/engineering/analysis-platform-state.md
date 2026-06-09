@@ -156,9 +156,14 @@ builder now exist; the builder reuses RepoPilot's shared language-aware import
 resolvers and emits typed edges (`Imports`/`DependsOn`/`TestOf`) carrying
 provenance and a confidence tier. Deterministic internal graph algorithms cover
 degrees, hubs, SCC cycles, neighborhoods, transitive blast radius, directory-level
-dependency aggregation, and summaries, but are not yet product-facing.
+dependency aggregation, and summaries. The `architecture.circular-dependency` scan
+rule now consumes the v2 SCC cycle detection internally (the first graph-related
+rule migrated); the remaining algorithms are not yet product-facing.
 
-1. Migrate existing graph-related architecture rules to graph v2.
+1. Migrate remaining graph-related architecture rules to graph v2. The
+   `architecture.circular-dependency` rule now uses graph v2 cycle detection
+   internally (first rule migrated); remaining graph-related rules still need
+   migration.
 2. Feed graph v2 blast radius into review.
 3. Feed graph v2 hot files into AI context.
 4. Add graph capabilities metadata for rules.

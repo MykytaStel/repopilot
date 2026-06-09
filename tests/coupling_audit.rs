@@ -193,6 +193,99 @@ fn circular_dependency_finding_is_emitted() {
         .find(|finding| finding.rule_id == "architecture.circular-dependency")
         .expect("expected circular dependency finding");
     assert_eq!(finding.severity, Severity::High);
+    // Evidence lists the cycle members with repository-relative paths.
+    assert!(!finding.evidence.is_empty());
+    let cycle_files: Vec<_> = finding
+        .evidence
+        .iter()
+        .map(|item| {
+            assert!(
+                item.path.is_relative(),
+                "evidence path should be relative, got {:?}",
+                item.path
+            );
+            item.path.as_path()
+        })
+        .collect();
+    assert!(cycle_files.contains(&Path::new("src/a.ts")));
+    assert!(cycle_files.contains(&Path::new("src/b.ts")));
+}
+
+#[test]
+fn acyclic_imports_do_not_emit_circular_dependency() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(
+        &temp,
+        "src/a.ts",
+        r#"import { b } from "./b"; export function a() { return b(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/b.ts",
+        r#"import { c } from "./c"; export function b() { return c(); }"#,
+    );
+    write_file(&temp, "src/c.ts", "export function c() { return 1; }\n");
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    assert!(
+        summary
+            .artifacts
+            .findings
+            .iter()
+            .all(|finding| finding.rule_id != "architecture.circular-dependency"),
+        "acyclic import chain must not be reported as circular: {:#?}",
+        summary.artifacts.findings
+    );
+}
+
+#[test]
+fn multiple_circular_dependencies_are_each_reported() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    // Two independent 2-file cycles: a <-> b and c <-> d.
+    write_file(
+        &temp,
+        "src/a.ts",
+        r#"import { b } from "./b"; export function a() { return b(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/b.ts",
+        r#"import { a } from "./a"; export function b() { return a(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/c.ts",
+        r#"import { d } from "./d"; export function c() { return d(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/d.ts",
+        r#"import { c } from "./c"; export function d() { return c(); }"#,
+    );
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    let circular: Vec<_> = summary
+        .artifacts
+        .findings
+        .iter()
+        .filter(|finding| finding.rule_id == "architecture.circular-dependency")
+        .collect();
+
+    // One finding per strongly-connected component.
+    assert_eq!(
+        circular.len(),
+        2,
+        "expected one finding per cycle: {circular:#?}"
+    );
+    assert!(
+        circular
+            .iter()
+            .all(|finding| finding.severity == Severity::High)
+    );
 }
 
 #[test]
