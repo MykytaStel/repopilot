@@ -74,6 +74,24 @@ fn degrees_count_each_exact_edge_once() {
 }
 
 #[test]
+fn direct_dependents_lists_one_hop_importers_only() {
+    // a -> b -> c and a -> c. c is imported directly by a and b; b only by a;
+    // a by nobody. Dependents are one hop, never transitive.
+    let graph = snapshot(&["a", "b", "c"], &[("a", "b"), ("b", "c"), ("a", "c")]);
+    let dependents = direct_dependents(&graph);
+    let importers = |center: &str| {
+        dependents[&id(center)]
+            .iter()
+            .map(|node| node.as_str().to_string())
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(importers("c"), vec!["a", "b"]);
+    assert_eq!(importers("b"), vec!["a"]);
+    assert!(importers("a").is_empty());
+}
+
+#[test]
 fn node_degree_instability_matches_coupling_formula() {
     let isolated = NodeDegree {
         node_id: id("a"),

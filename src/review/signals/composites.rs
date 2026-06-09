@@ -7,6 +7,7 @@
 
 use super::BoundarySignal;
 use crate::audits::context::classify::helpers::is_test_file;
+use crate::graph::v2::{build_coupling_graph_snapshot, direct_dependents};
 use crate::review::diff::ChangedFile;
 use crate::review::paths::normalized_review_path;
 use crate::scan::types::CouplingGraph;
@@ -14,21 +15,34 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Invert the coupling graph: map each imported file to the set of files that
-/// import it, with paths normalized relative to the repo root.
+/// import it, with paths normalized relative to the repo root. Sources the
+/// importer relation from the shared graph v2 `GraphSnapshot` (one-hop
+/// `direct_dependents`) so review shares the same graph model as the rules;
+/// targets with no importers are omitted, matching the previous edge inversion.
 pub fn build_importers_by_target(
     graph: &CouplingGraph,
     repo_root: &Path,
 ) -> BTreeMap<PathBuf, BTreeSet<PathBuf>> {
+    let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
     let mut importers: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
-    for (source, targets) in &graph.edges {
-        let source = normalized_review_path(source, repo_root);
-        for target in targets {
-            importers
-                .entry(normalized_review_path(target, repo_root))
-                .or_default()
-                .insert(source.clone());
+
+    for (target_id, source_ids) in direct_dependents(&snapshot) {
+        if source_ids.is_empty() {
+            continue;
+        }
+        let Some(target) = path_by_id.get(&target_id) else {
+            continue;
+        };
+        let entry = importers
+            .entry(normalized_review_path(target, repo_root))
+            .or_default();
+        for source_id in &source_ids {
+            if let Some(source) = path_by_id.get(source_id) {
+                entry.insert(normalized_review_path(source, repo_root));
+            }
         }
     }
+
     importers
 }
 
@@ -66,4 +80,46 @@ pub fn missing_test_for_code_boundary(
         .iter()
         .any(|signal| signal.category.is_code_boundary())
         && !any_test_changed(changed_files)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn coupling_graph(edges: &[(&str, &str)]) -> CouplingGraph {
+        let mut edge_map: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+        let mut nodes: BTreeSet<PathBuf> = BTreeSet::new();
+        for (src, dst) in edges {
+            let src = PathBuf::from(src);
+            let dst = PathBuf::from(dst);
+            nodes.insert(src.clone());
+            nodes.insert(dst.clone());
+            edge_map.entry(src).or_default().insert(dst);
+        }
+        CouplingGraph {
+            edges: edge_map,
+            nodes,
+        }
+    }
+
+    #[test]
+    fn importers_by_target_inverts_edges_with_normalized_paths() {
+        // a imports b and c; b imports c. c is imported by {a, b}, b by {a},
+        // and a (no importers) is absent from the map.
+        let root = Path::new("/repo");
+        let graph = coupling_graph(&[("a.rs", "b.rs"), ("a.rs", "c.rs"), ("b.rs", "c.rs")]);
+
+        let importers = build_importers_by_target(&graph, root);
+
+        let norm = |path: &str| normalized_review_path(Path::new(path), root);
+        assert_eq!(
+            importers.get(&norm("c.rs")),
+            Some(&BTreeSet::from([norm("a.rs"), norm("b.rs")]))
+        );
+        assert_eq!(
+            importers.get(&norm("b.rs")),
+            Some(&BTreeSet::from([norm("a.rs")]))
+        );
+        assert!(!importers.contains_key(&norm("a.rs")));
+    }
 }

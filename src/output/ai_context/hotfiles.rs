@@ -1,5 +1,5 @@
-use crate::graph::compute_metrics;
 use crate::graph::context::{ContextGraphFileMetric, ContextGraphSummary};
+use crate::graph::coupling_file_metrics;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write as FmtWrite;
 
@@ -14,7 +14,7 @@ pub(super) fn render_hot_files(out: &mut String, summary: &ScanSummary) {
         None => return,
     };
 
-    let mut metrics = compute_metrics(graph);
+    let mut metrics = coupling_file_metrics(graph);
     metrics.retain(|m| m.fan_in > 0);
     if metrics.is_empty() {
         return;

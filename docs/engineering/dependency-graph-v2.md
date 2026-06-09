@@ -24,34 +24,46 @@ findings, review blast radius, AI context, or public report schemas.
 
 Graph v2 now has internal algorithms for degree summaries, hubs, SCC-based cycle
 detection, local neighborhoods, transitive blast radius (reverse dependents of a
-changed set), directory-level dependency aggregation (cross-directory coupling),
-and compact deterministic graph summaries.
+changed set), one-hop direct dependents (the importer set per file),
+directory-level dependency aggregation (cross-directory coupling), compact
+deterministic graph summaries, and bounded capability metadata
+(`graph_capabilities`) describing which dependency facts a snapshot carries.
 
-The `architecture.circular-dependency` scan rule is the first graph-related rule
-migrated to graph v2: it now detects cycles through the v2 `GraphSnapshot` and
-SCC `find_cycles` internally, while preserving its rule ID, severity, category,
-recommendation, and evidence shape. The other import-coupling rules
-(`architecture.excessive-fan-out`, `architecture.high-instability-hub`) now also
-run on graph v2 via degree counting, so all three coupling rules share one model.
-Review and AI context do not yet consume these algorithms.
+All three import-coupling scan rules now run on graph v2. The
+`architecture.circular-dependency` rule detects cycles through the v2
+`GraphSnapshot` and SCC `find_cycles`; `architecture.excessive-fan-out` and
+`architecture.high-instability-hub` derive their per-file fan-in, fan-out, and
+instability from v2 degree counting. Review and AI context consume graph v2 too:
+review's blast radius (the per-file importer set) is sourced from the snapshot's
+one-hop `direct_dependents`, and the AI context hot-files fallback uses the same
+metrics. Each migration preserves its existing rule IDs, severities, evidence,
+and output shapes.
 
-PR #195 migrated circular dependency detection to graph v2. PR #196 extracts the
-coupling graph → `GraphSnapshot` conversion out of that rule and into shared
-graph infrastructure (`build_coupling_graph_snapshot`), so it no longer lives
-inside a single audit. The adapter is intentionally free of audit concepts (no
-severities, rule IDs, findings, recommendations, or evidence) and only produces
-file nodes and `Imports` edges with a node-id → path map. Future graph v2
-consumers — blast radius, hot files, dependency depth, review context — can reuse
-this shared conversion instead of re-encoding the coupling graph themselves.
+### Migration history
 
-PR #197 finishes migrating the import-coupling architecture rules onto graph v2:
-`architecture.excessive-fan-out` and `architecture.high-instability-hub` now
-derive their per-file fan-in, fan-out, and instability from graph v2 degree
-counting (`compute_degrees`) over that shared snapshot, with instability owned by
-`NodeDegree::instability`. The rule no longer calls the v1 `compute_metrics`.
-That v1 metric path stays available for the remaining non-rule consumers (e.g.
-the AI context hot-files fallback) until they migrate too; the rule findings (IDs,
-severities, evidence, thresholds) are unchanged.
+PR #195 migrated circular dependency detection to graph v2. PR #196 extracted the
+coupling graph → `GraphSnapshot` conversion into shared graph infrastructure
+(`build_coupling_graph_snapshot`): an adapter free of audit concepts (no
+severities, rule IDs, findings, recommendations, or evidence) that produces file
+nodes and `Imports` edges with a node-id → path map.
+
+PR #197 completes the near-term migration. One v2-backed metric path,
+`coupling_file_metrics` (degree counting over the shared snapshot, with
+instability owned by `NodeDegree::instability`), replaces v1 `compute_metrics` in
+both the fan-out/instability-hub rules and the AI context hot-files fallback.
+Review's importer inversion (`build_importers_by_target`, feeding blast radius and
+boundary/tiered signals) is sourced from the snapshot via the new one-hop
+`direct_dependents` algorithm. `graph_capabilities` adds bounded metadata
+describing the dependency facts a snapshot carries — internal foundation for the
+roadmap's rule-capability checks, with no command or report consumer yet. The v1
+`compute_metrics`/`RepoContextGraph` paths remain for consumers not yet migrated;
+all migrated outputs are byte-for-byte unchanged and guarded by parity tests.
+
+The largest remaining migration is the context graph subsystem
+(`RepoContextGraph` / `context_graph_summary`), which still backs the *primary* AI
+context graph projection (edit order, blast radius, high-context files). It should
+move to graph v2 only once v2 has equivalent deterministic fixtures and bounded
+behavior, as below.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
@@ -273,12 +285,19 @@ internal.
 
 ## Implementation Steps
 
-1. Migrate remaining graph-related architecture rules to graph v2. The
-   import-coupling rules — `architecture.circular-dependency` (cycles),
-   `architecture.excessive-fan-out`, and `architecture.high-instability-hub`
-   (degrees) — are migrated and share the coupling graph → `GraphSnapshot`
-   conversion in shared graph infrastructure (`build_coupling_graph_snapshot`).
-   Other graph-related rules can migrate onto the same snapshot next.
-2. Feed graph v2 blast radius into review.
-3. Feed graph v2 hot files into AI context.
-4. Add graph capabilities metadata for rules.
+1. **Done.** Migrate the import-coupling architecture rules to graph v2 —
+   `architecture.circular-dependency` (cycles), `architecture.excessive-fan-out`,
+   and `architecture.high-instability-hub` (degrees) — sharing the coupling graph
+   → `GraphSnapshot` conversion (`build_coupling_graph_snapshot`). Other
+   graph-related rules can migrate onto the same snapshot next.
+2. **Done.** Feed graph v2 into review blast radius: the importer inversion is
+   sourced from the snapshot via one-hop `direct_dependents`, output unchanged.
+3. **Done (fallback).** Feed graph v2 into AI context hot files: the coupling
+   fallback uses `coupling_file_metrics`. The primary `context_graph_summary`
+   projection still needs migration (see below).
+4. **Done (foundation).** Add graph capability metadata (`graph_capabilities`).
+   No rule consumes it yet; wiring rules to declare required graph facts is next.
+5. Migrate the context graph subsystem (`RepoContextGraph` /
+   `context_graph_summary`) to graph v2 so the primary AI context projection and
+   review signals share one model. This is the largest remaining step and should
+   land only behind equivalent deterministic fixtures.

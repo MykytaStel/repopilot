@@ -3,13 +3,15 @@ use super::{
     GraphNodeKind, GraphSnapshot,
 };
 use crate::scan::types::CouplingGraph;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 /// Re-encodes a file-level [`CouplingGraph`] as a graph v2 [`GraphSnapshot`] so
 /// shared v2 algorithms (e.g. SCC cycle detection) can run over it, returning
 /// the snapshot alongside a map from node id back to file path. Only file nodes
-/// and dependency (`Imports`) edges are produced.
+/// and dependency (`Imports`) edges are produced. Every edge endpoint becomes a
+/// node even if the graph's `nodes` set omits it, so no edge is silently dropped
+/// by snapshot validation (a well-formed `CouplingGraph` already lists them).
 ///
 /// This is the shared bridge between the v1 coupling graph and graph v2. It is
 /// deliberately free of audit concepts (no severities, rule ids, findings, or
@@ -22,7 +24,13 @@ pub fn build_coupling_graph_snapshot(
     let mut snapshot = GraphSnapshot::new();
     let mut path_by_id = BTreeMap::new();
 
-    for path in &graph.nodes {
+    let mut paths: BTreeSet<&PathBuf> = graph.nodes.iter().collect();
+    for (from, targets) in &graph.edges {
+        paths.insert(from);
+        paths.extend(targets);
+    }
+
+    for path in paths {
         let id = node_id(path);
         path_by_id.insert(id.clone(), path.clone());
         snapshot.add_node(GraphNode {
@@ -117,6 +125,30 @@ mod tests {
     }
 
     #[test]
+    fn edge_endpoints_missing_from_nodes_still_become_nodes() {
+        // A coupling graph whose `nodes` set omits the edge endpoints (as some
+        // callers build it from edges alone) must still keep every edge: the
+        // endpoints are materialized as nodes so snapshot validation never drops
+        // the relationship.
+        let graph = CouplingGraph {
+            edges: BTreeMap::from([(
+                PathBuf::from("a.rs"),
+                BTreeSet::from([PathBuf::from("b.rs")]),
+            )]),
+            nodes: BTreeSet::new(),
+        };
+
+        let (snapshot, path_by_id) = build_coupling_graph_snapshot(&graph);
+
+        assert_eq!(snapshot.node_count(), 2);
+        assert_eq!(snapshot.edge_count(), 1);
+        assert_eq!(path_by_id.len(), 2);
+        // The dependents query sees the edge rather than dropping it.
+        let dependents = crate::graph::v2::direct_dependents(&snapshot);
+        assert_eq!(dependents[&node_id("b.rs")].len(), 1);
+    }
+
+    #[test]
     fn simple_cycle_is_representable() {
         // a.rs -> b.rs and b.rs -> a.rs form one strongly-connected component.
         let graph = coupling_graph(&[("a.rs", "b.rs"), ("b.rs", "a.rs")]);
@@ -140,38 +172,6 @@ mod tests {
 
         assert_eq!(first.edge_count(), 1);
         assert_eq!(first, second);
-    }
-
-    #[test]
-    fn degrees_over_snapshot_match_v1_coupling_metrics() {
-        // The fan-out / instability-hub rules migrated off v1 `compute_metrics`
-        // onto graph v2 degrees; this pins that the snapshot + degree counting
-        // reproduces the v1 fan-in/fan-out/instability contract per file.
-        use crate::graph::compute_metrics;
-        use crate::graph::v2::compute_degrees;
-
-        let graph = coupling_graph(&[
-            ("a.rs", "b.rs"),
-            ("a.rs", "c.rs"),
-            ("b.rs", "c.rs"),
-            ("c.rs", "a.rs"),
-        ]);
-
-        let (snapshot, path_by_id) = build_coupling_graph_snapshot(&graph);
-        let degrees = compute_degrees(&snapshot);
-        let v1 = compute_metrics(&graph);
-
-        assert_eq!(degrees.nodes.len(), v1.len());
-        for metric in &v1 {
-            let degree = degrees
-                .nodes
-                .iter()
-                .find(|degree| path_by_id.get(&degree.node_id) == Some(&metric.path))
-                .expect("every v1 metric maps to a graph v2 degree");
-            assert_eq!(degree.fan_in, metric.fan_in);
-            assert_eq!(degree.fan_out, metric.fan_out);
-            assert_eq!(degree.instability().to_bits(), metric.instability.to_bits());
-        }
     }
 
     #[test]
