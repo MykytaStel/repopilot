@@ -52,6 +52,12 @@ fn ai_context_default_output_succeeds() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("# RepoPilot AI Context"));
+    assert!(stdout.contains("## Repository Facts Summary"));
+    assert!(stdout.contains("- Files: 2"));
+    assert!(stdout.contains("- Files with detected language: 2"));
+    assert!(stdout.contains("- Non-empty lines: 2"));
+    assert!(stdout.contains("- Fact diagnostics: 0"));
+    assert!(stdout.contains("- Rust: 2 files, 2 non-empty lines"));
     assert!(stdout.contains("Security"));
     assert!(stdout.contains("Possible secret detected"));
     assert!(stdout.contains("sk_...***"));
@@ -92,6 +98,10 @@ fn ai_context_handoff_includes_plan_rules_and_verify() {
     assert!(
         lean.contains("## Remediation Plan"),
         "plan should remain under --no-task\n{lean}"
+    );
+    assert!(
+        lean.contains("## Repository Facts Summary"),
+        "facts summary should remain under --no-task\n{lean}"
     );
 }
 

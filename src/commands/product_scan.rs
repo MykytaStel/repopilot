@@ -4,12 +4,14 @@ use crate::commands::{CliExit, EXIT_RUNTIME, EXIT_USAGE};
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::config::presets::{Preset, apply_preset};
+use repopilot::facts::RepoFactsSummary;
 use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 use repopilot::review::diff::ChangedFile;
 use repopilot::scan::scanner::{
-    scan_changed_with_config, scan_path_with_config, scan_resolved_changed_with_config,
+    scan_changed_with_config, scan_path_with_config, scan_path_with_config_and_facts_summary,
+    scan_resolved_changed_with_config,
 };
 use repopilot::scan::types::ScanSummary;
 use repopilot::scan::workspace_scan::scan_workspace_with_config;
@@ -43,12 +45,26 @@ pub struct ProductScanRequest {
 
 pub struct ProductScanResult {
     pub summary: ScanSummary,
+    pub repo_facts_summary: Option<RepoFactsSummary>,
     pub repo_config: RepoPilotConfig,
     pub scan_elapsed: Duration,
 }
 
 pub fn run_product_scan(
     request: ProductScanRequest,
+) -> Result<ProductScanResult, Box<dyn std::error::Error>> {
+    run_product_scan_internal(request, false)
+}
+
+pub fn run_product_scan_with_facts_summary(
+    request: ProductScanRequest,
+) -> Result<ProductScanResult, Box<dyn std::error::Error>> {
+    run_product_scan_internal(request, true)
+}
+
+fn run_product_scan_internal(
+    request: ProductScanRequest,
+    include_repo_facts_summary: bool,
 ) -> Result<ProductScanResult, Box<dyn std::error::Error>> {
     let mut repo_config = match &request.config_path {
         Some(config_path) => load_optional_config(config_path)?,
@@ -71,10 +87,19 @@ pub fn run_product_scan(
     };
     let scan_start = Instant::now();
     let scan_result = match &request.mode {
-        ProductScanMode::Full => scan_path_with_config(&request.path, &scan_config),
-        ProductScanMode::Workspace => scan_workspace_with_config(&request.path, &scan_config),
+        ProductScanMode::Full if include_repo_facts_summary => {
+            scan_path_with_config_and_facts_summary(&request.path, &scan_config)
+                .map(|(summary, facts_summary)| (summary, Some(facts_summary)))
+        }
+        ProductScanMode::Full => {
+            scan_path_with_config(&request.path, &scan_config).map(|summary| (summary, None))
+        }
+        ProductScanMode::Workspace => {
+            scan_workspace_with_config(&request.path, &scan_config).map(|summary| (summary, None))
+        }
         ProductScanMode::Changed { since } => {
             scan_changed_with_config(&request.path, &scan_config, since.as_deref())
+                .map(|summary| (summary, None))
         }
         ProductScanMode::ResolvedChanged {
             repo_root,
@@ -86,12 +111,13 @@ pub fn run_product_scan(
             repo_root.clone(),
             changed_files.clone(),
             base_ref.as_deref(),
-        ),
+        )
+        .map(|summary| (summary, None)),
     };
     let scan_elapsed = scan_start.elapsed();
     finish_spinner(pb);
 
-    let mut summary = scan_result?;
+    let (mut summary, repo_facts_summary) = scan_result?;
 
     if !request.ignore_feedback {
         apply_local_feedback(&mut summary, &request.path)?;
@@ -105,6 +131,7 @@ pub fn run_product_scan(
 
     Ok(ProductScanResult {
         summary,
+        repo_facts_summary,
         repo_config,
         scan_elapsed,
     })
