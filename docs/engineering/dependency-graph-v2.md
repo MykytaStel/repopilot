@@ -25,8 +25,13 @@ findings, review blast radius, AI context, or public report schemas.
 Graph v2 now has internal algorithms for degree summaries, hubs, SCC-based cycle
 detection, local neighborhoods, transitive blast radius (reverse dependents of a
 changed set), directory-level dependency aggregation (cross-directory coupling),
-and compact deterministic graph summaries. These algorithms are not yet used by
-public scan, review, or AI context output.
+and compact deterministic graph summaries.
+
+The `architecture.circular-dependency` scan rule is the first graph-related rule
+migrated to graph v2: it now detects cycles through the v2 `GraphSnapshot` and
+SCC `find_cycles` internally, while preserving its rule ID, severity, category,
+recommendation, and evidence shape. The remaining graph-related rules still need
+migration, and review and AI context do not yet consume these algorithms.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
@@ -248,7 +253,10 @@ internal.
 
 ## Implementation Steps
 
-1. Migrate existing graph-related rules to graph v2.
+1. Migrate remaining graph-related architecture rules to graph v2. The
+   `architecture.circular-dependency` rule is the first migrated and now uses
+   graph v2 cycle detection internally; remaining graph-related rules still need
+   migration.
 2. Feed graph v2 blast radius into review.
 3. Feed graph v2 hot files into AI context.
 4. Add graph capabilities metadata for rules.

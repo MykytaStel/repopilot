@@ -1,11 +1,15 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::graph::v2::{
+    GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance, GraphNode, GraphNodeId,
+    GraphNodeKind, GraphSnapshot, find_cycles,
+};
 use crate::graph::{
-    CouplingGraph, FileMetrics, build_coupling_graph, compute_metrics, detect_cycles,
+    CouplingGraph, FileMetrics, build_coupling_graph, compute_metrics,
     without_rust_module_containment_edges,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub struct ImportCouplingAudit;
@@ -19,8 +23,25 @@ impl ImportCouplingAudit {
     ) -> (Vec<Finding>, CouplingGraph) {
         let graph = build_coupling_graph(facts, root);
         let metrics = compute_metrics(&graph);
+
+        // Circular dependencies now run through graph v2's SCC-based cycle
+        // detection. We re-encode the existing (module-containment-stripped)
+        // coupling graph as a `GraphSnapshot` and reuse `find_cycles`; the v1
+        // graph build still feeds fan-out/instability metrics and the graph
+        // returned to the scan pipeline. Each cycle is one strongly-connected
+        // component (set of mutually dependent files).
         let cycle_graph = without_rust_module_containment_edges(&graph);
-        let cycles = detect_cycles(&cycle_graph);
+        let (cycle_snapshot, path_by_id) = coupling_graph_snapshot(&cycle_graph);
+        let cycles: Vec<Vec<PathBuf>> = find_cycles(&cycle_snapshot)
+            .into_iter()
+            .map(|cycle| {
+                cycle
+                    .node_ids
+                    .iter()
+                    .filter_map(|id| path_by_id.get(id).cloned())
+                    .collect()
+            })
+            .collect();
 
         let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
@@ -259,4 +280,42 @@ fn is_rust_facade_declaration(line: &str) -> bool {
 
 fn relative_path(path: &Path, root: &Path) -> PathBuf {
     path.strip_prefix(root).unwrap_or(path).to_path_buf()
+}
+
+/// Re-encodes a file-level coupling graph as a graph v2 `GraphSnapshot` so the
+/// shared v2 SCC cycle detection can run over it, returning the snapshot and a
+/// map back to file paths. Only file nodes and dependency (`Imports`) edges are
+/// produced. Kept local to this rule for now; it can move into a shared scan
+/// stage once one computes a snapshot directly.
+fn coupling_graph_snapshot(
+    graph: &CouplingGraph,
+) -> (GraphSnapshot, BTreeMap<GraphNodeId, PathBuf>) {
+    let node_id = |path: &Path| GraphNodeId::new(format!("file:{}", path.display()));
+    let mut snapshot = GraphSnapshot::new();
+    let mut path_by_id = BTreeMap::new();
+
+    for path in &graph.nodes {
+        let id = node_id(path);
+        path_by_id.insert(id.clone(), path.clone());
+        snapshot.add_node(GraphNode {
+            id,
+            kind: GraphNodeKind::File,
+            label: path.display().to_string(),
+            path: Some(path.clone()),
+        });
+    }
+
+    for (from, targets) in &graph.edges {
+        for to in targets {
+            snapshot.add_edge(GraphEdge {
+                from: node_id(from),
+                to: node_id(to),
+                kind: GraphEdgeKind::Imports,
+                provenance: GraphEdgeProvenance::Import,
+                confidence: GraphEdgeConfidence::High,
+            });
+        }
+    }
+
+    (snapshot, path_by_id)
 }
