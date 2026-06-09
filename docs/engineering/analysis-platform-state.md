@@ -92,7 +92,8 @@ are not exposed through scan JSON, review, report schemas, or MCP.
 RepoPilot still needs a deeper fact-based platform with:
 
 - a richer `RepoFacts` model beyond the initial scan-facts bridge;
-- a first-class dependency graph with explicit core types and contracts;
+- a first-class dependency graph with explicit core types and contracts,
+  following the [Dependency Graph v2 design](dependency-graph-v2.md);
 - symbol facts for definitions, references, ownership, and relationships;
 - rule capabilities that declare which facts and analysis levels a rule needs;
 - language support tiers that make analysis depth and guarantees explicit;
@@ -149,10 +150,18 @@ without creating a durable user workflow.
 
 ## Next Planned Implementation Steps
 
-1. Design graph v2.
-2. Add graph v2 core types.
-3. Feed graph v2 into scan, review, and AI context.
-4. Add rule capabilities metadata.
+The [Dependency Graph v2 design](dependency-graph-v2.md) now defines the next
+architecture direction. Its isolated internal core types and a `GraphSnapshot`
+builder now exist; the builder reuses RepoPilot's shared language-aware import
+resolvers and emits typed edges (`Imports`/`DependsOn`/`TestOf`) carrying
+provenance and a confidence tier. Deterministic internal graph algorithms cover
+degrees, hubs, SCC cycles, neighborhoods, transitive blast radius, and summaries,
+but are not yet product-facing.
+
+1. Migrate existing graph-related architecture rules to graph v2.
+2. Feed graph v2 blast radius into review.
+3. Feed graph v2 hot files into AI context.
+4. Add graph capabilities metadata for rules.
 5. Add language support tiers.
 6. Add runtime evidence ingestion.
 7. Add evaluation fixtures.
