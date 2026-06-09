@@ -83,8 +83,9 @@ The first internal implementation steps now exist in `src/facts`: a facts-core
 skeleton, a minimal `ScanFacts -> RepoFacts` bridge, and an internal `RepoFacts`
 summary projection. The bridge currently preserves only repository root, file
 path, language, and non-empty line count. The summary provides aggregate file,
-language, line, and diagnostic counts without exposing raw facts. Neither is
-yet exposed through scan, review, report output, AI context, or MCP.
+language, line, and diagnostic counts without exposing raw facts. AI context now
+includes this summary as aggregate evidence; raw `RepoFacts` remain internal and
+are not exposed through scan JSON, review, report schemas, or MCP.
 
 ## What Is Missing
 
@@ -148,11 +149,10 @@ without creating a durable user workflow.
 
 ## Next Planned Implementation Steps
 
-1. Feed the facts summary into AI context without exposing raw `RepoFacts`.
-2. Design graph v2.
-3. Add graph v2 core types.
-4. Feed graph v2 into scan, review, and AI context.
-5. Add rule capabilities metadata.
-6. Add language support tiers.
-7. Add runtime evidence ingestion.
-8. Add evaluation fixtures.
+1. Design graph v2.
+2. Add graph v2 core types.
+3. Feed graph v2 into scan, review, and AI context.
+4. Add rule capabilities metadata.
+5. Add language support tiers.
+6. Add runtime evidence ingestion.
+7. Add evaluation fixtures.

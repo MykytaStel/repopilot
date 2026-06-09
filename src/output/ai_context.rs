@@ -4,9 +4,11 @@ mod guardrails;
 mod header;
 mod hotfiles;
 mod recommendations;
+mod repo_facts;
 
 pub use budget::SectionBreakdown;
 
+use crate::facts::RepoFactsSummary;
 use crate::findings::types::Finding;
 use crate::output::ai_context::budget::BreakdownSection;
 use crate::scan::types::ScanSummary;
@@ -81,7 +83,7 @@ impl AiFocusCategory {
 
 /// Render the AI context, discarding breakdown info.
 pub fn render(summary: &ScanSummary, opts: &AiContextRenderOptions) -> String {
-    let (content, _) = render_internal(summary, opts);
+    let (content, _) = render_internal(summary, None, opts);
     content
 }
 
@@ -90,11 +92,21 @@ pub fn render_with_breakdown(
     summary: &ScanSummary,
     opts: &AiContextRenderOptions,
 ) -> (String, SectionBreakdown) {
-    render_internal(summary, opts)
+    render_internal(summary, None, opts)
+}
+
+/// Render AI context with aggregate repository facts and token breakdown.
+pub fn render_with_facts_summary_and_breakdown(
+    summary: &ScanSummary,
+    facts_summary: Option<&RepoFactsSummary>,
+    opts: &AiContextRenderOptions,
+) -> (String, SectionBreakdown) {
+    render_internal(summary, facts_summary, opts)
 }
 
 fn render_internal(
     summary: &ScanSummary,
+    facts_summary: Option<&RepoFactsSummary>,
     opts: &AiContextRenderOptions,
 ) -> (String, SectionBreakdown) {
     let budget_chars = opts.budget_tokens * 4;
@@ -135,6 +147,15 @@ fn render_internal(
         header::render_header(&mut out, summary, &findings);
         sections.push(BreakdownSection {
             label: "Header".into(),
+            tokens: (out.len() - pre) / 4,
+        });
+    }
+
+    if let Some(facts_summary) = facts_summary {
+        let pre = out.len();
+        repo_facts::render_summary(&mut out, facts_summary);
+        sections.push(BreakdownSection {
+            label: "Repository Facts".into(),
             tokens: (out.len() - pre) / 4,
         });
     }

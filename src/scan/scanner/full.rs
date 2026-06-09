@@ -1,6 +1,7 @@
 use super::{collection, contract_stage};
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
+use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::findings::types::Finding;
@@ -24,6 +25,13 @@ pub fn scan_path(path: &Path) -> io::Result<ScanSummary> {
 
 pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<ScanSummary> {
     ScanEngine::new(path, config).run()
+}
+
+pub fn scan_path_with_config_and_facts_summary(
+    path: &Path,
+    config: &ScanConfig,
+) -> io::Result<(ScanSummary, RepoFactsSummary)> {
+    ScanEngine::new(path, config).run_with_facts_summary()
 }
 
 pub struct ScanEngine<'a> {
@@ -61,6 +69,20 @@ impl<'a> ScanEngine<'a> {
     }
 
     pub fn run(self) -> io::Result<ScanSummary> {
+        self.run_internal(|_| ()).map(|(summary, ())| summary)
+    }
+
+    fn run_with_facts_summary(self) -> io::Result<(ScanSummary, RepoFactsSummary)> {
+        self.run_internal(|scan_facts| {
+            let repo_facts = repo_facts_from_scan(scan_facts);
+            summarize_repo_facts(&repo_facts)
+        })
+    }
+
+    fn run_internal<T>(
+        self,
+        build_sidecar: impl FnOnce(&ScanFacts) -> T,
+    ) -> io::Result<(ScanSummary, T)> {
         let start = Instant::now();
         let discovery_stage = self.run_discovery()?;
         let file_stage = self.run_file_analysis(discovery_stage.discovered)?;
@@ -97,13 +119,16 @@ impl<'a> ScanEngine<'a> {
             report_finalization_us: 0,
         };
 
-        Ok(self.finalize_report(
+        let sidecar = build_sidecar(&project_stage.facts);
+        let summary = self.finalize_report(
             project_stage,
             scan_duration_us,
             timings,
             contract_stage.diagnostics,
             signal_quality,
-        ))
+        );
+
+        Ok((summary, sidecar))
     }
 
     fn run_discovery(&self) -> io::Result<DiscoveryStage> {
