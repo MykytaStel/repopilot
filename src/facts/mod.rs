@@ -1,14 +1,18 @@
 mod confidence;
 mod diagnostic;
 mod file;
+mod from_scan;
 mod repo;
 mod source;
+mod summary;
 
 pub use confidence::FactConfidence;
 pub use diagnostic::FactDiagnostic;
 pub use file::FileFact;
+pub use from_scan::repo_facts_from_scan;
 pub use repo::RepoFacts;
 pub use source::FactSource;
+pub use summary::{LanguageSummary, RepoFactsSummary, summarize_repo_facts};
 
 #[cfg(test)]
 mod tests {
