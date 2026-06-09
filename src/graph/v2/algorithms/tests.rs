@@ -278,3 +278,81 @@ fn blast_radius_ignores_missing_seeds_and_terminates_on_cycles() {
     assert!(empty.seeds.is_empty());
     assert!(empty.impacted.is_empty());
 }
+
+#[test]
+fn directory_dependencies_aggregate_cross_directory_edges() {
+    let graph = snapshot(
+        &["src/a/x.rs", "src/a/y.rs", "src/b/z.rs"],
+        &[
+            ("src/a/x.rs", "src/b/z.rs"),
+            ("src/a/y.rs", "src/b/z.rs"),
+            // Intra-directory edge is cohesion, not a boundary crossing.
+            ("src/a/x.rs", "src/a/y.rs"),
+        ],
+    );
+
+    let deps = directory_dependencies(&graph);
+
+    assert_eq!(
+        deps.edges,
+        vec![DirectoryDependency {
+            from: "src/a".to_string(),
+            to: "src/b".to_string(),
+            edge_count: 2,
+        }]
+    );
+}
+
+#[test]
+fn directory_dependencies_ignore_non_dependency_and_external_edges() {
+    let external = GraphNode {
+        id: id("external:serde"),
+        kind: GraphNodeKind::ExternalDependency,
+        label: "serde".to_string(),
+        path: None,
+    };
+    let graph = GraphSnapshot {
+        nodes: vec![node("src/a/x.rs"), node("src/b/y.rs"), external],
+        edges: vec![
+            // A TestOf relationship is not a dependency.
+            GraphEdge {
+                from: id("src/a/x.rs"),
+                to: id("src/b/y.rs"),
+                kind: GraphEdgeKind::TestOf,
+                provenance: GraphEdgeProvenance::TestHeuristic,
+                confidence: GraphEdgeConfidence::High,
+            },
+            // An external dependency has no directory.
+            GraphEdge {
+                from: id("src/a/x.rs"),
+                to: id("external:serde"),
+                kind: GraphEdgeKind::DependsOn,
+                provenance: GraphEdgeProvenance::Import,
+                confidence: GraphEdgeConfidence::Medium,
+            },
+        ],
+        diagnostics: Vec::new(),
+    };
+
+    assert!(directory_dependencies(&graph).edges.is_empty());
+}
+
+#[test]
+fn directory_dependencies_handle_root_files_and_empty_graph() {
+    assert!(
+        directory_dependencies(&GraphSnapshot::default())
+            .edges
+            .is_empty()
+    );
+
+    let graph = snapshot(&["main.rs", "src/util.rs"], &[("main.rs", "src/util.rs")]);
+
+    assert_eq!(
+        directory_dependencies(&graph).edges,
+        vec![DirectoryDependency {
+            from: ".".to_string(),
+            to: "src".to_string(),
+            edge_count: 1,
+        }]
+    );
+}

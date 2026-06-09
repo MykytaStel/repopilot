@@ -10,6 +10,16 @@ pub enum GraphEdgeKind {
     Configures,
 }
 
+impl GraphEdgeKind {
+    /// Whether this edge represents a build/runtime dependency, as opposed to a
+    /// structural or auxiliary relationship (e.g. `TestOf`, `Configures`).
+    /// Dependency algorithms (coupling, layering, blast radius) should consider
+    /// only these kinds.
+    pub fn is_dependency(self) -> bool {
+        matches!(self, Self::Imports | Self::ReExports | Self::DependsOn)
+    }
+}
+
 /// Where an edge's evidence came from. Lets consumers weigh how an edge was
 /// derived without re-deriving it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

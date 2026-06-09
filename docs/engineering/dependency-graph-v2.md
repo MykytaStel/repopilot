@@ -24,8 +24,9 @@ findings, review blast radius, AI context, or public report schemas.
 
 Graph v2 now has internal algorithms for degree summaries, hubs, SCC-based cycle
 detection, local neighborhoods, transitive blast radius (reverse dependents of a
-changed set), and compact deterministic graph summaries. These algorithms are not
-yet used by public scan, review, or AI context output.
+changed set), directory-level dependency aggregation (cross-directory coupling),
+and compact deterministic graph summaries. These algorithms are not yet used by
+public scan, review, or AI context output.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph

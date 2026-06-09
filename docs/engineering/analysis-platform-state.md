@@ -155,8 +155,8 @@ architecture direction. Its isolated internal core types and a `GraphSnapshot`
 builder now exist; the builder reuses RepoPilot's shared language-aware import
 resolvers and emits typed edges (`Imports`/`DependsOn`/`TestOf`) carrying
 provenance and a confidence tier. Deterministic internal graph algorithms cover
-degrees, hubs, SCC cycles, neighborhoods, transitive blast radius, and summaries,
-but are not yet product-facing.
+degrees, hubs, SCC cycles, neighborhoods, transitive blast radius, directory-level
+dependency aggregation, and summaries, but are not yet product-facing.
 
 1. Migrate existing graph-related architecture rules to graph v2.
 2. Feed graph v2 blast radius into review.
