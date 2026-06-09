@@ -33,6 +33,17 @@ SCC `find_cycles` internally, while preserving its rule ID, severity, category,
 recommendation, and evidence shape. The remaining graph-related rules still need
 migration, and review and AI context do not yet consume these algorithms.
 
+PR #195 migrated circular dependency detection to graph v2. PR #196 extracts the
+coupling graph → `GraphSnapshot` conversion out of that rule and into shared
+graph infrastructure (`build_coupling_graph_snapshot`), so it no longer lives
+inside a single audit. The adapter is intentionally free of audit concepts (no
+severities, rule IDs, findings, recommendations, or evidence) and only produces
+file nodes and `Imports` edges with a node-id → path map. The existing v1
+`CouplingGraph` metrics (fan-in/fan-out/instability) remain available wherever
+rules still need them. Future graph v2 consumers — blast radius, hot files,
+dependency depth, review context — can reuse this shared conversion instead of
+re-encoding the coupling graph themselves.
+
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
 v2 should give those paths one deterministic model built from repository facts,
@@ -255,8 +266,10 @@ internal.
 
 1. Migrate remaining graph-related architecture rules to graph v2. The
    `architecture.circular-dependency` rule is the first migrated and now uses
-   graph v2 cycle detection internally; remaining graph-related rules still need
-   migration.
+   graph v2 cycle detection internally; the coupling graph → `GraphSnapshot`
+   conversion it relies on now lives in shared graph infrastructure
+   (`build_coupling_graph_snapshot`) for reuse. Remaining graph-related rules
+   still need migration.
 2. Feed graph v2 blast radius into review.
 3. Feed graph v2 hot files into AI context.
 4. Add graph capabilities metadata for rules.
