@@ -1,11 +1,12 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use crate::graph::v2::{build_coupling_graph_snapshot, compute_degrees, find_cycles};
+use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles};
 use crate::graph::{
-    CouplingGraph, FileMetrics, build_coupling_graph, without_rust_module_containment_edges,
+    CouplingGraph, FileMetrics, build_coupling_graph, coupling_file_metrics,
+    without_rust_module_containment_edges,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 mod rust_facade;
@@ -22,7 +23,7 @@ impl ImportCouplingAudit {
         root: &Path,
     ) -> (Vec<Finding>, CouplingGraph) {
         let graph = build_coupling_graph(facts, root);
-        let metrics = coupling_metrics(&graph);
+        let metrics = coupling_file_metrics(&graph);
 
         // Circular dependencies now run through graph v2's SCC-based cycle
         // detection. We re-encode the existing (module-containment-stripped)
@@ -215,29 +216,4 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
 
 fn relative_path(path: &Path, root: &Path) -> PathBuf {
     path.strip_prefix(root).unwrap_or(path).to_path_buf()
-}
-
-/// Per-file coupling metrics (fan-in, fan-out, instability) for the fan-out and
-/// instability-hub findings, derived from graph v2 degrees over the shared
-/// snapshot. Path-ordered to preserve the v1 `compute_metrics` contract.
-fn coupling_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
-    let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
-    let mut metrics: BTreeMap<PathBuf, FileMetrics> = BTreeMap::new();
-
-    for degree in compute_degrees(&snapshot).nodes {
-        let Some(path) = path_by_id.get(&degree.node_id) else {
-            continue;
-        };
-        metrics.insert(
-            path.clone(),
-            FileMetrics {
-                path: path.clone(),
-                fan_in: degree.fan_in,
-                fan_out: degree.fan_out,
-                instability: degree.instability(),
-            },
-        );
-    }
-
-    metrics.into_values().collect()
 }

@@ -3,6 +3,9 @@ pub mod imports;
 pub mod resolver;
 pub mod v2;
 
+mod coupling_metrics;
+
+pub use coupling_metrics::coupling_file_metrics;
 pub use imports::extract_imports;
 pub use resolver::resolve_import;
 

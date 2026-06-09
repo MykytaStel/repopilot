@@ -27,14 +27,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   (`build_coupling_graph_snapshot`), so future graph v2 consumers can reuse it.
   No user-facing behavior, finding contract, or output schema changed.
 
-- Internal: migrated `architecture.excessive-fan-out` and
-  `architecture.high-instability-hub` onto graph v2 degree counting
-  (`compute_degrees` over the shared snapshot, with instability owned by
-  `NodeDegree::instability`) instead of the v1 `compute_metrics` path. All three
-  import-coupling rules now share one graph model. Fan-in/fan-out/instability
-  values, finding IDs, severities, evidence, and thresholds are unchanged; the
-  Rust facade exemption moved to an `import_coupling::rust_facade` submodule to
-  keep each file under the 300-line limit.
+- Internal: completed the near-term graph v2 migration so the import-coupling
+  rules, review blast radius, and the AI context hot-files fallback share one
+  graph model, with every migrated output preserved and guarded by parity tests.
+  `architecture.excessive-fan-out` and `architecture.high-instability-hub` now
+  derive fan-in/fan-out/instability from a single v2-backed `coupling_file_metrics`
+  (degree counting over the shared snapshot, instability owned by
+  `NodeDegree::instability`); the AI context hot-files fallback uses the same
+  function instead of v1 `compute_metrics`. Review's importer inversion
+  (`build_importers_by_target`, feeding blast radius and boundary/tiered signals)
+  is sourced from the snapshot via a new one-hop `direct_dependents` algorithm.
+  A `graph_capabilities` helper adds bounded, internal metadata describing the
+  dependency facts a snapshot carries (no command consumes it yet). Finding IDs,
+  severities, evidence, thresholds, and review JSON are unchanged; the Rust facade
+  exemption moved to an `import_coupling::rust_facade` submodule to keep each file
+  under the 300-line limit.
 
 - Documented the gate model as one coherent two-axis story: a **finding gate**
   (`--fail-on` by severity/status, or the mutually exclusive `--fail-on-priority`

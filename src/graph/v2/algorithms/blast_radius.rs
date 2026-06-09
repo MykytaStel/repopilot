@@ -1,6 +1,6 @@
 use super::topology;
 use crate::graph::v2::{GraphNodeId, GraphSnapshot};
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 /// The transitive dependents of a set of changed nodes: every node that can
 /// reach a seed by following dependency edges (i.e. the importers, directly or
@@ -44,4 +44,30 @@ pub fn blast_radius(snapshot: &GraphSnapshot, seeds: &[GraphNodeId]) -> GraphBla
         seeds: present_seeds.into_iter().collect(),
         impacted,
     }
+}
+
+/// Direct (one-hop) dependents of every node: each node mapped to the nodes that
+/// depend on it through an incoming dependency edge — its importer set. This is
+/// the non-transitive counterpart to [`blast_radius`], used where a consumer
+/// needs "who imports this file directly" rather than the full reachable set.
+/// Every node is present; nodes with no dependents map to an empty set.
+pub fn direct_dependents(snapshot: &GraphSnapshot) -> BTreeMap<GraphNodeId, BTreeSet<GraphNodeId>> {
+    let topology = topology(snapshot);
+    let mut dependents = topology
+        .node_ids
+        .iter()
+        .cloned()
+        .map(|id| (id, BTreeSet::new()))
+        .collect::<BTreeMap<GraphNodeId, BTreeSet<GraphNodeId>>>();
+
+    for edge in &topology.edges {
+        if edge.kind.is_dependency() {
+            dependents
+                .get_mut(&edge.to)
+                .expect("validated target node")
+                .insert(edge.from.clone());
+        }
+    }
+
+    dependents
 }

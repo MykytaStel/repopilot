@@ -1,5 +1,6 @@
 mod algorithms;
 mod builder;
+mod capabilities;
 mod coupling_snapshot;
 mod diagnostic;
 mod edge;
@@ -9,10 +10,11 @@ mod snapshot;
 pub use algorithms::{
     DirectoryDependency, GraphBlastRadius, GraphCycle, GraphDegreeSummary,
     GraphDirectoryDependencies, GraphNeighborhood, GraphV2Summary, NodeDegree, blast_radius,
-    compute_degrees, directory_dependencies, find_cycles, neighborhood, summarize_graph,
-    top_fan_in, top_fan_out,
+    compute_degrees, direct_dependents, directory_dependencies, find_cycles, neighborhood,
+    summarize_graph, top_fan_in, top_fan_out,
 };
 pub use builder::graph_snapshot_from_scan;
+pub use capabilities::{GraphCapabilities, graph_capabilities};
 pub use coupling_snapshot::build_coupling_graph_snapshot;
 pub use diagnostic::GraphDiagnostic;
 pub use edge::{GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance};
