@@ -74,6 +74,29 @@ fn degrees_count_each_exact_edge_once() {
 }
 
 #[test]
+fn node_degree_instability_matches_coupling_formula() {
+    let isolated = NodeDegree {
+        node_id: id("a"),
+        fan_in: 0,
+        fan_out: 0,
+    };
+    let pure_source = NodeDegree {
+        node_id: id("b"),
+        fan_in: 0,
+        fan_out: 3,
+    };
+    let mixed = NodeDegree {
+        node_id: id("c"),
+        fan_in: 1,
+        fan_out: 3,
+    };
+
+    assert_eq!(isolated.instability().to_bits(), 0.0_f32.to_bits());
+    assert_eq!(pure_source.instability().to_bits(), 1.0_f32.to_bits());
+    assert_eq!(mixed.instability().to_bits(), 0.75_f32.to_bits());
+}
+
+#[test]
 fn hub_helpers_apply_rankings_limits_and_zero_filtering() {
     let graph = snapshot(
         &["a", "b", "c", "d", "z"],
