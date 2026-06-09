@@ -22,6 +22,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Internal: moved the coupling graph → graph v2 `GraphSnapshot` conversion out
+  of the `architecture.circular-dependency` audit and into a shared graph stage
+  (`build_coupling_graph_snapshot`), so future graph v2 consumers can reuse it.
+  No user-facing behavior, finding contract, or output schema changed.
+
 - Documented the gate model as one coherent two-axis story: a **finding gate**
   (`--fail-on` by severity/status, or the mutually exclusive `--fail-on-priority`
   by risk; in-diff only on `review`) and a separate, opt-in **review-signal gate**

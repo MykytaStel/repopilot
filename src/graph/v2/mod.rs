@@ -1,5 +1,6 @@
 mod algorithms;
 mod builder;
+mod coupling_snapshot;
 mod diagnostic;
 mod edge;
 mod node;
@@ -12,6 +13,7 @@ pub use algorithms::{
     top_fan_in, top_fan_out,
 };
 pub use builder::graph_snapshot_from_scan;
+pub use coupling_snapshot::build_coupling_graph_snapshot;
 pub use diagnostic::GraphDiagnostic;
 pub use edge::{GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance};
 pub use node::{GraphNode, GraphNodeId, GraphNodeKind};
