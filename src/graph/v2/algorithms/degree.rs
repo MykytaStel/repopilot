@@ -14,6 +14,20 @@ pub struct NodeDegree {
     pub fan_out: usize,
 }
 
+impl NodeDegree {
+    /// instability = fan_out / (fan_in + fan_out); 0.0 when the node has no
+    /// edges. Owns the derived coupling metric in graph v2 so rules no longer
+    /// recompute it from the v1 graph.
+    pub fn instability(&self) -> f32 {
+        let total = self.fan_in + self.fan_out;
+        if total == 0 {
+            0.0
+        } else {
+            self.fan_out as f32 / total as f32
+        }
+    }
+}
+
 pub fn compute_degrees(snapshot: &GraphSnapshot) -> GraphDegreeSummary {
     let topology = topology(snapshot);
     let mut degrees = topology

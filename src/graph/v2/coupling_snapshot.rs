@@ -143,6 +143,38 @@ mod tests {
     }
 
     #[test]
+    fn degrees_over_snapshot_match_v1_coupling_metrics() {
+        // The fan-out / instability-hub rules migrated off v1 `compute_metrics`
+        // onto graph v2 degrees; this pins that the snapshot + degree counting
+        // reproduces the v1 fan-in/fan-out/instability contract per file.
+        use crate::graph::compute_metrics;
+        use crate::graph::v2::compute_degrees;
+
+        let graph = coupling_graph(&[
+            ("a.rs", "b.rs"),
+            ("a.rs", "c.rs"),
+            ("b.rs", "c.rs"),
+            ("c.rs", "a.rs"),
+        ]);
+
+        let (snapshot, path_by_id) = build_coupling_graph_snapshot(&graph);
+        let degrees = compute_degrees(&snapshot);
+        let v1 = compute_metrics(&graph);
+
+        assert_eq!(degrees.nodes.len(), v1.len());
+        for metric in &v1 {
+            let degree = degrees
+                .nodes
+                .iter()
+                .find(|degree| path_by_id.get(&degree.node_id) == Some(&metric.path))
+                .expect("every v1 metric maps to a graph v2 degree");
+            assert_eq!(degree.fan_in, metric.fan_in);
+            assert_eq!(degree.fan_out, metric.fan_out);
+            assert_eq!(degree.instability().to_bits(), metric.instability.to_bits());
+        }
+    }
+
+    #[test]
     fn node_ids_and_labels_use_repository_relative_paths() {
         let graph = coupling_graph(&[("src/a.rs", "src/nested/b.rs")]);
 

@@ -30,19 +30,28 @@ and compact deterministic graph summaries.
 The `architecture.circular-dependency` scan rule is the first graph-related rule
 migrated to graph v2: it now detects cycles through the v2 `GraphSnapshot` and
 SCC `find_cycles` internally, while preserving its rule ID, severity, category,
-recommendation, and evidence shape. The remaining graph-related rules still need
-migration, and review and AI context do not yet consume these algorithms.
+recommendation, and evidence shape. The other import-coupling rules
+(`architecture.excessive-fan-out`, `architecture.high-instability-hub`) now also
+run on graph v2 via degree counting, so all three coupling rules share one model.
+Review and AI context do not yet consume these algorithms.
 
 PR #195 migrated circular dependency detection to graph v2. PR #196 extracts the
 coupling graph → `GraphSnapshot` conversion out of that rule and into shared
 graph infrastructure (`build_coupling_graph_snapshot`), so it no longer lives
 inside a single audit. The adapter is intentionally free of audit concepts (no
 severities, rule IDs, findings, recommendations, or evidence) and only produces
-file nodes and `Imports` edges with a node-id → path map. The existing v1
-`CouplingGraph` metrics (fan-in/fan-out/instability) remain available wherever
-rules still need them. Future graph v2 consumers — blast radius, hot files,
-dependency depth, review context — can reuse this shared conversion instead of
-re-encoding the coupling graph themselves.
+file nodes and `Imports` edges with a node-id → path map. Future graph v2
+consumers — blast radius, hot files, dependency depth, review context — can reuse
+this shared conversion instead of re-encoding the coupling graph themselves.
+
+PR #197 finishes migrating the import-coupling architecture rules onto graph v2:
+`architecture.excessive-fan-out` and `architecture.high-instability-hub` now
+derive their per-file fan-in, fan-out, and instability from graph v2 degree
+counting (`compute_degrees`) over that shared snapshot, with instability owned by
+`NodeDegree::instability`. The rule no longer calls the v1 `compute_metrics`.
+That v1 metric path stays available for the remaining non-rule consumers (e.g.
+the AI context hot-files fallback) until they migrate too; the rule findings (IDs,
+severities, evidence, thresholds) are unchanged.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
@@ -265,11 +274,11 @@ internal.
 ## Implementation Steps
 
 1. Migrate remaining graph-related architecture rules to graph v2. The
-   `architecture.circular-dependency` rule is the first migrated and now uses
-   graph v2 cycle detection internally; the coupling graph → `GraphSnapshot`
-   conversion it relies on now lives in shared graph infrastructure
-   (`build_coupling_graph_snapshot`) for reuse. Remaining graph-related rules
-   still need migration.
+   import-coupling rules — `architecture.circular-dependency` (cycles),
+   `architecture.excessive-fan-out`, and `architecture.high-instability-hub`
+   (degrees) — are migrated and share the coupling graph → `GraphSnapshot`
+   conversion in shared graph infrastructure (`build_coupling_graph_snapshot`).
+   Other graph-related rules can migrate onto the same snapshot next.
 2. Feed graph v2 blast radius into review.
 3. Feed graph v2 hot files into AI context.
 4. Add graph capabilities metadata for rules.
