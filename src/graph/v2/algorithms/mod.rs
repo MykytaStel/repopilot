@@ -1,12 +1,14 @@
 mod blast_radius;
 mod cycles;
 mod degree;
+mod directory;
 mod neighborhood;
 mod summary;
 
 pub use blast_radius::{GraphBlastRadius, blast_radius};
 pub use cycles::{GraphCycle, find_cycles};
 pub use degree::{GraphDegreeSummary, NodeDegree, compute_degrees, top_fan_in, top_fan_out};
+pub use directory::{DirectoryDependency, GraphDirectoryDependencies, directory_dependencies};
 pub use neighborhood::{GraphNeighborhood, neighborhood};
 pub use summary::{GraphV2Summary, summarize_graph};
 

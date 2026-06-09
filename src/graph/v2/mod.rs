@@ -6,8 +6,9 @@ mod node;
 mod snapshot;
 
 pub use algorithms::{
-    GraphBlastRadius, GraphCycle, GraphDegreeSummary, GraphNeighborhood, GraphV2Summary,
-    NodeDegree, blast_radius, compute_degrees, find_cycles, neighborhood, summarize_graph,
+    DirectoryDependency, GraphBlastRadius, GraphCycle, GraphDegreeSummary,
+    GraphDirectoryDependencies, GraphNeighborhood, GraphV2Summary, NodeDegree, blast_radius,
+    compute_degrees, directory_dependencies, find_cycles, neighborhood, summarize_graph,
     top_fan_in, top_fan_out,
 };
 pub use builder::graph_snapshot_from_scan;
