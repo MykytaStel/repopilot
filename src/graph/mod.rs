@@ -1,6 +1,7 @@
 pub mod context;
 pub mod imports;
 pub mod resolver;
+pub mod v2;
 
 pub use imports::extract_imports;
 pub use resolver::resolve_import;

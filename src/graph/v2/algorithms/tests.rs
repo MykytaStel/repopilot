@@ -1,0 +1,280 @@
+use super::*;
+use crate::graph::v2::{
+    GraphDiagnostic, GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance, GraphNode,
+    GraphNodeId, GraphNodeKind, GraphSnapshot,
+};
+
+fn id(value: &str) -> GraphNodeId {
+    GraphNodeId::new(value)
+}
+
+fn node(value: &str) -> GraphNode {
+    GraphNode {
+        id: id(value),
+        kind: GraphNodeKind::File,
+        label: value.to_string(),
+        path: None,
+    }
+}
+
+fn edge(from: &str, to: &str) -> GraphEdge {
+    GraphEdge {
+        from: id(from),
+        to: id(to),
+        kind: GraphEdgeKind::Imports,
+        provenance: GraphEdgeProvenance::Import,
+        confidence: GraphEdgeConfidence::High,
+    }
+}
+
+fn snapshot(nodes: &[&str], edges: &[(&str, &str)]) -> GraphSnapshot {
+    GraphSnapshot {
+        nodes: nodes.iter().map(|value| node(value)).collect(),
+        edges: edges.iter().map(|(from, to)| edge(from, to)).collect(),
+        diagnostics: Vec::new(),
+    }
+}
+
+fn degree<'a>(summary: &'a GraphDegreeSummary, node_id: &str) -> &'a NodeDegree {
+    summary
+        .nodes
+        .iter()
+        .find(|degree| degree.node_id.as_str() == node_id)
+        .expect("node degree should exist")
+}
+
+#[test]
+fn empty_and_disconnected_graphs_have_deterministic_degree_summaries() {
+    assert!(compute_degrees(&GraphSnapshot::default()).nodes.is_empty());
+
+    let summary = compute_degrees(&snapshot(&["b", "a"], &[]));
+
+    assert_eq!(
+        summary
+            .nodes
+            .iter()
+            .map(|degree| degree.node_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["a", "b"]
+    );
+    assert!(summary.nodes.iter().all(|node| node.fan_in == 0));
+    assert!(summary.nodes.iter().all(|node| node.fan_out == 0));
+}
+
+#[test]
+fn degrees_count_each_exact_edge_once() {
+    let graph = snapshot(&["a", "b"], &[("a", "b"), ("a", "b")]);
+
+    let summary = compute_degrees(&graph);
+
+    assert_eq!(degree(&summary, "a").fan_out, 1);
+    assert_eq!(degree(&summary, "a").fan_in, 0);
+    assert_eq!(degree(&summary, "b").fan_in, 1);
+    assert_eq!(degree(&summary, "b").fan_out, 0);
+}
+
+#[test]
+fn hub_helpers_apply_rankings_limits_and_zero_filtering() {
+    let graph = snapshot(
+        &["a", "b", "c", "d", "z"],
+        &[("a", "c"), ("a", "d"), ("b", "c"), ("b", "d")],
+    );
+    let summary = compute_degrees(&graph);
+
+    assert_eq!(
+        top_fan_in(&summary, 2)
+            .iter()
+            .map(|node| node.node_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["c", "d"]
+    );
+    assert_eq!(
+        top_fan_out(&summary, 2)
+            .iter()
+            .map(|node| node.node_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["a", "b"]
+    );
+    assert!(top_fan_in(&summary, 0).is_empty());
+    assert!(top_fan_out(&summary, 0).is_empty());
+    assert!(
+        top_fan_in(&summary, usize::MAX)
+            .iter()
+            .all(|node| node.node_id.as_str() != "z")
+    );
+}
+
+#[test]
+fn acyclic_graph_has_no_cycles() {
+    assert!(find_cycles(&snapshot(&["a", "b", "c"], &[("a", "b"), ("b", "c")])).is_empty());
+}
+
+#[test]
+fn tarjan_groups_directed_cycle_and_self_loop() {
+    let graph = snapshot(
+        &["a", "b", "c", "d"],
+        &[("a", "b"), ("b", "c"), ("c", "a"), ("d", "d"), ("d", "d")],
+    );
+
+    let cycles = find_cycles(&graph);
+
+    assert_eq!(
+        cycles,
+        vec![
+            GraphCycle {
+                node_ids: vec![id("a"), id("b"), id("c")],
+            },
+            GraphCycle {
+                node_ids: vec![id("d")],
+            },
+        ]
+    );
+}
+
+#[test]
+fn multiple_cycles_sort_by_size_then_first_node() {
+    let graph = snapshot(
+        &["a", "b", "c", "d", "e", "f"],
+        &[
+            ("a", "b"),
+            ("b", "a"),
+            ("c", "d"),
+            ("d", "e"),
+            ("e", "c"),
+            ("f", "f"),
+        ],
+    );
+
+    let cycles = find_cycles(&graph);
+
+    assert_eq!(cycles[0].node_ids, vec![id("c"), id("d"), id("e")]);
+    assert_eq!(cycles[1].node_ids, vec![id("a"), id("b")]);
+    assert_eq!(cycles[2].node_ids, vec![id("f")]);
+}
+
+#[test]
+fn neighborhood_depth_zero_returns_only_center() {
+    let graph = snapshot(&["a", "b"], &[("a", "b")]);
+
+    let result = neighborhood(&graph, &id("a"), 0);
+
+    assert_eq!(result.node_ids, vec![id("a")]);
+    assert_eq!(result.edge_count, 0);
+}
+
+#[test]
+fn neighborhood_traverses_incoming_and_outgoing_edges() {
+    let graph = snapshot(&["a", "b", "c", "d"], &[("a", "b"), ("b", "c"), ("d", "b")]);
+
+    let depth_one = neighborhood(&graph, &id("b"), 1);
+    let depth_two = neighborhood(&graph, &id("b"), 2);
+
+    assert_eq!(depth_one.node_ids, vec![id("a"), id("b"), id("c"), id("d")]);
+    assert_eq!(depth_one.edge_count, 3);
+    assert_eq!(depth_two, depth_one);
+}
+
+#[test]
+fn neighborhood_depth_two_expands_one_more_step_and_sorts_nodes() {
+    let graph = snapshot(&["a", "b", "c", "d"], &[("a", "b"), ("b", "c"), ("c", "d")]);
+
+    assert_eq!(
+        neighborhood(&graph, &id("a"), 1).node_ids,
+        vec![id("a"), id("b")]
+    );
+    assert_eq!(
+        neighborhood(&graph, &id("a"), 2).node_ids,
+        vec![id("a"), id("b"), id("c")]
+    );
+}
+
+#[test]
+fn missing_neighborhood_center_returns_empty_result() {
+    let result = neighborhood(&snapshot(&["a"], &[]), &id("missing"), 2);
+
+    assert_eq!(result.center, id("missing"));
+    assert!(result.node_ids.is_empty());
+    assert_eq!(result.edge_count, 0);
+}
+
+#[test]
+fn dangling_edges_are_ignored_by_algorithms() {
+    let graph = snapshot(&["a"], &[("a", "missing")]);
+
+    assert_eq!(
+        compute_degrees(&graph).nodes,
+        vec![NodeDegree {
+            node_id: id("a"),
+            fan_in: 0,
+            fan_out: 0,
+        }]
+    );
+    assert!(find_cycles(&graph).is_empty());
+    assert_eq!(neighborhood(&graph, &id("a"), 1).node_ids, vec![id("a")]);
+}
+
+#[test]
+fn graph_summary_counts_effective_graph_and_respects_hub_limit() {
+    let mut graph = snapshot(
+        &["a", "b", "c"],
+        &[("a", "b"), ("a", "b"), ("b", "a"), ("c", "a")],
+    );
+    graph.diagnostics.push(GraphDiagnostic {
+        code: "graph.example".to_string(),
+        message: "example".to_string(),
+        path: None,
+    });
+
+    let summary = summarize_graph(&graph, 1);
+
+    assert_eq!(summary.node_count, 3);
+    assert_eq!(summary.edge_count, 3);
+    assert_eq!(summary.diagnostic_count, 1);
+    assert_eq!(summary.cycle_count, 1);
+    assert_eq!(summary.top_fan_in.len(), 1);
+    assert_eq!(summary.top_fan_out.len(), 1);
+}
+
+#[test]
+fn graph_summary_is_independent_of_node_and_edge_order() {
+    let first = snapshot(&["a", "b", "c"], &[("a", "b"), ("b", "c"), ("c", "a")]);
+    let second = snapshot(&["c", "a", "b"], &[("c", "a"), ("a", "b"), ("b", "c")]);
+
+    assert_eq!(summarize_graph(&first, 3), summarize_graph(&second, 3));
+}
+
+#[test]
+fn blast_radius_collects_transitive_dependents_of_a_seed() {
+    // a -> b -> c and d -> b, so changing `c` impacts b (imports c) and the
+    // transitive importers a and d.
+    let graph = snapshot(&["a", "b", "c", "d"], &[("a", "b"), ("b", "c"), ("d", "b")]);
+
+    let radius = blast_radius(&graph, &[id("c")]);
+
+    assert_eq!(radius.seeds, vec![id("c")]);
+    assert_eq!(radius.impacted, vec![id("a"), id("b"), id("d")]);
+}
+
+#[test]
+fn blast_radius_unions_multiple_seeds_and_excludes_them() {
+    let graph = snapshot(&["a", "b", "c", "d"], &[("a", "b"), ("b", "c"), ("d", "b")]);
+
+    let radius = blast_radius(&graph, &[id("c"), id("d")]);
+
+    assert_eq!(radius.seeds, vec![id("c"), id("d")]);
+    assert_eq!(radius.impacted, vec![id("a"), id("b")]);
+}
+
+#[test]
+fn blast_radius_ignores_missing_seeds_and_terminates_on_cycles() {
+    let graph = snapshot(&["a", "b"], &[("a", "b"), ("b", "a")]);
+
+    let radius = blast_radius(&graph, &[id("a"), id("missing")]);
+
+    assert_eq!(radius.seeds, vec![id("a")]);
+    assert_eq!(radius.impacted, vec![id("b")]);
+
+    let empty = blast_radius(&graph, &[id("missing")]);
+    assert!(empty.seeds.is_empty());
+    assert!(empty.impacted.is_empty());
+}
