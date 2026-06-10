@@ -206,9 +206,17 @@ impl<'a> ScanEngine<'a> {
                 },
                 || ImportCouplingAudit.audit_with_graph(&facts, self.config, self.path),
             );
+        let query_findings = crate::audits::architecture::graph_queries::GraphQueriesAudit.audit(
+            &facts,
+            self.config,
+            &coupling_graph,
+            self.path,
+        );
+
         findings.extend(project_findings);
         findings.extend(framework_findings);
         findings.extend(apply_project_decisions(&facts, coupling_findings));
+        findings.extend(query_findings);
 
         ProjectAnalysisStage {
             facts,
