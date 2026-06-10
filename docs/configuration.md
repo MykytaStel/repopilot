@@ -91,6 +91,63 @@ repopilot review . --fail-on-review definitely
 See [CLI reference → Gates](cli.md#gates) for the full two-axis gate model
 (finding gate vs review-signal gate).
 
+## Opt-in architecture rules
+
+Two graph rules are **off by default** and emit nothing until you describe your
+intended structure. They are opt-in precisely because the "right" structure is
+project-specific — there is no safe heuristic default.
+
+`architecture.layer-violation` enforces a declared layer order. List layers from
+the highest level to the lowest; a module may import layers at or below its own,
+never above:
+
+```toml
+# A module in `core` importing `ui` is a violation; `ui` importing `core` is fine.
+[[architecture.layers]]
+name = "ui"
+paths = ["src/ui/**", "src/components/**"]
+
+[[architecture.layers]]
+name = "domain"
+paths = ["src/domain/**"]
+
+[[architecture.layers]]
+name = "infrastructure"
+paths = ["src/infra/**", "src/db/**"]
+```
+
+Files that match no layer are ignored. With no `[[architecture.layers]]` the rule
+is silent.
+
+`architecture.package-boundary-violation` flags one package reaching into
+another package's internals instead of importing its public API (`index.ts`,
+`mod.rs`, `lib.rs`). Declare the roots whose immediate children are independent
+packages:
+
+```toml
+[architecture]
+package_roots = ["packages/*", "apps/*"]
+```
+
+With `packages/*`, anything under `packages/auth/` belongs to package
+`packages/auth`; an import from `packages/web/...` into `packages/auth/src/...`
+is flagged, while importing `packages/auth/index.ts` is not. With no
+`package_roots` the rule is silent.
+
+## Per-rule control
+
+Disable individual rules or override their severity without touching audit code.
+Unknown rule ids and invalid severities are reported as diagnostics, not applied:
+
+```toml
+[rules]
+disable = ["code-marker.todo", "architecture.deep-relative-imports"]
+
+[rules.severity_overrides]
+"architecture.large-file" = "low"
+"architecture.test-leak" = "high"
+```
+
 ## Common CLI overrides
 
 ```bash

@@ -164,9 +164,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
         docs_url: None,
-        description: "A lower-level layer imports a higher-level layer (e.g., Domain importing UI or Infrastructure), creating a tangled dependency graph.",
+        description: "A module imports another module from a higher layer than its own, against the order declared in `[[architecture.layers]]`. Opt-in: emits nothing unless layers are configured.",
         recommendation: Some(
-            "Invert the dependency using interfaces or move the logic to a higher-level layer.",
+            "Invert the dependency using an interface, or move the shared logic into a layer at or below the importer.",
         ),
         ..RuleMetadata::DEFAULT
     },
@@ -174,7 +174,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         rule_id: "architecture.test-leak",
         title: "Test code leaked into production",
         category: FindingCategory::Architecture,
-        default_severity: Severity::High,
+        // Medium while Experimental and undocumented; a High default would
+        // require a `docs_url` per the finding contract (rules reference: PR-J).
+        default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
@@ -194,7 +196,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
         docs_url: None,
-        description: "A file imports a private module from another package/feature instead of using its public API.",
+        description: "A file imports a private module from another package/feature instead of using its public API. Opt-in: emits nothing unless `[architecture] package_roots` is configured.",
         recommendation: Some(
             "Import from the package's public barrel file (e.g. index.ts, mod.rs) instead of reaching into its internal implementation.",
         ),
