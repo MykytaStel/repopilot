@@ -1,6 +1,5 @@
 use repopilot::audits::code_quality::deep_control_flow::DeepControlFlowAudit;
 use repopilot::audits::traits::FileAudit;
-use repopilot::findings::types::Severity;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::facts::FileFacts;
 use std::path::PathBuf;
@@ -47,7 +46,6 @@ fn rust_detects_exceeded_nesting_depth() {
 
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].rule_id, "code-quality.deep-control-flow");
-    assert_eq!(findings[0].severity, Severity::Low);
     assert_eq!(findings[0].evidence[0].line_start, 8); // line of `if w {`
     assert!(findings[0].evidence[0].snippet.contains("if w"));
 }

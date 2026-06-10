@@ -292,7 +292,7 @@ fn scan_min_confidence_keeps_only_high_confidence_findings() {
     fs::create_dir_all(temp.path().join("tests")).expect("failed to create tests dir");
     fs::write(
         temp.path().join("src/lib.rs"),
-        "pub fn live() {}\n// TODO: medium-confidence follow-up\nconst API_KEY: &str = \"abc12345\";\n",
+        "pub fn live() {}\n// TODO: medium-confidence follow-up\nconst API_KEY: &str = \"eyJhbGci.eyJpc3Mi.12345678\";\n",
     )
     .expect("failed to write source file");
     fs::write(temp.path().join("tests/lib.rs"), "fn covers_lib() {}\n")

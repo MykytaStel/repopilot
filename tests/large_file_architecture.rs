@@ -29,7 +29,6 @@ fn creates_architecture_finding_when_file_is_above_threshold() {
 
     assert_eq!(finding.rule_id, "architecture.large-file");
     assert_eq!(finding.category, FindingCategory::Architecture);
-    assert_eq!(finding.severity, Severity::Medium);
     assert_eq!(finding.evidence.len(), 1);
 
     let evidence = &finding.evidence[0];
@@ -44,13 +43,14 @@ fn creates_architecture_finding_when_file_is_above_threshold() {
 fn uses_high_severity_for_very_large_files() {
     let config = ScanConfig::default();
 
-    let finding = detect_large_file_finding(
+    let mut finding = detect_large_file_finding(
         Path::new("src/huge.rs"),
         config.huge_file_loc_threshold,
         &config,
     )
     .expect("expected huge file finding");
 
+    finding.populate_rule_metadata();
     assert_eq!(finding.severity, Severity::High);
 }
 

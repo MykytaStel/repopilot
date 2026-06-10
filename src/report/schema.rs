@@ -17,8 +17,9 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.18";
-const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &["0.16", "0.17", SCAN_REPORT_SCHEMA_VERSION];
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.19";
+const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] =
+    &["0.16", "0.17", "0.18", SCAN_REPORT_SCHEMA_VERSION];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -113,6 +114,10 @@ pub struct ScanJsonReport<'a> {
     pub raw_signal_quality: crate::findings::quality::SignalQualitySummary,
     pub visible_signal_quality: crate::findings::quality::SignalQualitySummary,
     pub signal_quality: crate::findings::quality::SignalQualitySummary,
+    /// Registry false-positive notes for every rule that fired, so report
+    /// consumers (CI bots, agents) can self-triage without a catalog lookup.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub rule_false_positive_notes: std::collections::BTreeMap<&'a str, &'static str>,
 }
 
 impl<'a> ScanJsonReport<'a> {
@@ -160,8 +165,26 @@ impl<'a> ScanJsonReport<'a> {
             raw_signal_quality: summary.artifacts.raw_signal_quality.clone(),
             visible_signal_quality: summary.artifacts.visible_signal_quality.clone(),
             signal_quality: summary.artifacts.signal_quality.clone(),
+            rule_false_positive_notes: rule_false_positive_notes(&summary.artifacts.findings),
         }
     }
+}
+
+fn rule_false_positive_notes(
+    findings: &[Finding],
+) -> std::collections::BTreeMap<&str, &'static str> {
+    let mut notes = std::collections::BTreeMap::new();
+    for finding in findings {
+        if notes.contains_key(finding.rule_id.as_str()) {
+            continue;
+        }
+        if let Some(metadata) = crate::rules::lookup_rule_metadata(&finding.rule_id)
+            && let Some(false_positive_notes) = metadata.false_positive_notes
+        {
+            notes.insert(finding.rule_id.as_str(), false_positive_notes);
+        }
+    }
+    notes
 }
 
 mod baseline;

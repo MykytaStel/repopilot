@@ -426,7 +426,9 @@ fn handle_resource_read(id: Value, params: &Value, state: &ServerState) -> Respo
                         "title": rule.title,
                         "category": rule.category.label(),
                         "severity": rule.default_severity.label(),
+                        "max_severity": rule.severity_ceiling().label(),
                         "confidence": rule.default_confidence.label(),
+                        "max_confidence": rule.confidence_ceiling().label(),
                         "lifecycle": rule.lifecycle.label(),
                         "signal_source": rule.signal_source.label(),
                         "docs_url": rule.docs_url

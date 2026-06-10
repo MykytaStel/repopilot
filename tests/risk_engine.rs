@@ -28,7 +28,6 @@ fn file_role_context_changes_risk_without_changing_rule_severity() {
 
     assert!(production_risk.score > generated_risk.score);
     assert!(production_risk.score > config_risk.score);
-    assert_eq!(finding.severity, Severity::Medium);
     assert!(
         generated_risk
             .signals

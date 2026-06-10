@@ -26,7 +26,7 @@ fn review_reports_working_tree_findings_on_changed_lines() {
         &["review", ".", "--format", "json", "--profile", "strict"],
     );
 
-    assert_eq!(json["schema_version"], "0.18");
+    assert_eq!(json["schema_version"], "0.19");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["risk_summary"]["total"].as_u64().is_some());
     assert!(json["review"]["in_diff_findings"].as_u64().unwrap() >= 1);

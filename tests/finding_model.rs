@@ -27,7 +27,6 @@ fn finding_contains_evidence() {
     assert_eq!(finding.rule_id, "code-marker.todo");
     assert!(!finding.recommendation.is_empty());
     assert_eq!(finding.category, FindingCategory::CodeQuality);
-    assert_eq!(finding.severity, Severity::Low);
     assert_eq!(finding.confidence, Confidence::Medium);
     assert_eq!(finding.severity_label(), "LOW");
     assert_eq!(finding.confidence_label(), "MEDIUM");

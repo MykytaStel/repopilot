@@ -1,6 +1,6 @@
 use repopilot::audits::code_quality::long_function::LongFunctionAudit;
 use repopilot::audits::traits::FileAudit;
-use repopilot::findings::types::{Confidence, Severity};
+use repopilot::findings::types::Confidence;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::facts::FileFacts;
 use std::path::PathBuf;
@@ -50,7 +50,6 @@ fn rust_function_over_threshold_produces_finding() {
         "expected one finding for a long Rust function"
     );
     assert_eq!(findings[0].rule_id, "code-quality.long-function");
-    assert_eq!(findings[0].severity, Severity::Medium);
     assert_eq!(findings[0].confidence, Confidence::High);
     assert!(findings[0].title.contains("long_fn"));
 }

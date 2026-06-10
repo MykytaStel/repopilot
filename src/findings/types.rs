@@ -123,6 +123,26 @@ impl Finding {
                 analysis_scope: AnalysisScope::for_signal_source(metadata.signal_source),
             };
         }
+
+        // The rule registry owns severity and confidence. Context (audit tiers,
+        // knowledge-pack overrides) may lower severity or raise it up to the
+        // declared ceiling, never above it.
+        let is_default_severity = self.severity == Severity::Info;
+        if is_default_severity {
+            self.severity = metadata.default_severity;
+        } else {
+            self.severity = self.severity.min(metadata.severity_ceiling());
+        }
+
+        // Confidence is fixed to the registry default unless the rule declares
+        // contextual confidence, in which case the audit's per-finding value is
+        // kept but capped at the ceiling.
+        let is_default_confidence = self.confidence == Confidence::Medium;
+        if !metadata.contextual_confidence || is_default_confidence {
+            self.confidence = metadata.default_confidence;
+        } else {
+            self.confidence = self.confidence.min(metadata.confidence_ceiling());
+        }
     }
 
     pub fn recommendation_for_rule_id(rule_id: &str) -> String {
