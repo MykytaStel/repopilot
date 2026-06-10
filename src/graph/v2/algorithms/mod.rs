@@ -6,7 +6,7 @@ mod neighborhood;
 mod summary;
 
 pub use blast_radius::{GraphBlastRadius, blast_radius, direct_dependents};
-pub use cycles::{GraphCycle, find_cycles};
+pub use cycles::{GraphCycle, find_cycles, shortest_cycle};
 pub use degree::{GraphDegreeSummary, NodeDegree, compute_degrees, top_fan_in, top_fan_out};
 pub use directory::{DirectoryDependency, GraphDirectoryDependencies, directory_dependencies};
 pub use neighborhood::{GraphNeighborhood, neighborhood};

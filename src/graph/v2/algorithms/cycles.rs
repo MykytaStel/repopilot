@@ -1,10 +1,94 @@
 use super::topology;
 use crate::graph::v2::{GraphNodeId, GraphSnapshot};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphCycle {
     pub node_ids: Vec<GraphNodeId>,
+}
+
+/// Cap on how many start nodes the shortest-cycle search tries, bounding cost on
+/// pathologically large strongly-connected components. Members are sorted, so
+/// the search stays deterministic.
+const MAX_SHORTEST_CYCLE_STARTS: usize = 64;
+
+/// The shortest directed cycle within a strongly-connected component, returned
+/// as a closed path (e.g. `a -> b -> a` is `[a, b, a]`). Useful as the
+/// actionable headline for an `architecture.circular-dependency` finding when
+/// the full component is too large to read. Falls back to the (sorted) member
+/// list if no cycle can be reconstructed.
+pub fn shortest_cycle(snapshot: &GraphSnapshot, cycle: &GraphCycle) -> Vec<GraphNodeId> {
+    let members = &cycle.node_ids;
+    let index_by_id: BTreeMap<&GraphNodeId, usize> = members
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id, index))
+        .collect();
+
+    let mut adjacency = vec![Vec::new(); members.len()];
+    for edge in &snapshot.edges {
+        if let (Some(&from), Some(&to)) = (index_by_id.get(&edge.from), index_by_id.get(&edge.to)) {
+            adjacency[from].push(to);
+        }
+    }
+    for targets in &mut adjacency {
+        targets.sort_unstable();
+        targets.dedup();
+    }
+
+    let mut best: Option<Vec<usize>> = None;
+    for start in 0..members.len().min(MAX_SHORTEST_CYCLE_STARTS) {
+        if let Some(path) = shortest_cycle_from(start, &adjacency)
+            && best
+                .as_ref()
+                .is_none_or(|current| path.len() < current.len())
+        {
+            best = Some(path);
+        }
+    }
+
+    match best {
+        Some(path) => path
+            .into_iter()
+            .map(|index| members[index].clone())
+            .collect(),
+        None => members.clone(),
+    }
+}
+
+/// Breadth-first search for the shortest cycle returning to `start`, as a closed
+/// path of node indices `[start, ..., start]`.
+fn shortest_cycle_from(start: usize, adjacency: &[Vec<usize>]) -> Option<Vec<usize>> {
+    let mut parent = vec![usize::MAX; adjacency.len()];
+    let mut visited = vec![false; adjacency.len()];
+    visited[start] = true;
+    let mut queue = VecDeque::from([start]);
+
+    while let Some(node) = queue.pop_front() {
+        for &next in &adjacency[node] {
+            if next == start {
+                let mut chain = Vec::new();
+                let mut current = node;
+                while current != start {
+                    chain.push(current);
+                    current = parent[current];
+                }
+                chain.reverse();
+                let mut path = Vec::with_capacity(chain.len() + 2);
+                path.push(start);
+                path.extend(chain);
+                path.push(start);
+                return Some(path);
+            }
+            if !visited[next] {
+                visited[next] = true;
+                parent[next] = node;
+                queue.push_back(next);
+            }
+        }
+    }
+
+    None
 }
 
 pub fn find_cycles(snapshot: &GraphSnapshot) -> Vec<GraphCycle> {

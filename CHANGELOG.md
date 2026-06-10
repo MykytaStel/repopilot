@@ -9,8 +9,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - Added four architecture rules that query the import graph.
-  `architecture.dead-module` (production files nothing imports that are not entrypoints or public API) and `architecture.test-leak` (production code
-  importing a test or fixture file) are on by default.
+  `architecture.dead-module` (production files nothing imports that are not entrypoints or public API) and `architecture.test-leak` (production code importing a test or fixture file) are on by default.
   `architecture.layer-violation` and `architecture.package-boundary-violation`
   are **strictly opt-in** and emit nothing until you declare structure: ordered
   `[[architecture.layers]]` (a module may import layers at or below its own,
@@ -35,6 +34,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `architecture.circular-dependency` findings now lead with the **minimal cycle**
+  within a strongly-connected component (e.g. `a -> b -> c -> a`) and carry the
+  component size as context, instead of repeating the entire component into every
+  evidence snippet. Evidence now points at the files in the shortest cycle only,
+  so a large tangled component yields one actionable loop rather than a wall.
 - The rule registry is now the single source of truth for finding severity and
   confidence. `populate_rule_metadata` applies each rule's registry default
   (an audit may only lower severity, or raise it up to a declared ceiling), so

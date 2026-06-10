@@ -194,6 +194,37 @@ fn multiple_cycles_sort_by_size_then_first_node() {
 }
 
 #[test]
+fn shortest_cycle_returns_the_minimal_loop_within_a_large_component() {
+    // One strongly-connected component: a long ring a->b->c->d->a plus a short
+    // back-edge c->a, so the minimal cycle is a->b->c->a.
+    let graph = snapshot(
+        &["a", "b", "c", "d"],
+        &[("a", "b"), ("b", "c"), ("c", "d"), ("d", "a"), ("c", "a")],
+    );
+    let component = &find_cycles(&graph)[0];
+
+    let minimal = shortest_cycle(&graph, component);
+
+    assert_eq!(minimal, vec![id("a"), id("b"), id("c"), id("a")]);
+    assert!(minimal.len() < component.node_ids.len() + 1);
+}
+
+#[test]
+fn shortest_cycle_handles_two_node_loops_and_self_loops() {
+    let two = snapshot(&["a", "b"], &[("a", "b"), ("b", "a")]);
+    assert_eq!(
+        shortest_cycle(&two, &find_cycles(&two)[0]),
+        vec![id("a"), id("b"), id("a")]
+    );
+
+    let loop_back = snapshot(&["a"], &[("a", "a")]);
+    assert_eq!(
+        shortest_cycle(&loop_back, &find_cycles(&loop_back)[0]),
+        vec![id("a"), id("a")]
+    );
+}
+
+#[test]
 fn neighborhood_depth_zero_returns_only_center() {
     let graph = snapshot(&["a", "b"], &[("a", "b")]);
 
