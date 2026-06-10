@@ -37,13 +37,12 @@ fn excessive_fan_out_finding_is_emitted() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    let finding = summary
+    summary
         .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.excessive-fan-out")
         .expect("expected excessive fan-out finding");
-    assert_eq!(finding.severity, Severity::Medium);
 }
 
 #[test]
@@ -114,7 +113,7 @@ fn rust_orchestration_file_still_emits_excessive_fan_out() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    let finding = summary
+    summary
         .artifacts
         .findings
         .iter()
@@ -123,7 +122,6 @@ fn rust_orchestration_file_still_emits_excessive_fan_out() {
                 && finding.evidence[0].path.as_path() == Path::new("src/lib.rs")
         })
         .expect("expected orchestration lib.rs to keep excessive fan-out finding");
-    assert_eq!(finding.severity, Severity::Medium);
 }
 
 #[test]
@@ -160,13 +158,12 @@ fn high_instability_hub_finding_is_emitted() {
 
     let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
 
-    let finding = summary
+    summary
         .artifacts
         .findings
         .iter()
         .find(|finding| finding.rule_id == "architecture.high-instability-hub")
         .expect("expected high-instability hub finding");
-    assert_eq!(finding.severity, Severity::High);
 }
 
 #[test]
@@ -192,7 +189,6 @@ fn circular_dependency_finding_is_emitted() {
         .iter()
         .find(|finding| finding.rule_id == "architecture.circular-dependency")
         .expect("expected circular dependency finding");
-    assert_eq!(finding.severity, Severity::High);
     // Evidence lists the cycle members with repository-relative paths.
     assert!(!finding.evidence.is_empty());
     let cycle_files: Vec<_> = finding

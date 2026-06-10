@@ -6,7 +6,7 @@ use crate::graph::{
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 mod rust_facade;
@@ -47,22 +47,35 @@ impl ImportCouplingAudit {
         let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
 
+        let mut prod_files = HashSet::new();
+        let mut file_by_path = HashMap::new();
+        for file in &facts.files {
+            let is_prod =
+                classifier.classify(file).file_role == crate::analysis::FileRole::Production;
+            if is_prod {
+                prod_files.insert(file.path.clone());
+                prod_files.insert(root.join(&file.path));
+            }
+            file_by_path.insert(file.path.clone(), file);
+            file_by_path.insert(root.join(&file.path), file);
+        }
+
         for metric in &metrics {
-            let is_prod = facts
-                .files
-                .iter()
-                .find(|file| file.path == metric.path || root.join(&file.path) == metric.path)
-                .map(|file| {
-                    classifier.classify(file).file_role == crate::analysis::FileRole::Production
-                })
-                .unwrap_or(true);
+            let is_prod = prod_files.contains(&metric.path);
 
             if !is_prod {
                 continue;
             }
 
+            let file_facts = file_by_path.get(&metric.path).copied();
+
             if metric.fan_out > config.max_fan_out && !is_pure_rust_facade(metric, facts, root) {
-                findings.push(excessive_fan_out_finding(metric, root, config.max_fan_out));
+                findings.push(excessive_fan_out_finding(
+                    metric,
+                    root,
+                    config.max_fan_out,
+                    file_facts,
+                ));
             }
 
             let instability_pct = (metric.instability * 100.0).round() as usize;
@@ -75,22 +88,14 @@ impl ImportCouplingAudit {
                     instability_pct,
                     config.instability_hub_min_fan_in,
                     config.instability_hub_min_instability_pct,
+                    file_facts,
                 ));
             }
         }
 
         let mut seen_cycles = BTreeSet::new();
         for cycle in cycles {
-            let is_prod_cycle = cycle.iter().all(|path| {
-                facts
-                    .files
-                    .iter()
-                    .find(|file| file.path == *path || root.join(&file.path) == *path)
-                    .map(|file| {
-                        classifier.classify(file).file_role == crate::analysis::FileRole::Production
-                    })
-                    .unwrap_or(true)
-            });
+            let is_prod_cycle = cycle.iter().all(|path| prod_files.contains(path));
 
             if !is_prod_cycle {
                 continue;
@@ -105,8 +110,26 @@ impl ImportCouplingAudit {
     }
 }
 
-fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize) -> Finding {
+fn excessive_fan_out_finding(
+    metric: &FileMetrics,
+    root: &Path,
+    threshold: usize,
+    file_facts: Option<&crate::scan::facts::FileFacts>,
+) -> Finding {
     let path = relative_path(&metric.path, root);
+
+    let mut snippet = format!(
+        "{} fan_out={}; threshold={threshold}.",
+        path.display(),
+        metric.fan_out
+    );
+
+    if let Some(facts) = file_facts
+        && !facts.imports.is_empty()
+    {
+        snippet.push_str("\nImports:\n");
+        snippet.push_str(&facts.imports.join("\n"));
+    }
 
     Finding {
         id: String::new(),
@@ -124,11 +147,7 @@ fn excessive_fan_out_finding(metric: &FileMetrics, root: &Path, threshold: usize
             path: path.clone(),
             line_start: 1,
             line_end: None,
-            snippet: format!(
-                "{} fan_out={}; threshold={threshold}.",
-                path.display(),
-                metric.fan_out
-            ),
+            snippet,
         }],
         workspace_package: None,
         docs_url: None,
@@ -143,8 +162,24 @@ fn high_instability_hub_finding(
     instability_pct: usize,
     min_fan_in: usize,
     min_instability_pct: usize,
+    file_facts: Option<&crate::scan::facts::FileFacts>,
 ) -> Finding {
     let path = relative_path(&metric.path, root);
+
+    let mut snippet = format!(
+        "{} fan_in={}, fan_out={}, instability={}%; thresholds: fan_in>={min_fan_in}, instability>={min_instability_pct}%.",
+        path.display(),
+        metric.fan_in,
+        metric.fan_out,
+        instability_pct
+    );
+
+    if let Some(facts) = file_facts
+        && !facts.imports.is_empty()
+    {
+        snippet.push_str("\nImports:\n");
+        snippet.push_str(&facts.imports.join("\n"));
+    }
 
     Finding {
         id: String::new(),
@@ -162,13 +197,7 @@ fn high_instability_hub_finding(
             path: path.clone(),
             line_start: 1,
             line_end: None,
-            snippet: format!(
-                "{} fan_in={}, fan_out={}, instability={}%; thresholds: fan_in>={min_fan_in}, instability>={min_instability_pct}%.",
-                path.display(),
-                metric.fan_in,
-                metric.fan_out,
-                instability_pct
-            ),
+            snippet,
         }],
         workspace_package: None,
         docs_url: None,

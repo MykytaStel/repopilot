@@ -151,6 +151,21 @@ fn evaluate_one_rule_fixture(
             .violations
             .len();
 
+        for finding in &summary.artifacts.findings {
+            if let Some(metadata) = crate::rules::lookup_rule_metadata(&finding.rule_id) {
+                if finding.severity > metadata.severity_ceiling() {
+                    report.contract_violations += 1;
+                }
+                if !metadata.contextual_confidence {
+                    if finding.confidence != metadata.default_confidence {
+                        report.contract_violations += 1;
+                    }
+                } else if finding.confidence > metadata.confidence_ceiling() {
+                    report.contract_violations += 1;
+                }
+            }
+        }
+
         if has_stable_id_failure(&summary.artifacts.findings) {
             report.stable_id_failures += 1;
         }

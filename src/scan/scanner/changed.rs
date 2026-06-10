@@ -3,6 +3,7 @@ use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{run_framework_audits, run_project_audits};
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
+use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
 use crate::knowledge::decision::apply_project_decisions;
 use crate::review::diff::ChangedFile;
 use crate::scan::config::ScanConfig;
@@ -104,6 +105,7 @@ impl<'a> ChangedScanEngine<'a> {
         ));
         let post_scan_audits_us = project_start.elapsed().as_micros() as u64;
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
+        apply_rule_config(&mut file_stage.findings, self.config);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
         let contract_stage =
             super::contract_stage::validate_finding_contract_stage(&file_stage.findings);
@@ -111,12 +113,14 @@ impl<'a> ChangedScanEngine<'a> {
             &file_stage.findings,
             contract_stage.report.violations.len(),
         );
+        let mut diagnostics = contract_stage.diagnostics;
+        diagnostics.extend(rule_config_diagnostics(self.config));
         let finding_pipeline = ChangedFindingPipelineStage {
             post_scan_audits_us,
             enrichment_us,
             risk_scoring_us,
             contract_validation_us: contract_stage.elapsed_us,
-            diagnostics: contract_stage.diagnostics,
+            diagnostics,
             signal_quality,
         };
 

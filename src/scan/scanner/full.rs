@@ -4,6 +4,7 @@ use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_proje
 use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
+use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
 use crate::findings::types::Finding;
 use crate::frameworks::{
     DetectedFramework, detect_framework_projects, detect_frameworks,
@@ -91,6 +92,7 @@ impl<'a> ScanEngine<'a> {
             self.run_project_analysis(framework_stage.facts, file_stage.findings);
 
         let enrichment_us = enrich_findings_timed(&mut project_stage.findings, self.path);
+        apply_rule_config(&mut project_stage.findings, self.config);
         let risk_scoring_us = self.score_findings(
             &project_stage.facts,
             &project_stage.coupling_graph,
@@ -120,11 +122,13 @@ impl<'a> ScanEngine<'a> {
         };
 
         let sidecar = build_sidecar(&project_stage.facts);
+        let mut diagnostics = contract_stage.diagnostics;
+        diagnostics.extend(rule_config_diagnostics(self.config));
         let summary = self.finalize_report(
             project_stage,
             scan_duration_us,
             timings,
-            contract_stage.diagnostics,
+            diagnostics,
             signal_quality,
         );
 

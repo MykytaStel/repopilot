@@ -54,3 +54,6 @@ enabled = true
 
 [output]
 default_format = "console"
+
+[rules.severity_overrides]
+"architecture.excessive-fan-out" = "low"

@@ -46,7 +46,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         title: "Possible hardcoded secret or API key",
         category: FindingCategory::Security,
         default_severity: Severity::High,
-        default_confidence: Confidence::Low,
+        default_confidence: Confidence::Medium,
+        max_confidence: Confidence::High,
+        contextual_confidence: true,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
         docs_url: Some(

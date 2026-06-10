@@ -1,9 +1,9 @@
 {
-  "schema_version": "0.18",
+  "schema_version": "0.19",
   "repopilot_version": "{{VERSION}}",
   "report": {
     "kind": "scan",
-    "schema_version": "0.18",
+    "schema_version": "0.19",
     "repopilot_version": "{{VERSION}}"
   },
   "root_path": "demo-project",
@@ -197,5 +197,8 @@
     "recommendation_coverage_percent": 100,
     "docs_coverage_for_high_risk_percent": 100,
     "contract_violations": 0
+  },
+  "rule_false_positive_notes": {
+    "security.secret-candidate": "Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered."
   }
 }

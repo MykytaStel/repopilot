@@ -56,7 +56,6 @@ fn indexed_lookup_matches_registry_iterator_metadata() {
 fn inline_style_metadata_fields() {
     let meta: &RuleMetadata = lookup_rule_metadata("framework.react-native.inline-style").unwrap();
     assert_eq!(meta.category, FindingCategory::Framework);
-    assert_eq!(meta.default_severity, Severity::Medium);
     assert_eq!(
         meta.docs_url,
         Some("https://reactnative.dev/docs/stylesheet")

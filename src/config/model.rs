@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 pub struct RepoPilotConfig {
     pub scan: ScanSection,
     pub review: ReviewSection,
+    pub rules: RulesSection,
     pub architecture: ArchitectureSection,
     pub code_quality: CodeQualitySection,
     pub testing: TestingSection,
@@ -23,6 +24,26 @@ pub struct RepoPilotConfig {
     pub algorithmic: AlgorithmicSection,
     pub taint: TaintSection,
     pub output: OutputSection,
+}
+
+/// Per-rule configuration: turn individual rules off or pin their severity.
+///
+/// ```toml
+/// [rules]
+/// disable = ["code-marker.todo"]
+///
+/// [rules.severity_overrides]
+/// "architecture.large-file" = "low"
+/// ```
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct RulesSection {
+    /// Rule ids whose findings are dropped entirely.
+    pub disable: Vec<String>,
+    /// Rule id → severity label (`info`/`low`/`medium`/`high`/`critical`).
+    /// An override is absolute: it replaces the registry default and any
+    /// contextual adjustment for every finding of that rule.
+    pub severity_overrides: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -76,7 +97,42 @@ impl RepoPilotConfig {
         if !self.architecture.module_mappings.is_empty() {
             config.module_mappings = self.architecture.module_mappings.clone();
         }
+        self.rules.apply_to(&mut config);
         config
+    }
+}
+
+impl RulesSection {
+    /// Validates the section against the rule registry and fills the
+    /// `ScanConfig` rule fields. Invalid entries are skipped and recorded in
+    /// `rule_config_problems` so the scan can report them as diagnostics.
+    fn apply_to(&self, config: &mut ScanConfig) {
+        for rule_id in &self.disable {
+            if crate::rules::lookup_rule_metadata(rule_id).is_none() {
+                config.rule_config_problems.push(format!(
+                    "[rules] disable lists unknown rule id `{rule_id}`; entry ignored"
+                ));
+                continue;
+            }
+            config.disabled_rules.insert(rule_id.clone());
+        }
+
+        for (rule_id, label) in &self.severity_overrides {
+            if crate::rules::lookup_rule_metadata(rule_id).is_none() {
+                config.rule_config_problems.push(format!(
+                    "[rules.severity_overrides] lists unknown rule id `{rule_id}`; entry ignored"
+                ));
+                continue;
+            }
+            let Some(severity) = crate::findings::types::Severity::from_lowercase_label(label)
+            else {
+                config.rule_config_problems.push(format!(
+                    "[rules.severity_overrides] `{rule_id}` has invalid severity `{label}` (expected info/low/medium/high/critical); entry ignored"
+                ));
+                continue;
+            };
+            config.severity_overrides.insert(rule_id.clone(), severity);
+        }
     }
 }
 

@@ -4,5 +4,6 @@ pub mod feedback;
 pub mod filter;
 pub mod provenance;
 pub mod quality;
+pub mod rule_config;
 pub mod types;
 pub mod visibility;
