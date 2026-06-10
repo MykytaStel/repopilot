@@ -3,7 +3,7 @@
 //! normalization they share.
 
 use crate::findings::types::{Finding, Severity};
-use crate::graph::{CouplingGraph, compute_metrics};
+use crate::graph::{CouplingGraph, coupling_file_metrics};
 use crate::risk::model::GraphImpact;
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path};
@@ -24,7 +24,7 @@ pub(super) fn workspace_hotspots(findings: &[Finding]) -> HashSet<String> {
 }
 
 pub(super) fn graph_impacts(graph: &CouplingGraph) -> HashMap<String, GraphImpact> {
-    compute_metrics(graph)
+    coupling_file_metrics(graph)
         .into_iter()
         .filter_map(|metric| {
             let impact = if metric.fan_in >= 3 || metric.fan_out >= 8 {

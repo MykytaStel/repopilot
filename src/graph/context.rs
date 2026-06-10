@@ -1,7 +1,8 @@
 use crate::audits::context::{FileRole, classify_file};
 use crate::findings::types::Finding;
+use crate::graph::v2::{build_coupling_graph_snapshot, direct_dependents};
 use crate::graph::{
-    CouplingGraph, build_coupling_graph, compute_metrics, detect_cycles_bounded,
+    CouplingGraph, build_coupling_graph, coupling_file_metrics, detect_cycles_bounded,
     without_rust_module_containment_edges,
 };
 use crate::review::diff::{ChangeStatus, ChangedFile};
@@ -174,6 +175,37 @@ mod tests {
                 .iter()
                 .any(|value| value == "risky_clusters")
         );
+    }
+
+    #[test]
+    fn summary_changed_blast_radius_lists_direct_importers() {
+        // a.rs and b.rs both import shared.rs; changing shared.rs reaches both,
+        // sourced through the shared graph v2 one-hop dependents.
+        let shared = PathBuf::from("src/shared.rs");
+        let a = PathBuf::from("src/a.rs");
+        let b = PathBuf::from("src/b.rs");
+        let mut edges = BTreeMap::new();
+        edges.insert(a.clone(), BTreeSet::from([shared.clone()]));
+        edges.insert(b.clone(), BTreeSet::from([shared.clone()]));
+
+        let graph = RepoContextGraph {
+            root_path: PathBuf::from("."),
+            nodes: vec![node(&a), node(&b), node(&shared)],
+            edges,
+            detected_frameworks: Vec::new(),
+            framework_projects: Vec::new(),
+            react_native: None,
+        };
+        let changed = vec![ChangedFile {
+            path: shared.clone(),
+            status: ChangeStatus::Modified,
+            ranges: Vec::new(),
+            hunks: Vec::new(),
+        }];
+
+        let summary = summarize_context_graph(&graph, &[], &changed);
+
+        assert_eq!(summary.changed_blast_radius, vec![a, b]);
     }
 
     fn node(path: &Path) -> RepoContextNode {

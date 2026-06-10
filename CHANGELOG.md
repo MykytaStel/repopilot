@@ -43,6 +43,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   exemption moved to an `import_coupling::rust_facade` submodule to keep each file
   under the 300-line limit.
 
+- Internal: moved the Context Risk Graph summary and the risk graph-impact overlay
+  off the v1 `compute_metrics` path onto the shared v2-backed `coupling_file_metrics`,
+  and rebuilt the context summary's changed-blast-radius from the shared one-hop
+  `direct_dependents` instead of a private edge inversion. This removes the last
+  duplicate importer-inversion copy and leaves v1 `compute_metrics` out of every
+  production path (it remains only as the parity-test reference). The
+  `ContextGraphSummary` (AI context "Context Risk Graph", review CI, report schema)
+  and all risk scoring are byte-for-byte unchanged, guarded by existing and new
+  parity tests.
+
 - Documented the gate model as one coherent two-axis story: a **finding gate**
   (`--fail-on` by severity/status, or the mutually exclusive `--fail-on-priority`
   by risk; in-diff only on `review`) and a separate, opt-in **review-signal gate**
