@@ -6,7 +6,7 @@ pub fn summarize_context_graph(
     changed_files: &[ChangedFile],
 ) -> ContextGraphSummary {
     let coupling_graph = graph.coupling_graph();
-    let mut metrics = compute_metrics(&coupling_graph);
+    let mut metrics = coupling_file_metrics(&coupling_graph);
     let node_by_path = graph
         .nodes
         .iter()
@@ -113,15 +113,21 @@ fn changed_blast_radius(
         .iter()
         .map(|file| file.path.clone())
         .collect::<HashSet<_>>();
-    let mut importers_by_target: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
-    for (source, targets) in &graph.edges {
-        for target in targets {
-            importers_by_target
-                .entry(target.clone())
-                .or_default()
-                .insert(source.clone());
-        }
-    }
+    // Invert the dependency edges through the shared graph v2 one-hop
+    // `direct_dependents`, then key the importer sets back by repository path so
+    // the lookup below is unchanged.
+    let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
+    let importers_by_target: BTreeMap<PathBuf, BTreeSet<PathBuf>> = direct_dependents(&snapshot)
+        .into_iter()
+        .filter_map(|(target_id, source_ids)| {
+            let target = path_by_id.get(&target_id)?.clone();
+            let sources = source_ids
+                .iter()
+                .filter_map(|id| path_by_id.get(id).cloned())
+                .collect::<BTreeSet<_>>();
+            Some((target, sources))
+        })
+        .collect();
 
     let mut impacted = BTreeSet::new();
     for path in &changed {
