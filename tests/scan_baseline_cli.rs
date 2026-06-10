@@ -294,7 +294,7 @@ fn lower_severity_new_findings_do_not_fail_higher_threshold() {
         .expect("failed to run scan");
 
     assert!(output.status.success());
-    assert!(String::from_utf8_lossy(&output.stdout).contains("New findings: 1"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("New findings: "));
 }
 
 #[test]

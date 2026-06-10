@@ -947,3 +947,35 @@ suppress_generated = true
 role = "test"
 action = "downgrade"
 severity = "LOW"
+
+[[rules]]
+rule_id = "architecture.dead-module"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+risk = { id = "knowledge.dead-module", label = "dead code", weight = 2, reason = "dead modules add maintenance overhead and confuse developers" }
+
+[[rules]]
+rule_id = "architecture.layer-violation"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+risk = { id = "knowledge.layer-violation", label = "layer violation", weight = 5, reason = "layer violations create tight coupling and reduce maintainability" }
+
+[[rules]]
+rule_id = "architecture.test-leak"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+risk = { id = "knowledge.test-leak", label = "test leak", weight = 7, reason = "production code importing test code creates invalid dependencies and can bundle testing utilities in production builds" }
+
+[[rules]]
+rule_id = "architecture.package-boundary-violation"
+minimum_support = "rule-aware"
+languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+risk = { id = "knowledge.package-boundary", label = "package boundary violation", weight = 4, reason = "bypassing public API files creates fragile internal coupling across feature domains" }

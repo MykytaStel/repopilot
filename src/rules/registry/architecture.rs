@@ -140,4 +140,64 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ),
         ..RuleMetadata::DEFAULT
     },
+    RuleMetadata {
+        rule_id: "architecture.dead-module",
+        title: "Dead module detected",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::Low,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Experimental,
+        signal_source: SignalSource::ImportGraph,
+        docs_url: None,
+        description: "This production file is not imported by any other project file and is not a known entrypoint. It may be dead code.",
+        recommendation: Some(
+            "Remove the file if it is no longer used, or ensure it is exported in the package's public API.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
+    RuleMetadata {
+        rule_id: "architecture.layer-violation",
+        title: "Layer violation detected",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::Medium,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Experimental,
+        signal_source: SignalSource::ImportGraph,
+        docs_url: None,
+        description: "A lower-level layer imports a higher-level layer (e.g., Domain importing UI or Infrastructure), creating a tangled dependency graph.",
+        recommendation: Some(
+            "Invert the dependency using interfaces or move the logic to a higher-level layer.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
+    RuleMetadata {
+        rule_id: "architecture.test-leak",
+        title: "Test code leaked into production",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::High,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Experimental,
+        signal_source: SignalSource::ImportGraph,
+        docs_url: None,
+        description: "A production module imports a test or fixture module.",
+        recommendation: Some(
+            "Remove the test dependency from production code or extract the shared logic into a production utility.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
+    RuleMetadata {
+        rule_id: "architecture.package-boundary-violation",
+        title: "Package boundary violation",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::Medium,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Experimental,
+        signal_source: SignalSource::ImportGraph,
+        docs_url: None,
+        description: "A file imports a private module from another package/feature instead of using its public API.",
+        recommendation: Some(
+            "Import from the package's public barrel file (e.g. index.ts, mod.rs) instead of reaching into its internal implementation.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
 ];
