@@ -97,6 +97,16 @@ impl RepoPilotConfig {
         if !self.architecture.module_mappings.is_empty() {
             config.module_mappings = self.architecture.module_mappings.clone();
         }
+        config.architecture_layers = self
+            .architecture
+            .layers
+            .iter()
+            .map(|layer| crate::scan::config::LayerSpec {
+                name: layer.name.clone(),
+                paths: layer.paths.clone(),
+            })
+            .collect();
+        config.package_roots = self.architecture.package_roots.clone();
         self.rules.apply_to(&mut config);
         config
     }
@@ -165,6 +175,24 @@ pub struct ArchitectureSection {
     pub instability_hub_min_fan_in: usize,
     pub instability_hub_min_instability_pct: usize,
     pub module_mappings: std::collections::BTreeMap<String, Vec<String>>,
+    /// Opt-in ordered layers for `architecture.layer-violation`. Listed
+    /// highest-level first; a module may depend only on layers at or below its
+    /// own. Absent = the rule emits nothing.
+    #[serde(default)]
+    pub layers: Vec<LayerRule>,
+    /// Opt-in glob roots for `architecture.package-boundary-violation`, e.g.
+    /// `["packages/*", "apps/*"]`. Absent = the rule emits nothing.
+    #[serde(default)]
+    pub package_roots: Vec<String>,
+}
+
+/// One `[[architecture.layers]]` entry: a layer name and the globs that place a
+/// file in it.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct LayerRule {
+    pub name: String,
+    #[serde(default)]
+    pub paths: Vec<String>,
 }
 
 impl Default for ArchitectureSection {
@@ -179,6 +207,8 @@ impl Default for ArchitectureSection {
             instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
             module_mappings: std::collections::BTreeMap::new(),
+            layers: Vec::new(),
+            package_roots: Vec::new(),
         }
     }
 }

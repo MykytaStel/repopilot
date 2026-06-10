@@ -24,6 +24,8 @@ const IMPORT_GRAPH_RULES_WITH_FIXTURES: &[&str] = &[
     "architecture.circular-dependency",
     "architecture.excessive-fan-out",
     "architecture.high-instability-hub",
+    "architecture.dead-module",
+    "architecture.test-leak",
 ];
 
 const RUNTIME_RULES_WITH_FIXTURES: &[&str] = &[

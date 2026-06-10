@@ -8,6 +8,15 @@ use crate::config::defaults::{
 use crate::findings::types::Severity;
 use serde::Serialize;
 
+/// One declared architectural layer (opt-in `[[architecture.layers]]`). Layers
+/// are ordered from highest-level to lowest-level; a module may depend on layers
+/// listed at or below its own, never above. Empty list = the layer rule is off.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+pub struct LayerSpec {
+    pub name: String,
+    pub paths: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ScanConfig {
     pub ignored_paths: Vec<String>,
@@ -29,6 +38,13 @@ pub struct ScanConfig {
     pub instability_hub_min_instability_pct: usize,
     pub max_control_flow_depth: usize,
     pub module_mappings: std::collections::BTreeMap<String, Vec<String>>,
+    /// Ordered, user-declared architectural layers (opt-in
+    /// `[[architecture.layers]]`). Empty = `architecture.layer-violation` is off.
+    pub architecture_layers: Vec<LayerSpec>,
+    /// Glob roots whose immediate children are independent packages/features
+    /// (opt-in `[architecture] package_roots`, e.g. `packages/*`). Empty =
+    /// `architecture.package-boundary-violation` is off.
+    pub package_roots: Vec<String>,
     /// Rule ids whose findings are dropped (validated `[rules] disable`).
     pub disabled_rules: std::collections::BTreeSet<String>,
     /// Absolute per-rule severity overrides (validated `[rules.severity_overrides]`).
@@ -117,6 +133,8 @@ impl Default for ScanConfig {
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
             max_control_flow_depth: DEFAULT_MAX_CONTROL_FLOW_DEPTH,
             module_mappings,
+            architecture_layers: Vec::new(),
+            package_roots: Vec::new(),
             disabled_rules: std::collections::BTreeSet::new(),
             severity_overrides: std::collections::BTreeMap::new(),
             rule_config_problems: Vec::new(),

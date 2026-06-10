@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added four architecture rules that query the import graph.
+  `architecture.dead-module` (production files nothing imports that are not entrypoints or public API) and `architecture.test-leak` (production code
+  importing a test or fixture file) are on by default.
+  `architecture.layer-violation` and `architecture.package-boundary-violation`
+  are **strictly opt-in** and emit nothing until you declare structure: ordered
+  `[[architecture.layers]]` (a module may import layers at or below its own,
+  never above) and `[architecture] package_roots` (e.g. `packages/*`, flagging
+  imports that reach into another package's internals instead of its public
+  API). Each rule ships with true-positive and false-positive fixtures; all
+  four are `experimental`.
+- Added per-rule configuration: `[rules] disable` drops a rule's findings and
+  `[rules.severity_overrides]` sets an absolute severity per rule. Unknown rule
+  ids and invalid severities are surfaced as report diagnostics, not applied.
 - Added regression coverage and a release self-review quality gate for
   standard-library/local dependency imports, AST-confirmed recursion,
   prose-only removed-behavior text, and side effects in tests/fixtures.
@@ -22,6 +35,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- The rule registry is now the single source of truth for finding severity and
+  confidence. `populate_rule_metadata` applies each rule's registry default
+  (an audit may only lower severity, or raise it up to a declared ceiling), so
+  the MCP rules catalog and the emitted findings no longer disagree. Report
+  schema bumped to `0.19` (additive). Architecture audits no longer hardcode
+  severity literals.
 - Internal: moved the coupling graph → graph v2 `GraphSnapshot` conversion out
   of the `architecture.circular-dependency` audit and into a shared graph stage
   (`build_coupling_graph_snapshot`), so future graph v2 consumers can reuse it.
