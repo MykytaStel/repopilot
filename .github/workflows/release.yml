@@ -81,6 +81,16 @@ jobs:
           toolchain: ${{ env.RUST_STABLE }}
           targets: ${{ matrix.target }}
 
+      - name: Add Rust target for native build
+        if: matrix.target != 'aarch64-unknown-linux-gnu'
+        # rust-toolchain.toml pins `channel = "stable"`, which cargo resolves to
+        # a different toolchain instance than the pinned RUST_STABLE that the
+        # toolchain action added the target to. Add the target to the toolchain
+        # cargo actually uses (resolved here in the repo dir) so non-host targets
+        # — e.g. x86_64-apple-darwin on the now-arm64 macos-latest runner — have
+        # std available.
+        run: rustup target add ${{ matrix.target }}
+
       - name: Install cross (Linux aarch64 only)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --git https://github.com/cross-rs/cross --rev f8151ae777290430cf2108efacf3976d9528500b --locked
