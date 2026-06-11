@@ -1,10 +1,16 @@
-use super::{GraphDiagnostic, GraphEdge, GraphNode};
+use super::{GraphDiagnostic, GraphEdge, GraphNode, GraphNodeId};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct GraphSnapshot {
     pub nodes: Vec<GraphNode>,
     pub edges: Vec<GraphEdge>,
     pub diagnostics: Vec<GraphDiagnostic>,
+    /// File node id → the workspace `Package` node it belongs to, by longest
+    /// path prefix. Empty when the root is not a workspace. Carried alongside
+    /// the nodes (rather than as `Contains` edges) because consumers look up
+    /// membership by file, not by traversal.
+    pub package_membership: BTreeMap<GraphNodeId, GraphNodeId>,
 }
 
 impl GraphSnapshot {
