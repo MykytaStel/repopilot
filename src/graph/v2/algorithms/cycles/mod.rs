@@ -172,37 +172,64 @@ impl<'a> Tarjan<'a> {
         }
     }
 
-    fn visit(&mut self, node: usize) {
+    fn init_node(&mut self, node: usize) {
         let index = self.next_index;
         self.next_index += 1;
         self.indices[node] = Some(index);
         self.lowlink[node] = index;
         self.stack.push(node);
         self.on_stack[node] = true;
+    }
 
-        for &neighbor in &self.adjacency[node] {
-            if self.indices[neighbor].is_none() {
-                self.visit(neighbor);
-                self.lowlink[node] = self.lowlink[node].min(self.lowlink[neighbor]);
-            } else if self.on_stack[neighbor] {
-                self.lowlink[node] = self.lowlink[node]
-                    .min(self.indices[neighbor].expect("visited neighbor has an index"));
+    fn visit(&mut self, start_node: usize) {
+        let mut call_stack = vec![(start_node, 0)];
+        self.init_node(start_node);
+
+        while let Some((node, mut neighbor_index)) = call_stack.pop() {
+            let neighbors = &self.adjacency[node];
+
+            if neighbor_index > 0 {
+                let prev_neighbor = neighbors[neighbor_index - 1];
+                self.lowlink[node] = self.lowlink[node].min(self.lowlink[prev_neighbor]);
+            }
+
+            let mut pushed_child = false;
+            while neighbor_index < neighbors.len() {
+                let neighbor = neighbors[neighbor_index];
+                neighbor_index += 1;
+
+                if self.indices[neighbor].is_none() {
+                    self.init_node(neighbor);
+                    call_stack.push((node, neighbor_index));
+                    call_stack.push((neighbor, 0));
+                    pushed_child = true;
+                    break;
+                } else if self.on_stack[neighbor] {
+                    self.lowlink[node] = self.lowlink[node]
+                        .min(self.indices[neighbor].expect("visited neighbor has an index"));
+                }
+            }
+
+            if pushed_child {
+                continue;
+            }
+
+            let index = self.indices[node].expect("visited node has an index");
+            if self.lowlink[node] == index {
+                let mut component = Vec::new();
+                loop {
+                    let member = self.stack.pop().expect("current SCC contains its root");
+                    self.on_stack[member] = false;
+                    component.push(member);
+                    if member == node {
+                        break;
+                    }
+                }
+                self.components.push(component);
             }
         }
-
-        if self.lowlink[node] != index {
-            return;
-        }
-
-        let mut component = Vec::new();
-        loop {
-            let member = self.stack.pop().expect("current SCC contains its root");
-            self.on_stack[member] = false;
-            component.push(member);
-            if member == node {
-                break;
-            }
-        }
-        self.components.push(component);
     }
 }
+
+#[cfg(test)]
+mod proptests;
