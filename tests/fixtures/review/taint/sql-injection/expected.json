@@ -1,0 +1,16 @@
+{
+  "description": "Request input concatenated into a raw SQL string reaches the db.query sink in the changed function. Taint-lite reachability lands in the definitely-sensitive tier.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.sql",
+      "path": "src/handler.ts",
+      "headline": "untrusted input reaches raw SQL"
+    }
+  ],
+  "forbid": [
+    { "family": "volume" }
+  ]
+}

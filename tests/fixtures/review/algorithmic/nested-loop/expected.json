@@ -1,0 +1,16 @@
+{
+  "description": "A nested loop is introduced inside an existing function. Algorithmic shape changes are maybe-sensitive structural facts, never verdicts.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "maybe",
+      "family": "algorithmic",
+      "kind": "algorithmic.nested-loop-introduced",
+      "path": "src/process.rs",
+      "headline": "nested loop introduced"
+    }
+  ],
+  "forbid": [
+    { "bucket": "definitely" }
+  ]
+}
