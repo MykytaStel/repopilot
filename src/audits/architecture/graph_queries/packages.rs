@@ -48,6 +48,8 @@ impl PackageIndex {
         &self,
         source: &NodeInfo,
         target: &NodeInfo,
+        root: &std::path::Path,
+        known_files: &std::collections::HashSet<std::path::PathBuf>,
     ) -> Option<Finding> {
         if self.roots.is_empty() || target.context.is_public_api {
             return None;
@@ -58,6 +60,12 @@ impl PackageIndex {
             return None;
         }
 
+        let (line_start, line_end) = if let Some(facts) = source.facts {
+            super::edge_evidence(facts, &target.relative, root, known_files)
+        } else {
+            (1, None)
+        };
+
         Some(architecture_finding(
             "architecture.package-boundary-violation",
             "Package boundary violation",
@@ -66,8 +74,8 @@ impl PackageIndex {
             ),
             Evidence {
                 path: source.relative.clone(),
-                line_start: 1,
-                line_end: None,
+                line_start,
+                line_end,
                 snippet: format!("imports internal file: {}", target.relative.display()),
             },
         ))

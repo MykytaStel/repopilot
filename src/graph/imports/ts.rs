@@ -1,11 +1,15 @@
 use crate::graph::imports::common::extract_string_literal;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
-pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
-    let mut result = HashSet::new();
+pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
+    let mut result = BTreeMap::new();
     visit(tree.root_node(), content, &mut result);
     result
+}
+
+pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
+    extract_spans(tree, content).into_keys().collect()
 }
 
 fn is_candidate(path: &str) -> bool {
@@ -16,20 +20,21 @@ fn is_candidate(path: &str) -> bool {
         || path.starts_with('#')
 }
 
-fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
+fn visit(node: Node<'_>, content: &str, result: &mut BTreeMap<String, (usize, usize)>) {
+    let span = (node.start_position().row + 1, node.end_position().row + 1);
     match node.kind() {
         "import_statement" | "export_statement" => {
             if let Some(path) = module_source(node, content)
                 && is_candidate(path)
             {
-                result.insert(path.to_string());
+                result.entry(path.to_string()).or_insert(span);
             }
         }
         "call_expression" => {
             if let Some(path) = call_module_source(node, content)
                 && is_candidate(path)
             {
-                result.insert(path.to_string());
+                result.entry(path.to_string()).or_insert(span);
             }
         }
         _ => {}

@@ -5,6 +5,7 @@ use tree_sitter::Tree;
 mod common;
 mod go;
 mod jvm;
+pub mod lines;
 mod python;
 mod rust;
 mod ts;
