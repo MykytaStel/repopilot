@@ -1,8 +1,9 @@
 //! Whole-repo architecture rules that query the import graph: dead modules,
 //! test leaks into production, declared-layer violations, and package-boundary
-//! violations. The layer and package rules are strictly opt-in — they emit
-//! nothing unless the user declares `[[architecture.layers]]` or
-//! `[architecture] package_roots`.
+//! violations. Layer violations are strictly opt-in (`[[architecture.layers]]`).
+//! Package-boundary violations auto-enable on a detected npm/pnpm/Cargo/Go
+//! workspace and can also be driven explicitly by `[architecture] package_roots`;
+//! with neither a workspace nor config the rule is silent.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -97,7 +98,8 @@ impl GraphQueriesAudit {
         }
 
         let layer_index = LayerIndex::from_config(config);
-        let package_index = PackageIndex::from_config(config);
+        let detected_packages = crate::scan::workspace::detect_workspace_packages(root);
+        let package_index = PackageIndex::new(config, &detected_packages, root);
 
         let mut reported_edges = HashSet::new();
         for edge in &snapshot.edges {

@@ -37,6 +37,10 @@ from broad architecture structure heuristics.
 | `architecture.import-coupling` | Is a file coupled to too many internal modules? | Should prefer source code over generated/test corpora. |
 | `architecture.deep-relative-imports` | Are imports crossing too many directory levels? | Should focus on maintainability of production imports. |
 | `architecture.barrel-file-risk` | Is a barrel file hiding coupling or unstable public boundaries? | Should explain why the barrel is risky, not merely that it exists. |
+| `architecture.dead-module` | Is a production file imported by nothing and not an entrypoint? | Demoted/suppressed when unresolved imports make the graph incomplete. |
+| `architecture.test-leak` | Does production code import a test or fixture file? | On by default; evidence cites the import line. |
+| `architecture.layer-violation` | Does a module import against the declared layer order? | Strictly opt-in via `[[architecture.layers]]`. |
+| `architecture.package-boundary-violation` | Does one package reach into another's internals instead of its public API? | Auto-enabled on a detected workspace (manifest boundaries → High confidence); also configurable via `[architecture] package_roots` (→ Medium). |
 
 ## Visibility guidance
 
