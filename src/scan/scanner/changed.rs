@@ -82,7 +82,7 @@ impl<'a> ChangedScanEngine<'a> {
             &file_stage.graph_patch_files,
         )?;
         let project_start = Instant::now();
-        let ((project_findings, framework_findings), (coupling_findings, _)) = rayon::join(
+        let ((project_findings, framework_findings), (coupling_findings, _, _)) = rayon::join(
             || {
                 rayon::join(
                     || run_project_audits(&repo_stage.repo_context, self.config),

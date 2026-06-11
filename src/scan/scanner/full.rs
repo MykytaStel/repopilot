@@ -196,20 +196,23 @@ impl<'a> ScanEngine<'a> {
         mut findings: Vec<Finding>,
     ) -> ProjectAnalysisStage {
         let start = Instant::now();
-        let ((project_findings, framework_findings), (coupling_findings, coupling_graph)) =
-            rayon::join(
-                || {
-                    rayon::join(
-                        || run_project_audits(&facts, self.config),
-                        || run_framework_audits(&facts, self.config),
-                    )
-                },
-                || ImportCouplingAudit.audit_with_graph(&facts, self.config, self.path),
-            );
+        let (
+            (project_findings, framework_findings),
+            (coupling_findings, coupling_graph, resolution),
+        ) = rayon::join(
+            || {
+                rayon::join(
+                    || run_project_audits(&facts, self.config),
+                    || run_framework_audits(&facts, self.config),
+                )
+            },
+            || ImportCouplingAudit.audit_with_graph(&facts, self.config, self.path),
+        );
         let query_findings = crate::audits::architecture::graph_queries::GraphQueriesAudit.audit(
             &facts,
             self.config,
             &coupling_graph,
+            &resolution,
             self.path,
         );
 

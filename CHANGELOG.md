@@ -12,14 +12,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `architecture.dead-module` (production files nothing imports that are not entrypoints or public API) and `architecture.test-leak` (production code importing a test or fixture file) are on by default.
   `architecture.layer-violation` and `architecture.package-boundary-violation`
   are **strictly opt-in** and emit nothing until you declare structure: ordered
-  `[[architecture.layers]]` (a module may import layers at or below its own,
-  never above) and `[architecture] package_roots` (e.g. `packages/*`, flagging
+  `[[architecture.layers]]` (a module may import layers at or below its own, never above) and `[architecture] package_roots` (e.g. `packages/*`, flagging
   imports that reach into another package's internals instead of its public
   API). Each rule ships with true-positive and false-positive fixtures; all
   four are `experimental`.
 - Added per-rule configuration: `[rules] disable` drops a rule's findings and
-  `[rules.severity_overrides]` sets an absolute severity per rule. Unknown rule
-  ids and invalid severities are surfaced as report diagnostics, not applied.
+  `[rules.severity_overrides]` sets an absolute severity per rule. Unknown rule ids and invalid severities are surfaced as report diagnostics, not applied.
 - Added regression coverage and a release self-review quality gate for
   standard-library/local dependency imports, AST-confirmed recursion,
   prose-only removed-behavior text, and side effects in tests/fixtures.
@@ -33,6 +31,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   that exists, not a confirmed vulnerability.
 
 ### Changed
+
+- Graph rules built on *absence* claims now reflect import-resolution quality
+  in their confidence. The coupling graph build records unresolved relative
+  (`./`, `../`) imports; when any exist, `architecture.dead-module` and
+  `architecture.high-instability-hub` are reported at `Medium` confidence
+  instead of `High`, with the evidence snippet stating how many unresolved
+  imports make the graph incomplete (fan-in is then a lower bound).
+  `architecture.dead-module` is suppressed entirely when an unresolved import's
+  final segment matches the candidate file's name — that import is a plausible
+  importer. Edge-existence proofs (`architecture.circular-dependency`,
+  `architecture.excessive-fan-out`, test-leak/layer/package rules) are
+  unaffected: unresolved imports cannot invalidate a resolved edge. Both
+  demoted rules are declared `contextual_confidence` in the registry, and their
+  false-positive notes document the demotion.
 
 - `architecture.circular-dependency` findings now lead with the **minimal cycle**
   within a strongly-connected component (e.g. `a -> b -> c -> a`) and carry the
