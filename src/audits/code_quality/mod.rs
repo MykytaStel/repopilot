@@ -1,6 +1,8 @@
 pub mod code_markers;
+pub mod complex_function;
 pub mod complexity;
 pub mod deep_control_flow;
+pub(super) mod function_spans;
 pub mod language_risk;
 pub mod long_function;
 pub mod rust_panic_risk;

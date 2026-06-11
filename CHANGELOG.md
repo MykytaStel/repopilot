@@ -10,8 +10,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - `architecture.package-boundary-violation` now **auto-enables on a detected
   workspace** — npm/yarn, pnpm, Cargo, or Go (`go.work`). Each workspace package
-  is treated as a boundary, so reaching into another package's internals
-  (anything but its `index.ts`/`mod.rs`/`lib.rs` public entry) is flagged
+  is treated as a boundary, so reaching into another package's internals (anything but its `index.ts`/`mod.rs`/`lib.rs` public entry) is flagged
   without any configuration, at **High** confidence because the boundary is
   declared by the repository's own manifests. Explicit `[architecture]
   package_roots` still take priority and keep the Medium default confidence;
@@ -20,6 +19,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added `code-quality.complex-function` (preview): a per-function
+  cognitive-complexity rule that weights **nesting depth** rather than counting
+  branches flatly. A deeply nested handler is flagged while a wide-but-flat
+  `switch`/`match` dispatcher is not — the case where the file-level
+  `code-quality.complex-file` over-reports. Nested closures are scored
+  independently rather than folded into their enclosing function. Hidden in the
+  default profile (a strict-mode maintainability suggestion); threshold is
+  configurable via `[code_quality] complex_function_threshold` (default 15, the
+  conventional cognitive-complexity limit). `complex-file` is unchanged. Ships
+  with true-positive/false-positive fixtures.
 - The dependency graph now models workspace packages as first-class `Package` nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
   prefix), so future rules can reason about real package boundaries instead of
   path globs. A non-workspace repository produces no package nodes and leaves
@@ -29,6 +38,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Architecture audits (`circular-dependency`, `excessive-fan-out`, `dead-module`, `test-leak`, `layer-violation`, `package-boundary-violation`) now pinpoint the exact import statement lines in their evidence snippets instead of defaulting to line 1, using language-aware AST extraction across all supported languages.
 - Internal: rewrote the strongly-connected-components (Tarjan) search from a recursive `visit` to an explicit loop with a call stack. This prevents stack overflows on pathological dependency graphs (e.g. 10k deep chains) while returning byte-identical results.
+- Internal: extracted the AST function-boundary walker shared by the
+  `long-function` and `complex-function` audits into `function_spans`, so both
+  agree on what a "function" is across the supported languages. `long-function`
+  behavior is unchanged (parity tests hold).
 
 ## [0.17.0] - 2026-06-11
 

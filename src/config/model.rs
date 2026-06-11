@@ -1,9 +1,10 @@
 use crate::config::defaults::{
-    DEFAULT_COMPLEXITY_HIGH_THRESHOLD, DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
-    DEFAULT_HUGE_FILE_LINES, DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
-    DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT, DEFAULT_LONG_FUNCTION_LINES,
-    DEFAULT_MAX_CONTROL_FLOW_DEPTH, DEFAULT_MAX_DIRECTORY_DEPTH, DEFAULT_MAX_DIRECTORY_MODULES,
-    DEFAULT_MAX_FAN_OUT, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
+    DEFAULT_COMPLEX_FUNCTION_THRESHOLD, DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
+    DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD, DEFAULT_HUGE_FILE_LINES,
+    DEFAULT_INSTABILITY_HUB_MIN_FAN_IN, DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
+    DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_CONTROL_FLOW_DEPTH, DEFAULT_MAX_DIRECTORY_DEPTH,
+    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FAN_OUT, DEFAULT_MAX_FILE_BYTES,
+    DEFAULT_MAX_FILE_LINES, default_ignored_paths,
 };
 use crate::output::OutputFormat;
 use crate::scan::config::ScanConfig;
@@ -94,6 +95,7 @@ impl RepoPilotConfig {
         config.complexity_medium_threshold = self.code_quality.complexity_medium_threshold;
         config.complexity_high_threshold = self.code_quality.complexity_high_threshold;
         config.max_control_flow_depth = self.code_quality.max_control_flow_depth;
+        config.complex_function_threshold = self.code_quality.complex_function_threshold;
         if !self.architecture.module_mappings.is_empty() {
             config.module_mappings = self.architecture.module_mappings.clone();
         }
@@ -219,6 +221,7 @@ pub struct CodeQualitySection {
     pub complexity_medium_threshold: usize,
     pub complexity_high_threshold: usize,
     pub max_control_flow_depth: usize,
+    pub complex_function_threshold: usize,
 }
 
 impl Default for CodeQualitySection {
@@ -227,6 +230,7 @@ impl Default for CodeQualitySection {
             complexity_medium_threshold: DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
             complexity_high_threshold: DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
             max_control_flow_depth: DEFAULT_MAX_CONTROL_FLOW_DEPTH,
+            complex_function_threshold: DEFAULT_COMPLEX_FUNCTION_THRESHOLD,
         }
     }
 }

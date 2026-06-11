@@ -703,6 +703,12 @@ suppress_low_signal = true
 suppress_generated = true
 
 [[rules]]
+rule_id = "code-quality.complex-function"
+languages = ["rust", "python", "typescript", "typescript-react", "javascript", "javascript-react", "go", "java", "csharp", "kotlin"]
+suppress_low_signal = true
+suppress_generated = true
+
+[[rules]]
 rule_id = "architecture.too-many-modules"
 suppress_low_signal = true
 suppress_generated = true

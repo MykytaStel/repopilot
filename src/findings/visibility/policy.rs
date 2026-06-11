@@ -182,6 +182,7 @@ fn is_maintainability_rule(rule_id: &str) -> bool {
             | "architecture.deep-relative-imports"
             | "code-quality.long-function"
             | "code-quality.complex-file"
+            | "code-quality.complex-function"
             | "code-quality.cyclomatic-complexity"
             | "code-quality.deep-control-flow"
     )
@@ -211,6 +212,7 @@ fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
             | "architecture.deep-relative-imports"
             | "code-quality.long-function"
             | "code-quality.complex-file"
+            | "code-quality.complex-function"
             | "code-quality.cyclomatic-complexity"
             | "code-quality.deep-control-flow"
     )
