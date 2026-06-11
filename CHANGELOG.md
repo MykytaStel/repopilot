@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-06-11
+
 ### Added
 
 - Added four architecture rules that query the import graph.
@@ -21,8 +23,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added regression coverage and a release self-review quality gate for
   standard-library/local dependency imports, AST-confirmed recursion,
   prose-only removed-behavior text, and side effects in tests/fixtures.
-- Added stdlib Python tests for release-note extraction, version validation,
-  Cargo package allowlisting, pinned Actions, npm orchestration, and removed
+- Added stdlib Python tests for release-note extraction, version validation, Cargo package allowlisting, pinned Actions, npm orchestration, and removed
   editor packaging.
 - Added a real schema `0.18` report fixture and documented report schema
   versioning independently from package versions.
@@ -600,7 +601,8 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/MykytaStel/repopilot/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/MykytaStel/repopilot/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/MykytaStel/repopilot/compare/v0.13.0...v0.14.0

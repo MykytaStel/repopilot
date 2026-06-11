@@ -1,6 +1,6 @@
 [package]
 name = "repopilot"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2024"
 description = "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge."
 license = "MIT OR Apache-2.0"
