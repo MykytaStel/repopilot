@@ -285,6 +285,73 @@ fn multiple_circular_dependencies_are_each_reported() {
 }
 
 #[test]
+fn circular_dependency_finding_leads_with_the_minimal_cycle() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    // One 4-file component {a,b,c,d}; the minimal cycle is a -> b -> c -> a,
+    // with d reachable through the c -> d -> a shortcut.
+    write_file(
+        &temp,
+        "src/a.ts",
+        r#"import { b } from "./b"; export function a() { return b(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/b.ts",
+        r#"import { c } from "./c"; export function b() { return c(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/c.ts",
+        r#"import { a } from "./a"; import { d } from "./d"; export function c() { return a() + d(); }"#,
+    );
+    write_file(
+        &temp,
+        "src/d.ts",
+        r#"import { a } from "./a"; export function d() { return a(); }"#,
+    );
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    let circular: Vec<_> = summary
+        .artifacts
+        .findings
+        .iter()
+        .filter(|finding| finding.rule_id == "architecture.circular-dependency")
+        .collect();
+    assert_eq!(circular.len(), 1, "expected one finding per component");
+    let finding = circular[0];
+
+    // The headline is the minimal cycle, not the whole component.
+    assert!(
+        finding
+            .description
+            .contains("src/a.ts -> src/b.ts -> src/c.ts -> src/a.ts"),
+        "description should lead with the minimal cycle, got: {}",
+        finding.description
+    );
+    // Component size is carried as context.
+    assert!(
+        finding
+            .description
+            .contains("strongly-connected component of 4 files"),
+        "description should report component size, got: {}",
+        finding.description
+    );
+    // Evidence covers only the minimal cycle's distinct files (a, b, c) — not d.
+    let evidence_paths: Vec<_> = finding
+        .evidence
+        .iter()
+        .map(|item| item.path.as_path())
+        .collect();
+    assert_eq!(evidence_paths.len(), 3, "evidence: {evidence_paths:?}");
+    assert!(evidence_paths.contains(&Path::new("src/a.ts")));
+    assert!(evidence_paths.contains(&Path::new("src/b.ts")));
+    assert!(evidence_paths.contains(&Path::new("src/c.ts")));
+    assert!(!evidence_paths.contains(&Path::new("src/d.ts")));
+}
+
+#[test]
 fn isolated_files_do_not_emit_coupling_findings() {
     let temp = TempDir::new().expect("failed to create temp dir");
     write_file(&temp, "src/a.ts", "export function a() { return 1; }\n");

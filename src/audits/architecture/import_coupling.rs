@@ -1,5 +1,5 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles};
+use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles, shortest_cycle};
 use crate::graph::{
     CouplingGraph, FileMetrics, build_coupling_graph, coupling_file_metrics,
     without_rust_module_containment_edges,
@@ -33,16 +33,7 @@ impl ImportCouplingAudit {
         // (set of mutually dependent files).
         let cycle_graph = without_rust_module_containment_edges(&graph);
         let (cycle_snapshot, path_by_id) = build_coupling_graph_snapshot(&cycle_graph);
-        let cycles: Vec<Vec<PathBuf>> = find_cycles(&cycle_snapshot)
-            .into_iter()
-            .map(|cycle| {
-                cycle
-                    .node_ids
-                    .iter()
-                    .filter_map(|id| path_by_id.get(id).cloned())
-                    .collect()
-            })
-            .collect();
+        let cycles = find_cycles(&cycle_snapshot);
 
         let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
@@ -94,15 +85,26 @@ impl ImportCouplingAudit {
         }
 
         let mut seen_cycles = BTreeSet::new();
-        for cycle in cycles {
-            let is_prod_cycle = cycle.iter().all(|path| prod_files.contains(path));
+        for cycle in &cycles {
+            let members: Vec<PathBuf> = cycle
+                .node_ids
+                .iter()
+                .filter_map(|id| path_by_id.get(id).cloned())
+                .collect();
+
+            let is_prod_cycle =
+                !members.is_empty() && members.iter().all(|path| prod_files.contains(path));
 
             if !is_prod_cycle {
                 continue;
             }
 
-            if seen_cycles.insert(cycle.clone()) {
-                findings.push(circular_dependency_finding(&cycle, root));
+            if seen_cycles.insert(members.clone()) {
+                let shortest: Vec<PathBuf> = shortest_cycle(&cycle_snapshot, cycle)
+                    .iter()
+                    .filter_map(|id| path_by_id.get(id).cloned())
+                    .collect();
+                findings.push(circular_dependency_finding(&members, &shortest, root));
             }
         }
 
@@ -206,21 +208,56 @@ fn high_instability_hub_finding(
     }
 }
 
-fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
-    let relative_cycle: Vec<PathBuf> = cycle.iter().map(|path| relative_path(path, root)).collect();
-    let cycle_path = relative_cycle
+/// `component` is the full strongly-connected component (all mutually dependent
+/// files); `shortest` is the minimal cycle within it, as a closed path
+/// (`a -> b -> a`). The finding leads with the actionable minimal cycle and
+/// carries the component size as context, instead of repeating the whole
+/// component into every evidence snippet.
+fn circular_dependency_finding(
+    component: &[PathBuf],
+    shortest: &[PathBuf],
+    root: &Path,
+) -> Finding {
+    let component_size = component.len();
+
+    // The closed path repeats its first node at the end; the distinct files are
+    // everything but that trailing repeat.
+    let closed: Vec<PathBuf> = if shortest.len() >= 2 {
+        shortest
+            .iter()
+            .map(|path| relative_path(path, root))
+            .collect()
+    } else {
+        component
+            .iter()
+            .map(|path| relative_path(path, root))
+            .collect()
+    };
+    let cycle_path = closed
         .iter()
         .map(|path| path.display().to_string())
         .collect::<Vec<_>>()
         .join(" -> ");
-    let file_count = relative_cycle.len();
-    let evidence = relative_cycle
+    let distinct: Vec<&PathBuf> = closed.iter().take(closed.len().saturating_sub(1)).collect();
+    let distinct = if distinct.is_empty() {
+        closed.iter().collect()
+    } else {
+        distinct
+    };
+
+    let context = if component_size > distinct.len() {
+        format!(" Part of a strongly-connected component of {component_size} files.")
+    } else {
+        String::new()
+    };
+
+    let evidence = distinct
         .iter()
         .map(|path| Evidence {
-            path: path.clone(),
+            path: (*path).clone(),
             line_start: 1,
             line_end: None,
-            snippet: format!("Cycle ({file_count} files): {cycle_path}."),
+            snippet: format!("Cycle: {cycle_path}.{context}"),
         })
         .collect();
 
@@ -229,9 +266,7 @@ fn circular_dependency_finding(cycle: &[PathBuf], root: &Path) -> Finding {
         rule_id: "architecture.circular-dependency".to_string(),
         recommendation: Finding::recommendation_for_rule_id("architecture.circular-dependency"),
         title: "Circular dependency detected".to_string(),
-        description: format!(
-            "A circular dependency was detected across {file_count} project files."
-        ),
+        description: format!("A circular dependency was detected: {cycle_path}.{context}"),
         category: FindingCategory::Architecture,
         severity: Severity::High,
         confidence: Default::default(),
