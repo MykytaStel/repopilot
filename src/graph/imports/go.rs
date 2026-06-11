@@ -1,11 +1,11 @@
 use crate::graph::imports::common::extract_string_literal;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
-pub(super) fn extract(content: &str) -> HashSet<String> {
-    let mut result = HashSet::new();
+pub(super) fn extract_spans(content: &str) -> BTreeMap<String, (usize, usize)> {
+    let mut result = BTreeMap::new();
     let mut in_import_block = false;
 
-    for line in content.lines() {
+    for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
 
         if trimmed.starts_with("//") {
@@ -23,7 +23,7 @@ pub(super) fn extract(content: &str) -> HashSet<String> {
                 continue;
             }
             if let Some(path) = extract_go_import_path(trimmed) {
-                result.insert(path.to_string());
+                result.entry(path.to_string()).or_insert((i + 1, i + 1));
             }
             continue;
         }
@@ -31,11 +31,15 @@ pub(super) fn extract(content: &str) -> HashSet<String> {
         if let Some(rest) = trimmed.strip_prefix("import ")
             && let Some(path) = extract_string_literal(rest.trim())
         {
-            result.insert(path.to_string());
+            result.entry(path.to_string()).or_insert((i + 1, i + 1));
         }
     }
 
     result
+}
+
+pub(super) fn extract(content: &str) -> HashSet<String> {
+    extract_spans(content).into_keys().collect()
 }
 
 fn extract_go_import_path(line: &str) -> Option<&str> {

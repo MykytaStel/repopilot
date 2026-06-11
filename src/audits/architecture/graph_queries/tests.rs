@@ -13,7 +13,12 @@ fn complete_graph() -> ImportResolutionStats {
     ImportResolutionStats::default()
 }
 
-fn node(relative: &str, role: FileRole, is_entrypoint: bool, is_public_api: bool) -> NodeInfo {
+fn node(
+    relative: &str,
+    role: FileRole,
+    is_entrypoint: bool,
+    is_public_api: bool,
+) -> NodeInfo<'static> {
     NodeInfo {
         relative: PathBuf::from(relative),
         context: ArchitectureContext {
@@ -23,10 +28,11 @@ fn node(relative: &str, role: FileRole, is_entrypoint: bool, is_public_api: bool
             is_entrypoint,
             is_public_api,
         },
+        facts: None,
     }
 }
 
-fn prod(relative: &str) -> NodeInfo {
+fn prod(relative: &str) -> NodeInfo<'static> {
     node(relative, FileRole::Production, false, false)
 }
 
@@ -100,26 +106,34 @@ fn dead_module_is_suppressed_when_unresolved_import_could_target_it() {
 #[test]
 fn test_leak_flags_production_importing_test_or_fixture() {
     let source = prod("src/app.ts");
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     assert!(
         test_leak_finding(
             &source,
-            &node("src/app.test.ts", FileRole::Test, false, false)
+            &node("src/app.test.ts", FileRole::Test, false, false),
+            root,
+            &known
         )
         .is_some()
     );
     assert!(
         test_leak_finding(
             &source,
-            &node("fixtures/data.ts", FileRole::Fixture, false, false)
+            &node("fixtures/data.ts", FileRole::Fixture, false, false),
+            root,
+            &known
         )
         .is_some()
     );
     // Production importing production, and tests importing tests, are fine.
-    assert!(test_leak_finding(&source, &prod("src/util.ts")).is_none());
+    assert!(test_leak_finding(&source, &prod("src/util.ts"), root, &known).is_none());
     assert!(
         test_leak_finding(
             &node("src/app.test.ts", FileRole::Test, false, false),
             &node("src/helper.test.ts", FileRole::Test, false, false),
+            root,
+            &known
         )
         .is_none()
     );
@@ -144,24 +158,43 @@ fn layered_config() -> ScanConfig {
 #[test]
 fn layer_violation_flags_lower_layer_importing_higher_layer() {
     let index = LayerIndex::from_config(&layered_config());
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     // core (index 1) importing ui (index 0) reverses the declared order.
-    let finding = index.violation_finding(&prod("src/core/service.ts"), &prod("src/ui/widget.ts"));
+    let finding = index.violation_finding(
+        &prod("src/core/service.ts"),
+        &prod("src/ui/widget.ts"),
+        root,
+        &known,
+    );
     assert!(finding.is_some());
 }
 
 #[test]
 fn layer_violation_allows_declared_direction_and_unlayered_files() {
     let index = LayerIndex::from_config(&layered_config());
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     // ui importing core follows the declared order.
     assert!(
         index
-            .violation_finding(&prod("src/ui/page.ts"), &prod("src/core/service.ts"))
+            .violation_finding(
+                &prod("src/ui/page.ts"),
+                &prod("src/core/service.ts"),
+                root,
+                &known
+            )
             .is_none()
     );
     // A file outside every layer is ignored.
     assert!(
         index
-            .violation_finding(&prod("src/util/log.ts"), &prod("src/ui/widget.ts"))
+            .violation_finding(
+                &prod("src/util/log.ts"),
+                &prod("src/ui/widget.ts"),
+                root,
+                &known
+            )
             .is_none()
     );
 }
@@ -169,9 +202,11 @@ fn layer_violation_allows_declared_direction_and_unlayered_files() {
 #[test]
 fn layer_index_is_empty_without_config() {
     let index = LayerIndex::from_config(&ScanConfig::default());
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     assert!(
         index
-            .violation_finding(&prod("src/core/a.ts"), &prod("src/ui/b.ts"))
+            .violation_finding(&prod("src/core/a.ts"), &prod("src/ui/b.ts"), root, &known)
             .is_none()
     );
 }
@@ -186,22 +221,81 @@ fn packaged_config() -> ScanConfig {
 #[test]
 fn package_boundary_flags_cross_package_internal_import() {
     let index = PackageIndex::from_config(&packaged_config());
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     let finding = index.violation_finding(
         &prod("packages/web/src/use.ts"),
         &prod("packages/auth/src/internal.ts"),
+        root,
+        &known,
     );
     assert!(finding.is_some());
 }
 
 #[test]
+fn architecture_findings_use_import_line_as_evidence() {
+    let mut known = std::collections::HashSet::new();
+    known.insert(PathBuf::from("packages/auth/src/internal.ts"));
+
+    let content = "\
+const x = 1;
+import { something } from \"../../auth/src/internal\";
+export {};
+";
+    let facts = crate::scan::facts::FileFacts {
+        path: PathBuf::from("packages/web/src/use.ts"),
+        language: Some("TypeScript".to_string()),
+        non_empty_lines: 3,
+        branch_count: 0,
+        imports: vec!["../../auth/src/internal".to_string()],
+        content: Some(content.to_string()),
+        has_inline_tests: false,
+    };
+
+    let source = NodeInfo {
+        relative: PathBuf::from("packages/web/src/use.ts"),
+        context: ArchitectureContext {
+            file_role: FileRole::Production,
+            module_kind: ModuleKind::Unknown,
+            language_family: LanguageFamily::CurlyBrace,
+            is_entrypoint: false,
+            is_public_api: false,
+        },
+        facts: Some(&facts),
+    };
+
+    let target = prod("packages/auth/src/internal.ts");
+
+    let index = PackageIndex::from_config(&packaged_config());
+    // Use an absolute-ish root just to prove resolve_import handles the relative setup properly
+    let root = Path::new("/var/repo");
+    let finding = index
+        .violation_finding(&source, &target, root, &known)
+        .expect("should find violation");
+
+    assert_eq!(
+        finding.evidence[0].line_start, 2,
+        "evidence should point to line 2"
+    );
+    assert_eq!(
+        finding.evidence[0].line_end, None,
+        "single line import has no line_end"
+    );
+}
+
+#[test]
 fn package_boundary_allows_public_api_same_package_and_no_config() {
     let configured = PackageIndex::from_config(&packaged_config());
+    let root = Path::new("");
+    let known = std::collections::HashSet::new();
     // Importing another package's public API is allowed.
     assert!(
         configured
             .violation_finding(
                 &prod("packages/web/src/use.ts"),
                 &node("packages/auth/index.ts", FileRole::Production, false, true),
+                root,
+                &known
             )
             .is_none()
     );
@@ -211,6 +305,8 @@ fn package_boundary_allows_public_api_same_package_and_no_config() {
             .violation_finding(
                 &prod("packages/auth/src/a.ts"),
                 &prod("packages/auth/src/b.ts"),
+                root,
+                &known
             )
             .is_none()
     );
@@ -221,6 +317,8 @@ fn package_boundary_allows_public_api_same_package_and_no_config() {
             .violation_finding(
                 &prod("packages/web/src/use.ts"),
                 &prod("packages/auth/src/internal.ts"),
+                root,
+                &known
             )
             .is_none()
     );

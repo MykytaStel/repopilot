@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Architecture audits (`circular-dependency`, `excessive-fan-out`, `dead-module`, `test-leak`, `layer-violation`, `package-boundary-violation`) now pinpoint the exact import statement lines in their evidence snippets instead of defaulting to line 1, using language-aware AST extraction across all supported languages.
 - Internal: rewrote the strongly-connected-components (Tarjan) search from a recursive `visit` to an explicit loop with a call stack. This prevents stack overflows on pathological dependency graphs (e.g. 10k deep chains) while returning byte-identical results.
 
 ## [0.17.0] - 2026-06-11

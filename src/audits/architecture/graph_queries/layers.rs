@@ -44,6 +44,8 @@ impl LayerIndex {
         &self,
         source: &NodeInfo,
         target: &NodeInfo,
+        root: &std::path::Path,
+        known_files: &std::collections::HashSet<std::path::PathBuf>,
     ) -> Option<Finding> {
         if self.layers.is_empty() {
             return None;
@@ -60,6 +62,12 @@ impl LayerIndex {
         let source_layer = &self.layers[source_idx].0;
         let target_layer = &self.layers[target_idx].0;
 
+        let (line_start, line_end) = if let Some(facts) = source.facts {
+            super::edge_evidence(facts, &target.relative, root, known_files)
+        } else {
+            (1, None)
+        };
+
         Some(architecture_finding(
             "architecture.layer-violation",
             "Layer violation detected",
@@ -68,8 +76,8 @@ impl LayerIndex {
             ),
             Evidence {
                 path: source.relative.clone(),
-                line_start: 1,
-                line_end: None,
+                line_start,
+                line_end,
                 snippet: format!(
                     "{source_layer} → {target_layer}: imports {}",
                     target.relative.display()

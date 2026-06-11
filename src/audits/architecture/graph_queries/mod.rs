@@ -12,24 +12,25 @@ use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Sev
 use crate::graph::v2::{GraphNodeId, build_coupling_graph_snapshot};
 use crate::graph::{CouplingGraph, ImportResolutionStats};
 use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::scan::facts::{FileFacts, ScanFacts};
 
+mod edge_evidence;
 mod layers;
 mod packages;
 
 #[cfg(test)]
 mod tests;
 
+use edge_evidence::edge_evidence;
 use layers::LayerIndex;
 use packages::PackageIndex;
 
 pub struct GraphQueriesAudit;
 
-/// A resolved graph node: its repo-relative path and the architecture
-/// classification the rules reason over.
-pub(crate) struct NodeInfo {
+pub(crate) struct NodeInfo<'a> {
     pub relative: PathBuf,
     pub context: ArchitectureContext,
+    pub facts: Option<&'a FileFacts>,
 }
 
 impl GraphQueriesAudit {
@@ -43,14 +44,22 @@ impl GraphQueriesAudit {
     ) -> Vec<Finding> {
         let classifier = ArchitectureClassifier::new(&config.module_mappings);
 
-        // Classify every file once, keyed by both relative and absolute path so
-        // we can match whichever form the snapshot carries.
-        let mut file_context: HashMap<PathBuf, ArchitectureContext> = HashMap::new();
+        let mut file_context = HashMap::new();
+        let mut facts_by_path = HashMap::new();
         for file in &facts.files {
             let context = classifier.classify(file);
-            file_context.insert(root.join(&file.path), context.clone());
+            let abs_path = root.join(&file.path);
+            file_context.insert(abs_path.clone(), context.clone());
             file_context.insert(file.path.clone(), context);
+            facts_by_path.insert(abs_path, file);
+            facts_by_path.insert(file.path.clone(), file);
         }
+
+        let known_files: HashSet<PathBuf> = facts
+            .files
+            .iter()
+            .map(|f| crate::graph::resolver::normalize_path(&f.path))
+            .collect();
 
         let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
 
@@ -58,12 +67,14 @@ impl GraphQueriesAudit {
         for node in &snapshot.nodes {
             if let Some(path) = path_by_id.get(&node.id)
                 && let Some(context) = file_context.get(path)
+                && let Some(file_facts) = facts_by_path.get(path)
             {
                 node_info.insert(
                     node.id.clone(),
                     NodeInfo {
                         relative: relative_path(path, root),
                         context: context.clone(),
+                        facts: Some(file_facts),
                     },
                 );
             }
@@ -98,13 +109,16 @@ impl GraphQueriesAudit {
                 continue;
             };
 
-            if let Some(finding) = test_leak_finding(source, target) {
+            if let Some(finding) = test_leak_finding(source, target, root, &known_files) {
                 findings.push(finding);
             }
-            if let Some(finding) = layer_index.violation_finding(source, target) {
+            if let Some(finding) = layer_index.violation_finding(source, target, root, &known_files)
+            {
                 findings.push(finding);
             }
-            if let Some(finding) = package_index.violation_finding(source, target) {
+            if let Some(finding) =
+                package_index.violation_finding(source, target, root, &known_files)
+            {
                 findings.push(finding);
             }
         }
@@ -172,7 +186,12 @@ fn dead_module_finding(
 
 /// A production file importing a test or fixture file leaks test-only code into
 /// the shipped build.
-fn test_leak_finding(source: &NodeInfo, target: &NodeInfo) -> Option<Finding> {
+fn test_leak_finding(
+    source: &NodeInfo,
+    target: &NodeInfo,
+    root: &Path,
+    known_files: &HashSet<PathBuf>,
+) -> Option<Finding> {
     if source.context.file_role != FileRole::Production {
         return None;
     }
@@ -182,14 +201,20 @@ fn test_leak_finding(source: &NodeInfo, target: &NodeInfo) -> Option<Finding> {
         _ => return None,
     };
 
+    let (line_start, line_end) = if let Some(facts) = source.facts {
+        edge_evidence(facts, &target.relative, root, known_files)
+    } else {
+        (1, None)
+    };
+
     Some(architecture_finding(
         "architecture.test-leak",
         "Test code leaked into production",
         format!("Production file imports a {kind} file."),
         Evidence {
             path: source.relative.clone(),
-            line_start: 1,
-            line_end: None,
+            line_start,
+            line_end,
             snippet: format!("Imports: {}", target.relative.display()),
         },
     ))

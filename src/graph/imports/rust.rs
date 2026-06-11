@@ -1,24 +1,31 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
-pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
-    let mut result = HashSet::new();
+pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
+    let mut result = BTreeMap::new();
     visit(tree.root_node(), content, &mut result);
     result
 }
 
-fn visit(node: Node<'_>, content: &str, result: &mut HashSet<String>) {
+pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
+    extract_spans(tree, content).into_keys().collect()
+}
+
+fn visit(node: Node<'_>, content: &str, result: &mut BTreeMap<String, (usize, usize)>) {
+    let span = (node.start_position().row + 1, node.end_position().row + 1);
     match node.kind() {
         "use_declaration" => {
             if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                result.extend(rust_use_imports(text));
+                for path in rust_use_imports(text) {
+                    result.entry(path).or_insert(span);
+                }
             }
         }
         "mod_item" => {
             if let Ok(text) = node.utf8_text(content.as_bytes())
                 && let Some(module) = rust_mod_import(text)
             {
-                result.insert(module);
+                result.entry(module).or_insert(span);
             }
         }
         _ => {}
