@@ -19,8 +19,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
-- Added `code-quality.complex-function` (preview): a per-function
-  cognitive-complexity rule that weights **nesting depth** rather than counting
+- Added `code-quality.complex-function` (preview): a per-function cognitive-complexity rule that weights **nesting depth** rather than counting
   branches flatly. A deeply nested handler is flagged while a wide-but-flat
   `switch`/`match` dispatcher is not — the case where the file-level
   `code-quality.complex-file` over-reports. Nested closures are scored
@@ -42,6 +41,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `long-function` and `complex-function` audits into `function_spans`, so both
   agree on what a "function" is across the supported languages. `long-function`
   behavior is unchanged (parity tests hold).
+- Internal: added a golden before/after harness for the `review` change signals
+  (`tests/fixtures/review/<family>/<scenario>/`). Each fixture commits a
+  `before/` tree, overlays an `after/` diff, runs the real
+  `repopilot review --format json`, and matches the emitted tiered signals
+  against an `expected.json` of `expect`/`forbid` constraints. Seeded with one
+  proven-firing fixture per family (taint, boundary, behavioral, algorithmic);
+  the matrix grows by dropping in directories.
 
 ## [0.17.0] - 2026-06-11
 

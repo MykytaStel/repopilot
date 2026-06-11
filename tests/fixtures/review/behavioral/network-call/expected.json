@@ -1,0 +1,16 @@
+{
+  "description": "An ordinary service file adds an outbound fetch() call. A behavior crossing in a non-boundary file is maybe-sensitive, not definitely.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "maybe",
+      "family": "behavioral",
+      "kind": "behavioral.network-call-added",
+      "path": "src/service/loader.ts",
+      "headline": "network call added"
+    }
+  ],
+  "forbid": [
+    { "bucket": "definitely", "family": "behavioral" }
+  ]
+}
