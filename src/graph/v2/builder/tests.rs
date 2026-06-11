@@ -183,3 +183,152 @@ fn test_files_link_to_their_subject_with_a_test_of_edge() {
     assert_eq!(test_of.provenance, GraphEdgeProvenance::TestHeuristic);
     assert_eq!(test_of.confidence, GraphEdgeConfidence::High);
 }
+
+// ── Workspace package nodes ─────────────────────────────────────────────────
+//
+// Package detection reads manifests from disk, so these build a real workspace
+// on a temp dir and a `ScanFacts` whose file paths live under it.
+
+use std::fs;
+use tempfile::TempDir;
+
+fn write(root: &Path, relative: &str, content: &str) {
+    let path = root.join(relative);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, content).unwrap();
+}
+
+fn scan_under(root: &Path, relatives: &[&str]) -> ScanFacts {
+    let files = relatives
+        .iter()
+        .map(|relative| file(root.join(relative).to_string_lossy().as_ref(), &[]))
+        .collect();
+    ScanFacts {
+        root_path: root.to_path_buf(),
+        files,
+        ..ScanFacts::default()
+    }
+}
+
+fn package_nodes(snapshot: &GraphSnapshot) -> Vec<&str> {
+    snapshot
+        .nodes
+        .iter()
+        .filter(|node| node.kind == GraphNodeKind::Package)
+        .map(|node| node.id.as_str())
+        .collect()
+}
+
+#[test]
+fn npm_workspace_creates_package_nodes_and_membership() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    write(root, "package.json", r#"{ "workspaces": ["packages/*"] }"#);
+    write(
+        root,
+        "packages/web/package.json",
+        r#"{ "name": "@acme/web" }"#,
+    );
+    write(
+        root,
+        "packages/api/package.json",
+        r#"{ "name": "@acme/api" }"#,
+    );
+
+    let snapshot = graph_snapshot_from_scan(&scan_under(
+        root,
+        &["packages/web/src/index.ts", "packages/api/src/index.ts"],
+    ));
+
+    assert_eq!(
+        package_nodes(&snapshot),
+        vec!["package:packages/api", "package:packages/web"]
+    );
+    // The Package node label carries the manifest name for consumers.
+    let web = snapshot
+        .nodes
+        .iter()
+        .find(|node| node.id.as_str() == "package:packages/web")
+        .unwrap();
+    assert_eq!(web.label, "@acme/web");
+
+    let membership = &snapshot.package_membership;
+    assert_eq!(
+        membership
+            .get(&GraphNodeId::new("file:packages/web/src/index.ts"))
+            .unwrap()
+            .as_str(),
+        "package:packages/web"
+    );
+    assert_eq!(
+        membership
+            .get(&GraphNodeId::new("file:packages/api/src/index.ts"))
+            .unwrap()
+            .as_str(),
+        "package:packages/api"
+    );
+}
+
+#[test]
+fn cargo_workspace_creates_package_nodes() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    write(
+        root,
+        "Cargo.toml",
+        "[workspace]\nmembers = [\"crates/*\"]\n",
+    );
+    write(
+        root,
+        "crates/core/Cargo.toml",
+        "[package]\nname = \"core\"\n",
+    );
+    write(root, "crates/core/src/lib.rs", "");
+
+    let snapshot = graph_snapshot_from_scan(&scan_under(root, &["crates/core/src/lib.rs"]));
+
+    assert_eq!(package_nodes(&snapshot), vec!["package:crates/core"]);
+    assert_eq!(
+        snapshot
+            .package_membership
+            .get(&GraphNodeId::new("file:crates/core/src/lib.rs"))
+            .unwrap()
+            .as_str(),
+        "package:crates/core"
+    );
+}
+
+#[test]
+fn go_work_creates_package_nodes() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    write(root, "go.work", "use (\n\t./svc-a\n)\n");
+    write(root, "svc-a/go.mod", "module example.com/svc-a\n");
+    write(root, "svc-a/main.go", "package main\n");
+
+    let snapshot = graph_snapshot_from_scan(&scan_under(root, &["svc-a/main.go"]));
+
+    assert_eq!(package_nodes(&snapshot), vec!["package:svc-a"]);
+    assert_eq!(
+        snapshot
+            .package_membership
+            .get(&GraphNodeId::new("file:svc-a/main.go"))
+            .unwrap()
+            .as_str(),
+        "package:svc-a"
+    );
+}
+
+#[test]
+fn non_workspace_root_adds_no_package_nodes_or_membership() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    write(root, "package.json", r#"{ "name": "solo" }"#);
+
+    let snapshot = graph_snapshot_from_scan(&scan_under(root, &["src/index.ts"]));
+
+    assert!(package_nodes(&snapshot).is_empty());
+    assert!(snapshot.package_membership.is_empty());
+    // The only node is the file itself — the snapshot is unchanged by package support.
+    assert_eq!(snapshot.node_count(), 1);
+}

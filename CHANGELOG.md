@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- The dependency graph now models workspace packages as first-class `Package`
+  nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
+  prefix), so future rules can reason about real package boundaries instead of
+  path globs. A non-workspace repository produces no package nodes and leaves
+  the graph unchanged. Internal only for now — no command consumes it yet.
+
 ### Changed
 
 - Architecture audits (`circular-dependency`, `excessive-fan-out`, `dead-module`, `test-leak`, `layer-violation`, `package-boundary-violation`) now pinpoint the exact import statement lines in their evidence snippets instead of defaulting to line 1, using language-aware AST extraction across all supported languages.

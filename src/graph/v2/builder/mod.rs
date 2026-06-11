@@ -1,3 +1,4 @@
+mod packages;
 mod test_edges;
 
 use super::{
@@ -101,6 +102,13 @@ pub fn graph_snapshot_from_scan(scan: &ScanFacts) -> GraphSnapshot {
         }
     }
 
+    // Workspace `Package` nodes + file → package membership. Empty (no nodes,
+    // no membership) for a non-workspace root, leaving the snapshot unchanged.
+    let package_graph = packages::package_graph(&root, &known_files);
+    for (id, node) in package_graph.nodes {
+        nodes.entry(id).or_insert(node);
+    }
+
     edges.extend(test_edges::test_of_edges(&known_files));
 
     edges.sort_by(|left, right| {
@@ -127,6 +135,7 @@ pub fn graph_snapshot_from_scan(scan: &ScanFacts) -> GraphSnapshot {
         nodes: nodes.into_values().collect(),
         edges,
         diagnostics,
+        package_membership: package_graph.membership,
     }
 }
 

@@ -31,7 +31,7 @@ fn snapshot(nodes: &[&str], edges: &[(&str, &str)]) -> GraphSnapshot {
     GraphSnapshot {
         nodes: nodes.iter().map(|value| node(value)).collect(),
         edges: edges.iter().map(|(from, to)| edge(from, to)).collect(),
-        diagnostics: Vec::new(),
+        ..Default::default()
     }
 }
 
@@ -403,7 +403,7 @@ fn directory_dependencies_ignore_non_dependency_and_external_edges() {
                 confidence: GraphEdgeConfidence::Medium,
             },
         ],
-        diagnostics: Vec::new(),
+        ..Default::default()
     };
 
     assert!(directory_dependencies(&graph).edges.is_empty());
