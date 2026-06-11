@@ -1,8 +1,8 @@
-use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles, shortest_cycle};
 use crate::graph::{
-    CouplingGraph, FileMetrics, build_coupling_graph, coupling_file_metrics,
-    without_rust_module_containment_edges,
+    CouplingGraph, FileMetrics, ImportResolutionStats, build_coupling_graph_with_resolution,
+    coupling_file_metrics, without_rust_module_containment_edges,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
@@ -10,6 +10,9 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 mod rust_facade;
+
+#[cfg(test)]
+mod tests;
 
 use rust_facade::is_pure_rust_facade;
 
@@ -21,8 +24,8 @@ impl ImportCouplingAudit {
         facts: &ScanFacts,
         config: &ScanConfig,
         root: &Path,
-    ) -> (Vec<Finding>, CouplingGraph) {
-        let graph = build_coupling_graph(facts, root);
+    ) -> (Vec<Finding>, CouplingGraph, ImportResolutionStats) {
+        let (graph, resolution) = build_coupling_graph_with_resolution(facts, root);
         let metrics = coupling_file_metrics(&graph);
 
         // Circular dependencies now run through graph v2's SCC-based cycle
@@ -80,6 +83,7 @@ impl ImportCouplingAudit {
                     config.instability_hub_min_fan_in,
                     config.instability_hub_min_instability_pct,
                     file_facts,
+                    &resolution,
                 ));
             }
         }
@@ -108,7 +112,7 @@ impl ImportCouplingAudit {
             }
         }
 
-        (findings, graph)
+        (findings, graph, resolution)
     }
 }
 
@@ -165,6 +169,7 @@ fn high_instability_hub_finding(
     min_fan_in: usize,
     min_instability_pct: usize,
     file_facts: Option<&crate::scan::facts::FileFacts>,
+    resolution: &ImportResolutionStats,
 ) -> Finding {
     let path = relative_path(&metric.path, root);
 
@@ -175,6 +180,19 @@ fn high_instability_hub_finding(
         metric.fan_out,
         instability_pct
     );
+
+    // Instability is derived from fan-in; every unresolved relative import in
+    // the repository is a potential missing importer of this file, so the
+    // measured fan-in is a lower bound and the instability claim is weaker.
+    let confidence = if resolution.is_empty() {
+        Confidence::High
+    } else {
+        snippet.push_str(&format!(
+            "\n{} unresolved relative import(s) in the repository — fan-in may be undercounted.",
+            resolution.total()
+        ));
+        Confidence::Medium
+    };
 
     if let Some(facts) = file_facts
         && !facts.imports.is_empty()
@@ -194,7 +212,7 @@ fn high_instability_hub_finding(
         ),
         category: FindingCategory::Architecture,
         severity: Severity::High,
-        confidence: Default::default(),
+        confidence,
         evidence: vec![Evidence {
             path: path.clone(),
             line_start: 1,

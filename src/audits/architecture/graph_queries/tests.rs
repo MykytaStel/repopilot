@@ -1,11 +1,17 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureContext, FileRole, LanguageFamily, ModuleKind};
+use crate::findings::types::Confidence;
+use crate::graph::ImportResolutionStats;
 use crate::scan::config::{LayerSpec, ScanConfig};
 
 use super::layers::LayerIndex;
 use super::packages::PackageIndex;
 use super::{NodeInfo, dead_module_finding, test_leak_finding};
+
+fn complete_graph() -> ImportResolutionStats {
+    ImportResolutionStats::default()
+}
 
 fn node(relative: &str, role: FileRole, is_entrypoint: bool, is_public_api: bool) -> NodeInfo {
     NodeInfo {
@@ -27,32 +33,67 @@ fn prod(relative: &str) -> NodeInfo {
 #[test]
 fn dead_module_flags_unreferenced_production_file() {
     let info = prod("src/orphan.ts");
-    assert!(dead_module_finding(&info, Some(0)).is_some());
+    let finding = dead_module_finding(&info, Some(0), &complete_graph());
+    let finding = finding.expect("unreferenced production file should be flagged");
+    assert_eq!(finding.confidence, Confidence::High);
 }
 
 #[test]
 fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
+    let resolution = complete_graph();
     assert!(
         dead_module_finding(
             &node("src/main.rs", FileRole::Production, true, false),
-            Some(0)
+            Some(0),
+            &resolution
         )
         .is_none()
     );
     assert!(
         dead_module_finding(
             &node("src/lib.rs", FileRole::Production, false, true),
-            Some(0)
+            Some(0),
+            &resolution
         )
         .is_none()
     );
-    assert!(dead_module_finding(&prod("src/used.ts"), Some(2)).is_none());
+    assert!(dead_module_finding(&prod("src/used.ts"), Some(2), &resolution).is_none());
     assert!(
         dead_module_finding(
             &node("src/foo.test.ts", FileRole::Test, false, false),
-            Some(0)
+            Some(0),
+            &resolution
         )
         .is_none()
+    );
+}
+
+#[test]
+fn dead_module_is_demoted_to_medium_when_graph_has_unresolved_imports() {
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record(Path::new("src/other.ts"), "./missing-helper");
+
+    let finding = dead_module_finding(&prod("src/orphan.ts"), Some(0), &resolution)
+        .expect("dead module should still be reported when the graph is merely incomplete");
+
+    assert_eq!(finding.confidence, Confidence::Medium);
+    assert!(
+        finding.evidence[0]
+            .snippet
+            .contains("unresolved relative import"),
+        "snippet should explain the demotion: {}",
+        finding.evidence[0].snippet
+    );
+}
+
+#[test]
+fn dead_module_is_suppressed_when_unresolved_import_could_target_it() {
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record(Path::new("src/other.ts"), "../legacy/orphan");
+
+    assert!(
+        dead_module_finding(&prod("src/orphan.ts"), Some(0), &resolution).is_none(),
+        "an unresolved import matching the candidate's name is a plausible importer"
     );
 }
 

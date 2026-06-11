@@ -126,6 +126,9 @@ pub(super) static RULES: &[RuleMetadata] = &[
         category: FindingCategory::Architecture,
         default_severity: Severity::High,
         default_confidence: Confidence::High,
+        // Demoted to Medium when the repository has unresolved relative
+        // imports: fan-in is then a lower bound and instability is overstated.
+        contextual_confidence: true,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ImportGraph,
         docs_url: Some(
@@ -136,7 +139,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
             "Separate the stable, widely-imported interface from the volatile implementation details to reduce coupling.",
         ),
         false_positive_notes: Some(
-            "Framework entrypoints and generated hubs can be expected; production modules with high fan-in and fan-out should be reviewed.",
+            "Framework entrypoints and generated hubs can be expected; production modules with high fan-in and fan-out should be reviewed. When the repository contains unresolved relative imports, fan-in is a lower bound and the finding is reported at Medium confidence.",
         ),
         ..RuleMetadata::DEFAULT
     },
@@ -146,12 +149,19 @@ pub(super) static RULES: &[RuleMetadata] = &[
         category: FindingCategory::Architecture,
         default_severity: Severity::Low,
         default_confidence: Confidence::High,
+        // Demoted to Medium when the repository has unresolved relative
+        // imports (the graph is provably incomplete); suppressed entirely when
+        // an unresolved import could plausibly target the candidate file.
+        contextual_confidence: true,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
         docs_url: None,
         description: "This production file is not imported by any other project file and is not a known entrypoint. It may be dead code.",
         recommendation: Some(
             "Remove the file if it is no longer used, or ensure it is exported in the package's public API.",
+        ),
+        false_positive_notes: Some(
+            "Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. When the repository contains unresolved relative imports the finding is reported at Medium confidence, and it is suppressed when an unresolved import matches the candidate file's name.",
         ),
         ..RuleMetadata::DEFAULT
     },

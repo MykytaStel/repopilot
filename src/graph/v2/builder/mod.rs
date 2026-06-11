@@ -4,6 +4,7 @@ use super::{
     GraphDiagnostic, GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance, GraphNode,
     GraphNodeId, GraphNodeKind, GraphSnapshot,
 };
+use crate::graph::resolution_stats::is_relative_import;
 use crate::graph::resolve_import;
 use crate::graph::resolver::normalize_path;
 use crate::scan::facts::ScanFacts;
@@ -146,10 +147,6 @@ fn slash_path(path: &Path) -> String {
 
 fn normalize_import(raw_import: &str) -> String {
     raw_import.trim().replace('\\', "/")
-}
-
-fn is_relative_import(import: &str) -> bool {
-    import.starts_with("./") || import.starts_with("../")
 }
 
 fn external_node_id(import: &str, nodes: &mut BTreeMap<GraphNodeId, GraphNode>) -> GraphNodeId {

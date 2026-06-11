@@ -8,9 +8,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole};
-use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use crate::graph::CouplingGraph;
+use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::graph::v2::{GraphNodeId, build_coupling_graph_snapshot};
+use crate::graph::{CouplingGraph, ImportResolutionStats};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 
@@ -38,6 +38,7 @@ impl GraphQueriesAudit {
         facts: &ScanFacts,
         config: &ScanConfig,
         graph: &CouplingGraph,
+        resolution: &ImportResolutionStats,
         root: &Path,
     ) -> Vec<Finding> {
         let classifier = ArchitectureClassifier::new(&config.module_mappings);
@@ -77,7 +78,8 @@ impl GraphQueriesAudit {
 
         for node in &snapshot.nodes {
             if let Some(info) = node_info.get(&node.id)
-                && let Some(finding) = dead_module_finding(info, fan_in.get(&node.id).copied())
+                && let Some(finding) =
+                    dead_module_finding(info, fan_in.get(&node.id).copied(), resolution)
             {
                 findings.push(finding);
             }
@@ -113,7 +115,17 @@ impl GraphQueriesAudit {
 
 /// A production file that nothing imports and that is not an entrypoint or a
 /// package's public API surface is likely dead code.
-fn dead_module_finding(info: &NodeInfo, fan_in: Option<usize>) -> Option<Finding> {
+///
+/// "Nothing imports this file" is an absence claim, so it is only as good as
+/// the import graph: an unresolved relative import whose final segment matches
+/// this file's name could well be the missing importer (skip entirely), and
+/// any other unresolved relative import still means the graph is incomplete
+/// (report at `Medium` instead of the registry's `High`).
+fn dead_module_finding(
+    info: &NodeInfo,
+    fan_in: Option<usize>,
+    resolution: &ImportResolutionStats,
+) -> Option<Finding> {
     let ctx = &info.context;
     if ctx.file_role != FileRole::Production
         || ctx.is_entrypoint
@@ -123,7 +135,27 @@ fn dead_module_finding(info: &NodeInfo, fan_in: Option<usize>) -> Option<Finding
         return None;
     }
 
-    Some(architecture_finding(
+    let stem = info
+        .relative
+        .file_stem()
+        .map(|stem| stem.to_string_lossy())
+        .unwrap_or_default();
+    if resolution.could_target_stem(&stem) {
+        return None;
+    }
+
+    let mut snippet = "fan_in=0, role=Production, entrypoint=false".to_string();
+    let confidence = if resolution.is_empty() {
+        Confidence::High
+    } else {
+        snippet.push_str(&format!(
+            " ({} unresolved relative import(s) in the repository — the import graph may be incomplete)",
+            resolution.total()
+        ));
+        Confidence::Medium
+    };
+
+    let mut finding = architecture_finding(
         "architecture.dead-module",
         "Dead module detected",
         "This production file is not imported by any other project file and is not a known entrypoint.".to_string(),
@@ -131,9 +163,11 @@ fn dead_module_finding(info: &NodeInfo, fan_in: Option<usize>) -> Option<Finding
             path: info.relative.clone(),
             line_start: 1,
             line_end: None,
-            snippet: "fan_in=0, role=Production, entrypoint=false".to_string(),
+            snippet,
         },
-    ))
+    );
+    finding.confidence = confidence;
+    Some(finding)
 }
 
 /// A production file importing a test or fixture file leaks test-only code into

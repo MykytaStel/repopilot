@@ -4,9 +4,11 @@ pub mod resolver;
 pub mod v2;
 
 mod coupling_metrics;
+mod resolution_stats;
 
 pub use coupling_metrics::coupling_file_metrics;
 pub use imports::extract_imports;
+pub use resolution_stats::ImportResolutionStats;
 pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
@@ -28,6 +30,17 @@ pub struct FileMetrics {
 // ── Graph construction ────────────────────────────────────────────────────────
 
 pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
+    build_coupling_graph_with_resolution(facts, root).0
+}
+
+/// Builds the coupling graph and, alongside it, the imports the resolver could
+/// not map to scanned files. The graph carries only proven edges; the stats
+/// tell absence-based consumers (dead modules, fan-in metrics) where the graph
+/// is provably incomplete.
+pub fn build_coupling_graph_with_resolution(
+    facts: &ScanFacts,
+    root: &Path,
+) -> (CouplingGraph, ImportResolutionStats) {
     let known_file_by_normalized: HashMap<PathBuf, PathBuf> = facts
         .files
         .iter()
@@ -36,6 +49,7 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
     let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+    let mut resolution = ImportResolutionStats::default();
 
     for file in &facts.files {
         let source = file.path.clone();
@@ -44,15 +58,22 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
-            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files)
-                && target != normalized_source
-            {
-                outgoing.insert(
-                    known_file_by_normalized
-                        .get(&target)
-                        .cloned()
-                        .unwrap_or(target),
-                );
+            match resolve_import(raw, &normalized_source, root, &known_files) {
+                Some(target) if target != normalized_source => {
+                    outgoing.insert(
+                        known_file_by_normalized
+                            .get(&target)
+                            .cloned()
+                            .unwrap_or(target),
+                    );
+                }
+                // A file importing itself carries no dependency information.
+                Some(_) => {}
+                None => {
+                    if resolution_stats::is_relative_import(raw.trim()) {
+                        resolution.record(&source, raw.trim());
+                    }
+                }
             }
         }
     }
@@ -63,7 +84,7 @@ pub fn build_coupling_graph(facts: &ScanFacts, root: &Path) -> CouplingGraph {
         nodes.extend(targets.iter().cloned());
     }
 
-    CouplingGraph { edges, nodes }
+    (CouplingGraph { edges, nodes }, resolution)
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
