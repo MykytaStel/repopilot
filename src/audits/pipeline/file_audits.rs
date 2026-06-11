@@ -3,6 +3,7 @@ use super::registration::{
 };
 use crate::audits::architecture::large_file::LargeFileAudit;
 use crate::audits::code_quality::code_markers::CodeMarkerAudit;
+use crate::audits::code_quality::complex_function::ComplexFunctionAudit;
 use crate::audits::code_quality::complexity::ComplexityAudit;
 use crate::audits::code_quality::deep_control_flow::DeepControlFlowAudit;
 use crate::audits::code_quality::language_risk::LanguageRiskAudit;
@@ -55,6 +56,14 @@ pub fn registered_file_audits(config: &ScanConfig) -> Vec<FileAuditRegistration>
                 &["code-quality.deep-control-flow"],
             ),
             Box::new(DeepControlFlowAudit),
+        ),
+        FileAuditRegistration::new(
+            file_metadata(
+                "audit.file.code-quality.complex-function",
+                FindingCategory::CodeQuality,
+                &["code-quality.complex-function"],
+            ),
+            Box::new(ComplexFunctionAudit),
         ),
         FileAuditRegistration::new(
             file_metadata(

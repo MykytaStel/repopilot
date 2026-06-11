@@ -37,7 +37,10 @@ const RUNTIME_RULES_WITH_FIXTURES: &[&str] = &[
     "language.managed.fatal-exception-risk",
 ];
 
-const CODE_QUALITY_RULES_WITH_FIXTURES: &[&str] = &["code-quality.long-function"];
+const CODE_QUALITY_RULES_WITH_FIXTURES: &[&str] = &[
+    "code-quality.long-function",
+    "code-quality.complex-function",
+];
 
 const FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
     "framework.react-native.deprecated-api",

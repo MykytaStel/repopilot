@@ -1,9 +1,10 @@
 use crate::config::defaults::{
-    DEFAULT_COMPLEXITY_HIGH_THRESHOLD, DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
-    DEFAULT_HUGE_FILE_LINES, DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
-    DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT, DEFAULT_LONG_FUNCTION_LINES,
-    DEFAULT_MAX_CONTROL_FLOW_DEPTH, DEFAULT_MAX_DIRECTORY_DEPTH, DEFAULT_MAX_DIRECTORY_MODULES,
-    DEFAULT_MAX_FAN_OUT, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_FILE_LINES, default_ignored_paths,
+    DEFAULT_COMPLEX_FUNCTION_THRESHOLD, DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
+    DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD, DEFAULT_HUGE_FILE_LINES,
+    DEFAULT_INSTABILITY_HUB_MIN_FAN_IN, DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
+    DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_CONTROL_FLOW_DEPTH, DEFAULT_MAX_DIRECTORY_DEPTH,
+    DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FAN_OUT, DEFAULT_MAX_FILE_BYTES,
+    DEFAULT_MAX_FILE_LINES, default_ignored_paths,
 };
 use crate::findings::types::Severity;
 use serde::Serialize;
@@ -33,6 +34,7 @@ pub struct ScanConfig {
     pub long_function_loc_threshold: usize,
     pub complexity_medium_threshold: usize,
     pub complexity_high_threshold: usize,
+    pub complex_function_threshold: usize,
     pub max_fan_out: usize,
     pub instability_hub_min_fan_in: usize,
     pub instability_hub_min_instability_pct: usize,
@@ -128,6 +130,7 @@ impl Default for ScanConfig {
             long_function_loc_threshold: DEFAULT_LONG_FUNCTION_LINES,
             complexity_medium_threshold: DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD,
             complexity_high_threshold: DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
+            complex_function_threshold: DEFAULT_COMPLEX_FUNCTION_THRESHOLD,
             max_fan_out: DEFAULT_MAX_FAN_OUT,
             instability_hub_min_fan_in: DEFAULT_INSTABILITY_HUB_MIN_FAN_IN,
             instability_hub_min_instability_pct: DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,

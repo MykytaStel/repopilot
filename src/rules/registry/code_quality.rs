@@ -84,6 +84,24 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
+        rule_id: "code-quality.complex-function",
+        title: "Function has high cognitive complexity",
+        category: FindingCategory::CodeQuality,
+        default_severity: Severity::Medium,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Preview,
+        signal_source: SignalSource::Ast,
+        docs_url: None,
+        description: "A function's control flow is deeply nested or branch-heavy, measured by a cognitive-complexity score that weights nesting depth rather than counting branches flatly. Deeply nested logic is disproportionately hard to read, test, and change.",
+        recommendation: Some(
+            "Reduce nesting: extract nested blocks into well-named helper functions and prefer early returns/guard clauses over deep if/else and loop nesting.",
+        ),
+        false_positive_notes: Some(
+            "A wide but flat dispatcher (a large switch/match with shallow arms) scores low by design, so it is not flagged. Nested closures/callbacks are scored independently rather than folded into their enclosing function. Cross-reference: `code-quality.complex-file` counts branches per file and does not weight nesting.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
+    RuleMetadata {
         rule_id: "code-quality.deep-control-flow",
         title: "Deep control flow nesting detected",
         category: FindingCategory::CodeQuality,
