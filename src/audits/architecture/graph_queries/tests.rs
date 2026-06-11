@@ -269,10 +269,18 @@ export {};
     let index = PackageIndex::from_config(&packaged_config());
     // Use an absolute-ish root just to prove resolve_import handles the relative setup properly
     let root = Path::new("/var/repo");
-    let finding = index.violation_finding(&source, &target, root, &known).expect("should find violation");
+    let finding = index
+        .violation_finding(&source, &target, root, &known)
+        .expect("should find violation");
 
-    assert_eq!(finding.evidence[0].line_start, 2, "evidence should point to line 2");
-    assert_eq!(finding.evidence[0].line_end, None, "single line import has no line_end");
+    assert_eq!(
+        finding.evidence[0].line_start, 2,
+        "evidence should point to line 2"
+    );
+    assert_eq!(
+        finding.evidence[0].line_end, None,
+        "single line import has no line_end"
+    );
 }
 
 #[test]
