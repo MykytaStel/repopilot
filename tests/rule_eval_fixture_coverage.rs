@@ -26,6 +26,7 @@ const IMPORT_GRAPH_RULES_WITH_FIXTURES: &[&str] = &[
     "architecture.high-instability-hub",
     "architecture.dead-module",
     "architecture.test-leak",
+    "architecture.package-boundary-violation",
 ];
 
 const RUNTIME_RULES_WITH_FIXTURES: &[&str] = &[

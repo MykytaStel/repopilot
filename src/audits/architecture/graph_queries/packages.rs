@@ -1,54 +1,99 @@
-//! Opt-in `architecture.package-boundary-violation`: a file reaching into
-//! another package's internals instead of going through its public API. A
-//! "package" is an immediate child of a declared root glob (`packages/*`), or a
-//! declared directory itself. With no `[architecture] package_roots` configured
-//! the rule is silent.
+//! `architecture.package-boundary-violation`: a file reaching into another
+//! package's internals instead of going through its public API.
 //!
-//! This is the lightweight, path-based form. Promoting workspace packages to
-//! first-class graph nodes is tracked separately (roadmap PR-F).
+//! Packages come from one of two sources, in priority order:
+//!
+//! 1. **Explicit** `[architecture] package_roots` globs (`packages/*`, or a bare
+//!    directory). Findings carry the registry-default confidence.
+//! 2. **Detected** npm/pnpm/Cargo/Go workspaces, used when no `package_roots`
+//!    are configured. The rule auto-enables on a workspace, and findings are
+//!    raised to `High` confidence because the boundary is declared by the
+//!    repository's own manifests.
+//!
+//! With neither source the rule is silent.
 
-use crate::findings::types::{Evidence, Finding};
+use std::path::Path;
+
+use crate::findings::types::{Confidence, Evidence, Finding};
 use crate::scan::config::ScanConfig;
+use crate::scan::workspace::WorkspacePackage;
 
 use super::{NodeInfo, architecture_finding};
 
 pub(crate) struct PackageIndex {
+    /// Either glob patterns (`packages/*`) or bare package roots (`packages/auth`).
     roots: Vec<String>,
+    /// True when `roots` were derived from workspace manifests rather than
+    /// configured globs; such findings are reported at `High` confidence.
+    manifest_backed: bool,
 }
 
 impl PackageIndex {
-    pub(crate) fn from_config(config: &ScanConfig) -> Self {
+    /// Configured `package_roots` win (preserving the explicit, pre-0.18
+    /// behavior); otherwise detected workspace packages drive the rule.
+    pub(crate) fn new(
+        config: &ScanConfig,
+        detected: &[WorkspacePackage],
+        repo_root: &Path,
+    ) -> Self {
+        if !config.package_roots.is_empty() {
+            return Self {
+                roots: config.package_roots.clone(),
+                manifest_backed: false,
+            };
+        }
+
+        let roots = detected
+            .iter()
+            .filter_map(|package| {
+                let relative = package.root.strip_prefix(repo_root).ok()?;
+                let relative = relative.to_string_lossy().replace('\\', "/");
+                (!relative.is_empty()).then_some(relative)
+            })
+            .collect();
+
         Self {
-            roots: config.package_roots.clone(),
+            roots,
+            manifest_backed: true,
         }
     }
 
-    /// The package a file belongs to, or `None` if it is outside every declared
-    /// root. `packages/*` maps `packages/auth/src/x.ts` to `packages/auth`; a
-    /// bare `libs/core` maps anything under it to `libs/core`.
+    /// The package a file belongs to, or `None` if it is outside every root.
+    /// `packages/*` maps `packages/auth/src/x.ts` to `packages/auth`; a bare
+    /// `libs/core` maps anything under it to `libs/core`. The most specific
+    /// (longest) match wins so nested packages are attributed correctly.
     fn package_of(&self, info: &NodeInfo) -> Option<String> {
         let rel = info.relative.to_string_lossy().replace('\\', "/");
+        let mut best: Option<String> = None;
         for pattern in &self.roots {
-            if let Some(base) = pattern.strip_suffix("/*") {
+            let candidate = if let Some(base) = pattern.strip_suffix("/*") {
                 let prefix = format!("{base}/");
-                if let Some(rest) = rel.strip_prefix(&prefix) {
-                    let first = rest.split('/').next().unwrap_or("");
-                    if !first.is_empty() {
-                        return Some(format!("{base}/{first}"));
-                    }
-                }
+                rel.strip_prefix(&prefix)
+                    .and_then(|rest| rest.split('/').next())
+                    .filter(|first| !first.is_empty())
+                    .map(|first| format!("{base}/{first}"))
             } else if rel == *pattern || rel.starts_with(&format!("{pattern}/")) {
-                return Some(pattern.clone());
+                Some(pattern.clone())
+            } else {
+                None
+            };
+
+            if let Some(candidate) = candidate
+                && best
+                    .as_ref()
+                    .is_none_or(|current| candidate.len() > current.len())
+            {
+                best = Some(candidate);
             }
         }
-        None
+        best
     }
 
     pub(crate) fn violation_finding(
         &self,
         source: &NodeInfo,
         target: &NodeInfo,
-        root: &std::path::Path,
+        root: &Path,
         known_files: &std::collections::HashSet<std::path::PathBuf>,
     ) -> Option<Finding> {
         if self.roots.is_empty() || target.context.is_public_api {
@@ -66,7 +111,7 @@ impl PackageIndex {
             (1, None)
         };
 
-        Some(architecture_finding(
+        let mut finding = architecture_finding(
             "architecture.package-boundary-violation",
             "Package boundary violation",
             format!(
@@ -78,6 +123,18 @@ impl PackageIndex {
                 line_end,
                 snippet: format!("imports internal file: {}", target.relative.display()),
             },
-        ))
+        );
+
+        // A manifest-declared boundary is a fact about the repository, not a
+        // heuristic guess, so it earns the registry's confidence ceiling.
+        if self.manifest_backed {
+            finding.confidence = Confidence::High;
+        }
+        Some(finding)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_config(config: &ScanConfig) -> Self {
+        Self::new(config, &[], Path::new(""))
     }
 }

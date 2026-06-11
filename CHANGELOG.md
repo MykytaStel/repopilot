@@ -6,10 +6,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- `architecture.package-boundary-violation` now **auto-enables on a detected
+  workspace** — npm/yarn, pnpm, Cargo, or Go (`go.work`). Each workspace package
+  is treated as a boundary, so reaching into another package's internals
+  (anything but its `index.ts`/`mod.rs`/`lib.rs` public entry) is flagged
+  without any configuration, at **High** confidence because the boundary is
+  declared by the repository's own manifests. Explicit `[architecture]
+  package_roots` still take priority and keep the Medium default confidence;
+  with neither a workspace nor config the rule stays silent. A non-workspace
+  repository (including RepoPilot itself) is unaffected.
+
 ### Added
 
-- The dependency graph now models workspace packages as first-class `Package`
-  nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
+- The dependency graph now models workspace packages as first-class `Package` nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
   prefix), so future rules can reason about real package boundaries instead of
   path globs. A non-workspace repository produces no package nodes and leaves
   the graph unchanged. Internal only for now — no command consumes it yet.

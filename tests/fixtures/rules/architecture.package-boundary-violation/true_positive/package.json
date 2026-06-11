@@ -1,0 +1,5 @@
+{
+  "name": "tp-monorepo",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

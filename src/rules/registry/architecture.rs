@@ -202,13 +202,21 @@ pub(super) static RULES: &[RuleMetadata] = &[
         title: "Package boundary violation",
         category: FindingCategory::Architecture,
         default_severity: Severity::Medium,
-        default_confidence: Confidence::High,
+        // Glob-driven (`package_roots`) findings keep the Medium default;
+        // manifest-driven findings on a detected workspace are raised to the
+        // High ceiling because the boundary is declared by the repo itself.
+        default_confidence: Confidence::Medium,
+        max_confidence: Confidence::High,
+        contextual_confidence: true,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
         docs_url: None,
-        description: "A file imports a private module from another package/feature instead of using its public API. Opt-in: emits nothing unless `[architecture] package_roots` is configured.",
+        description: "A file imports a private module from another package instead of using its public API. Auto-enabled on a detected npm/pnpm/Cargo/Go workspace; can also be driven explicitly with `[architecture] package_roots`.",
         recommendation: Some(
             "Import from the package's public barrel file (e.g. index.ts, mod.rs) instead of reaching into its internal implementation.",
+        ),
+        false_positive_notes: Some(
+            "Public entry files (index.ts/js/tsx/jsx, mod.rs, lib.rs) are exempt, as are imports within the same package. Intentional deep imports in a private monorepo can be suppressed via feedback or by not configuring package boundaries. Workspace-detected boundaries report at High confidence; configured `package_roots` globs report at the Medium default.",
         ),
         ..RuleMetadata::DEFAULT
     },

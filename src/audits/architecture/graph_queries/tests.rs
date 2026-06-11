@@ -323,3 +323,103 @@ fn package_boundary_allows_public_api_same_package_and_no_config() {
             .is_none()
     );
 }
+
+fn detected(repo_root: &Path, rel_roots: &[&str]) -> Vec<crate::scan::workspace::WorkspacePackage> {
+    rel_roots
+        .iter()
+        .map(|rel| crate::scan::workspace::WorkspacePackage {
+            name: rel.to_string(),
+            root: repo_root.join(rel),
+        })
+        .collect()
+}
+
+#[test]
+fn detected_workspace_auto_enables_package_boundary_at_high_confidence() {
+    let repo_root = Path::new("/repo");
+    let packages = detected(repo_root, &["packages/web", "packages/auth"]);
+    // No `package_roots` config: detection drives the rule.
+    let index = PackageIndex::new(&ScanConfig::default(), &packages, repo_root);
+    let known = std::collections::HashSet::new();
+
+    let finding = index
+        .violation_finding(
+            &prod("packages/web/src/use.ts"),
+            &prod("packages/auth/src/internal.ts"),
+            repo_root,
+            &known,
+        )
+        .expect("cross-package internal import on a workspace should be flagged");
+    // Manifest-declared boundaries are reported at the High ceiling.
+    assert_eq!(finding.confidence, Confidence::High);
+}
+
+#[test]
+fn detected_workspace_respects_public_api_and_same_package() {
+    let repo_root = Path::new("/repo");
+    let packages = detected(repo_root, &["packages/web", "packages/auth"]);
+    let index = PackageIndex::new(&ScanConfig::default(), &packages, repo_root);
+    let known = std::collections::HashSet::new();
+
+    // Public entry of another package is allowed.
+    assert!(
+        index
+            .violation_finding(
+                &prod("packages/web/src/use.ts"),
+                &node("packages/auth/index.ts", FileRole::Production, false, true),
+                repo_root,
+                &known,
+            )
+            .is_none()
+    );
+    // Same package is allowed.
+    assert!(
+        index
+            .violation_finding(
+                &prod("packages/auth/src/a.ts"),
+                &prod("packages/auth/src/b.ts"),
+                repo_root,
+                &known,
+            )
+            .is_none()
+    );
+}
+
+#[test]
+fn configured_package_roots_win_over_detection() {
+    // When `package_roots` is set, detection is ignored and findings keep the
+    // registry-default (Medium) confidence rather than the manifest High.
+    let repo_root = Path::new("/repo");
+    let index = PackageIndex::new(
+        &packaged_config(),
+        &detected(repo_root, &["unrelated/pkg"]),
+        repo_root,
+    );
+    let known = std::collections::HashSet::new();
+
+    let finding = index
+        .violation_finding(
+            &prod("packages/web/src/use.ts"),
+            &prod("packages/auth/src/internal.ts"),
+            repo_root,
+            &known,
+        )
+        .expect("glob-configured boundary should still flag");
+    assert_eq!(finding.confidence, Confidence::Medium);
+}
+
+#[test]
+fn no_workspace_and_no_config_is_silent() {
+    let index = PackageIndex::new(&ScanConfig::default(), &[], Path::new("/repo"));
+    let known = std::collections::HashSet::new();
+    assert!(
+        index
+            .violation_finding(
+                &prod("packages/web/src/use.ts"),
+                &prod("packages/auth/src/internal.ts"),
+                Path::new("/repo"),
+                &known,
+            )
+            .is_none()
+    );
+}

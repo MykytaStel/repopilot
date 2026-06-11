@@ -121,8 +121,16 @@ is silent.
 
 `architecture.package-boundary-violation` flags one package reaching into
 another package's internals instead of importing its public API (`index.ts`,
-`mod.rs`, `lib.rs`). Declare the roots whose immediate children are independent
-packages:
+`mod.rs`, `lib.rs`).
+
+The rule **auto-enables on a detected workspace** — npm/yarn (`workspaces`),
+pnpm (`pnpm-workspace.yaml`), Cargo (`[workspace] members`), or Go (`go.work`).
+Each workspace package becomes a boundary, and violations are reported at
+**High** confidence because the boundary is declared by the repository's own
+manifests. Nothing needs to be configured.
+
+To define boundaries explicitly (for example in a repo that is not a recognized
+workspace), declare the roots whose immediate children are independent packages:
 
 ```toml
 [architecture]
@@ -131,8 +139,10 @@ package_roots = ["packages/*", "apps/*"]
 
 With `packages/*`, anything under `packages/auth/` belongs to package
 `packages/auth`; an import from `packages/web/...` into `packages/auth/src/...`
-is flagged, while importing `packages/auth/index.ts` is not. With no
-`package_roots` the rule is silent.
+is flagged, while importing `packages/auth/index.ts` is not. Configured
+`package_roots` take priority over workspace detection and report at the default
+Medium confidence. With neither a workspace nor `package_roots`, the rule is
+silent.
 
 ## Per-rule control
 
