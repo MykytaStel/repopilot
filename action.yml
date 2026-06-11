@@ -184,7 +184,7 @@ runs:
 
     - name: Update RepoPilot PR comment
       if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.run.outputs.summary_file != ''
-      uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553 # v9
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
       env:
         REPOPILOT_SUMMARY_FILE: ${{ steps.run.outputs.summary_file }}
       with:
