@@ -11,16 +11,16 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.18:
+JSON scan reports include explicit schema metadata. The current schema is 0.19:
 
 ```json
 {
-  "schema_version": "0.18",
-  "repopilot_version": "0.16.0",
+  "schema_version": "0.19",
+  "repopilot_version": "0.17.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.18",
-    "repopilot_version": "0.16.0"
+    "schema_version": "0.19",
+    "repopilot_version": "0.17.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -88,6 +88,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.18:
 | `scan_timings` | object | Optional engine timing metadata. `file_scan_us` remains the compatibility aggregate; newer fields break out `discovery_us`, `file_analysis_us`, `parse_us` (tree-sitter parsing within file analysis), `enrichment_us`, `risk_scoring_us`, `contract_validation_us`, and `report_finalization_us`. |
 | `local_feedback` | object | Optional summary of `.repopilot/feedback.yml` suppressions applied during this scan or review. |
 | `diagnostics` | array | Optional structured warnings/errors captured during a scan, such as workspace partial failures. |
+| `rule_false_positive_notes` | object | Optional map of rule id → registry false-positive notes for every rule that fired, so consumers can self-triage without a catalog lookup. |
 
 Diagnostics use `{ code, severity, message, path? }`. Recoverable diagnostics
 with `warning` severity are report-only and keep the scan exit code at `0`
@@ -98,9 +99,9 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.17.x` continues to emit schema `0.18` unless the serialized contract
-changes. Schema numbers are monotonic contract revisions, not predictions of the
-next RepoPilot package version.
+Binary `0.17.x` emits schema `0.19` unless the serialized contract changes.
+Schema numbers are monotonic contract revisions, not predictions of the next
+RepoPilot package version.
 
 ### Compatibility
 
@@ -125,7 +126,9 @@ Schema `0.16` adds context graph report and cache diagnostics. Schema `0.17`
 adds raw-vs-visible finding and signal-quality metrics so default-profile
 reports do not look clean when meaningful strict-only findings were hidden.
 Schema `0.18` adds the stable review-signal contract, suppression/gate metadata,
-and the explicit review gate result.
+and the explicit review gate result. Schema `0.19` makes the rule registry the
+single source of truth for finding severity/confidence and adds the optional
+`rule_false_positive_notes` map (additive).
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -135,8 +138,9 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `lines_of_code` | `non_empty_lines` |
 | `skipped_files_count` | `large_files_skipped` |
 
-The current reader accepts `0.16`, `0.17`, and `0.18` scan reports during the
-transition. Baseline files follow their separate baseline schema policy.
+The current reader accepts `0.16`, `0.17`, `0.18`, and `0.19` scan reports
+during the transition. Baseline files follow their separate baseline schema
+policy.
 
 ## Baseline JSON reports
 
@@ -154,12 +158,12 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.18",
-  "repopilot_version": "0.16.0",
+  "schema_version": "0.19",
+  "repopilot_version": "0.17.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.18",
-    "repopilot_version": "0.16.0"
+    "schema_version": "0.19",
+    "repopilot_version": "0.17.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -212,10 +216,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.16.0"
+    "repopilot_version": "0.17.0"
   },
   "tool": "repopilot",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

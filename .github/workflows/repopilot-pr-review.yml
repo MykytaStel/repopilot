@@ -6,7 +6,7 @@ on:
       version:
         description: RepoPilot version to run
         type: string
-        default: "0.16.0"
+        default: "0.17.0"
       fail-on-review:
         description: Review signal gate policy
         type: string
@@ -57,7 +57,7 @@ jobs:
 
       - name: Review pull request
         id: repopilot
-        uses: MykytaStel/repopilot@v0.16.0
+        uses: MykytaStel/repopilot@v0.17.0
         with:
           command: review
           version: ${{ inputs.version }}
