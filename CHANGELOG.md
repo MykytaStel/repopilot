@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: rewrote the strongly-connected-components (Tarjan) search from a recursive `visit` to an explicit loop with a call stack. This prevents stack overflows on pathological dependency graphs (e.g. 10k deep chains) while returning byte-identical results.
+
 ## [0.17.0] - 2026-06-11
 
 ### Added
