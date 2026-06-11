@@ -27,8 +27,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   editor packaging.
 - Added a real schema `0.18` report fixture and documented report schema
   versioning independently from package versions.
-- Review now prints a one-line taint disclaimer when taint-lite signals are
-  present (console and Markdown): they trace input → sink *reachability*, a path
+- Review now prints a one-line taint disclaimer when taint-lite signals are present (console and Markdown): they trace input → sink *reachability*, a path
   that exists, not a confirmed vulnerability.
 
 ### Changed
