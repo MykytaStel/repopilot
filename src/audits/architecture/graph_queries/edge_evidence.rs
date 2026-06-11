@@ -19,10 +19,8 @@ pub(crate) fn edge_evidence(
         return (1, None);
     };
 
-    let target_absolute = root.join(target_relative);
-    let target_normalized = crate::graph::resolver::normalize_path(&target_absolute);
-    let source_absolute = root.join(&source_facts.path);
-    let source_normalized = crate::graph::resolver::normalize_path(&source_absolute);
+    let target_normalized = crate::graph::resolver::normalize_path(target_relative);
+    let source_normalized = crate::graph::resolver::normalize_path(&source_facts.path);
 
     // Find which raw import specifier(s) map to our target
     let mut matching_specifiers = Vec::new();

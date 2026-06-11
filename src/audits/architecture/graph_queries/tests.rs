@@ -233,6 +233,49 @@ fn package_boundary_flags_cross_package_internal_import() {
 }
 
 #[test]
+fn architecture_findings_use_import_line_as_evidence() {
+    let mut known = std::collections::HashSet::new();
+    known.insert(PathBuf::from("packages/auth/src/internal.ts"));
+
+    let content = "\
+const x = 1;
+import { something } from \"../../auth/src/internal\";
+export {};
+";
+    let facts = crate::scan::facts::FileFacts {
+        path: PathBuf::from("packages/web/src/use.ts"),
+        language: Some("TypeScript".to_string()),
+        non_empty_lines: 3,
+        branch_count: 0,
+        imports: vec!["../../auth/src/internal".to_string()],
+        content: Some(content.to_string()),
+        has_inline_tests: false,
+    };
+
+    let source = NodeInfo {
+        relative: PathBuf::from("packages/web/src/use.ts"),
+        context: ArchitectureContext {
+            file_role: FileRole::Production,
+            module_kind: ModuleKind::Unknown,
+            language_family: LanguageFamily::CurlyBrace,
+            is_entrypoint: false,
+            is_public_api: false,
+        },
+        facts: Some(&facts),
+    };
+
+    let target = prod("packages/auth/src/internal.ts");
+
+    let index = PackageIndex::from_config(&packaged_config());
+    // Use an absolute-ish root just to prove resolve_import handles the relative setup properly
+    let root = Path::new("/var/repo");
+    let finding = index.violation_finding(&source, &target, root, &known).expect("should find violation");
+
+    assert_eq!(finding.evidence[0].line_start, 2, "evidence should point to line 2");
+    assert_eq!(finding.evidence[0].line_end, None, "single line import has no line_end");
+}
+
+#[test]
 fn package_boundary_allows_public_api_same_package_and_no_config() {
     let configured = PackageIndex::from_config(&packaged_config());
     let root = Path::new("");
