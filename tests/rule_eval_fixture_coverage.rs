@@ -52,6 +52,18 @@ const FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
     "framework.rn-gesture-handler-old",
 ];
 
+// The convention-shaped heuristic rules (directory size, path depth, relative
+// import depth, barrel re-exports, missing co-located tests). These were the
+// FP-prone rules the audit flagged as unfixtured; pinning their true- and
+// false-positive behaviour keeps them honest as project conventions vary.
+const HEURISTIC_RULES_WITH_FIXTURES: &[&str] = &[
+    "architecture.too-many-modules",
+    "architecture.deep-directory-nesting",
+    "architecture.deep-relative-imports",
+    "architecture.barrel-file-risk",
+    "testing.source-without-test",
+];
+
 #[test]
 fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
@@ -122,6 +134,22 @@ fn given_framework_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() 
     let fixture_root = rule_fixture_root();
 
     for rule_id in FRAMEWORK_RULES_WITH_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_heuristic_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in HEURISTIC_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 

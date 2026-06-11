@@ -16,7 +16,15 @@ impl ProjectAudit for DeepDirectoryNestingAudit {
             .filter_map(|file| {
                 let context = classifier.classify(file);
                 if context.file_role == FileRole::Production {
-                    let depth = compute_directory_nesting(&file.path);
+                    // Measure nesting relative to the scan root so the depth is
+                    // about the repository's own layout, not how deep the repo
+                    // happens to sit on disk (an absolute scan path would
+                    // otherwise inflate every file's depth).
+                    let relative = file
+                        .path
+                        .strip_prefix(&facts.root_path)
+                        .unwrap_or(&file.path);
+                    let depth = compute_directory_nesting(relative);
                     if depth > config.max_directory_depth {
                         Some(build_finding(
                             file.path.clone(),
@@ -146,6 +154,29 @@ mod tests {
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].rule_id, "architecture.deep-directory-nesting");
         assert_eq!(findings[0].evidence[0].path, PathBuf::from(production_path));
+    }
+
+    #[test]
+    fn depth_is_measured_relative_to_the_scan_root() {
+        // A repository that happens to sit deep on disk (e.g. an absolute scan
+        // path) must not inflate depth: only the path below the scan root counts.
+        let root = "/var/folders/tmp/repopilot-eval-abcdef";
+        let facts = ScanFacts {
+            root_path: PathBuf::from(root),
+            files: vec![
+                file_facts_with_path(&format!("{root}/src/a/b/handler.ts")),
+                file_facts_with_path(&format!("{root}/src/a/b/c/d/e/handler.ts")),
+            ],
+            ..ScanFacts::default()
+        };
+
+        let findings = audit_with_depth(&facts, 5);
+
+        assert_eq!(findings.len(), 1);
+        assert_eq!(
+            findings[0].evidence[0].path,
+            PathBuf::from(format!("{root}/src/a/b/c/d/e/handler.ts"))
+        );
     }
 
     fn audit_with_depth(facts: &ScanFacts, max_directory_depth: usize) -> Vec<Finding> {

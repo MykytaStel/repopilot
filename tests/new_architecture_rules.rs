@@ -127,7 +127,9 @@ fn documentation_files_do_not_inflate_module_count() {
 #[test]
 fn reports_deep_directory_nesting_only_above_threshold() {
     let temp = tempdir().expect("failed to create temp dir");
-    let deep = temp.path().join("src");
+    // Genuinely deep relative to the scan root: src/a/b/c/feature.rs is nested
+    // four directories deep, independent of where the repo sits on disk.
+    let deep = temp.path().join("src/a/b/c");
     fs::create_dir_all(&deep).expect("failed to create nested dirs");
     fs::write(
         deep.join("feature.rs"),

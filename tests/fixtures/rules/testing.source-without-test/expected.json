@@ -1,0 +1,14 @@
+{
+  "fixtures": [
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "testing.source-without-test"
+      ]
+    },
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    }
+  ]
+}
