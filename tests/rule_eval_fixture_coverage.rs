@@ -1,7 +1,11 @@
+use std::collections::BTreeSet;
+use std::fs;
 use std::path::Path;
 
 use repopilot::rules::eval::fixtures::evaluate_rule_fixtures;
 use repopilot::rules::eval::{RuleEvaluationReport, RuleEvaluationRuleReport};
+use repopilot::rules::{RuleLifecycle, all_rule_metadata};
+use tempfile::tempdir;
 
 // Test taxonomy for this file:
 //
@@ -158,6 +162,108 @@ fn given_heuristic_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() 
         let rule_report = first_rule_report(rule_id, &report);
         assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
     }
+}
+
+// The category tests above are a readable, well-labelled subset. This is the
+// real gate: the engine autodiscovers *every* fixture directory and adds
+// *every* Stable rule, so nothing can fall outside the harness by being left
+// off a manual array. All Stable rules ship fixtures today, and the 16
+// unfixtured rules are Preview/Experimental (which the gate does not bind), so
+// this passes on a clean tree and only fails on a genuine regression: a Stable
+// rule without fixtures, a promoted rule, or a broken fixture.
+#[test]
+fn every_fixture_dir_and_stable_rule_clears_the_quality_gate() {
+    let report =
+        evaluate_rule_fixtures(None, None).expect("aggregate fixture evaluation should succeed");
+
+    let stable_count = all_rule_metadata()
+        .filter(|meta| meta.lifecycle == RuleLifecycle::Stable)
+        .count();
+    assert!(
+        report.rules_evaluated >= stable_count,
+        "expected every Stable rule ({stable_count}) to be evaluated, got {}",
+        report.rules_evaluated
+    );
+
+    let failing: Vec<String> = report
+        .rules
+        .iter()
+        .filter(|rule| rule.quality_gate_failures > 0)
+        .map(|rule| {
+            format!(
+                "  - {} ({} gate failures)",
+                rule.rule_id, rule.quality_gate_failures
+            )
+        })
+        .collect();
+    assert!(
+        failing.is_empty(),
+        "rules failed the fixture quality gate (a Stable rule needs true- and \
+false-positive fixtures, documented false-positive notes, and clean findings):\n{}",
+        failing.join("\n")
+    );
+
+    assert_eq!(
+        report.missing_findings, 0,
+        "fixtures are missing expected findings: {report:#?}"
+    );
+    assert_eq!(
+        report.unexpected_findings, 0,
+        "fixtures produced unexpected findings: {report:#?}"
+    );
+    assert_eq!(
+        report.contract_violations, 0,
+        "fixtures produced finding contract violations: {report:#?}"
+    );
+    assert_eq!(
+        report.stable_id_failures, 0,
+        "fixtures produced unstable/duplicate finding IDs: {report:#?}"
+    );
+
+    report_preview_coverage_gap(&report);
+}
+
+// A fixture directory named after a rule that does not exist (a typo or a
+// renamed rule) used to be scanned but never gated, silently contributing
+// nothing. It must now be a hard error so coverage cannot rot unnoticed.
+#[test]
+fn fixture_directory_for_unknown_rule_is_rejected() {
+    let temp = tempdir().expect("temp dir");
+    let junk = temp.path().join("architecture.not-a-real-rule");
+    fs::create_dir_all(&junk).expect("create junk fixture dir");
+    fs::write(junk.join("expected.json"), "{\"fixtures\":[]}").expect("write expected.json");
+
+    let error = evaluate_rule_fixtures(None, Some(temp.path()))
+        .expect_err("a fixture directory with no matching rule id must be rejected");
+    assert!(
+        error.to_string().contains("architecture.not-a-real-rule"),
+        "error should name the offending directory: {error}"
+    );
+}
+
+// Coverage visibility: Preview/Experimental rules without fixtures are allowed
+// (the gate only binds Stable rules), but we surface the gap so promoting a
+// rule to Stable without fixtures is a deliberate, visible decision.
+fn report_preview_coverage_gap(report: &RuleEvaluationReport) {
+    let fixtured: BTreeSet<&str> = report
+        .rules
+        .iter()
+        .filter(|rule| rule.fixtures_total > 0)
+        .map(|rule| rule.rule_id.as_str())
+        .collect();
+
+    let mut uncovered: Vec<&str> = all_rule_metadata()
+        .filter(|meta| meta.lifecycle != RuleLifecycle::Stable)
+        .map(|meta| meta.rule_id)
+        .filter(|rule_id| !fixtured.contains(rule_id))
+        .collect();
+    uncovered.sort_unstable();
+
+    eprintln!(
+        "fixture coverage: {} preview/experimental rule(s) without fixtures \
+(allowed, not gated): {uncovered:?}",
+        uncovered.len()
+    );
 }
 
 fn rule_fixture_root() -> std::path::PathBuf {
