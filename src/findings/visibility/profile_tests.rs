@@ -6,13 +6,15 @@ use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::scan::types::{ScanArtifacts, ScanMetadata, ScanMetrics};
 
 fn finding(rule_id: &str, category: FindingCategory, severity: Severity) -> Finding {
-    Finding {
+    let mut finding = Finding {
         rule_id: rule_id.to_string(),
         category,
         severity,
         confidence: Confidence::High,
         ..Default::default()
-    }
+    };
+    finding.populate_rule_metadata();
+    finding
 }
 
 #[test]
@@ -141,4 +143,33 @@ fn strict_profile_keeps_all_findings_and_clears_hidden_breakdown() {
     assert_eq!(summary.metrics.hidden_suggestions_count, 0);
     assert!(summary.artifacts.hidden_suggestions.is_empty());
     assert_eq!(summary.artifacts.findings.len(), 2);
+}
+
+#[test]
+fn strict_profile_preserves_heuristic_finding_ids() {
+    let expected_ids = [
+        "architecture.barrel-file-risk",
+        "architecture.deep-directory-nesting",
+        "architecture.too-many-modules",
+    ];
+    let mut summary = ScanSummary {
+        artifacts: ScanArtifacts {
+            findings: expected_ids
+                .iter()
+                .map(|rule_id| finding(rule_id, FindingCategory::Architecture, Severity::Medium))
+                .collect(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    apply_visibility_profile(&mut summary, FindingVisibilityProfile::Strict);
+
+    let actual_ids = summary
+        .artifacts
+        .findings
+        .iter()
+        .map(|finding| finding.rule_id.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(actual_ids, expected_ids);
 }

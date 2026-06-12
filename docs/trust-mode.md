@@ -21,7 +21,9 @@ repopilot scan . --include-maintainability
 
 `default` is optimized for day-to-day development and CI review. It hides broad
 maintainability and testing heuristics by policy, including long-function,
-complex-file, TODO/FIXME/HACK, and testing-gap rules.
+complex-file, TODO/FIXME/HACK, and testing-gap rules. Low-confidence findings
+and experimental rules are also strict-only by default, even when clustering or
+other risk signals rank them highly.
 
 `strict` preserves the full raw audit output. Use it for refactoring passes,
 codebase cleanup, rule development, and release-hardening audits.
@@ -47,12 +49,23 @@ The visibility layer then applies profile policy:
 
 ```text
 raw finding
+  -> confidence, lifecycle, and signal-source checks
   -> intent classification
   -> default/strict policy
   -> visible finding or hidden suggestion
 ```
 
 This keeps audit rules focused on evidence and keeps report policy centralized.
+
+The default policy favors direct evidence:
+
+- stable High/Medium-confidence security and import-graph risks remain visible
+- validated secret candidates and production runtime risks remain visible
+- High-confidence package boundaries derived from workspace manifests remain visible
+- experimental and Low-confidence findings are hidden by default
+- Preview + Medium-confidence findings require actionable AST, config,
+  manifest, import-graph, framework-detector, or diff evidence
+- framework style and convention suggestions remain strict-only
 
 ## Hidden suggestion summaries
 
@@ -129,10 +142,26 @@ A high-priority architecture/coupling issue can remain visible:
 architecture.circular-dependency -> ActionableRisk -> visible when high priority or high confidence
 ```
 
+A manifest-declared package boundary remains visible:
+
+```text
+architecture.package-boundary-violation + High confidence -> ActionableRisk -> visible
+```
+
+Convention-shaped architecture heuristics remain strict-only:
+
+```text
+architecture.barrel-file-risk -> Maintainability -> hidden
+architecture.deep-directory-nesting -> Maintainability -> hidden
+architecture.too-many-modules -> Maintainability -> hidden
+```
+
 ## Future improvements
 
-The current intent model is still rule-id aware, but visibility policy is now
-centralized and semantic. The next improvements should be:
+The intent model retains a small rule-id-aware list for convention-shaped
+maintainability and framework style rules, while lifecycle, confidence, and
+signal-source decisions come from finding provenance and registry metadata. The
+next improvements should be:
 
 - persisted hidden summaries in SARIF properties
 - `repopilot eval` fixtures for visibility behavior

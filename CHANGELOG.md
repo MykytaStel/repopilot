@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Default finding visibility is now lifecycle- and provenance-aware: low-confidence
+  and experimental heuristics stay hidden even when risk scoring ranks them
+  highly, while stable import-graph risks, validated security findings, direct
+  runtime evidence, and High-confidence manifest-backed package-boundary
+  violations remain visible. `--profile strict` still preserves the complete
+  finding set and existing finding IDs/report schemas are unchanged.
 - **Rust inline tests no longer poison file-role classification.** A file was
   treated as a *test file* whenever it carried inline tests
   (`has_inline_tests`), but in Rust a `#[cfg(test)] mod tests` block is

@@ -1,6 +1,7 @@
 use super::{FindingIntent, FindingVisibilityDecision};
 use crate::findings::types::{Confidence, Finding, FindingCategory, Severity};
 use crate::risk::RiskPriority;
+use crate::rules::{RuleLifecycle, SignalSource, lookup_rule_metadata};
 use std::path::Path;
 
 pub fn classify_visibility(finding: &Finding) -> FindingVisibilityDecision {
@@ -13,11 +14,50 @@ pub fn classify_visibility(finding: &Finding) -> FindingVisibilityDecision {
         );
     }
 
+    if finding.confidence == Confidence::Low {
+        return FindingVisibilityDecision::hidden(
+            intent,
+            "low-confidence findings are strict-mode suggestions by default",
+        );
+    }
+
     if finding.severity <= Severity::Low {
         return FindingVisibilityDecision::hidden(
             intent,
             "low-severity findings are strict-mode suggestions by default",
         );
+    }
+
+    if is_manifest_backed_package_boundary(finding) {
+        return FindingVisibilityDecision::visible(
+            FindingIntent::ActionableRisk,
+            "manifest-backed package boundary violation",
+        );
+    }
+
+    match rule_lifecycle(finding) {
+        RuleLifecycle::Experimental => {
+            return FindingVisibilityDecision::hidden(
+                intent,
+                "experimental rules are strict-mode suggestions by default",
+            );
+        }
+        RuleLifecycle::Deprecated => {
+            return FindingVisibilityDecision::hidden(
+                intent,
+                "deprecated rules are hidden in the default profile",
+            );
+        }
+        RuleLifecycle::Preview
+            if finding.confidence == Confidence::Medium
+                && !is_evidence_backed_actionable(finding, intent) =>
+        {
+            return FindingVisibilityDecision::hidden(
+                intent,
+                "medium-confidence preview finding lacks direct actionable evidence",
+            );
+        }
+        RuleLifecycle::Preview | RuleLifecycle::Stable => {}
     }
 
     match intent {
@@ -79,13 +119,20 @@ fn runtime_visibility(finding: &Finding) -> FindingVisibilityDecision {
 }
 
 fn actionable_visibility(finding: &Finding) -> FindingVisibilityDecision {
-    if is_import_graph_rule(&finding.rule_id)
-        && finding.risk.priority.is_at_least(RiskPriority::P2)
-        && finding.confidence != Confidence::Low
+    if is_import_graph_rule(&finding.rule_id) && finding.risk.priority.is_at_least(RiskPriority::P2)
     {
         return FindingVisibilityDecision::visible(
             FindingIntent::ActionableRisk,
             "stable import-graph architecture risk",
+        );
+    }
+
+    if is_evidence_backed_actionable(finding, FindingIntent::ActionableRisk)
+        && finding.severity >= Severity::Medium
+    {
+        return FindingVisibilityDecision::visible(
+            FindingIntent::ActionableRisk,
+            "evidence-backed actionable risk",
         );
     }
 
@@ -147,6 +194,16 @@ fn classify_intent(finding: &Finding) -> FindingIntent {
         return FindingIntent::ActionableRisk;
     }
 
+    if finding.category == FindingCategory::Framework {
+        if is_framework_style_rule(&finding.rule_id) {
+            return FindingIntent::Maintainability;
+        }
+
+        if is_direct_evidence_source(signal_source(finding)) {
+            return FindingIntent::ActionableRisk;
+        }
+    }
+
     if is_maintainability_rule(&finding.rule_id) {
         return FindingIntent::Maintainability;
     }
@@ -197,6 +254,20 @@ fn is_import_graph_rule(rule_id: &str) -> bool {
     )
 }
 
+fn is_framework_style_rule(rule_id: &str) -> bool {
+    matches!(
+        rule_id,
+        "framework.js.var-declaration"
+            | "framework.js.console-log"
+            | "framework.react.class-component"
+            | "framework.react.prop-types"
+            | "framework.react-native.inline-style"
+            | "framework.react-native.flatlist-missing-key"
+            | "framework.react-native.old-architecture"
+            | "framework.react-native.hermes-disabled"
+    )
+}
+
 fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
     matches!(
         rule_id,
@@ -216,6 +287,48 @@ fn is_strict_only_heuristic_rule(rule_id: &str) -> bool {
             | "code-quality.cyclomatic-complexity"
             | "code-quality.deep-control-flow"
     )
+}
+
+fn is_evidence_backed_actionable(finding: &Finding, intent: FindingIntent) -> bool {
+    matches!(
+        intent,
+        FindingIntent::SecurityRisk | FindingIntent::RuntimeRisk | FindingIntent::ActionableRisk
+    ) && is_direct_evidence_source(signal_source(finding))
+}
+
+fn is_direct_evidence_source(source: SignalSource) -> bool {
+    matches!(
+        source,
+        SignalSource::Ast
+            | SignalSource::ConfigFile
+            | SignalSource::DependencyManifest
+            | SignalSource::ImportGraph
+            | SignalSource::FrameworkDetector
+            | SignalSource::GitDiff
+    )
+}
+
+fn rule_lifecycle(finding: &Finding) -> RuleLifecycle {
+    lookup_rule_metadata(&finding.rule_id)
+        .map(|metadata| metadata.lifecycle)
+        .unwrap_or(finding.provenance.rule_lifecycle)
+}
+
+fn signal_source(finding: &Finding) -> SignalSource {
+    if finding.provenance.detector != "unknown" {
+        return finding.provenance.signal_source;
+    }
+
+    lookup_rule_metadata(&finding.rule_id)
+        .map(|metadata| metadata.signal_source)
+        .unwrap_or(finding.provenance.signal_source)
+}
+
+fn is_manifest_backed_package_boundary(finding: &Finding) -> bool {
+    finding.rule_id == "architecture.package-boundary-violation"
+        && finding.confidence == Confidence::High
+        && signal_source(finding) == SignalSource::ImportGraph
+        && !finding.evidence.is_empty()
 }
 
 fn is_validated_secret_leak(finding: &Finding) -> bool {
