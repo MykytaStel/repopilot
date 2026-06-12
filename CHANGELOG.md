@@ -73,6 +73,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   matches no registered rule is now a hard error rather than being silently
   skipped, and the test reports which preview/experimental rules still lack
   fixtures.
+- Internal: added true-positive/false-positive fixtures for seven previously
+  unfixtured web framework rules (`framework.js.var-declaration`,
+  `framework.js.console-log`, `framework.react.class-component`,
+  `framework.react.prop-types`, `framework.react-native.inline-style`,
+  `framework.react-native.flatlist-missing-key`,
+  `framework.rn-new-arch-incompatible-dep`). The false-positive fixtures pin the
+  known safe shapes — `var`/`console.log` in identifiers or comments,
+  `prop-types` absent from a TypeScript project, a `StyleSheet` instead of an
+  inline style, a `FlatList` with a `keyExtractor`, and a New-Architecture
+  compatible dependency — so the text-/AST-lite matchers stay honest.
 
 ### Fixed
 

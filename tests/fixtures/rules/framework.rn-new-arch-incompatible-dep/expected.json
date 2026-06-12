@@ -1,0 +1,14 @@
+{
+  "fixtures": [
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "true_positive",
+      "expected_rule_ids": [
+        "framework.rn-new-arch-incompatible-dep"
+      ]
+    }
+  ]
+}

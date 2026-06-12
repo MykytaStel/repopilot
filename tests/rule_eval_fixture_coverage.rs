@@ -68,6 +68,23 @@ const HEURISTIC_RULES_WITH_FIXTURES: &[&str] = &[
     "testing.source-without-test",
 ];
 
+// Web/JS/React/React Native framework rules. All Preview/Experimental, so the
+// quality gate does not bind them — but pinning true- and false-positive
+// fixtures keeps their text-/AST-lite matching honest: `var` inside an
+// identifier or comment, `console.log` inside a comment or behind a sibling
+// API, `prop-types` only in a TypeScript project, inline styles vs a
+// `StyleSheet`, a `FlatList` with/without `keyExtractor`, and New-Arch
+// (in)compatible dependencies.
+const WEB_FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
+    "framework.js.var-declaration",
+    "framework.js.console-log",
+    "framework.react.class-component",
+    "framework.react.prop-types",
+    "framework.react-native.inline-style",
+    "framework.react-native.flatlist-missing-key",
+    "framework.rn-new-arch-incompatible-dep",
+];
+
 #[test]
 fn given_security_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() {
     // Given
@@ -154,6 +171,22 @@ fn given_heuristic_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass() 
     let fixture_root = rule_fixture_root();
 
     for rule_id in HEURISTIC_RULES_WITH_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_web_framework_rule_fixtures_when_eval_rules_runs_then_coverage_is_clean() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in WEB_FRAMEWORK_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 
