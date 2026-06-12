@@ -41,6 +41,7 @@ pub fn evaluate_rule_fixtures(
     }
 
     let fixture_dirs = discover_rule_fixture_dirs(&fixture_root)?;
+    ensure_fixture_dirs_are_known_rules(&fixture_dirs)?;
     let rule_ids = rule_ids_to_evaluate(only_rule, &fixture_dirs);
 
     let mut report = RuleEvaluationReport::default();
@@ -73,6 +74,34 @@ fn discover_rule_fixture_dirs(
     }
 
     Ok(fixture_dirs)
+}
+
+/// A fixture directory's name *is* its rule id. A directory that matches no
+/// registered rule (a typo, a renamed rule, a stray folder) would otherwise be
+/// evaluated with no quality gate — `apply_rule_quality_gate` returns early when
+/// `lookup_rule_metadata` is `None` — and silently contribute nothing. Reject it
+/// loudly instead so coverage can never rot unnoticed.
+fn ensure_fixture_dirs_are_known_rules(
+    fixture_dirs: &BTreeMap<String, PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let unknown: Vec<&str> = fixture_dirs
+        .keys()
+        .map(String::as_str)
+        .filter(|name| lookup_rule_metadata(name).is_none())
+        .collect();
+
+    if unknown.is_empty() {
+        return Ok(());
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!(
+            "rule fixture directories do not match any registered rule id: {}",
+            unknown.join(", ")
+        ),
+    )
+    .into())
 }
 
 fn rule_ids_to_evaluate(

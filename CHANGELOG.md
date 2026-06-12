@@ -66,6 +66,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `testing.source-without-test`), pinning their behaviour under the rule
   quality gate. The fixture harness now scans with `detect_missing_tests`
   enabled (matching a real default scan) so the testing audits are exercisable.
+- Internal: the rule fixture coverage test now evaluates the whole registry in
+  one aggregate gate (`evaluate_rule_fixtures(None, …)`) instead of only the
+  rules listed in manual category arrays, so a fixture can no longer fall
+  outside the harness by being left off a list. A fixture directory whose name
+  matches no registered rule is now a hard error rather than being silently
+  skipped, and the test reports which preview/experimental rules still lack
+  fixtures.
 
 ### Fixed
 
