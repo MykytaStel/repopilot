@@ -12,6 +12,16 @@ pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
 }
 
 fn visit(node: Node<'_>, content: &str, result: &mut BTreeMap<String, (usize, usize)>) {
+    // Imports gated by `#[cfg(test)]` (the ubiquitous inline `mod tests`, or a
+    // `#[cfg(test)] use ...;`) are compiled out of release builds, so they are
+    // not production dependencies. Skipping the whole subtree keeps them out of
+    // the import graph, which otherwise reads `#[cfg(test)] mod tests;` as a
+    // production file importing a test file (false `architecture.test-leak`)
+    // and lets test-only `use` edges form phantom cycles.
+    if is_test_gated(node, content) {
+        return;
+    }
+
     let span = (node.start_position().row + 1, node.end_position().row + 1);
     match node.kind() {
         "use_declaration" => {
@@ -22,10 +32,26 @@ fn visit(node: Node<'_>, content: &str, result: &mut BTreeMap<String, (usize, us
             }
         }
         "mod_item" => {
-            if let Ok(text) = node.utf8_text(content.as_bytes())
+            // `#[path = "..."] mod x;` points the module at a file resolved
+            // relative to the current file's directory, so the plain
+            // `mod::name` resolution would miss it. The attribute is a sibling
+            // node preceding the `mod_item`, so look there first.
+            if let Some(path) = mod_path_attr(node, content) {
+                result.entry(format!("relfile::{path}")).or_insert(span);
+            } else if let Ok(text) = node.utf8_text(content.as_bytes())
                 && let Some(module) = rust_mod_import(text)
             {
                 result.entry(module).or_insert(span);
+            }
+        }
+        "macro_invocation" => {
+            // `include!("rel/path.rs")` textually pulls another file into this
+            // module; treat it as an edge so the included file is not seen as
+            // dead code. The path is relative to the current file's directory.
+            if let Ok(text) = node.utf8_text(content.as_bytes())
+                && let Some(path) = rust_include_path(text)
+            {
+                result.entry(format!("relfile::{path}")).or_insert(span);
             }
         }
         _ => {}
@@ -42,6 +68,82 @@ fn rust_mod_import(stmt: &str) -> Option<String> {
     let rest = effective.strip_prefix("mod ")?;
     let name = rest.trim().trim_end_matches(';').trim();
     (!name.is_empty() && !name.contains('{') && !name.contains(' ')).then(|| format!("mod::{name}"))
+}
+
+/// Reads the `#[path = "..."]` value from the outer attributes preceding a
+/// `mod` item. tree-sitter-rust emits outer attributes as sibling
+/// `attribute_item` nodes that precede the item, so we walk back over them.
+fn mod_path_attr(mod_item: Node<'_>, content: &str) -> Option<String> {
+    let mut prev = mod_item.prev_sibling();
+    while let Some(node) = prev {
+        if node.kind() != "attribute_item" {
+            break;
+        }
+        if let Ok(text) = node.utf8_text(content.as_bytes())
+            && let Some(path) = rust_mod_path_attr(text)
+        {
+            return Some(path);
+        }
+        prev = node.prev_sibling();
+    }
+    None
+}
+
+/// Extracts the file path from a single `#[path = "..."]` attribute's text.
+fn rust_mod_path_attr(stmt: &str) -> Option<String> {
+    let mut s = stmt.trim_start();
+    while let Some(rest) = s.strip_prefix("#[") {
+        let close = rest.find(']')?;
+        let attr = rest[..close].trim();
+        if let Some(value) = attr.strip_prefix("path") {
+            let value = value.trim_start().strip_prefix('=')?.trim();
+            return first_string_literal(value);
+        }
+        s = rest[close + 1..].trim_start();
+    }
+    None
+}
+
+/// Extracts the included file path from an `include!("...")` macro invocation.
+/// `include_str!`/`include_bytes!` are intentionally not matched: they embed
+/// data, not module code, so they should not create dead-code edges.
+fn rust_include_path(stmt: &str) -> Option<String> {
+    let rest = stmt.trim_start().strip_prefix("include")?;
+    let rest = rest.trim_start().strip_prefix('!')?;
+    first_string_literal(rest)
+}
+
+/// Returns the contents of the first double-quoted string literal in `input`.
+fn first_string_literal(input: &str) -> Option<String> {
+    let open = input.find('"')?;
+    let rest = &input[open + 1..];
+    let close = rest.find('"')?;
+    Some(rest[..close].to_string())
+}
+
+/// True when `node` is annotated with a `#[cfg(test)]` or `#[test]` outer
+/// attribute. tree-sitter-rust emits outer attributes as `attribute_item`
+/// siblings preceding the item, so walk back over the contiguous run of them.
+fn is_test_gated(node: Node<'_>, content: &str) -> bool {
+    let mut prev = node.prev_sibling();
+    while let Some(sibling) = prev {
+        if sibling.kind() != "attribute_item" {
+            return false;
+        }
+        if let Ok(text) = sibling.utf8_text(content.as_bytes())
+            && attr_is_test(text)
+        {
+            return true;
+        }
+        prev = sibling.prev_sibling();
+    }
+    false
+}
+
+/// Recognizes `#[cfg(test)]` and `#[test]` once whitespace is removed.
+fn attr_is_test(attr: &str) -> bool {
+    let compact: String = attr.chars().filter(|c| !c.is_whitespace()).collect();
+    compact.contains("cfg(test)") || compact == "#[test]"
 }
 
 fn strip_rust_outer_attributes(mut s: &str) -> &str {
@@ -183,5 +285,42 @@ fn join_rust_path(prefix: &str, item: &str) -> String {
         prefix.trim_end_matches("::").to_string()
     } else {
         format!("{}::{}", prefix.trim_end_matches("::"), item)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::parse::{ParseLanguage, parse};
+
+    fn imports(src: &str) -> HashSet<String> {
+        let tree = parse(src, ParseLanguage::Rust).expect("rust parses");
+        extract(&tree, src)
+    }
+
+    #[test]
+    fn path_attribute_points_mod_at_a_relative_file() {
+        let got = imports("#[path = \"go.rs\"]\nmod go;\n");
+        assert!(got.contains("relfile::go.rs"), "{got:?}");
+        // The plain name-based edge must not also fire for a `#[path]` mod.
+        assert!(!got.contains("mod::go"), "{got:?}");
+    }
+
+    #[test]
+    fn include_macro_creates_a_relative_file_edge() {
+        let got = imports("include!(\"sections/header.rs\");\n");
+        assert!(got.contains("relfile::sections/header.rs"), "{got:?}");
+    }
+
+    #[test]
+    fn include_str_is_not_a_module_edge() {
+        let got = imports("const D: &str = include_str!(\"data.txt\");\n");
+        assert!(got.iter().all(|i| !i.starts_with("relfile::")), "{got:?}");
+    }
+
+    #[test]
+    fn plain_mod_declaration_still_resolves_by_name() {
+        let got = imports("mod pattern;\n");
+        assert!(got.contains("mod::pattern"), "{got:?}");
     }
 }

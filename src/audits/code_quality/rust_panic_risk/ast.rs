@@ -30,6 +30,14 @@ fn visit<'a>(
         return;
     }
 
+    // Skip `#[cfg(test)]` / `#[test]` items entirely: a `panic!`/`unwrap` inside
+    // a test body is expected and is not a production panic risk. Inline test
+    // modules are idiomatic in Rust, so this must be checked per-item rather
+    // than relying on the whole file's role.
+    if is_test_gated(node, content) {
+        return;
+    }
+
     if in_macro_args
         && (kind == "identifier" || kind == "field_identifier")
         && let Ok(text) = node.utf8_text(content.as_bytes())
@@ -151,4 +159,30 @@ fn is_followed_by_paren(node: Node<'_>, content: &str) -> bool {
         }
     }
     false
+}
+
+/// True when `node` is preceded by a `#[cfg(test)]` or `#[test]` outer
+/// attribute. tree-sitter-rust emits outer attributes as `attribute_item`
+/// siblings immediately before the item they annotate, so walk back over the
+/// contiguous run of attributes and stop at the first non-attribute sibling.
+fn is_test_gated(node: Node<'_>, content: &str) -> bool {
+    let mut prev = node.prev_sibling();
+    while let Some(sibling) = prev {
+        if sibling.kind() != "attribute_item" {
+            return false;
+        }
+        if let Ok(text) = sibling.utf8_text(content.as_bytes())
+            && attr_is_test(text)
+        {
+            return true;
+        }
+        prev = sibling.prev_sibling();
+    }
+    false
+}
+
+/// Recognizes `#[cfg(test)]` and `#[test]` once whitespace is removed.
+fn attr_is_test(attr: &str) -> bool {
+    let compact: String = attr.chars().filter(|c| !c.is_whitespace()).collect();
+    compact.contains("cfg(test)") || compact == "#[test]"
 }

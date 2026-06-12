@@ -33,11 +33,18 @@ pub fn is_js_or_ts(language: LanguageKind) -> bool {
     )
 }
 
-pub fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
-    if has_inline_tests {
-        return true;
-    }
-
+/// Classifies a file as a *test file* purely by its path and name conventions.
+///
+/// Whether a file *contains* inline tests (Rust `#[cfg(test)] mod tests`, a
+/// Python doctest, etc.) is a separate fact carried by
+/// `FileFacts::has_inline_tests` and must NOT promote the file to a test role:
+/// a production module that happens to carry an inline `#[cfg(test)]` block
+/// still ships its production code and is imported as production. Conflating
+/// the two made every Rust file with inline tests look like a test file, which
+/// turned ordinary production-to-production imports into false
+/// `architecture.test-leak` findings. The role is the file's purpose, decided
+/// by location/name; the inline-test flag is an orthogonal coverage signal.
+pub fn is_test_file(path: &Path) -> bool {
     let path_text = path.to_string_lossy().to_lowercase();
     let file_name = path
         .file_name()
@@ -63,17 +70,27 @@ pub fn is_test_file(path: &Path, has_inline_tests: bool) -> bool {
         || file_name.ends_with(".spec.tsx")
         || file_name.ends_with(".spec.js")
         || file_name.ends_with(".spec.jsx")
-        || file_name.ends_with("_test.rs")
-        || file_name.ends_with("_tests.rs")
         || file_name.ends_with("_test.go")
         || file_name.ends_with("_test.py")
-        || file_name.starts_with("test_")
         || file_name.ends_with("test.java")
         || file_name.ends_with("tests.java")
         || file_name.ends_with("test.kt")
         || file_name.ends_with("tests.kt")
         || file_name.ends_with("test.cs")
         || file_name.ends_with("tests.cs")
+        // The `test_` prefix is a Python / JS test convention. It is NOT a Rust
+        // one (Rust uses `tests/`, `#[cfg(test)]`, or plural `_tests.rs`), where
+        // it instead collides with production modules like `test_edges.rs`.
+        || (file_name.starts_with("test_") && !file_name.ends_with(".rs"))
+        // Rust test modules carry no path component (a sibling `tests.rs` /
+        // `tests_render.rs` / `*_tests.rs` pulled in via `#[cfg(test)] mod ...;`).
+        // Only the *plural* forms are used for Rust test files; the singular
+        // `*_test.rs` collides with production names (e.g. `source_without_test.rs`),
+        // so it is deliberately omitted — real `*_test.rs` integration tests live
+        // under `tests/` and are already matched by the path checks above.
+        || file_name == "tests.rs"
+        || file_name.ends_with("_tests.rs")
+        || file_name.starts_with("tests_")
 }
 
 pub fn is_config_file(path: &Path) -> bool {
@@ -170,14 +187,23 @@ mod tests {
 
     #[test]
     fn test_classification_covers_rust_test_modules_and_fixtures() {
-        assert!(is_test_file(Path::new("src/behavioral_tests.rs"), false));
-        assert!(is_test_file(
-            Path::new("tests/fixtures/runtime/client.rs"),
-            false
-        ));
-        assert!(is_test_file(
-            Path::new(r"fixtures\runtime\client.rs"),
-            false
-        ));
+        assert!(is_test_file(Path::new("src/behavioral_tests.rs")));
+        assert!(is_test_file(Path::new("tests/fixtures/runtime/client.rs")));
+        assert!(is_test_file(Path::new(r"fixtures\runtime\client.rs")));
+        // Sibling Rust test modules pulled in via `#[cfg(test)] mod ...;`.
+        assert!(is_test_file(Path::new("src/audits/foo/tests.rs")));
+        assert!(is_test_file(Path::new(
+            "src/audits/code_quality/rust_panic_risk/tests_render.rs"
+        )));
+    }
+
+    #[test]
+    fn inline_tests_do_not_make_a_production_file_a_test_file() {
+        // A production module with an inline `#[cfg(test)] mod tests` block is
+        // still production: its role must not depend on carrying inline tests.
+        assert!(!is_test_file(Path::new(
+            "src/audits/code_quality/complexity.rs"
+        )));
+        assert!(!is_test_file(Path::new("src/scan/cache.rs")));
     }
 }

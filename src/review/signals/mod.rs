@@ -115,7 +115,7 @@ pub fn detect_boundary_signals(
 
     let mut signals: Vec<BoundarySignal> = changed_files
         .iter()
-        .filter(|file| !is_test_file(&file.path, false))
+        .filter(|file| !is_test_file(&file.path))
         .filter_map(|file| {
             let path = file.path_string();
             let mut category = classify::classify_boundary(&path, custom.as_ref());

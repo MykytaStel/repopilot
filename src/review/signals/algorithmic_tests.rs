@@ -149,7 +149,7 @@ fn skips_test_files() {
     let post = source(
         "fn helper() {\n    for i in 0..3 {\n        for j in 0..3 {\n            let _ = i + j;\n        }\n    }\n}\n",
     );
-    let file = changed("src/calc_test.rs");
+    let file = changed("src/calc_tests.rs");
     let signals = detect_algorithmic(&file, None, Some(&post));
     assert!(signals.is_empty(), "{signals:?}");
 }

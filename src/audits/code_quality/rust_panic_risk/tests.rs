@@ -236,6 +236,32 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
 }
 
 #[test]
+fn ignores_unwrap_inside_inline_cfg_test_module() {
+    // `unwrap()`/`panic!` inside an inline `#[cfg(test)]` block of a production
+    // file is test code, not a production panic risk: only the production
+    // `unwrap()` on the first line should be reported.
+    let file = facts(
+        "src/domain/parser.rs",
+        "fn run() { let v = parse().unwrap(); }\n\
+         #[cfg(test)]\n\
+         mod tests {\n\
+             #[test]\n\
+             fn works() { let v = parse().unwrap(); }\n\
+         }\n",
+        true,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(
+        findings.len(),
+        1,
+        "only the production unwrap should report"
+    );
+    assert_eq!(findings[0].evidence[0].line_start, 1);
+}
+
+#[test]
 fn falls_back_to_line_scanner_when_no_parsed_tree() {
     use crate::analysis::parse::ParsedFile;
     use crate::rules::SignalSource;

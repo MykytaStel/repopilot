@@ -74,7 +74,7 @@ impl ArchitectureClassifier {
             FileRole::Fixture
         } else if path_contains_component(&file.path, &["doc", "docs"]) {
             FileRole::Documentation
-        } else if is_test_file(&file.path, file.has_inline_tests) {
+        } else if is_test_file(&file.path) {
             FileRole::Test
         } else {
             FileRole::Production

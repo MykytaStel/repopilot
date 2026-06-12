@@ -45,6 +45,24 @@ fn dead_module_flags_unreferenced_production_file() {
 }
 
 #[test]
+fn dead_module_ignores_non_code_files() {
+    // Docs / config / stylesheets are never "imported", so they always have
+    // fan_in=0 and must not be reported as dead modules.
+    let markup = NodeInfo {
+        relative: PathBuf::from(".claude/agents/reviewer.md"),
+        context: ArchitectureContext {
+            file_role: FileRole::Production,
+            module_kind: ModuleKind::Unknown,
+            language_family: LanguageFamily::Markup,
+            is_entrypoint: false,
+            is_public_api: false,
+        },
+        facts: None,
+    };
+    assert!(dead_module_finding(&markup, Some(0), &complete_graph()).is_none());
+}
+
+#[test]
 fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
     let resolution = complete_graph();
     assert!(
