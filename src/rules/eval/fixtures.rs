@@ -108,8 +108,12 @@ fn evaluate_one_rule_fixture(
     let expected_path = rule_root.join("expected.json");
     let expectations: FixtureExpectations =
         serde_json::from_str(&fs::read_to_string(expected_path)?)?;
+    // Mirror a real default scan (`detect_missing_tests` is on by default) so the
+    // testing audits are exercisable as fixtures; `include_low_signal` keeps the
+    // Low-severity heuristic rules visible. Per-rule expectations filter findings
+    // by `rule_id`, so enabling these audits cannot affect other rules' fixtures.
     let config = ScanConfig {
-        detect_missing_tests: false,
+        detect_missing_tests: true,
         include_low_signal: true,
         ..ScanConfig::default()
     };

@@ -14,8 +14,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   without any configuration, at **High** confidence because the boundary is
   declared by the repository's own manifests. Explicit `[architecture]
   package_roots` still take priority and keep the Medium default confidence;
-  with neither a workspace nor config the rule stays silent. A non-workspace
-  repository (including RepoPilot itself) is unaffected.
+  with neither a workspace nor config the rule stays silent. A non-workspace repository (including RepoPilot itself) is unaffected.
 
 ### Added
 
@@ -48,6 +47,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   against an `expected.json` of `expect`/`forbid` constraints. Seeded with one
   proven-firing fixture per family (taint, boundary, behavioral, algorithmic);
   the matrix grows by dropping in directories.
+- Internal: added true-positive/false-positive fixtures for the five
+  convention-shaped heuristic rules that were previously unfixtured
+  (`architecture.too-many-modules`, `architecture.deep-directory-nesting`,
+  `architecture.deep-relative-imports`, `architecture.barrel-file-risk`,
+  `testing.source-without-test`), pinning their behaviour under the rule
+  quality gate. The fixture harness now scans with `detect_missing_tests`
+  enabled (matching a real default scan) so the testing audits are exercisable.
+
+### Fixed
+
+- `architecture.deep-directory-nesting` now measures nesting depth relative to
+  the scan root, so scanning a repository by an absolute path no longer counts
+  the directories above the repository and over-reports every file as deeply
+  nested.
 
 ## [0.17.0] - 2026-06-11
 
