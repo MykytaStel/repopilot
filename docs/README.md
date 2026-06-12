@@ -19,6 +19,7 @@ adoption or CI policy.
 ## Product Behavior
 
 - [Rulesets](rulesets.md)
+- [Rules reference](rules-reference.md)
 - [Trust mode](trust-mode.md)
 - [Risk engine](risk-engine.md)
 - [Knowledge engine](knowledge-engine.md)
