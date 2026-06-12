@@ -5,7 +5,32 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub fn load_default_config() -> Result<RepoPilotConfig, ConfigError> {
-    load_optional_config(Path::new(CONFIG_FILE_NAME))
+    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    match discover_config_path(&start) {
+        Some(path) => load_optional_config(&path),
+        None => Ok(RepoPilotConfig::default()),
+    }
+}
+
+/// Walks from `start_dir` up to the enclosing git root looking for
+/// `repopilot.toml`, returning the first match. The search stops at the
+/// directory that holds `.git` (inclusive — a config beside `.git` is still
+/// found) or at the filesystem root, so it never escapes the repository. An
+/// explicit `--config <path>` bypasses discovery entirely.
+pub fn discover_config_path(start_dir: &Path) -> Option<PathBuf> {
+    let mut dir = start_dir;
+    loop {
+        let candidate = dir.join(CONFIG_FILE_NAME);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        // `.git` may be a directory (normal clone) or a file (worktree /
+        // submodule), so test existence rather than file type.
+        if dir.join(".git").exists() {
+            return None;
+        }
+        dir = dir.parent()?;
+    }
 }
 
 pub fn load_optional_config(path: &Path) -> Result<RepoPilotConfig, ConfigError> {

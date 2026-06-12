@@ -31,9 +31,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   prefix), so future rules can reason about real package boundaries instead of
   path globs. A non-workspace repository produces no package nodes and leaves
   the graph unchanged. Internal only for now — no command consumes it yet.
+- Added a published [rules reference](docs/rules-reference.md) generated
+  straight from the rule registry: every rule's id, category, default
+  severity/confidence, lifecycle, signal source, recommendation, and known
+  false positives. A drift test (`tests/rules_reference_doc.rs`) re-renders it
+  in memory and fails if the committed file falls behind the code, so the
+  catalog cannot drift from what actually ships. Regenerate with
+  `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`.
 
 ### Changed
 
+- Configuration discovery now walks up from the current directory to the git
+  root (stopping at `.git` or the filesystem root) looking for `repopilot.toml`,
+  so running RepoPilot from a subdirectory picks up the repository's config
+  instead of silently using defaults. An explicit `--config <path>` still wins
+  and is never affected by discovery.
 - Architecture audits (`circular-dependency`, `excessive-fan-out`, `dead-module`, `test-leak`, `layer-violation`, `package-boundary-violation`) now pinpoint the exact import statement lines in their evidence snippets instead of defaulting to line 1, using language-aware AST extraction across all supported languages.
 - Internal: rewrote the strongly-connected-components (Tarjan) search from a recursive `visit` to an explicit loop with a call stack. This prevents stack overflows on pathological dependency graphs (e.g. 10k deep chains) while returning byte-identical results.
 - Internal: extracted the AST function-boundary walker shared by the
