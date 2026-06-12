@@ -88,8 +88,8 @@ repopilot scan . \
   --fail-on new-high
 ```
 
-Default scans hide broad maintainability noise. Use `--profile strict` for the
-full audit surface.
+Default scans hide low-confidence, experimental, and broad maintainability
+suggestions. Use `--profile strict` for the full audit surface.
 
 ## AI Handoff
 
