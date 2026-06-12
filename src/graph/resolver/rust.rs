@@ -21,6 +21,16 @@ pub(super) fn resolve_rust(
         );
     }
 
+    // `#[path = "..."] mod x;` and `include!("...")` both resolve relative to
+    // the directory of the file that declares them.
+    if let Some(rel) = raw.strip_prefix("relfile::") {
+        let base = from_file
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| root.to_path_buf());
+        return probe(&[base.join(rel)], known_files);
+    }
+
     if let Some(rest) = raw.strip_prefix("crate::") {
         let src_root = root.join("src");
         return resolve_rust_module_path(&src_root, rest, known_files);

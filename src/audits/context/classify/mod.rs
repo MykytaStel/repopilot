@@ -14,7 +14,7 @@ use signals::ContextSignals;
 pub fn classify_file(file: &FileFacts) -> AuditContext {
     let content = file.content.as_deref().unwrap_or("");
     let language = classify_language(file);
-    let is_test = is_test_file(&file.path, file.has_inline_tests);
+    let is_test = is_test_file(&file.path);
     let signals = ContextSignals::detect(&file.path, language, content);
 
     let mut frameworks = Vec::new();

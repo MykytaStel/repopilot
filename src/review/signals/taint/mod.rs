@@ -93,7 +93,7 @@ pub struct TaintSignal {
 /// Returns at most one signal per (sink line, sink kind) so nested AST matches do
 /// not double-report. Skips test files and any language without a grammar here.
 pub fn detect_taint(file: &ChangedFile, post_source: Option<&ReviewSource>) -> Vec<TaintSignal> {
-    if crate::audits::context::classify::helpers::is_test_file(&file.path, false) {
+    if crate::audits::context::classify::helpers::is_test_file(&file.path) {
         return Vec::new();
     }
     let Some(post) = post_source else {

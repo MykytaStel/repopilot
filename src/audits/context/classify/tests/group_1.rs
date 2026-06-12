@@ -97,7 +97,11 @@ fn classifies_dotnet_service() {
 
 
 #[test]
-fn classifies_rust_inline_test_file() {
+fn inline_tests_do_not_make_a_production_file_a_test() {
+    // A production module that carries an inline `#[cfg(test)] mod tests` block
+    // is still production. The inline-test fact (`has_inline_tests = true`) must
+    // not promote its role, or every Rust file becomes a "test file" and
+    // ordinary production imports look like test leaks.
     let file = facts(
         "src/domain/user.rs",
         Some("Rust"),
@@ -108,9 +112,27 @@ fn classifies_rust_inline_test_file() {
     let context = classify_file(&file);
 
     assert_eq!(context.language, LanguageKind::Rust);
-    assert!(context.has_role(FileRole::RustTest));
-    assert!(context.has_role(FileRole::Test));
+    assert!(!context.has_role(FileRole::Test));
+    assert!(!context.has_role(FileRole::RustTest));
+    assert!(!context.is_test);
     assert!(context.has_runtime(RuntimeKind::RustLibrary));
+}
+
+#[test]
+fn classifies_named_rust_test_module_as_test() {
+    // A file that is a test module by name is still a test file even with the
+    // inline-test shortcut gone.
+    let file = facts(
+        "src/audits/foo/tests.rs",
+        Some("Rust"),
+        "#[test]\nfn works() {}\n",
+        true,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(context.has_role(FileRole::Test));
+    assert!(context.has_role(FileRole::RustTest));
     assert!(context.is_test);
 }
 

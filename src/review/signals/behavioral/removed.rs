@@ -16,7 +16,7 @@ pub fn detect_behavioral_removed(
     let path_str = file.path_string();
 
     // 1. Check TestDeletedOrEmptied
-    let is_test = crate::audits::context::classify::helpers::is_test_file(&file.path, false);
+    let is_test = crate::audits::context::classify::helpers::is_test_file(&file.path);
     if is_test {
         if file.status == ChangeStatus::Deleted {
             signals.push(BehavioralSignal {

@@ -6,6 +6,43 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **Rust inline tests no longer poison file-role classification.** A file was
+  treated as a *test file* whenever it carried inline tests
+  (`has_inline_tests`), but in Rust a `#[cfg(test)] mod tests` block is
+  idiomatic in ordinary production modules. This mislabeled most of the codebase
+  as test code and made every production-to-production import look like a leak:
+  on RepoPilot's own tree `architecture.test-leak` dropped from **294 findings
+  to 0**. File role is now decided purely by path/name conventions; the
+  inline-test flag stays a separate coverage signal. The singular `test_*`/
+  `*_test.rs` Rust name patterns (which are Python/Go/JS conventions and collide
+  with production modules like `test_edges.rs` and `source_without_test.rs`) no
+  longer classify a `.rs` file as a test — real Rust test files use `tests/`,
+  `#[cfg(test)]`, or the plural `*_tests.rs`/`tests.rs`.
+- **`architecture.dead-module` no longer flags non-code files.** Docs, config,
+  stylesheets, lockfiles, images, and shell scripts (Markup / Shell / Unknown
+  language families) are never "imported", so they always had `fan_in=0` and
+  were all reported as dead — on real repositories this meant every
+  `.claude/*.md`, `*.css`, `*.json`, lockfile, and image. The rule now only
+  considers languages the resolver actually wires up (Rust, TS/JS, Python, Go,
+  JVM). On three sampled multi-language repos this removed 72–86% of the
+  `dead-module` findings.
+- **`architecture.dead-module` no longer flags live modules wired with
+  `#[path = "..."] mod x;` or `include!("...")`.** The Rust import resolver now
+  follows both, so files such as `language_risk/{go,js,managed,python}.rs` and
+  the `output/*/sections/*.rs` include-targets are correctly seen as reachable.
+  Files that carry their own inline tests are also exempt from `dead-module`,
+  since their only importer is often a `#[cfg(test)]` declaration whose edge is
+  excluded from the production graph.
+- **`language.rust.panic-risk` no longer reports `panic!`/`unwrap`/`expect`
+  inside `#[cfg(test)]` blocks.** Test bodies are expected to panic; the AST
+  walk now skips `#[cfg(test)]`/`#[test]` items so only production panic risks
+  remain.
+- Imports gated by `#[cfg(test)]` are kept out of the import graph entirely, so
+  test-only `use` statements can no longer form phantom
+  `architecture.circular-dependency` edges between production modules.
+
 ### Changed
 
 - `architecture.package-boundary-violation` now **auto-enables on a detected

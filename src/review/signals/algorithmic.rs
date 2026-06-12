@@ -69,7 +69,7 @@ pub fn detect_algorithmic(
 ) -> Vec<AlgorithmicSignal> {
     let mut signals = Vec::new();
 
-    if crate::audits::context::classify::helpers::is_test_file(&file.path, false) {
+    if crate::audits::context::classify::helpers::is_test_file(&file.path) {
         return signals;
     }
 

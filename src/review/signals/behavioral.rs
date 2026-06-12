@@ -133,7 +133,7 @@ pub fn detect_behavioral_added(
 ) -> Vec<BehavioralSignal> {
     let mut signals = Vec::new();
 
-    if crate::audits::context::classify::helpers::is_test_file(&file.path, false) {
+    if crate::audits::context::classify::helpers::is_test_file(&file.path) {
         return signals;
     }
 

@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole};
+use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole, LanguageFamily};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::graph::v2::{GraphNodeId, build_coupling_graph_snapshot};
 use crate::graph::{CouplingGraph, ImportResolutionStats};
@@ -143,10 +143,28 @@ fn dead_module_finding(
     resolution: &ImportResolutionStats,
 ) -> Option<Finding> {
     let ctx = &info.context;
+    // "Dead module" only means something for files that participate in the
+    // import graph. Docs, config, stylesheets, lockfiles, images, and shell
+    // scripts (Markup / Shell / Unknown families) are never "imported", so they
+    // always have fan_in=0 and would otherwise all be flagged — e.g. every
+    // `.claude/*.md`, `*.css`, `*.json`, or lockfile in a repo. Restrict to
+    // languages the resolver actually wires up.
+    let is_importable_code = matches!(
+        ctx.language_family,
+        LanguageFamily::CurlyBrace | LanguageFamily::Python | LanguageFamily::Go
+    );
+    // A file that carries its own tests is exercised by the suite, and its only
+    // importer is often a `#[cfg(test)] mod ...;` declaration, whose edge is
+    // intentionally excluded from the production import graph. Treating such a
+    // file as dead would be a false positive (e.g. a `proptests.rs` reached
+    // only under `cfg(test)`), so exempt files with inline tests.
+    let has_inline_tests = info.facts.is_some_and(|facts| facts.has_inline_tests);
     if ctx.file_role != FileRole::Production
+        || !is_importable_code
         || ctx.is_entrypoint
         || ctx.is_public_api
         || fan_in.unwrap_or(0) != 0
+        || has_inline_tests
     {
         return None;
     }

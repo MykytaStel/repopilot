@@ -31,8 +31,10 @@ pub fn active_knowledge() -> &'static KnowledgeBase {
 
 pub fn bundled_knowledge() -> &'static KnowledgeBase {
     KNOWLEDGE.get_or_init(|| {
-        load_from_source(CORE_PACK_SOURCE)
-            .unwrap_or_else(|error| panic!("bundled knowledge pack is invalid: {error}"))
+        // The pack is embedded at compile time, so a parse failure here is a
+        // build defect rather than a runtime risk. `expect` fails fast and
+        // reports the error through its `Debug` impl.
+        load_from_source(CORE_PACK_SOURCE).expect("bundled knowledge pack is invalid")
     })
 }
 

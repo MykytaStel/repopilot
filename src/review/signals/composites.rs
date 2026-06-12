@@ -65,9 +65,7 @@ pub fn enrich_blast_radius(
 
 /// Whether any changed file is a test file.
 pub fn any_test_changed(changed_files: &[ChangedFile]) -> bool {
-    changed_files
-        .iter()
-        .any(|file| is_test_file(&file.path, false))
+    changed_files.iter().any(|file| is_test_file(&file.path))
 }
 
 /// True when a *code* boundary (auth / request-trust) changed but no test file
