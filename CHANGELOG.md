@@ -145,6 +145,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   nothing without `[[architecture.layers]]`, which the default-config fixture
   engine cannot supply — so it stays covered by `tests/architecture_opt_in_rules.rs`
   and is allow-listed in the coverage report rather than duplicated.
+- Internal: the `review` golden harness now models **deletions and renames**.
+  `expected.json` takes an optional `delete` array of repo-relative paths removed
+  from the working tree after the overlay (a rename is `delete` of the old path
+  plus the new path in `after/`); `after/` is now optional for pure-deletion
+  scenarios. Backwards-compatible — fixtures without `delete` behave as before.
+  Five scenarios were seeded: deleting a `src/auth/**` file still flags the
+  security boundary, deleting a `*.test.ts` flags removed coverage, moving an auth
+  file flags both old and new paths, a local-variable rename stays silent, and a
+  >5-file/>200-line data diff trips only the volume/noise note. (A lockfile-only
+  change is *not* noise — lockfiles classify as a supply-chain boundary in the
+  definitely-sensitive tier — so the planned `noise/lockfile-only` fixture was
+  dropped in favour of the real large-diff case.)
 
 ### Fixed
 

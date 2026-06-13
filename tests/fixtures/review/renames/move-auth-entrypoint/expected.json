@@ -1,0 +1,22 @@
+{
+  "description": "Moving a file inside src/auth is seen as a delete of the old path plus an add of the new path (working-tree diffs are not rename-detected). Both paths classify as access-control, so the security boundary is surfaced on each side in the definitely-sensitive tier.",
+  "label": "expected_true_positive",
+  "delete": ["src/auth/session.ts"],
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "boundary",
+      "kind": "boundary.access-control",
+      "path": "src/auth/session/store.ts"
+    },
+    {
+      "bucket": "definitely",
+      "family": "boundary",
+      "kind": "boundary.access-control",
+      "path": "src/auth/session.ts"
+    }
+  ],
+  "forbid": [
+    { "family": "volume" }
+  ]
+}

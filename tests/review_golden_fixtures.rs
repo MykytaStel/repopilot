@@ -8,12 +8,15 @@
 //!
 //! Each fixture lives at `tests/fixtures/review/<family>/<scenario>/` with:
 //!   - `before/` — a file tree committed as the baseline (HEAD),
-//!   - `after/`  — a file tree overlaid on top and left uncommitted, so review
-//!     sees it as the working-tree diff (new files are added, shared paths are
-//!     overwritten — the seed slice does not model deletions),
+//!   - `after/`  — an optional file tree overlaid on top and left uncommitted, so
+//!     review sees it as the working-tree diff (new files are added, shared paths
+//!     are overwritten). May be absent for a pure-deletion scenario.
 //!   - `expected.json` — `{ "expect": [..], "forbid": [..] }` of partial-match
-//!     constraints over the tiered signals. Every `expect` entry must match at
-//!     least one emitted signal; every `forbid` entry must match none.
+//!     constraints over the tiered signals, plus an optional `"delete": [..]` of
+//!     repo-relative paths removed from the working tree *after* the overlay (so
+//!     review sees them as deletions). A rename is `delete` of the old path plus
+//!     the new path in `after/`. Every `expect` entry must match at least one
+//!     emitted signal; every `forbid` entry must match none.
 //!
 //! Matching is on stable fields only (`bucket`, `family`, `kind`, `path`,
 //! `headline`) — never timing, ids, or blast radius — so fixtures stay robust
@@ -65,8 +68,17 @@ fn run_fixture(scenario: &Path) {
     git(repo, &["add", "."]);
     git(repo, &["commit", "-m", "before"]);
 
+    let expected = read_expected(scenario, &name);
+
     // Overlay the post-change tree; left uncommitted it *is* the diff review reads.
-    copy_tree(&scenario.join("after"), repo);
+    // `after/` is optional — a pure-deletion scenario carries only `delete`.
+    let after = scenario.join("after");
+    if after.is_dir() {
+        copy_tree(&after, repo);
+    }
+
+    // Remove the files listed under `delete` so review sees them as deletions.
+    apply_deletions(repo, &expected, &name);
 
     let output = repopilot()
         .args(["review", ".", "--format", "json"])
@@ -83,7 +95,6 @@ fn run_fixture(scenario: &Path) {
         .unwrap_or_else(|err| panic!("[{name}] review did not emit JSON: {err}"));
 
     let signals = flatten_signals(&json);
-    let expected = read_expected(scenario, &name);
 
     for constraint in expected["expect"].as_array().into_iter().flatten() {
         assert!(
@@ -138,6 +149,23 @@ fn read_expected(scenario: &Path, name: &str) -> Value {
     let raw = fs::read_to_string(scenario.join("expected.json"))
         .unwrap_or_else(|err| panic!("[{name}] missing expected.json: {err}"));
     serde_json::from_str(&raw).unwrap_or_else(|err| panic!("[{name}] invalid expected.json: {err}"))
+}
+
+/// Remove every repo-relative path listed under `delete` in expected.json. A
+/// missing `delete` key is a no-op, so pre-deletion fixtures are unaffected.
+fn apply_deletions(repo: &Path, expected: &Value, name: &str) {
+    for entry in expected["delete"].as_array().into_iter().flatten() {
+        let rel = entry
+            .as_str()
+            .unwrap_or_else(|| panic!("[{name}] `delete` entries must be strings, got {entry}"));
+        let target = repo.join(rel);
+        let result = if target.is_dir() {
+            fs::remove_dir_all(&target)
+        } else {
+            fs::remove_file(&target)
+        };
+        result.unwrap_or_else(|err| panic!("[{name}] failed to delete `{rel}`: {err}"));
+    }
 }
 
 fn describe(signals: &[Value]) -> String {

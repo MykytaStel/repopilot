@@ -1,0 +1,16 @@
+{
+  "description": "Deleting a file under src/auth removes a security-boundary surface. The boundary signal classifies by path regardless of add/modify/delete, so the deletion still lands in the definitely-sensitive tier.",
+  "label": "expected_true_positive",
+  "delete": ["src/auth/guard.ts"],
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "boundary",
+      "kind": "boundary.access-control",
+      "path": "src/auth/guard.ts"
+    }
+  ],
+  "forbid": [
+    { "family": "volume" }
+  ]
+}

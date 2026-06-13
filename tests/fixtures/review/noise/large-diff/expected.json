@@ -1,0 +1,15 @@
+{
+  "description": "A large diff (>5 files, >200 changed lines) of plain data files trips no boundary/behavioral/taint/algorithmic detector. The volume note surfaces once, in the large-diff/noise tier, so the size is visible without pretending to understand it.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "noise",
+      "family": "volume",
+      "kind": "volume.large-diff"
+    }
+  ],
+  "forbid": [
+    { "bucket": "definitely" },
+    { "bucket": "maybe" }
+  ]
+}
