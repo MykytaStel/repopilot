@@ -1,0 +1,12 @@
+{
+  "description": "A pure refactor (renaming a local variable) changes no behavior, crosses no boundary, and reaches no sink. The review must stay silent: no behavioral, boundary, taint, or algorithmic signal, and nothing in the definitely-sensitive tier.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "bucket": "definitely" },
+    { "family": "behavioral" },
+    { "family": "boundary" },
+    { "family": "taint" },
+    { "family": "algorithmic" }
+  ]
+}

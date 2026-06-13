@@ -1,0 +1,18 @@
+{
+  "description": "Deleting a test file removes coverage — a definitely-sensitive behavioral signal. Boundary detection skips test files, so only the test-deleted signal fires.",
+  "label": "expected_true_positive",
+  "delete": ["src/calculator.test.ts"],
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "behavioral",
+      "kind": "behavioral.test-deleted-or-emptied",
+      "path": "src/calculator.test.ts",
+      "headline": "test deleted or emptied"
+    }
+  ],
+  "forbid": [
+    { "family": "boundary" },
+    { "family": "volume" }
+  ]
+}

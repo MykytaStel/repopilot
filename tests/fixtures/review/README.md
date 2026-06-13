@@ -12,15 +12,23 @@ temp repo, folded into the tiered view, and serialized through
 ```
 tests/fixtures/review/<family>/<scenario>/
   before/        file tree committed as the baseline (HEAD)
-  after/         file tree overlaid on top, left uncommitted (== the diff)
-  expected.json  { description, label, expect[], forbid[] }
+  after/         OPTIONAL file tree overlaid on top, left uncommitted (== the diff)
+  expected.json  { description, label, delete[], expect[], forbid[] }
 ```
 
 The harness commits `before/`, overlays `after/` (new files are added, shared
-paths overwritten), runs the real binary, then checks the constraints. New
-fixtures are discovered automatically — just drop a directory in.
+paths overwritten), removes any paths listed under `delete`, runs the real
+binary, then checks the constraints. New fixtures are discovered automatically —
+just drop a directory in.
 
-> The seed slice models additions and modifications, not deletions.
+### Deletions and renames
+
+`expected.json` may carry an optional `delete` array of repo-relative paths that
+are removed from the working tree **after** the overlay, so review sees them as
+deletions. `after/` is optional — a pure-deletion scenario has only `before/`
+plus `delete`. A **rename** is `delete` of the old path plus the new path in
+`after/` (working-tree diffs are not rename-detected, so a move reads as a
+delete + an add).
 
 ## `expected.json` contract
 
@@ -63,3 +71,8 @@ from):
 | `boundary` | `access-control` | definitely | a new `src/auth/**` file |
 | `behavioral` | `network-call` | maybe | `fetch()` added in an ordinary file |
 | `algorithmic` | `nested-loop` | maybe | a nested loop introduced in a function |
+| `deletions` | `remove-auth-guard` | definitely | deleting a `src/auth/**` file still flags the boundary |
+| `deletions` | `remove-test-file` | definitely | deleting a `*.test.ts` removes coverage |
+| `renames` | `move-auth-entrypoint` | definitely | moving an auth file flags both old and new path |
+| `refactor` | `no-behavior-change` | — | a local-variable rename stays silent |
+| `noise` | `large-diff` | noise | >5 files / >200 lines of data trips only the volume note |
