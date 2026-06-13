@@ -66,15 +66,20 @@ const FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
 ];
 
 // The convention-shaped heuristic rules (directory size, path depth, relative
-// import depth, barrel re-exports, missing co-located tests). These were the
-// FP-prone rules the audit flagged as unfixtured; pinning their true- and
-// false-positive behaviour keeps them honest as project conventions vary.
+// import depth, barrel re-exports, file size, missing co-located tests and
+// missing test folder). These are the FP-prone rules whose behaviour shifts
+// with project conventions; pinning their true- and false-positive behaviour
+// keeps them honest. `large-file` pins the LOC boundary (a file exactly at the
+// threshold is not flagged); `missing-test-folder` pins the project-level gate
+// (a repo with a `tests/` directory is silent).
 const HEURISTIC_RULES_WITH_FIXTURES: &[&str] = &[
     "architecture.too-many-modules",
     "architecture.deep-directory-nesting",
     "architecture.deep-relative-imports",
     "architecture.barrel-file-risk",
+    "architecture.large-file",
     "testing.source-without-test",
+    "testing.missing-test-folder",
 ];
 
 // Web/JS/React/React Native framework rules. All Preview/Experimental, so the
@@ -299,6 +304,14 @@ fn fixture_directory_for_unknown_rule_is_rejected() {
     );
 }
 
+// Rules whose true-/false-positive behaviour is pinned outside this harness.
+// `architecture.layer-violation` is purely config-driven (it emits nothing
+// without `[[architecture.layers]]`), which the default-config fixture engine
+// cannot supply, so it is exercised in `tests/architecture_opt_in_rules.rs`
+// instead. Listing it here keeps the coverage report from crying wolf without
+// pretending it lives in the fixture tree.
+const COVERED_BY_DEDICATED_TEST: &[&str] = &["architecture.layer-violation"];
+
 // Coverage visibility: Preview/Experimental rules without fixtures are allowed
 // (the gate only binds Stable rules), but we surface the gap so promoting a
 // rule to Stable without fixtures is a deliberate, visible decision.
@@ -314,6 +327,7 @@ fn report_preview_coverage_gap(report: &RuleEvaluationReport) {
         .filter(|meta| meta.lifecycle != RuleLifecycle::Stable)
         .map(|meta| meta.rule_id)
         .filter(|rule_id| !fixtured.contains(rule_id))
+        .filter(|rule_id| !COVERED_BY_DEDICATED_TEST.contains(rule_id))
         .collect();
     uncovered.sort_unstable();
 
