@@ -22,6 +22,7 @@ const SECURITY_RULES_WITH_FIXTURES: &[&str] = &[
     "security.private-key-candidate",
     "framework.django.debug-true",
     "framework.django.missing-allowed-hosts",
+    "framework.django.raw-sql-query",
 ];
 
 const IMPORT_GRAPH_RULES_WITH_FIXTURES: &[&str] = &[
@@ -44,7 +45,15 @@ const RUNTIME_RULES_WITH_FIXTURES: &[&str] = &[
 const CODE_QUALITY_RULES_WITH_FIXTURES: &[&str] = &[
     "code-quality.long-function",
     "code-quality.complex-function",
+    "code-quality.complex-file",
+    "code-quality.deep-control-flow",
 ];
+
+// Comment-marker heuristics. All Experimental, so the quality gate does not bind
+// them — the fixtures pin the line-comment matching: a marker keyword fires only
+// from comment text, never from a string literal or an identifier name.
+const CODE_MARKER_RULES_WITH_FIXTURES: &[&str] =
+    &["code-marker.todo", "code-marker.fixme", "code-marker.hack"];
 
 const FRAMEWORK_RULES_WITH_FIXTURES: &[&str] = &[
     "framework.react-native.deprecated-api",
@@ -139,6 +148,22 @@ fn given_code_quality_rule_fixtures_when_eval_rules_runs_then_quality_gates_pass
     let fixture_root = rule_fixture_root();
 
     for rule_id in CODE_QUALITY_RULES_WITH_FIXTURES {
+        // When
+        let report = evaluate_rule(rule_id, &fixture_root);
+
+        // Then
+        assert_single_rule_report(rule_id, &report);
+        let rule_report = first_rule_report(rule_id, &report);
+        assert_rule_fixture_coverage_is_clean(rule_id, rule_report);
+    }
+}
+
+#[test]
+fn given_code_marker_rule_fixtures_when_eval_rules_runs_then_coverage_is_clean() {
+    // Given
+    let fixture_root = rule_fixture_root();
+
+    for rule_id in CODE_MARKER_RULES_WITH_FIXTURES {
         // When
         let report = evaluate_rule(rule_id, &fixture_root);
 

@@ -126,6 +126,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `prop-types` absent from a TypeScript project, a `StyleSheet` instead of an
   inline style, a `FlatList` with a `keyExtractor`, and a New-Architecture
   compatible dependency — so the text-/AST-lite matchers stay honest.
+- Internal: added true-positive/false-positive fixtures for six previously
+  unfixtured code-quality, comment-marker, and Django rules
+  (`code-quality.complex-file`, `code-quality.deep-control-flow`,
+  `code-marker.todo`, `code-marker.fixme`, `code-marker.hack`,
+  `framework.django.raw-sql-query`). The false-positive fixtures pin the known
+  safe shapes — a flat low-density file, control flow sitting exactly at the
+  nesting limit, a marker keyword appearing only in a string literal or
+  identifier rather than a comment, and a parameterized `cursor.execute(sql,
+  params)` query — leaving only `architecture.large-file`,
+  `architecture.layer-violation`, and `testing.missing-test-folder` uncovered.
 
 ### Fixed
 
