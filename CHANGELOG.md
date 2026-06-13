@@ -136,6 +136,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   identifier rather than a comment, and a parameterized `cursor.execute(sql,
   params)` query — leaving only `architecture.large-file`,
   `architecture.layer-violation`, and `testing.missing-test-folder` uncovered.
+- Internal: added true-positive/false-positive fixtures for `architecture.large-file`
+  (the false positive sits exactly on the 300-line threshold to pin the
+  off-by-one boundary) and `testing.missing-test-folder` (the false positive is a
+  project with a `tests/` directory). With these, every Preview/Experimental rule
+  now has true-/false-positive coverage: the fixture coverage report drops to
+  zero gaps. `architecture.layer-violation` is purely config-driven — it emits
+  nothing without `[[architecture.layers]]`, which the default-config fixture
+  engine cannot supply — so it stays covered by `tests/architecture_opt_in_rules.rs`
+  and is allow-listed in the coverage report rather than duplicated.
 
 ### Fixed
 
