@@ -179,6 +179,22 @@ fn ignores_mutex_poison_invariant_expect() {
 }
 
 #[test]
+fn mutex_lock_unwrap_named_db_is_not_escalated_to_high() {
+    // `self.db.lock().unwrap()` is a poisoned-mutex panic, not an external
+    // database failure. The `db.` substring must not escalate it to High.
+    let file = facts(
+        "src/state.rs",
+        "let mut guard = self.db.lock().unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Medium);
+}
+
+#[test]
 fn upgrades_external_parse_unwrap_to_high() {
     let file = facts(
         "src/domain/parser.rs",

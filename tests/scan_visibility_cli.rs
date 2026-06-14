@@ -81,6 +81,24 @@ fn default_scan_reports_unwrap_on_external_parse_path() {
 }
 
 #[test]
+fn default_scan_hides_mutex_lock_unwrap_named_db() {
+    // A `Mutex` field named `db` is common; `self.db.lock().unwrap()` is a
+    // poisoned-lock panic, not an external database failure, so it must not
+    // surface as a visible HIGH finding the way an external parse unwrap does.
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("src/state.rs"),
+        "pub struct App { db: std::sync::Mutex<u32> }\n\
+         impl App { pub fn bump(&self) { let mut g = self.db.lock().unwrap(); *g += 1; } }\n",
+    );
+
+    let json = scan_json(root, &[]);
+
+    assert_rule_absent(&json, "language.rust.panic-risk");
+}
+
+#[test]
 fn default_scan_keeps_real_secret_and_private_key_candidates() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();

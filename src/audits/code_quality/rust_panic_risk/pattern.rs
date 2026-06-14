@@ -121,6 +121,16 @@ pub(super) fn is_external_failure_path(pattern: RustPanicPattern, sanitized: &st
     }
 
     let lower = sanitized.to_lowercase();
+
+    // A lock acquisition that unwraps (`Mutex::lock().unwrap()`,
+    // `RwLock::write().unwrap()`) is a poisoned-lock panic — an in-process
+    // invariant, not an external I/O or database failure. Without this guard a
+    // field named `db`/`conn`/`pool` (`self.db.lock().unwrap()`) would match the
+    // `db.`/`conn.`/`pool.` substrings below and be escalated to High.
+    if lower.contains(".lock()") {
+        return false;
+    }
+
     const EXTERNAL_SIGNALS: &[&str] = &[
         ".parse(",
         ".parse::<",
