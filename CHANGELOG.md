@@ -8,12 +8,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`architecture.dead-module` no longer flags Cargo build scripts or
+  React/Vite entrypoints.** Entrypoint detection is consulted by the import
+  graph after per-file content has been dropped, so it must work from the
+  filename alone — but the content-only `fn main()` check meant a `build.rs`
+  (`fn main()` present, content unavailable) was reported as a dead module, and
+  every `src/main.tsx`/`index.tsx` Vite/React entry was treated as ordinary
+  importable code. `is_app_entrypoint` now recognises `build.rs` and the
+  `.tsx`/`.jsx` entry filenames by name, independent of content.
 - **`language.rust.panic-risk` no longer escalates a poisoned-mutex unwrap to
   High just because the lock is named `db`.** A `Mutex`/`RwLock` field called
   `db`/`conn`/`pool` (`self.db.lock().unwrap()`) matched the external-failure
   keyword list (`db.`, `conn.`, `pool.`) and was reported as a **visible High**
-  finding in the default profile, even though a lock acquisition is an
-  in-process invariant, not an external I/O or database call. A `.lock()` unwrap
+  finding in the default profile, even though a lock acquisition is an in-process invariant, not an external I/O or database call. A `.lock()` unwrap
   is now treated as the ordinary (Medium, hidden-by-default) panic risk it is;
   real external-failure unwraps (`.parse()`, `fs::`, query/request paths) still
   escalate to High and stay visible.
