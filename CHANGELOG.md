@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.secret-candidate` no longer flags shell expansions or
+  inline-test fixtures.** A value that is a shell command substitution
+  (`token="$(...)"`, backticks) or a variable expansion is a captured value,
+  not a literal secret — and the value is now extracted from its first quoted
+  segment, so a trailing line continuation (`PASSWORD="$PGPASSWORD" \`) or a
+  Rust `.to_string()` suffix no longer defeats placeholder detection. Secret
+  candidates inside an inline `#[cfg(test)]` module (e.g. `password: "short"` in
+  a unit test) are also skipped now: the file-path test skip only caught whole
+  test files, missing inline test modules in production sources. Real
+  assignments in production code are unchanged.
 - **`architecture.dead-module` no longer flags Cargo build scripts or
   React/Vite entrypoints.** Entrypoint detection is consulted by the import
   graph after per-file content has been dropped, so it must work from the

@@ -32,11 +32,12 @@ fn assigned_secret_value_for_key<'a>(line: &'a str, lower_line: &str, key: &str)
 
 fn is_secret_literal(value: &str) -> bool {
     let value = value.trim().trim_end_matches([',', ';']).trim();
-    let unquoted = value.trim_matches('"').trim_matches('\'');
+    let unquoted = unwrap_first_quoted(value);
     let lower = unquoted.to_lowercase();
 
     let is_placeholder = unquoted.is_empty()
         || is_env_var_reference(unquoted)
+        || is_shell_expansion(unquoted)
         || unquoted.starts_with("${")
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
