@@ -1,8 +1,10 @@
+use crate::audits::code_quality::sanitize::sanitize_c_style;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::knowledge::decision::apply_file_decision;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
+use std::collections::HashSet;
 
 const SECRET_KEYS: &[&str] = &[
     "api_key",
@@ -58,13 +60,22 @@ impl FileAudit for SecretCandidateAudit {
             return vec![];
         }
 
+        // Secret candidates inside an inline `#[cfg(test)]` module are fixtures,
+        // not shipped credentials, so skip those lines (the file-path test skip
+        // above only catches whole test files).
+        let gated_test_lines = rust_cfg_test_lines(file);
+
         file.content
             .as_deref()
             .unwrap_or("")
             .lines()
             .enumerate()
             .filter_map(|(index, line)| {
-                detect_secret_line(line, index + 1, &file.path).and_then(|finding| {
+                let line_number = index + 1;
+                if gated_test_lines.contains(&line_number) {
+                    return None;
+                }
+                detect_secret_line(line, line_number, &file.path).and_then(|finding| {
                     apply_file_decision("security.secret-candidate", file, finding, None)
                 })
             })
@@ -127,5 +138,6 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
     None
 }
 
+include!("secret_candidate/parsing.rs");
 include!("secret_candidate/helpers.rs");
 include!("secret_candidate/finding.rs");

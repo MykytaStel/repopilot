@@ -94,6 +94,45 @@ fn secret_candidate_does_not_flag_variable_references() {
 }
 
 #[test]
+fn secret_candidate_does_not_flag_shell_expansions() {
+    // A captured command output or variable expansion is not a literal secret,
+    // even when a closing quote and line continuation follow it.
+    for line in [
+        "token=\"$(printf '%s' \"$auth_response\" | json_field token)\"\n",
+        "  -e POSTGRES_PASSWORD=\"$PGPASSWORD\" \\\n",
+        "API_TOKEN=`vault read secret/token`\n",
+    ] {
+        let f = file("scripts/deploy.sh", line);
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "shell expansion must not be flagged as a secret: `{line}` -> {findings:?}"
+        );
+    }
+}
+
+#[test]
+fn secret_candidate_skips_inline_cfg_test_module_but_keeps_production() {
+    // A fake credential inside an inline `#[cfg(test)]` module is a fixture;
+    // a real assignment in the production body of the same file still counts.
+    let file = file(
+        "src/api/dto/auth.rs",
+        "pub const API_KEY: &str = \"abc123xyz987def\";\n\
+         #[cfg(test)]\n\
+         mod tests {\n\
+             fn case() {\n\
+                 let password = \"sup3rSekret_inTest_99\";\n\
+             }\n\
+         }\n",
+    );
+
+    let findings = SecretCandidateAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].evidence[0].line_start, 1);
+}
+
+#[test]
 fn secret_candidate_detects_secret_named_literals() {
     let file = file("src/config.rs", "let jwt = \"abc123xyz987\";\n");
 
