@@ -8,9 +8,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`language.rust.panic-risk` no longer escalates a poisoned-mutex unwrap to
+  High just because the lock is named `db`.** A `Mutex`/`RwLock` field called
+  `db`/`conn`/`pool` (`self.db.lock().unwrap()`) matched the external-failure
+  keyword list (`db.`, `conn.`, `pool.`) and was reported as a **visible High**
+  finding in the default profile, even though a lock acquisition is an
+  in-process invariant, not an external I/O or database call. A `.lock()` unwrap
+  is now treated as the ordinary (Medium, hidden-by-default) panic risk it is;
+  real external-failure unwraps (`.parse()`, `fs::`, query/request paths) still
+  escalate to High and stay visible.
 - Default finding visibility is now lifecycle- and provenance-aware: low-confidence
-  and experimental heuristics stay hidden even when risk scoring ranks them
-  highly, while stable import-graph risks, validated security findings, direct
+  and experimental heuristics stay hidden even when risk scoring ranks them highly, while stable import-graph risks, validated security findings, direct
   runtime evidence, and High-confidence manifest-backed package-boundary
   violations remain visible. `--profile strict` still preserves the complete
   finding set and existing finding IDs/report schemas are unchanged.
