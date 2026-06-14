@@ -153,6 +153,7 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
     matches!(
         file_name.as_str(),
         "main.rs"
+            | "build.rs"
             | "main.go"
             | "main.py"
             | "app.py"
@@ -161,8 +162,12 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
             | "main.kt"
             | "index.ts"
             | "index.js"
+            | "index.tsx"
+            | "index.jsx"
             | "main.ts"
             | "main.js"
+            | "main.tsx"
+            | "main.jsx"
     ) || (language == LanguageKind::Python && content.contains("if __name__ == \"__main__\""))
         || (language == LanguageKind::Go && content.contains("func main("))
         || (language == LanguageKind::Rust && content.contains("fn main("))
@@ -170,8 +175,39 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::{is_test_file, path_contains_component};
+    use super::{is_app_entrypoint, is_test_file, path_contains_component};
+    use crate::audits::context::model::LanguageKind;
     use std::path::Path;
+
+    #[test]
+    fn entrypoints_recognized_by_filename_without_content() {
+        // The import graph classifies nodes after per-file content has been
+        // dropped, so entrypoint detection must work from the filename alone —
+        // otherwise a Cargo build script (`fn main()` but content unavailable)
+        // is wrongly reported as a dead module, and every Vite/React
+        // `src/main.tsx` is treated as ordinary importable code.
+        assert!(is_app_entrypoint(
+            Path::new("build.rs"),
+            "",
+            LanguageKind::Rust
+        ));
+        assert!(is_app_entrypoint(
+            Path::new("src/main.tsx"),
+            "",
+            LanguageKind::TypeScript
+        ));
+        assert!(is_app_entrypoint(
+            Path::new("src/index.tsx"),
+            "",
+            LanguageKind::TypeScript
+        ));
+        // A regular library module is still not an entrypoint.
+        assert!(!is_app_entrypoint(
+            Path::new("src/state.rs"),
+            "",
+            LanguageKind::Rust
+        ));
+    }
 
     #[test]
     fn path_component_matching_handles_windows_separators() {
