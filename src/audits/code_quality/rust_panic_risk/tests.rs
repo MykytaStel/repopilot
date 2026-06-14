@@ -195,6 +195,39 @@ fn mutex_lock_unwrap_named_db_is_not_escalated_to_high() {
 }
 
 #[test]
+fn serde_json_serialization_unwrap_is_not_escalated_to_high() {
+    // `serde_json::to_string(&value).unwrap()` serializes an owned, in-memory
+    // value to JSON — an in-process, effectively-infallible operation. The
+    // `serde_json`/`json` external signals must not escalate it to a visible
+    // High the way a genuine deserialization is.
+    for line in [
+        "changes: Some(serde_json::to_string(&changes).unwrap()),",
+        "before.insert(id.clone(), serde_json::to_value(&snapshot).unwrap());",
+    ] {
+        let file = facts("src/analysis/merge_service.rs", line, false);
+        let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+        assert_eq!(findings.len(), 1, "{line}");
+        assert_eq!(findings[0].severity, Severity::Medium, "{line}");
+    }
+}
+
+#[test]
+fn serde_json_deserialization_unwrap_stays_high() {
+    // Parsing untrusted external bytes back into a value genuinely fails on
+    // malformed input, so it remains a visible High external-failure path.
+    let file = facts(
+        "src/api/handler.rs",
+        "let parsed: Payload = serde_json::from_str(&body).unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::High);
+}
+
+#[test]
 fn upgrades_external_parse_unwrap_to_high() {
     let file = facts(
         "src/domain/parser.rs",

@@ -12,10 +12,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   React/Vite entrypoints.** Entrypoint detection is consulted by the import
   graph after per-file content has been dropped, so it must work from the
   filename alone — but the content-only `fn main()` check meant a `build.rs`
-  (`fn main()` present, content unavailable) was reported as a dead module, and
-  every `src/main.tsx`/`index.tsx` Vite/React entry was treated as ordinary
+  (`fn main()` present, content unavailable) was reported as a dead module, and every `src/main.tsx`/`index.tsx` Vite/React entry was treated as ordinary
   importable code. `is_app_entrypoint` now recognises `build.rs` and the
   `.tsx`/`.jsx` entry filenames by name, independent of content.
+- **`language.rust.panic-risk` no longer escalates a serde *serialization*
+  unwrap to High.** `serde_json::to_string(&value).unwrap()` (and `to_value`,
+  `to_vec`, `to_writer`, and the YAML/TOML equivalents) serializes an owned,
+  in-memory value — an in-process, effectively-infallible operation — yet the
+  `serde_json`/`json` external-failure signals escalated it to a **visible
+  High** in the default profile, the same way a genuine parse of untrusted
+  input is. On real services that persist structured data this was the dominant
+  panic-risk false positive. A serialization unwrap is now the ordinary
+  (Medium, hidden-by-default) panic risk; *deserialization*
+  (`from_str`/`from_slice`/`from_reader`/`from_value`) still escalates to High
+  and stays visible.
 - **`language.rust.panic-risk` no longer escalates a poisoned-mutex unwrap to
   High just because the lock is named `db`.** A `Mutex`/`RwLock` field called
   `db`/`conn`/`pool` (`self.db.lock().unwrap()`) matched the external-failure

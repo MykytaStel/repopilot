@@ -99,6 +99,23 @@ fn default_scan_hides_mutex_lock_unwrap_named_db() {
 }
 
 #[test]
+fn default_scan_hides_serde_serialization_unwrap() {
+    // `serde_json::to_string(&value).unwrap()` serializes an owned value to
+    // JSON — effectively infallible and in-process. It must not surface as a
+    // visible HIGH the way a genuine `serde_json::from_str` deserialization does.
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("src/store.rs"),
+        "pub fn dump(v: &Vec<u32>) -> String { serde_json::to_string(v).unwrap() }\n",
+    );
+
+    let json = scan_json(root, &[]);
+
+    assert_rule_absent(&json, "language.rust.panic-risk");
+}
+
+#[test]
 fn default_scan_keeps_real_secret_and_private_key_candidates() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();
