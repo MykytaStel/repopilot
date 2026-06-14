@@ -200,3 +200,55 @@ fn lists_resources_and_prompts() {
         "text"
     );
 }
+
+#[test]
+fn context_tool_returns_markdown_brief_matching_its_output_schema() {
+    // `serve` roots at the canonicalized CWD (the crate root under `cargo test`),
+    // so the relative fixture path resolves and stays within the MCP root.
+    let responses = initialized_exchange(&[json!({
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+            "name": "repopilot_context",
+            "arguments": { "path": "tests/fixtures/projects/ai-context-sample" }
+        }
+    })]);
+
+    let result = &responses[0]["result"];
+    assert_eq!(
+        result["isError"],
+        json!(false),
+        "context call should succeed: {result}"
+    );
+
+    // The tool declares `outputSchema: { markdown: string }`. The structured
+    // result must match that shape exactly — a single `markdown` string field.
+    let structured = result["structuredContent"]
+        .as_object()
+        .expect("structuredContent is an object");
+    assert_eq!(
+        structured.keys().collect::<Vec<_>>(),
+        vec!["markdown"],
+        "structuredContent must be exactly {{ markdown }}: {structured:?}"
+    );
+    let markdown = structured["markdown"]
+        .as_str()
+        .expect("markdown is a string");
+    assert!(
+        markdown.contains("RepoPilot AI Context"),
+        "markdown should be the AI context brief: {markdown}"
+    );
+    assert!(
+        markdown.contains("DEBUG = True in Django settings"),
+        "brief should surface the sample project's security finding"
+    );
+
+    // The text content block mirrors the same brief.
+    assert_eq!(result["content"][0]["type"], json!("text"));
+    assert_eq!(
+        result["content"][0]["text"].as_str(),
+        Some(markdown),
+        "content text should mirror the structured markdown"
+    );
+}

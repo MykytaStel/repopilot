@@ -157,6 +157,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   change is *not* noise — lockfiles classify as a supply-chain boundary in the
   definitely-sensitive tier — so the planned `noise/lockfile-only` fixture was
   dropped in favour of the real large-diff case.)
+- Internal: added a golden snapshot for the AI context brief
+  (`tests/ai_context_golden.rs`). It scans one committed sample project
+  (`tests/fixtures/projects/ai-context-sample`), applies the default visibility
+  profile, and snapshots `output::ai_context::render` for the default and
+  `--focus security` variants, so a change to the agent-facing brief is a
+  reviewed diff. Determinism is via normalization (scan wall-clock zeroed,
+  context-graph cache line and approximate token count pinned, crate version
+  templated); bless with `REPOPILOT_UPDATE_GOLDEN=1`. A companion MCP unit test
+  asserts `repopilot_context` returns its declared `{ markdown }` output shape.
+- Internal: added `scripts/check-scan-performance.js`, a release-checklist smoke
+  test mirroring `check-review-performance.js`. It builds the same synthetic
+  480-file corpus as `benches/scan_bench.rs` and asserts the warm scan
+  wall-clock median stays under a generous budget (default 3000 ms, overridable)
+  — a coarse guard against gross regressions, not a CI criterion gate.
+- Internal: documented the test-fixture families and how to add/update them in
+  `tests/fixtures/README.md`.
 
 ### Fixed
 
