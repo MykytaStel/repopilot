@@ -131,6 +131,18 @@ pub(super) fn is_external_failure_path(pattern: RustPanicPattern, sanitized: &st
         return false;
     }
 
+    // Serializing an owned, in-memory value to JSON/YAML/TOML
+    // (`serde_json::to_string(&x)`, `to_value`, `to_vec`, `to_writer`, ...) is an
+    // in-process, effectively-infallible operation, not the parsing of untrusted
+    // external input that the `serde_json`/`json` signals below are meant to
+    // catch. Without this guard a serialization unwrap is escalated to a visible
+    // High the same way a genuine deserialization is — the dominant panic-risk
+    // false positive on services that persist structured data. Deserialization
+    // (`from_str`/`from_slice`/`from_reader`/`from_value`) is left to escalate.
+    if is_serialize_call(&lower) && !is_deserialize_call(&lower) {
+        return false;
+    }
+
     const EXTERNAL_SIGNALS: &[&str] = &[
         ".parse(",
         ".parse::<",
@@ -171,6 +183,29 @@ pub(super) fn is_external_failure_path(pattern: RustPanicPattern, sanitized: &st
     ];
 
     EXTERNAL_SIGNALS.iter().any(|signal| lower.contains(signal))
+}
+
+/// True when the (lowercased) line invokes a serde serialization free function
+/// (`serde_json::to_string`, `serde_yaml::to_vec`, ...). Anchored on the `::to_`
+/// form so an ordinary infallible method call (`value.to_string()`) is ignored.
+fn is_serialize_call(lower: &str) -> bool {
+    const SERIALIZE_CALLS: &[&str] = &[
+        "::to_string(",
+        "::to_string_pretty(",
+        "::to_value(",
+        "::to_vec(",
+        "::to_vec_pretty(",
+        "::to_writer(",
+        "::to_writer_pretty(",
+    ];
+    SERIALIZE_CALLS.iter().any(|call| lower.contains(call))
+}
+
+/// True when the line parses external bytes back into a value, which genuinely
+/// fails on malformed input and so remains an external-failure path.
+fn is_deserialize_call(lower: &str) -> bool {
+    const DESERIALIZE_CALLS: &[&str] = &["from_str", "from_slice", "from_reader", "from_value"];
+    DESERIALIZE_CALLS.iter().any(|call| lower.contains(call))
 }
 
 pub(super) fn is_infallible_render_write_start(path: &std::path::Path, trimmed: &str) -> bool {
