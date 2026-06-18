@@ -5,6 +5,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_open_exports",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "architecture.package-boundary-violation"

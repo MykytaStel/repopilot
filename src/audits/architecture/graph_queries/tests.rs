@@ -344,11 +344,20 @@ fn package_boundary_allows_public_api_same_package_and_no_config() {
 }
 
 fn detected(repo_root: &Path, rel_roots: &[&str]) -> Vec<crate::scan::workspace::WorkspacePackage> {
+    detected_with_exports(repo_root, rel_roots, &[])
+}
+
+fn detected_with_exports(
+    repo_root: &Path,
+    rel_roots: &[&str],
+    open_export_roots: &[&str],
+) -> Vec<crate::scan::workspace::WorkspacePackage> {
     rel_roots
         .iter()
         .map(|rel| crate::scan::workspace::WorkspacePackage {
             name: rel.to_string(),
             root: repo_root.join(rel),
+            exposes_subpath_exports: open_export_roots.contains(rel),
         })
         .collect()
 }
@@ -371,6 +380,44 @@ fn detected_workspace_auto_enables_package_boundary_at_high_confidence() {
         .expect("cross-package internal import on a workspace should be flagged");
     // Manifest-declared boundaries are reported at the High ceiling.
     assert_eq!(finding.confidence, Confidence::High);
+}
+
+#[test]
+fn wildcard_exports_package_has_no_boundary_to_violate() {
+    // excalidraw-style: `packages/auth` publishes `"exports": { "./*": ... }`,
+    // so a deep import into its `src/` is sanctioned public API, not a violation.
+    let repo_root = Path::new("/repo");
+    let packages = detected_with_exports(
+        repo_root,
+        &["packages/web", "packages/auth"],
+        &["packages/auth"],
+    );
+    let index = PackageIndex::new(&ScanConfig::default(), &packages, repo_root);
+    let known = std::collections::HashSet::new();
+
+    assert!(
+        index
+            .violation_finding(
+                &prod("packages/web/src/use.ts"),
+                &prod("packages/auth/src/internal.ts"),
+                repo_root,
+                &known,
+            )
+            .is_none(),
+        "deep import into a wildcard-exports package must not be flagged"
+    );
+
+    // A sibling package WITHOUT wildcard exports still enforces its boundary.
+    let finding = index.violation_finding(
+        &prod("packages/auth/src/use.ts"),
+        &prod("packages/web/src/internal.ts"),
+        repo_root,
+        &known,
+    );
+    assert!(
+        finding.is_some(),
+        "package without wildcard exports keeps its boundary"
+    );
 }
 
 #[test]

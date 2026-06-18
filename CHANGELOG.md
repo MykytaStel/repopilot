@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **`architecture.package-boundary-violation` no longer flags deep imports into
+  a package that publishes a wildcard `exports` subpath.** When a workspace
+  package's `package.json` declares `"exports": { "./*": ... }`, the author has
+  explicitly published every subpath as public API, so a sibling importing
+  `@scope/pkg/foo` (resolved to `pkg/src/foo`) is not reaching past a boundary.
+  The detector now reads the `exports` map during workspace detection and
+  suppresses violations into such packages. Caught by the real-repo zoo:
+  excalidraw dropped from 317 false positives to 0; packages without wildcard
+  exports keep their boundary.
+
 ### Added
 
 - **Real-repo validation "zoo".** A curated set of 11 real open-source repos
