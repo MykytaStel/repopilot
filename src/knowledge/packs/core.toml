@@ -626,12 +626,6 @@ signal = "js.process-exit"
 action = "downgrade"
 severity = "LOW"
 
-[[rules.overrides]]
-role = "domain"
-signal = "js.throw-error"
-action = "upgrade"
-severity = "HIGH"
-
 [[rules]]
 rule_id = "language.managed.fatal-exception-risk"
 minimum_support = "rule-aware"

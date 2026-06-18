@@ -81,7 +81,7 @@ Important defaults:
 | `language.rust.panic-risk` | Context-aware | `rust.unwrap`, `rust.expect`, `rust.panic`, `rust.todo`, `rust.unimplemented` |
 | `language.go.panic-exit-risk` | Context-aware | `go.panic`, `go.log-fatal`, `go.os-exit` |
 | `language.python.exception-risk` | Context-aware | `python.broad-except`, `python.assert`, `python.not-implemented` |
-| `language.javascript.runtime-exit-risk` | Context-aware | `js.process-exit`, `js.throw-error` |
+| `language.javascript.runtime-exit-risk` | Context-aware | `js.process-exit` |
 | `language.managed.fatal-exception-risk` | Context-aware | `managed.fatal-exception`, `managed.not-implemented` |
 
 These rules use file context from the Knowledge Engine. Test scaffolding, CLI

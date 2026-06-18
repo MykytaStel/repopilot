@@ -147,18 +147,23 @@ fn python_bare_raise_not_implemented_is_flagged_exactly_once() {
 }
 
 #[test]
-fn js_throw_new_error_outside_library_boundary_is_not_flagged() {
-    let file = facts(
+fn js_throw_new_error_is_never_flagged() {
+    // A `throw` is recoverable control flow, not a runtime exit. `throw new
+    // Error(...)` is idiomatic everywhere — including former "library boundary"
+    // paths like `packages/` — so the runtime-exit-risk rule no longer flags it.
+    for path in [
         "src/cli/main.ts",
-        Some("TypeScript"),
-        "export function run() { throw new Error(\"boom\"); }\n",
-    );
-
-    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
-
-    // `throw new Error` is only risky at a reusable library boundary, not in CLI
-    // entrypoint code.
-    assert!(findings.is_empty());
+        "packages/core/src/index.ts",
+        "src/lib/x.ts",
+    ] {
+        let file = facts(
+            path,
+            Some("TypeScript"),
+            "export function run() { throw new Error(\"boom\"); }\n",
+        );
+        let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+        assert!(findings.is_empty(), "throw must not be flagged in {path}");
+    }
 }
 
 #[test]
