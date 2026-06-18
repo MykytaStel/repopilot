@@ -6,8 +6,45 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-06-18
+
 ### Fixed
 
+- **`language.rust.panic-risk` no longer escalates a literal
+  `Regex::new("…")`/`Selector::parse("…")` to a visible High.** A regex or CSS
+  selector built from a string *literal* only fails on a malformed
+  compile-time pattern — a deterministic programmer error any test catches, not
+  a runtime panic risk from external input — yet on scraper-shaped files the
+  context-driven escalation pushed these to a **visible High**. A structural
+  syntax-tree check now skips an `unwrap`/`expect` chained onto a literal
+  `Regex::new`/`Selector::parse` (handling the multi-line
+  `Regex::new(\n    r"…",\n).unwrap()` form the previous text heuristic could
+  not see); a pattern built from a runtime value still stays a panic risk.
+- **`architecture.dead-module` no longer claims High confidence on monorepo
+  files whose importers it cannot resolve.** The "nothing imports this file"
+  safety-net only weakened its claim on unresolved *relative* imports, so a
+  workspace/monorepo whose internal imports are absolute or package-style
+  (`from app.services import x`, the `@/…` path alias, multi-crate Rust paths)
+  looked like a fully-resolved graph and every unreferenced file was reported at
+  **High**. The resolver now also records an unresolved import as graph-incomplete
+  evidence when it is a recognized alias or its leading segment names a directory
+  that actually exists in the repository — a workspace package it could not wire
+  up — while genuine third-party packages (`react`, `numpy`) stay out. With the
+  graph provably incomplete the finding drops to **Low** confidence (the prior
+  demotion silently collapsed back to High because `Medium` is the registry's
+  "use the default" sentinel), and it is suppressed entirely when an unresolved
+  import's final path or dotted segment matches the candidate file's name. On a
+  sampled monorepo this moved 61 dead-module findings from High to Low; a cleanly
+  resolved repository is unaffected and keeps High-confidence claims. Resolved
+  edges (cycles, fan-out) are unchanged — only absence claims are weakened.
+- **Rust production modules named `test_*.rs`/`*_test.rs` are no longer silently
+  dropped from the scan.** The low-signal path filter applied the singular
+  `test_`/`_test` name conventions (Python/Go/JS) to `.rs` files too, so ordinary
+  Rust modules such as `test_edges.rs` and `source_without_test.rs` were excluded
+  from every audit and from the import graph — matching the gap the refined
+  `is_test_file` already closed. For `.rs` files only the plural Rust forms
+  (`tests.rs`, `*_tests.rs`) and the `tests/` directory now mark a file as
+  low-signal; non-Rust conventions are unchanged.
 - **`security.secret-candidate` no longer flags shell expansions or
   inline-test fixtures.** A value that is a shell command substitution
   (`token="$(...)"`, backticks) or a variable expansion is a captured value,
@@ -83,6 +120,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Imports gated by `#[cfg(test)]` are kept out of the import graph entirely, so
   test-only `use` statements can no longer form phantom
   `architecture.circular-dependency` edges between production modules.
+- `architecture.deep-directory-nesting` now measures nesting depth relative to
+  the scan root, so scanning a repository by an absolute path no longer counts
+  the directories above the repository and over-reports every file as deeply
+  nested.
 
 ### Changed
 
@@ -93,32 +134,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   declared by the repository's own manifests. Explicit `[architecture]
   package_roots` still take priority and keep the Medium default confidence;
   with neither a workspace nor config the rule stays silent. A non-workspace repository (including RepoPilot itself) is unaffected.
-
-### Added
-
-- Added `code-quality.complex-function` (preview): a per-function cognitive-complexity rule that weights **nesting depth** rather than counting
-  branches flatly. A deeply nested handler is flagged while a wide-but-flat
-  `switch`/`match` dispatcher is not — the case where the file-level
-  `code-quality.complex-file` over-reports. Nested closures are scored
-  independently rather than folded into their enclosing function. Hidden in the
-  default profile (a strict-mode maintainability suggestion); threshold is
-  configurable via `[code_quality] complex_function_threshold` (default 15, the
-  conventional cognitive-complexity limit). `complex-file` is unchanged. Ships
-  with true-positive/false-positive fixtures.
-- The dependency graph now models workspace packages as first-class `Package` nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
-  prefix), so future rules can reason about real package boundaries instead of
-  path globs. A non-workspace repository produces no package nodes and leaves
-  the graph unchanged. Internal only for now — no command consumes it yet.
-- Added a published [rules reference](docs/rules-reference.md) generated
-  straight from the rule registry: every rule's id, category, default
-  severity/confidence, lifecycle, signal source, recommendation, and known
-  false positives. A drift test (`tests/rules_reference_doc.rs`) re-renders it
-  in memory and fails if the committed file falls behind the code, so the
-  catalog cannot drift from what actually ships. Regenerate with
-  `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`.
-
-### Changed
-
 - Configuration discovery now walks up from the current directory to the git
   root (stopping at `.git` or the filesystem root) looking for `repopilot.toml`,
   so running RepoPilot from a subdirectory picks up the repository's config
@@ -209,12 +224,28 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Internal: documented the test-fixture families and how to add/update them in
   `tests/fixtures/README.md`.
 
-### Fixed
+### Added
 
-- `architecture.deep-directory-nesting` now measures nesting depth relative to
-  the scan root, so scanning a repository by an absolute path no longer counts
-  the directories above the repository and over-reports every file as deeply
-  nested.
+- Added `code-quality.complex-function` (preview): a per-function cognitive-complexity rule that weights **nesting depth** rather than counting
+  branches flatly. A deeply nested handler is flagged while a wide-but-flat
+  `switch`/`match` dispatcher is not — the case where the file-level
+  `code-quality.complex-file` over-reports. Nested closures are scored
+  independently rather than folded into their enclosing function. Hidden in the
+  default profile (a strict-mode maintainability suggestion); threshold is
+  configurable via `[code_quality] complex_function_threshold` (default 15, the
+  conventional cognitive-complexity limit). `complex-file` is unchanged. Ships
+  with true-positive/false-positive fixtures.
+- The dependency graph now models workspace packages as first-class `Package` nodes. The builder detects npm/yarn, pnpm, Cargo, and Go (`go.work`) workspaces and records which package each file belongs to (by longest path
+  prefix), so future rules can reason about real package boundaries instead of
+  path globs. A non-workspace repository produces no package nodes and leaves
+  the graph unchanged. Internal only for now — no command consumes it yet.
+- Added a published [rules reference](docs/rules-reference.md) generated
+  straight from the rule registry: every rule's id, category, default
+  severity/confidence, lifecycle, signal source, recommendation, and known
+  false positives. A drift test (`tests/rules_reference_doc.rs`) re-renders it
+  in memory and fails if the committed file falls behind the code, so the
+  catalog cannot drift from what actually ships. Regenerate with
+  `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`.
 
 ## [0.17.0] - 2026-06-11
 

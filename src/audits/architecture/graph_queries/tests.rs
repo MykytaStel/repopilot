@@ -93,18 +93,19 @@ fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
 }
 
 #[test]
-fn dead_module_is_demoted_to_medium_when_graph_has_unresolved_imports() {
+fn dead_module_is_demoted_to_low_when_graph_has_unresolved_imports() {
     let mut resolution = ImportResolutionStats::default();
     resolution.record(Path::new("src/other.ts"), "./missing-helper");
 
     let finding = dead_module_finding(&prod("src/orphan.ts"), Some(0), &resolution)
         .expect("dead module should still be reported when the graph is merely incomplete");
 
-    assert_eq!(finding.confidence, Confidence::Medium);
+    // `Low` (not the `Medium` sentinel) so the registry keeps the demotion.
+    assert_eq!(finding.confidence, Confidence::Low);
     assert!(
         finding.evidence[0]
             .snippet
-            .contains("unresolved relative import"),
+            .contains("unresolved internal import"),
         "snippet should explain the demotion: {}",
         finding.evidence[0].snippet
     );

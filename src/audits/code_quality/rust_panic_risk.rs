@@ -21,9 +21,10 @@ use crate::scan::path_classification::is_low_signal_audit_path;
 
 use self::finding::build_finding;
 use self::pattern::{
-    detect_pattern, is_external_failure_path, is_infallible_render_write_result_unwrap,
-    is_infallible_render_write_start, is_report_renderer_path,
-    is_structural_infallible_render_write_unwrap, should_ignore_contextual_panic_pattern,
+    detect_pattern, is_external_failure_path, is_infallible_literal_construction_unwrap,
+    is_infallible_render_write_result_unwrap, is_infallible_render_write_start,
+    is_report_renderer_path, is_structural_infallible_render_write_unwrap,
+    should_ignore_contextual_panic_pattern,
 };
 
 const RULE_ID: &str = "language.rust.panic-risk";
@@ -77,6 +78,14 @@ impl RustPanicRiskAudit {
                     if is_report_renderer_path(&file.path)
                         && is_structural_infallible_render_write_unwrap(*node, content)
                     {
+                        continue;
+                    }
+
+                    // A literal `Regex::new("…")`/`Selector::parse("…")` only fails
+                    // on a malformed compile-time pattern — a deterministic bug, not
+                    // a runtime panic risk — so skip it structurally (handles the
+                    // multi-line form the text heuristic below cannot).
+                    if is_infallible_literal_construction_unwrap(*node, content) {
                         continue;
                     }
 

@@ -208,6 +208,87 @@ fn is_deserialize_call(lower: &str) -> bool {
     DESERIALIZE_CALLS.iter().any(|call| lower.contains(call))
 }
 
+/// True when `node` is a `Regex::new("literal").unwrap()` /
+/// `Selector::parse("literal").expect(...)`-style call: an `unwrap`/`expect`
+/// chained directly onto a constructor that only fails on a malformed pattern,
+/// where that pattern is a **string literal**. A literal regex/selector is fixed
+/// at authoring time — if it is malformed the program fails on its first run and
+/// any test catches it, so this is a deterministic programmer error, not a
+/// runtime panic risk from external input. The escalation that made these
+/// **visible High** on scraper-shaped files is context-driven, so it is not
+/// reached by the `is_external_failure_path` guards; this structural check skips
+/// the candidate outright, and because it walks the syntax tree it also handles
+/// the multi-line `Regex::new(\n    r"…",\n).unwrap()` form that the text-based
+/// [`should_ignore_contextual_panic_pattern`] heuristic cannot see.
+pub(super) fn is_infallible_literal_construction_unwrap(
+    node: tree_sitter::Node<'_>,
+    content: &str,
+) -> bool {
+    if node.kind() != "call_expression" {
+        return false;
+    }
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    if function.kind() != "field_expression" {
+        return false;
+    }
+    let Some(field) = function.child_by_field_name("field") else {
+        return false;
+    };
+    let Ok(method) = field.utf8_text(content.as_bytes()) else {
+        return false;
+    };
+    // `unwrap_err`/`expect_err` assert the *Err* arm — a literal constructor that
+    // succeeds would make those panic, so they are not infallible here.
+    if method != "unwrap" && method != "expect" {
+        return false;
+    }
+    let Some(receiver) = function.child_by_field_name("value") else {
+        return false;
+    };
+    is_literal_infallible_constructor_call(receiver, content)
+}
+
+/// True when `node` is `Regex::new(<string literal>)` or
+/// `Selector::parse(<string literal>)` (path-qualified forms such as
+/// `regex::Regex::new` are accepted). A non-literal first argument means the
+/// pattern is built at runtime and can genuinely fail, so it is left as a risk.
+fn is_literal_infallible_constructor_call(node: tree_sitter::Node<'_>, content: &str) -> bool {
+    const INFALLIBLE_LITERAL_CTORS: &[&str] = &["Regex::new", "Selector::parse"];
+
+    if node.kind() != "call_expression" {
+        return false;
+    }
+    let Some(callee) = node.child_by_field_name("function") else {
+        return false;
+    };
+    let Ok(callee_text) = callee.utf8_text(content.as_bytes()) else {
+        return false;
+    };
+    let callee_text = callee_text.trim();
+    let is_known_ctor = INFALLIBLE_LITERAL_CTORS
+        .iter()
+        .any(|ctor| callee_text == *ctor || callee_text.ends_with(&format!("::{ctor}")));
+    if !is_known_ctor {
+        return false;
+    }
+
+    let Some(arguments) = node.child_by_field_name("arguments") else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    for child in arguments.children(&mut cursor) {
+        match child.kind() {
+            "(" | ")" | "," => continue,
+            "string_literal" | "raw_string_literal" => return true,
+            // The first real argument is not a literal: the pattern is dynamic.
+            _ => return false,
+        }
+    }
+    false
+}
+
 pub(super) fn is_infallible_render_write_start(path: &std::path::Path, trimmed: &str) -> bool {
     is_report_renderer_path(path)
         && (trimmed.starts_with("writeln!(") || trimmed.starts_with("write!("))

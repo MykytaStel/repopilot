@@ -166,6 +166,64 @@ fn ignores_valid_regex_expect_in_production_code() {
 }
 
 #[test]
+fn ignores_literal_regex_new_unwrap_in_production_code() {
+    // A literal regex is infallible by construction; the `.unwrap()` form (no
+    // "valid regex" message for the text heuristic to match) must still be
+    // skipped via the structural AST check.
+    let file = facts(
+        "src/scraper/extract.rs",
+        "let re = Regex::new(r\"\\d{4}\").unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn ignores_literal_selector_parse_expect_in_production_code() {
+    let file = facts(
+        "src/scraper/extract.rs",
+        "let sel = Selector::parse(\"div.price\").expect(\"selector\");",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn ignores_multiline_literal_regex_new_unwrap() {
+    let file = facts(
+        "src/scraper/extract.rs",
+        "let re = Regex::new(\n    r\"^[a-z]+$\",\n).unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn keeps_dynamic_regex_new_unwrap_as_risk() {
+    // A regex built from a runtime value can genuinely fail to compile, so it
+    // stays a panic risk — only string-literal patterns are exempt.
+    let file = facts(
+        "src/scraper/extract.rs",
+        "let re = Regex::new(&pattern).unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert!(findings[0].title.contains("unwrap()"));
+}
+
+#[test]
 fn ignores_mutex_poison_invariant_expect() {
     let file = facts(
         "src/state.rs",
