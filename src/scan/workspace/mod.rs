@@ -11,6 +11,11 @@ mod tests;
 pub struct WorkspacePackage {
     pub name: String,
     pub root: PathBuf,
+    /// True when the package's `package.json` `exports` map declares a wildcard
+    /// subpath (e.g. `"./*"`), meaning the author has explicitly published deep
+    /// imports as public API. Such a package has no private boundary to violate.
+    /// Always false for Cargo/Go packages, which have no equivalent declaration.
+    pub exposes_subpath_exports: bool,
 }
 
 /// Detect workspace packages under `root`.

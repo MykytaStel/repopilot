@@ -12,6 +12,7 @@
 //!
 //! With neither source the rule is silent.
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use crate::findings::types::{Confidence, Evidence, Finding};
@@ -23,6 +24,10 @@ use super::{NodeInfo, architecture_finding};
 pub(crate) struct PackageIndex {
     /// Either glob patterns (`packages/*`) or bare package roots (`packages/auth`).
     roots: Vec<String>,
+    /// Relative roots of detected packages whose `package.json` `exports` map
+    /// declares a wildcard subpath — deep imports into them are sanctioned
+    /// public API, so they have no boundary to violate.
+    open_export_roots: HashSet<String>,
     /// True when `roots` were derived from workspace manifests rather than
     /// configured globs; such findings are reported at `High` confidence.
     manifest_backed: bool,
@@ -39,21 +44,30 @@ impl PackageIndex {
         if !config.package_roots.is_empty() {
             return Self {
                 roots: config.package_roots.clone(),
+                open_export_roots: HashSet::new(),
                 manifest_backed: false,
             };
         }
 
-        let roots = detected
-            .iter()
-            .filter_map(|package| {
-                let relative = package.root.strip_prefix(repo_root).ok()?;
-                let relative = relative.to_string_lossy().replace('\\', "/");
-                (!relative.is_empty()).then_some(relative)
-            })
-            .collect();
+        let mut roots = Vec::new();
+        let mut open_export_roots = HashSet::new();
+        for package in detected {
+            let Ok(relative) = package.root.strip_prefix(repo_root) else {
+                continue;
+            };
+            let relative = relative.to_string_lossy().replace('\\', "/");
+            if relative.is_empty() {
+                continue;
+            }
+            if package.exposes_subpath_exports {
+                open_export_roots.insert(relative.clone());
+            }
+            roots.push(relative);
+        }
 
         Self {
             roots,
+            open_export_roots,
             manifest_backed: true,
         }
     }
@@ -102,6 +116,11 @@ impl PackageIndex {
         let source_pkg = self.package_of(source)?;
         let target_pkg = self.package_of(target)?;
         if source_pkg == target_pkg {
+            return None;
+        }
+        // A package that publishes a wildcard `exports` subpath has declared its
+        // internals public — deep imports into it are sanctioned, not violations.
+        if self.open_export_roots.contains(&target_pkg) {
             return None;
         }
 

@@ -30,6 +30,7 @@ pub(super) fn from_go_workspace(root: &Path) -> Vec<WorkspacePackage> {
         packages.push(WorkspacePackage {
             name,
             root: package_root,
+            exposes_subpath_exports: false,
         });
     }
     packages
