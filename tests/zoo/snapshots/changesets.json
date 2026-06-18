@@ -1,0 +1,74 @@
+{
+  "default": {
+    "by_priority": {
+      "P0": 2,
+      "P1": 38
+    },
+    "by_rule": {
+      "architecture.circular-dependency": 1,
+      "language.javascript.runtime-exit-risk": 39
+    },
+    "fingerprints": [
+      "architecture.circular-dependency:packages/cli/src/commands/publish/npm-utils.ts:8a41bbd295f5f42b",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/edit-json.ts:31e6997f76d5c6ee",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/edit-json.ts:ab06a17110b6f573",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/edit-json.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/index.ts:31e6997f76d5c6ee",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/apply-release-plan/src/utils.ts:0f5233af6b388a3e",
+      "language.javascript.runtime-exit-risk:packages/assemble-release-plan/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/assemble-release-plan/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/assemble-release-plan/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/assemble-release-plan/src/utils.ts:3e45e34b7e709c6d",
+      "language.javascript.runtime-exit-risk:packages/assemble-release-plan/src/utils.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/changelog-github/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/changelog-github/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/cli/src/commit/getCommitFunctions.ts:31e6997f76d5c6ee",
+      "language.javascript.runtime-exit-risk:packages/cli/src/utils/cli-utilities.ts:272512749156ce06",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:31e6997f76d5c6ee",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:31e6997f76d5c6ee",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-github-info/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/get-release-plan/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/git/src/index.ts:0038fe26f7077f27",
+      "language.javascript.runtime-exit-risk:packages/git/src/index.ts:4164cc1e098439cf",
+      "language.javascript.runtime-exit-risk:packages/git/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/git/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/parse/src/index.ts:cf88d0fe84054274",
+      "language.javascript.runtime-exit-risk:packages/read/src/index.ts:5c473077309c62d8"
+    ],
+    "visible_total": 40
+  },
+  "framework": "",
+  "language": "typescript",
+  "repo": "changesets",
+  "sha": "4362db1c826ededed7c5077948ada5738cd7f289",
+  "strict": {
+    "by_rule": {
+      "architecture.circular-dependency": 1,
+      "architecture.dead-module": 27,
+      "architecture.large-file": 4,
+      "code-marker.todo": 8,
+      "code-quality.complex-file": 2,
+      "code-quality.complex-function": 11,
+      "code-quality.deep-control-flow": 4,
+      "code-quality.long-function": 30,
+      "language.javascript.runtime-exit-risk": 52,
+      "testing.source-without-test": 28
+    },
+    "visible_total": 167
+  }
+}

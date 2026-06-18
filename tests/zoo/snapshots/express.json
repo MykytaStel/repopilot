@@ -1,0 +1,23 @@
+{
+  "default": {
+    "by_priority": {},
+    "by_rule": {},
+    "fingerprints": [],
+    "visible_total": 0
+  },
+  "framework": "express",
+  "language": "javascript",
+  "repo": "express",
+  "sha": "18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
+  "strict": {
+    "by_rule": {
+      "architecture.dead-module": 105,
+      "architecture.large-file": 3,
+      "code-quality.complex-function": 1,
+      "code-quality.long-function": 6,
+      "language.javascript.runtime-exit-risk": 4,
+      "testing.source-without-test": 6
+    },
+    "visible_total": 125
+  }
+}
