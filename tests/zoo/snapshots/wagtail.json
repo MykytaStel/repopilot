@@ -1,12 +1,12 @@
 {
   "default": {
     "by_priority": {
-      "P0": 51,
-      "P1": 8
+      "P0": 15,
+      "P1": 1
     },
     "by_rule": {
       "architecture.circular-dependency": 15,
-      "language.python.exception-risk": 44
+      "language.python.exception-risk": 1
     },
     "fingerprints": [
       "architecture.circular-dependency:client/src/components/CommentApp/actions/comments.ts:bc263ed84a211b9f",
@@ -24,52 +24,9 @@
       "architecture.circular-dependency:wagtail/images/models.py:39ec92d9519a89be",
       "architecture.circular-dependency:wagtail/models/__init__.py:faac8b0f03a5be1e",
       "architecture.circular-dependency:wagtail/snippets/models.py:85c8ab6eb199cfba",
-      "language.python.exception-risk:wagtail/admin/compare.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/admin/mail.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/admin/rich_text/converters/html_to_contentstate.py:12b5d5da4e92e32f",
-      "language.python.exception-risk:wagtail/admin/rich_text/converters/html_to_contentstate.py:303a2d7ce3eb4354",
-      "language.python.exception-risk:wagtail/admin/rich_text/converters/html_to_contentstate.py:3190298c173bf3f1",
-      "language.python.exception-risk:wagtail/admin/rich_text/converters/html_to_contentstate.py:49073d22d1567c74",
-      "language.python.exception-risk:wagtail/admin/rich_text/converters/html_to_contentstate.py:b2cf50d7a604ab0e",
-      "language.python.exception-risk:wagtail/admin/ui/tables/__init__.py:c51f42d717e256e8",
-      "language.python.exception-risk:wagtail/admin/views/bulk_action/base_bulk_action.py:98cf95efc45dcb3c",
-      "language.python.exception-risk:wagtail/admin/views/generic/base.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/admin/views/generic/chooser.py:11c1d83134a5275c",
-      "language.python.exception-risk:wagtail/admin/widgets/button.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/blocks/base.py:c190e0686dac9ab0",
-      "language.python.exception-risk:wagtail/blocks/migrations/migrate_operation.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/blocks/migrations/migrate_operation.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/blocks/migrations/migrate_operation.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/blocks/migrations/migrate_operation.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/blocks/migrations/migrate_operation.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/frontend_cache/backends/base.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/redirects/tmp_storages.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/redirects/tmp_storages.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/redirects/tmp_storages.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/settings/context_processors.py:c51f42d717e256e8",
-      "language.python.exception-risk:wagtail/contrib/settings/jinja2tags.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/settings/registry.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/settings/views.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/settings/views.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/contrib/simple_translation/views.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/coreutils.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/embeds/finders/base.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/images/image_operations.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/images/image_operations.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/images/image_operations.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/images/models.py:b3686c8d8679d8e4",
-      "language.python.exception-risk:wagtail/models/audit_log.py:5d40c0a0b85eb492",
-      "language.python.exception-risk:wagtail/models/audit_log.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/permission_policies/base.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/rich_text/__init__.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/rich_text/__init__.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/rich_text/rewriters.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/rich_text/rewriters.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/rich_text/rewriters.py:62dcf72fe7ae2548",
-      "language.python.exception-risk:wagtail/utils/version.py:8de8d398f62daddc",
-      "language.python.exception-risk:wagtail/utils/version.py:cd45581755df4807"
+      "language.python.exception-risk:wagtail/images/models.py:b3686c8d8679d8e4"
     ],
-    "visible_total": 59
+    "visible_total": 16
   },
   "framework": "django",
   "language": "python",

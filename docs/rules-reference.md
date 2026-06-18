@@ -284,11 +284,11 @@ Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C#
 - **Lifecycle:** preview
 - **Signal source:** ast
 
-Broad exception handlers, production asserts, and NotImplementedError placeholders can hide failures or ship incomplete behaviour. Their severity depends on test, script, and domain context.
+A broad `except:` handler can hide unrelated failures. `assert` (often type-narrowing or an internal invariant) and `raise NotImplementedError` (usually an abstract-method declaration) are overwhelmingly intentional, so they are kept low and surface only under the strict profile.
 
-**Recommendation:** Catch specific exceptions, use explicit runtime validation, and replace placeholders before production release.
+**Recommendation:** Catch specific exceptions so unrelated failures are not hidden; use explicit runtime validation where an invariant must hold in production.
 
-**Known false positives:** Matches come from the parsed syntax tree (bare `except` clauses, `assert` statements, and `NotImplementedError`), so the same tokens inside comments or string literals are not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
+**Known false positives:** Matches come from the parsed syntax tree (bare `except` clauses, `assert` statements, and `NotImplementedError`), so the same tokens inside comments or string literals are not flagged. `assert` and `NotImplementedError` are downgraded to low (hidden by default, shown in `--profile strict`). A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
 ### `language.rust.panic-risk` — Risky Rust panic or unwrap usage
 

@@ -582,23 +582,20 @@ action = "downgrade"
 severity = "LOW"
 reason = "Infrastructure files can be structurally dense without representing application-level complexity."
 
+# `assert` (type-narrowing, internal invariants) and `raise NotImplementedError`
+# (idiomatic abstract-method declarations) are overwhelmingly intentional in real
+# Python, so they are not actionable in the default profile. Keep them as LOW
+# (hidden by default, still surfaced under `--profile strict`); only the broad
+# `except:` handler stays a default-visible signal.
 [[rules.overrides]]
-role = "script"
 signal = "python.assert"
 action = "downgrade"
 severity = "LOW"
 
 [[rules.overrides]]
-role = "app-entrypoint"
-signal = "python.assert"
-action = "downgrade"
-severity = "LOW"
-
-[[rules.overrides]]
-role = "domain"
 signal = "python.not-implemented"
-action = "upgrade"
-severity = "HIGH"
+action = "downgrade"
+severity = "LOW"
 
 [[rules]]
 rule_id = "language.javascript.runtime-exit-risk"
