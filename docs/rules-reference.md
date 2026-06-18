@@ -251,18 +251,18 @@ Go panic and process-exit operations can terminate the program abruptly. Their r
 
 **Known false positives:** `panic`, `log.Fatal`/`log.Fatalf`, and `os.Exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
-### `language.javascript.runtime-exit-risk` — Risky JavaScript runtime exit or library throw
+### `language.javascript.runtime-exit-risk` — Risky JavaScript runtime exit
 
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
 
-Process exits and generic thrown errors have different risk at a CLI boundary than in reusable browser, Node, or package code.
+A `process.exit(...)` call terminates the host process, which is expected at a CLI boundary but unsafe in reusable browser, Node, or package code.
 
-**Recommendation:** Prefer returning typed errors, rejecting promises with actionable context, or centralising CLI exit handling at the entrypoint.
+**Recommendation:** Return typed errors or reject promises with actionable context from reusable modules, and centralise process exits at the CLI entrypoint.
 
-**Known false positives:** `process.exit` calls and `throw new Error(...)` are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
+**Known false positives:** `process.exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
 ### `language.managed.fatal-exception-risk` — Risky JVM or .NET fatal exception placeholder
 

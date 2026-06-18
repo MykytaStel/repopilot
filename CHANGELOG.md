@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- **`language.javascript.runtime-exit-risk` no longer flags `throw new
+  Error(...)`.** A `throw` is recoverable control flow, not a runtime exit, and a
+  generic thrown error is idiomatic everywhere — yet the rule flagged every one
+  in any file under a `packages/`/`lib/`/`core/` path, so in monorepos it fired
+  on essentially every module. The rule now matches only `process.exit(...)`
+  (the genuine host-process termination) and is retitled "Risky JavaScript
+  runtime exit". Measured on the real-repo zoo, this removed 113 of 124 findings
+  (excalidraw 76→1, changesets 38→1) with no loss of true signal.
+
 ### Fixed
 
 - **`architecture.package-boundary-violation` no longer flags deep imports into

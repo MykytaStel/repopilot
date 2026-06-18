@@ -63,7 +63,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
     },
     RuleMetadata {
         rule_id: "language.javascript.runtime-exit-risk",
-        title: "Risky JavaScript runtime exit or library throw",
+        title: "Risky JavaScript runtime exit",
         category: FindingCategory::CodeQuality,
         default_severity: Severity::Medium,
         max_severity: Severity::High,
@@ -71,12 +71,12 @@ pub(super) static RULES: &[RuleMetadata] = &[
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
         docs_url: None,
-        description: "Process exits and generic thrown errors have different risk at a CLI boundary than in reusable browser, Node, or package code.",
+        description: "A `process.exit(...)` call terminates the host process, which is expected at a CLI boundary but unsafe in reusable browser, Node, or package code.",
         recommendation: Some(
-            "Prefer returning typed errors, rejecting promises with actionable context, or centralising CLI exit handling at the entrypoint.",
+            "Return typed errors or reject promises with actionable context from reusable modules, and centralise process exits at the CLI entrypoint.",
         ),
         false_positive_notes: Some(
-            "`process.exit` calls and `throw new Error(...)` are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.",
+            "`process.exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.",
         ),
         ..RuleMetadata::DEFAULT
     },

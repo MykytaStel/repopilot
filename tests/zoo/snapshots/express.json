@@ -15,9 +15,8 @@
       "architecture.large-file": 3,
       "code-quality.complex-function": 1,
       "code-quality.long-function": 6,
-      "language.javascript.runtime-exit-risk": 4,
       "testing.source-without-test": 6
     },
-    "visible_total": 125
+    "visible_total": 121
   }
 }
