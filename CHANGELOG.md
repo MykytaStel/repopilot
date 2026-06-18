@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **`language.python.exception-risk` no longer surfaces `assert` and `raise
+  NotImplementedError` by default.** An `assert` (commonly type-narrowing or an
+  internal invariant) and `raise NotImplementedError` (the idiomatic
+  abstract-method declaration) are overwhelmingly intentional, so the knowledge
+  pack now downgrades both to low — hidden in the default profile, still shown
+  under `--profile strict`. The broad `except:` handler stays the default-visible
+  signal. Measured on the zoo, default-visible exception-risk findings dropped
+  from 107 to 1 (fastapi 63→0, wagtail 44→1), with all signals retained in strict.
+
 - **`language.javascript.runtime-exit-risk` no longer flags `throw new
   Error(...)`.** A `throw` is recoverable control flow, not a runtime exit, and a
   generic thrown error is idiomatic everywhere — yet the rule flagged every one
