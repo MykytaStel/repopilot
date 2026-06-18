@@ -1,0 +1,60 @@
+{
+  "default": {
+    "by_priority": {
+      "P0": 28
+    },
+    "by_rule": {
+      "language.managed.fatal-exception-risk": 3,
+      "security.secret-candidate": 25
+    },
+    "fingerprints": [
+      "language.managed.fatal-exception-risk:build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/KotlinAndroid.kt:ea2a0df653191fc3",
+      "language.managed.fatal-exception-risk:core/testing/src/main/kotlin/com/google/samples/apps/nowinandroid/core/testing/util/TestSyncManager.kt:864c09d62667be09",
+      "language.managed.fatal-exception-risk:feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt:6287d3e94eee5173",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/network/src/main/assets/topics.json:6460881abc87a0f3",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/FollowableTopicPreviewParameterProvider.kt:e1b3b732e48e829c",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/FollowableTopicPreviewParameterProvider.kt:e1b3b732e48e829c",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/FollowableTopicPreviewParameterProvider.kt:e1b3b732e48e829c",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/UserNewsResourcePreviewParameterProvider.kt:e1b3b732e48e829c",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/UserNewsResourcePreviewParameterProvider.kt:e1b3b732e48e829c",
+      "security.secret-candidate:core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/UserNewsResourcePreviewParameterProvider.kt:e1b3b732e48e829c"
+    ],
+    "visible_total": 28
+  },
+  "framework": "android",
+  "language": "kotlin",
+  "repo": "nowinandroid",
+  "sha": "7d45eae4f8720a0c77f507712ba2437ff974b6ed",
+  "strict": {
+    "by_rule": {
+      "architecture.dead-module": 175,
+      "architecture.deep-directory-nesting": 373,
+      "architecture.large-file": 9,
+      "code-marker.todo": 30,
+      "code-quality.complex-function": 2,
+      "code-quality.long-function": 32,
+      "language.managed.fatal-exception-risk": 6,
+      "security.secret-candidate": 25,
+      "testing.source-without-test": 232
+    },
+    "visible_total": 884
+  }
+}

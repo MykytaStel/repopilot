@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **Real-repo validation "zoo".** A curated set of 11 real open-source repos
+  (`tests/zoo/manifest.toml`) spanning all 9 AST languages and their frameworks
+  is now scanned reproducibly via `scripts/zoo.py` (`clone`/`scan`/`report`),
+  pinned to fixed commit SHAs and cloned on demand into a gitignored `.zoo/`.
+  Per-repo default-visible finding snapshots are committed under
+  `tests/zoo/snapshots/`, and an opt-in regression test
+  (`REPOPILOT_ZOO=1 cargo test --test zoo_regression`) fails on any drift in
+  real-world output — turning the previously ad-hoc "run on a few real repos and
+  hunt false positives" loop into a permanent, evidence-backed gate.
+
 ## [0.18.0] - 2026-06-18
 
 ### Fixed

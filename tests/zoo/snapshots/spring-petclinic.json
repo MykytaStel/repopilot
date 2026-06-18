@@ -1,0 +1,21 @@
+{
+  "default": {
+    "by_priority": {},
+    "by_rule": {},
+    "fingerprints": [],
+    "visible_total": 0
+  },
+  "framework": "spring-boot",
+  "language": "java",
+  "repo": "spring-petclinic",
+  "sha": "a2c2ef994340d3970eb6db51247456a51bb161f8",
+  "strict": {
+    "by_rule": {
+      "architecture.dead-module": 28,
+      "architecture.deep-directory-nesting": 46,
+      "language.managed.fatal-exception-risk": 1,
+      "testing.source-without-test": 30
+    },
+    "visible_total": 105
+  }
+}
