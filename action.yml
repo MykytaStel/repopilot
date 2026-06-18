@@ -94,7 +94,7 @@ inputs:
   version:
     description: "GitHub Release version to install and checksum-verify."
     required: false
-    default: "0.17.0"
+    default: "0.18.0"
   upload-sarif:
     description: "Automatically upload SARIF output to GitHub Code Scanning"
     required: false

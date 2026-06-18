@@ -44,7 +44,7 @@ This production file is not imported by any other project file and is not a know
 
 **Recommendation:** Remove the file if it is no longer used, or ensure it is exported in the package's public API.
 
-**Known false positives:** Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. When the repository contains unresolved relative imports the finding is reported at Medium confidence, and it is suppressed when an unresolved import matches the candidate file's name.
+**Known false positives:** Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. When the repository contains unresolved internal imports (relative paths, aliases, or workspace-package imports the resolver cannot wire up — common in monorepos) the finding is reported at Low confidence, and it is suppressed when an unresolved import matches the candidate file's name.
 
 ### `architecture.deep-directory-nesting` — Deep directory nesting detected
 

@@ -47,6 +47,8 @@ pub fn build_coupling_graph_with_resolution(
         .map(|file| (resolver::normalize_path(&file.path), file.path.clone()))
         .collect();
     let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
+    let repo_dirs =
+        resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
     let mut resolution = ImportResolutionStats::default();
@@ -70,8 +72,9 @@ pub fn build_coupling_graph_with_resolution(
                 // A file importing itself carries no dependency information.
                 Some(_) => {}
                 None => {
-                    if resolution_stats::is_relative_import(raw.trim()) {
-                        resolution.record(&source, raw.trim());
+                    let raw = raw.trim();
+                    if resolution_stats::is_unresolved_internal_import(raw, &repo_dirs) {
+                        resolution.record(&source, raw);
                     }
                 }
             }
@@ -315,6 +318,43 @@ impl CycleDfs<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scan::facts::{FileFacts, ScanFacts};
+
+    fn py(path: &str, imports: &[&str]) -> FileFacts {
+        FileFacts {
+            path: PathBuf::from(path),
+            language: Some("Python".to_string()),
+            non_empty_lines: 0,
+            branch_count: 0,
+            imports: imports.iter().map(|value| (*value).to_string()).collect(),
+            content: None,
+            has_inline_tests: false,
+        }
+    }
+
+    #[test]
+    fn records_unresolved_workspace_import_but_not_third_party() {
+        // A monorepo package import (`app.*` where `app/` is a real directory)
+        // that the resolver cannot wire up must be recorded so dead-module's
+        // absence claim is demoted; a genuine third-party import must not be.
+        let facts = ScanFacts {
+            root_path: PathBuf::from("/repo"),
+            files: vec![py(
+                "apps/ml/app/api.py",
+                &["app.enrichment.contract", "numpy", "fastapi"],
+            )],
+            ..ScanFacts::default()
+        };
+
+        let (_graph, resolution) = build_coupling_graph_with_resolution(&facts, Path::new("/repo"));
+
+        assert_eq!(
+            resolution.total(),
+            1,
+            "only the internal workspace import should be recorded"
+        );
+        assert!(resolution.could_target_stem("contract"));
+    }
 
     fn graph_from_edges(edges: &[(&str, &str)]) -> CouplingGraph {
         let mut edge_map: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();

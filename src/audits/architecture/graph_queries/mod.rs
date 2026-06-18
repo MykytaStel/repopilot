@@ -133,10 +133,12 @@ impl GraphQueriesAudit {
 /// package's public API surface is likely dead code.
 ///
 /// "Nothing imports this file" is an absence claim, so it is only as good as
-/// the import graph: an unresolved relative import whose final segment matches
+/// the import graph: an unresolved internal import whose final segment matches
 /// this file's name could well be the missing importer (skip entirely), and
-/// any other unresolved relative import still means the graph is incomplete
-/// (report at `Medium` instead of the registry's `High`).
+/// any other unresolved internal import still means the graph is incomplete
+/// (report at `Medium` instead of the registry's `High`). Internal imports
+/// include relative paths, recognized aliases, and bare imports that target a
+/// repository directory — the monorepo/workspace shapes the resolver misses.
 fn dead_module_finding(
     info: &NodeInfo,
     fan_in: Option<usize>,
@@ -179,14 +181,17 @@ fn dead_module_finding(
     }
 
     let mut snippet = "fan_in=0, role=Production, entrypoint=false".to_string();
+    // `Confidence::Medium` is the "unset, use the registry default" sentinel in
+    // `populate_rule_metadata`, so a contextual demotion must use `Low` to
+    // survive — otherwise the High default is restored and the demotion is lost.
     let confidence = if resolution.is_empty() {
         Confidence::High
     } else {
         snippet.push_str(&format!(
-            " ({} unresolved relative import(s) in the repository — the import graph may be incomplete)",
+            " ({} unresolved internal import(s) in the repository — the import graph may be incomplete)",
             resolution.total()
         ));
-        Confidence::Medium
+        Confidence::Low
     };
 
     let mut finding = architecture_finding(
