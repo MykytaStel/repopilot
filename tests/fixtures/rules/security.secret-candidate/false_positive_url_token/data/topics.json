@@ -1,0 +1,14 @@
+[
+  {
+    "id": "1",
+    "name": "Headlines",
+    "imageUrl": "https://firebasestorage.googleapis.com/v0/b/example.appspot.com/o/img%2Fic_topic_Headlines.svg?alt=media&token=506faab0-617a-4668-9e63-4a2fb996603f",
+    "url": ""
+  },
+  {
+    "id": "2",
+    "name": "UI",
+    "imageUrl": "https://firebasestorage.googleapis.com/v0/b/example.appspot.com/o/img%2Fic_topic_UI.svg?alt=media&token=0ee1842b-12e8-435f-87ba-a5bb02c47594",
+    "url": ""
+  }
+]
