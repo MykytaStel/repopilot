@@ -1,0 +1,3 @@
+app:
+  service: prod
+  auth_token: "fixtureToken-Q7m2vK9pL4xR8tN6zB3wY5cD1sF0"

@@ -28,6 +28,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.secret-candidate` no longer flags high-entropy tokens embedded inside URL values.** A Firebase Storage download URL contains a `?token=<UUID>` query parameter that looks exactly like a secret assignment, but a URL is not a hardcoded credential. The detector now checks whether a matched key (e.g. `token`) falls inside a URL string literal on the same line (between an opening quote and the key, there is a `https://` or `http://` prefix) and skips it. This removed 25 false positives from the nowinandroid zoo repo (all from `topics.json` Firebase image URLs) while leaving eshoponweb's 7 legitimate hardcoded secrets (JWT keys, passwords, connection strings) untouched. URL-embedded patterns like `?alt=media&token=<UUID>` are now silently ignored; a real `auth_token: "fixtureToken-..."` assignment outside a URL still fires.
+
+- **`security.secret-candidate` no longer flags `SCREAMING_SNAKE_CASE` env-var names passed as string literals.** `envvar="GITHUB_TOKEN"` — an argument that references an env var by name — was treated as a secret value because `token` matched a key and `GITHUB_TOKEN` passed the entropy test. An all-caps identifier that contains an underscore is now recognized as an env-var name reference, not a secret value. The underscore requirement is deliberate so that genuinely all-caps alphanumeric secrets without underscores (e.g. an AWS access key id `AKIA…`) still fire.
+
+- **`security.secret-candidate` skips files whose path contains `tutorial`.** Tutorial and docs-src files in frameworks like FastAPI (`docs_src/security/tutorial*.py`) intentionally contain example secret keys that are teaching material. The path-based skip list (already covering `test`, `example`, `fixture`, `mock`) now also covers `tutorial`, removing 4 FPs from fastapi without affecting any real credential detection.
+
 - **`architecture.package-boundary-violation` no longer flags deep imports into
   a package that publishes a wildcard `exports` subpath.** When a workspace
   package's `package.json` declares `"exports": { "./*": ... }`, the author has
