@@ -8,7 +8,7 @@ mod signals;
 use crate::audits::context::model::{AuditContext, FileRole, LanguageKind};
 use crate::knowledge::language::language_kind_for_file;
 use crate::scan::facts::FileFacts;
-use helpers::is_test_file;
+use helpers::{is_test_file, path_contains_component};
 use signals::ContextSignals;
 
 pub fn classify_file(file: &FileFacts) -> AuditContext {
@@ -30,6 +30,17 @@ pub fn classify_file(file: &FileFacts) -> AuditContext {
         &signals,
         is_test,
     );
+
+    // A CLI command handler is a genuine exit boundary only when BOTH hold: the
+    // file lives in a `commands/` directory AND its package declares an executable
+    // (`in_executable_package`, set from the nearest package's manifest). This
+    // pairs path evidence with manifest evidence, so a CQRS `domain/commands/` in
+    // a non-CLI package is not exempted, and a reusable module (`lib/`, `utils/`)
+    // inside a CLI package keeps its default-visible severity. `bin/`/`scripts/`
+    // entrypoints are already handled by the `script`/`app-entrypoint` roles.
+    if file.in_executable_package && path_contains_component(&file.path, &["commands"]) {
+        roles.push(FileRole::CliExecutable);
+    }
 
     if roles.is_empty() {
         roles.push(FileRole::Unknown);

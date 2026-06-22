@@ -8,6 +8,23 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
+  CLI tool's command handlers instead of surfacing them as a default High.** A
+  command handler — a file in a `commands/` directory whose package declares an
+  executable (`package.json#bin`, or a Cargo `[[bin]]`/`src/bin` target) — owns
+  its own exit code, so its `process.exit` is the intended boundary the rule's
+  own guidance asks for. The scanner resolves each file to its *nearest* package
+  and, when that package is a CLI tool and the file is a command handler, tags it
+  with a new `cli-executable` role; the knowledge pack then **downgrades the
+  finding to Low** (hidden by default, still shown under `--profile strict`)
+  rather than suppressing it in the detector, so the signal stays recoverable.
+  The exemption is deliberately narrow — it pairs path evidence (`commands/`)
+  with manifest evidence (`bin`), so a CQRS-style `domain/commands/` in a non-CLI
+  package, and a reusable module (`lib/`, `utils/`) inside a CLI package, both
+  keep their default-visible High. Measured on the real-repo zoo, this took the
+  `ignite` CLI from 9 default-visible findings to 0 (all retained as Low in
+  strict), with no loss of the genuine library-level exits elsewhere.
+
 - **`language.python.exception-risk` no longer surfaces `assert` and `raise
   NotImplementedError` by default.** An `assert` (commonly type-narrowing or an
   internal invariant) and `raise NotImplementedError` (the idiomatic

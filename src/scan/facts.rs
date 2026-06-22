@@ -27,7 +27,7 @@ pub struct ScanFacts {
     pub repopilotignore_path: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FileFacts {
     pub path: PathBuf,
     pub language: Option<String>,
@@ -40,6 +40,12 @@ pub struct FileFacts {
     /// True if the file contains a `#[cfg(test)]` block (Rust inline unit tests).
     /// Computed while content is available; preserved after content is dropped.
     pub has_inline_tests: bool,
+    /// True if the file lives inside a package that declares an executable
+    /// entrypoint (npm `package.json#bin`, Cargo `[[bin]]`/`src/bin`). Such a
+    /// package is a CLI tool, so the knowledge engine treats `process.exit` and
+    /// similar host-termination calls as an intended boundary (downgraded, not a
+    /// hazard). Set by a post-collection pass once workspace layout is known.
+    pub in_executable_package: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

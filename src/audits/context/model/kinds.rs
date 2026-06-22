@@ -87,6 +87,12 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
+    /// A CLI command handler: a file in a `commands/` directory whose package
+    /// declares an executable entrypoint (npm `package.json#bin`, Cargo
+    /// `[[bin]]`/`src/bin`). Such a command owns its own exit code, so
+    /// host-termination calls there are an intended boundary — unlike a reusable
+    /// module elsewhere in the same package, which is not exempted.
+    CliExecutable,
     Infrastructure,
     Unknown,
 }
@@ -220,6 +226,7 @@ impl FileRole {
             FileRole::Generated => "generated",
             FileRole::Domain => "domain",
             FileRole::Script => "script",
+            FileRole::CliExecutable => "cli-executable",
             FileRole::Infrastructure => "infrastructure",
             FileRole::Unknown => "unknown",
         }

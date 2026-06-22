@@ -239,6 +239,7 @@ mod tests {
                 imports: vec![],
                 content: None,
                 has_inline_tests: false,
+                in_executable_package: false,
             }],
             ..ScanFacts::default()
         }
