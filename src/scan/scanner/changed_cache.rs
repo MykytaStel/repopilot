@@ -76,6 +76,7 @@ pub(super) fn record_cached_file(
         imports: entry.imports.clone(),
         content: None,
         has_inline_tests: entry.is_test,
+        in_executable_package: false,
     };
     facts.files.push(file_facts.clone());
     file_facts

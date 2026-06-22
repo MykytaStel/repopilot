@@ -56,7 +56,9 @@ fn downgrades_js_process_exit_in_script_paths() {
 }
 
 #[test]
-fn ignores_process_exit_in_node_bin_entrypoint() {
+fn downgrades_process_exit_in_bin_path_to_low() {
+    // A `bin/` script is classified as a `script` role and downgraded — kept in
+    // strict, not deleted in the detector.
     let file = facts(
         "bin/repopilot.js",
         Some("JavaScript"),
@@ -65,14 +67,17 @@ fn ignores_process_exit_in_node_bin_entrypoint() {
 
     let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
 
-    assert!(findings.is_empty());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.javascript.runtime-exit-risk");
+    assert_eq!(findings[0].severity, Severity::Low);
 }
 
 #[test]
-fn ignores_process_exit_in_cli_command_module() {
-    // A gluegun/oclif-style CLI command owns its own exit code; `process.exit`
-    // here is the intended boundary, not a hazard (e.g. ignite-cli's commands).
-    let file = facts(
+fn downgrades_process_exit_in_cli_executable_package_to_low() {
+    // A gluegun/oclif-style command in a package that declares `package.json#bin`
+    // owns its own exit code; the call is downgraded to Low (hidden by default,
+    // kept in strict), not suppressed (e.g. ignite-cli's `src/commands/*`).
+    let file = cli_package_facts(
         "src/commands/new.ts",
         Some("TypeScript"),
         "export const run = async () => { process.exit(1) }\n",
@@ -80,16 +85,26 @@ fn ignores_process_exit_in_cli_command_module() {
 
     let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
 
-    assert!(findings.is_empty());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Low);
 }
 
 #[test]
-fn ignores_process_exit_in_bin_without_shebang() {
-    let file = facts("bin/cli.js", Some("JavaScript"), "process.exit(1);\n");
+fn reports_process_exit_in_non_cli_commands_dir_as_high() {
+    // A `commands/` directory in a NON-CLI package (no `package.json#bin`) is a
+    // CQRS/domain command, not a CLI boundary: the host-terminating exit stays a
+    // default-visible High. This is the false-negative guard for the path-only
+    // heuristic that path-based suppression would have hidden.
+    let file = facts(
+        "src/domain/commands/run.ts",
+        Some("TypeScript"),
+        "export function run() { process.exit(1); }\n",
+    );
 
     let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
 
-    assert!(findings.is_empty());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::High);
 }
 
 #[test]
@@ -257,6 +272,17 @@ fn facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
         imports: Vec::new(),
         content: Some(content.to_string()),
         has_inline_tests: false,
+        in_executable_package: false,
+    }
+}
+
+/// Same as [`facts`], but the file is inside a package that declares an
+/// executable entrypoint (`package.json#bin`), set by the scanner's
+/// post-collection pass in a real scan.
+fn cli_package_facts(path: &str, language: Option<&str>, content: &str) -> FileFacts {
+    FileFacts {
+        in_executable_package: true,
+        ..facts(path, language, content)
     }
 }
 

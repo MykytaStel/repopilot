@@ -8,16 +8,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
-- **`language.javascript.runtime-exit-risk` no longer flags `process.exit(...)`
-  in CLI command modules.** A `process.exit` inside a `commands/` module or a
-  `bin/` script is the intended exit boundary of a CLI tool — exactly what the
-  rule's own guidance ("keep process exits at a CLI boundary") asks for — not a
-  hazard buried in reusable code. The expected-entrypoint check now covers any
-  `commands/`-segment path and any `bin/` script (dropping the prior strict
-  shebang requirement), while a `process.exit` in ordinary library code still
-  fires at High. Measured on the real-repo zoo, this took the `ignite` CLI from
-  9 default-visible findings (all `src/commands/*.ts`) to 0, with the 3
-  non-command-module exits retained under `--profile strict`.
+- **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
+  CLI tool's own source instead of surfacing it as a default High.** A package
+  that declares an executable (`package.json#bin`, or a Cargo `[[bin]]`/`src/bin`
+  target) is a CLI tool, so a `process.exit` anywhere in its source is the
+  intended exit boundary the rule's own guidance asks for — not a hazard in
+  reusable code. The scanner now records, per file, whether it belongs to such a
+  package (new `cli-executable` role) and the knowledge pack **downgrades the
+  finding to Low** for that role — hidden in the default profile, still shown
+  under `--profile strict` — rather than suppressing it in the detector, so the
+  signal stays recoverable. Crucially this is keyed off the package manifest, not
+  a path: a `process.exit` in a non-CLI package's `domain/commands/` (a
+  CQRS-style command, no declared `bin`) keeps its default-visible High. Measured
+  on the real-repo zoo, this took the `ignite` CLI from 9 default-visible
+  findings to 0 (all 12 retained as Low in strict) and `changesets` from 2 to 1.
 
 - **`language.python.exception-risk` no longer surfaces `assert` and `raise
   NotImplementedError` by default.** An `assert` (commonly type-narrowing or an

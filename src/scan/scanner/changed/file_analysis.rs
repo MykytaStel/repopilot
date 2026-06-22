@@ -177,7 +177,9 @@ impl<'a> ChangedScanEngine<'a> {
         };
 
         let miss_start = Instant::now();
-        let mut per_file = process_file_with_content(&absolute_path, file_audits, self.config)?;
+        let executable_roots = crate::scan::workspace::cli_executable_roots(repo_root);
+        let mut per_file =
+            process_file_with_content(&absolute_path, file_audits, self.config, &executable_roots)?;
         normalize_per_file_paths(
             &mut per_file.file_facts.path,
             &mut per_file.findings,

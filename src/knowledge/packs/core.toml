@@ -623,6 +623,17 @@ signal = "js.process-exit"
 action = "downgrade"
 severity = "LOW"
 
+# A package that declares an executable (`package.json#bin`) is a CLI tool, so a
+# `process.exit` anywhere in its source is an intended boundary, not a hazard in
+# reusable code. Downgrade to Low (hidden by default, kept in strict) rather than
+# suppress, so the signal is still recoverable. Ordinary modules in non-CLI
+# packages (e.g. a web app's `domain/commands/`) keep the default-visible High.
+[[rules.overrides]]
+role = "cli-executable"
+signal = "js.process-exit"
+action = "downgrade"
+severity = "LOW"
+
 [[rules]]
 rule_id = "language.managed.fatal-exception-risk"
 minimum_support = "rule-aware"

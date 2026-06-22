@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
 mod cargo;
+mod executables;
 mod go;
 mod js;
+
+pub use executables::cli_executable_roots;
 
 #[cfg(test)]
 mod tests;

@@ -329,6 +329,7 @@ mod tests {
             imports: imports.iter().map(|value| (*value).to_string()).collect(),
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         }
     }
 

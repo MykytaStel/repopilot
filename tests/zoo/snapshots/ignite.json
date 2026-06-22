@@ -20,9 +20,9 @@
       "code-quality.deep-control-flow": 1,
       "code-quality.long-function": 23,
       "framework.js.console-log": 6,
-      "language.javascript.runtime-exit-risk": 3,
+      "language.javascript.runtime-exit-risk": 12,
       "testing.source-without-test": 100
     },
-    "visible_total": 191
+    "visible_total": 200
   }
 }

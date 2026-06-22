@@ -5,6 +5,7 @@ use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use crate::scan::workspace::cli_executable_roots;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io;
@@ -67,9 +68,14 @@ pub(super) fn analyze_discovered_files(
         file_paths,
     } = discovered;
 
+    // CLI executable package roots are resolved once from the scan root, then
+    // passed down so each file's `in_executable_package` flag is set before its
+    // audits run (host-exit severity is decided at finding time).
+    let executable_roots = cli_executable_roots(&facts.root_path);
+
     let results: Vec<io::Result<_>> = file_paths
         .par_iter()
-        .map(|p| process_file(p, file_audits, config))
+        .map(|p| process_file(p, file_audits, config, &executable_roots))
         .collect();
 
     let mut languages: HashMap<String, usize> = HashMap::new();
@@ -124,12 +130,13 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
     };
 
     let mut languages: HashMap<String, usize> = HashMap::new();
+    let executable_roots = cli_executable_roots(&facts.root_path);
 
     if path.is_file() {
         facts.files_discovered = 1;
-        collect_file_facts(path, &mut facts, &mut languages, config)?;
+        collect_file_facts(path, &mut facts, &mut languages, config, &executable_roots)?;
     } else {
-        collect_directory_facts(path, &mut facts, &mut languages, config)?;
+        collect_directory_facts(path, &mut facts, &mut languages, config, &executable_roots)?;
     }
 
     facts.languages = build_language_summary(languages);
@@ -153,6 +160,7 @@ fn collect_directory_facts(
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
+    executable_roots: &[PathBuf],
 ) -> io::Result<()> {
     let collected = collect_paths(path, config)?;
     let mut file_paths = collected.file_paths;
@@ -166,7 +174,7 @@ fn collect_directory_facts(
     apply_max_files_limit(&mut file_paths, facts, config);
 
     for entry_path in file_paths {
-        collect_file_facts(&entry_path, facts, languages, config)?;
+        collect_file_facts(&entry_path, facts, languages, config, executable_roots)?;
     }
 
     Ok(())

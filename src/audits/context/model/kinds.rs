@@ -87,6 +87,10 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
+    /// File belongs to a package that declares an executable entrypoint
+    /// (npm `package.json#bin`, Cargo `[[bin]]`/`src/bin`). The whole package is
+    /// a CLI tool, so host-termination calls are an intended boundary.
+    CliExecutable,
     Infrastructure,
     Unknown,
 }
@@ -220,6 +224,7 @@ impl FileRole {
             FileRole::Generated => "generated",
             FileRole::Domain => "domain",
             FileRole::Script => "script",
+            FileRole::CliExecutable => "cli-executable",
             FileRole::Infrastructure => "infrastructure",
             FileRole::Unknown => "unknown",
         }

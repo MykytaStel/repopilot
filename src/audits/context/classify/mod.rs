@@ -31,6 +31,13 @@ pub fn classify_file(file: &FileFacts) -> AuditContext {
         is_test,
     );
 
+    // Package-level CLI signal: set by the post-collection pass once workspace
+    // layout (package.json#bin / Cargo bin targets) is known. The knowledge pack
+    // uses this role to downgrade host-termination calls to Low.
+    if file.in_executable_package {
+        roles.push(FileRole::CliExecutable);
+    }
+
     if roles.is_empty() {
         roles.push(FileRole::Unknown);
     }

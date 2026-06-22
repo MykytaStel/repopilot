@@ -14,9 +14,14 @@ pub(super) enum JsRiskPattern {
 impl JsRiskPattern {
     pub(super) const ALL: &'static [Self] = &[Self::ProcessExit];
 
-    pub(super) fn matches(self, trimmed: &str, path: &Path) -> bool {
+    pub(super) fn matches(self, trimmed: &str, _path: &Path) -> bool {
         match self {
-            Self::ProcessExit => trimmed.contains("process.exit(") && !is_cli_exit_context(path),
+            // Severity is decided downstream by the knowledge engine: a
+            // `process.exit` in a CLI package, `bin/`/`scripts/` path, or
+            // app-entrypoint is downgraded to Low (hidden by default, kept in
+            // strict), while ordinary reusable code stays High. The detector
+            // only reports the call; it never suppresses outright.
+            Self::ProcessExit => trimmed.contains("process.exit("),
         }
     }
 
@@ -61,6 +66,12 @@ impl JsRiskPattern {
 /// `process.exit(...)` calls, which terminate the host process and so are unsafe
 /// in reusable library code. A `throw` is recoverable control flow, not a
 /// runtime exit, so generic thrown errors are intentionally not flagged here.
+///
+/// The call is always reported; the knowledge engine then decides severity from
+/// file context — a `process.exit` in a CLI package (`package.json#bin`), a
+/// `bin/`/`scripts/` path, or an app-entrypoint is downgraded to Low (hidden in
+/// the default profile, retained under `--profile strict`), while reusable code
+/// keeps it at High.
 pub(super) fn emit_js_node(
     node: Node<'_>,
     content: &str,
@@ -69,10 +80,7 @@ pub(super) fn emit_js_node(
     findings: &mut Vec<Finding>,
 ) {
     let pattern = match node.kind() {
-        "call_expression"
-            if is_process_exit_call(node, content)
-                && !is_expected_cli_entrypoint(path, content) =>
-        {
+        "call_expression" if is_process_exit_call(node, content) => {
             Some(JsRiskPattern::ProcessExit)
         }
         _ => None,
@@ -87,22 +95,6 @@ pub(super) fn emit_js_node(
             findings,
         );
     }
-}
-
-fn is_expected_cli_entrypoint(path: &Path, content: &str) -> bool {
-    is_cli_exit_context(path) || content.starts_with("#!/usr/bin/env node")
-}
-
-/// Paths where `process.exit(...)` is the intended CLI boundary rather than a
-/// hazard inside reusable code: executable `bin/` scripts and `commands/`
-/// modules — the near-universal CLI-command convention used by gluegun, oclif,
-/// and nest-commander, where each command owns its own exit code.
-fn is_cli_exit_context(path: &Path) -> bool {
-    let normalized = path.to_string_lossy().replace('\\', "/");
-    normalized.starts_with("bin/")
-        || normalized.contains("/bin/")
-        || normalized.starts_with("commands/")
-        || normalized.contains("/commands/")
 }
 
 /// `process.exit(...)` — a call whose callee is the `process.exit` member.
