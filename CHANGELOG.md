@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **`language.javascript.runtime-exit-risk` no longer flags `process.exit(...)`
+  in CLI command modules.** A `process.exit` inside a `commands/` module or a
+  `bin/` script is the intended exit boundary of a CLI tool — exactly what the
+  rule's own guidance ("keep process exits at a CLI boundary") asks for — not a
+  hazard buried in reusable code. The expected-entrypoint check now covers any
+  `commands/`-segment path and any `bin/` script (dropping the prior strict
+  shebang requirement), while a `process.exit` in ordinary library code still
+  fires at High. Measured on the real-repo zoo, this took the `ignite` CLI from
+  9 default-visible findings (all `src/commands/*.ts`) to 0, with the 3
+  non-command-module exits retained under `--profile strict`.
+
 - **`language.python.exception-risk` no longer surfaces `assert` and `raise
   NotImplementedError` by default.** An `assert` (commonly type-narrowing or an
   internal invariant) and `raise NotImplementedError` (the idiomatic

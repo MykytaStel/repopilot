@@ -16,7 +16,7 @@ impl JsRiskPattern {
 
     pub(super) fn matches(self, trimmed: &str, path: &Path) -> bool {
         match self {
-            Self::ProcessExit => trimmed.contains("process.exit(") && !is_node_bin_path(path),
+            Self::ProcessExit => trimmed.contains("process.exit(") && !is_cli_exit_context(path),
         }
     }
 
@@ -90,12 +90,19 @@ pub(super) fn emit_js_node(
 }
 
 fn is_expected_cli_entrypoint(path: &Path, content: &str) -> bool {
-    is_node_bin_path(path) && content.starts_with("#!/usr/bin/env node")
+    is_cli_exit_context(path) || content.starts_with("#!/usr/bin/env node")
 }
 
-fn is_node_bin_path(path: &Path) -> bool {
+/// Paths where `process.exit(...)` is the intended CLI boundary rather than a
+/// hazard inside reusable code: executable `bin/` scripts and `commands/`
+/// modules — the near-universal CLI-command convention used by gluegun, oclif,
+/// and nest-commander, where each command owns its own exit code.
+fn is_cli_exit_context(path: &Path) -> bool {
     let normalized = path.to_string_lossy().replace('\\', "/");
-    normalized.starts_with("bin/") || normalized.contains("/bin/")
+    normalized.starts_with("bin/")
+        || normalized.contains("/bin/")
+        || normalized.starts_with("commands/")
+        || normalized.contains("/commands/")
 }
 
 /// `process.exit(...)` — a call whose callee is the `process.exit` member.

@@ -69,6 +69,30 @@ fn ignores_process_exit_in_node_bin_entrypoint() {
 }
 
 #[test]
+fn ignores_process_exit_in_cli_command_module() {
+    // A gluegun/oclif-style CLI command owns its own exit code; `process.exit`
+    // here is the intended boundary, not a hazard (e.g. ignite-cli's commands).
+    let file = facts(
+        "src/commands/new.ts",
+        Some("TypeScript"),
+        "export const run = async () => { process.exit(1) }\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
+fn ignores_process_exit_in_bin_without_shebang() {
+    let file = facts("bin/cli.js", Some("JavaScript"), "process.exit(1);\n");
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
 fn reports_js_process_exit_in_library_code_as_high() {
     let file = facts(
         "src/lib/runtime.js",
