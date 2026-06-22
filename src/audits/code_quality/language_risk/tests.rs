@@ -90,6 +90,24 @@ fn downgrades_process_exit_in_cli_executable_package_to_low() {
 }
 
 #[test]
+fn reports_process_exit_in_reusable_module_of_cli_package_as_high() {
+    // A package may be a CLI tool, but not every file in it is a CLI boundary. A
+    // reusable internal module (`src/lib/parser.ts`) should not terminate the
+    // process; that exit stays a default-visible High even though the package
+    // declares `package.json#bin` — only `commands/` handlers are exempted.
+    let file = cli_package_facts(
+        "src/lib/parser.ts",
+        Some("TypeScript"),
+        "export function parseConfig(input: string) { if (!input) { process.exit(1); } }\n",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::High);
+}
+
+#[test]
 fn reports_process_exit_in_non_cli_commands_dir_as_high() {
     // A `commands/` directory in a NON-CLI package (no `package.json#bin`) is a
     // CQRS/domain command, not a CLI boundary: the host-terminating exit stays a

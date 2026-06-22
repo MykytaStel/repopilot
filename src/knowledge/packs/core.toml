@@ -623,11 +623,12 @@ signal = "js.process-exit"
 action = "downgrade"
 severity = "LOW"
 
-# A package that declares an executable (`package.json#bin`) is a CLI tool, so a
-# `process.exit` anywhere in its source is an intended boundary, not a hazard in
-# reusable code. Downgrade to Low (hidden by default, kept in strict) rather than
-# suppress, so the signal is still recoverable. Ordinary modules in non-CLI
-# packages (e.g. a web app's `domain/commands/`) keep the default-visible High.
+# A command handler in a CLI tool (a `commands/` file whose package declares
+# `package.json#bin`) owns its own exit code, so its `process.exit` is an intended
+# boundary. Downgrade to Low (hidden by default, kept in strict) rather than
+# suppress, so the signal is recoverable. This does NOT cover reusable modules in
+# the same package (`lib/`, `utils/`) or a non-CLI package's `domain/commands/` —
+# both keep the default-visible High (see the `cli-executable` role).
 [[rules.overrides]]
 role = "cli-executable"
 signal = "js.process-exit"

@@ -82,6 +82,12 @@ fn default_scan_hides_cli_package_process_exit_but_reports_non_cli_package() {
         root.join("packages/cli/src/commands/run.ts"),
         "export const run = () => { process.exit(1); };\n",
     );
+    // A reusable module inside the CLI package: NOT a command handler, so its exit
+    // stays default-visible High even though the package declares `bin`.
+    write(
+        root.join("packages/cli/src/lib/parser.ts"),
+        "export function parse(s: string) { if (!s) { process.exit(1); } }\n",
+    );
     write(
         root.join("packages/web/package.json"),
         r#"{ "name": "@app/web" }"#,
@@ -92,23 +98,32 @@ fn default_scan_hides_cli_package_process_exit_but_reports_non_cli_package() {
     );
 
     let json = scan_json(root, &[]);
-    let default_findings =
-        findings_for_rule(&json, "language.javascript.runtime-exit-risk").collect::<Vec<_>>();
+    let default_paths = findings_for_rule(&json, "language.javascript.runtime-exit-risk")
+        .map(first_path)
+        .collect::<Vec<_>>();
     assert_eq!(
-        default_findings.len(),
-        1,
-        "default report should hide the CLI package's exit and keep the non-CLI one: {json:#?}"
+        default_paths.len(),
+        2,
+        "default should hide only the CLI command handler's exit: {json:#?}"
     );
     assert!(
-        first_path(default_findings[0]).ends_with("handler.ts"),
-        "the default-visible exit must be the non-CLI (domain) command"
+        default_paths.iter().any(|p| p.ends_with("handler.ts")),
+        "the non-CLI (domain) command exit must stay visible"
+    );
+    assert!(
+        default_paths.iter().any(|p| p.ends_with("parser.ts")),
+        "a reusable module's exit inside the CLI package must stay visible"
+    );
+    assert!(
+        !default_paths.iter().any(|p| p.ends_with("run.ts")),
+        "the CLI command handler's exit must be hidden by default"
     );
 
     let strict = scan_json(root, &["--profile", "strict"]);
     assert_eq!(
         findings_for_rule(&strict, "language.javascript.runtime-exit-risk").count(),
-        2,
-        "strict report should include both CLI and non-CLI process.exit findings: {strict:#?}"
+        3,
+        "strict report should include all three process.exit findings: {strict:#?}"
     );
 }
 

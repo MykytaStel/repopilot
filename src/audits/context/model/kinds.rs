@@ -87,9 +87,11 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
-    /// File belongs to a package that declares an executable entrypoint
-    /// (npm `package.json#bin`, Cargo `[[bin]]`/`src/bin`). The whole package is
-    /// a CLI tool, so host-termination calls are an intended boundary.
+    /// A CLI command handler: a file in a `commands/` directory whose package
+    /// declares an executable entrypoint (npm `package.json#bin`, Cargo
+    /// `[[bin]]`/`src/bin`). Such a command owns its own exit code, so
+    /// host-termination calls there are an intended boundary — unlike a reusable
+    /// module elsewhere in the same package, which is not exempted.
     CliExecutable,
     Infrastructure,
     Unknown,
