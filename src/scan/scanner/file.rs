@@ -8,18 +8,11 @@ use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
 use crate::scan::path_classification::is_low_signal_audit_path;
+use crate::scan::workspace::{PackageRoot, path_in_executable_package};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-
-/// Whether `path` lives inside one of the CLI executable package roots, so the
-/// knowledge engine can treat host-termination calls there as an intended
-/// boundary. Computed once per scan and passed down so the flag is set before
-/// per-file audits run (severity is decided at finding time).
-fn in_executable_package(path: &Path, executable_roots: &[PathBuf]) -> bool {
-    executable_roots.iter().any(|root| path.starts_with(root))
-}
+use std::path::Path;
 
 pub(super) struct PerFileResult {
     pub(super) file_facts: FileFacts,
@@ -62,7 +55,7 @@ pub(super) enum LoadedFile {
 pub(super) fn load_file(
     path: &Path,
     config: &ScanConfig,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<LoadedFile> {
     let language = detect_language(path).map(str::to_string);
 
@@ -120,7 +113,7 @@ pub(super) fn load_file(
             imports: Vec::new(),
             has_inline_tests,
             content: Some(content),
-            in_executable_package: in_executable_package(path, executable_roots),
+            in_executable_package: path_in_executable_package(path, package_roots),
         },
         language,
     })
@@ -194,18 +187,18 @@ pub(super) fn process_file(
     path: &Path,
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    process_file_inner(path, file_audits, config, false, executable_roots)
+    process_file_inner(path, file_audits, config, false, package_roots)
 }
 
 pub(super) fn process_file_with_content(
     path: &Path,
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    process_file_inner(path, file_audits, config, true, executable_roots)
+    process_file_inner(path, file_audits, config, true, package_roots)
 }
 
 fn process_file_inner(
@@ -213,9 +206,9 @@ fn process_file_inner(
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
     retain_content: bool,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    let loaded = load_file(path, config, executable_roots)?;
+    let loaded = load_file(path, config, package_roots)?;
     let LoadedFile::Analyzable {
         mut full_facts,
         language,
@@ -258,10 +251,10 @@ pub(super) fn collect_file_facts(
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<()> {
     let LoadedFile::Analyzable { mut full_facts, .. } =
-        load_file_or_record_skip(path, facts, config, executable_roots)?
+        load_file_or_record_skip(path, facts, config, package_roots)?
     else {
         return Ok(());
     };
@@ -285,9 +278,9 @@ fn load_file_or_record_skip(
     path: &Path,
     facts: &mut ScanFacts,
     config: &ScanConfig,
-    executable_roots: &[PathBuf],
+    package_roots: &[PackageRoot],
 ) -> io::Result<LoadedFile> {
-    let loaded = load_file(path, config, executable_roots)?;
+    let loaded = load_file(path, config, package_roots)?;
     if let LoadedFile::Skipped {
         language,
         reason,

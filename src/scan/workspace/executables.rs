@@ -1,24 +1,54 @@
 use super::detect_workspace_packages;
 use std::path::{Path, PathBuf};
 
-/// Directories that are the root of a package declaring an executable
-/// entrypoint — an npm `package.json#bin`, or a Cargo crate with a binary
-/// target (`[[bin]]`, a `src/bin/` directory, or `src/main.rs`). Every source
-/// file under such a directory belongs to a CLI tool, where `process.exit`-style
-/// host termination is an intended boundary rather than a hazard in reusable
-/// code.
-///
-/// Considers the scan root itself plus any detected workspace members, so a
-/// monorepo's CLI package is recognized while its non-CLI siblings (e.g. a web
-/// app under `apps/web` with a `domain/commands/` directory) are not.
-pub fn cli_executable_roots(root: &Path) -> Vec<PathBuf> {
-    let mut candidates: Vec<PathBuf> = vec![root.to_path_buf()];
-    candidates.extend(detect_workspace_packages(root).into_iter().map(|p| p.root));
+/// A package root and whether it declares an executable entrypoint (npm
+/// `package.json#bin`, or a Cargo crate with a binary target — `[[bin]]`, a
+/// `src/bin/` directory, or `src/main.rs`).
+#[derive(Debug, Clone)]
+pub struct PackageRoot {
+    pub root: PathBuf,
+    pub declares_executable: bool,
+}
 
-    candidates
-        .into_iter()
-        .filter(|dir| declares_executable(dir))
-        .collect()
+/// All package roots under `root`: the scan root itself when it carries a
+/// manifest, plus every detected workspace member. Each is tagged with whether
+/// it declares an executable.
+///
+/// The full set (not just the executable ones) is returned so a file can be
+/// resolved to its *nearest* package — see [`path_in_executable_package`]. This
+/// is what prevents a CLI at the monorepo root from marking a non-CLI sibling
+/// package as executable.
+pub fn package_roots(root: &Path) -> Vec<PackageRoot> {
+    let mut roots = Vec::new();
+    if has_manifest(root) {
+        roots.push(PackageRoot {
+            root: root.to_path_buf(),
+            declares_executable: declares_executable(root),
+        });
+    }
+    for pkg in detect_workspace_packages(root) {
+        roots.push(PackageRoot {
+            declares_executable: declares_executable(&pkg.root),
+            root: pkg.root,
+        });
+    }
+    roots
+}
+
+/// Whether `path`'s *nearest* (longest-prefix) package root declares an
+/// executable. A file under `packages/web/` resolves against
+/// `packages/web/package.json`, not the monorepo root, so a root-level CLI does
+/// not downgrade exits in non-CLI sibling packages.
+pub fn path_in_executable_package(path: &Path, roots: &[PackageRoot]) -> bool {
+    roots
+        .iter()
+        .filter(|candidate| path.starts_with(&candidate.root))
+        .max_by_key(|candidate| candidate.root.components().count())
+        .is_some_and(|nearest| nearest.declares_executable)
+}
+
+fn has_manifest(dir: &Path) -> bool {
+    dir.join("package.json").is_file() || dir.join("Cargo.toml").is_file()
 }
 
 fn declares_executable(dir: &Path) -> bool {
@@ -48,12 +78,12 @@ fn cargo_declares_bin(dir: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::cli_executable_roots;
+    use super::{package_roots, path_in_executable_package};
     use std::fs;
     use tempfile::TempDir;
 
     #[test]
-    fn npm_bin_object_marks_root_as_cli() {
+    fn npm_bin_object_marks_package() {
         let dir = TempDir::new().unwrap();
         fs::write(
             dir.path().join("package.json"),
@@ -61,12 +91,15 @@ mod tests {
         )
         .unwrap();
 
-        let roots = cli_executable_roots(dir.path());
-        assert_eq!(roots, vec![dir.path().to_path_buf()]);
+        let roots = package_roots(dir.path());
+        assert!(path_in_executable_package(
+            &dir.path().join("src/commands/new.ts"),
+            &roots
+        ));
     }
 
     #[test]
-    fn npm_bin_string_marks_root_as_cli() {
+    fn npm_bin_string_marks_package() {
         let dir = TempDir::new().unwrap();
         fs::write(
             dir.path().join("package.json"),
@@ -74,11 +107,15 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(cli_executable_roots(dir.path()).len(), 1);
+        let roots = package_roots(dir.path());
+        assert!(path_in_executable_package(
+            &dir.path().join("src/index.js"),
+            &roots
+        ));
     }
 
     #[test]
-    fn package_without_bin_is_not_cli() {
+    fn package_without_bin_is_not_executable() {
         let dir = TempDir::new().unwrap();
         fs::write(
             dir.path().join("package.json"),
@@ -86,11 +123,15 @@ mod tests {
         )
         .unwrap();
 
-        assert!(cli_executable_roots(dir.path()).is_empty());
+        let roots = package_roots(dir.path());
+        assert!(!path_in_executable_package(
+            &dir.path().join("src/server.ts"),
+            &roots
+        ));
     }
 
     #[test]
-    fn cargo_bin_target_marks_root_as_cli() {
+    fn cargo_bin_target_marks_package() {
         let dir = TempDir::new().unwrap();
         fs::write(
             dir.path().join("Cargo.toml"),
@@ -98,31 +139,52 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(cli_executable_roots(dir.path()).len(), 1);
+        let roots = package_roots(dir.path());
+        assert!(path_in_executable_package(
+            &dir.path().join("src/lib.rs"),
+            &roots
+        ));
     }
 
     #[test]
-    fn only_cli_workspace_member_is_marked() {
+    fn root_cli_does_not_mark_non_cli_workspace_member() {
+        // The exact boundary the path-prefix check must respect: a CLI declared
+        // at the monorepo root must not make a non-CLI sibling package executable.
         let dir = TempDir::new().unwrap();
         fs::write(
             dir.path().join("package.json"),
-            r#"{ "name": "monorepo", "workspaces": ["packages/*"] }"#,
+            r#"{ "name": "monorepo", "workspaces": ["packages/*"], "bin": { "my-tool": "./src/cli.ts" } }"#,
         )
         .unwrap();
 
-        let cli = dir.path().join("packages/cli");
         let web = dir.path().join("packages/web");
-        fs::create_dir_all(&cli).unwrap();
+        let core = dir.path().join("packages/core");
         fs::create_dir_all(&web).unwrap();
+        fs::create_dir_all(&core).unwrap();
+        fs::write(web.join("package.json"), r#"{ "name": "web" }"#).unwrap();
         fs::write(
-            cli.join("package.json"),
-            r#"{ "name": "cli", "bin": "./index.js" }"#,
+            core.join("package.json"),
+            r#"{ "name": "core", "bin": "./index.js" }"#,
         )
         .unwrap();
-        fs::write(web.join("package.json"), r#"{ "name": "web" }"#).unwrap();
 
-        let roots = cli_executable_roots(dir.path());
-        assert!(roots.contains(&cli));
-        assert!(!roots.contains(&web));
+        let roots = package_roots(dir.path());
+
+        // A file directly under the root belongs to the root CLI package.
+        assert!(path_in_executable_package(
+            &dir.path().join("src/cli.ts"),
+            &roots
+        ));
+        // A file in the non-CLI `web` package resolves to `packages/web` (no bin),
+        // NOT the root, so it is not executable.
+        assert!(!path_in_executable_package(
+            &web.join("src/server.ts"),
+            &roots
+        ));
+        // A file in the CLI `core` package is executable on its own merit.
+        assert!(path_in_executable_package(
+            &core.join("src/main.js"),
+            &roots
+        ));
     }
 }

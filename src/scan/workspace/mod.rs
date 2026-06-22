@@ -5,7 +5,7 @@ mod executables;
 mod go;
 mod js;
 
-pub use executables::cli_executable_roots;
+pub use executables::{PackageRoot, package_roots, path_in_executable_package};
 
 #[cfg(test)]
 mod tests;
