@@ -23,8 +23,8 @@ use self::finding::build_finding;
 use self::pattern::{
     detect_pattern, is_external_failure_path, is_infallible_literal_construction_unwrap,
     is_infallible_render_write_result_unwrap, is_infallible_render_write_start,
-    is_report_renderer_path, is_structural_infallible_render_write_unwrap,
-    should_ignore_contextual_panic_pattern,
+    is_literal_parse_unwrap, is_literal_parse_unwrap_line, is_report_renderer_path,
+    is_structural_infallible_render_write_unwrap, should_ignore_contextual_panic_pattern,
 };
 
 const RULE_ID: &str = "language.rust.panic-risk";
@@ -110,12 +110,21 @@ impl RustPanicRiskAudit {
                     let sanitized = sanitize_c_style(trimmed_line, &mut in_block_comment);
                     let sanitized = sanitized.trim();
 
-                    let severity =
-                        if is_external_failure_path(*pattern, sanitized) && !context.is_test {
-                            decision.severity.max(Severity::High)
-                        } else {
-                            decision.severity
-                        };
+                    // A `"literal".parse().unwrap()` parses authored input: it can
+                    // still panic (`"999".parse::<u8>()`), but as a deterministic bug
+                    // caught on the first run, not external-input risk. Downgrade it
+                    // to Low (hidden in default, kept in strict) rather than escalate.
+                    // The text fallback handles the macro form (`vec![…parse()…]`)
+                    // whose body is an unparsed token tree the AST check cannot see.
+                    let severity = if is_literal_parse_unwrap(*node, content)
+                        || is_literal_parse_unwrap_line(trimmed_line)
+                    {
+                        Severity::Low
+                    } else if is_external_failure_path(*pattern, sanitized) && !context.is_test {
+                        decision.severity.max(Severity::High)
+                    } else {
+                        decision.severity
+                    };
 
                     findings.push(build_finding(
                         file,

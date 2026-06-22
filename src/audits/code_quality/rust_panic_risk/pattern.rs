@@ -208,22 +208,59 @@ fn is_deserialize_call(lower: &str) -> bool {
     DESERIALIZE_CALLS.iter().any(|call| lower.contains(call))
 }
 
-/// True when `node` is a `Regex::new("literal").unwrap()` /
-/// `Selector::parse("literal").expect(...)`-style call: an `unwrap`/`expect`
-/// chained directly onto a constructor that only fails on a malformed pattern,
-/// where that pattern is a **string literal**. A literal regex/selector is fixed
-/// at authoring time — if it is malformed the program fails on its first run and
-/// any test catches it, so this is a deterministic programmer error, not a
-/// runtime panic risk from external input. The escalation that made these
-/// **visible High** on scraper-shaped files is context-driven, so it is not
-/// reached by the `is_external_failure_path` guards; this structural check skips
-/// the candidate outright, and because it walks the syntax tree it also handles
-/// the multi-line `Regex::new(\n    r"…",\n).unwrap()` form that the text-based
-/// [`should_ignore_contextual_panic_pattern`] heuristic cannot see.
+/// True when `node` is an `unwrap`/`expect` chained directly onto a literal
+/// pattern constructor — `Regex::new("literal")` or `Selector::parse("literal")`
+/// — which only fails on a malformed compile-time pattern: a deterministic bug
+/// caught on the first run, not a runtime panic risk from external input. The
+/// escalation that made these **visible High** on scraper-shaped files is
+/// context-driven, so it is not reached by the `is_external_failure_path` guards;
+/// this structural check skips the candidate outright, and because it walks the
+/// syntax tree it also handles the multi-line `Regex::new(\n    r"…",\n).unwrap()`
+/// form that the text-based [`should_ignore_contextual_panic_pattern`] cannot see.
 pub(super) fn is_infallible_literal_construction_unwrap(
     node: tree_sitter::Node<'_>,
     content: &str,
 ) -> bool {
+    unwrap_or_expect_receiver(node, content)
+        .is_some_and(|receiver| is_literal_infallible_constructor_call(receiver, content))
+}
+
+/// True when `node` is `"<string literal>".parse().unwrap()`/`.expect(...)`. A
+/// `.parse()` on a string literal is *not* statically infallible — `"999"
+/// .parse::<u8>()` panics on overflow — but the value is authored, so any failure
+/// is a deterministic bug caught on the first run, not external-input risk. Such
+/// a call is therefore downgraded to Low (hidden in default, kept in strict)
+/// rather than escalated like a `.parse()` on a runtime value (`raw.parse()`).
+pub(super) fn is_literal_parse_unwrap(node: tree_sitter::Node<'_>, content: &str) -> bool {
+    unwrap_or_expect_receiver(node, content)
+        .is_some_and(|receiver| is_literal_parse_call(receiver, content))
+}
+
+/// Returns the receiver of `node` when `node` is `<receiver>.unwrap()` or
+/// `<receiver>.expect(...)`. `unwrap_err`/`expect_err` assert the *Err* arm and
+/// are deliberately excluded.
+fn unwrap_or_expect_receiver<'a>(
+    node: tree_sitter::Node<'a>,
+    content: &str,
+) -> Option<tree_sitter::Node<'a>> {
+    if node.kind() != "call_expression" {
+        return None;
+    }
+    let function = node.child_by_field_name("function")?;
+    if function.kind() != "field_expression" {
+        return None;
+    }
+    let field = function.child_by_field_name("field")?;
+    let method = field.utf8_text(content.as_bytes()).ok()?;
+    if method != "unwrap" && method != "expect" {
+        return None;
+    }
+    function.child_by_field_name("value")
+}
+
+/// True when `node` is `"<string literal>".parse()` — a `.parse()` invoked
+/// directly on a string literal.
+fn is_literal_parse_call(node: tree_sitter::Node<'_>, content: &str) -> bool {
     if node.kind() != "call_expression" {
         return false;
     }
@@ -236,18 +273,13 @@ pub(super) fn is_infallible_literal_construction_unwrap(
     let Some(field) = function.child_by_field_name("field") else {
         return false;
     };
-    let Ok(method) = field.utf8_text(content.as_bytes()) else {
-        return false;
-    };
-    // `unwrap_err`/`expect_err` assert the *Err* arm — a literal constructor that
-    // succeeds would make those panic, so they are not infallible here.
-    if method != "unwrap" && method != "expect" {
+    if field.utf8_text(content.as_bytes()) != Ok("parse") {
         return false;
     }
     let Some(receiver) = function.child_by_field_name("value") else {
         return false;
     };
-    is_literal_infallible_constructor_call(receiver, content)
+    matches!(receiver.kind(), "string_literal" | "raw_string_literal")
 }
 
 /// True when `node` is `Regex::new(<string literal>)` or
@@ -287,6 +319,37 @@ fn is_literal_infallible_constructor_call(node: tree_sitter::Node<'_>, content: 
         }
     }
     false
+}
+
+/// Text fallback for `"literal".parse().unwrap()` when it appears inside a macro
+/// such as `vec![ "path:fg:magenta".parse().unwrap(), ... ]`. The macro body is
+/// an unparsed token tree, so the structural
+/// [`is_infallible_literal_construction_unwrap`] check cannot see the expression.
+/// Matches a (trimmed) line that begins with a string literal immediately
+/// followed by `.parse()`/`.parse::<…>()` and an `.unwrap()`/`.expect(…)`.
+pub(super) fn is_literal_parse_unwrap_line(trimmed: &str) -> bool {
+    // The string-literal segment may be `"…"`, `r"…"`, or `r#"…"#`; take the text
+    // after the matching close quote. Intentionally narrow: only a line that
+    // *begins* with the literal is matched, so a `.parse()` on a runtime value is
+    // never swept in. (A `r#"…"#` whose body contains `"` is left to the AST path.)
+    let after_quote = if let Some(rest) = trimmed.strip_prefix("r#\"") {
+        rest.split_once("\"#").map(|(_, tail)| tail)
+    } else if let Some(rest) = trimmed
+        .strip_prefix("r\"")
+        .or_else(|| trimmed.strip_prefix('"'))
+    {
+        rest.split_once('"').map(|(_, tail)| tail)
+    } else {
+        None
+    };
+    let Some(tail) = after_quote.map(str::trim_start) else {
+        return false;
+    };
+    // Only the untyped `.parse()` (target type inferred — the default-table
+    // idiom) is downgraded; an explicit `.parse::<T>()` is a deliberate typed
+    // conversion left to escalate, matching the AST path which does not recognize
+    // the turbofish form.
+    tail.starts_with(".parse()") && (tail.contains(".unwrap") || tail.contains(".expect"))
 }
 
 pub(super) fn is_infallible_render_write_start(path: &std::path::Path, trimmed: &str) -> bool {

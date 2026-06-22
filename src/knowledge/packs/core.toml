@@ -522,6 +522,32 @@ signal = "rust.unimplemented"
 action = "upgrade"
 severity = "HIGH"
 
+# Rust test-support modules (`testutil.rs`, `test_utils.rs`, ...): production
+# files whose `panic!`/`unwrap`/`expect` are test assertion plumbing, not runtime
+# risk. Treat those three like a test file (`unwrap`/`expect` suppressed, `panic!`
+# downgraded to Low/strict-only) while the file keeps its production role for all
+# other rules. `todo!`/`unimplemented!` are left visible. Placed last so the
+# downgrade wins over the `runtime = "rust-library"` panic upgrade above (unlike a
+# real test file, a test-support module is not `is_test`, so it is not skipped by
+# the test-gating that shields `tests/` files from those runtime upgrades).
+[[rules.overrides]]
+signal = "rust.unwrap"
+role = "test-support"
+action = "suppress"
+reason = "Rust unwrap in a test-support module is assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.expect"
+role = "test-support"
+action = "suppress"
+reason = "Rust expect in a test-support module is assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.panic"
+role = "test-support"
+action = "downgrade"
+severity = "LOW"
+
 [[rules]]
 rule_id = "language.go.panic-exit-risk"
 minimum_support = "rule-aware"
