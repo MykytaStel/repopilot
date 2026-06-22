@@ -33,6 +33,7 @@ pub fn build_explain_report(
         imports: Vec::new(),
         content: Some(content),
         has_inline_tests,
+        in_executable_package: false,
     };
 
     let audit_context = classify_file(&file);

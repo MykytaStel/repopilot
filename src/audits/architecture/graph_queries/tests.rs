@@ -269,6 +269,7 @@ export {};
         imports: vec!["../../auth/src/internal".to_string()],
         content: Some(content.to_string()),
         has_inline_tests: false,
+        in_executable_package: false,
     };
 
     let source = NodeInfo {

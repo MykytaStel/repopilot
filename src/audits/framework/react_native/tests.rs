@@ -29,6 +29,7 @@ fn jsx_file(dir: &tempfile::TempDir, name: &str, content: &str) -> FileFacts {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     }
 }
 

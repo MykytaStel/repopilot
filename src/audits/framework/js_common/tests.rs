@@ -13,6 +13,7 @@ fn make_file_facts(path: std::path::PathBuf) -> FileFacts {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     }
 }
 
@@ -116,6 +117,7 @@ fn console_log_flagged() {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     });
     let findings = ConsoleLogAudit.audit(&facts, &ScanConfig::default());
     assert_eq!(findings.len(), 1);
