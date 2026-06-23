@@ -1,0 +1,34 @@
+{
+  "default": {
+    "by_priority": {
+      "P0": 1
+    },
+    "by_rule": {
+      "architecture.circular-dependency": 1
+    },
+    "fingerprints": [
+      "architecture.circular-dependency:fastapi/__init__.py:81cea0afc607c53a"
+    ],
+    "visible_total": 1
+  },
+  "framework": "fastapi",
+  "language": "python",
+  "repo": "fastapi",
+  "sha": "c61384e3d72cc4d32050e05ee409fd8a5d345844",
+  "strict": {
+    "by_rule": {
+      "architecture.circular-dependency": 1,
+      "architecture.dead-module": 449,
+      "architecture.large-file": 17,
+      "architecture.too-many-modules": 3,
+      "code-marker.todo": 17,
+      "code-quality.complex-file": 5,
+      "code-quality.complex-function": 24,
+      "code-quality.deep-control-flow": 17,
+      "code-quality.long-function": 90,
+      "language.python.exception-risk": 103,
+      "testing.source-without-test": 389
+    },
+    "visible_total": 1115
+  }
+}

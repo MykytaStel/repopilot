@@ -6,6 +6,77 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
+  CLI tool's command handlers instead of surfacing them as a default High.** A
+  command handler — a file in a `commands/` directory whose package declares an
+  executable (`package.json#bin`, or a Cargo `[[bin]]`/`src/bin` target) — owns
+  its own exit code, so its `process.exit` is the intended boundary the rule's
+  own guidance asks for. The scanner resolves each file to its *nearest* package
+  and, when that package is a CLI tool and the file is a command handler, tags it
+  with a new `cli-executable` role; the knowledge pack then **downgrades the
+  finding to Low** (hidden by default, still shown under `--profile strict`)
+  rather than suppressing it in the detector, so the signal stays recoverable.
+  The exemption is deliberately narrow — it pairs path evidence (`commands/`)
+  with manifest evidence (`bin`), so a CQRS-style `domain/commands/` in a non-CLI
+  package, and a reusable module (`lib/`, `utils/`) inside a CLI package, both
+  keep their default-visible High. Measured on the real-repo zoo, this took the
+  `ignite` CLI from 9 default-visible findings to 0 (all retained as Low in
+  strict), with no loss of the genuine library-level exits elsewhere.
+
+- **`language.python.exception-risk` no longer surfaces `assert` and `raise
+  NotImplementedError` by default.** An `assert` (commonly type-narrowing or an
+  internal invariant) and `raise NotImplementedError` (the idiomatic
+  abstract-method declaration) are overwhelmingly intentional, so the knowledge
+  pack now downgrades both to low — hidden in the default profile, still shown
+  under `--profile strict`. The broad `except:` handler stays the default-visible
+  signal. Measured on the zoo, default-visible exception-risk findings dropped
+  from 107 to 1 (fastapi 63→0, wagtail 44→1), with all signals retained in strict.
+
+- **`language.javascript.runtime-exit-risk` no longer flags `throw new
+  Error(...)`.** A `throw` is recoverable control flow, not a runtime exit, and a
+  generic thrown error is idiomatic everywhere — yet the rule flagged every one
+  in any file under a `packages/`/`lib/`/`core/` path, so in monorepos it fired
+  on essentially every module. The rule now matches only `process.exit(...)`
+  (the genuine host-process termination) and is retitled "Risky JavaScript
+  runtime exit". Measured on the real-repo zoo, this removed 113 of 124 findings
+  (excalidraw 76→1, changesets 38→1) with no loss of true signal.
+
+### Fixed
+
+- **`language.rust.panic-risk` downgrades a type-inferred `"literal".parse().unwrap()` to Low instead of a visible High.** Parsing a string *literal* (e.g. the default colour/spec tables many crates build with `"path:fg:magenta".parse().unwrap()`) parses authored input — it can still panic (`"999".parse::<u8>()`), but as a deterministic bug caught on the first run, not a runtime panic from external input — yet the `.parse(` external-input signal pushed these to a visible High. The rule now **downgrades** such a call to Low (hidden in the default profile, kept under `--profile strict`) rather than removing it, via a structural syntax-tree check plus a text fallback for the macro form (`vec!["x".parse().unwrap(), …]`) whose body is an unparsed token tree. Only the type-inferred `.parse()` is downgraded: an explicit `.parse::<T>()` is a deliberate typed conversion and a `.parse()` on a runtime value (`raw.parse()`) both keep their default-visible severity. Measured on the real-repo zoo this hid all 5 false positives in ripgrep's `printer/color.rs` from the default profile.
+
+- **`language.rust.panic-risk` no longer treats `panic!`/`unwrap` in Rust test-support modules as production risk.** A `testutil.rs`/`test_utils.rs`/`test_support.rs`/`test_helpers.rs` file is test infrastructure compiled in normal builds (so not behind `#[cfg(test)]`), where `panic!`/`unwrap` are assertion plumbing. Rather than reclassify it as a *test file* globally (which would change every rule), the scanner now tags it with a dedicated `test-support` role *alongside* its production role, and only the panic-risk knowledge pack opts in: `unwrap`/`expect` suppressed, `panic!` downgraded to Low (kept under `--profile strict`). Every other rule still sees a normal production file. The collision-prone `test_*` prefix is excluded so production modules like `test_edges.rs` are unaffected. This hid the 5 false positives in ripgrep's `searcher/src/testutil.rs`; combined with the literal-parse fix, ripgrep drops from 14 default-visible panic-risk findings to 4 (the genuine library-level `panic!`/`unwrap` calls), all 10 retained under strict.
+
+- **`security.secret-candidate` no longer flags high-entropy tokens embedded inside URL values.** A Firebase Storage download URL contains a `?token=<UUID>` query parameter that looks exactly like a secret assignment, but a URL is not a hardcoded credential. The detector now checks whether a matched key (e.g. `token`) falls inside a URL string literal on the same line (between an opening quote and the key, there is a `https://` or `http://` prefix) and skips it. This removed 25 false positives from the nowinandroid zoo repo (all from `topics.json` Firebase image URLs) while leaving eshoponweb's 7 legitimate hardcoded secrets (JWT keys, passwords, connection strings) untouched. URL-embedded patterns like `?alt=media&token=<UUID>` are now silently ignored; a real `auth_token: "fixtureToken-..."` assignment outside a URL still fires.
+
+- **`security.secret-candidate` no longer flags `SCREAMING_SNAKE_CASE` env-var names passed as string literals.** `envvar="GITHUB_TOKEN"` — an argument that references an env var by name — was treated as a secret value because `token` matched a key and `GITHUB_TOKEN` passed the entropy test. An all-caps identifier that contains an underscore is now recognized as an env-var name reference, not a secret value. The underscore requirement is deliberate so that genuinely all-caps alphanumeric secrets without underscores (e.g. an AWS access key id `AKIA…`) still fire.
+
+- **`security.secret-candidate` skips files whose path contains `tutorial`.** Tutorial and docs-src files in frameworks like FastAPI (`docs_src/security/tutorial*.py`) intentionally contain example secret keys that are teaching material. The path-based skip list (already covering `test`, `example`, `fixture`, `mock`) now also covers `tutorial`, removing 4 FPs from fastapi without affecting any real credential detection.
+
+- **`architecture.package-boundary-violation` no longer flags deep imports into
+  a package that publishes a wildcard `exports` subpath.** When a workspace
+  package's `package.json` declares `"exports": { "./*": ... }`, the author has
+  explicitly published every subpath as public API, so a sibling importing
+  `@scope/pkg/foo` (resolved to `pkg/src/foo`) is not reaching past a boundary.
+  The detector now reads the `exports` map during workspace detection and
+  suppresses violations into such packages. Caught by the real-repo zoo:
+  excalidraw dropped from 317 false positives to 0; packages without wildcard
+  exports keep their boundary.
+
+### Added
+
+- **Real-repo validation "zoo".** A curated set of 11 real open-source repos
+  (`tests/zoo/manifest.toml`) spanning all 9 AST languages and their frameworks
+  is now scanned reproducibly via `scripts/zoo.py` (`clone`/`scan`/`report`),
+  pinned to fixed commit SHAs and cloned on demand into a gitignored `.zoo/`.
+  Per-repo default-visible finding snapshots are committed under
+  `tests/zoo/snapshots/`, and an opt-in regression test
+  (`REPOPILOT_ZOO=1 cargo test --test zoo_regression`) fails on any drift in
+  real-world output — turning the previously ad-hoc "run on a few real repos and
+  hunt false positives" loop into a permanent, evidence-backed gate.
+
 ## [0.18.0] - 2026-06-18
 
 ### Fixed

@@ -59,7 +59,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
             "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.",
         ),
         false_positive_notes: Some(
-            "Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered.",
+            "Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered. High-entropy tokens that appear inside a URL value (e.g. Firebase Storage download URLs with `?token=` query parameters) are also skipped — they are URL parameters, not hardcoded secrets. Files under paths containing `tutorial` are treated as example/docs code and skipped. Environment-variable name strings such as `envvar=\"GITHUB_TOKEN\"` (all-caps identifiers referencing an env var) are not flagged.",
         ),
         ..RuleMetadata::DEFAULT
     },

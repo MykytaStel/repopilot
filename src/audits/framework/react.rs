@@ -162,6 +162,7 @@ mod tests {
             imports: vec![],
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         });
 
         let findings = ReactClassComponentAudit.audit(&facts, &ScanConfig::default());
@@ -188,6 +189,7 @@ mod tests {
             imports: vec![],
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         });
         // no TypeScript in languages list
 
@@ -218,6 +220,7 @@ mod tests {
             imports: vec![],
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         });
 
         let findings = ReactPropTypesAudit.audit(&facts, &ScanConfig::default());

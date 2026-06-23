@@ -1,7 +1,6 @@
-// AST precision guard: this file lives under a library boundary ("lib"), so a
-// real `throw new Error(...)` here would be flagged. The risky tokens below
-// appear only inside comments and string literals, so AST detection must NOT
-// flag them.
+// AST precision guard: the risky `process.exit(...)` token below appears only
+// inside comments and string literals, so AST detection must NOT flag it (a real
+// call would be flagged in this reusable module).
 
 // Docs: call process.exit(1) only at the CLI entrypoint, never in a library.
 export const usage = "throw new Error('boom') is discouraged in shared modules";

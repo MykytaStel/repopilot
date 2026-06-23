@@ -1,0 +1,114 @@
+# RepoPilot real-repo validation "zoo".
+#
+# Each entry is a real-world open-source repository, pinned to a fixed commit
+# SHA, cloned on demand into a gitignored `.zoo/<name>/` directory. We never
+# vendor repo contents; only the small per-repo finding *snapshots* under
+# tests/zoo/snapshots/ are committed.
+#
+# The set is curated to exercise all 9 AST languages and their key frameworks
+# plus a JS/TS monorepo (package boundaries). Swapping a repo or bumping a SHA
+# is intentional and must be paired with `python3 scripts/zoo.py scan` +
+# re-blessed snapshots (see tests/zoo/README.md).
+#
+# Pins captured 2026-06-18 (HEAD at that time). `python3 scripts/zoo.py
+# verify-pins` checks each clone matches; `git ls-remote <url> HEAD` shows
+# upstream HEAD if you want to advance a pin.
+
+[[repo]]
+name = "ripgrep"
+url = "https://github.com/BurntSushi/ripgrep.git"
+sha = "82313cf95849bfe425109ad9506a52154879b1b1"
+language = "rust"
+framework = ""
+license = "MIT OR Unlicense"
+notes = "Mature Rust CLI; exercises panic-risk + architecture import graph."
+
+[[repo]]
+name = "excalidraw"
+url = "https://github.com/excalidraw/excalidraw.git"
+sha = "28a9b1711dc0625b8ab5d643dc871810ee13642f"
+language = "typescript"
+framework = "react"
+license = "MIT"
+notes = "Real React + TypeScript app; class/hooks mix, large components."
+
+[[repo]]
+name = "express"
+url = "https://github.com/expressjs/express.git"
+sha = "18e5985b8a9d5e8423db0a9121f22bdaecd5b120"
+language = "javascript"
+framework = "express"
+license = "MIT"
+notes = "Node/JS library; var declarations, console usage, callback patterns."
+
+[[repo]]
+name = "wagtail"
+url = "https://github.com/wagtail/wagtail.git"
+sha = "20259838f089138e1319b51621677358b90c8268"
+language = "python"
+framework = "django"
+license = "BSD-3-Clause"
+notes = "Large Django CMS; settings, raw SQL, allowed-hosts surface."
+
+[[repo]]
+name = "fastapi"
+url = "https://github.com/fastapi/fastapi.git"
+sha = "c61384e3d72cc4d32050e05ee409fd8a5d345844"
+language = "python"
+framework = "fastapi"
+license = "MIT"
+notes = "Python ASGI framework; exception-risk + request-into-sink flows."
+
+[[repo]]
+name = "cobra"
+url = "https://github.com/spf13/cobra.git"
+sha = "ad460ea8f249db69c943a365fb84f3a59042d54e"
+language = "go"
+framework = ""
+license = "Apache-2.0"
+notes = "Widely used Go CLI lib; panic/os.Exit risk surface."
+
+[[repo]]
+name = "spring-petclinic"
+url = "https://github.com/spring-projects/spring-petclinic.git"
+sha = "a2c2ef994340d3970eb6db51247456a51bb161f8"
+language = "java"
+framework = "spring-boot"
+license = "Apache-2.0"
+notes = "Canonical Spring Boot sample; injection + config patterns."
+
+[[repo]]
+name = "eshoponweb"
+url = "https://github.com/dotnet-architecture/eShopOnWeb.git"
+sha = "4da8212117e87d808d4bbc7da6286fd2147ce606"
+language = "csharp"
+framework = "aspnet"
+license = "MIT"
+notes = "Reference ASP.NET Core app; managed fatal-exception surface."
+
+[[repo]]
+name = "nowinandroid"
+url = "https://github.com/android/nowinandroid.git"
+sha = "7d45eae4f8720a0c77f507712ba2437ff974b6ed"
+language = "kotlin"
+framework = "android"
+license = "Apache-2.0"
+notes = "Modern Kotlin/Android app; multi-module, fatal-exception surface."
+
+[[repo]]
+name = "ignite"
+url = "https://github.com/infinitered/ignite.git"
+sha = "e829d2f922c5568a59a77bfb6232aeb500be3f13"
+language = "typescript"
+framework = "react-native"
+license = "MIT"
+notes = "React Native boilerplate; RN framework rule surface."
+
+[[repo]]
+name = "changesets"
+url = "https://github.com/changesets/changesets.git"
+sha = "4362db1c826ededed7c5077948ada5738cd7f289"
+language = "typescript"
+framework = ""
+license = "MIT"
+notes = "pnpm monorepo; exercises workspace package-boundary detection."

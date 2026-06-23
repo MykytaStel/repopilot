@@ -41,7 +41,11 @@ pub(super) fn from_cargo_workspace(root: &Path) -> Vec<WorkspacePackage> {
                     && path.join("Cargo.toml").is_file()
                     && let Some(name) = package_name_from_path(&path)
                 {
-                    packages.push(WorkspacePackage { name, root: path });
+                    packages.push(WorkspacePackage {
+                        name,
+                        root: path,
+                        exposes_subpath_exports: false,
+                    });
                 }
             }
         } else {
@@ -49,7 +53,11 @@ pub(super) fn from_cargo_workspace(root: &Path) -> Vec<WorkspacePackage> {
             if path.join("Cargo.toml").is_file()
                 && let Some(name) = package_name_from_path(&path)
             {
-                packages.push(WorkspacePackage { name, root: path });
+                packages.push(WorkspacePackage {
+                    name,
+                    root: path,
+                    exposes_subpath_exports: false,
+                });
             }
         }
     }

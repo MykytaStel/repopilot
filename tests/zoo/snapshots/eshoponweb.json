@@ -1,0 +1,38 @@
+{
+  "default": {
+    "by_priority": {
+      "P0": 3,
+      "P1": 4
+    },
+    "by_rule": {
+      "security.secret-candidate": 7
+    },
+    "fingerprints": [
+      "security.secret-candidate:docker-compose.yml:51c0493bf3025959",
+      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:5a72f55e73b3db87",
+      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:a9ec5b53067db7ff",
+      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598",
+      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598",
+      "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598",
+      "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+    ],
+    "visible_total": 7
+  },
+  "framework": "aspnet",
+  "language": "csharp",
+  "repo": "eshoponweb",
+  "sha": "4da8212117e87d808d4bbc7da6286fd2147ce606",
+  "strict": {
+    "by_rule": {
+      "architecture.dead-module": 208,
+      "architecture.deep-directory-nesting": 30,
+      "architecture.large-file": 1,
+      "code-marker.todo": 9,
+      "code-quality.complex-file": 3,
+      "code-quality.long-function": 8,
+      "security.secret-candidate": 7,
+      "testing.source-without-test": 2
+    },
+    "visible_total": 268
+  }
+}

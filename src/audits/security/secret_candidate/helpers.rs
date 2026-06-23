@@ -18,16 +18,52 @@ fn assigned_secret_value_for_key<'a>(line: &'a str, lower_line: &str, key: &str)
 
     while let Some(offset) = lower_line[search_start..].find(key) {
         let key_start = search_start + offset;
+        search_start = key_start + key.len();
+        // Skip keys that appear inside a URL string literal — e.g. `token=`
+        // inside a Firebase Storage download URL query string is not a secret.
+        if key_is_inside_url_string(line, key_start) {
+            continue;
+        }
         let after_key = &line[key_start + key.len()..];
         if let Some(value) = assigned_value_after_key(after_key)
             && is_secret_literal(value)
         {
             return Some(value);
         }
-        search_start = key_start + key.len();
     }
 
     None
+}
+
+// Returns true when `key` at byte offset `key_start` falls inside a URL string
+// literal on the line — e.g. `token=` inside a Firebase Storage download URL
+// query string is a URL parameter, not a hardcoded secret assignment.
+fn key_is_inside_url_string(line: &str, key_start: usize) -> bool {
+    let prefix = &line[..key_start];
+    if let Some(q) = prefix.rfind('"').or_else(|| prefix.rfind('\'')) {
+        let between = &line[q + 1..key_start];
+        return between.contains("https://") || between.contains("http://");
+    }
+    false
+}
+
+// Returns true when `value` is an env-var *name* used as a string literal —
+// e.g. the `"GITHUB_TOKEN"` in `envvar="GITHUB_TOKEN"`. Env-var names are
+// SCREAMING_SNAKE_CASE, so we require at least one underscore: that keeps real
+// all-caps alphanumeric secrets (e.g. an AWS access key ID `AKIA…`, which has no
+// underscore) detectable while still ignoring env-var name references.
+fn looks_like_env_var_name(value: &str) -> bool {
+    if value.len() < 3 || !value.contains('_') {
+        return false;
+    }
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_uppercase() || first == '_')
+        && value
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
 fn is_secret_literal(value: &str) -> bool {
@@ -35,9 +71,16 @@ fn is_secret_literal(value: &str) -> bool {
     let unquoted = unwrap_first_quoted(value);
     let lower = unquoted.to_lowercase();
 
+    const KNOWN_PLACEHOLDERS: &[&str] = &[
+        "null", "nil", "none", "your_key_here", "short", "password",
+        "test-password", "test_password", "dummy", "example", "changeme",
+        "replace_me", "placeholder", "todo", "xxx", "your_secret",
+        "your_token", "your_api_key", "insert_here", "set_me", "fixme",
+    ];
     let is_placeholder = unquoted.is_empty()
         || is_env_var_reference(unquoted)
         || is_shell_expansion(unquoted)
+        || looks_like_env_var_name(unquoted)
         || unquoted.starts_with("${")
         || unquoted.starts_with("{{")
         || unquoted.starts_with('<')
@@ -45,30 +88,7 @@ fn is_secret_literal(value: &str) -> bool {
         || unquoted.ends_with('…')
         || unquoted.ends_with("...")
         || looks_like_placeholder_value(unquoted)
-        || matches!(
-            lower.as_str(),
-            "null"
-                | "nil"
-                | "none"
-                | "your_key_here"
-                | "short"
-                | "password"
-                | "test-password"
-                | "test_password"
-                | "dummy"
-                | "example"
-                | "changeme"
-                | "replace_me"
-                | "placeholder"
-                | "todo"
-                | "xxx"
-                | "your_secret"
-                | "your_token"
-                | "your_api_key"
-                | "insert_here"
-                | "set_me"
-                | "fixme"
-        );
+        || KNOWN_PLACEHOLDERS.contains(&lower.as_str());
 
     // Known non-secret values: algorithm names, auth scheme keywords, etc.
     const NON_SECRET_VALUES: &[&str] = &[
@@ -258,7 +278,6 @@ fn compact_secret_name(value: &str) -> String {
         .collect()
 }
 
-/// Computes Shannon entropy in bits per character.
 fn shannon_entropy(s: &str) -> f64 {
     if s.is_empty() {
         return 0.0;
@@ -277,5 +296,3 @@ fn shannon_entropy(s: &str) -> f64 {
         .sum()
 }
 
-// Finding construction, value masking, and JWT-token detection live in the
-// included `secret_candidate/finding.rs`.

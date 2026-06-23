@@ -1,0 +1,35 @@
+{
+  "default": {
+    "by_priority": {
+      "P0": 2
+    },
+    "by_rule": {
+      "architecture.circular-dependency": 1,
+      "language.javascript.runtime-exit-risk": 1
+    },
+    "fingerprints": [
+      "architecture.circular-dependency:packages/cli/src/commands/publish/npm-utils.ts:8a41bbd295f5f42b",
+      "language.javascript.runtime-exit-risk:packages/cli/src/utils/cli-utilities.ts:272512749156ce06"
+    ],
+    "visible_total": 2
+  },
+  "framework": "",
+  "language": "typescript",
+  "repo": "changesets",
+  "sha": "4362db1c826ededed7c5077948ada5738cd7f289",
+  "strict": {
+    "by_rule": {
+      "architecture.circular-dependency": 1,
+      "architecture.dead-module": 27,
+      "architecture.large-file": 4,
+      "code-marker.todo": 8,
+      "code-quality.complex-file": 2,
+      "code-quality.complex-function": 11,
+      "code-quality.deep-control-flow": 4,
+      "code-quality.long-function": 30,
+      "language.javascript.runtime-exit-risk": 3,
+      "testing.source-without-test": 28
+    },
+    "visible_total": 118
+  }
+}

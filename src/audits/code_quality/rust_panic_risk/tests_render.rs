@@ -69,5 +69,6 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
         imports: Vec::new(),
         content: Some(content.to_string()),
         has_inline_tests,
+        in_executable_package: false,
     }
 }
