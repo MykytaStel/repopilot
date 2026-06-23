@@ -7,7 +7,41 @@ pub(super) fn is_source_file(path: &Path) -> bool {
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or_default();
-    SOURCE_EXTENSIONS.contains(&ext) && !is_declaration_file(path) && !is_excluded_directory(path)
+    SOURCE_EXTENSIONS.contains(&ext)
+        && !is_declaration_file(path)
+        && !is_excluded_directory(path)
+        && !is_documentation_path(path)
+}
+
+/// Documentation / example source that does not warrant a unit test.
+///
+/// A `docs_src/` tree is an unambiguous documentation name and is skipped wherever
+/// it appears. A bare `docs/` directory is trickier: at a package root (repo root
+/// or a monorepo package such as `packages/<pkg>/docs/`) it holds rendered
+/// examples, but nested inside a source tree (`src/docs/`, `lib/docs/`,
+/// `app/docs/`) it is an ordinary `docs` domain module — common in a
+/// document-management app — and must stay visible. We therefore treat `docs/` as
+/// documentation only when the segment immediately above it is *not* a source
+/// root. This is position-independent, so it holds regardless of any scan-root
+/// prefix on the path.
+fn is_documentation_path(path: &Path) -> bool {
+    const SOURCE_ROOTS: &[&str] = &["src", "lib", "app"];
+    let components: Vec<String> = path
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect();
+
+    if components.iter().any(|component| component == "docs_src") {
+        return true;
+    }
+
+    components.iter().enumerate().any(|(index, component)| {
+        component == "docs"
+            && !index
+                .checked_sub(1)
+                .map(|parent| components[parent].as_str())
+                .is_some_and(|parent| SOURCE_ROOTS.contains(&parent))
+    })
 }
 
 pub(super) fn is_test_file(path: &Path) -> bool {
@@ -86,17 +120,19 @@ pub(super) fn is_low_signal_wrapper(path: &Path) -> bool {
         return true;
     }
 
-    // Python packaging/framework boilerplate and entrypoints: configuration and
-    // wiring, not behaviour that warrants a unit test. `apps.py` is a Django
-    // `AppConfig` registration stub; `manage.py`/`wsgi.py`/`asgi.py` are the
-    // CLI and server entrypoints — the analogue of `__main__.py`.
+    // Python packaging/framework entrypoints: CLI/server wiring, not behaviour
+    // that warrants a unit test. `manage.py`/`wsgi.py`/`asgi.py` are the standard
+    // Django entrypoints — the analogue of `__main__.py`. `apps.py` is *not*
+    // listed: the filename alone is not evidence of a declarative `AppConfig`
+    // stub (it can hold a `ready()` with real startup behaviour, or be an
+    // ordinary `apps` module), and skipping it by name would hide untested
+    // production code.
     matches!(
         name,
         "setup.py"
             | "settings.py"
             | "conftest.py"
             | "__main__.py"
-            | "apps.py"
             | "manage.py"
             | "wsgi.py"
             | "asgi.py"
@@ -128,8 +164,6 @@ fn is_excluded_directory(path: &Path) -> bool {
                 | "tool"
                 | "examples"
                 | "example"
-                | "docs"
-                | "docs_src"
                 | "types"
                 | "@types"
                 | "generated"
