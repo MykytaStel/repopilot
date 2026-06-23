@@ -60,7 +60,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
-        3
+        4
     );
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
@@ -302,6 +302,54 @@ fn changed_scan_cache_hit_preserves_deferred_imports_for_graph_patch() {
     assert!(
         cycles.as_array().is_none_or(Vec::is_empty),
         "deferred imports from cache hits must not become eager cycles: {cached_changed:#?}"
+    );
+}
+
+#[test]
+fn changed_scan_rejects_pre_deferred_imports_file_roles_cache() {
+    // A v3 file-roles cache predates `FileRoleEntry::deferred_imports`. With
+    // `#[serde(default)]` it would rehydrate as `[]`, turn a deferred import back
+    // into an eager edge, and resurrect a phantom cycle on the next cache hit.
+    // Bumping CACHE_SCHEMA_VERSION to 4 must reject it, forcing re-analysis that
+    // restores the deferred imports.
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("app/__init__.py"), "");
+    write(temp.path().join("app/models.py"), "thing = object()\n");
+    write(
+        temp.path().join("app/views.py"),
+        "def handler():\n    from app.models import thing\n    return thing\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    // Establish a deferred cycle: models -> views (eager), views -> models (deferred).
+    write(
+        temp.path().join("app/models.py"),
+        "import app.views\nthing = object()\nAPI_KEY = \"abc123xyz987\"\n",
+    );
+    let first_changed = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(
+        first_changed["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "miss"
+    );
+
+    // Downgrade the persisted file-roles cache to the pre-deferred schema.
+    force_cache_schema(
+        temp.path()
+            .join(".repopilot/cache/file_roles.json")
+            .as_path(),
+        3,
+    );
+
+    let cached_changed = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(
+        cached_changed["cache_telemetry"]["changed_files"][0]["cache_status"], "miss",
+        "a v3 file-roles cache must be rejected, not reused: {cached_changed:#?}"
+    );
+    let cycles = &cached_changed["context_graph_summary"]["cycles"];
+    assert!(
+        cycles.as_array().is_none_or(Vec::is_empty),
+        "re-analysis must restore deferred imports and not report an eager cycle: {cached_changed:#?}"
     );
 }
 

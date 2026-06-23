@@ -25,7 +25,7 @@
   "sha": "20259838f089138e1319b51621677358b90c8268",
   "strict": {
     "by_rule": {
-      "architecture.circular-dependency": 6,
+      "architecture.circular-dependency": 15,
       "architecture.dead-module": 657,
       "architecture.deep-directory-nesting": 1019,
       "architecture.deep-relative-imports": 33,
@@ -47,6 +47,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 671
     },
-    "visible_total": 3117
+    "visible_total": 3126
   }
 }

@@ -16,6 +16,11 @@ pub(super) fn emit_circular_dependency_findings(
     let cycles = find_cycles(&cycle_snapshot);
 
     let mut seen_cycles = BTreeSet::new();
+    // Every file that belongs to an eager (non-deferred) cycle. A full-graph SCC
+    // that touches any of these is *not* deferred-only — it already contains a
+    // real eager cycle that a High finding covers — so it must not also emit a
+    // misleading Low "deferred-only" finding for the larger component.
+    let mut eager_cycle_files: HashSet<PathBuf> = HashSet::new();
     for cycle in &cycles {
         let members: Vec<PathBuf> = cycle
             .node_ids
@@ -28,6 +33,7 @@ pub(super) fn emit_circular_dependency_findings(
         }
 
         if seen_cycles.insert(members.clone()) {
+            eager_cycle_files.extend(members.iter().cloned());
             let shortest: Vec<PathBuf> = shortest_cycle(&cycle_snapshot, cycle)
                 .iter()
                 .filter_map(|id| path_by_id.get(id).cloned())
@@ -56,6 +62,15 @@ pub(super) fn emit_circular_dependency_findings(
             .collect();
 
         if !is_prod_cycle(&members, prod_files) {
+            continue;
+        }
+
+        // Mixed component: this SCC only exists in the full graph because a
+        // deferred edge widened a component that already has an eager cycle.
+        // The eager sub-cycle is reported as High; labelling the whole component
+        // "deferred-only" would be wrong (and its shortest cycle could even be
+        // the eager one), so skip it.
+        if members.iter().any(|path| eager_cycle_files.contains(path)) {
             continue;
         }
 
