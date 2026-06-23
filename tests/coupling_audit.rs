@@ -237,6 +237,38 @@ fn acyclic_imports_do_not_emit_circular_dependency() {
 }
 
 #[test]
+fn deferred_only_python_cycle_is_low_severity() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(&temp, "app/__init__.py", "");
+    write_file(
+        &temp,
+        "app/models.py",
+        "import app.views\nthing = object()\n",
+    );
+    write_file(
+        &temp,
+        "app/views.py",
+        "def handler():\n    from app.models import thing\n    return thing\n",
+    );
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    let finding = summary
+        .artifacts
+        .findings
+        .iter()
+        .find(|finding| finding.rule_id == "architecture.circular-dependency")
+        .expect("expected strict-visible deferred cycle finding");
+    assert_eq!(finding.severity, Severity::Low);
+    assert!(
+        finding.description.contains("deferred-only"),
+        "deferred-only cycle should explain its lower severity: {}",
+        finding.description
+    );
+}
+
+#[test]
 fn multiple_circular_dependencies_are_each_reported() {
     let temp = TempDir::new().expect("failed to create temp dir");
     // Two independent 2-file cycles: a <-> b and c <-> d.

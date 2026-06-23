@@ -203,6 +203,7 @@ impl<'a> ChangedScanEngine<'a> {
                             language: per_file.language.clone(),
                             non_empty_lines: per_file.file_facts.non_empty_lines,
                             imports: per_file.file_facts.imports.clone(),
+                            deferred_imports: per_file.file_facts.deferred_imports.clone(),
                             roles: context.roles,
                             frameworks: context.frameworks,
                             runtimes: context.runtimes,

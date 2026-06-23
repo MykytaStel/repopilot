@@ -11,6 +11,7 @@ impl RepoContextGraph {
                 .map(|file| RepoContextNode::from_file(file, root))
                 .collect(),
             edges: relative_edges(coupling_graph.edges, root),
+            deferred_edges: relative_edges(coupling_graph.deferred_edges, root),
             detected_frameworks: facts.detected_frameworks.clone(),
             framework_projects: facts.framework_projects.clone(),
             react_native: facts.react_native.clone(),
@@ -62,10 +63,7 @@ impl RepoContextGraph {
 
         CouplingGraph {
             edges: self.edges.clone(),
-            // The serialized context-graph cache does not carry deferred-import
-            // edges; cycle detection on a changed-scan cache hit treats all edges
-            // as eager. Full scans (the default surface) resolve deferred edges.
-            deferred_edges: Default::default(),
+            deferred_edges: self.deferred_edges.clone(),
             nodes,
         }
     }
@@ -98,7 +96,9 @@ impl RepoContextGraph {
                 file.path = repo_root.join(&file.path);
             }
         }
-        self.edges = relative_edges(build_coupling_graph(&facts, repo_root).edges, repo_root);
+        let graph = build_coupling_graph(&facts, repo_root);
+        self.edges = relative_edges(graph.edges, repo_root);
+        self.deferred_edges = relative_edges(graph.deferred_edges, repo_root);
     }
 }
 
@@ -134,6 +134,7 @@ impl RepoContextNode {
             workspace_package: None,
             non_empty_lines: file.non_empty_lines,
             imports: file.imports.clone(),
+            deferred_imports: file.deferred_imports.clone(),
             is_test: context.is_test,
             is_generated,
             is_config,
@@ -150,7 +151,7 @@ impl RepoContextNode {
             content: None,
             has_inline_tests: self.is_test,
             in_executable_package: false,
-            deferred_imports: Vec::new(),
+            deferred_imports: self.deferred_imports.clone(),
         }
     }
 }

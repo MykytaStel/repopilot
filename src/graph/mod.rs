@@ -57,18 +57,26 @@ pub fn build_coupling_graph_with_resolution(
     for file in &facts.files {
         let source = file.path.clone();
         let normalized_source = resolver::normalize_path(&source);
+        let deferred_raws = file
+            .deferred_imports
+            .iter()
+            .map(|raw| raw.trim())
+            .collect::<HashSet<_>>();
+        let mut eager_targets = BTreeSet::new();
         // Insert into edges (one clone); nodes is derived from edges keys afterwards.
         let outgoing = edges.entry(source.clone()).or_default();
 
         for raw in &file.imports {
             match resolve_import(raw, &normalized_source, root, &known_files) {
                 Some(target) if target != normalized_source => {
-                    outgoing.insert(
-                        known_file_by_normalized
-                            .get(&target)
-                            .cloned()
-                            .unwrap_or(target),
-                    );
+                    let resolved = known_file_by_normalized
+                        .get(&target)
+                        .cloned()
+                        .unwrap_or(target);
+                    if !deferred_raws.contains(raw.trim()) {
+                        eager_targets.insert(resolved.clone());
+                    }
+                    outgoing.insert(resolved);
                 }
                 // A file importing itself carries no dependency information.
                 Some(_) => {}
@@ -92,10 +100,12 @@ pub fn build_coupling_graph_with_resolution(
                     .get(&target)
                     .cloned()
                     .unwrap_or(target);
-                deferred_edges
-                    .entry(source.clone())
-                    .or_default()
-                    .insert(resolved);
+                if !eager_targets.contains(&resolved) {
+                    deferred_edges
+                        .entry(source.clone())
+                        .or_default()
+                        .insert(resolved);
+                }
             }
         }
     }
@@ -509,6 +519,30 @@ mod tests {
         assert_eq!(
             cycles,
             vec![vec![PathBuf::from("src/a.rs"), PathBuf::from("src/b.rs")]]
+        );
+    }
+
+    #[test]
+    fn eager_resolved_edge_wins_over_deferred_submodule_alias() {
+        let mut source = py("app/views.py", &["app.models", "app.models.thing"]);
+        source.deferred_imports = vec!["app.models.thing".to_string()];
+        let facts = ScanFacts {
+            root_path: PathBuf::from(""),
+            files: vec![source, py("app/models.py", &[])],
+            ..ScanFacts::default()
+        };
+
+        let graph = build_coupling_graph(&facts, Path::new(""));
+        let source = PathBuf::from("app/views.py");
+        let target = PathBuf::from("app/models.py");
+
+        assert!(graph.edges[&source].contains(&target));
+        assert!(
+            !graph
+                .deferred_edges
+                .get(&source)
+                .is_some_and(|targets| targets.contains(&target)),
+            "a deferred imported symbol that resolves to an eager module edge must not strip that edge"
         );
     }
 

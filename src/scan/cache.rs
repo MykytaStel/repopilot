@@ -11,7 +11,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-pub const CACHE_SCHEMA_VERSION: u32 = 2;
+pub const CACHE_SCHEMA_VERSION: u32 = 3;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
@@ -34,6 +34,8 @@ pub struct FileRoleEntry {
     pub non_empty_lines: usize,
     #[serde(default)]
     pub imports: Vec<String>,
+    #[serde(default)]
+    pub deferred_imports: Vec<String>,
     pub roles: Vec<String>,
     pub frameworks: Vec<String>,
     pub runtimes: Vec<String>,

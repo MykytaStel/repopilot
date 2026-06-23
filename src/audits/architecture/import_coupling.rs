@@ -1,14 +1,14 @@
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
-use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles, shortest_cycle};
 use crate::graph::{
     CouplingGraph, FileMetrics, ImportResolutionStats, build_coupling_graph_with_resolution,
-    coupling_file_metrics, without_deferred_edges, without_rust_module_containment_edges,
+    coupling_file_metrics,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+mod cycles;
 mod rust_facade;
 
 #[cfg(test)]
@@ -27,19 +27,6 @@ impl ImportCouplingAudit {
     ) -> (Vec<Finding>, CouplingGraph, ImportResolutionStats) {
         let (graph, resolution) = build_coupling_graph_with_resolution(facts, root);
         let metrics = coupling_file_metrics(&graph);
-
-        // Circular dependencies now run through graph v2's SCC-based cycle
-        // detection. We re-encode the existing (module-containment-stripped)
-        // coupling graph as a `GraphSnapshot` via the shared graph adapter and
-        // reuse `find_cycles`. The v1 coupling graph is still built and returned
-        // to the scan pipeline. Each cycle is one strongly-connected component
-        // (set of mutually dependent files).
-        // Deferred (Python function-body) imports are excluded here, since they
-        // don't form a module-load cycle; fan-out/dead-module above still use the
-        // full graph. Module-containment edges are stripped as before.
-        let cycle_graph = without_deferred_edges(&without_rust_module_containment_edges(&graph));
-        let (cycle_snapshot, path_by_id) = build_coupling_graph_snapshot(&cycle_graph);
-        let cycles = find_cycles(&cycle_snapshot);
 
         let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
@@ -91,29 +78,7 @@ impl ImportCouplingAudit {
             }
         }
 
-        let mut seen_cycles = BTreeSet::new();
-        for cycle in &cycles {
-            let members: Vec<PathBuf> = cycle
-                .node_ids
-                .iter()
-                .filter_map(|id| path_by_id.get(id).cloned())
-                .collect();
-
-            let is_prod_cycle =
-                !members.is_empty() && members.iter().all(|path| prod_files.contains(path));
-
-            if !is_prod_cycle {
-                continue;
-            }
-
-            if seen_cycles.insert(members.clone()) {
-                let shortest: Vec<PathBuf> = shortest_cycle(&cycle_snapshot, cycle)
-                    .iter()
-                    .filter_map(|id| path_by_id.get(id).cloned())
-                    .collect();
-                findings.push(circular_dependency_finding(&members, &shortest, root));
-            }
-        }
+        cycles::emit_circular_dependency_findings(&graph, &prod_files, root, &mut findings);
 
         (findings, graph, resolution)
     }
@@ -222,76 +187,6 @@ fn high_instability_hub_finding(
             line_end: None,
             snippet,
         }],
-        workspace_package: None,
-        docs_url: None,
-        provenance: Default::default(),
-        risk: Default::default(),
-    }
-}
-
-/// `component` is the full strongly-connected component (all mutually dependent
-/// files); `shortest` is the minimal cycle within it, as a closed path
-/// (`a -> b -> a`). The finding leads with the actionable minimal cycle and
-/// carries the component size as context, instead of repeating the whole
-/// component into every evidence snippet.
-fn circular_dependency_finding(
-    component: &[PathBuf],
-    shortest: &[PathBuf],
-    root: &Path,
-) -> Finding {
-    let component_size = component.len();
-
-    // The closed path repeats its first node at the end; the distinct files are
-    // everything but that trailing repeat.
-    let closed: Vec<PathBuf> = if shortest.len() >= 2 {
-        shortest
-            .iter()
-            .map(|path| relative_path(path, root))
-            .collect()
-    } else {
-        component
-            .iter()
-            .map(|path| relative_path(path, root))
-            .collect()
-    };
-    let cycle_path = closed
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join(" -> ");
-    let distinct: Vec<&PathBuf> = closed.iter().take(closed.len().saturating_sub(1)).collect();
-    let distinct = if distinct.is_empty() {
-        closed.iter().collect()
-    } else {
-        distinct
-    };
-
-    let context = if component_size > distinct.len() {
-        format!(" Part of a strongly-connected component of {component_size} files.")
-    } else {
-        String::new()
-    };
-
-    let evidence = distinct
-        .iter()
-        .map(|path| Evidence {
-            path: (*path).clone(),
-            line_start: 1,
-            line_end: None,
-            snippet: format!("Cycle: {cycle_path}.{context}"),
-        })
-        .collect();
-
-    Finding {
-        id: String::new(),
-        rule_id: "architecture.circular-dependency".to_string(),
-        recommendation: Finding::recommendation_for_rule_id("architecture.circular-dependency"),
-        title: "Circular dependency detected".to_string(),
-        description: format!("A circular dependency was detected: {cycle_path}.{context}"),
-        category: FindingCategory::Architecture,
-        severity: Severity::High,
-        confidence: Default::default(),
-        evidence,
         workspace_package: None,
         docs_url: None,
         provenance: Default::default(),
