@@ -93,6 +93,34 @@ pub fn is_test_file(path: &Path) -> bool {
         || file_name.starts_with("tests_")
 }
 
+/// True for Rust *test-support* modules — `testutil.rs`, `test_utils.rs`,
+/// `test_support.rs`, `test_helpers.rs` and singular variants. Unlike a test
+/// file, this is a production module (compiled in normal builds, not behind
+/// `#[cfg(test)]`), but its `panic!`/`unwrap` calls are assertion plumbing for
+/// tests rather than production risk. It is exposed as the separate
+/// `FileRole::TestSupport` so only opted-in rules (currently `rust.panic-risk`)
+/// treat it specially; the file keeps its ordinary production role for every
+/// other rule. An explicit allow list keeps the collision-prone `test_*` prefix
+/// (the production `test_edges.rs` / `source_without_test.rs`) out.
+pub fn is_test_support_file(path: &Path) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_lowercase())
+        .unwrap_or_default();
+
+    matches!(
+        file_name.as_str(),
+        "testutil.rs"
+            | "testutils.rs"
+            | "test_util.rs"
+            | "test_utils.rs"
+            | "test_support.rs"
+            | "test_helper.rs"
+            | "test_helpers.rs"
+    )
+}
+
 pub fn is_config_file(path: &Path) -> bool {
     let file_name = path
         .file_name()
@@ -175,9 +203,29 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::{is_app_entrypoint, is_test_file, path_contains_component};
+    use super::{is_app_entrypoint, is_test_file, is_test_support_file, path_contains_component};
     use crate::audits::context::model::LanguageKind;
     use std::path::Path;
+
+    #[test]
+    fn test_support_allowlist_excludes_production_test_named_modules() {
+        for support in [
+            "crates/searcher/src/testutil.rs",
+            "src/test_utils.rs",
+            "src/test_support.rs",
+            "src/test_helpers.rs",
+        ] {
+            assert!(is_test_support_file(Path::new(support)), "{support}");
+            // A test-support module is NOT a test file — it keeps its production role.
+            assert!(!is_test_file(Path::new(support)), "{support}");
+        }
+        // Production modules whose names merely resemble the `test_*` convention
+        // must not be swept in.
+        assert!(!is_test_support_file(Path::new("src/graph/test_edges.rs")));
+        assert!(!is_test_support_file(Path::new(
+            "src/audits/testing/source_without_test.rs"
+        )));
+    }
 
     #[test]
     fn entrypoints_recognized_by_filename_without_content() {

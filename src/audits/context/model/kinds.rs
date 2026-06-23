@@ -87,6 +87,11 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
+    /// A Rust test-support module (`testutil.rs`, `test_utils.rs`, …): a
+    /// production file whose `panic!`/`unwrap` calls are test assertion plumbing.
+    /// Carried *alongside* the file's production role so only opted-in rules
+    /// (currently `rust.panic-risk`) treat it specially.
+    TestSupport,
     /// A CLI command handler: a file in a `commands/` directory whose package
     /// declares an executable entrypoint (npm `package.json#bin`, Cargo
     /// `[[bin]]`/`src/bin`). Such a command owns its own exit code, so
@@ -226,6 +231,7 @@ impl FileRole {
             FileRole::Generated => "generated",
             FileRole::Domain => "domain",
             FileRole::Script => "script",
+            FileRole::TestSupport => "test-support",
             FileRole::CliExecutable => "cli-executable",
             FileRole::Infrastructure => "infrastructure",
             FileRole::Unknown => "unknown",
