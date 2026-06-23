@@ -360,6 +360,7 @@ fn file(path: &str, language: Option<&str>) -> FileFacts {
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 
@@ -376,6 +377,7 @@ fn graph(edges: &[(&str, &str)]) -> CouplingGraph {
     }
 
     CouplingGraph {
+        deferred_edges: Default::default(),
         edges: edge_map,
         nodes,
     }

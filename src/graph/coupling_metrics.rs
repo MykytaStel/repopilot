@@ -56,6 +56,7 @@ mod tests {
         }
 
         CouplingGraph {
+            deferred_edges: Default::default(),
             edges: edge_map,
             nodes,
         }

@@ -30,10 +30,10 @@
       "code-quality.complex-function": 22,
       "code-quality.deep-control-flow": 3,
       "code-quality.long-function": 59,
-      "language.rust.panic-risk": 88,
+      "language.rust.panic-risk": 97,
       "security.secret-candidate": 2,
       "testing.source-without-test": 27
     },
-    "visible_total": 247
+    "visible_total": 256
   }
 }

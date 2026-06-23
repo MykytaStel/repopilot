@@ -167,6 +167,7 @@ fn facts(path: &str, language: Option<&str>, content: &str, has_inline_tests: bo
         content: Some(content.to_string()),
         has_inline_tests,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 

@@ -11,7 +11,12 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-pub const CACHE_SCHEMA_VERSION: u32 = 2;
+/// Bump whenever the on-disk shape of a cached entry changes so stale caches
+/// are rejected instead of silently deserialized with `#[serde(default)]` gaps.
+/// v4 added `FileRoleEntry::deferred_imports`: a v3 cache lacks the field and
+/// would rehydrate it as `[]`, dropping deferred (function-body) imports and
+/// resurrecting the phantom cycles the deferral was meant to break.
+pub const CACHE_SCHEMA_VERSION: u32 = 4;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
@@ -34,6 +39,8 @@ pub struct FileRoleEntry {
     pub non_empty_lines: usize,
     #[serde(default)]
     pub imports: Vec<String>,
+    #[serde(default)]
+    pub deferred_imports: Vec<String>,
     pub roles: Vec<String>,
     pub frameworks: Vec<String>,
     pub runtimes: Vec<String>,

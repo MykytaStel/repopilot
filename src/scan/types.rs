@@ -255,10 +255,16 @@ pub struct ContextGraphCacheInfo {
     pub cache_path: PathBuf,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CouplingGraph {
     /// Outgoing edges: source file → set of files it imports.
     pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    /// The subset of `edges` that originate from a *deferred* (Python
+    /// function-body) import. Kept in `edges` for fan-out/dead-module, but
+    /// subtracted by cycle detection so a deferral does not form a module-load
+    /// cycle. Usually empty.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     /// Every scanned file, including those with no edges.
     pub nodes: BTreeSet<PathBuf>,
 }

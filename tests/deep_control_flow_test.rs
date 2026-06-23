@@ -14,6 +14,7 @@ fn file_facts(path: &str, language: &str, content: &str) -> FileFacts {
         content: Some(content.to_string()),
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 

@@ -237,6 +237,78 @@ fn acyclic_imports_do_not_emit_circular_dependency() {
 }
 
 #[test]
+fn deferred_only_python_cycle_is_low_severity() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(&temp, "app/__init__.py", "");
+    write_file(
+        &temp,
+        "app/models.py",
+        "import app.views\nthing = object()\n",
+    );
+    write_file(
+        &temp,
+        "app/views.py",
+        "def handler():\n    from app.models import thing\n    return thing\n",
+    );
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    let finding = summary
+        .artifacts
+        .findings
+        .iter()
+        .find(|finding| finding.rule_id == "architecture.circular-dependency")
+        .expect("expected strict-visible deferred cycle finding");
+    assert_eq!(finding.severity, Severity::Low);
+    assert!(
+        finding.description.contains("deferred-only"),
+        "deferred-only cycle should explain its lower severity: {}",
+        finding.description
+    );
+}
+
+#[test]
+fn mixed_scc_with_eager_cycle_emits_only_high_finding() {
+    // Eager cycle a <-> b, plus a deferred edge b -> c and an eager edge c -> a.
+    // The deferred edge widens the full-graph SCC to {a, b, c}, but that component
+    // is NOT deferred-only: it still contains the eager a <-> b cycle. The fix
+    // must report a single High finding for a <-> b and no misleading Low
+    // "deferred-only" finding for {a, b, c}.
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(&temp, "app/__init__.py", "");
+    write_file(&temp, "app/a.py", "import app.b\n");
+    write_file(
+        &temp,
+        "app/b.py",
+        "import app.a\n\n\ndef use():\n    import app.c\n    return app.c\n",
+    );
+    write_file(&temp, "app/c.py", "import app.a\n");
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default())
+        .expect("failed to scan temp project");
+
+    let circular: Vec<_> = summary
+        .artifacts
+        .findings
+        .iter()
+        .filter(|finding| finding.rule_id == "architecture.circular-dependency")
+        .collect();
+
+    assert_eq!(
+        circular.len(),
+        1,
+        "mixed component must yield exactly one High finding, no deferred-only Low: {circular:#?}"
+    );
+    assert_eq!(circular[0].severity, Severity::High);
+    assert!(
+        !circular[0].description.contains("deferred-only"),
+        "the eager cycle must not be mislabelled as deferred-only: {}",
+        circular[0].description
+    );
+}
+
+#[test]
 fn multiple_circular_dependencies_are_each_reported() {
     let temp = TempDir::new().expect("failed to create temp dir");
     // Two independent 2-file cycles: a <-> b and c <-> d.

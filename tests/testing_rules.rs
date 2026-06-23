@@ -245,6 +245,7 @@ fn python_init_and_infra_not_flagged() {
                 content: None,
                 has_inline_tests: false,
                 in_executable_package: false,
+                deferred_imports: Vec::new(),
             }],
             files_analyzed: 1,
             ..ScanFacts::default()
@@ -287,6 +288,7 @@ fn ts_file(path: &str) -> FileFacts {
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 
@@ -300,5 +302,6 @@ fn file(path: &str) -> FileFacts {
         content: Some("pub fn value() {}\n".to_string()),
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }

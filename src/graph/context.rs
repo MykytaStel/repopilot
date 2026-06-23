@@ -18,7 +18,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 3;
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 4;
 pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v2";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
@@ -36,6 +36,8 @@ pub struct RepoContextGraph {
     pub root_path: PathBuf,
     pub nodes: Vec<RepoContextNode>,
     pub edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    #[serde(default)]
+    pub deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     #[serde(default)]
     pub detected_frameworks: Vec<crate::frameworks::DetectedFramework>,
     #[serde(default)]
@@ -62,6 +64,8 @@ pub struct RepoContextNode {
     pub non_empty_lines: usize,
     #[serde(default)]
     pub imports: Vec<String>,
+    #[serde(default)]
+    pub deferred_imports: Vec<String>,
     pub is_test: bool,
     pub is_generated: bool,
     pub is_config: bool,
@@ -132,6 +136,7 @@ mod tests {
             root_path: PathBuf::from("."),
             nodes,
             edges,
+            deferred_edges: BTreeMap::new(),
             detected_frameworks: Vec::new(),
             framework_projects: Vec::new(),
             react_native: None,
@@ -158,6 +163,7 @@ mod tests {
             root_path: PathBuf::from("."),
             nodes: Vec::new(),
             edges: BTreeMap::new(),
+            deferred_edges: BTreeMap::new(),
             detected_frameworks: Vec::new(),
             framework_projects: Vec::new(),
             react_native: None,
@@ -192,6 +198,7 @@ mod tests {
             root_path: PathBuf::from("."),
             nodes: vec![node(&a), node(&b), node(&shared)],
             edges,
+            deferred_edges: BTreeMap::new(),
             detected_frameworks: Vec::new(),
             framework_projects: Vec::new(),
             react_native: None,
@@ -219,6 +226,7 @@ mod tests {
             workspace_package: None,
             non_empty_lines: 1,
             imports: Vec::new(),
+            deferred_imports: Vec::new(),
             is_test: false,
             is_generated: false,
             is_config: false,

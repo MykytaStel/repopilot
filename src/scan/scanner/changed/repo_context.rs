@@ -13,6 +13,7 @@ use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::cache::{config_fingerprint, relative_cache_path};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::types::cache_diagnostic;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -117,9 +118,8 @@ fn detect_react_native_profile(
 }
 
 fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGraph {
-    CouplingGraph {
-        edges: graph
-            .edges
+    let relativize_edges = |edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>| {
+        edges
             .into_iter()
             .map(|(source, targets)| {
                 (
@@ -130,7 +130,12 @@ fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGr
                         .collect(),
                 )
             })
-            .collect(),
+            .collect()
+    };
+
+    CouplingGraph {
+        edges: relativize_edges(graph.edges),
+        deferred_edges: relativize_edges(graph.deferred_edges),
         nodes: graph
             .nodes
             .into_iter()

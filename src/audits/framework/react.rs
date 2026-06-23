@@ -163,6 +163,7 @@ mod tests {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         });
 
         let findings = ReactClassComponentAudit.audit(&facts, &ScanConfig::default());
@@ -190,6 +191,7 @@ mod tests {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         });
         // no TypeScript in languages list
 
@@ -221,6 +223,7 @@ mod tests {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         });
 
         let findings = ReactPropTypesAudit.audit(&facts, &ScanConfig::default());

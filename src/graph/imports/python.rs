@@ -2,38 +2,66 @@ use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
 pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
-    let mut result = BTreeMap::new();
-    visit(tree.root_node(), content, &mut result);
-    result
+    let mut scan = ImportScan::default();
+    visit(tree.root_node(), content, false, &mut scan);
+    // Eager spans win when a module is imported both ways (collected last).
+    scan.deferred.into_iter().chain(scan.eager).collect()
 }
 
 pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
-fn visit(node: Node<'_>, content: &str, result: &mut BTreeMap<String, (usize, usize)>) {
+/// Imports that appear *only* inside a `def`/method body. A function body runs
+/// only when called, so such an import is a *deferred* import — the idiomatic
+/// way Python breaks an import cycle, and not part of the module-load dependency
+/// graph. The coupling graph still records these as edges (they are a real, if
+/// lazy, dependency, which `dead-module`/`excessive-fan-out` must see), but
+/// cycle detection subtracts them so a deferral does not resurrect the very
+/// cycle it broke. A module imported *both* eagerly and lazily keeps its eager
+/// edge, so it is excluded here. Module-scope imports inside `if`/`try` blocks
+/// run at import time and are never deferred.
+pub(super) fn extract_deferred(tree: &Tree, content: &str) -> HashSet<String> {
+    let mut scan = ImportScan::default();
+    visit(tree.root_node(), content, false, &mut scan);
+    scan.deferred
+        .into_keys()
+        .filter(|module| !scan.eager.contains_key(module))
+        .collect()
+}
+
+#[derive(Default)]
+struct ImportScan {
+    eager: BTreeMap<String, (usize, usize)>,
+    deferred: BTreeMap<String, (usize, usize)>,
+}
+
+fn visit(node: Node<'_>, content: &str, in_function: bool, scan: &mut ImportScan) {
     let span = (node.start_position().row + 1, node.end_position().row + 1);
-    match node.kind() {
-        "import_statement" => {
-            if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                for module in import_statement_modules(text) {
-                    result.entry(module).or_insert(span);
-                }
-            }
-        }
-        "import_from_statement" => {
-            if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                for module in from_import_modules(text) {
-                    result.entry(module).or_insert(span);
-                }
-            }
-        }
-        _ => {}
+    let modules = match node.kind() {
+        "import_statement" => node
+            .utf8_text(content.as_bytes())
+            .ok()
+            .map(import_statement_modules),
+        "import_from_statement" => node
+            .utf8_text(content.as_bytes())
+            .ok()
+            .map(from_import_modules),
+        _ => None,
+    };
+    for module in modules.into_iter().flatten() {
+        let bucket = if in_function {
+            &mut scan.deferred
+        } else {
+            &mut scan.eager
+        };
+        bucket.entry(module).or_insert(span);
     }
 
+    let child_in_function = in_function || node.kind() == "function_definition";
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        visit(child, content, result);
+        visit(child, content, child_in_function, scan);
     }
 }
 

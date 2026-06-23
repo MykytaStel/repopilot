@@ -242,6 +242,7 @@ fn enrich_blast_radius_counts_importers_from_graph() {
         BTreeSet::from([PathBuf::from("src/auth/session.ts")]),
     );
     let graph = CouplingGraph {
+        deferred_edges: Default::default(),
         edges,
         nodes: BTreeSet::new(),
     };

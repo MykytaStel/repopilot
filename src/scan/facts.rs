@@ -34,6 +34,11 @@ pub struct FileFacts {
     pub non_empty_lines: usize,
     pub branch_count: usize,
     pub imports: Vec<String>,
+    /// Imports present only inside a function body (Python deferred imports). A
+    /// subset of `imports`; the coupling graph keeps them as edges but cycle
+    /// detection subtracts them, since a deferred import does not form a
+    /// module-load cycle. Empty for languages without the deferred-import idiom.
+    pub deferred_imports: Vec<String>,
     /// Source text while file audits are running. `None` means the file was skipped,
     /// binary/unreadable, or retained only as summary metadata after auditing.
     pub content: Option<String>,

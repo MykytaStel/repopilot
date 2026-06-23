@@ -524,23 +524,26 @@ severity = "HIGH"
 
 # Rust test-support modules (`testutil.rs`, `test_utils.rs`, ...): production
 # files whose `panic!`/`unwrap`/`expect` are test assertion plumbing, not runtime
-# risk. Treat those three like a test file (`unwrap`/`expect` suppressed, `panic!`
-# downgraded to Low/strict-only) while the file keeps its production role for all
-# other rules. `todo!`/`unimplemented!` are left visible. Placed last so the
-# downgrade wins over the `runtime = "rust-library"` panic upgrade above (unlike a
-# real test file, a test-support module is not `is_test`, so it is not skipped by
-# the test-gating that shields `tests/` files from those runtime upgrades).
+# risk. Because such a module *does* compile in normal builds (it is not
+# guaranteed test-only), the filename is enough evidence to hide the finding by
+# default but not to delete it: all three are **downgraded to Low** — hidden in
+# the default profile, still available under `--profile strict` (the high-recall
+# mode) — while the file keeps its production role for every other rule.
+# `todo!`/`unimplemented!` are left visible. Placed last so the downgrade wins
+# over the `runtime = "rust-library"` panic upgrade above (unlike a real test
+# file, a test-support module is not `is_test`, so it is not skipped by the
+# test-gating that shields `tests/` files from those runtime upgrades).
 [[rules.overrides]]
 signal = "rust.unwrap"
 role = "test-support"
-action = "suppress"
-reason = "Rust unwrap in a test-support module is assertion setup, not production panic risk."
+action = "downgrade"
+severity = "LOW"
 
 [[rules.overrides]]
 signal = "rust.expect"
 role = "test-support"
-action = "suppress"
-reason = "Rust expect in a test-support module is assertion setup, not production panic risk."
+action = "downgrade"
+severity = "LOW"
 
 [[rules.overrides]]
 signal = "rust.panic"

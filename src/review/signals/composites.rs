@@ -95,6 +95,7 @@ mod tests {
             edge_map.entry(src).or_default().insert(dst);
         }
         CouplingGraph {
+            deferred_edges: Default::default(),
             edges: edge_map,
             nodes,
         }

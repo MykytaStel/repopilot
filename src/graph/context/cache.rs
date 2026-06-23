@@ -131,6 +131,7 @@ fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
         "resolver": CONTEXT_GRAPH_RESOLVER_VERSION,
         "nodes": &nodes,
         "edges": &edges,
+        "deferred_edges": stable_deferred_edge_inputs(graph),
         "frameworks": &graph.detected_frameworks,
         "framework_projects": &graph.framework_projects,
         "react_native": &graph.react_native,
@@ -144,6 +145,7 @@ fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
         "input": input_fingerprint,
         "nodes": &nodes,
         "edges": &edges,
+        "deferred_edges": stable_deferred_edge_inputs(graph),
         "frameworks": &graph.detected_frameworks,
         "framework_projects": &graph.framework_projects,
         "react_native": &graph.react_native,
@@ -200,6 +202,7 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
                 "workspace_package": &node.workspace_package,
                 "non_empty_lines": node.non_empty_lines,
                 "imports": sorted_strings(&node.imports),
+                "deferred_imports": sorted_strings(&node.deferred_imports),
                 "is_test": node.is_test,
                 "is_generated": node.is_generated,
                 "is_config": node.is_config,
@@ -210,9 +213,16 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
     nodes
 }
 
+fn stable_deferred_edge_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
+    stable_edge_map_inputs(&graph.deferred_edges)
+}
+
 fn stable_edge_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
-    graph
-        .edges
+    stable_edge_map_inputs(&graph.edges)
+}
+
+fn stable_edge_map_inputs(edges: &BTreeMap<PathBuf, BTreeSet<PathBuf>>) -> Vec<serde_json::Value> {
+    edges
         .iter()
         .map(|(source, targets)| {
             let mut targets = targets

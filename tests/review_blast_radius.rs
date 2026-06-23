@@ -138,6 +138,7 @@ fn render_console_includes_blast_radius_section_when_present() {
             },
             artifacts: ScanArtifacts {
                 coupling_graph: Some(CouplingGraph {
+                    deferred_edges: Default::default(),
                     edges: BTreeMap::new(),
                     nodes: BTreeSet::new(),
                 }),

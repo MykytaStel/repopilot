@@ -34,6 +34,7 @@ pub fn build_explain_report(
         content: Some(content),
         has_inline_tests,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     };
 
     let audit_context = classify_file(&file);

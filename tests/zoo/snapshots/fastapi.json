@@ -1,15 +1,16 @@
 {
   "default": {
     "by_priority": {
-      "P0": 1
+      "P0": 2
     },
     "by_rule": {
-      "architecture.circular-dependency": 1
+      "architecture.circular-dependency": 2
     },
     "fingerprints": [
-      "architecture.circular-dependency:fastapi/__init__.py:81cea0afc607c53a"
+      "architecture.circular-dependency:fastapi/__init__.py:81cea0afc607c53a",
+      "architecture.circular-dependency:fastapi/_compat/__init__.py:f448052db436d085"
     ],
-    "visible_total": 1
+    "visible_total": 2
   },
   "framework": "fastapi",
   "language": "python",
@@ -17,7 +18,7 @@
   "sha": "c61384e3d72cc4d32050e05ee409fd8a5d345844",
   "strict": {
     "by_rule": {
-      "architecture.circular-dependency": 1,
+      "architecture.circular-dependency": 2,
       "architecture.dead-module": 449,
       "architecture.large-file": 17,
       "architecture.too-many-modules": 3,
@@ -29,6 +30,6 @@
       "language.python.exception-risk": 103,
       "testing.source-without-test": 389
     },
-    "visible_total": 1115
+    "visible_total": 1116
   }
 }

@@ -240,6 +240,7 @@ mod tests {
                 content: None,
                 has_inline_tests: false,
                 in_executable_package: false,
+                deferred_imports: Vec::new(),
             }],
             ..ScanFacts::default()
         }
