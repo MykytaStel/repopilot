@@ -2,8 +2,8 @@ use super::frameworks::{
     is_dotnet_controller, is_dotnet_service, is_react_component_file, is_react_hook_file,
 };
 use super::helpers::{
-    is_app_entrypoint, is_config_file, is_generated_file, is_js_or_ts, path_contains_component,
-    push_unique,
+    is_app_entrypoint, is_config_file, is_generated_file, is_js_or_ts, is_test_support_file,
+    path_contains_component, push_unique,
 };
 use super::signals::ContextSignals;
 use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind};
@@ -57,6 +57,13 @@ fn classify_static_roles(
         if language == LanguageKind::Rust {
             push_unique(roles, FileRole::RustTest);
         }
+    }
+
+    // Test-support modules keep their production role but also carry this marker
+    // so `rust.panic-risk` can treat their assertion `panic!`/`unwrap` calls as
+    // non-production without affecting any other rule.
+    if language == LanguageKind::Rust && is_test_support_file(path) {
+        push_unique(roles, FileRole::TestSupport);
     }
 }
 

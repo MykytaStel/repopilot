@@ -51,6 +51,7 @@ mod tests {
                 imports: vec!["crate::facts".to_string()],
                 content: None,
                 has_inline_tests: true,
+                in_executable_package: false,
             }],
             ..ScanFacts::default()
         };
