@@ -84,6 +84,7 @@ fn large_file_audit_skips_non_code_files() {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         };
 
         let findings = LargeFileAudit.audit(&file, &ScanConfig::default());
@@ -110,6 +111,7 @@ fn large_file_audit_skips_stylesheet_and_markup_files() {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         };
 
         let findings = LargeFileAudit.audit(&file, &ScanConfig::default());
@@ -132,6 +134,7 @@ fn large_file_audit_skips_test_and_fixture_paths() {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         };
 
         let findings = LargeFileAudit.audit(&file, &ScanConfig::default());

@@ -51,6 +51,7 @@ pub fn build_coupling_graph_with_resolution(
         resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
+    let mut deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
     let mut resolution = ImportResolutionStats::default();
 
     for file in &facts.files {
@@ -79,6 +80,24 @@ pub fn build_coupling_graph_with_resolution(
                 }
             }
         }
+
+        // Record the deferred (function-body) subset against the same source so
+        // cycle detection can subtract these edges. `deferred_imports ⊆ imports`,
+        // so every resolved target is already present in `edges` above.
+        for raw in &file.deferred_imports {
+            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files)
+                && target != normalized_source
+            {
+                let resolved = known_file_by_normalized
+                    .get(&target)
+                    .cloned()
+                    .unwrap_or(target);
+                deferred_edges
+                    .entry(source.clone())
+                    .or_default()
+                    .insert(resolved);
+            }
+        }
     }
 
     // Build nodes from all sources (edge origins + edge targets).
@@ -87,7 +106,14 @@ pub fn build_coupling_graph_with_resolution(
         nodes.extend(targets.iter().cloned());
     }
 
-    (CouplingGraph { edges, nodes }, resolution)
+    (
+        CouplingGraph {
+            edges,
+            deferred_edges,
+            nodes,
+        },
+        resolution,
+    )
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
@@ -159,16 +185,21 @@ pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Ve
     // Map each node to a stable integer index
     let index: HashMap<&PathBuf, usize> = nodes.iter().enumerate().map(|(i, p)| (*p, i)).collect();
 
-    // Adjacency list using indices
+    // Adjacency list using indices. Deferred (function-body) edges are excluded:
+    // a deferred import runs only when a function is called, so it does not form a
+    // module-load cycle — counting it would resurrect the very cycle the deferral
+    // was written to break.
     let adj: Vec<Vec<usize>> = nodes
         .iter()
         .map(|node| {
+            let deferred = graph.deferred_edges.get(*node);
             graph
                 .edges
                 .get(*node)
                 .map(|targets| {
                     targets
                         .iter()
+                        .filter(|t| !deferred.is_some_and(|d| d.contains(*t)))
                         .filter_map(|t| index.get(t).copied())
                         .collect()
                 })
@@ -236,6 +267,40 @@ pub fn without_rust_module_containment_edges(graph: &CouplingGraph) -> CouplingG
 
     CouplingGraph {
         edges,
+        // Rust-only transform; the Python-only deferred edges pass through.
+        deferred_edges: graph.deferred_edges.clone(),
+        nodes: graph.nodes.clone(),
+    }
+}
+
+/// Returns a copy of `graph` with every *deferred* (Python function-body) edge
+/// removed, for cycle detection only. A deferred import runs only when a function
+/// is called, so it does not form a module-load cycle — keeping it would
+/// resurrect the very cycle the deferral was written to break. Fan-out and
+/// dead-module use the full graph, so this is applied solely to the cycle graph.
+pub fn without_deferred_edges(graph: &CouplingGraph) -> CouplingGraph {
+    if graph.deferred_edges.is_empty() {
+        return graph.clone();
+    }
+    let edges = graph
+        .edges
+        .iter()
+        .map(|(source, targets)| {
+            let deferred = graph.deferred_edges.get(source);
+            (
+                source.clone(),
+                targets
+                    .iter()
+                    .filter(|target| !deferred.is_some_and(|d| d.contains(*target)))
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+            )
+        })
+        .collect();
+
+    CouplingGraph {
+        edges,
+        deferred_edges: BTreeMap::new(),
         nodes: graph.nodes.clone(),
     }
 }
@@ -330,6 +395,7 @@ mod tests {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         }
     }
 
@@ -370,6 +436,7 @@ mod tests {
         }
 
         CouplingGraph {
+            deferred_edges: Default::default(),
             edges: edge_map,
             nodes,
         }
@@ -393,6 +460,28 @@ mod tests {
 
         assert_eq!(cycles.len(), 1);
         assert_eq!(cycles[0].len(), 3);
+    }
+
+    #[test]
+    fn deferred_back_edge_does_not_form_a_cycle() {
+        // `a -> b` eager, `b -> a` deferred (Python function-body import). The
+        // deferral breaks the load-time cycle, so neither the v1 detector nor the
+        // deferred-stripped cycle graph should report one — while the full graph
+        // keeps both edges for fan-out/dead-module.
+        let mut graph = graph_from_edges(&[("a.py", "b.py"), ("b.py", "a.py")]);
+        graph
+            .deferred_edges
+            .entry(PathBuf::from("b.py"))
+            .or_default()
+            .insert(PathBuf::from("a.py"));
+
+        assert!(detect_cycles(&graph).is_empty());
+
+        let cycle_graph = without_deferred_edges(&graph);
+        assert!(cycle_graph.deferred_edges.is_empty());
+        assert!(detect_cycles(&cycle_graph).is_empty());
+        // The full graph still carries the deferred edge as a real dependency.
+        assert!(graph.edges[&PathBuf::from("b.py")].contains(&PathBuf::from("a.py")));
     }
 
     #[test]

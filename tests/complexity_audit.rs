@@ -14,6 +14,7 @@ fn make_file(non_empty_lines: usize, branch_count: usize) -> FileFacts {
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 
@@ -80,6 +81,7 @@ fn skips_unsupported_language() {
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     };
     let findings = ComplexityAudit.audit(&file, &ScanConfig::default());
     assert!(findings.is_empty());

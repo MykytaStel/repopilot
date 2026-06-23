@@ -2,7 +2,7 @@ use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Sev
 use crate::graph::v2::{build_coupling_graph_snapshot, find_cycles, shortest_cycle};
 use crate::graph::{
     CouplingGraph, FileMetrics, ImportResolutionStats, build_coupling_graph_with_resolution,
-    coupling_file_metrics, without_rust_module_containment_edges,
+    coupling_file_metrics, without_deferred_edges, without_rust_module_containment_edges,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
@@ -34,7 +34,10 @@ impl ImportCouplingAudit {
         // reuse `find_cycles`. The v1 coupling graph is still built and returned
         // to the scan pipeline. Each cycle is one strongly-connected component
         // (set of mutually dependent files).
-        let cycle_graph = without_rust_module_containment_edges(&graph);
+        // Deferred (Python function-body) imports are excluded here, since they
+        // don't form a module-load cycle; fan-out/dead-module above still use the
+        // full graph. Module-containment edges are stripped as before.
+        let cycle_graph = without_deferred_edges(&without_rust_module_containment_edges(&graph));
         let (cycle_snapshot, path_by_id) = build_coupling_graph_snapshot(&cycle_graph);
         let cycles = find_cycles(&cycle_snapshot);
 

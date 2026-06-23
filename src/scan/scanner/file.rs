@@ -3,7 +3,7 @@ use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
-use crate::graph::imports::extract_imports_from;
+use crate::graph::imports::{extract_deferred_imports_from, extract_imports_from};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
@@ -114,6 +114,7 @@ pub(super) fn load_file(
             has_inline_tests,
             content: Some(content),
             in_executable_package: path_in_executable_package(path, package_roots),
+            deferred_imports: Vec::new(),
         },
         language,
     })
@@ -136,6 +137,7 @@ pub(super) fn empty_file_facts(path: &Path, language: Option<String>) -> FileFac
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 
@@ -219,18 +221,21 @@ fn process_file_inner(
 
     let context = PerFileContext::from_file(&full_facts);
     let mut findings = Vec::new();
-    let imports = {
+    let (imports, deferred_imports) = {
         // Parse the file at most once and share the syntax tree across both
         // import extraction and every audit. Scoped so the borrow of
-        // `full_facts` ends before `imports` is written back and it is moved.
+        // `full_facts` ends before the import lists are written back and it is moved.
         let parsed = ParsedFile::for_facts(&full_facts);
-        let imports = extract_imports_from(&parsed, full_facts.language.as_deref());
+        let lang = full_facts.language.as_deref();
+        let imports = extract_imports_from(&parsed, lang);
+        let deferred_imports = extract_deferred_imports_from(&parsed, lang);
         for audit in file_audits {
             findings.extend(audit.audit_parsed(&full_facts, &parsed, config));
         }
-        imports
+        (imports, deferred_imports)
     };
     full_facts.imports = imports;
+    full_facts.deferred_imports = deferred_imports;
 
     Ok(PerFileResult {
         file_facts: if retain_content {
@@ -262,11 +267,16 @@ pub(super) fn collect_file_facts(
     // No audits run on this path, so the parse view is built solely to extract
     // imports; it is still parsed at most once via the shared parsers. Bind the
     // result first so the view's borrow of `full_facts` ends before the write.
-    let imports = extract_imports_from(
-        &ParsedFile::for_facts(&full_facts),
-        full_facts.language.as_deref(),
-    );
+    let (imports, deferred_imports) = {
+        let parsed = ParsedFile::for_facts(&full_facts);
+        let lang = full_facts.language.as_deref();
+        (
+            extract_imports_from(&parsed, lang),
+            extract_deferred_imports_from(&parsed, lang),
+        )
+    };
     full_facts.imports = imports;
+    full_facts.deferred_imports = deferred_imports;
 
     record_analyzed_file(facts, languages, &full_facts);
     facts.files.push(full_facts);

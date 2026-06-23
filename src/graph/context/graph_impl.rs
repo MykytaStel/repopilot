@@ -62,6 +62,10 @@ impl RepoContextGraph {
 
         CouplingGraph {
             edges: self.edges.clone(),
+            // The serialized context-graph cache does not carry deferred-import
+            // edges; cycle detection on a changed-scan cache hit treats all edges
+            // as eager. Full scans (the default surface) resolve deferred edges.
+            deferred_edges: Default::default(),
             nodes,
         }
     }
@@ -146,6 +150,7 @@ impl RepoContextNode {
             content: None,
             has_inline_tests: self.is_test,
             in_executable_package: false,
+            deferred_imports: Vec::new(),
         }
     }
 }

@@ -79,6 +79,7 @@ mod tests {
         }
 
         CouplingGraph {
+            deferred_edges: Default::default(),
             edges: edge_map,
             nodes,
         }
@@ -87,6 +88,7 @@ mod tests {
     #[test]
     fn empty_coupling_graph_produces_empty_snapshot() {
         let graph = CouplingGraph {
+            deferred_edges: Default::default(),
             edges: BTreeMap::new(),
             nodes: BTreeSet::new(),
         };
@@ -131,6 +133,7 @@ mod tests {
         // endpoints are materialized as nodes so snapshot validation never drops
         // the relationship.
         let graph = CouplingGraph {
+            deferred_edges: Default::default(),
             edges: BTreeMap::from([(
                 PathBuf::from("a.rs"),
                 BTreeSet::from([PathBuf::from("b.rs")]),

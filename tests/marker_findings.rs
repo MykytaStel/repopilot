@@ -22,6 +22,7 @@ fn main() {}
         content: Some(content.to_string()),
         has_inline_tests: false,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     };
 
     let findings = detect_code_marker_findings(&file);

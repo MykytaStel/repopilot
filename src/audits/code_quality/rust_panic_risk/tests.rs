@@ -310,9 +310,10 @@ fn downgrades_panic_in_rust_test_support_module() {
 }
 
 #[test]
-fn suppresses_unwrap_in_rust_test_support_module() {
-    // An `unwrap` in test-support code is assertion setup; the test role
-    // suppresses it entirely, as it does for `tests/` files.
+fn downgrades_unwrap_in_rust_test_support_module() {
+    // An `unwrap` in test-support code is assertion setup, but the module still
+    // compiles in normal builds, so it is downgraded to Low (hidden in default,
+    // kept under strict) rather than deleted — strict is the high-recall mode.
     let file = facts(
         "crates/searcher/src/testutil.rs",
         "pub fn first(v: &[u8]) -> u8 { *v.first().unwrap() }",
@@ -321,7 +322,8 @@ fn suppresses_unwrap_in_rust_test_support_module() {
 
     let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
 
-    assert!(findings.is_empty());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Low);
 }
 
 #[test]
@@ -441,6 +443,7 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
         content: Some(content.to_string()),
         has_inline_tests,
         in_executable_package: false,
+        deferred_imports: Vec::new(),
     }
 }
 
