@@ -8,6 +8,7 @@ use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
 use crate::scan::path_classification::is_low_signal_audit_path;
+use crate::scan::workspace::{PackageRoot, path_in_executable_package};
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -51,7 +52,11 @@ pub(super) enum LoadedFile {
     },
 }
 
-pub(super) fn load_file(path: &Path, config: &ScanConfig) -> io::Result<LoadedFile> {
+pub(super) fn load_file(
+    path: &Path,
+    config: &ScanConfig,
+    package_roots: &[PackageRoot],
+) -> io::Result<LoadedFile> {
     let language = detect_language(path).map(str::to_string);
 
     if config.max_file_bytes > 0 {
@@ -108,6 +113,7 @@ pub(super) fn load_file(path: &Path, config: &ScanConfig) -> io::Result<LoadedFi
             imports: Vec::new(),
             has_inline_tests,
             content: Some(content),
+            in_executable_package: path_in_executable_package(path, package_roots),
         },
         language,
     })
@@ -129,6 +135,7 @@ pub(super) fn empty_file_facts(path: &Path, language: Option<String>) -> FileFac
         imports: Vec::new(),
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     }
 }
 
@@ -180,16 +187,18 @@ pub(super) fn process_file(
     path: &Path,
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    process_file_inner(path, file_audits, config, false)
+    process_file_inner(path, file_audits, config, false, package_roots)
 }
 
 pub(super) fn process_file_with_content(
     path: &Path,
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    process_file_inner(path, file_audits, config, true)
+    process_file_inner(path, file_audits, config, true, package_roots)
 }
 
 fn process_file_inner(
@@ -197,8 +206,9 @@ fn process_file_inner(
     file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
     retain_content: bool,
+    package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
-    let loaded = load_file(path, config)?;
+    let loaded = load_file(path, config, package_roots)?;
     let LoadedFile::Analyzable {
         mut full_facts,
         language,
@@ -241,9 +251,10 @@ pub(super) fn collect_file_facts(
     facts: &mut ScanFacts,
     languages: &mut HashMap<String, usize>,
     config: &ScanConfig,
+    package_roots: &[PackageRoot],
 ) -> io::Result<()> {
     let LoadedFile::Analyzable { mut full_facts, .. } =
-        load_file_or_record_skip(path, facts, config)?
+        load_file_or_record_skip(path, facts, config, package_roots)?
     else {
         return Ok(());
     };
@@ -267,8 +278,9 @@ fn load_file_or_record_skip(
     path: &Path,
     facts: &mut ScanFacts,
     config: &ScanConfig,
+    package_roots: &[PackageRoot],
 ) -> io::Result<LoadedFile> {
-    let loaded = load_file(path, config)?;
+    let loaded = load_file(path, config, package_roots)?;
     if let LoadedFile::Skipped {
         language,
         reason,
@@ -376,8 +388,12 @@ mod tests {
 
     #[test]
     fn missing_file_is_skipped_instead_of_aborting_scan() {
-        let loaded = load_file(Path::new("missing-after-walk.rs"), &ScanConfig::default())
-            .expect("missing file should be classified as skipped");
+        let loaded = load_file(
+            Path::new("missing-after-walk.rs"),
+            &ScanConfig::default(),
+            &[],
+        )
+        .expect("missing file should be classified as skipped");
 
         let LoadedFile::Skipped {
             language,

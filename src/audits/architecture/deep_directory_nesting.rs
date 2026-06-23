@@ -198,6 +198,7 @@ mod tests {
             imports: Vec::new(),
             content: Some("".to_string()),
             has_inline_tests: false,
+            in_executable_package: false,
         }
     }
 }

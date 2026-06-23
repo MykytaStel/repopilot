@@ -251,18 +251,18 @@ Go panic and process-exit operations can terminate the program abruptly. Their r
 
 **Known false positives:** `panic`, `log.Fatal`/`log.Fatalf`, and `os.Exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
-### `language.javascript.runtime-exit-risk` — Risky JavaScript runtime exit or library throw
+### `language.javascript.runtime-exit-risk` — Risky JavaScript runtime exit
 
 - **Severity:** MEDIUM
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
 
-Process exits and generic thrown errors have different risk at a CLI boundary than in reusable browser, Node, or package code.
+A `process.exit(...)` call terminates the host process, which is expected at a CLI boundary but unsafe in reusable browser, Node, or package code.
 
-**Recommendation:** Prefer returning typed errors, rejecting promises with actionable context, or centralising CLI exit handling at the entrypoint.
+**Recommendation:** Return typed errors or reject promises with actionable context from reusable modules, and centralise process exits at the CLI entrypoint.
 
-**Known false positives:** `process.exit` calls and `throw new Error(...)` are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
+**Known false positives:** `process.exit` calls are matched from the parsed syntax tree, so the same text inside comments or string literals is not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
 ### `language.managed.fatal-exception-risk` — Risky JVM or .NET fatal exception placeholder
 
@@ -284,11 +284,11 @@ Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C#
 - **Lifecycle:** preview
 - **Signal source:** ast
 
-Broad exception handlers, production asserts, and NotImplementedError placeholders can hide failures or ship incomplete behaviour. Their severity depends on test, script, and domain context.
+A broad `except:` handler can hide unrelated failures. `assert` (often type-narrowing or an internal invariant) and `raise NotImplementedError` (usually an abstract-method declaration) are overwhelmingly intentional, so they are kept low and surface only under the strict profile.
 
-**Recommendation:** Catch specific exceptions, use explicit runtime validation, and replace placeholders before production release.
+**Recommendation:** Catch specific exceptions so unrelated failures are not hidden; use explicit runtime validation where an invariant must hold in production.
 
-**Known false positives:** Matches come from the parsed syntax tree (bare `except` clauses, `assert` statements, and `NotImplementedError`), so the same tokens inside comments or string literals are not flagged. A line heuristic with text-heuristic provenance is used only when the file fails to parse.
+**Known false positives:** Matches come from the parsed syntax tree (bare `except` clauses, `assert` statements, and `NotImplementedError`), so the same tokens inside comments or string literals are not flagged. `assert` and `NotImplementedError` are downgraded to low (hidden by default, shown in `--profile strict`). A line heuristic with text-heuristic provenance is used only when the file fails to parse.
 
 ### `language.rust.panic-risk` — Risky Rust panic or unwrap usage
 
@@ -409,7 +409,7 @@ A high-entropy string or a pattern matching a known secret format was found in s
 
 **Recommendation:** Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.
 
-**Known false positives:** Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered.
+**Known false positives:** Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered. High-entropy tokens that appear inside a URL value (e.g. Firebase Storage download URLs with `?token=` query parameters) are also skipped — they are URL parameters, not hardcoded secrets. Files under paths containing `tutorial` are treated as example/docs code and skipped. Environment-variable name strings such as `envvar="GITHUB_TOKEN"` (all-caps identifiers referencing an env var) are not flagged.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling>
 

@@ -76,6 +76,7 @@ mod tests {
                     imports: Vec::new(),
                     content: None,
                     has_inline_tests: false,
+                    in_executable_package: false,
                 },
                 FileFacts {
                     path: PathBuf::from("/private/repo/README"),
@@ -85,6 +86,7 @@ mod tests {
                     imports: Vec::new(),
                     content: None,
                     has_inline_tests: false,
+                    in_executable_package: false,
                 },
             ],
             ..ScanFacts::default()

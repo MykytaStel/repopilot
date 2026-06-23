@@ -89,24 +89,50 @@ fn packages_from_patterns(root: &Path, patterns: &[String]) -> Vec<WorkspacePack
 
         for dir in dirs {
             if dir.join("package.json").is_file() {
-                let name = npm_package_name(&dir).unwrap_or_else(|| {
+                let meta = npm_package_meta(&dir);
+                let name = meta.name.unwrap_or_else(|| {
                     dir.file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .into_owned()
                 });
-                packages.push(WorkspacePackage { name, root: dir });
+                packages.push(WorkspacePackage {
+                    name,
+                    root: dir,
+                    exposes_subpath_exports: meta.exposes_subpath_exports,
+                });
             }
         }
     }
     packages
 }
 
-fn npm_package_name(path: &Path) -> Option<String> {
-    let content = std::fs::read_to_string(path.join("package.json")).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
-    value
+#[derive(Default)]
+struct PackageMeta {
+    name: Option<String>,
+    exposes_subpath_exports: bool,
+}
+
+/// Read a package's `name` and whether its `exports` map publishes a wildcard
+/// subpath (a key containing `*`, e.g. `"./*"` or `"./src/*"`). A wildcard means
+/// the author has sanctioned deep imports as public API.
+fn npm_package_meta(path: &Path) -> PackageMeta {
+    let Ok(content) = std::fs::read_to_string(path.join("package.json")) else {
+        return PackageMeta::default();
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+        return PackageMeta::default();
+    };
+    let name = value
         .get("name")
         .and_then(|n| n.as_str())
-        .map(str::to_string)
+        .map(str::to_string);
+    let exposes_subpath_exports = value
+        .get("exports")
+        .and_then(|e| e.as_object())
+        .is_some_and(|map| map.keys().any(|key| key.contains('*')));
+    PackageMeta {
+        name,
+        exposes_subpath_exports,
+    }
 }

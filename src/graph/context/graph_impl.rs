@@ -145,6 +145,7 @@ impl RepoContextNode {
             imports: self.imports.clone(),
             content: None,
             has_inline_tests: self.is_test,
+            in_executable_package: false,
         }
     }
 }

@@ -1,0 +1,27 @@
+{
+  "default": {
+    "by_priority": {},
+    "by_rule": {},
+    "fingerprints": [],
+    "visible_total": 0
+  },
+  "framework": "",
+  "language": "go",
+  "repo": "cobra",
+  "sha": "ad460ea8f249db69c943a365fb84f3a59042d54e",
+  "strict": {
+    "by_rule": {
+      "architecture.dead-module": 13,
+      "architecture.large-file": 3,
+      "code-marker.fixme": 3,
+      "code-quality.complex-file": 2,
+      "code-quality.complex-function": 5,
+      "code-quality.deep-control-flow": 5,
+      "code-quality.long-function": 10,
+      "language.go.panic-exit-risk": 10,
+      "testing.missing-test-folder": 1,
+      "testing.source-without-test": 4
+    },
+    "visible_total": 56
+  }
+}

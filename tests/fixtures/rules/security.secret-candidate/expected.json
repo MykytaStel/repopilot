@@ -9,6 +9,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_url_token",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "security.secret-candidate"
@@ -18,6 +22,18 @@
       "path": "true_positive_env_value",
       "expected_rule_ids": [
         "security.secret-candidate",
+        "security.secret-candidate"
+      ]
+    },
+    {
+      "path": "true_positive_token_assignment",
+      "expected_rule_ids": [
+        "security.secret-candidate"
+      ]
+    },
+    {
+      "path": "true_positive_uppercase_token",
+      "expected_rule_ids": [
         "security.secret-candidate"
       ]
     }

@@ -1,0 +1,5 @@
+{
+  "name": "fp-open-exports-monorepo",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

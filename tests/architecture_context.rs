@@ -67,6 +67,7 @@ fn test_default_module_mappings() {
             imports: vec![],
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         };
 
         let context = classifier.classify(&file);
@@ -99,6 +100,7 @@ fn test_custom_module_mappings() {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     };
     let context = classifier.classify(&domain_file);
     assert_eq!(context.module_kind, ModuleKind::Domain);
@@ -111,6 +113,7 @@ fn test_custom_module_mappings() {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     };
     let context = classifier.classify(&ui_file);
     assert_eq!(context.module_kind, ModuleKind::Ui);
@@ -123,6 +126,7 @@ fn test_custom_module_mappings() {
         imports: vec![],
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     };
     let context = classifier.classify(&unknown_file);
     assert_eq!(context.module_kind, ModuleKind::Unknown);
@@ -152,6 +156,7 @@ fn test_language_families() {
             imports: vec![],
             content: None,
             has_inline_tests: false,
+            in_executable_package: false,
         };
 
         let context = classifier.classify(&file);
