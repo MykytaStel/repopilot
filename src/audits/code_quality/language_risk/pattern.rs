@@ -242,25 +242,3 @@ fn build_finding(
         risk: Default::default(),
     }
 }
-
-fn is_library_boundary_path(path: &Path) -> bool {
-    path.components().any(|component| {
-        component
-            .as_os_str()
-            .to_str()
-            .map(|value| {
-                matches!(
-                    value.to_lowercase().as_str(),
-                    "domain"
-                        | "domains"
-                        | "core"
-                        | "model"
-                        | "models"
-                        | "lib"
-                        | "libs"
-                        | "packages"
-                )
-            })
-            .unwrap_or(false)
-    })
-}

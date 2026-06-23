@@ -522,6 +522,32 @@ signal = "rust.unimplemented"
 action = "upgrade"
 severity = "HIGH"
 
+# Rust test-support modules (`testutil.rs`, `test_utils.rs`, ...): production
+# files whose `panic!`/`unwrap`/`expect` are test assertion plumbing, not runtime
+# risk. Treat those three like a test file (`unwrap`/`expect` suppressed, `panic!`
+# downgraded to Low/strict-only) while the file keeps its production role for all
+# other rules. `todo!`/`unimplemented!` are left visible. Placed last so the
+# downgrade wins over the `runtime = "rust-library"` panic upgrade above (unlike a
+# real test file, a test-support module is not `is_test`, so it is not skipped by
+# the test-gating that shields `tests/` files from those runtime upgrades).
+[[rules.overrides]]
+signal = "rust.unwrap"
+role = "test-support"
+action = "suppress"
+reason = "Rust unwrap in a test-support module is assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.expect"
+role = "test-support"
+action = "suppress"
+reason = "Rust expect in a test-support module is assertion setup, not production panic risk."
+
+[[rules.overrides]]
+signal = "rust.panic"
+role = "test-support"
+action = "downgrade"
+severity = "LOW"
+
 [[rules]]
 rule_id = "language.go.panic-exit-risk"
 minimum_support = "rule-aware"
@@ -582,23 +608,20 @@ action = "downgrade"
 severity = "LOW"
 reason = "Infrastructure files can be structurally dense without representing application-level complexity."
 
+# `assert` (type-narrowing, internal invariants) and `raise NotImplementedError`
+# (idiomatic abstract-method declarations) are overwhelmingly intentional in real
+# Python, so they are not actionable in the default profile. Keep them as LOW
+# (hidden by default, still surfaced under `--profile strict`); only the broad
+# `except:` handler stays a default-visible signal.
 [[rules.overrides]]
-role = "script"
 signal = "python.assert"
 action = "downgrade"
 severity = "LOW"
 
 [[rules.overrides]]
-role = "app-entrypoint"
-signal = "python.assert"
-action = "downgrade"
-severity = "LOW"
-
-[[rules.overrides]]
-role = "domain"
 signal = "python.not-implemented"
-action = "upgrade"
-severity = "HIGH"
+action = "downgrade"
+severity = "LOW"
 
 [[rules]]
 rule_id = "language.javascript.runtime-exit-risk"
@@ -626,11 +649,17 @@ signal = "js.process-exit"
 action = "downgrade"
 severity = "LOW"
 
+# A command handler in a CLI tool (a `commands/` file whose package declares
+# `package.json#bin`) owns its own exit code, so its `process.exit` is an intended
+# boundary. Downgrade to Low (hidden by default, kept in strict) rather than
+# suppress, so the signal is recoverable. This does NOT cover reusable modules in
+# the same package (`lib/`, `utils/`) or a non-CLI package's `domain/commands/` —
+# both keep the default-visible High (see the `cli-executable` role).
 [[rules.overrides]]
-role = "domain"
-signal = "js.throw-error"
-action = "upgrade"
-severity = "HIGH"
+role = "cli-executable"
+signal = "js.process-exit"
+action = "downgrade"
+severity = "LOW"
 
 [[rules]]
 rule_id = "language.managed.fatal-exception-risk"

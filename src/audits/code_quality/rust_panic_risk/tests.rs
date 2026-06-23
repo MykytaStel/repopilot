@@ -224,6 +224,107 @@ fn keeps_dynamic_regex_new_unwrap_as_risk() {
 }
 
 #[test]
+fn downgrades_literal_parse_unwrap_to_low() {
+    // `"literal".parse().unwrap()` (e.g. a default color/spec table) parses a
+    // programmer-controlled string. It can still panic (`"999".parse::<u8>()`),
+    // but as a deterministic bug caught on the first run — so it is downgraded to
+    // Low (hidden in default, kept in strict), NOT removed, rather than escalated
+    // to a visible High by the `.parse(` external signal.
+    let file = facts(
+        "src/printer/color.rs",
+        "let spec = \"path:fg:magenta\".parse().unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+#[test]
+fn downgrades_literal_parse_unwrap_in_macro_to_low() {
+    // The same call inside a `vec![…]` macro, whose body is an unparsed token
+    // tree the AST check cannot see — the text fallback downgrades it to Low.
+    let file = facts(
+        "src/printer/color.rs",
+        "    \"match:style:bold\".parse().unwrap(),",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+#[test]
+fn keeps_typed_literal_parse_unwrap_visible() {
+    // An explicit `.parse::<T>()` is a deliberate typed conversion, more likely
+    // to be a real risk worth surfacing, so it is NOT downgraded — only the
+    // type-inferred `.parse()` form is.
+    let file = facts(
+        "src/config/load.rs",
+        "let port = \"999\".parse::<u8>().unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert!(findings[0].severity >= Severity::Medium);
+}
+
+#[test]
+fn keeps_dynamic_parse_unwrap_as_risk() {
+    // Parsing a runtime value (external input) can genuinely fail, so it stays a
+    // visible High — only a `.parse()` on a string literal is downgraded.
+    let file = facts(
+        "src/config/load.rs",
+        "let port: u16 = raw.parse().unwrap();",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::High);
+}
+
+#[test]
+fn downgrades_panic_in_rust_test_support_module() {
+    // `testutil.rs` is test infrastructure compiled in normal builds; its
+    // `panic!` is assertion plumbing, not production risk. The test role
+    // downgrades it to Low — hidden in the default profile, kept in strict — the
+    // same treatment `panic!` already gets under `tests/`.
+    let file = facts(
+        "crates/searcher/src/testutil.rs",
+        "pub fn run() { panic!(\"test configuration produced nothing\"); }",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+#[test]
+fn suppresses_unwrap_in_rust_test_support_module() {
+    // An `unwrap` in test-support code is assertion setup; the test role
+    // suppresses it entirely, as it does for `tests/` files.
+    let file = facts(
+        "crates/searcher/src/testutil.rs",
+        "pub fn first(v: &[u8]) -> u8 { *v.first().unwrap() }",
+        false,
+    );
+
+    let findings = RustPanicRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert!(findings.is_empty());
+}
+
+#[test]
 fn ignores_mutex_poison_invariant_expect() {
     let file = facts(
         "src/state.rs",
@@ -339,6 +440,7 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
         imports: Vec::new(),
         content: Some(content.to_string()),
         has_inline_tests,
+        in_executable_package: false,
     }
 }
 

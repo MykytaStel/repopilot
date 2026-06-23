@@ -62,5 +62,6 @@ fn file(path: &str, language: Option<&str>, has_inline_tests: bool) -> FileFacts
         imports: Vec::new(),
         content: None,
         has_inline_tests,
+        in_executable_package: false,
     }
 }

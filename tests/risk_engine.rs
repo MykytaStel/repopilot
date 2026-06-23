@@ -359,6 +359,7 @@ fn file(path: &str, language: Option<&str>) -> FileFacts {
         imports: Vec::new(),
         content: None,
         has_inline_tests: false,
+        in_executable_package: false,
     }
 }
 

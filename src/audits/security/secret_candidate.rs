@@ -51,11 +51,13 @@ impl FileAudit for SecretCandidateAudit {
             return vec![];
         }
 
-        // Skip test and example files — likely contain fake credentials intentionally
+        // Skip test, example, and tutorial/docs-source files — likely contain
+        // fake credentials intentionally (e.g. FastAPI tutorial secret keys).
         if lower_path.contains("test")
             || lower_path.contains("fixture")
             || lower_path.contains("example")
             || lower_path.contains("mock")
+            || lower_path.contains("tutorial")
         {
             return vec![];
         }
