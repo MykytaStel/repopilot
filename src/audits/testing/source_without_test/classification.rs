@@ -86,9 +86,20 @@ pub(super) fn is_low_signal_wrapper(path: &Path) -> bool {
         return true;
     }
 
+    // Python packaging/framework boilerplate and entrypoints: configuration and
+    // wiring, not behaviour that warrants a unit test. `apps.py` is a Django
+    // `AppConfig` registration stub; `manage.py`/`wsgi.py`/`asgi.py` are the
+    // CLI and server entrypoints — the analogue of `__main__.py`.
     matches!(
         name,
-        "setup.py" | "settings.py" | "conftest.py" | "__main__.py"
+        "setup.py"
+            | "settings.py"
+            | "conftest.py"
+            | "__main__.py"
+            | "apps.py"
+            | "manage.py"
+            | "wsgi.py"
+            | "asgi.py"
     )
 }
 
@@ -117,6 +128,8 @@ fn is_excluded_directory(path: &Path) -> bool {
                 | "tool"
                 | "examples"
                 | "example"
+                | "docs"
+                | "docs_src"
                 | "types"
                 | "@types"
                 | "generated"

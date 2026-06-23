@@ -130,6 +130,23 @@ fn generated_directory_not_flagged() {
 }
 
 #[test]
+fn docs_directory_not_flagged() {
+    for path in [
+        "docs/conf.py",
+        "docs_src/tutorial/first_steps/tutorial001.py",
+        "docs/examples/snippet.ts",
+        "packages/x/docs_src/demo.tsx",
+    ] {
+        let facts = scan_facts_with(ts_file(path));
+        let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "documentation example file must not be flagged: {path}"
+        );
+    }
+}
+
+#[test]
 fn mocks_directory_not_flagged() {
     for path in ["src/__mocks__/api.ts", "src/mocks/userService.ts"] {
         let facts = scan_facts_with(ts_file(path));
@@ -233,6 +250,10 @@ fn python_init_and_infra_not_flagged() {
         "src/conftest.py",
         "setup.py",
         "src/settings.py",
+        "src/myapp/apps.py",
+        "manage.py",
+        "src/project/wsgi.py",
+        "src/project/asgi.py",
     ] {
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
