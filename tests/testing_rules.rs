@@ -331,6 +331,12 @@ fn docs_module_inside_source_tree_still_flagged() {
         "lib/docs/access_policy.ts",
         "app/docs/parser.ts",
         "packages/editor/src/docs/parser.ts",
+        // The source root may be an ancestor, not the immediate parent.
+        "src/features/docs/document_service.ts",
+        "src/modules/docs/parser.ts",
+        "lib/domain/docs/access_policy.ts",
+        "app/services/docs/storage.ts",
+        "packages/editor/src/features/docs/parser.ts",
     ] {
         let facts = scan_facts_with(ts_file(path));
         let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());

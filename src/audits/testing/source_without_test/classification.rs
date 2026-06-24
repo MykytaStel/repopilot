@@ -18,12 +18,12 @@ pub(super) fn is_source_file(path: &Path) -> bool {
 /// A `docs_src/` tree is an unambiguous documentation name and is skipped wherever
 /// it appears. A bare `docs/` directory is trickier: at a package root (repo root
 /// or a monorepo package such as `packages/<pkg>/docs/`) it holds rendered
-/// examples, but nested inside a source tree (`src/docs/`, `lib/docs/`,
-/// `app/docs/`) it is an ordinary `docs` domain module — common in a
+/// examples, but *inside* a source tree (`src/docs/`, `src/features/docs/`,
+/// `lib/domain/docs/`, …) it is an ordinary `docs` domain module — common in a
 /// document-management app — and must stay visible. We therefore treat `docs/` as
-/// documentation only when the segment immediately above it is *not* a source
-/// root. This is position-independent, so it holds regardless of any scan-root
-/// prefix on the path.
+/// documentation only when no source root (`src`/`lib`/`app`) appears anywhere
+/// above it, not merely as its immediate parent. This is position-independent, so
+/// it holds regardless of any scan-root prefix on the path.
 fn is_documentation_path(path: &Path) -> bool {
     const SOURCE_ROOTS: &[&str] = &["src", "lib", "app"];
     let components: Vec<String> = path
@@ -37,10 +37,9 @@ fn is_documentation_path(path: &Path) -> bool {
 
     components.iter().enumerate().any(|(index, component)| {
         component == "docs"
-            && !index
-                .checked_sub(1)
-                .map(|parent| components[parent].as_str())
-                .is_some_and(|parent| SOURCE_ROOTS.contains(&parent))
+            && !components[..index]
+                .iter()
+                .any(|ancestor| SOURCE_ROOTS.contains(&ancestor.as_str()))
     })
 }
 
