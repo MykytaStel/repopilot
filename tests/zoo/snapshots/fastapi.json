@@ -28,8 +28,8 @@
       "code-quality.deep-control-flow": 17,
       "code-quality.long-function": 90,
       "language.python.exception-risk": 103,
-      "testing.source-without-test": 389
+      "testing.source-without-test": 36
     },
-    "visible_total": 1116
+    "visible_total": 763
   }
 }

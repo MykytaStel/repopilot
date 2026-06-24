@@ -130,6 +130,24 @@ fn generated_directory_not_flagged() {
 }
 
 #[test]
+fn docs_directory_not_flagged() {
+    for path in [
+        "docs/conf.py",
+        "docs_src/tutorial/first_steps/tutorial001.py",
+        "docs/examples/snippet.ts",
+        "packages/x/docs_src/demo.tsx",
+        "packages/sdk/docs/example.ts",
+    ] {
+        let facts = scan_facts_with(ts_file(path));
+        let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "documentation example file must not be flagged: {path}"
+        );
+    }
+}
+
+#[test]
 fn mocks_directory_not_flagged() {
     for path in ["src/__mocks__/api.ts", "src/mocks/userService.ts"] {
         let facts = scan_facts_with(ts_file(path));
@@ -233,6 +251,9 @@ fn python_init_and_infra_not_flagged() {
         "src/conftest.py",
         "setup.py",
         "src/settings.py",
+        "manage.py",
+        "src/project/wsgi.py",
+        "src/project/asgi.py",
     ] {
         let facts = ScanFacts {
             root_path: PathBuf::from("."),
@@ -267,6 +288,64 @@ fn regular_service_file_still_flagged() {
         1,
         "regular service file with no test must still be flagged"
     );
+}
+
+#[test]
+fn production_apps_py_still_flagged() {
+    // The filename `apps.py` alone is not evidence of a declarative Django
+    // `AppConfig` stub — it may be an ordinary module — so it must not be skipped
+    // by name; an untested one is still reported.
+    for path in ["src/apps.py", "src/billing/apps.py"] {
+        let facts = ScanFacts {
+            root_path: PathBuf::from("."),
+            files: vec![FileFacts {
+                path: PathBuf::from(path),
+                language: Some("Python".to_string()),
+                non_empty_lines: 1,
+                branch_count: 0,
+                imports: Vec::new(),
+                content: None,
+                has_inline_tests: false,
+                in_executable_package: false,
+                deferred_imports: Vec::new(),
+            }],
+            files_analyzed: 1,
+            ..ScanFacts::default()
+        };
+        let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
+        assert_eq!(
+            findings.len(),
+            1,
+            "production apps.py must still be flagged: {path}"
+        );
+    }
+}
+
+#[test]
+fn docs_module_inside_source_tree_still_flagged() {
+    // A `docs` directory nested under a source root is an ordinary domain module
+    // (e.g. a document-management feature), not rendered documentation, so it
+    // must stay visible. Only a package-root `docs/`/`docs_src/` tree is skipped.
+    for path in [
+        "src/docs/document_service.ts",
+        "lib/docs/access_policy.ts",
+        "app/docs/parser.ts",
+        "packages/editor/src/docs/parser.ts",
+        // The source root may be an ancestor, not the immediate parent.
+        "src/features/docs/document_service.ts",
+        "src/modules/docs/parser.ts",
+        "lib/domain/docs/access_policy.ts",
+        "app/services/docs/storage.ts",
+        "packages/editor/src/features/docs/parser.ts",
+    ] {
+        let facts = scan_facts_with(ts_file(path));
+        let findings = SourceWithoutTestAudit.audit(&facts, &ScanConfig::default());
+        assert_eq!(
+            findings.len(),
+            1,
+            "docs module inside a source tree must still be flagged: {path}"
+        );
+    }
 }
 
 fn scan_facts_with(file: FileFacts) -> ScanFacts {

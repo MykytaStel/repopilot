@@ -45,8 +45,8 @@
       "framework.react.class-component": 4,
       "framework.react.prop-types": 12,
       "language.python.exception-risk": 45,
-      "testing.source-without-test": 671
+      "testing.source-without-test": 668
     },
-    "visible_total": 3126
+    "visible_total": 3123
   }
 }
