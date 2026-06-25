@@ -1,3 +1,4 @@
+pub mod aggregation;
 pub mod contract;
 pub mod enrichment;
 pub mod feedback;

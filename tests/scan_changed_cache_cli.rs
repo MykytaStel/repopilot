@@ -104,6 +104,28 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
 }
 
 #[test]
+fn changed_scan_and_cache_keep_distinct_secret_occurrences_with_colliding_baseline_keys() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/config.py"), "print('clean')\n");
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/config.py"),
+        "API_KEY = \"abc123xyz987\"\nAPI_KEY = \"def456uvw654\"\n",
+    );
+
+    let first = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(secret_candidate_count(&first), 2);
+    assert_eq!(first["cache_telemetry"]["hits"], 0);
+    assert_eq!(first["cache_telemetry"]["misses"], 1);
+
+    let cached = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(secret_candidate_count(&cached), 2);
+    assert_eq!(cached["cache_telemetry"]["hits"], 1);
+    assert_eq!(cached["cache_telemetry"]["misses"], 0);
+}
+
+#[test]
 fn changed_scan_with_no_changes_skips_repo_context_and_cache_write() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
@@ -532,6 +554,15 @@ fn first_finding_title(json: &Value) -> &str {
     json["findings"][0]["title"]
         .as_str()
         .expect("finding title")
+}
+
+fn secret_candidate_count(json: &Value) -> usize {
+    json["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|finding| finding["rule_id"] == "security.secret-candidate")
+        .count()
 }
 
 fn assert_rule_present(json: &Value, rule_id: &str) {
