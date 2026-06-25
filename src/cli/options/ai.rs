@@ -38,9 +38,13 @@ pub struct AiContextOptions {
     #[arg(long, value_parser = parse_token_budget)]
     pub budget: Option<usize>,
 
-    /// Write Markdown output to a file instead of stdout
+    /// Write output to a file instead of stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
+
+    /// Output format for the handoff: markdown (default, human-readable) or json (structured, for agents)
+    #[arg(long, value_parser = ["markdown", "json"], default_value = "markdown")]
+    pub format: String,
 
     /// Omit the intro header block
     #[arg(long)]

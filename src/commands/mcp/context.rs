@@ -2,11 +2,15 @@
 //! repository, wrapping the same builder the `ai context` command uses.
 
 use crate::commands::focus::parse_focus_category;
-use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
+use crate::commands::product_scan::{
+    ProductScanMode, ProductScanRequest, run_product_scan_with_facts_summary,
+};
 use crate::commands::scan_config::ScanConfigOverrides;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::FindingVisibilityProfile;
-use repopilot::output::ai_context::{AiContextRenderOptions, DEFAULT_TOKEN_BUDGET, render};
+use repopilot::output::ai_context::{
+    AiContextRenderOptions, DEFAULT_TOKEN_BUDGET, render_with_facts_summary_and_breakdown,
+};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
@@ -69,7 +73,7 @@ pub fn call(arguments: &Value) -> Result<String, String> {
         Some(other) => return Err(format!("invalid profile: {other}")),
     };
 
-    let scan_result = run_product_scan(ProductScanRequest {
+    let scan_result = run_product_scan_with_facts_summary(ProductScanRequest {
         path,
         config_path,
         overrides: ScanConfigOverrides::default(),
@@ -83,9 +87,11 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     .map_err(|error| format!("scan failed: {error}"))?;
 
     // Agents that call this tool bring their own instructions, so return the
-    // fact-only context (facts, evidence, prioritized plan, edit order) — the
-    // same form `repopilot ai context --no-task` emits — and omit the human task
-    // preamble, working rules, and verification checklist.
+    // fact-only context (repository facts, evidence, prioritized plan, edit
+    // order) — the same form `repopilot ai context --no-task` emits — and omit
+    // the human task preamble, working rules, and verification checklist. The
+    // facts summary mirrors what the CLI handoff includes so agents get the same
+    // aggregate stack/size picture, not a thinner brief.
     let options = AiContextRenderOptions {
         focus,
         budget_tokens,
@@ -93,5 +99,10 @@ pub fn call(arguments: &Value) -> Result<String, String> {
         no_task: true,
     };
 
-    Ok(render(&scan_result.summary, &options))
+    let (content, _) = render_with_facts_summary_and_breakdown(
+        &scan_result.summary,
+        scan_result.repo_facts_summary.as_ref(),
+        &options,
+    );
+    Ok(content)
 }

@@ -290,7 +290,15 @@ Scans the repository and formats one LLM-ready handoff as structured Markdown fo
 
 The handoff bundles a risk summary, tech stack signals, findings grouped by category with evidence snippets, the Context Risk Graph edit order, a prioritized P0–P3 remediation plan, working rules, a verification checklist, and an approximate token count. The standalone `ai plan` and `ai prompt` commands were folded into this single handoff. Pass `--no-task` to drop the agent guidance (task, rules, and verification) and emit fact-only context — the same form the MCP `context` tool returns.
 
-`ai context` emits Markdown only and does not accept `--format`.
+For false-positive work, remember that this handoff is product-facing context.
+The default profile may hide low-confidence suggestions; use `scan`/`review` (or
+the MCP tools) with `--profile strict` when you need recall validation before
+deciding whether a signal should be downgraded, hidden, or kept visible.
+
+`ai context` emits Markdown by default. Pass `--format json` for a structured,
+deterministic handoff (project, risk summary, repository facts, focus-filtered
+findings, and the P0–P3 plan) — the same facts without Markdown parsing, matching
+the JSON the MCP tools return. JSON output never mixes in the stderr token breakdown.
 
 ### Synopsis
 
@@ -312,6 +320,7 @@ repopilot ai context <PATH> [OPTIONS]
 | `--focus` | `security\|arch\|architecture\|quality\|framework\|all` | `all` | Limit output to a category |
 | `--budget` | `2k\|4k\|8k\|16k` or positive integer | `4k` | Target token budget |
 | `-o, --output` | path | stdout | Write output to a file instead of stdout |
+| `--format` | `markdown\|json` | `markdown` | Output format: human-readable Markdown, or structured JSON for agents |
 | `--no-header` | flag | — | Omit the intro header block |
 | `--no-task` | flag | — | Omit the AI task instruction preamble |
 | `--show-breakdown` | flag | — | Print a per-section token breakdown to stderr (automatic when stdout is a TTY) |
@@ -323,6 +332,7 @@ repopilot ai context .
 repopilot ai context . --focus security --budget 2k
 repopilot ai context . --output ai-context.md
 repopilot ai context . --no-task --output ai-context.md
+repopilot ai context . --format json --output ai-context.json
 ```
 
 ---

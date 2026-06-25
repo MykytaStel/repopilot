@@ -6,7 +6,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **`repopilot ai context --format json`** emits a structured, deterministic JSON
+  handoff — schema version, project, risk summary, repository facts,
+  focus-filtered findings, and the prioritized P0–P3 plan — so agents get the same
+  facts the Markdown brief carries without parsing Markdown, matching the JSON the
+  MCP tools already return. Markdown stays the default; JSON output never mixes in
+  the stderr token breakdown. Pinned by a golden snapshot.
+
 ### Changed
+
+- **The `repopilot_context` MCP tool now includes the repository facts summary**
+  (aggregate file, line, and language stats), matching `repopilot ai context`. The
+  tool previously rendered without facts despite documenting a fact-only brief, so
+  agents calling it received a thinner context than the CLI; they now get the same
+  aggregate stack/size picture.
+
+- **Agent-facing docs now document the false-positive/noise-reduction workflow.** MCP docs and AI-context workflow docs now call out strict-mode recall, exact duplicate aggregation, changed-scan limits, and the need for false-negative guard tests before hiding or downgrading signals.
 
 - **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
   CLI tool's command handlers instead of surfacing them as a default High.** A

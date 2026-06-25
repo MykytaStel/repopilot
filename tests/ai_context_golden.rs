@@ -15,7 +15,7 @@
 
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 use repopilot::output::ai_context::{
-    AiContextRenderOptions, AiFocusCategory, DEFAULT_TOKEN_BUDGET, render,
+    AiContextRenderOptions, AiFocusCategory, DEFAULT_TOKEN_BUDGET, render, render_json,
 };
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::scanner::scan_path_with_config;
@@ -64,6 +64,23 @@ fn ai_context_security_focus_brief_stays_stable() {
         "ai-context-focus-security.md",
         render_variant(Some(AiFocusCategory::Security)),
     );
+}
+
+fn render_json_variant(focus: Option<AiFocusCategory>) -> String {
+    let options = AiContextRenderOptions {
+        focus,
+        budget_tokens: DEFAULT_TOKEN_BUDGET,
+        no_header: false,
+        no_task: false,
+    };
+    render_json(&scanned_summary(), None, &options)
+}
+
+#[test]
+fn ai_context_json_brief_stays_stable() {
+    // The JSON form is deterministic (no version/cache/wall-clock fields), so the
+    // golden is the raw output; `normalize` is a no-op here.
+    assert_golden("ai-context.json", render_json_variant(None));
 }
 
 fn assert_golden(name: &str, actual: String) {

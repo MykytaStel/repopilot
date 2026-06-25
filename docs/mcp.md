@@ -46,6 +46,13 @@ to `scope=changed`, `profile=default`, `fail_on_review=none`, and
 and review accept `filters.min_severity`, `filters.min_confidence`,
 `filters.min_priority`, and `filters.rules`.
 
+For agent-assisted remediation, treat default-profile tool output as the product
+view, not the full recall set. Use `profile=strict` when auditing false positives,
+validating that a downgrade remains recoverable, or checking whether hidden
+suggestions still exist. Changed-scope tools are optimized for edited files and
+cache reuse; run a full scan when repository-wide architecture/framework findings
+or aggregate counts must be authoritative.
+
 Tool failures use MCP `isError: true`. Malformed input produces JSON-RPC error
 `-32700` instead of being skipped.
 
