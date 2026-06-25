@@ -1,7 +1,7 @@
 use crate::facts::RepoFactsSummary;
 use std::fmt::Write as FmtWrite;
 
-const MAX_LANGUAGES: usize = 5;
+pub(super) const MAX_LANGUAGES: usize = 5;
 
 pub(super) fn render_summary(out: &mut String, summary: &RepoFactsSummary) {
     let _ = writeln!(out, "## Repository Facts Summary\n");

@@ -46,11 +46,11 @@ pub struct AiContextOptions {
     #[arg(long, value_parser = ["markdown", "json"], default_value = "markdown")]
     pub format: String,
 
-    /// Omit the intro header block
+    /// Omit the intro header block (Markdown output only)
     #[arg(long)]
     pub no_header: bool,
 
-    /// Omit the AI task instruction block (the "> Instructions for AI assistant:" preamble)
+    /// Omit the AI task instruction block — the "> Instructions for AI assistant:" preamble (Markdown output only; JSON is always fact-only)
     #[arg(long)]
     pub no_task: bool,
 

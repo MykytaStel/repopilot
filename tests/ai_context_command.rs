@@ -181,6 +181,121 @@ fn ai_context_uses_default_product_visibility() {
 }
 
 #[test]
+fn ai_context_json_format_is_structured_facts_aware_and_clean() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let output = repopilot()
+        .args(["ai", "context", ".", "--format", "json", "--budget", "2k"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot ai context");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
+    // stdout is pure JSON — no Markdown leaks in.
+    assert!(
+        !stdout.contains("# RepoPilot AI Context"),
+        "markdown leaked:\n{stdout}"
+    );
+
+    let doc: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON");
+    assert_eq!(doc["schema_version"], 1);
+    // Phase: facts come through the real CLI path (the golden passes None).
+    assert_eq!(
+        doc["facts"]["total_files"], 2,
+        "facts present from the CLI: {doc}"
+    );
+
+    // A finding carries the structured evidence an agent needs, not just a title.
+    let findings = doc["findings"].as_array().expect("findings array");
+    let secret = findings
+        .iter()
+        .find(|finding| finding["rule_id"] == "security.secret-candidate")
+        .expect("secret finding present");
+    assert!(secret["risk"]["score"].is_number(), "risk score present");
+    assert!(
+        secret["evidence"][0]["path"].is_string(),
+        "evidence locations present: {secret}"
+    );
+    assert!(
+        secret["recommendation"].is_string(),
+        "recommendation present"
+    );
+
+    // Budget is real: either the estimate fits, or the doc is explicitly truncated.
+    let approx = doc["approx_tokens"].as_u64().expect("approx_tokens");
+    let truncated = doc["truncated"].as_bool().expect("truncated flag");
+    assert!(
+        approx <= 2048 || truncated,
+        "budget ignored: approx={approx} truncated={truncated}"
+    );
+}
+
+#[test]
+fn ai_context_json_focus_filters_and_writes_output_file() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    // --focus security: every emitted finding is in the security category.
+    let focused = repopilot()
+        .args([
+            "ai", "context", ".", "--focus", "security", "--format", "json",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot ai context");
+    assert!(focused.status.success());
+    let doc: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(focused.stdout).expect("utf-8")).expect("json");
+    assert_eq!(doc["focus"], "security");
+    assert!(
+        doc["findings"]
+            .as_array()
+            .expect("findings")
+            .iter()
+            .all(|finding| finding["category"] == "security"),
+        "focus did not filter: {doc}"
+    );
+
+    // --output writes a valid JSON file and leaves stdout empty.
+    let path = temp.path().join("ai-context.json");
+    let written = repopilot()
+        .args(["ai", "context", ".", "--format", "json", "--output"])
+        .arg(&path)
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot ai context");
+    assert!(written.status.success());
+    assert!(
+        written.stdout.is_empty(),
+        "stdout should be empty when writing a file"
+    );
+    let contents = fs::read_to_string(&path).expect("failed to read JSON output file");
+    let _: serde_json::Value = serde_json::from_str(&contents).expect("output file is valid JSON");
+}
+
+#[test]
+fn ai_context_json_does_not_emit_breakdown_to_stderr() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_sample_project(temp.path());
+
+    let output = repopilot()
+        .args(["ai", "context", ".", "--format", "json", "--show-breakdown"])
+        .current_dir(temp.path())
+        .output()
+        .expect("failed to run repopilot ai context");
+
+    assert!(output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be UTF-8");
+    assert!(
+        !stderr.contains("tokens"),
+        "JSON output must not print the Markdown token breakdown to stderr: {stderr}"
+    );
+}
+
+#[test]
 fn ai_context_rejects_unknown_focus() {
     let temp = tempdir().expect("failed to create temp dir");
     fs::write(temp.path().join("lib.rs"), "fn main() {}\n").expect("failed to write file");

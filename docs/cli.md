@@ -296,9 +296,14 @@ the MCP tools) with `--profile strict` when you need recall validation before
 deciding whether a signal should be downgraded, hidden, or kept visible.
 
 `ai context` emits Markdown by default. Pass `--format json` for a structured,
-deterministic handoff (project, risk summary, repository facts, focus-filtered
-findings, and the P0–P3 plan) — the same facts without Markdown parsing, matching
-the JSON the MCP tools return. JSON output never mixes in the stderr token breakdown.
+deterministic handoff — project, risk summary, repository facts, focus-filtered
+findings (each with stable id, `risk` score/priority/signals, description,
+recommendation, and the full `evidence` list), and the P0–P3 plan — the same facts
+without Markdown parsing, matching the JSON the MCP tools return. The JSON form is
+**budget-aware**: findings are ordered by risk and added until the output reaches
+`--budget`, and the document reports `truncated` plus included/omitted counts, so
+the budget is honest. `--no-header`/`--no-task` affect Markdown only (JSON is
+always fact-only), and JSON output never mixes in the stderr token breakdown.
 
 ### Synopsis
 

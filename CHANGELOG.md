@@ -9,11 +9,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 ### Added
 
 - **`repopilot ai context --format json`** emits a structured, deterministic JSON
-  handoff — schema version, project, risk summary, repository facts,
-  focus-filtered findings, and the prioritized P0–P3 plan — so agents get the same
-  facts the Markdown brief carries without parsing Markdown, matching the JSON the
-  MCP tools already return. Markdown stays the default; JSON output never mixes in
-  the stderr token breakdown. Pinned by a golden snapshot.
+  handoff so agents get the same facts the Markdown brief carries without parsing
+  Markdown, matching the JSON the MCP tools already return. Each finding includes
+  the evidence an agent needs — stable id, severity/confidence, `risk` (score,
+  priority, signals), description, recommendation, docs URL, and the full
+  `evidence` list (path, line range, snippet) — not just a title. Like the
+  Markdown brief it is **budget-aware**: findings are ordered by risk and added
+  until the serialized output reaches `--budget`, and the document reports
+  `truncated`, `findings_included/omitted`, and `plan_clusters_included` so the
+  budget is honest rather than advisory. `approx_tokens` is measured from the real
+  (pretty) output. `risk.level` is a machine token (`moderate`) alongside the
+  display `risk.label` (`🟡 MODERATE`). Markdown stays the default; `--no-header`
+  and `--no-task` apply to Markdown only (JSON is always fact-only), and JSON
+  never mixes the stderr token breakdown in. Pinned by a golden snapshot and
+  end-to-end CLI tests.
 
 ### Changed
 
