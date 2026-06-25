@@ -30,6 +30,8 @@
 - [ ] The change stays within a clear subsystem or ownership boundary
 - [ ] CLI, JSON, SARIF, baseline, Action, and MCP compatibility were considered
 - [ ] New or changed findings/signals include deterministic evidence and tests
+- [ ] False-positive/noise-reduction changes preserve strict-mode recall and include false-negative guard tests
+- [ ] Any claimed noise reduction is backed by a fixture, focused regression, or zoo measurement
 - [ ] No unrelated refactor or generated-file churn is included
 
 ## Changelog

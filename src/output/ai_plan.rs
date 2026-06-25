@@ -6,9 +6,11 @@
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::ai_context::AiFocusCategory;
 use crate::output::finding_helpers::{
-    RuleCluster, category_rank, clusters_by_rule_scope, example_locations, finding_recommendation,
+    RuleCluster, category_rank, clusters_by_rule_scope, example_locations, finding_location,
+    finding_recommendation,
 };
 use crate::scan::types::ScanSummary;
+use serde::Serialize;
 use std::fmt::Write as FmtWrite;
 
 /// Renders the prioritized P0–P3 remediation clusters for embedding in the
@@ -63,6 +65,61 @@ pub(crate) fn render_plan_section(
             break;
         }
     }
+}
+
+/// Serializable view of one prioritized plan cluster, for `ai context --format
+/// json`. Mirrors what `render_cluster_plan` emits as Markdown.
+#[derive(Serialize)]
+pub(crate) struct PlanCluster {
+    pub(crate) priority: &'static str,
+    pub(crate) title: String,
+    pub(crate) rule_id: String,
+    pub(crate) severity: &'static str,
+    pub(crate) max_score: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) scope: Option<String>,
+    pub(crate) finding_count: usize,
+    pub(crate) examples: Vec<String>,
+    pub(crate) recommendation: String,
+}
+
+/// The ordered P0–P3 plan clusters as data — same ordering and priority labels
+/// as the Markdown `render_plan_section`, but structured for the JSON handoff.
+pub(crate) fn ordered_plan_clusters(
+    summary: &ScanSummary,
+    focus: Option<&AiFocusCategory>,
+) -> Vec<PlanCluster> {
+    let findings: Vec<&Finding> = summary
+        .artifacts
+        .findings
+        .iter()
+        .filter(|finding| focus.is_none_or(|focus| focus.matches(&finding.category)))
+        .collect();
+    let mut clusters = clusters_by_rule_scope(&findings);
+    sort_ai_plan_clusters(&mut clusters);
+
+    clusters
+        .iter()
+        .map(|cluster| {
+            let first = cluster.findings[0];
+            PlanCluster {
+                priority: priority_label(cluster_priority(cluster)),
+                title: cluster.title.clone(),
+                rule_id: cluster.rule_id.to_string(),
+                severity: cluster.severity.label(),
+                max_score: cluster.max_score,
+                scope: cluster.scope.clone().filter(|scope| scope != "."),
+                finding_count: cluster.findings.len(),
+                examples: cluster
+                    .findings
+                    .iter()
+                    .filter_map(|finding| finding_location(finding))
+                    .take(3)
+                    .collect(),
+                recommendation: finding_recommendation(first).to_string(),
+            }
+        })
+        .collect()
 }
 
 include!("ai_plan/cluster.rs");

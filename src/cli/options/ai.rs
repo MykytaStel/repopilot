@@ -38,15 +38,19 @@ pub struct AiContextOptions {
     #[arg(long, value_parser = parse_token_budget)]
     pub budget: Option<usize>,
 
-    /// Write Markdown output to a file instead of stdout
+    /// Write output to a file instead of stdout
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 
-    /// Omit the intro header block
+    /// Output format for the handoff: markdown (default, human-readable) or json (structured, for agents)
+    #[arg(long, value_parser = ["markdown", "json"], default_value = "markdown")]
+    pub format: String,
+
+    /// Omit the intro header block (Markdown output only)
     #[arg(long)]
     pub no_header: bool,
 
-    /// Omit the AI task instruction block (the "> Instructions for AI assistant:" preamble)
+    /// Omit the AI task instruction block — the "> Instructions for AI assistant:" preamble (Markdown output only; JSON is always fact-only)
     #[arg(long)]
     pub no_task: bool,
 

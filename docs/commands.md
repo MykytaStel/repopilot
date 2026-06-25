@@ -149,6 +149,13 @@ Keep remediation prompts scoped to one risk category or priority group. Require
 the agent to preserve unrelated behavior, add focused tests, and report any
 verification it could not run.
 
+For false-positive or noise-reduction work, ask the agent to keep strict-mode
+recall intact: downgrade or hide low-confidence/default noise rather than deleting
+signals, and require a false-negative guard test. Generic dedupe should only merge
+exact duplicate emissions (`rule_id` + file + line + snippet + compatible
+metadata); broader aggregation belongs in the specific audit that can prove
+several locations are one logical issue.
+
 For direct agent integration, run the local MCP server:
 
 ```bash

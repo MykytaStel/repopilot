@@ -113,6 +113,38 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
 }
 
 #[test]
+fn mcp_context_tool_includes_repository_facts() {
+    // Phase 1: the context tool wraps the facts-aware renderer (like the CLI),
+    // so an agent gets the aggregate stack/size picture, not a thinner brief.
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("src dir");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() -> i32 {\n    1\n}\n",
+    )
+    .expect("source file");
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"repopilot_context","arguments":{"path":"."}}}"#,
+        ],
+        temp.path(),
+    );
+
+    let result = &responses[1]["result"];
+    assert_eq!(result["isError"], false, "context should succeed");
+    assert!(
+        responses[1]
+            .to_string()
+            .contains("Repository Facts Summary"),
+        "context tool should include the repository facts section: {}",
+        responses[1]
+    );
+}
+
+#[test]
 fn mcp_server_reports_unknown_tool_as_in_band_error() {
     let temp = tempfile::tempdir().expect("temp dir");
 

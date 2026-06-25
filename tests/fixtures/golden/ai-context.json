@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "project": "ai-context-sample",
+  "focus": "all",
+  "budget_tokens": 4096,
+  "approx_tokens": 1252,
+  "truncated": false,
+  "findings_total": 2,
+  "findings_included": 2,
+  "findings_omitted": 0,
+  "plan_clusters_total": 2,
+  "plan_clusters_included": 2,
+  "risk": {
+    "level": "moderate",
+    "label": "🟡 MODERATE",
+    "total": 2,
+    "critical": 0,
+    "high": 2,
+    "medium": 0,
+    "low": 0,
+    "info": 0
+  },
+  "findings": [
+    {
+      "id": "framework.django.debug-true:config/settings.py:38dfbcdbb0337940",
+      "rule_id": "framework.django.debug-true",
+      "category": "security",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "title": "DEBUG = True in Django settings",
+      "description": "Django's `DEBUG = True` mode exposes detailed error pages with stack traces, local variables, and settings values to anyone who triggers an exception. This setting must be `False` in any environment reachable from the internet.",
+      "recommendation": "Set DEBUG = False for deployed environments and load debug mode only from local development configuration.",
+      "docs_url": "https://docs.djangoproject.com/en/stable/ref/settings/#debug",
+      "risk": {
+        "score": 75,
+        "priority": "P1",
+        "signals": [
+          {
+            "id": "severity.high",
+            "label": "severity",
+            "weight": 75,
+            "reason": "high severity finding"
+          },
+          {
+            "id": "confidence.high",
+            "label": "confidence",
+            "weight": 8,
+            "reason": "high confidence signal"
+          },
+          {
+            "id": "category.security",
+            "label": "security",
+            "weight": 12,
+            "reason": "security findings are prioritized"
+          },
+          {
+            "id": "role.test",
+            "label": "visibility",
+            "weight": -20,
+            "reason": "test code often accepts patterns that would be risky in production"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "path": "tests/fixtures/projects/ai-context-sample/config/settings.py",
+          "line_start": 1,
+          "snippet": "DEBUG = True"
+        }
+      ]
+    },
+    {
+      "id": "framework.django.missing-allowed-hosts:config/settings.py:03cedf4ca18ad316",
+      "rule_id": "framework.django.missing-allowed-hosts",
+      "category": "security",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "title": "ALLOWED_HOSTS is empty in Django settings",
+      "description": "`ALLOWED_HOSTS = []` permits any host header when `DEBUG = False`, making the application vulnerable to HTTP Host header attacks. Set `ALLOWED_HOSTS` to the explicit domain names and IPs this service accepts.",
+      "recommendation": "Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept.",
+      "docs_url": "https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts",
+      "risk": {
+        "score": 75,
+        "priority": "P1",
+        "signals": [
+          {
+            "id": "severity.high",
+            "label": "severity",
+            "weight": 75,
+            "reason": "high severity finding"
+          },
+          {
+            "id": "confidence.high",
+            "label": "confidence",
+            "weight": 8,
+            "reason": "high confidence signal"
+          },
+          {
+            "id": "category.security",
+            "label": "security",
+            "weight": 12,
+            "reason": "security findings are prioritized"
+          },
+          {
+            "id": "role.test",
+            "label": "visibility",
+            "weight": -20,
+            "reason": "test code often accepts patterns that would be risky in production"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "path": "tests/fixtures/projects/ai-context-sample/config/settings.py",
+          "line_start": 2,
+          "snippet": "ALLOWED_HOSTS = []"
+        }
+      ]
+    }
+  ],
+  "plan": [
+    {
+      "priority": "P0 - Immediate risk",
+      "title": "DEBUG = True in Django settings",
+      "rule_id": "framework.django.debug-true",
+      "severity": "HIGH",
+      "max_score": 75,
+      "scope": "tests/fixtures",
+      "finding_count": 1,
+      "examples": [
+        "tests/fixtures/projects/ai-context-sample/config/settings.py:1"
+      ],
+      "recommendation": "Set DEBUG = False for deployed environments and load debug mode only from local development configuration."
+    },
+    {
+      "priority": "P0 - Immediate risk",
+      "title": "ALLOWED_HOSTS is empty in Django settings",
+      "rule_id": "framework.django.missing-allowed-hosts",
+      "severity": "HIGH",
+      "max_score": 75,
+      "scope": "tests/fixtures",
+      "finding_count": 1,
+      "examples": [
+        "tests/fixtures/projects/ai-context-sample/config/settings.py:2"
+      ],
+      "recommendation": "Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept."
+    }
+  ]
+}

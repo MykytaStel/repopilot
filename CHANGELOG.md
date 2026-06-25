@@ -6,7 +6,33 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **`repopilot ai context --format json`** emits a structured, deterministic JSON
+  handoff so agents get the same facts the Markdown brief carries without parsing
+  Markdown, matching the JSON the MCP tools already return. Each finding includes
+  the evidence an agent needs — stable id, severity/confidence, `risk` (score,
+  priority, signals), description, recommendation, docs URL, and the full
+  `evidence` list (path, line range, snippet) — not just a title. Like the
+  Markdown brief it is **budget-aware**: findings are ordered by risk and added
+  until the serialized output reaches `--budget`, and the document reports
+  `truncated`, `findings_included/omitted`, and `plan_clusters_included` so the
+  budget is honest rather than advisory. `approx_tokens` is measured from the real
+  (pretty) output. `risk.level` is a machine token (`moderate`) alongside the
+  display `risk.label` (`🟡 MODERATE`). Markdown stays the default; `--no-header`
+  and `--no-task` apply to Markdown only (JSON is always fact-only), and JSON
+  never mixes the stderr token breakdown in. Pinned by a golden snapshot and
+  end-to-end CLI tests.
+
 ### Changed
+
+- **The `repopilot_context` MCP tool now includes the repository facts summary**
+  (aggregate file, line, and language stats), matching `repopilot ai context`. The
+  tool previously rendered without facts despite documenting a fact-only brief, so
+  agents calling it received a thinner context than the CLI; they now get the same
+  aggregate stack/size picture.
+
+- **Agent-facing docs now document the false-positive/noise-reduction workflow.** MCP docs and AI-context workflow docs now call out strict-mode recall, exact duplicate aggregation, changed-scan limits, and the need for false-negative guard tests before hiding or downgrading signals.
 
 - **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
   CLI tool's command handlers instead of surfacing them as a default High.** A

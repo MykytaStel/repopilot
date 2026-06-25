@@ -3,10 +3,12 @@ mod findings;
 mod guardrails;
 mod header;
 mod hotfiles;
+mod json;
 mod recommendations;
 mod repo_facts;
 
 pub use budget::SectionBreakdown;
+pub use json::{AI_CONTEXT_JSON_SCHEMA_VERSION, render_json};
 
 use crate::facts::RepoFactsSummary;
 use crate::findings::types::Finding;
