@@ -2,6 +2,7 @@ use super::{collection, contract_stage};
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
 use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
+use crate::findings::aggregation::aggregate_duplicate_findings;
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
@@ -93,6 +94,7 @@ impl<'a> ScanEngine<'a> {
 
         let enrichment_us = enrich_findings_timed(&mut project_stage.findings, self.path);
         apply_rule_config(&mut project_stage.findings, self.config);
+        aggregate_duplicate_findings(&mut project_stage.findings);
         let risk_scoring_us = self.score_findings(
             &project_stage.facts,
             &project_stage.coupling_graph,

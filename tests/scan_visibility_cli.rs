@@ -202,6 +202,30 @@ fn default_scan_keeps_real_secret_and_private_key_candidates() {
 }
 
 #[test]
+fn strict_scan_keeps_distinct_secret_occurrences_with_colliding_baseline_keys() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("src/config.py"),
+        "API_KEY = \"abc123xyz987\"\nAPI_KEY = \"def456uvw654\"\n",
+    );
+
+    let json = scan_json(root, &["--profile", "strict"]);
+    let secret_findings = findings_for_rule(&json, "security.secret-candidate").collect::<Vec<_>>();
+
+    assert_eq!(
+        secret_findings.len(),
+        2,
+        "distinct hardcoded secret occurrences must not be merged just because their baseline keys normalize to the same id: {json:#?}"
+    );
+    assert_eq!(secret_findings[0]["id"], secret_findings[1]["id"]);
+    assert_ne!(
+        secret_findings[0]["evidence"][0]["line_start"],
+        secret_findings[1]["evidence"][0]["line_start"]
+    );
+}
+
+#[test]
 fn default_scan_hides_large_file_and_long_function_threshold_findings() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();

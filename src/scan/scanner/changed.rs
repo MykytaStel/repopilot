@@ -1,6 +1,7 @@
 use super::changed_git::collect_changed_scope;
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{run_framework_audits, run_project_audits};
+use crate::findings::aggregation::aggregate_duplicate_findings;
 use crate::findings::enrichment::enrich_findings_timed;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
@@ -106,6 +107,7 @@ impl<'a> ChangedScanEngine<'a> {
         let post_scan_audits_us = project_start.elapsed().as_micros() as u64;
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         apply_rule_config(&mut file_stage.findings, self.config);
+        aggregate_duplicate_findings(&mut file_stage.findings);
         let risk_scoring_us = self.score_findings(&repo_stage, &mut file_stage.findings);
         let contract_stage =
             super::contract_stage::validate_finding_contract_stage(&file_stage.findings);
