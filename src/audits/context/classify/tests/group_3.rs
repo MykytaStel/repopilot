@@ -118,6 +118,58 @@ fn classifies_helm_path_yaml_as_infrastructure_context() {
 
 
 #[test]
+fn classifies_gradle_testing_module_as_test_support() {
+    // `core/testing/` holds test doubles under a production source set (`src/main`),
+    // so it is not a test file but earns the TestSupport marker for opted-in rules.
+    let file = facts(
+        "core/testing/src/main/kotlin/com/app/core/testing/util/TestSyncManager.kt",
+        Some("Kotlin"),
+        "class TestSyncManager : SyncManager {\n  override fun requestSync(): Unit = TODO()\n}\n",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(context.has_role(FileRole::TestSupport));
+    assert!(
+        !context.has_role(FileRole::Test),
+        "a src/main module is not a test file"
+    );
+    assert!(!context.has_role(FileRole::BuildTooling));
+}
+
+#[test]
+fn classifies_build_logic_as_build_tooling() {
+    let file = facts(
+        "build-logic/convention/src/main/kotlin/com/app/KotlinAndroid.kt",
+        Some("Kotlin"),
+        "internal fun configure() {\n  when (x) { else -> TODO(\"Unsupported\") }\n}\n",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(context.has_role(FileRole::BuildTooling));
+    assert!(!context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn classifies_feature_screen_as_plain_production_code() {
+    // Real app UI carries neither marker, so its `TODO()` stays default-visible.
+    let file = facts(
+        "feature/topic/impl/src/main/kotlin/com/app/feature/topic/TopicScreen.kt",
+        Some("Kotlin"),
+        "fun TopicScreen(state: TopicUiState) {\n  when (state) { is Error -> TODO() }\n}\n",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(!context.has_role(FileRole::TestSupport));
+    assert!(!context.has_role(FileRole::BuildTooling));
+}
+
+#[test]
 fn classifies_elixir_as_functional_first_context() {
     let file = facts(
         "lib/pipeline.ex",

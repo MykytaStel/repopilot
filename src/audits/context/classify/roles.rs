@@ -2,8 +2,8 @@ use super::frameworks::{
     is_dotnet_controller, is_dotnet_service, is_react_component_file, is_react_hook_file,
 };
 use super::helpers::{
-    is_app_entrypoint, is_config_file, is_generated_file, is_js_or_ts, is_test_support_file,
-    path_contains_component, push_unique,
+    is_app_entrypoint, is_build_tooling_path, is_config_file, is_generated_file, is_js_or_ts,
+    is_test_support_dir, is_test_support_file, path_contains_component, push_unique,
 };
 use super::signals::ContextSignals;
 use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind};
@@ -60,10 +60,19 @@ fn classify_static_roles(
     }
 
     // Test-support modules keep their production role but also carry this marker
-    // so `rust.panic-risk` can treat their assertion `panic!`/`unwrap` calls as
-    // non-production without affecting any other rule.
-    if language == LanguageKind::Rust && is_test_support_file(path) {
+    // so opted-in rules (`rust.panic-risk`, `managed.fatal-exception-risk`) treat
+    // their assertion/placeholder throws as non-production without affecting any
+    // other rule. Rust uses a filename allow list; other ecosystems use a
+    // dedicated `testing` source module (e.g. `core/testing/` in Gradle/Android).
+    if (language == LanguageKind::Rust && is_test_support_file(path)) || is_test_support_dir(path) {
         push_unique(roles, FileRole::TestSupport);
+    }
+
+    // Build-tooling sources (Gradle convention plugins under `build-logic/` /
+    // `buildSrc/`) configure the build and never ship, so opted-in rules treat
+    // their build-failing throws as intended rather than runtime risk.
+    if is_build_tooling_path(path) {
+        push_unique(roles, FileRole::BuildTooling);
     }
 }
 

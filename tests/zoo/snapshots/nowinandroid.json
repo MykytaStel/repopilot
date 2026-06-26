@@ -1,17 +1,15 @@
 {
   "default": {
     "by_priority": {
-      "P0": 3
+      "P0": 1
     },
     "by_rule": {
-      "language.managed.fatal-exception-risk": 3
+      "language.managed.fatal-exception-risk": 1
     },
     "fingerprints": [
-      "language.managed.fatal-exception-risk:build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/KotlinAndroid.kt:ea2a0df653191fc3",
-      "language.managed.fatal-exception-risk:core/testing/src/main/kotlin/com/google/samples/apps/nowinandroid/core/testing/util/TestSyncManager.kt:864c09d62667be09",
       "language.managed.fatal-exception-risk:feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt:6287d3e94eee5173"
     ],
-    "visible_total": 3
+    "visible_total": 1
   },
   "framework": "android",
   "language": "kotlin",

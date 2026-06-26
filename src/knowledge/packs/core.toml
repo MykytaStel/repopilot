@@ -677,6 +677,22 @@ role = "test"
 action = "downgrade"
 severity = "LOW"
 
+# A test-support module (a `testing` source tree such as `core/testing/`) holds
+# test doubles whose `TODO()`/`throw` placeholders are test plumbing, and a
+# build-tooling module (`build-logic/`, `buildSrc/`) fails the build by design.
+# Both keep their production role but downgrade to Low here (hidden by default,
+# kept under `--profile strict`) rather than being deleted; real app code such as
+# an unfinished `TopicUiState.Error -> TODO()` stays default-visible.
+[[rules.overrides]]
+role = "test-support"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "build-tooling"
+action = "downgrade"
+severity = "LOW"
+
 [[rules.overrides]]
 role = "domain"
 action = "upgrade"
