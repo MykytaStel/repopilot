@@ -12,6 +12,62 @@ pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
+/// Module paths imported *type-only* — `import type { … }` / `export type { … }`
+/// — and never imported as a value. The TypeScript compiler erases these, so they
+/// create no runtime edge and must be subtracted from cycle detection (they stay
+/// real edges for coupling/fan-out, like Python deferred imports). A module that
+/// is *also* imported as a value anywhere — including a mixed
+/// `import { type A, B }` or a dynamic `import("…")` — is a runtime edge and is
+/// excluded here.
+pub(super) fn extract_type_only(tree: &Tree, content: &str) -> HashSet<String> {
+    let mut type_only: HashSet<String> = HashSet::new();
+    let mut value: HashSet<String> = HashSet::new();
+    collect_type_only(tree.root_node(), content, &mut type_only, &mut value);
+    type_only.retain(|path| !value.contains(path));
+    type_only
+}
+
+fn collect_type_only(
+    node: Node<'_>,
+    content: &str,
+    type_only: &mut HashSet<String>,
+    value: &mut HashSet<String>,
+) {
+    match node.kind() {
+        "import_statement" | "export_statement" => {
+            if let Some(path) = module_source(node, content).filter(|path| is_candidate(path)) {
+                if statement_is_type_only(node) {
+                    type_only.insert(path.to_string());
+                } else {
+                    value.insert(path.to_string());
+                }
+            }
+        }
+        "call_expression" => {
+            // A dynamic `import("…")` / `require("…")` executes the module.
+            if let Some(path) = call_module_source(node, content).filter(|path| is_candidate(path)) {
+                value.insert(path.to_string());
+            }
+        }
+        _ => {}
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_type_only(child, content, type_only, value);
+    }
+}
+
+// `import type … from` / `export type … from` carry a `type` (or `typeof`) token
+// as a *direct* child of the statement. A `type` modifier on an individual
+// specifier (`import { type A, B }`) is nested inside `import_specifier`, so a
+// direct-child check correctly treats that mixed import as a runtime edge.
+fn statement_is_type_only(node: Node<'_>) -> bool {
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .any(|child| matches!(child.kind(), "type" | "typeof"))
+}
+
 fn is_candidate(path: &str) -> bool {
     path.starts_with('.')
         || path.starts_with('/')

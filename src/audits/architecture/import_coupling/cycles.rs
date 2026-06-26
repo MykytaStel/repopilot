@@ -65,6 +65,15 @@ pub(super) fn emit_circular_dependency_findings(
             continue;
         }
 
+        // A deferred-only cycle whose members are all TypeScript/JavaScript is
+        // held together by `import type` edges, which the compiler erases — it is
+        // not a runtime cycle in any sense (unlike a Python function-body
+        // deferral, which runs lazily), so it is suppressed entirely rather than
+        // surfaced as an informational Low finding.
+        if members.iter().all(|path| is_type_erasing_language(path)) {
+            continue;
+        }
+
         // Mixed component: this SCC only exists in the full graph because a
         // deferred edge widened a component that already has an eager cycle.
         // The eager sub-cycle is reported as High; labelling the whole component
@@ -92,6 +101,16 @@ pub(super) fn emit_circular_dependency_findings(
 
 fn is_prod_cycle(members: &[PathBuf], prod_files: &HashSet<PathBuf>) -> bool {
     !members.is_empty() && members.iter().all(|path| prod_files.contains(path))
+}
+
+// A TypeScript/JavaScript file's only deferred imports are `import type` edges,
+// which the compiler erases — so a deferred-only cycle made solely of these
+// files is purely type-level and has no runtime existence.
+fn is_type_erasing_language(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some("ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs")
+    )
 }
 
 /// `component` is the full strongly-connected component (all mutually dependent
