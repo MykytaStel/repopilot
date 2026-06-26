@@ -71,6 +71,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`repopilot_scan` MCP disk caching no longer serves stale scan reports after
+  agent edits.** The scan tool now bypasses the MCP session cache, keys disk
+  entries from the git-root working tree, stores entries under Git-owned
+  metadata instead of the working tree, and invalidates when a changed-scope base
+  ref resolves to a different commit or when path-discovered config,
+  `.repopilot/feedback.yml`, `.repopilotignore`, or effective Git/ignore-file
+  inputs change. Corrupt cache files are ignored and recomputed, and retention
+  keeps at most 32 valid scan reports per repository cache directory.
+
 - **Scan pipelines now collapse only exact duplicate finding emissions, not stable-baseline-key collisions.** Full and changed scans aggregate repeated emissions for the same rule, file, line, snippet, and compatible metadata before risk scoring, preserving a single finding with distinct evidence. The guard deliberately ignores `Finding::id` as a dedupe identity because that id is line-insensitive and literal-normalized for baseline stability; separate occurrences such as two hardcoded secrets on different lines remain separate findings and still contribute independently to counts, hotspots, and risk overlays.
 
 - **`testing.source-without-test` no longer flags documentation example code or standard Python entrypoints.** A `docs_src/` tree (an unambiguous documentation name) is skipped wherever it appears, and a `docs/` directory is skipped at a package root (repo root or a monorepo package such as `packages/<pkg>/docs/`) — but a `docs` module *nested inside a source tree* (`src/docs/`, `lib/docs/`, `app/docs/`) stays visible, since in a document-management app that is ordinary production code. The standard Django entrypoints `manage.py`/`wsgi.py`/`asgi.py` are also exempt (the analogue of the already-skipped `__main__.py`). A bare `apps.py` is deliberately *not* skipped by name: the filename alone is not evidence of a declarative `AppConfig` stub (it can carry a `ready()` with real startup behaviour, or be an ordinary module), so skipping it would hide untested production code. Measured on the real-repo zoo, this took fastapi's strict-profile count from 389 to 36 (its `docs_src/` tutorial tree was 349 of those findings) and wagtail's from 671 to 668, with no change to any default-visible output.

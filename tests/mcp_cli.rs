@@ -6,7 +6,7 @@
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 /// Runs `repopilot mcp` over `requests` (one JSON-RPC message each) and returns
@@ -249,4 +249,91 @@ fn mcp_server_cancels_background_tool_calls() {
         .find(|message| message["id"] == 9)
         .expect("cancelled response");
     assert_eq!(cancelled["error"]["code"], -32800);
+}
+
+fn git(root: &Path, args: &[&str]) {
+    let ok = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(args)
+        .output()
+        .expect("git available")
+        .status
+        .success();
+    assert!(ok, "git {args:?} failed");
+}
+
+fn git_path(root: &Path, path: &str) -> PathBuf {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["rev-parse", "--git-path", path])
+        .output()
+        .expect("git available");
+    assert!(output.status.success(), "git rev-parse --git-path failed");
+    let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let path = PathBuf::from(raw);
+    if path.is_absolute() {
+        path
+    } else {
+        root.join(path)
+    }
+}
+
+#[test]
+fn mcp_scan_cache_persists_across_sessions_and_invalidates_on_edit() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "t@example.com"]);
+    git(root, &["config", "user.name", "Test"]);
+    fs::create_dir_all(root.join("src")).expect("src");
+    fs::write(root.join("src/lib.rs"), "pub fn live() -> i32 { 1 }\n").expect("source");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "init"]);
+
+    let scan = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":"."}}}"#,
+    ];
+
+    // Session 1 writes the disk cache.
+    let first = run_mcp(&scan, root);
+    assert_eq!(first[1]["result"]["isError"], false, "scan should succeed");
+    let cache_dir = git_path(root, "repopilot/cache/mcp-scan");
+    let cache_file = fs::read_dir(&cache_dir)
+        .expect("cache dir created")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .expect("a cache entry was written");
+
+    // Overwrite the cache with a sentinel: a NEW process scanning the unchanged
+    // tree must read it back — proving a cross-session disk hit.
+    fs::write(
+        &cache_file,
+        r#"{"schema_version":"test","report":{"kind":"scan"},"sentinel":"cached-across-sessions"}"#,
+    )
+    .expect("overwrite cache");
+    let hit = run_mcp(&scan, root);
+    assert!(
+        hit[1].to_string().contains("cached-across-sessions"),
+        "a second session must serve the disk cache: {}",
+        hit[1]
+    );
+
+    // Editing a file changes the working-tree fingerprint → miss → a real scan,
+    // never the stale sentinel.
+    fs::write(root.join("src/lib.rs"), "pub fn changed() -> i32 { 2 }\n").expect("edit");
+    let miss = run_mcp(&scan, root);
+    let text = miss[1].to_string();
+    assert!(
+        !text.contains("cached-across-sessions"),
+        "an edit must invalidate the cache"
+    );
+    assert!(
+        text.contains("schema_version"),
+        "a miss returns a real scan report"
+    );
 }

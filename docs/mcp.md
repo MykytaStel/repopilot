@@ -56,6 +56,39 @@ or aggregate counts must be authoritative.
 Tool failures use MCP `isError: true`. Malformed input produces JSON-RPC error
 `-32700` instead of being skipped.
 
+## `repopilot_scan` Persistent Cache
+
+`repopilot_scan` may reuse a local persistent cache for repeated scans of an
+unchanged repository state. The cache is read-only from the MCP client's
+perspective: it only stores scan reports produced by local RepoPilot analysis and
+never uploads source, telemetry, or results.
+
+Cache files are stored in Git-owned metadata, resolved with:
+
+```bash
+git rev-parse --git-path repopilot/cache/mcp-scan
+```
+
+RepoPilot disables the disk cache if that Git metadata path cannot be resolved
+safely. Full scan reports are not written under the repository working tree
+(`.repopilot/cache/mcp-scan` is not used), so users cannot accidentally commit
+cached evidence snippets.
+
+A cached `repopilot_scan` result is invalidated by RepoPilot version or cache
+schema changes, scan arguments (`profile`, `scope`, `base`, filters), the
+resolved commit for a changed-scope `base` ref, committed/staged/unstaged or
+untracked changes anywhere in the Git worktree, explicit or discovered
+`repopilot.toml` content, `.repopilot/feedback.yml`, `.repopilotignore`, parent
+`.gitignore` and `.ignore` files, `.git/info/exclude`, and the effective global
+Git ignore file. If any cache input is uncertain, RepoPilot prefers a fresh scan
+over a cache hit.
+
+The cache can be deleted safely. RepoPilot recreates it on demand. Retention is
+best effort: after a successful store, RepoPilot keeps at most 32 valid scan
+reports per repository cache directory, removes the oldest valid entries first,
+ignores cleanup errors, and leaves unrelated files in that Git-owned cache
+directory untouched.
+
 ## Resources
 
 The server exposes:
@@ -67,7 +100,11 @@ The server exposes:
 - `repopilot://last-review`: the last successful review in this session.
 
 Last-result resources appear after the corresponding tool has run. Identical
-tool calls are served from the session cache.
+non-scan tool calls are served from the in-process session cache; `repopilot_scan`
+uses the persistent cache above because its correctness depends on Git state.
+Session-cache invalidation for `repopilot_review_change`, `repopilot_context`,
+and `repopilot_explain_file` is intentionally left to the next MCP correctness
+PR.
 
 ## Prompts
 

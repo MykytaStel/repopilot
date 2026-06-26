@@ -11,7 +11,10 @@ mod explain_file;
 mod jsonrpc;
 mod review_change;
 mod scan;
+mod scan_cache;
 
+#[cfg(test)]
+mod session_cache_tests;
 #[cfg(test)]
 mod tests;
 
@@ -311,8 +314,9 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
         return Response::success(id, tool_result(name, Err(message)));
     }
 
+    let use_session_cache = name != scan::TOOL_NAME;
     let cache_key = format!("{name}:{}", arguments);
-    if let Some(cached) = state.cache.get(&cache_key) {
+    if use_session_cache && let Some(cached) = state.cache.get(&cache_key) {
         return Response::success(id, tool_result(name, Ok(cached.clone())));
     }
 
@@ -325,7 +329,9 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
     };
 
     if let Ok(text) = &outcome {
-        state.cache.insert(cache_key, text.clone());
+        if use_session_cache {
+            state.cache.insert(cache_key, text.clone());
+        }
         match name {
             scan::TOOL_NAME => state.last_scan = Some(text.clone()),
             review_change::TOOL_NAME => state.last_review = Some(text.clone()),
