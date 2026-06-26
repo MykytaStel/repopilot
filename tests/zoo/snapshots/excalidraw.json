@@ -1,13 +1,13 @@
 {
   "default": {
     "by_priority": {
-      "P0": 8
+      "P0": 7
     },
     "by_rule": {
       "architecture.circular-dependency": 3,
       "language.javascript.runtime-exit-risk": 1,
       "security.env-file-committed": 2,
-      "security.secret-candidate": 2
+      "security.secret-candidate": 1
     },
     "fingerprints": [
       "architecture.circular-dependency:excalidraw-app/App.tsx:e575ed4f8104d3d4",
@@ -16,10 +16,9 @@
       "language.javascript.runtime-exit-risk:packages/excalidraw/subset/woff2/woff2-bindings.ts:cac7cba895f49cd1",
       "security.env-file-committed:.env.development:449ca767a377cdab",
       "security.env-file-committed:.env.production:2c69a58fcc634ff5",
-      "security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527",
-      "security.secret-candidate:packages/common/src/constants.ts:e6518a50fca8bcff"
+      "security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527"
     ],
-    "visible_total": 8
+    "visible_total": 7
   },
   "framework": "react",
   "language": "typescript",

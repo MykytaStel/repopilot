@@ -1,21 +1,18 @@
 {
   "default": {
     "by_priority": {
-      "P0": 6
+      "P0": 4
     },
     "by_rule": {
-      "language.rust.panic-risk": 4,
-      "security.secret-candidate": 2
+      "language.rust.panic-risk": 4
     },
     "fingerprints": [
       "language.rust.panic-risk:crates/ignore/src/dir.rs:29a9cdea010a693a",
       "language.rust.panic-risk:crates/matcher/src/lib.rs:d86c9a3b5e601a78",
       "language.rust.panic-risk:crates/matcher/src/lib.rs:d86c9a3b5e601a78",
-      "language.rust.panic-risk:crates/printer/src/json.rs:a67956c2e99a577d",
-      "security.secret-candidate:crates/globset/src/glob.rs:89e9fb0d9e899eaa",
-      "security.secret-candidate:crates/globset/src/glob.rs:c8d14f43284e4d64"
+      "language.rust.panic-risk:crates/printer/src/json.rs:a67956c2e99a577d"
     ],
-    "visible_total": 6
+    "visible_total": 4
   },
   "framework": "",
   "language": "rust",
@@ -31,9 +28,8 @@
       "code-quality.deep-control-flow": 3,
       "code-quality.long-function": 59,
       "language.rust.panic-risk": 97,
-      "security.secret-candidate": 2,
       "testing.source-without-test": 27
     },
-    "visible_total": 256
+    "visible_total": 254
   }
 }
