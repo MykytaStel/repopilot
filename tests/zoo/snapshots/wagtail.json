@@ -37,8 +37,8 @@
       "code-marker.hack": 3,
       "code-marker.todo": 19,
       "code-quality.complex-file": 28,
-      "code-quality.complex-function": 221,
-      "code-quality.deep-control-flow": 54,
+      "code-quality.complex-function": 174,
+      "code-quality.deep-control-flow": 22,
       "code-quality.long-function": 203,
       "framework.js.console-log": 1,
       "framework.js.var-declaration": 27,
@@ -47,6 +47,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 668
     },
-    "visible_total": 3123
+    "visible_total": 3044
   }
 }
