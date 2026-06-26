@@ -3,6 +3,7 @@
 
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
 use crate::commands::scan_config::ScanConfigOverrides;
+use repopilot::config::loader::discover_config_path;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::types::{Confidence, Severity};
 use repopilot::findings::visibility::FindingVisibilityProfile;
@@ -53,10 +54,21 @@ pub fn definition() -> Value {
 
 pub fn call(arguments: &Value) -> Result<String, String> {
     let path = PathBuf::from(arguments.get("path").and_then(Value::as_str).unwrap_or("."));
+
+    // Cross-session disk cache: a repeated scan of an unchanged tree is a hit.
+    // The key folds in the working-tree state, so any edit invalidates it.
+    let cache_key = super::scan_cache::cache_key(&path, arguments);
+    if let Some(key) = &cache_key
+        && let Some(cached) = super::scan_cache::load(&path, key)
+    {
+        return Ok(cached);
+    }
+
     let config_path = arguments
         .get("config")
         .and_then(Value::as_str)
-        .map(PathBuf::from);
+        .map(PathBuf::from)
+        .or_else(|| discover_config_path(super::scan_cache::config_search_start(&path)));
     let visibility_profile = match arguments.get("profile").and_then(Value::as_str) {
         Some("strict") => FindingVisibilityProfile::Strict,
         Some("default") | None => FindingVisibilityProfile::Default,
@@ -75,7 +87,7 @@ pub fn call(arguments: &Value) -> Result<String, String> {
 
     let filter = parse_filters(arguments)?;
     let mut scan_result = run_product_scan(ProductScanRequest {
-        path,
+        path: path.clone(),
         config_path,
         overrides: ScanConfigOverrides::default(),
         preset: None,
@@ -95,8 +107,13 @@ pub fn call(arguments: &Value) -> Result<String, String> {
         filter.apply_to_summary(&mut scan_result.summary);
     }
 
-    render_scan_summary(&scan_result.summary, OutputFormat::Json)
-        .map_err(|error| format!("render failed: {error}"))
+    let output = render_scan_summary(&scan_result.summary, OutputFormat::Json)
+        .map_err(|error| format!("render failed: {error}"))?;
+
+    if let Some(key) = &cache_key {
+        super::scan_cache::store(&path, key, &output);
+    }
+    Ok(output)
 }
 
 pub(super) fn parse_filters(arguments: &Value) -> Result<FindingFilter, String> {
