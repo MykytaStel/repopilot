@@ -177,18 +177,51 @@ fn private_key_candidate_ignores_documented_examples() {
     assert!(findings.is_empty());
 }
 
-#[test]
-fn env_file_committed_reports_env_files() {
+fn env_findings(name: &str, content: &str) -> Vec<repopilot::findings::types::Finding> {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),
-        files: vec![file(".env.production", "TOKEN=value\n")],
+        files: vec![file(name, content)],
         files_analyzed: 1,
         ..ScanFacts::default()
     };
+    EnvFileCommittedAudit.audit(&facts, &ScanConfig::default())
+}
 
-    let findings = EnvFileCommittedAudit.audit(&facts, &ScanConfig::default());
+#[test]
+fn env_file_committed_always_flags_local_secret_files() {
+    // `.env` / `.env.local` are the developer-local secret files — committing
+    // one at all is the anti-pattern, regardless of contents.
+    for name in [".env", ".env.local"] {
+        let findings = env_findings(name, "API_KEY=abc123xyz987\n");
+        assert_eq!(findings.len(), 1, "{name} must be flagged");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+    }
+}
 
-    assert_eq!(findings.len(), 1);
+#[test]
+fn env_file_committed_skips_public_build_config() {
+    // A committed `.env.production` carrying only public, framework-exposed build
+    // config (Vite inlines `VITE_*` into the browser bundle) is not a leak.
+    // (Regression: excalidraw's `.env.development` / `.env.production`.)
+    let content = "MODE=\"production\"\n\
+        VITE_APP_BACKEND_URL=https://json.excalidraw.com/api/v2/\n\
+        VITE_APP_FIREBASE_CONFIG='{\"apiKey\":\"AIzaSyAd15pYlMci_xIp9ko6wkEsDzAAA0Dn0RU\"}'\n\
+        VITE_APP_ENABLE_TRACKING=false\n";
+    for name in [".env.production", ".env.development", ".env.staging"] {
+        assert!(
+            env_findings(name, content).is_empty(),
+            "{name} with only public build config must not be flagged"
+        );
+    }
+}
+
+#[test]
+fn env_file_committed_flags_committed_secret_in_shared_env() {
+    // A non-public secret-shaped value in a committed `.env.production` is a leak.
+    let content = "VITE_APP_PORT=3001\n\
+        DATABASE_PASSWORD=Zj4Hn8Qw2Kp6Mv9Rs1Tb7\n";
+    let findings = env_findings(".env.production", content);
+    assert_eq!(findings.len(), 1, "{findings:?}");
     assert_eq!(findings[0].rule_id, "security.env-file-committed");
 }
 

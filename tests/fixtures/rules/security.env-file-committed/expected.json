@@ -5,6 +5,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_public_config",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "security.env-file-committed"

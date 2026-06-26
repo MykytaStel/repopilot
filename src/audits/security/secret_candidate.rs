@@ -85,6 +85,13 @@ impl FileAudit for SecretCandidateAudit {
     }
 }
 
+/// Returns true when `line` carries a hardcoded secret-shaped assignment — a
+/// known secret key set to a credential-shaped literal. Shared with the
+/// env-file audit so both rules classify committed values identically.
+pub(crate) fn line_has_hardcoded_secret(line: &str) -> bool {
+    detect_secret_line(line, 1, std::path::Path::new("env")).is_some()
+}
+
 fn is_lock_file(path: &std::path::Path) -> bool {
     let ext = path
         .extension()

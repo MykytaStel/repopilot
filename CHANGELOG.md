@@ -71,6 +71,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.env-file-committed` no longer flags a committed `.env.development`
+  / `.env.production` / `.env.staging` that holds only public build config.**
+  These shared env files are routinely committed on purpose to carry public,
+  framework-exposed configuration — Vite/CRA/Next inline `VITE_*`, `REACT_APP_*`,
+  `NEXT_PUBLIC_*` (and peers) into the browser bundle, so those values are public
+  by construction — and the rule flagged them by filename alone. It is now
+  content-aware: `.env` and `.env.local` (the developer-local secret files that
+  every default `.gitignore` excludes) are still flagged on sight, but the shared
+  variants are flagged only when they actually contain a non-public,
+  secret-shaped value (using the same value classifier as
+  `security.secret-candidate`). Measured on the real-repo zoo, this removed both
+  of excalidraw's default-visible findings (its `.env.development` /
+  `.env.production` carry only `VITE_*` config, a Firebase web API key, and a
+  published RSA public key), with a genuine committed secret still flagged.
+
 - **`repopilot_scan` MCP disk caching no longer serves stale scan reports after
   agent edits.** The scan tool now bypasses the MCP session cache, keys disk
   entries from the git-root working tree, stores entries under Git-owned
