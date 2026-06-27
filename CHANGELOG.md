@@ -71,6 +71,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.env-file-committed` is now content- and confidence-aware for shared
+  `.env.development` / `.env.production` / `.env.staging` files.** Local `.env`
+  and `.env.local` files are still flagged on sight, but shared build variants are
+  inspected: ordinary public build config is skipped, ambiguous public browser
+  credentials such as Firebase web config are Low confidence (hidden by default,
+  retained in strict), and explicit sensitive keys such as `PASSWORD`,
+  `CLIENT_SECRET`, `AUTH_TOKEN`, or `PRIVATE_KEY` stay High confidence even with a
+  public framework prefix like `VITE_`/`NEXT_PUBLIC_`. Measured on the real-repo
+  zoo, this removed both of excalidraw's default-visible env-file findings while
+  retaining strict-profile review of the public credential-shaped config and still
+  flagging genuine committed secrets.
+
 - **`security.secret-candidate` no longer misreads namespace path qualifiers as
   hardcoded secrets, and lowercase slug-like values are strict-only Low.** A
   `key::Rest` path qualifier (a Rust/C++ enum or type path such as

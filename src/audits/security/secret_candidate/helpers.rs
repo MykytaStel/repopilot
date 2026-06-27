@@ -89,16 +89,33 @@ fn is_human_readable_slug(value: &str) -> bool {
         && value.split(['-', '_']).all(|segment| !segment.is_empty())
 }
 
-fn secret_literal_confidence(value: &str) -> Option<Confidence> {
+pub(crate) fn secret_literal_confidence(value: &str) -> Option<Confidence> {
     let value = value.trim().trim_end_matches([',', ';']).trim();
     let unquoted = unwrap_first_quoted(value);
     let lower = unquoted.to_lowercase();
 
     const KNOWN_PLACEHOLDERS: &[&str] = &[
-        "null", "nil", "none", "your_key_here", "short", "password",
-        "test-password", "test_password", "dummy", "example", "changeme",
-        "replace_me", "placeholder", "todo", "xxx", "your_secret",
-        "your_token", "your_api_key", "insert_here", "set_me", "fixme",
+        "null",
+        "nil",
+        "none",
+        "your_key_here",
+        "short",
+        "password",
+        "test-password",
+        "test_password",
+        "dummy",
+        "example",
+        "changeme",
+        "replace_me",
+        "placeholder",
+        "todo",
+        "xxx",
+        "your_secret",
+        "your_token",
+        "your_api_key",
+        "insert_here",
+        "set_me",
+        "fixme",
     ];
     let is_placeholder = unquoted.is_empty()
         || is_env_var_reference(unquoted)

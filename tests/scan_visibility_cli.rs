@@ -242,6 +242,29 @@ fn default_scan_hides_lowercase_slug_secrets_but_strict_keeps_them() {
 }
 
 #[test]
+fn default_scan_hides_low_confidence_public_env_but_strict_keeps_it() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join(".env.production"),
+        "VITE_FIREBASE_CONFIG={\"apiKey\":\"FixtureOnlyPublicKey9qLx7Zr2Mv8Np4Tc6Yw3\"}\n",
+    );
+
+    let default = scan_json(root, &[]);
+    assert_rule_absent(&default, "security.env-file-committed");
+
+    let strict = scan_json(root, &["--profile", "strict"]);
+    let env_findings =
+        findings_for_rule(&strict, "security.env-file-committed").collect::<Vec<_>>();
+    assert_eq!(
+        env_findings.len(),
+        1,
+        "strict should retain the low-confidence public env finding: {strict:#?}"
+    );
+    assert_eq!(env_findings[0]["confidence"], "LOW");
+}
+
+#[test]
 fn strict_scan_keeps_distinct_secret_occurrences_with_colliding_baseline_keys() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();

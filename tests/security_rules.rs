@@ -228,19 +228,162 @@ fn private_key_candidate_ignores_documented_examples() {
     assert!(findings.is_empty());
 }
 
-#[test]
-fn env_file_committed_reports_env_files() {
+fn env_findings(name: &str, content: &str) -> Vec<repopilot::findings::types::Finding> {
     let facts = ScanFacts {
         root_path: PathBuf::from("demo"),
-        files: vec![file(".env.production", "TOKEN=value\n")],
+        files: vec![file(name, content)],
         files_analyzed: 1,
         ..ScanFacts::default()
     };
+    EnvFileCommittedAudit.audit(&facts, &ScanConfig::default())
+}
 
-    let findings = EnvFileCommittedAudit.audit(&facts, &ScanConfig::default());
+fn unreadable_env_findings(name: &str) -> Vec<repopilot::findings::types::Finding> {
+    let facts = ScanFacts {
+        root_path: PathBuf::from("demo"),
+        files: vec![FileFacts {
+            path: PathBuf::from(name),
+            content: None,
+            ..file(name, "")
+        }],
+        files_analyzed: 1,
+        ..ScanFacts::default()
+    };
+    EnvFileCommittedAudit.audit(&facts, &ScanConfig::default())
+}
 
-    assert_eq!(findings.len(), 1);
+#[test]
+fn env_file_committed_always_flags_local_secret_files() {
+    // `.env` / `.env.local` are the developer-local secret files — committing
+    // one at all is the anti-pattern, regardless of contents.
+    for name in [".env", ".env.local"] {
+        let findings = env_findings(name, "API_KEY=abc123xyz987\n");
+        assert_eq!(findings.len(), 1, "{name} must be flagged");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+    }
+}
+
+#[test]
+fn env_file_committed_fails_closed_when_shared_env_content_is_unreadable() {
+    let findings = unreadable_env_findings("missing/.env.production");
+
+    assert_eq!(findings.len(), 1, "{findings:?}");
     assert_eq!(findings[0].rule_id, "security.env-file-committed");
+    assert_eq!(findings[0].confidence, Confidence::High);
+}
+
+#[test]
+fn env_file_committed_skips_public_build_config_without_secret_shape() {
+    let content = "VITE_API_URL=https://api.example.com\n\
+        VITE_FEATURE_ENABLED=true\n";
+
+    for name in [".env.production", ".env.development", ".env.staging"] {
+        assert!(
+            env_findings(name, content).is_empty(),
+            "{name} with only ordinary public build config must not be flagged"
+        );
+    }
+}
+
+#[test]
+fn env_file_committed_skips_ordinary_quoted_config_values() {
+    let content = "MODE=\"production\"\n\
+        APP_NAME=\"excalidraw\"\n\
+        SERVICE_NAME=\"production-service\"\n\
+        ENVIRONMENT=\"development\"\n";
+
+    assert!(
+        env_findings(".env.production", content).is_empty(),
+        "ordinary quoted config values must not be treated as secrets"
+    );
+}
+
+#[test]
+fn env_file_committed_downgrades_public_browser_credentials_to_low_confidence() {
+    let findings = env_findings(
+        ".env.production",
+        "VITE_FIREBASE_CONFIG={\"apiKey\":\"FixtureOnlyPublicKey9qLx7Zr2Mv8Np4Tc6Yw3\"}\n",
+    );
+
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].rule_id, "security.env-file-committed");
+    assert_eq!(findings[0].confidence, Confidence::Low);
+}
+
+#[test]
+fn env_file_committed_flags_public_prefixed_sensitive_keys_as_high_confidence() {
+    for line in [
+        "VITE_DATABASE_PASSWORD=Zj4Hn8Qw2Kp6Mv9Rs1Tb7\n",
+        "NEXT_PUBLIC_CLIENT_SECRET=sk-live-123456789\n",
+        "PUBLIC_AUTH_TOKEN=ghp_actualCredential123\n",
+    ] {
+        let findings = env_findings(".env.production", line);
+        assert_eq!(findings.len(), 1, "{line} -> {findings:?}");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+        assert_eq!(findings[0].confidence, Confidence::High);
+    }
+}
+
+#[test]
+fn env_file_committed_does_not_match_sensitive_substrings_inside_words() {
+    let content = "TOKENIZER_MODEL=\"cl100k_base\"\n\
+        SECRETARY_EMAIL=\"alice@example.com\"\n\
+        VITE_PASSWORD_POLICY=\"minimum-length-12\"\n";
+
+    assert!(
+        env_findings(".env.production", content).is_empty(),
+        "sensitive substrings inside ordinary words must not trigger env-file findings"
+    );
+}
+
+#[test]
+fn env_file_committed_flags_public_provider_tokens_as_high_confidence() {
+    for line in [
+        "VITE_OPENAI_API_KEY=sk-proj-realCredential123456\n",
+        "NEXT_PUBLIC_STRIPE_SECRET=sk_live_realCredential123456\n",
+    ] {
+        let findings = env_findings(".env.production", line);
+        assert_eq!(findings.len(), 1, "{line} -> {findings:?}");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+        assert_eq!(findings[0].confidence, Confidence::High);
+    }
+}
+
+#[test]
+fn env_file_committed_flags_provider_tokens_regardless_of_key_name() {
+    for line in [
+        "GITHUB_PAT=ghp_actualCredential123456\n",
+        "CREDENTIAL=sk-proj-realCredential123456\n",
+    ] {
+        let findings = env_findings(".env.production", line);
+        assert_eq!(findings.len(), 1, "{line} -> {findings:?}");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+        assert_eq!(findings[0].confidence, Confidence::High);
+    }
+}
+
+#[test]
+fn env_file_committed_flags_non_public_secret_assignment_as_high_confidence() {
+    let findings = env_findings(
+        ".env.production",
+        "DATABASE_PASSWORD=Zj4Hn8Qw2Kp6Mv9Rs1Tb7\n",
+    );
+    assert_eq!(findings.len(), 1, "{findings:?}");
+    assert_eq!(findings[0].rule_id, "security.env-file-committed");
+    assert_eq!(findings[0].confidence, Confidence::High);
+}
+
+#[test]
+fn env_file_committed_flags_credentials_embedded_in_urls() {
+    for line in [
+        "DATABASE_URL=https://admin:realPassword123@example.com\n",
+        "API_URL=https://api.example.com?access_token=realToken123456\n",
+    ] {
+        let findings = env_findings(".env.production", line);
+        assert_eq!(findings.len(), 1, "{line} -> {findings:?}");
+        assert_eq!(findings[0].rule_id, "security.env-file-committed");
+        assert_eq!(findings[0].confidence, Confidence::High);
+    }
 }
 
 #[test]
