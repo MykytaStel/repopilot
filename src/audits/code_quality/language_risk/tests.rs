@@ -155,6 +155,85 @@ fn reports_csharp_not_implemented_placeholder() {
 }
 
 #[test]
+fn downgrades_kotlin_todo_in_build_logic_to_low() {
+    let file = facts(
+        "build-logic/convention/src/main/kotlin/Plugin.kt",
+        Some("Kotlin"),
+        "fun configure(): Unit = TODO()",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.managed.fatal-exception-risk");
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+#[test]
+fn downgrades_kotlin_todo_in_gradle_testing_module_to_low() {
+    let file = facts(
+        "core/testing/src/main/kotlin/com/app/core/testing/FakeSync.kt",
+        Some("Kotlin"),
+        "class FakeSync { fun sync(): Unit = TODO() }",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.managed.fatal-exception-risk");
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+// A test-support module under a `models/`/`domain/` package carries both the
+// `test-support` and `domain` roles. Overrides apply in order, so the
+// `test-support` downgrade must follow the `domain` upgrade — otherwise the
+// placeholder is re-upgraded to High and becomes default-visible again.
+#[test]
+fn test_support_role_wins_over_domain_role_for_managed_fatal_risk() {
+    let file = facts(
+        "core/testing/src/main/kotlin/com/app/models/FakeUser.kt",
+        Some("Kotlin"),
+        "class FakeUser { fun create(): Unit = TODO() }",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.managed.fatal-exception-risk");
+    assert_eq!(findings[0].severity, Severity::Low);
+}
+
+#[test]
+fn kotlin_todo_in_feature_application_code_stays_high() {
+    let file = facts(
+        "feature/topic/impl/src/main/kotlin/com/app/feature/topic/TopicScreen.kt",
+        Some("Kotlin"),
+        "fun TopicScreen(state: State): Unit = TODO()",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.managed.fatal-exception-risk");
+    assert_eq!(findings[0].severity, Severity::High);
+}
+
+#[test]
+fn kotlin_todo_in_testing_package_namespace_stays_high() {
+    let file = facts(
+        "feature/topic/impl/src/main/kotlin/com/app/testing/TopicScreen.kt",
+        Some("Kotlin"),
+        "fun TopicScreen(state: State): Unit = TODO()",
+    );
+
+    let findings = LanguageRiskAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].rule_id, "language.managed.fatal-exception-risk");
+    assert_eq!(findings[0].severity, Severity::High);
+}
+
+#[test]
 fn ignores_functional_iterator_style_without_risky_pattern() {
     let file = facts(
         "src/domain/users.ts",

@@ -87,10 +87,10 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
-    /// A Rust test-support module (`testutil.rs`, `test_utils.rs`, …): a
-    /// production file whose `panic!`/`unwrap` calls are test assertion plumbing.
-    /// Carried *alongside* the file's production role so only opted-in rules
-    /// (currently `rust.panic-risk`) treat it specially.
+    /// A test-support module: Rust filename allow-list helpers (`testutil.rs`,
+    /// `test_utils.rs`, …) or managed-language Gradle/source-set helper modules
+    /// (`core/testing/src/main/...`, `src/testFixtures/...`). Carried *alongside*
+    /// the file's production role so only opted-in rules treat it specially.
     TestSupport,
     /// A CLI command handler: a file in a `commands/` directory whose package
     /// declares an executable entrypoint (npm `package.json#bin`, Cargo

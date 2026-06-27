@@ -121,22 +121,36 @@ pub fn is_test_support_file(path: &Path) -> bool {
     )
 }
 
-/// True for a *test-support module directory* — a source tree dedicated to test
-/// doubles and helpers shared across modules, conventionally a `testing` module
-/// (e.g. `core/testing/…` in a Gradle/Android multi-module build). Unlike a test
-/// file it lives under a production source set (`src/main`), so it keeps its
-/// production role but also earns `FileRole::TestSupport` so opted-in rules can
-/// treat its placeholder/assertion throws as test plumbing. Language-agnostic
-/// companion to the Rust filename allow list in [`is_test_support_file`].
-pub fn is_test_support_dir(path: &Path) -> bool {
-    path_contains_component(path, &["testing", "testsupport", "testfixtures"])
+/// True for a managed-language *test-support module directory* — a source tree
+/// dedicated to test doubles and helpers shared across modules. This is limited
+/// to Gradle/source-set shapes that indicate a whole helper module/source set,
+/// such as `core/testing/src/main/...`, `core/testsupport/src/main/...`, or
+/// `module/src/testFixtures/...`; a package namespace component like
+/// `app/src/main/kotlin/com/example/testing/...` is ordinary production code.
+pub fn is_managed_test_support_path(path: &Path) -> bool {
+    let components = normalized_components(path);
+
+    components.windows(3).any(|window| {
+        matches!(window[0].as_str(), "testing" | "testsupport")
+            && window[1] == "src"
+            && window[2] == "main"
+    }) || components
+        .windows(2)
+        .any(|window| window[0] == "src" && window[1] == "testfixtures")
 }
 
 /// True for *build-tooling* sources — Gradle convention plugins and build logic
 /// under `build-logic/` or `buildSrc/`. These configure the build and never ship
 /// in the application, so a `throw`/`TODO()` there fails the build by design.
 pub fn is_build_tooling_path(path: &Path) -> bool {
-    path_contains_component(path, &["build-logic", "buildSrc"])
+    path_contains_component(path, &["build-logic", "buildsrc"])
+}
+
+fn normalized_components(path: &Path) -> Vec<String> {
+    path.to_string_lossy()
+        .split(['/', '\\'])
+        .map(normalize)
+        .collect()
 }
 
 pub fn is_config_file(path: &Path) -> bool {

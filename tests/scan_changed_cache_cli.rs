@@ -60,7 +60,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
-        5
+        6
     );
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
@@ -179,7 +179,7 @@ fn changed_scan_invalidates_old_cache_schema() {
 
     scan_changed_json(temp.path(), &["--changed"]);
     for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
-        force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 4);
+        force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 5);
     }
     let json = scan_changed_json(temp.path(), &["--changed"]);
 
@@ -188,6 +188,55 @@ fn changed_scan_invalidates_old_cache_schema() {
     assert_eq!(
         json["cache_telemetry"]["changed_files"][0]["cache_reason"],
         "missing-cache-entry"
+    );
+}
+
+#[test]
+fn changed_scan_rejects_v5_cache_missing_build_tooling_roles() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path()
+            .join("buildSrc/src/main/kotlin/com/app/BuildPlugin.kt"),
+        "fun configure() = Unit\n",
+    );
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path()
+            .join("buildSrc/src/main/kotlin/com/app/BuildPlugin.kt"),
+        "fun configure(): Unit = TODO()\n",
+    );
+
+    let first_changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(
+        first_changed["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "miss"
+    );
+    assert_eq!(
+        finding_for_rule(&first_changed, "language.managed.fatal-exception-risk")["severity"],
+        "LOW"
+    );
+
+    let cache_dir = temp.path().join(".repopilot/cache");
+    for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
+        force_cache_schema(cache_dir.join(name).as_path(), 5);
+    }
+    remove_cached_role(&cache_dir.join("file_roles.json"), "build-tooling");
+    set_cached_rule_severity(
+        &cache_dir.join("findings.json"),
+        "language.managed.fatal-exception-risk",
+        "HIGH",
+    );
+
+    let upgraded_changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(
+        upgraded_changed["cache_telemetry"]["changed_files"][0]["cache_status"], "miss",
+        "v5 file-role caches must be rejected after role classification changed: {upgraded_changed:#?}"
+    );
+    assert_eq!(
+        finding_for_rule(&upgraded_changed, "language.managed.fatal-exception-risk")["severity"],
+        "LOW",
+        "re-analysis must restore build-tooling downgrade: {upgraded_changed:#?}"
     );
 }
 
@@ -591,6 +640,28 @@ fn clear_file_roles_deferred_imports(path: &Path) {
     write_json(path, &value);
 }
 
+fn remove_cached_role(path: &Path, role: &str) {
+    let mut value = read_json(path);
+    for entry in value["entries"].as_array_mut().expect("file role entries") {
+        if let Some(roles) = entry["roles"].as_array_mut() {
+            roles.retain(|value| value.as_str() != Some(role));
+        }
+    }
+    write_json(path, &value);
+}
+
+fn set_cached_rule_severity(path: &Path, rule_id: &str, severity: &str) {
+    let mut value = read_json(path);
+    for entry in value["entries"].as_array_mut().expect("finding entries") {
+        for finding in entry["findings"].as_array_mut().expect("findings") {
+            if finding["rule_id"] == rule_id {
+                finding["severity"] = Value::String(severity.to_string());
+            }
+        }
+    }
+    write_json(path, &value);
+}
+
 fn force_context_graph_resolver(path: &Path, resolver_version: &str) {
     let mut value = read_json(path);
     value["resolver_version"] = Value::String(resolver_version.to_string());
@@ -645,6 +716,15 @@ fn assert_rule_present(json: &Value, rule_id: &str) {
             .any(|finding| finding["rule_id"] == rule_id),
         "expected {rule_id} in findings: {json:#?}"
     );
+}
+
+fn finding_for_rule<'a>(json: &'a Value, rule_id: &str) -> &'a Value {
+    json["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|finding| finding["rule_id"] == rule_id)
+        .unwrap_or_else(|| panic!("expected {rule_id} in findings: {json:#?}"))
 }
 
 fn assert_rule_absent(json: &Value, rule_id: &str) {

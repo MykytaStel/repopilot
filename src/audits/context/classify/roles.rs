@@ -3,7 +3,7 @@ use super::frameworks::{
 };
 use super::helpers::{
     is_app_entrypoint, is_build_tooling_path, is_config_file, is_generated_file, is_js_or_ts,
-    is_test_support_dir, is_test_support_file, path_contains_component, push_unique,
+    is_managed_test_support_path, is_test_support_file, path_contains_component, push_unique,
 };
 use super::signals::ContextSignals;
 use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind};
@@ -62,9 +62,17 @@ fn classify_static_roles(
     // Test-support modules keep their production role but also carry this marker
     // so opted-in rules (`rust.panic-risk`, `managed.fatal-exception-risk`) treat
     // their assertion/placeholder throws as non-production without affecting any
-    // other rule. Rust uses a filename allow list; other ecosystems use a
-    // dedicated `testing` source module (e.g. `core/testing/` in Gradle/Android).
-    if (language == LanguageKind::Rust && is_test_support_file(path)) || is_test_support_dir(path) {
+    // other rule. Rust uses a filename allow list; managed languages use dedicated
+    // Gradle/source-set shapes (not arbitrary `testing` package namespaces).
+    if language == LanguageKind::Rust && is_test_support_file(path) {
+        push_unique(roles, FileRole::TestSupport);
+    }
+
+    if matches!(
+        language,
+        LanguageKind::Java | LanguageKind::Kotlin | LanguageKind::CSharp
+    ) && is_managed_test_support_path(path)
+    {
         push_unique(roles, FileRole::TestSupport);
     }
 

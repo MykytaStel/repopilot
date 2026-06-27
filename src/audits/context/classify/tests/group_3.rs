@@ -18,7 +18,6 @@ fn classifies_infrastructure_files_as_declarative_context() {
     assert!(!context.is_production_code());
 }
 
-
 #[test]
 fn classifies_ci_workflow_yaml_as_infrastructure_context() {
     let file = facts(
@@ -38,7 +37,6 @@ fn classifies_ci_workflow_yaml_as_infrastructure_context() {
     assert!(!context.is_production_code());
 }
 
-
 #[test]
 fn classifies_docker_compose_file_as_infrastructure_context() {
     let file = facts(
@@ -54,7 +52,6 @@ fn classifies_docker_compose_file_as_infrastructure_context() {
     assert!(context.has_runtime(RuntimeKind::Infrastructure));
     assert!(context.has_paradigm(ProgrammingParadigm::Declarative));
 }
-
 
 #[test]
 fn classifies_json_as_declarative_but_not_infrastructure_by_default() {
@@ -72,7 +69,6 @@ fn classifies_json_as_declarative_but_not_infrastructure_by_default() {
     assert!(!context.has_role(FileRole::Infrastructure));
     assert!(!context.has_runtime(RuntimeKind::Infrastructure));
 }
-
 
 #[test]
 fn classifies_generic_yaml_toml_as_declarative_but_not_infrastructure_by_default() {
@@ -99,7 +95,6 @@ fn classifies_generic_yaml_toml_as_declarative_but_not_infrastructure_by_default
     }
 }
 
-
 #[test]
 fn classifies_helm_path_yaml_as_infrastructure_context() {
     let file = facts(
@@ -115,7 +110,6 @@ fn classifies_helm_path_yaml_as_infrastructure_context() {
     assert!(context.has_runtime(RuntimeKind::Infrastructure));
     assert!(context.has_paradigm(ProgrammingParadigm::Declarative));
 }
-
 
 #[test]
 fn classifies_gradle_testing_module_as_test_support() {
@@ -150,6 +144,77 @@ fn classifies_build_logic_as_build_tooling() {
     let context = classify_file(&file);
 
     assert!(context.has_role(FileRole::BuildTooling));
+    assert!(!context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn classifies_gradle_build_src_as_build_tooling() {
+    let file = facts(
+        "buildSrc/src/main/kotlin/com/app/BuildPlugin.kt",
+        Some("Kotlin"),
+        "fun configure(): Unit = TODO()",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(context.has_role(FileRole::BuildTooling));
+    assert!(!context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn classifies_gradle_test_fixtures_source_set_as_test_support() {
+    let file = facts(
+        "core/model/src/testFixtures/kotlin/com/app/FakeUser.kt",
+        Some("Kotlin"),
+        "class FakeUser",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn runtime_package_named_testing_is_not_test_support() {
+    let file = facts(
+        "app/src/main/kotlin/com/example/testing/RuntimeValidator.kt",
+        Some("Kotlin"),
+        "class RuntimeValidator { fun validate(): Unit = TODO() }",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(!context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn rust_testing_directory_is_not_implicitly_test_support() {
+    let file = facts(
+        "src/testing/runtime.rs",
+        Some("Rust"),
+        "pub fn validate() { panic!(\"bad\") }",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(!context.has_role(FileRole::TestSupport));
+}
+
+#[test]
+fn feature_testing_directory_is_not_test_support_without_gradle_source_set() {
+    let file = facts(
+        "feature/testing/ProductionService.kt",
+        Some("Kotlin"),
+        "class ProductionService { fun run(): Unit = TODO() }",
+        false,
+    );
+
+    let context = classify_file(&file);
+
     assert!(!context.has_role(FileRole::TestSupport));
 }
 
