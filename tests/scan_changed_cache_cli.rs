@@ -60,7 +60,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
-        4
+        5
     );
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
@@ -179,7 +179,7 @@ fn changed_scan_invalidates_old_cache_schema() {
 
     scan_changed_json(temp.path(), &["--changed"]);
     for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
-        force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 1);
+        force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 4);
     }
     let json = scan_changed_json(temp.path(), &["--changed"]);
 
@@ -328,12 +328,53 @@ fn changed_scan_cache_hit_preserves_deferred_imports_for_graph_patch() {
 }
 
 #[test]
+fn changed_scan_rejects_v4_cache_missing_inline_type_only_deferred_imports() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path().join("src/a.ts"),
+        "import { type B } from \"./b\";\nexport type A = { b?: B };\n",
+    );
+    write(
+        temp.path().join("src/b.ts"),
+        "import { type A } from \"./a\";\nexport type B = { a?: A };\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path().join("src/a.ts"),
+        "import { type B } from \"./b\";\nexport type A = { b?: B };\nconst API_KEY = \"abc123xyz987\";\n",
+    );
+    let first_changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(
+        first_changed["cache_telemetry"]["changed_files"][0]["cache_status"],
+        "miss"
+    );
+
+    let cache_dir = temp.path().join(".repopilot/cache");
+    for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
+        force_cache_schema(cache_dir.join(name).as_path(), 4);
+    }
+    clear_file_roles_deferred_imports(&cache_dir.join("file_roles.json"));
+    force_context_graph_resolver(&cache_dir.join("repo_context.json"), "context-graph-v2");
+    clear_context_graph_deferred_imports(&cache_dir.join("repo_context.json"));
+
+    let upgraded_changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+    assert_eq!(
+        upgraded_changed["cache_telemetry"]["changed_files"][0]["cache_status"], "miss",
+        "v4 file-role caches must be rejected after inline TS type-only semantics changed: {upgraded_changed:#?}"
+    );
+    assert_eq!(upgraded_changed["context_graph_cache"]["status"], "miss");
+    assert_rule_absent(&upgraded_changed, "architecture.circular-dependency");
+}
+
+#[test]
 fn changed_scan_rejects_pre_deferred_imports_file_roles_cache() {
     // A v3 file-roles cache predates `FileRoleEntry::deferred_imports`. With
     // `#[serde(default)]` it would rehydrate as `[]`, turn a deferred import back
     // into an eager edge, and resurrect a phantom cycle on the next cache hit.
-    // Bumping CACHE_SCHEMA_VERSION to 4 must reject it, forcing re-analysis that
-    // restores the deferred imports.
+    // The current cache schema must reject it, forcing re-analysis that restores
+    // the deferred imports.
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
     write(temp.path().join("app/__init__.py"), "");
@@ -539,9 +580,39 @@ fn rewrite_cached_finding_title(path: &Path, title: &str) {
 fn force_cache_schema(path: &Path, schema_version: u64) {
     let mut value = read_json(path);
     value["schema_version"] = Value::Number(schema_version.into());
+    write_json(path, &value);
+}
+
+fn clear_file_roles_deferred_imports(path: &Path) {
+    let mut value = read_json(path);
+    for entry in value["entries"].as_array_mut().expect("file role entries") {
+        entry["deferred_imports"] = Value::Array(Vec::new());
+    }
+    write_json(path, &value);
+}
+
+fn force_context_graph_resolver(path: &Path, resolver_version: &str) {
+    let mut value = read_json(path);
+    value["resolver_version"] = Value::String(resolver_version.to_string());
+    write_json(path, &value);
+}
+
+fn clear_context_graph_deferred_imports(path: &Path) {
+    let mut value = read_json(path);
+    value["graph"]["deferred_edges"] = serde_json::json!({});
+    for node in value["graph"]["nodes"]
+        .as_array_mut()
+        .expect("context nodes")
+    {
+        node["deferred_imports"] = Value::Array(Vec::new());
+    }
+    write_json(path, &value);
+}
+
+fn write_json(path: &Path, value: &Value) {
     fs::write(
         path,
-        serde_json::to_string_pretty(&value).expect("render cache"),
+        serde_json::to_string_pretty(value).expect("render cache"),
     )
     .expect("write cache");
 }
@@ -573,6 +644,17 @@ fn assert_rule_present(json: &Value, rule_id: &str) {
             .flatten()
             .any(|finding| finding["rule_id"] == rule_id),
         "expected {rule_id} in findings: {json:#?}"
+    );
+}
+
+fn assert_rule_absent(json: &Value, rule_id: &str) {
+    assert!(
+        json["findings"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .all(|finding| finding["rule_id"] != rule_id),
+        "did not expect {rule_id} in findings: {json:#?}"
     );
 }
 

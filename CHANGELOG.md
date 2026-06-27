@@ -78,11 +78,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   module imported type-only (and never as a value — a mixed `import { type A, B }`
   or a dynamic `import()` keeps the runtime edge) is subtracted from cycle
   detection while staying a full edge for coupling, fan-out, and dead-module
-  analysis. Unlike a Python function-body
-  deferred import — which runs lazily and so is still surfaced as an
-  informational Low cycle — a purely type-only cycle is erased at compile time
-  and is suppressed outright, in the default profile and under `--profile
-  strict`. Measured on the real-repo zoo, this removed wagtail's four
+  analysis. Changed-scan file-role caches and context-graph caches are bumped so
+  upgrades do not reuse stale TS/JS graph edges from previous versions. Unlike a
+  Python function-body deferred import — which runs lazily and so is still
+  surfaced as an informational Low cycle — a purely type-only cycle is erased at
+  compile time and is suppressed outright, in the default profile and under
+  `--profile strict`. Measured on the real-repo zoo, this removed wagtail's four
   default-visible type-only cycles (its `CommentApp`/`Sidebar`/`StreamField`
   client components, 6 → 2 default; 15 → 11 strict), with the genuine Python
   cycles retained.

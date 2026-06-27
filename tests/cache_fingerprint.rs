@@ -11,7 +11,7 @@ fn stable_hash_hex_uses_sha256() {
 
 #[test]
 fn config_fingerprint_changes_with_config_and_cache_schema_context() {
-    assert_eq!(CACHE_SCHEMA_VERSION, 4);
+    assert_eq!(CACHE_SCHEMA_VERSION, 5);
 
     let default = config_fingerprint(&ScanConfig::default());
     let changed = config_fingerprint(&ScanConfig {

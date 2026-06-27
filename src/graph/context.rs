@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
 pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 4;
-pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v2";
+pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v3";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
 pub const MAX_CONTEXT_GRAPH_RISKY_CLUSTERS: usize = 20;
