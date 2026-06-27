@@ -188,7 +188,7 @@ fn default_scan_keeps_real_secret_and_private_key_candidates() {
     let root = temp.path();
     write(
         root.join("src/config.rs"),
-        "const API_KEY: &str = \"abc123xyz987\";\n",
+        "const API_KEY: &str = \"xK9mQ2pL8rT5vN3wY7\";\n",
     );
     write(
         root.join("src/key.pem"),
@@ -196,9 +196,49 @@ fn default_scan_keeps_real_secret_and_private_key_candidates() {
     );
 
     let json = scan_json(root, &[]);
+    let secret_findings = findings_for_rule(&json, "security.secret-candidate").collect::<Vec<_>>();
 
-    assert_rule_present(&json, "security.secret-candidate");
+    assert_eq!(
+        secret_findings.len(),
+        1,
+        "mixed-case/digit high-entropy credential must remain default-visible: {json:#?}"
+    );
+    assert_eq!(secret_findings[0]["confidence"], "HIGH");
     assert_rule_present(&json, "security.private-key-candidate");
+}
+
+#[test]
+fn default_scan_hides_lowercase_slug_secrets_but_strict_keeps_them() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("src/config.ts"),
+        "export const CONFIG = {\n\
+           OAI_API_KEY: \"excalidraw-oai-api-key\",\n\
+           password: \"correct-horse-battery-staple\",\n\
+           client_secret: \"prod-service-access-token\",\n\
+           auth_token: \"internal-service-access-token\",\n\
+         };\n",
+    );
+
+    let default = scan_json(root, &[]);
+    assert_rule_absent(&default, "security.secret-candidate");
+
+    let strict = scan_json(root, &["--profile", "strict"]);
+    let secret_findings =
+        findings_for_rule(&strict, "security.secret-candidate").collect::<Vec<_>>();
+
+    assert_eq!(
+        secret_findings.len(),
+        4,
+        "strict profile must retain lowercase passphrase/token-like slug findings: {strict:#?}"
+    );
+    assert!(
+        secret_findings
+            .iter()
+            .all(|finding| finding["confidence"] == "LOW"),
+        "slug findings should be low-confidence strict-only suggestions: {strict:#?}"
+    );
 }
 
 #[test]

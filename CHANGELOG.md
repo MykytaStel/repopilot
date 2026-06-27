@@ -71,6 +71,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.secret-candidate` no longer misreads namespace path qualifiers as
+  hardcoded secrets, and lowercase slug-like values are strict-only Low.** A
+  `key::Rest` path qualifier (a Rust/C++ enum or type path such as
+  `Token::RecursiveSuffix`) was parsed as a `token: <secret>` assignment. Values
+  made only of lowercase words joined by `-`/`_` (for example
+  `excalidraw-oai-api-key`) are now downgraded to Low confidence instead of
+  removed, so default output hides storage identifiers while `--profile strict`
+  still retains passphrases and token-like slugs. Genuine mixed-case/digit
+  credentials stay High and default-visible. Measured on the real-repo zoo, this
+  removed ripgrep's 2 default-visible findings (`glob.rs` enum paths) and hid 1
+  excalidraw storage-key slug from default output while retaining it in strict;
+  eShopOnWeb's 7 genuine hardcoded credentials were correctly retained.
+
 - **`repopilot_scan` MCP disk caching no longer serves stale scan reports after
   agent edits.** The scan tool now bypasses the MCP session cache, keys disk
   entries from the git-root working tree, stores entries under Git-owned

@@ -2,6 +2,7 @@ use repopilot::audits::security::env_file_committed::EnvFileCommittedAudit;
 use repopilot::audits::security::private_key_candidate::PrivateKeyCandidateAudit;
 use repopilot::audits::security::secret_candidate::SecretCandidateAudit;
 use repopilot::audits::traits::{FileAudit, ProjectAudit};
+use repopilot::findings::types::Confidence;
 use repopilot::scan::config::ScanConfig;
 use repopilot::scan::facts::{FileFacts, ScanFacts};
 use std::path::PathBuf;
@@ -91,6 +92,56 @@ fn secret_candidate_does_not_flag_variable_references() {
             "variable reference must not be flagged as a secret: `{line}` -> {findings:?}"
         );
     }
+}
+
+#[test]
+fn secret_candidate_does_not_flag_rust_path_qualifier() {
+    // `Token::RecursiveSuffix` is an enum-path qualifier, not a `token: <secret>`
+    // assignment — the `::` after the keyword names a type, not a credential.
+    // (Regression: ripgrep's glob parser flagged `Token::RecursiveSuffix`.)
+    for line in [
+        "                Token::RecursivePrefix\n",
+        "                | Token::RecursiveSuffix\n",
+        "    let value = Self::secret_key();\n",
+    ] {
+        let f = file("crates/globset/src/glob.rs", line);
+        let findings = SecretCandidateAudit.audit(&f, &ScanConfig::default());
+        assert!(
+            findings.is_empty(),
+            "a `::` path qualifier must not be flagged as a secret: `{line}` -> {findings:?}"
+        );
+    }
+}
+
+#[test]
+fn secret_candidate_keeps_kebab_and_snake_slugs_as_low_confidence() {
+    for line in [
+        "  OAI_API_KEY: \"excalidraw-oai-api-key\",\n",
+        "password: \"correct-horse-battery-staple\",\n",
+        "client_secret: \"prod-service-access-token\",\n",
+        "auth_token: \"internal_service_access_token\",\n",
+    ] {
+        let slug = file("packages/common/src/constants.ts", line);
+        let findings = SecretCandidateAudit.audit(&slug, &ScanConfig::default());
+        assert_eq!(
+            findings.len(),
+            1,
+            "lowercase secret-shaped slug must remain available in raw/strict findings: `{line}`"
+        );
+        assert_eq!(findings[0].confidence, Confidence::Low);
+    }
+}
+
+#[test]
+fn secret_candidate_keeps_mixed_case_credentials_high_confidence() {
+    let real = file(
+        "packages/common/src/constants.ts",
+        "  OAI_API_KEY: \"sk-Zj4Hn8Qw2Kp6Mv9Rs1Tb7\",\n",
+    );
+    let findings = SecretCandidateAudit.audit(&real, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1, "a real secret-shaped value must fire");
+    assert_eq!(findings[0].confidence, Confidence::High);
 }
 
 #[test]
@@ -269,10 +320,7 @@ fn secret_candidate_flags_high_entropy_values() {
             !findings.is_empty(),
             "high-entropy value must be flagged: `{line}`"
         );
-        assert_eq!(
-            findings[0].confidence,
-            repopilot::findings::types::Confidence::High
-        );
+        assert_eq!(findings[0].confidence, Confidence::High);
     }
 }
 
@@ -290,10 +338,7 @@ fn secret_candidate_flags_provider_looking_values_after_placeholder_filtering() 
             !findings.is_empty(),
             "provider-looking value must still be flagged: `{line}`"
         );
-        assert_eq!(
-            findings[0].confidence,
-            repopilot::findings::types::Confidence::High
-        );
+        assert_eq!(findings[0].confidence, Confidence::High);
         assert!(
             !findings[0].evidence[0]
                 .snippet

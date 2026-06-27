@@ -1,6 +1,13 @@
 fn assigned_value_after_key(after_key: &str) -> Option<&str> {
     let trimmed = after_key.trim_start();
 
+    // `key::Rest` is a namespace/path qualifier (`Token::RecursiveSuffix`,
+    // `Self::secret`), not a `key = value` / `key: value` assignment — the text
+    // after `::` is a type or enum path, never a hardcoded secret.
+    if trimmed.starts_with("::") {
+        return None;
+    }
+
     if let Some(value) = trimmed.strip_prefix('=') {
         return Some(value.trim_start());
     }
@@ -13,7 +20,11 @@ fn assigned_value_after_key(after_key: &str) -> Option<&str> {
     Some(after_colon)
 }
 
-fn assigned_secret_value_for_key<'a>(line: &'a str, lower_line: &str, key: &str) -> Option<&'a str> {
+fn assigned_secret_confidence_for_key(
+    line: &str,
+    lower_line: &str,
+    key: &str,
+) -> Option<Confidence> {
     let mut search_start = 0;
 
     while let Some(offset) = lower_line[search_start..].find(key) {
@@ -25,10 +36,10 @@ fn assigned_secret_value_for_key<'a>(line: &'a str, lower_line: &str, key: &str)
             continue;
         }
         let after_key = &line[key_start + key.len()..];
-        if let Some(value) = assigned_value_after_key(after_key)
-            && is_secret_literal(value)
+        if let Some(confidence) =
+            assigned_value_after_key(after_key).and_then(secret_literal_confidence)
         {
-            return Some(value);
+            return Some(confidence);
         }
     }
 
@@ -66,7 +77,19 @@ fn looks_like_env_var_name(value: &str) -> bool {
             .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
-fn is_secret_literal(value: &str) -> bool {
+// Lowercase kebab/snake slugs are often storage identifiers, but can also be
+// committed passphrases or service tokens. Keep them as low-confidence findings
+// so strict profile retains recall while default output hides the noise.
+fn is_human_readable_slug(value: &str) -> bool {
+    let has_separator = value.contains('-') || value.contains('_');
+    has_separator
+        && value
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c == '-' || c == '_')
+        && value.split(['-', '_']).all(|segment| !segment.is_empty())
+}
+
+fn secret_literal_confidence(value: &str) -> Option<Confidence> {
     let value = value.trim().trim_end_matches([',', ';']).trim();
     let unquoted = unwrap_first_quoted(value);
     let lower = unquoted.to_lowercase();
@@ -97,20 +120,24 @@ fn is_secret_literal(value: &str) -> bool {
     ];
 
     if is_placeholder || NON_SECRET_VALUES.contains(&lower.as_str()) || unquoted.len() < 8 {
-        return false;
+        return None;
     }
 
     // Low-entropy strings (repetitive English words) are not real secrets.
     // Real API keys/tokens have high character diversity (entropy > 3.0 bits/char).
     if shannon_entropy(unquoted) < 3.0 {
-        return false;
+        return None;
+    }
+
+    if is_human_readable_slug(unquoted) {
+        return Some(Confidence::Low);
     }
 
     if value.starts_with('"') || value.starts_with('\'') {
-        return true;
+        return Some(Confidence::High);
     }
 
-    is_unquoted_secret_token(unquoted)
+    is_unquoted_secret_token(unquoted).then_some(Confidence::High)
 }
 
 fn looks_like_placeholder_value(value: &str) -> bool {
@@ -295,4 +322,3 @@ fn shannon_entropy(s: &str) -> f64 {
         })
         .sum()
 }
-
