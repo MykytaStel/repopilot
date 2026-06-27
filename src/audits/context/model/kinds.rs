@@ -87,10 +87,10 @@ pub enum FileRole {
     Generated,
     Domain,
     Script,
-    /// A Rust test-support module (`testutil.rs`, `test_utils.rs`, …): a
-    /// production file whose `panic!`/`unwrap` calls are test assertion plumbing.
-    /// Carried *alongside* the file's production role so only opted-in rules
-    /// (currently `rust.panic-risk`) treat it specially.
+    /// A test-support module: Rust filename allow-list helpers (`testutil.rs`,
+    /// `test_utils.rs`, …) or managed-language Gradle/source-set helper modules
+    /// (`core/testing/src/main/...`, `src/testFixtures/...`). Carried *alongside*
+    /// the file's production role so only opted-in rules treat it specially.
     TestSupport,
     /// A CLI command handler: a file in a `commands/` directory whose package
     /// declares an executable entrypoint (npm `package.json#bin`, Cargo
@@ -98,6 +98,12 @@ pub enum FileRole {
     /// host-termination calls there are an intended boundary — unlike a reusable
     /// module elsewhere in the same package, which is not exempted.
     CliExecutable,
+    /// A build-tooling module: a Gradle convention plugin or build script under
+    /// `build-logic/` / `buildSrc/`. It configures the build, never ships in the
+    /// app, so a `throw`/`TODO()` there fails the build by design rather than at
+    /// runtime. Carried alongside the production role so only opted-in rules
+    /// treat it specially.
+    BuildTooling,
     Infrastructure,
     Unknown,
 }
@@ -233,6 +239,7 @@ impl FileRole {
             FileRole::Script => "script",
             FileRole::TestSupport => "test-support",
             FileRole::CliExecutable => "cli-executable",
+            FileRole::BuildTooling => "build-tooling",
             FileRole::Infrastructure => "infrastructure",
             FileRole::Unknown => "unknown",
         }

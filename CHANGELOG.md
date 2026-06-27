@@ -71,6 +71,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`language.managed.fatal-exception-risk` no longer surfaces placeholder/fatal
+  throws in build-tooling or test-support modules by default.** A `TODO()` or
+  `throw` in a Gradle convention plugin (`build-logic/` / `buildSrc/`) fails the
+  build by design, and one in a dedicated test-double module (a `testing` source
+  tree such as `core/testing/`, which lives under `src/main` so it is not a test
+  file) is test plumbing — neither is the runtime hazard the rule targets. Two
+  file roles, `build-tooling` and a managed-language `test-support` extension
+  (previously Rust-filename only), tag these modules; the knowledge pack
+  downgrades the finding to Low for both — hidden by default, kept under
+  `--profile strict` — while the file keeps its production role for every other
+  rule. Changed-scan file-role caches are bumped so upgrades do not reuse stale
+  role classifications. Genuine unfinished application code (e.g. a
+  `TopicUiState.Error -> TODO()` in a feature screen) stays default-visible.
+  Measured on the real-repo zoo, this took the nowinandroid Android app from 3
+  default-visible findings to 1, with all signals retained in strict.
+
 - **`architecture.circular-dependency` no longer counts TypeScript/JavaScript
   type-only imports/exports as runtime cycle edges, including inline specifiers
   like `import { type A, type B }`.** The compiler erases type-only imports, so a

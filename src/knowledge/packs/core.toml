@@ -682,6 +682,26 @@ role = "domain"
 action = "upgrade"
 severity = "HIGH"
 
+# A test-support module (a `testing` source tree such as `core/testing/`) holds
+# test doubles whose `TODO()`/`throw` placeholders are test plumbing, and a
+# build-tooling module (`build-logic/`, `buildSrc/`) fails the build by design.
+# Both keep their production role but downgrade to Low here (hidden by default,
+# kept under `--profile strict`) rather than being deleted; real app code such as
+# an unfinished `TopicUiState.Error -> TODO()` stays default-visible. Placed last
+# so the downgrade wins over the `domain` upgrade above: a test-support module
+# under a `models/`/`domain/` package (e.g. `core/testing/.../models/FakeUser.kt`)
+# also carries the `domain` role, and overrides apply in order — the later match
+# wins — so these must follow the upgrade to stay hidden by default.
+[[rules.overrides]]
+role = "test-support"
+action = "downgrade"
+severity = "LOW"
+
+[[rules.overrides]]
+role = "build-tooling"
+action = "downgrade"
+severity = "LOW"
+
 [[rules]]
 rule_id = "code-quality.long-function"
 minimum_support = "rule-aware"

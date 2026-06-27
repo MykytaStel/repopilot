@@ -128,6 +128,42 @@ fn default_scan_hides_cli_package_process_exit_but_reports_non_cli_package() {
 }
 
 #[test]
+fn default_scan_hides_managed_placeholders_in_build_tooling_and_test_support() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    write(
+        root.join("buildSrc/src/main/kotlin/com/app/BuildPlugin.kt"),
+        "fun configure(): Unit = TODO()\n",
+    );
+    write(
+        root.join("core/testing/src/main/kotlin/com/app/FakeSync.kt"),
+        "class FakeSync { fun sync(): Unit = TODO() }\n",
+    );
+    write(
+        root.join("feature/topic/impl/src/main/kotlin/com/app/testing/TopicScreen.kt"),
+        "fun TopicScreen(state: State): Unit = TODO()\n",
+    );
+
+    let default = scan_json(root, &[]);
+    let default_paths = findings_for_rule(&default, "language.managed.fatal-exception-risk")
+        .map(first_path)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        default_paths.len(),
+        1,
+        "default should hide build-tooling/test-support placeholders only: {default:#?}"
+    );
+    assert!(default_paths[0].ends_with("TopicScreen.kt"));
+
+    let strict = scan_json(root, &["--profile", "strict"]);
+    assert_eq!(
+        findings_for_rule(&strict, "language.managed.fatal-exception-risk").count(),
+        3,
+        "strict should retain Low build-tooling/test-support findings: {strict:#?}"
+    );
+}
+
+#[test]
 fn default_scan_reports_unwrap_on_external_parse_path() {
     let temp = tempdir().expect("temp dir");
     let root = temp.path();

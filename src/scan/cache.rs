@@ -19,7 +19,9 @@ use std::time::UNIX_EPOCH;
 /// resurrecting the phantom cycles the deferral was meant to break.
 /// v5 invalidates cached file roles because `deferred_imports` now also includes
 /// TypeScript/JavaScript type-only imports and exports erased at runtime.
-pub const CACHE_SCHEMA_VERSION: u32 = 5;
+/// v6 invalidates cached file roles because classification now adds build-tooling
+/// and managed test-support roles.
+pub const CACHE_SCHEMA_VERSION: u32 = 6;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
