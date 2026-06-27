@@ -1,58 +1,50 @@
 {
-  "default": {
-    "by_priority": {
-      "P0": 12
-    },
-    "by_rule": {
-      "architecture.circular-dependency": 7,
-      "language.javascript.runtime-exit-risk": 1,
-      "security.env-file-committed": 2,
-      "security.secret-candidate": 2
-    },
-    "fingerprints": [
-      "architecture.circular-dependency:excalidraw-app/App.tsx:e575ed4f8104d3d4",
-      "architecture.circular-dependency:excalidraw-app/data/firebase.ts:5c3e800a8ebb659a",
-      "architecture.circular-dependency:packages/common/src/index.ts:7b14cf4e6bb5e522",
-      "architecture.circular-dependency:packages/element/src/Scene.ts:9cbbca234b2ff447",
-      "architecture.circular-dependency:packages/excalidraw/actions/actionHistory.tsx:5c057c5a6edef722",
-      "architecture.circular-dependency:packages/excalidraw/data/blob.ts:5c1b1535711c051e",
-      "architecture.circular-dependency:packages/excalidraw/fonts/Cascadia/index.ts:b87f669bcfd3eae8",
-      "language.javascript.runtime-exit-risk:packages/excalidraw/subset/woff2/woff2-bindings.ts:cac7cba895f49cd1",
-      "security.env-file-committed:.env.development:449ca767a377cdab",
-      "security.env-file-committed:.env.production:2c69a58fcc634ff5",
-      "security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527",
-      "security.secret-candidate:packages/common/src/constants.ts:e6518a50fca8bcff"
-    ],
-    "visible_total": 12
-  },
-  "framework": "react",
-  "language": "typescript",
-  "repo": "excalidraw",
-  "sha": "28a9b1711dc0625b8ab5d643dc871810ee13642f",
-  "strict": {
-    "by_rule": {
-      "architecture.barrel-file-risk": 5,
-      "architecture.circular-dependency": 7,
-      "architecture.dead-module": 62,
-      "architecture.deep-relative-imports": 9,
-      "architecture.excessive-fan-out": 23,
-      "architecture.large-file": 84,
-      "architecture.test-leak": 3,
-      "architecture.too-many-modules": 5,
-      "code-marker.fixme": 12,
-      "code-marker.hack": 1,
-      "code-marker.todo": 80,
-      "code-quality.complex-file": 13,
-      "code-quality.complex-function": 151,
-      "code-quality.deep-control-flow": 56,
-      "code-quality.long-function": 331,
-      "framework.js.var-declaration": 4,
-      "framework.react.class-component": 2,
-      "language.javascript.runtime-exit-risk": 8,
-      "security.env-file-committed": 2,
-      "security.secret-candidate": 2,
-      "testing.source-without-test": 374
-    },
-    "visible_total": 1234
-  }
+	"default": {
+		"by_priority": {
+			"P0": 5
+		},
+		"by_rule": {
+			"architecture.circular-dependency": 3,
+			"language.javascript.runtime-exit-risk": 1,
+			"security.secret-candidate": 1
+		},
+		"fingerprints": [
+			"architecture.circular-dependency:excalidraw-app/App.tsx:e575ed4f8104d3d4",
+			"architecture.circular-dependency:excalidraw-app/collab/Collab.tsx:40148bf1157fe6d3",
+			"architecture.circular-dependency:packages/common/src/index.ts:7b14cf4e6bb5e522",
+			"language.javascript.runtime-exit-risk:packages/excalidraw/subset/woff2/woff2-bindings.ts:cac7cba895f49cd1",
+			"security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527"
+		],
+		"visible_total": 5
+	},
+	"framework": "react",
+	"language": "typescript",
+	"repo": "excalidraw",
+	"sha": "28a9b1711dc0625b8ab5d643dc871810ee13642f",
+	"strict": {
+		"by_rule": {
+			"architecture.barrel-file-risk": 5,
+			"architecture.circular-dependency": 3,
+			"architecture.dead-module": 62,
+			"architecture.deep-relative-imports": 9,
+			"architecture.excessive-fan-out": 23,
+			"architecture.large-file": 84,
+			"architecture.test-leak": 3,
+			"architecture.too-many-modules": 5,
+			"code-marker.fixme": 12,
+			"code-marker.hack": 1,
+			"code-marker.todo": 80,
+			"code-quality.complex-file": 13,
+			"code-quality.complex-function": 151,
+			"code-quality.deep-control-flow": 56,
+			"code-quality.long-function": 331,
+			"framework.js.var-declaration": 4,
+			"framework.react.class-component": 2,
+			"language.javascript.runtime-exit-risk": 8,
+			"security.env-file-committed": 2,
+			"security.secret-candidate": 2,
+			"testing.source-without-test": 374
+		},
+		"visible_total": 1230
+	}
 }

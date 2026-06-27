@@ -9,15 +9,17 @@ pub(super) static RULES: &[RuleMetadata] = &[
         category: FindingCategory::Security,
         default_severity: Severity::Critical,
         default_confidence: Confidence::High,
+        max_confidence: Confidence::High,
+        contextual_confidence: true,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ConfigFile,
         docs_url: Some("https://12factor.net/config"),
-        description: "A .env file containing environment variables has been committed. These files frequently contain secrets, API keys, or credentials that should never enter version control.",
+        description: "A local `.env`/`.env.local` file or a shared `.env.*` variant with credential-shaped content was committed. Local env files commonly hold secrets; shared build env files may hold public browser configuration but still require content inspection.",
         recommendation: Some(
-            "Add .env (and .env.*) to .gitignore, rotate any exposed credentials immediately, and use a secrets manager or CI environment variables instead.",
+            "Keep `.env` and `.env.local` untracked, rotate any exposed credentials, and move real secrets to a secrets manager or CI environment variables. Shared `.env.development`/`.env.production` files may contain public build config, but public-prefixed variables must not contain server-side passwords, private keys, auth tokens, or client secrets.",
         ),
         false_positive_notes: Some(
-            "Local example environment files should use sample names such as .env.example; committed .env variants are treated as sensitive by default.",
+            "`.env.example`-style sample files are allowed. `.env` and `.env.local` are treated as unsafe to commit even if their current contents look harmless. Shared build variants such as `.env.production` are content-aware: public browser config can be low confidence or skipped, but explicit sensitive keys and non-public secret-shaped assignments stay high confidence.",
         ),
         ..RuleMetadata::DEFAULT
     },

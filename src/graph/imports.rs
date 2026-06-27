@@ -61,7 +61,9 @@ pub(crate) fn extract_deferred_imports_from(
         Some("TypeScript")
         | Some("TypeScript React")
         | Some("JavaScript")
-        | Some("JavaScript React") => from_tree(parsed, |tree| ts::extract_type_only(tree, content)),
+        | Some("JavaScript React") => {
+            from_tree(parsed, |tree| ts::extract_type_only(tree, content))
+        }
         _ => return Vec::new(),
     };
     set.into_iter().collect()

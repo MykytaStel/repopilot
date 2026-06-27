@@ -95,7 +95,7 @@ usually keeps higher confidence.
 |---|---:|---|
 | `security.secret-candidate` | High | High-entropy values or known secret-like patterns. Evidence masks secret values. |
 | `security.private-key-candidate` | Critical | PEM private key headers. Key content is never included in evidence. |
-| `security.env-file-committed` | Critical | Committed `.env`, `.env.local`, `.env.production`, `.env.staging`, or `.env.development` files. |
+| `security.env-file-committed` | Critical | Committed local `.env` files and shared `.env.*` files with credential-shaped content. |
 
 Security audits skip low-signal examples, fixtures, docs, lockfiles, and common
 test paths where appropriate to reduce false positives.

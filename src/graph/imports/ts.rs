@@ -45,7 +45,8 @@ fn collect_type_only(
         }
         "call_expression" => {
             // A dynamic `import("…")` / `require("…")` executes the module.
-            if let Some(path) = call_module_source(node, content).filter(|path| is_candidate(path)) {
+            if let Some(path) = call_module_source(node, content).filter(|path| is_candidate(path))
+            {
                 value.insert(path.to_string());
             }
         }
