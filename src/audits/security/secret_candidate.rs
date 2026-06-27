@@ -66,10 +66,10 @@ impl FileAudit for SecretCandidateAudit {
         // not shipped credentials, so skip those lines (the file-path test skip
         // above only catches whole test files).
         let gated_test_lines = rust_cfg_test_lines(file);
+        let content = file.content.as_deref().unwrap_or("");
+        let algolia_public_key_lines = algolia_public_api_key_lines(content);
 
-        file.content
-            .as_deref()
-            .unwrap_or("")
+        content
             .lines()
             .enumerate()
             .filter_map(|(index, line)| {
@@ -77,7 +77,13 @@ impl FileAudit for SecretCandidateAudit {
                 if gated_test_lines.contains(&line_number) {
                     return None;
                 }
-                detect_secret_line(line, line_number, &file.path).and_then(|finding| {
+                detect_secret_line(
+                    line,
+                    line_number,
+                    &file.path,
+                    algolia_public_key_lines.contains(&line_number),
+                )
+                .and_then(|finding| {
                     apply_file_decision("security.secret-candidate", file, finding, None)
                 })
             })
@@ -115,7 +121,12 @@ fn is_lock_file(path: &std::path::Path) -> bool {
     )
 }
 
-fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) -> Option<Finding> {
+fn detect_secret_line(
+    line: &str,
+    line_number: usize,
+    path: &std::path::Path,
+    algolia_public_key_line: bool,
+) -> Option<Finding> {
     // Skip PEM headers — PrivateKeyCandidateAudit handles these (avoids double-reporting)
     if line.trim_start().starts_with("-----BEGIN") {
         return None;
@@ -137,6 +148,14 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
         .iter()
         .find_map(|&key| assigned_secret_confidence_for_key(line, &lower, key).map(|c| (key, c)))
     {
+        // An `apiKey` in an Algolia DocSearch config is the published search-only
+        // key (public by design); keep it as a Low finding so strict still
+        // surfaces the committed value while the default profile stays clean.
+        let confidence = if algolia_public_key_line && is_algolia_public_key(matched_key) {
+            Confidence::Low
+        } else {
+            confidence
+        };
         return Some(build_finding(
             line_number,
             path,

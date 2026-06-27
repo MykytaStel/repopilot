@@ -133,6 +133,61 @@ fn secret_candidate_keeps_kebab_and_snake_slugs_as_low_confidence() {
 }
 
 #[test]
+fn secret_candidate_treats_algolia_docsearch_key_as_low() {
+    // The Algolia DocSearch widget config carries the public, search-only API key
+    // (it ships in the browser bundle), so the `apiKey` here is not a committed
+    // secret — but keep it Low so strict still surfaces the value.
+    let config = file(
+        "dev-docs/docusaurus.config.js",
+        "      algolia: {\n        appId: \"8FEAOD28DI\",\n        apiKey: \"4b07cca33ff2d2919bc95ff98f148e9e\",\n        indexName: \"excalidraw\",\n      },\n",
+    );
+    let findings = SecretCandidateAudit.audit(&config, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1, "Algolia search key still fires (strict)");
+    assert_eq!(findings[0].confidence, Confidence::Low);
+}
+
+#[test]
+fn secret_candidate_keeps_real_secret_high_in_algolia_config_file() {
+    // The Algolia downgrade is scoped to the `apiKey` field — a real credential
+    // elsewhere in the same config file must still flag as High.
+    let config = file(
+        "dev-docs/docusaurus.config.js",
+        "      algolia: { appId: \"8FEAOD28DI\", apiKey: \"4b07cca33ff2d2919bc95ff98f148e9e\", indexName: \"excalidraw\" },\n      client_secret: \"sk-Zj4Hn8Qw2Kp6Mv9Rs1Tb7\",\n",
+    );
+    let findings = SecretCandidateAudit.audit(&config, &ScanConfig::default());
+
+    let high: Vec<_> = findings
+        .iter()
+        .filter(|f| f.confidence == Confidence::High)
+        .collect();
+    assert_eq!(
+        high.len(),
+        1,
+        "the real client_secret must stay High even in an Algolia config file: {findings:?}"
+    );
+}
+
+#[test]
+fn secret_candidate_keeps_unrelated_api_key_high_in_algolia_config_file() {
+    let config = file(
+        "dev-docs/docusaurus.config.js",
+        "      algolia: { appId: \"8FEAOD28DI\", apiKey: \"4b07cca33ff2d2919bc95ff98f148e9e\", indexName: \"excalidraw\" },\n      stripe: { apiKey: \"sk_live_Zj4Hn8Qw2Kp6Mv9Rs1Tb7\" },\n",
+    );
+    let findings = SecretCandidateAudit.audit(&config, &ScanConfig::default());
+
+    let high: Vec<_> = findings
+        .iter()
+        .filter(|f| f.confidence == Confidence::High)
+        .collect();
+    assert_eq!(
+        high.len(),
+        1,
+        "only the Algolia apiKey should be downgraded: {findings:?}"
+    );
+}
+
+#[test]
 fn secret_candidate_keeps_mixed_case_credentials_high_confidence() {
     let real = file(
         "packages/common/src/constants.ts",

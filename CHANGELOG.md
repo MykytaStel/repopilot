@@ -71,6 +71,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`security.secret-candidate` treats an Algolia DocSearch `apiKey` as a
+  Low-confidence (strict-only) finding instead of a default-visible secret.** The
+  frontend search widget is configured with Algolia's **search-only** API key,
+  which is public by design — it ships in the browser bundle — so flagging it as a
+  committed secret is noise. A DocSearch block is identified by its signature trio
+  (`algolia` + `appId` + `indexName`); only the `apiKey` field in such a file is
+  downgraded, so a real credential elsewhere in the same config still flags High,
+  and the value remains visible under `--profile strict`. Measured on the
+  real-repo zoo, this removed excalidraw's default-visible Docusaurus search-key
+  finding while retaining strict-profile review.
+
 - **`language.managed.fatal-exception-risk` no longer surfaces placeholder/fatal
   throws in build-tooling or test-support modules by default.** A `TODO()` or
   `throw` in a Gradle convention plugin (`build-logic/` / `buildSrc/`) fails the
