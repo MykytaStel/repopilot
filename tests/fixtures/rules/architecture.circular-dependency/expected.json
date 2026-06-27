@@ -5,6 +5,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_type_only",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "architecture.circular-dependency"

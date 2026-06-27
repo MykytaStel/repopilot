@@ -8,7 +8,7 @@
       "language.javascript.runtime-exit-risk": 1
     },
     "fingerprints": [
-      "architecture.circular-dependency:packages/cli/src/commands/publish/npm-utils.ts:8a41bbd295f5f42b",
+      "architecture.circular-dependency:packages/cli/src/commands/publish/npm-utils.ts:450588cb75896a2b",
       "language.javascript.runtime-exit-risk:packages/cli/src/utils/cli-utilities.ts:272512749156ce06"
     ],
     "visible_total": 2

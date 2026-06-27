@@ -1,23 +1,19 @@
 {
   "default": {
     "by_priority": {
-      "P0": 6,
+      "P0": 2,
       "P1": 1
     },
     "by_rule": {
-      "architecture.circular-dependency": 6,
+      "architecture.circular-dependency": 2,
       "language.python.exception-risk": 1
     },
     "fingerprints": [
-      "architecture.circular-dependency:client/src/components/CommentApp/actions/comments.ts:bc263ed84a211b9f",
-      "architecture.circular-dependency:client/src/components/CommentApp/actions/settings.ts:a4e5faaec3531953",
-      "architecture.circular-dependency:client/src/components/Sidebar/menu/MenuItem.tsx:3fc4eb8abfacb35a",
-      "architecture.circular-dependency:client/src/components/StreamField/blocks/ActionButtons.ts:56b8c1842e7c51e8",
       "architecture.circular-dependency:wagtail/actions/publish_revision.py:0da7c5453404677e",
       "architecture.circular-dependency:wagtail/admin/views/bulk_action/__init__.py:a2ca81903a3ef0d5",
       "language.python.exception-risk:wagtail/images/models.py:b3686c8d8679d8e4"
     ],
-    "visible_total": 7
+    "visible_total": 3
   },
   "framework": "django",
   "language": "python",
@@ -25,7 +21,7 @@
   "sha": "20259838f089138e1319b51621677358b90c8268",
   "strict": {
     "by_rule": {
-      "architecture.circular-dependency": 15,
+      "architecture.circular-dependency": 11,
       "architecture.dead-module": 657,
       "architecture.deep-directory-nesting": 1019,
       "architecture.deep-relative-imports": 33,
@@ -37,8 +33,8 @@
       "code-marker.hack": 3,
       "code-marker.todo": 19,
       "code-quality.complex-file": 28,
-      "code-quality.complex-function": 221,
-      "code-quality.deep-control-flow": 54,
+      "code-quality.complex-function": 174,
+      "code-quality.deep-control-flow": 22,
       "code-quality.long-function": 203,
       "framework.js.console-log": 1,
       "framework.js.var-declaration": 27,
@@ -47,6 +43,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 668
     },
-    "visible_total": 3123
+    "visible_total": 3040
   }
 }
