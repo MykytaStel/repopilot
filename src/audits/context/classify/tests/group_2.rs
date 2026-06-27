@@ -120,6 +120,51 @@ fn classifies_generated_files_as_non_production() {
 
 
 #[test]
+fn classifies_emscripten_and_whole_file_disabled_bundles_as_generated() {
+    // Emscripten/WASM glue and bundles that lead with a bare, whole-file
+    // `/* eslint-disable */` are vendored output, not hand-maintained source.
+    let emscripten = facts(
+        "packages/app/src/woff2/woff2-bindings.ts",
+        Some("TypeScript"),
+        "// @ts-nocheck\nModule.inspect = function () { return \"[Emscripten Module object]\"; };\n",
+        false,
+    );
+    let disabled = facts(
+        "packages/app/src/vendor/bundle.js",
+        Some("JavaScript"),
+        "/* eslint-disable */\nfunction quit(status) { process.exit(status); }\n",
+        false,
+    );
+
+    for file in [emscripten, disabled] {
+        let context = classify_file(&file);
+        assert!(
+            context.has_role(FileRole::Generated),
+            "vendored bundle should be Generated: {:?}",
+            file.path
+        );
+    }
+}
+
+#[test]
+fn hand_written_file_with_scoped_eslint_disable_is_not_generated() {
+    // A scoped `eslint-disable` for specific rules (or one that is not the very
+    // first line) is ordinary authored code and must keep its production role.
+    let file = facts(
+        "src/api/client.ts",
+        Some("TypeScript"),
+        "import x from \"./x\";\n/* eslint-disable no-console */\nexport function run() {}\n",
+        false,
+    );
+
+    let context = classify_file(&file);
+
+    assert!(!context.has_role(FileRole::Generated));
+    assert!(context.is_production_code());
+}
+
+
+#[test]
 fn classifies_config_file() {
     let file = facts(
         "tsconfig.json",
