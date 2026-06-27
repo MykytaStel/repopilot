@@ -88,8 +88,8 @@ impl FileAudit for SecretCandidateAudit {
 /// Returns true when `line` carries a hardcoded secret-shaped assignment — a
 /// known secret key set to a credential-shaped literal. Shared with the
 /// env-file audit so both rules classify committed values identically.
-pub(crate) fn line_has_hardcoded_secret(line: &str) -> bool {
-    detect_secret_line(line, 1, std::path::Path::new("env")).is_some()
+pub(crate) fn secret_value_confidence(value: &str) -> Option<Confidence> {
+    secret_literal_confidence(value)
 }
 
 fn is_lock_file(path: &std::path::Path) -> bool {
@@ -127,20 +127,22 @@ fn detect_secret_line(line: &str, line_number: usize, path: &std::path::Path) ->
             path,
             "jwt-like token",
             mask_token_in_line(line.trim(), jwt),
+            Confidence::High,
         ));
     }
 
     let lower = line.to_ascii_lowercase();
 
-    if let Some(matched_key) = SECRET_KEYS
+    if let Some((matched_key, confidence)) = SECRET_KEYS
         .iter()
-        .find(|&&key| assigned_secret_value_for_key(line, &lower, key).is_some())
+        .find_map(|&key| assigned_secret_confidence_for_key(line, &lower, key).map(|c| (key, c)))
     {
         return Some(build_finding(
             line_number,
             path,
             matched_key,
             mask_secret_value(line.trim()),
+            confidence,
         ));
     }
 

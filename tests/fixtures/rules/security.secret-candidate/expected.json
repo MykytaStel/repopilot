@@ -13,6 +13,16 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_path_qualifier",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "low_confidence_slug_identifier",
+      "expected_rule_ids": [
+        "security.secret-candidate"
+      ]
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "security.secret-candidate"

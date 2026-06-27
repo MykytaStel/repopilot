@@ -8,6 +8,7 @@ fn build_finding(
     path: &std::path::Path,
     matched_key: &str,
     snippet: String,
+    confidence: Confidence,
 ) -> Finding {
     Finding {
         id: String::new(),
@@ -20,7 +21,7 @@ fn build_finding(
         ),
         category: FindingCategory::Security,
         severity: Severity::High,
-        confidence: Confidence::High,
+        confidence,
         evidence: vec![Evidence {
             path: path.to_path_buf(),
             line_start: line_number,

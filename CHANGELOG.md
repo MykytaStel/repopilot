@@ -71,20 +71,30 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
-- **`security.env-file-committed` no longer flags a committed `.env.development`
-  / `.env.production` / `.env.staging` that holds only public build config.**
-  These shared env files are routinely committed on purpose to carry public,
-  framework-exposed configuration — Vite/CRA/Next inline `VITE_*`, `REACT_APP_*`,
-  `NEXT_PUBLIC_*` (and peers) into the browser bundle, so those values are public
-  by construction — and the rule flagged them by filename alone. It is now
-  content-aware: `.env` and `.env.local` (the developer-local secret files that
-  every default `.gitignore` excludes) are still flagged on sight, but the shared
-  variants are flagged only when they actually contain a non-public,
-  secret-shaped value (using the same value classifier as
-  `security.secret-candidate`). Measured on the real-repo zoo, this removed both
-  of excalidraw's default-visible findings (its `.env.development` /
-  `.env.production` carry only `VITE_*` config, a Firebase web API key, and a
-  published RSA public key), with a genuine committed secret still flagged.
+- **`security.env-file-committed` is now content- and confidence-aware for shared
+  `.env.development` / `.env.production` / `.env.staging` files.** Local `.env`
+  and `.env.local` files are still flagged on sight, but shared build variants are
+  inspected: ordinary public build config is skipped, ambiguous public browser
+  credentials such as Firebase web config are Low confidence (hidden by default,
+  retained in strict), and explicit sensitive keys such as `PASSWORD`,
+  `CLIENT_SECRET`, `AUTH_TOKEN`, or `PRIVATE_KEY` stay High confidence even with a
+  public framework prefix like `VITE_`/`NEXT_PUBLIC_`. Measured on the real-repo
+  zoo, this removed both of excalidraw's default-visible env-file findings while
+  retaining strict-profile review of the public credential-shaped config and still
+  flagging genuine committed secrets.
+
+- **`security.secret-candidate` no longer misreads namespace path qualifiers as
+  hardcoded secrets, and lowercase slug-like values are strict-only Low.** A
+  `key::Rest` path qualifier (a Rust/C++ enum or type path such as
+  `Token::RecursiveSuffix`) was parsed as a `token: <secret>` assignment. Values
+  made only of lowercase words joined by `-`/`_` (for example
+  `excalidraw-oai-api-key`) are now downgraded to Low confidence instead of
+  removed, so default output hides storage identifiers while `--profile strict`
+  still retains passphrases and token-like slugs. Genuine mixed-case/digit
+  credentials stay High and default-visible. Measured on the real-repo zoo, this
+  removed ripgrep's 2 default-visible findings (`glob.rs` enum paths) and hid 1
+  excalidraw storage-key slug from default output while retaining it in strict;
+  eShopOnWeb's 7 genuine hardcoded credentials were correctly retained.
 
 - **`repopilot_scan` MCP disk caching no longer serves stale scan reports after
   agent edits.** The scan tool now bypasses the MCP session cache, keys disk
