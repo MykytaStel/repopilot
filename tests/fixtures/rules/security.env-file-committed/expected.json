@@ -1,14 +1,16 @@
 {
-  "fixtures": [
-    {
-      "path": "false_positive",
-      "expected_rule_ids": []
-    },
-    {
-      "path": "true_positive",
-      "expected_rule_ids": [
-        "security.env-file-committed"
-      ]
-    }
-  ]
+	"fixtures": [
+		{
+			"path": "false_positive",
+			"expected_rule_ids": []
+		},
+		{
+			"path": "low_confidence_public_config",
+			"expected_rule_ids": ["security.env-file-committed"]
+		},
+		{
+			"path": "true_positive",
+			"expected_rule_ids": ["security.env-file-committed"]
+		}
+	]
 }

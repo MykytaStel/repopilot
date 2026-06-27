@@ -89,9 +89,9 @@ pub fn build_coupling_graph_with_resolution(
             }
         }
 
-        // Record the deferred (function-body) subset against the same source so
-        // cycle detection can subtract these edges. `deferred_imports ⊆ imports`,
-        // so every resolved target is already present in `edges` above.
+        // Record the non-runtime subset against the same source so cycle detection
+        // can subtract these edges. `deferred_imports ⊆ imports`, so every resolved
+        // target is already present in `edges` above.
         for raw in &file.deferred_imports {
             if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files)
                 && target != normalized_source
@@ -195,10 +195,9 @@ pub fn detect_cycles_bounded(graph: &CouplingGraph, max_cycles: usize) -> Vec<Ve
     // Map each node to a stable integer index
     let index: HashMap<&PathBuf, usize> = nodes.iter().enumerate().map(|(i, p)| (*p, i)).collect();
 
-    // Adjacency list using indices. Deferred (function-body) edges are excluded:
-    // a deferred import runs only when a function is called, so it does not form a
-    // module-load cycle — counting it would resurrect the very cycle the deferral
-    // was written to break.
+    // Adjacency list using indices. Deferred/non-runtime edges are excluded:
+    // Python function-body imports run only when called, and TS/JS type-only imports
+    // are erased, so neither forms a module-load/runtime cycle.
     let adj: Vec<Vec<usize>> = nodes
         .iter()
         .map(|node| {
@@ -277,17 +276,17 @@ pub fn without_rust_module_containment_edges(graph: &CouplingGraph) -> CouplingG
 
     CouplingGraph {
         edges,
-        // Rust-only transform; the Python-only deferred edges pass through.
+        // Rust-only transform; deferred/non-runtime edges pass through.
         deferred_edges: graph.deferred_edges.clone(),
         nodes: graph.nodes.clone(),
     }
 }
 
-/// Returns a copy of `graph` with every *deferred* (Python function-body) edge
-/// removed, for cycle detection only. A deferred import runs only when a function
-/// is called, so it does not form a module-load cycle — keeping it would
-/// resurrect the very cycle the deferral was written to break. Fan-out and
-/// dead-module use the full graph, so this is applied solely to the cycle graph.
+/// Returns a copy of `graph` with every *deferred* / non-runtime edge removed,
+/// for cycle detection only. Python function-body imports run only when called,
+/// and TS/JS type-only imports are erased, so neither forms a module-load/runtime
+/// cycle. Fan-out and dead-module use the full graph, so this is applied solely to
+/// the cycle graph.
 pub fn without_deferred_edges(graph: &CouplingGraph) -> CouplingGraph {
     if graph.deferred_edges.is_empty() {
         return graph.clone();

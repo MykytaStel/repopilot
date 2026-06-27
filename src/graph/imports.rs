@@ -42,10 +42,15 @@ pub(crate) fn extract_imports_from(parsed: &ParsedFile, language: Option<&str>) 
     set.into_iter().collect()
 }
 
-/// Imports that are *deferred* — present only inside a function body, never at
-/// module scope. Currently Python-only (the language whose idiom is to defer an
-/// import to break a load-time cycle). These are real edges in the coupling
-/// graph but are subtracted by cycle detection. Other languages have none.
+/// Imports that are real edges in the coupling graph but must be subtracted by
+/// cycle detection because they create no module-load dependency:
+/// - **Python**: imports deferred into a function body (the idiom for breaking a
+///   load-time cycle), present only inside a function, never at module scope.
+/// - **TypeScript/JavaScript**: `import type` / `export type` imports, which the
+///   compiler erases, so they are type-only and never run at load time.
+///
+/// These stay full edges for coupling, fan-out, and dead-module analysis; only
+/// cycle detection subtracts them. Other languages have none.
 pub(crate) fn extract_deferred_imports_from(
     parsed: &ParsedFile,
     language: Option<&str>,
@@ -53,6 +58,12 @@ pub(crate) fn extract_deferred_imports_from(
     let content = parsed.content();
     let set: HashSet<String> = match language {
         Some("Python") => from_tree(parsed, |tree| python::extract_deferred(tree, content)),
+        Some("TypeScript")
+        | Some("TypeScript React")
+        | Some("JavaScript")
+        | Some("JavaScript React") => {
+            from_tree(parsed, |tree| ts::extract_type_only(tree, content))
+        }
         _ => return Vec::new(),
     };
     set.into_iter().collect()
@@ -114,5 +125,62 @@ mod tests {
             extract_deferred_imports_from(&ParsedFile::new(content, Some("Rust")), Some("Rust"))
                 .is_empty()
         );
+    }
+
+    fn type_only(content: &str) -> Vec<String> {
+        let mut d = extract_deferred_imports_from(
+            &ParsedFile::new(content, Some("TypeScript")),
+            Some("TypeScript"),
+        );
+        d.sort();
+        d
+    }
+
+    #[test]
+    fn ts_import_type_is_type_only_but_still_a_full_edge() {
+        let content = "import type { User } from \"./types\";\nimport { run } from \"./run\";\n";
+        // Both remain real edges for coupling / fan-out…
+        let imports = extract_imports(content, Some("TypeScript"));
+        assert!(imports.contains(&"./types".to_string()));
+        assert!(imports.contains(&"./run".to_string()));
+        // …but only the erased `import type` is subtracted from cycle detection.
+        assert_eq!(type_only(content), vec!["./types".to_string()]);
+    }
+
+    #[test]
+    fn ts_value_and_mixed_imports_are_not_type_only() {
+        // A plain value import and a mixed `{ type A, B }` both execute the module.
+        let content = "import { A } from \"./a\";\nimport { type T, b } from \"./b\";\n";
+        assert!(type_only(content).is_empty(), "{:?}", type_only(content));
+    }
+
+    #[test]
+    fn ts_all_inline_type_specifiers_are_type_only() {
+        let content = "import { type A, type B } from \"./types\";\n\
+             export { type C } from \"./config\";\n";
+
+        assert_eq!(
+            type_only(content),
+            vec!["./config".to_string(), "./types".to_string()]
+        );
+    }
+
+    #[test]
+    fn ts_inline_type_and_value_specifiers_keep_runtime_edge() {
+        let content = "import { type A, b } from \"./module\";\n";
+        assert!(type_only(content).is_empty());
+    }
+
+    #[test]
+    fn ts_export_type_reexport_is_type_only_but_value_barrel_is_not() {
+        let content = "export type { Cfg } from \"./cfg\";\nexport { thing } from \"./thing\";\n";
+        assert_eq!(type_only(content), vec!["./cfg".to_string()]);
+    }
+
+    #[test]
+    fn ts_module_imported_both_type_and_value_is_not_type_only() {
+        // The value import keeps the runtime edge, so the module is not type-only.
+        let content = "import type { T } from \"./x\";\nimport { run } from \"./x\";\n";
+        assert!(type_only(content).is_empty());
     }
 }
