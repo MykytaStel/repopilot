@@ -155,6 +155,23 @@ mod tests {
     }
 
     #[test]
+    fn ts_all_inline_type_specifiers_are_type_only() {
+        let content = "import { type A, type B } from \"./types\";\n\
+             export { type C } from \"./config\";\n";
+
+        assert_eq!(
+            type_only(content),
+            vec!["./config".to_string(), "./types".to_string()]
+        );
+    }
+
+    #[test]
+    fn ts_inline_type_and_value_specifiers_keep_runtime_edge() {
+        let content = "import { type A, b } from \"./module\";\n";
+        assert!(type_only(content).is_empty());
+    }
+
+    #[test]
     fn ts_export_type_reexport_is_type_only_but_value_barrel_is_not() {
         let content = "export type { Cfg } from \"./cfg\";\nexport { thing } from \"./thing\";\n";
         assert_eq!(type_only(content), vec!["./cfg".to_string()]);

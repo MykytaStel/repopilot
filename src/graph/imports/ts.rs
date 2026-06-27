@@ -12,13 +12,14 @@ pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
-/// Module paths imported *type-only* — `import type { … }` / `export type { … }`
-/// — and never imported as a value. The TypeScript compiler erases these, so they
-/// create no runtime edge and must be subtracted from cycle detection (they stay
-/// real edges for coupling/fan-out, like Python deferred imports). A module that
-/// is *also* imported as a value anywhere — including a mixed
-/// `import { type A, B }` or a dynamic `import("…")` — is a runtime edge and is
-/// excluded here.
+/// Module paths imported *type-only* — `import type { … }`, `export type { … }`,
+/// or named imports/exports whose every specifier is inline type-only
+/// (`import { type A, type B }`) — and never imported as a value. The TypeScript
+/// compiler erases these, so they create no runtime edge and must be subtracted
+/// from cycle detection (they stay real edges for coupling/fan-out, like Python
+/// deferred imports). A module that is *also* imported as a value anywhere —
+/// including a mixed `import { type A, B }`, a default/namespace import, or a
+/// dynamic `import("…")` — is a runtime edge and is excluded here.
 pub(super) fn extract_type_only(tree: &Tree, content: &str) -> HashSet<String> {
     let mut type_only: HashSet<String> = HashSet::new();
     let mut value: HashSet<String> = HashSet::new();
@@ -36,7 +37,7 @@ fn collect_type_only(
     match node.kind() {
         "import_statement" | "export_statement" => {
             if let Some(path) = module_source(node, content).filter(|path| is_candidate(path)) {
-                if statement_is_type_only(node) {
+                if statement_is_type_only(node, content) {
                     type_only.insert(path.to_string());
                 } else {
                     value.insert(path.to_string());
@@ -59,14 +60,54 @@ fn collect_type_only(
     }
 }
 
-// `import type … from` / `export type … from` carry a `type` (or `typeof`) token
-// as a *direct* child of the statement. A `type` modifier on an individual
-// specifier (`import { type A, B }`) is nested inside `import_specifier`, so a
-// direct-child check correctly treats that mixed import as a runtime edge.
-fn statement_is_type_only(node: Node<'_>) -> bool {
+fn statement_is_type_only(node: Node<'_>, content: &str) -> bool {
+    if has_direct_type_modifier(node) {
+        return true;
+    }
+
+    starts_with_named_specifiers(node, content) && all_named_specifiers_are_type_only(node)
+}
+
+fn has_direct_type_modifier(node: Node<'_>) -> bool {
     let mut cursor = node.walk();
     node.children(&mut cursor)
         .any(|child| matches!(child.kind(), "type" | "typeof"))
+}
+
+fn starts_with_named_specifiers(node: Node<'_>, content: &str) -> bool {
+    let Ok(text) = node.utf8_text(content.as_bytes()) else {
+        return false;
+    };
+    let keyword = match node.kind() {
+        "import_statement" => "import",
+        "export_statement" => "export",
+        _ => return false,
+    };
+    text.trim_start()
+        .strip_prefix(keyword)
+        .is_some_and(|rest| rest.trim_start().starts_with('{'))
+}
+
+fn all_named_specifiers_are_type_only(node: Node<'_>) -> bool {
+    let mut specifier_count = 0;
+    let mut all_type_only = true;
+    visit_named_specifiers(node, &mut |specifier| {
+        specifier_count += 1;
+        all_type_only &= has_direct_type_modifier(specifier);
+    });
+    specifier_count > 0 && all_type_only
+}
+
+fn visit_named_specifiers(node: Node<'_>, visit: &mut impl FnMut(Node<'_>)) {
+    if matches!(node.kind(), "import_specifier" | "export_specifier") {
+        visit(node);
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        visit_named_specifiers(child, visit);
+    }
 }
 
 fn is_candidate(path: &str) -> bool {

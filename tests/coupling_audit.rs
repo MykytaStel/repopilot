@@ -208,6 +208,37 @@ fn circular_dependency_finding_is_emitted() {
 }
 
 #[test]
+fn inline_type_only_cycle_does_not_emit_circular_dependency_even_in_strict() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    write_file(
+        &temp,
+        "src/a.ts",
+        r#"import { type B } from "./b"; export type A = { b?: B };"#,
+    );
+    write_file(
+        &temp,
+        "src/b.ts",
+        r#"import { type A } from "./a"; export type B = { a?: A };"#,
+    );
+
+    let config = ScanConfig {
+        include_low_signal: true,
+        ..ScanConfig::default()
+    };
+    let summary = scan_path_with_config(temp.path(), &config).expect("failed to scan temp project");
+
+    assert!(
+        summary
+            .artifacts
+            .findings
+            .iter()
+            .all(|finding| finding.rule_id != "architecture.circular-dependency"),
+        "inline type-only cycle must not be reported even in strict visibility: {:#?}",
+        summary.artifacts.findings
+    );
+}
+
+#[test]
 fn acyclic_imports_do_not_emit_circular_dependency() {
     let temp = TempDir::new().expect("failed to create temp dir");
     write_file(
