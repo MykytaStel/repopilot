@@ -37,7 +37,14 @@ non-destructive, idempotent, and closed-world.
 | `repopilot_review_change` | Changed/full review with findings, signals, blast radius, and gate result | `base`, `head`, `config`, `baseline`, `scope`, `profile`, `fail_on_review`, `detail` |
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget` |
-| `repopilot_explain_file` | File classification and applicable rules | `rule`, `signal` |
+| `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
+
+`repopilot_explain_file` returns additive JSON fields for explicit scope,
+role evidence, applicability checks, every ordered override, severity
+transitions, and the final default-profile visibility decision. It resolves
+executable-package manifest context from the MCP root so `cli-executable`
+classification matches normal scanning. Its rule base severity comes from the
+rule registry when a known `rule` is supplied.
 
 Every tool accepts a workspace-relative `path` where applicable. Review defaults
 to `scope=changed`, `profile=default`, `fail_on_review=none`, and

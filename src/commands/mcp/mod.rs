@@ -324,7 +324,7 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
         review_change::TOOL_NAME => review_change::call(&arguments),
         scan::TOOL_NAME => scan::call(&arguments),
         context::TOOL_NAME => context::call(&arguments),
-        explain_file::TOOL_NAME => explain_file::call(&arguments),
+        explain_file::TOOL_NAME => explain_file::call(&arguments, &state.root),
         other => Err(format!("unknown tool: {other}")),
     };
 

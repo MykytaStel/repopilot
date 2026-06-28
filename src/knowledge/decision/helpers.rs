@@ -189,3 +189,35 @@ fn dedup_static_ids(values: &mut Vec<&'static str>) {
     let mut seen = HashSet::new();
     values.retain(|value| seen.insert(*value));
 }
+
+fn override_criteria(override_rule: &RuleOverride) -> Vec<String> {
+    let mut criteria = Vec::new();
+    if let Some(value) = &override_rule.signal { criteria.push(format!("signal={value}")); }
+    if let Some(value) = &override_rule.language { criteria.push(format!("language={value}")); }
+    if let Some(value) = &override_rule.framework { criteria.push(format!("framework={value}")); }
+    if let Some(value) = &override_rule.runtime { criteria.push(format!("runtime={value}")); }
+    if let Some(value) = &override_rule.paradigm { criteria.push(format!("paradigm={value}")); }
+    if let Some(value) = &override_rule.role { criteria.push(format!("role={value}")); }
+    if criteria.is_empty() { criteria.push("unconditional".to_string()); }
+    criteria
+}
+
+fn sorted_values(values: &HashSet<String>) -> String {
+    if values.is_empty() { return "none".to_string(); }
+    let mut values = values.iter().map(String::as_str).collect::<Vec<_>>();
+    values.sort_unstable();
+    values.join(",")
+}
+
+fn joined_ids(values: &[&str]) -> String {
+    if values.is_empty() { "none".to_string() } else { values.join(",") }
+}
+
+fn support_level_id(level: SupportLevel) -> &'static str {
+    match level {
+        SupportLevel::DetectOnly => "detect-only",
+        SupportLevel::ImportAware => "import-aware",
+        SupportLevel::ContextAware => "context-aware",
+        SupportLevel::RuleAware => "rule-aware",
+    }
+}
