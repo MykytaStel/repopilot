@@ -28,8 +28,9 @@
       "code-quality.deep-control-flow": 17,
       "code-quality.long-function": 90,
       "language.python.exception-risk": 103,
+      "security.secret-candidate": 2,
       "testing.source-without-test": 36
     },
-    "visible_total": 763
+    "visible_total": 765
   }
 }
