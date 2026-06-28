@@ -448,6 +448,7 @@ repopilot mcp [--root PATH]
 | `repopilot_scan` | Full repository audit as a JSON report |
 | `repopilot_context` | Budgeted, AI-ready Markdown brief (optional `focus`, `budget`) |
 | `repopilot_explain_file` | How one file is classified and which rules and signals apply |
+| `repopilot_explain_finding` | Replay a file-scoped emitted finding by stable ID from the current MCP session |
 
 ### Examples
 

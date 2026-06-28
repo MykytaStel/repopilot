@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **MCP can now explain emitted findings by stable ID.**
+  `repopilot_explain_finding` reads a file-scoped finding from the latest scan
+  or review in the current MCP session, replays its stored Knowledge Engine
+  inputs against the current workspace, and returns the emitted finding, stored
+  provenance, full role/decision trace, and a deterministic `matched` or
+  `drifted` comparison. Repository, workspace, Git-diff, and framework-project
+  findings are rejected rather than replayed with incomplete file-only context.
+  The tool rejects findings without schema-`0.20` decision provenance, enforces
+  the MCP root boundary, and bypasses the session cache so a newer scan or review
+  cannot reuse a stale explanation. CLI commands, scan/review schemas, finding
+  IDs, baseline behavior, visibility, SARIF, and detector decisions are
+  unchanged.
+
 - **Findings now preserve replayable Knowledge Engine decision provenance.**
   Knowledge-aware findings add optional `provenance.knowledge_decision` data
   containing base severity, signal id, action, decided severity, and reason.

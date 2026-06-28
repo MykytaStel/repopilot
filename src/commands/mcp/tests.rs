@@ -1,4 +1,4 @@
-use super::serve;
+use super::{ServerState, handle_tools_call, scan, serve};
 use serde_json::{Value, json};
 use std::io::Cursor;
 
@@ -94,6 +94,7 @@ fn tools_list_advertises_all_tools_with_schemas() {
             "repopilot_scan",
             "repopilot_context",
             "repopilot_explain_file",
+            "repopilot_explain_finding",
         ]
     );
 
@@ -250,5 +251,85 @@ fn context_tool_returns_markdown_brief_matching_its_output_schema() {
         result["content"][0]["text"].as_str(),
         Some(markdown),
         "content text should mirror the structured markdown"
+    );
+}
+
+#[test]
+fn explain_finding_requires_a_session_result() {
+    let responses = initialized_exchange(&[json!({
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "tools/call",
+        "params": {
+            "name": "repopilot_explain_finding",
+            "arguments": {
+                "finding_id": "language.rust.panic-risk:src/lib.rs:1"
+            }
+        }
+    })]);
+
+    let result = &responses[0]["result"];
+    assert_eq!(result["isError"], true);
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .is_some_and(|message| message.contains("run repopilot_scan first"))
+    );
+}
+
+#[test]
+fn scan_then_explain_finding_replays_session_finding() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let source_path = temp.path().join("src/lib.rs");
+    std::fs::create_dir_all(source_path.parent().expect("parent"))
+        .expect("create source directory");
+    std::fs::write(&source_path, "pub fn dangerous() { panic!(\"boom\"); }\n")
+        .expect("write Rust source");
+
+    let scan_report = scan::call(&json!({
+        "path": temp.path(),
+        "profile": "strict"
+    }))
+    .expect("scan fixture repository");
+    let scan_value: Value = serde_json::from_str(&scan_report).expect("scan report JSON");
+    let finding_id = scan_value["findings"]
+        .as_array()
+        .expect("findings array")
+        .iter()
+        .find(|finding| {
+            finding["rule_id"] == "language.rust.panic-risk"
+                && finding["provenance"]["analysis_scope"] == "file"
+                && finding["provenance"]["knowledge_decision"].is_object()
+        })
+        .and_then(|finding| finding["id"].as_str())
+        .expect("knowledge-aware Rust panic finding")
+        .to_string();
+
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        last_scan: Some(scan_report),
+        ..ServerState::default()
+    };
+    let response = handle_tools_call(
+        json!(9),
+        &json!({
+            "name": "repopilot_explain_finding",
+            "arguments": {
+                "finding_id": finding_id,
+                "source": "last-scan"
+            }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("MCP result");
+
+    assert_eq!(result["isError"], false, "tool call failed: {result}");
+    assert_eq!(result["structuredContent"]["source_report"], "last-scan");
+    assert_eq!(result["structuredContent"]["replay"]["status"], "matched");
+    assert!(
+        result["structuredContent"]["explanation"]["decision"]["trace"]
+            .as_array()
+            .is_some_and(|trace| !trace.is_empty())
     );
 }
