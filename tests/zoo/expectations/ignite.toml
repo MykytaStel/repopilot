@@ -1,0 +1,17 @@
+schema_version = 1
+repo = "ignite"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+# ignite emits no default-visible findings at the pinned SHA: every process.exit
+# lives in `src/commands/` and was intentionally downgraded to Low (#249/B1), so
+# it is strict-only. The strict anchor below keeps that downgrade honest.
+
+[[finding]]
+profile = "strict"
+finding_id = "language.javascript.runtime-exit-risk:src/commands/new.ts:199bbf8d553e4213"
+rule_id = "language.javascript.runtime-exit-risk"
+path = "src/commands/new.ts"
+line = 185
+disposition = "valid-but-accepted"
+reason = "CLI command handler that deliberately exits the process; downgraded to Low for cli-executable role and retained as a strict recall anchor."

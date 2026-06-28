@@ -1,0 +1,6 @@
+schema_version = 1
+repo = "spring-petclinic"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+# spring-petclinic emits no default-visible findings at the pinned SHA.

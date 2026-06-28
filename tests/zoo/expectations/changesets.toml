@@ -1,0 +1,20 @@
+schema_version = 1
+repo = "changesets"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "language.javascript.runtime-exit-risk:packages/cli/src/utils/cli-utilities.ts:272512749156ce06"
+rule_id = "language.javascript.runtime-exit-risk"
+path = "packages/cli/src/utils/cli-utilities.ts"
+disposition = "actionable"
+reason = "process.exit lives in a shared CLI utility module (not a command entrypoint), so it can terminate the host process unexpectedly; the rule intentionally keeps this High outside commands/."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:packages/cli/src/commands/publish/npm-utils.ts:450588cb75896a2b"
+rule_id = "architecture.circular-dependency"
+path = "packages/cli/src/commands/publish/npm-utils.ts"
+disposition = "actionable"
+reason = "Real two-node eager import cycle between npm-utils.ts and publishPackages.ts inside the publish command."

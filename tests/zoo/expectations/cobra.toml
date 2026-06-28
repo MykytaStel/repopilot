@@ -1,0 +1,8 @@
+schema_version = 1
+repo = "cobra"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+# cobra emits no default-visible findings at the pinned SHA. The file is still
+# required so the zoo gate proves the empty default profile was reviewed, not
+# merely un-scanned.

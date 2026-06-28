@@ -1,0 +1,49 @@
+schema_version = 1
+repo = "ripgrep"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "language.rust.panic-risk:crates/ignore/src/dir.rs:29a9cdea010a693a"
+rule_id = "language.rust.panic-risk"
+path = "crates/ignore/src/dir.rs"
+disposition = "actionable"
+reason = "panic! in library code (Ignore::add_parents invariant) aborts the host process; a genuine library panic the rule should keep High."
+
+# Same stable id (d86c9a3b…) at two distinct lines: aggregation does not merge
+# distinct locations, so both occurrences need their own disambiguated entry.
+[[finding]]
+profile = "default"
+finding_id = "language.rust.panic-risk:crates/matcher/src/lib.rs:d86c9a3b5e601a78"
+rule_id = "language.rust.panic-risk"
+path = "crates/matcher/src/lib.rs"
+line = 507
+disposition = "valid-but-accepted"
+reason = "panic!(\"BUG for NoError ...\") guards an impossible error variant; structurally a library panic but unreachable by construction."
+
+[[finding]]
+profile = "default"
+finding_id = "language.rust.panic-risk:crates/matcher/src/lib.rs:d86c9a3b5e601a78"
+rule_id = "language.rust.panic-risk"
+path = "crates/matcher/src/lib.rs"
+line = 513
+disposition = "valid-but-accepted"
+reason = "Second occurrence of the same impossible-error BUG guard; unreachable by construction."
+
+[[finding]]
+profile = "default"
+finding_id = "language.rust.panic-risk:crates/printer/src/json.rs:a67956c2e99a577d"
+rule_id = "language.rust.panic-risk"
+path = "crates/printer/src/json.rs"
+disposition = "actionable"
+reason = "unwrap() on a replacement Option in library code; a genuine panic path the rule should keep High."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.rust.panic-risk:crates/searcher/src/testutil.rs:f73ce48721b18528"
+rule_id = "language.rust.panic-risk"
+path = "crates/searcher/src/testutil.rs"
+line = 256
+disposition = "valid-but-accepted"
+reason = "panic! in a Rust test-support module (testutil.rs); downgraded to Low for the test-support role (#B2) and retained as a strict recall anchor."

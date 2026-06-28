@@ -1,0 +1,6 @@
+schema_version = 1
+repo = "express"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+# express emits no default-visible findings at the pinned SHA.

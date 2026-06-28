@@ -30,6 +30,8 @@ impl Harness {
         fs::create_dir_all(&bin_dir).expect("bin dir");
         copy_script(&root, "zoo.py");
         copy_script(&root, "zoo_scanner.py");
+        copy_script(&root, "zoo_expectations.py");
+        copy_script(&root, "zoo_triage.py");
         fs::write(root.join("Cargo.toml"), CARGO_TOML).expect("Cargo.toml");
         fs::write(root.join("tests/zoo/manifest.toml"), MANIFEST).expect("manifest");
         fs::write(root.join("tests/zoo/snapshots/sample.json"), SNAPSHOT).expect("snapshot");

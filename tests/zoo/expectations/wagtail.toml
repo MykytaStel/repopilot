@@ -1,0 +1,29 @@
+schema_version = 1
+repo = "wagtail"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:wagtail/admin/views/bulk_action/__init__.py:a2ca81903a3ef0d5"
+rule_id = "architecture.circular-dependency"
+path = "wagtail/admin/views/bulk_action/__init__.py"
+disposition = "valid-but-accepted"
+reason = "Package-init re-export cycle (__init__.py -> dispatcher.py -> registry.py -> __init__.py); idiomatic registry wiring inside one package."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:wagtail/actions/publish_revision.py:0da7c5453404677e"
+rule_id = "architecture.circular-dependency"
+path = "wagtail/actions/publish_revision.py"
+disposition = "actionable"
+reason = "Real cross-package eager cycle actions <-> models (publish_revision.py -> models/__init__.py -> models/draft_state.py -> publish_revision.py), part of a 29-file strongly-connected component — genuine coupling."
+
+[[finding]]
+profile = "default"
+finding_id = "language.python.exception-risk:wagtail/images/models.py:b3686c8d8679d8e4"
+rule_id = "language.python.exception-risk"
+path = "wagtail/images/models.py"
+line = 868
+disposition = "valid-but-accepted"
+reason = "Bare `except:` carrying an explicit `# noqa:B901,E722`; upstream has knowingly accepted the broad handler."

@@ -1,0 +1,12 @@
+schema_version = 1
+repo = "nowinandroid"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "language.managed.fatal-exception-risk:feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt:6287d3e94eee5173"
+rule_id = "language.managed.fatal-exception-risk"
+path = "feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt"
+disposition = "actionable"
+reason = "TODO() placeholder on the TopicUiState.Error branch will throw NotImplementedError at runtime if the error state is ever rendered; the rule correctly surfaces an unimplemented production path."
