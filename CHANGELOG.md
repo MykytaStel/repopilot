@@ -8,6 +8,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Rule decisions now expose an ordered, evidence-backed trace.** The Knowledge
+  Engine has one trace-producing path that records rule lookup, configured
+  applicability checks, the supplied base severity, every override in declaration
+  order (including unmatched and test-skipped entries), severity transitions, and
+  the final decision. Existing `decide*` APIs remain wrappers over the same path,
+  so explanation cannot drift from scan behavior. Normal scan and review paths
+  keep trace recording disabled and do not allocate trace strings or vectors.
+  `repopilot_explain_file` now adds file-role evidence from the context
+  classifier, including executable-package manifest context, a final
+  default-profile visibility step, and explicit scope limits: repository graph context,
+  `repopilot.toml` rule overrides, local feedback, baseline state, and full scan
+  filtering are not applied. The MCP tool uses registry default severity for known
+  rules. This is additive explain/MCP JSON; scan, review, SARIF, baseline, receipt,
+  finding IDs, severity decisions, and visibility behavior are unchanged.
+
 - **File-role classification now preserves explainable evidence.** The detailed
   classifier records one typed evidence entry for every assigned role, including
   whether it came from a path, content/framework marker, package manifest,

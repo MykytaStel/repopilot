@@ -150,3 +150,106 @@ fn rust_context(roles: Vec<FileRole>, runtimes: Vec<RuntimeKind>) -> AuditContex
         is_test: false,
     }
 }
+
+#[test]
+fn trace_preserves_ordered_matching_overrides_and_severity_transitions() {
+    let context = AuditContext {
+        language: LanguageKind::Kotlin,
+        frameworks: Vec::new(),
+        roles: vec![FileRole::Domain, FileRole::TestSupport],
+        paradigms: vec![ProgrammingParadigm::ObjectOriented],
+        runtimes: vec![RuntimeKind::Jvm],
+        is_test: false,
+    };
+    let trace = decide_for_audit_context_with_trace(
+        "language.managed.fatal-exception-risk",
+        &context,
+        Severity::Medium,
+        None,
+    );
+    assert_eq!(trace.decision.action, RuleDecisionAction::Downgrade);
+    assert_eq!(trace.decision.severity, Severity::Low);
+    let applied = trace
+        .steps
+        .iter()
+        .filter(|step| {
+            step.stage == DecisionTraceStage::Override
+                && step.status == DecisionTraceStatus::Applied
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(applied.len(), 2);
+    assert_eq!(applied[0].override_index, Some(1));
+    assert_eq!(applied[0].severity_before, Severity::Medium);
+    assert_eq!(applied[0].severity_after, Severity::High);
+    assert_eq!(applied[1].override_index, Some(2));
+    assert_eq!(applied[1].severity_before, Severity::High);
+    assert_eq!(applied[1].severity_after, Severity::Low);
+}
+
+#[test]
+fn trace_records_the_applicability_check_that_suppressed_a_rule() {
+    let context = AuditContext {
+        language: LanguageKind::Python,
+        frameworks: Vec::new(),
+        roles: Vec::new(),
+        paradigms: vec![ProgrammingParadigm::Unknown],
+        runtimes: vec![RuntimeKind::Python],
+        is_test: false,
+    };
+    let trace = decide_for_audit_context_with_trace(
+        "language.rust.panic-risk",
+        &context,
+        Severity::Medium,
+        Some("rust.panic"),
+    );
+    assert!(trace.decision.is_suppressed());
+    let failed = trace
+        .steps
+        .iter()
+        .find(|step| step.status == DecisionTraceStatus::Failed)
+        .expect("failed applicability step");
+    assert_eq!(failed.stage, DecisionTraceStage::Applicability);
+    assert_eq!(failed.label, "language");
+    assert_eq!(failed.action, Some(RuleDecisionAction::Suppress));
+}
+
+#[test]
+fn traced_and_compatibility_decisions_remain_identical() {
+    let context = rust_context(vec![FileRole::Domain], vec![RuntimeKind::RustLibrary]);
+    let compatibility = decide_for_audit_context(
+        "language.rust.panic-risk",
+        &context,
+        Severity::Medium,
+        Some("rust.panic"),
+    );
+    let traced = decide_for_audit_context_with_trace(
+        "language.rust.panic-risk",
+        &context,
+        Severity::Medium,
+        Some("rust.panic"),
+    );
+    assert_eq!(compatibility, traced.decision);
+}
+
+#[test]
+fn disabled_trace_recorder_does_not_materialize_steps() {
+    let mut materialized = false;
+    let mut recorder = TraceRecorder::disabled();
+
+    recorder.push(|| {
+        materialized = true;
+        DecisionTraceStep {
+            stage: DecisionTraceStage::RuleLookup,
+            status: DecisionTraceStatus::Matched,
+            label: "should-not-be-built".to_string(),
+            criteria: vec!["should-not-be-built".to_string()],
+            action: None,
+            severity_before: Severity::Info,
+            severity_after: Severity::Info,
+            reason: "should-not-be-built".to_string(),
+            override_index: None,
+        }
+    });
+
+    assert!(!materialized);
+}

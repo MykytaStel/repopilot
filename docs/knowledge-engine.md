@@ -58,6 +58,29 @@ RepoPilot keeps this taxonomy explicit with declarative and infrastructure
 context so future rules can narrow applicability instead of treating every file
 as normal application code.
 
+## Decision Traces
+
+The decision engine has one authoritative evaluator. Existing `decide*`
+functions run it with tracing disabled, while explicit traced APIs attach a
+lazy recorder to the same evaluator. Scan and review therefore avoid allocating
+trace labels, criteria, and reasons while explanations cannot silently diverge.
+
+A trace records:
+
+1. whether the rule exists in the bundled knowledge pack;
+2. each configured applicability check and the check that suppressed a rule;
+3. the supplied base severity;
+4. every override in declaration order, including unmatched and test-skipped
+   overrides;
+5. the severity before and after each applied override.
+
+The explain surface adds file-role evidence from the context classifier and a
+final default-profile visibility step. It also states its scope explicitly:
+single-file classification, executable-package manifest context, and bundled
+knowledge are included; repository graph context, `repopilot.toml` rule
+overrides, local feedback, baseline state, and
+full scan filtering are not.
+
 ## Diagnostics
 
 The Knowledge Engine is consumed internally by `scan` and `review`. Its decisions

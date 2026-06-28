@@ -3,11 +3,102 @@ use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::knowledge::active_knowledge;
 use crate::knowledge::language::{language_id_for_name, profile_by_id};
-use crate::knowledge::model::{RuleDecision, RuleDecisionAction, RuleMatchContext, RuleOverride};
+use crate::knowledge::model::{
+    RuleDecision, RuleDecisionAction, RuleMatchContext, RuleOverride, SupportLevel,
+};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::path_classification::is_low_signal_audit_path;
 use std::collections::HashSet;
 use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecisionTraceStage {
+    RuleLookup,
+    Applicability,
+    BaseDecision,
+    Override,
+}
+
+impl DecisionTraceStage {
+    pub fn as_id(self) -> &'static str {
+        match self {
+            DecisionTraceStage::RuleLookup => "rule-lookup",
+            DecisionTraceStage::Applicability => "applicability",
+            DecisionTraceStage::BaseDecision => "base-decision",
+            DecisionTraceStage::Override => "override",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecisionTraceStatus {
+    Applied,
+    Passed,
+    Failed,
+    Matched,
+    NotMatched,
+    Skipped,
+}
+
+impl DecisionTraceStatus {
+    pub fn as_id(self) -> &'static str {
+        match self {
+            DecisionTraceStatus::Applied => "applied",
+            DecisionTraceStatus::Passed => "passed",
+            DecisionTraceStatus::Failed => "failed",
+            DecisionTraceStatus::Matched => "matched",
+            DecisionTraceStatus::NotMatched => "not-matched",
+            DecisionTraceStatus::Skipped => "skipped",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DecisionTraceStep {
+    pub stage: DecisionTraceStage,
+    pub status: DecisionTraceStatus,
+    pub label: String,
+    pub criteria: Vec<String>,
+    pub action: Option<RuleDecisionAction>,
+    pub severity_before: Severity,
+    pub severity_after: Severity,
+    pub reason: String,
+    pub override_index: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuleDecisionTrace {
+    pub decision: RuleDecision,
+    pub steps: Vec<DecisionTraceStep>,
+}
+
+/// Optional trace sink for the shared decision evaluator.
+///
+/// Scan/review decisions use a disabled recorder, so trace labels, criteria, and
+/// reasons are not allocated. Explicit explain APIs enable the recorder while
+/// executing the same evaluator.
+struct TraceRecorder<'a> {
+    steps: Option<&'a mut Vec<DecisionTraceStep>>,
+}
+
+impl<'a> TraceRecorder<'a> {
+    fn disabled() -> Self {
+        Self { steps: None }
+    }
+
+    fn enabled(steps: &'a mut Vec<DecisionTraceStep>) -> Self {
+        Self { steps: Some(steps) }
+    }
+
+    fn push<F>(&mut self, build: F)
+    where
+        F: FnOnce() -> DecisionTraceStep,
+    {
+        if let Some(steps) = self.steps.as_mut() {
+            (*steps).push(build());
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SuppressReason {
@@ -46,74 +137,308 @@ impl From<SuppressReason> for String {
 }
 
 pub fn decide(context: &RuleMatchContext<'_>) -> RuleDecision {
+    let mut trace = TraceRecorder::disabled();
+    decide_internal(context, &mut trace)
+}
+
+pub fn decide_with_trace(context: &RuleMatchContext<'_>) -> RuleDecisionTrace {
+    let mut steps = Vec::new();
+    let decision = {
+        let mut trace = TraceRecorder::enabled(&mut steps);
+        decide_internal(context, &mut trace)
+    };
+    RuleDecisionTrace { decision, steps }
+}
+
+fn decide_internal(context: &RuleMatchContext<'_>, trace: &mut TraceRecorder<'_>) -> RuleDecision {
     let Some(rule) = active_knowledge().rule_by_id(context.rule_id) else {
-        return RuleDecision::apply(context.base_severity);
+        let decision = RuleDecision::apply(context.base_severity);
+        trace.push(|| DecisionTraceStep {
+            stage: DecisionTraceStage::RuleLookup,
+            status: DecisionTraceStatus::NotMatched,
+            label: "knowledge-entry".to_string(),
+            criteria: vec![format!("rule_id={}", context.rule_id)],
+            action: Some(RuleDecisionAction::Apply),
+            severity_before: context.base_severity,
+            severity_after: context.base_severity,
+            reason: "no bundled knowledge entry; preserve the supplied base severity".to_string(),
+            override_index: None,
+        });
+        return decision;
     };
 
-    if !rule.languages.is_empty()
-        && !context
+    trace.push(|| DecisionTraceStep {
+        stage: DecisionTraceStage::RuleLookup,
+        status: DecisionTraceStatus::Matched,
+        label: "knowledge-entry".to_string(),
+        criteria: vec![format!("rule_id={}", context.rule_id)],
+        action: None,
+        severity_before: context.base_severity,
+        severity_after: context.base_severity,
+        reason: "bundled knowledge entry found".to_string(),
+        override_index: None,
+    });
+
+    if !rule.languages.is_empty() {
+        let passed = context
             .languages
             .iter()
-            .any(|l| rule.languages.contains(*l))
-    {
-        return RuleDecision::suppress(SuppressReason::LanguageNotMatched);
+            .any(|language| rule.languages.contains(*language));
+        if let Some(decision) = record_applicability(
+            trace,
+            "language",
+            || {
+                vec![
+                    format!("allowed={}", sorted_values(&rule.languages)),
+                    format!("actual={}", joined_ids(context.languages)),
+                ]
+            },
+            passed,
+            SuppressReason::LanguageNotMatched,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
-    if let Some(minimum_support) = rule.minimum_support
-        && !language_support_satisfies(rule, context.languages, minimum_support)
-    {
-        return RuleDecision::suppress(SuppressReason::LanguageSupportTooLow);
+    if let Some(minimum_support) = rule.minimum_support {
+        let passed = language_support_satisfies(rule, context.languages, minimum_support);
+        if let Some(decision) = record_applicability(
+            trace,
+            "language-support",
+            || {
+                vec![
+                    format!("minimum={}", support_level_id(minimum_support)),
+                    format!("languages={}", joined_ids(context.languages)),
+                ]
+            },
+            passed,
+            SuppressReason::LanguageSupportTooLow,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
-    if !rule.frameworks.is_empty()
-        && !context
+    if !rule.frameworks.is_empty() {
+        let passed = context
             .frameworks
             .iter()
-            .any(|f| rule.frameworks.contains(*f))
-    {
-        return RuleDecision::suppress(SuppressReason::FrameworkNotMatched);
+            .any(|framework| rule.frameworks.contains(*framework));
+        if let Some(decision) = record_applicability(
+            trace,
+            "framework",
+            || {
+                vec![
+                    format!("allowed={}", sorted_values(&rule.frameworks)),
+                    format!("actual={}", joined_ids(context.frameworks)),
+                ]
+            },
+            passed,
+            SuppressReason::FrameworkNotMatched,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
-    if !rule.runtimes.is_empty() && !context.runtimes.iter().any(|r| rule.runtimes.contains(*r)) {
-        return RuleDecision::suppress(SuppressReason::RuntimeNotMatched);
+    if !rule.runtimes.is_empty() {
+        let passed = context
+            .runtimes
+            .iter()
+            .any(|runtime| rule.runtimes.contains(*runtime));
+        if let Some(decision) = record_applicability(
+            trace,
+            "runtime",
+            || {
+                vec![
+                    format!("allowed={}", sorted_values(&rule.runtimes)),
+                    format!("actual={}", joined_ids(context.runtimes)),
+                ]
+            },
+            passed,
+            SuppressReason::RuntimeNotMatched,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
-    if !rule.paradigms.is_empty()
-        && !context
+    if !rule.paradigms.is_empty() {
+        let passed = context
             .paradigms
             .iter()
-            .any(|p| rule.paradigms.contains(*p))
+            .any(|paradigm| rule.paradigms.contains(*paradigm));
+        if let Some(decision) = record_applicability(
+            trace,
+            "paradigm",
+            || {
+                vec![
+                    format!("allowed={}", sorted_values(&rule.paradigms)),
+                    format!("actual={}", joined_ids(context.paradigms)),
+                ]
+            },
+            passed,
+            SuppressReason::ParadigmNotMatched,
+            context.base_severity,
+        ) {
+            return decision;
+        }
+    }
+
+    if rule.suppress_low_signal
+        && let Some(decision) = record_applicability(
+            trace,
+            "low-signal-path",
+            || vec![format!("is_low_signal={}", context.is_low_signal)],
+            !context.is_low_signal,
+            SuppressReason::LowSignalPath,
+            context.base_severity,
+        )
     {
-        return RuleDecision::suppress(SuppressReason::ParadigmNotMatched);
+        return decision;
     }
 
-    if context.is_low_signal && rule.suppress_low_signal {
-        return RuleDecision::suppress(SuppressReason::LowSignalPath);
+    if rule.suppress_config {
+        let is_config = context.roles.contains(&"config");
+        if let Some(decision) = record_applicability(
+            trace,
+            "config-role",
+            || vec![format!("roles={}", joined_ids(context.roles))],
+            !is_config,
+            SuppressReason::ConfigFile,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
-    if rule.suppress_config && context.roles.contains(&"config") {
-        return RuleDecision::suppress(SuppressReason::ConfigFile);
-    }
-
-    if rule.suppress_generated && context.roles.contains(&"generated") {
-        return RuleDecision::suppress(SuppressReason::GeneratedFile);
+    if rule.suppress_generated {
+        let is_generated = context.roles.contains(&"generated");
+        if let Some(decision) = record_applicability(
+            trace,
+            "generated-role",
+            || vec![format!("roles={}", joined_ids(context.roles))],
+            !is_generated,
+            SuppressReason::GeneratedFile,
+            context.base_severity,
+        ) {
+            return decision;
+        }
     }
 
     let mut decision =
         RuleDecision::apply(context.base_severity).with_risk_signal(rule.risk.clone());
+    trace.push(|| DecisionTraceStep {
+        stage: DecisionTraceStage::BaseDecision,
+        status: DecisionTraceStatus::Applied,
+        label: "base-severity".to_string(),
+        criteria: vec![format!("base={}", context.base_severity.label())],
+        action: Some(RuleDecisionAction::Apply),
+        severity_before: context.base_severity,
+        severity_after: context.base_severity,
+        reason: if rule.risk.is_some() {
+            "base severity retained and the rule-level risk signal attached".to_string()
+        } else {
+            "base severity retained before ordered overrides".to_string()
+        },
+        override_index: None,
+    });
 
-    for override_rule in &rule.overrides {
+    for (index, override_rule) in rule.overrides.iter().enumerate() {
+        let before = decision.severity;
+
         if context.is_test && !is_test_override(override_rule) {
+            trace.push(|| DecisionTraceStep {
+                stage: DecisionTraceStage::Override,
+                status: DecisionTraceStatus::Skipped,
+                label: format!("override[{index}]"),
+                criteria: override_criteria(override_rule),
+                action: Some(override_rule.action),
+                severity_before: before,
+                severity_after: before,
+                reason: "non-test override skipped because the file is test context".to_string(),
+                override_index: Some(index),
+            });
             continue;
         }
-        if override_matches(override_rule, context) {
-            decision = apply_override(override_rule, decision.severity, rule.risk.clone());
-            if decision.is_suppressed() {
-                return decision;
-            }
+
+        if !override_matches(override_rule, context) {
+            trace.push(|| DecisionTraceStep {
+                stage: DecisionTraceStage::Override,
+                status: DecisionTraceStatus::NotMatched,
+                label: format!("override[{index}]"),
+                criteria: override_criteria(override_rule),
+                action: Some(override_rule.action),
+                severity_before: before,
+                severity_after: before,
+                reason: "override criteria did not all match".to_string(),
+                override_index: Some(index),
+            });
+            continue;
+        }
+
+        decision = apply_override(override_rule, before, rule.risk.clone());
+        trace.push(|| DecisionTraceStep {
+            stage: DecisionTraceStage::Override,
+            status: DecisionTraceStatus::Applied,
+            label: format!("override[{index}]"),
+            criteria: override_criteria(override_rule),
+            action: Some(override_rule.action),
+            severity_before: before,
+            severity_after: decision.severity,
+            reason: decision
+                .reason
+                .clone()
+                .unwrap_or_else(|| format!("override[{index}] matched")),
+            override_index: Some(index),
+        });
+        if decision.is_suppressed() {
+            return decision;
         }
     }
 
+    decision
+}
+
+fn record_applicability<F>(
+    trace: &mut TraceRecorder<'_>,
+    label: &'static str,
+    criteria: F,
+    passed: bool,
+    failure: SuppressReason,
+    severity: Severity,
+) -> Option<RuleDecision>
+where
+    F: FnOnce() -> Vec<String>,
+{
+    let decision = if passed {
+        None
+    } else {
+        Some(RuleDecision::suppress(failure))
+    };
+    let action = decision.as_ref().map(|_| RuleDecisionAction::Suppress);
+    let severity_after = decision.as_ref().map_or(severity, |value| value.severity);
+
+    trace.push(|| DecisionTraceStep {
+        stage: DecisionTraceStage::Applicability,
+        status: if passed {
+            DecisionTraceStatus::Passed
+        } else {
+            DecisionTraceStatus::Failed
+        },
+        label: label.to_string(),
+        criteria: criteria(),
+        action,
+        severity_before: severity,
+        severity_after,
+        reason: if passed {
+            format!("{label} applicability passed")
+        } else {
+            failure.to_string()
+        },
+        override_index: None,
+    });
     decision
 }
 
@@ -134,6 +459,23 @@ pub fn decide_for_audit_context(
     )
 }
 
+pub fn decide_for_audit_context_with_trace(
+    rule_id: &str,
+    context: &AuditContext,
+    base_severity: Severity,
+    signal: Option<&str>,
+) -> RuleDecisionTrace {
+    let language_ids = [context.language_id()];
+    decide_with_context_trace(
+        rule_id,
+        &language_ids,
+        context,
+        false,
+        base_severity,
+        signal,
+    )
+}
+
 pub fn decide_for_file(
     rule_id: &str,
     file: &FileFacts,
@@ -145,6 +487,26 @@ pub fn decide_for_file(
     dedup_static_ids(&mut language_ids);
     let is_low_signal = is_low_signal_audit_path(&file.path) && !context.is_test;
     decide_with_context(
+        rule_id,
+        &language_ids,
+        &context,
+        is_low_signal,
+        base_severity,
+        signal,
+    )
+}
+
+pub fn decide_for_file_with_trace(
+    rule_id: &str,
+    file: &FileFacts,
+    base_severity: Severity,
+    signal: Option<&str>,
+) -> RuleDecisionTrace {
+    let context = classify_file(file);
+    let mut language_ids = language_ids_for_file(file, &context);
+    dedup_static_ids(&mut language_ids);
+    let is_low_signal = is_low_signal_audit_path(&file.path) && !context.is_test;
+    decide_with_context_trace(
         rule_id,
         &language_ids,
         &context,
@@ -181,6 +543,32 @@ fn decide_with_context(
     })
 }
 
+fn decide_with_context_trace(
+    rule_id: &str,
+    language_ids: &[&str],
+    context: &AuditContext,
+    is_low_signal: bool,
+    base_severity: Severity,
+    signal: Option<&str>,
+) -> RuleDecisionTrace {
+    let framework_ids = context.framework_ids();
+    let role_ids = context.role_ids();
+    let paradigm_ids = context.paradigm_ids();
+    let runtime_ids = context.runtime_ids();
+    decide_with_trace(&RuleMatchContext {
+        rule_id,
+        languages: language_ids,
+        frameworks: &framework_ids,
+        roles: &role_ids,
+        paradigms: &paradigm_ids,
+        runtimes: &runtime_ids,
+        is_test: context.is_test,
+        is_low_signal,
+        signal,
+        base_severity,
+    })
+}
+
 pub fn apply_file_decision(
     rule_id: &str,
     file: &FileFacts,
@@ -204,7 +592,6 @@ pub fn decide_for_project(
     let mut language_ids = language_ids_for_project(facts);
     dedup_static_ids(&mut language_ids);
     let framework_ids = framework_ids_for_project(facts);
-
     decide(&RuleMatchContext {
         rule_id,
         languages: &language_ids,
