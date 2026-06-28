@@ -28,6 +28,73 @@ fn is_shell_expansion(value: &str) -> bool {
     value.starts_with("$(") || value.starts_with('`') || value.contains("$(")
 }
 
+/// Lines carrying the public search-only `apiKey` inside an Algolia DocSearch
+/// config block. The signature trio keeps the downgrade scoped to that widget,
+/// so unrelated `apiKey` credentials elsewhere in the file stay High.
+fn algolia_public_api_key_lines(content: &str) -> HashSet<usize> {
+    let lines: Vec<_> = content.lines().collect();
+    let mut public_key_lines = HashSet::new();
+    let mut index = 0;
+
+    while index < lines.len() {
+        if !lines[index].to_ascii_lowercase().contains("algolia") {
+            index += 1;
+            continue;
+        }
+
+        let end = algolia_config_block_end(&lines, index);
+        let block = lines[index..=end].join("\n").to_ascii_lowercase();
+        if block.contains("appid") && block.contains("indexname") {
+            for (offset, line) in lines[index..=end].iter().enumerate() {
+                let lower = line.to_ascii_lowercase();
+                if ["apikey", "api_key"]
+                    .iter()
+                    .any(|key| assigned_secret_confidence_for_key(line, &lower, key).is_some())
+                {
+                    public_key_lines.insert(index + offset + 1);
+                }
+            }
+        }
+
+        index = end + 1;
+    }
+
+    public_key_lines
+}
+
+fn algolia_config_block_end(lines: &[&str], start: usize) -> usize {
+    let mut depth = 0;
+    let mut opened = false;
+    let mut in_block_comment = false;
+
+    for (index, line) in lines
+        .iter()
+        .enumerate()
+        .skip(start)
+        .take(80)
+    {
+        let sanitized = sanitize_c_style(line, &mut in_block_comment);
+        let opens = sanitized.matches('{').count() as i32;
+        let closes = sanitized.matches('}').count() as i32;
+
+        opened |= opens > 0;
+        depth += opens - closes;
+
+        if opened && depth <= 0 {
+            return index;
+        }
+    }
+
+    start
+}
+
+/// True when `matched_key` is the public-facing Algolia search key field. Only
+/// the `apiKey` family is the published search-only key; other secret keys in the
+/// same file are unaffected.
+fn is_algolia_public_key(matched_key: &str) -> bool {
+    matches!(matched_key, "apikey" | "api_key")
+}
+
 /// The 1-based line numbers that fall inside a `#[cfg(test)]`/`#[test]`-gated
 /// item in a Rust source file.
 ///

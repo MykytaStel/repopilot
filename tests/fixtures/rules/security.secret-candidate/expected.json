@@ -23,6 +23,12 @@
       ]
     },
     {
+      "path": "low_confidence_algolia_search_key",
+      "expected_rule_ids": [
+        "security.secret-candidate"
+      ]
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "security.secret-candidate"
