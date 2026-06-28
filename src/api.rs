@@ -19,7 +19,9 @@ pub mod findings {
         validate_local_feedback,
     };
     pub use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
-    pub use crate::findings::provenance::{AnalysisScope, FindingProvenance};
+    pub use crate::findings::provenance::{
+        AnalysisScope, FindingProvenance, KnowledgeDecisionAction, KnowledgeDecisionProvenance,
+    };
     pub use crate::findings::quality::{
         ConfidenceCounts, RuleLifecycleCounts, SignalQualitySummary, SignalSourceCounts,
         summarize_signal_quality,

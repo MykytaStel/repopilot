@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::findings::provenance::{AnalysisScope, FindingProvenance};
+pub use crate::findings::severity::Severity;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Finding {
@@ -35,17 +36,6 @@ pub enum FindingCategory {
     Testing,
     Security,
     Framework,
-}
-
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum Severity {
-    #[default]
-    Info,
-    Low,
-    Medium,
-    High,
-    Critical,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -115,12 +105,14 @@ impl Finding {
         if self.docs_url.as_deref().is_none_or(str::is_empty) {
             self.docs_url = metadata.docs_url.map(str::to_string);
         }
-        if self.provenance == FindingProvenance::default() {
+        if self.provenance.has_default_metadata() {
+            let knowledge_decision = self.provenance.knowledge_decision.take();
             self.provenance = FindingProvenance {
                 detector: metadata.rule_id.to_string(),
                 signal_source: metadata.signal_source,
                 rule_lifecycle: metadata.lifecycle,
                 analysis_scope: AnalysisScope::for_signal_source(metadata.signal_source),
+                knowledge_decision,
             };
         }
 
@@ -157,43 +149,6 @@ impl Finding {
             Self::GENERIC_RECOMMENDATION
         } else {
             self.recommendation.as_str()
-        }
-    }
-}
-
-impl Severity {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Severity::Info => "INFO",
-            Severity::Low => "LOW",
-            Severity::Medium => "MEDIUM",
-            Severity::High => "HIGH",
-            Severity::Critical => "CRITICAL",
-        }
-    }
-
-    pub fn lowercase_label(&self) -> &'static str {
-        match self {
-            Severity::Info => "info",
-            Severity::Low => "low",
-            Severity::Medium => "medium",
-            Severity::High => "high",
-            Severity::Critical => "critical",
-        }
-    }
-
-    pub fn is_at_least(&self, threshold: &Severity) -> bool {
-        self >= threshold
-    }
-
-    pub fn from_lowercase_label(value: &str) -> Option<Self> {
-        match value {
-            "info" => Some(Severity::Info),
-            "low" => Some(Severity::Low),
-            "medium" => Some(Severity::Medium),
-            "high" => Some(Severity::High),
-            "critical" => Some(Severity::Critical),
-            _ => None,
         }
     }
 }

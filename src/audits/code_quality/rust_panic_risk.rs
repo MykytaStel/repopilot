@@ -13,7 +13,7 @@ use crate::audits::context::{LanguageKind, classify_file};
 use crate::audits::traits::FileAudit;
 use crate::findings::provenance::{AnalysisScope, FindingProvenance};
 use crate::findings::types::{Finding, Severity};
-use crate::knowledge::decision::decide_for_audit_context;
+use crate::knowledge::decision::{decide_for_audit_context, record_decision_provenance};
 use crate::rules::{RuleLifecycle, SignalSource, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -126,14 +126,21 @@ impl RustPanicRiskAudit {
                         decision.severity
                     };
 
-                    findings.push(build_finding(
+                    let mut finding = build_finding(
                         file,
                         line_number,
                         trimmed_line,
                         *pattern,
                         &context,
                         severity,
-                    ));
+                    );
+                    record_decision_provenance(
+                        &mut finding,
+                        pattern.base_severity(),
+                        Some(pattern.signal()),
+                        &decision,
+                    );
+                    findings.push(finding);
                 }
 
                 findings
@@ -209,14 +216,14 @@ impl RustPanicRiskAudit {
                 decision.severity
             };
 
-            findings.push(build_finding(
-                file,
-                line_number,
-                trimmed,
-                pattern,
-                context,
-                severity,
-            ));
+            let mut finding = build_finding(file, line_number, trimmed, pattern, context, severity);
+            record_decision_provenance(
+                &mut finding,
+                pattern.base_severity(),
+                Some(pattern.signal()),
+                &decision,
+            );
+            findings.push(finding);
 
             if sanitized.ends_with(';') {
                 pending_render_write = false;
@@ -232,11 +239,13 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
         let lifecycle = lookup_rule_metadata(&finding.rule_id)
             .map(|metadata| metadata.lifecycle)
             .unwrap_or(RuleLifecycle::Preview);
+        let knowledge_decision = finding.provenance.knowledge_decision.take();
         finding.provenance = FindingProvenance {
             detector: finding.rule_id.clone(),
             signal_source: SignalSource::TextHeuristic,
             rule_lifecycle: lifecycle,
             analysis_scope: AnalysisScope::File,
+            knowledge_decision,
         };
     }
 }

@@ -253,3 +253,81 @@ fn disabled_trace_recorder_does_not_materialize_steps() {
 
     assert!(!materialized);
 }
+
+#[test]
+fn applied_file_decision_preserves_replayable_provenance() {
+    use crate::findings::provenance::KnowledgeDecisionAction;
+    use crate::findings::types::{Evidence, FindingCategory};
+    use std::path::PathBuf;
+
+    let file = FileFacts {
+        path: PathBuf::from("src/domain/service.rs"),
+        language: Some("Rust".to_string()),
+        non_empty_lines: 1,
+        branch_count: 0,
+        imports: Vec::new(),
+        content: Some("pub fn run() { panic!(\"boom\"); }\n".to_string()),
+        has_inline_tests: false,
+        in_executable_package: false,
+        deferred_imports: Vec::new(),
+    };
+    let base_severity = Severity::Medium;
+    let signal = "rust.panic";
+    let expected = decide_for_file(
+        "language.rust.panic-risk",
+        &file,
+        base_severity,
+        Some(signal),
+    );
+    assert!(!expected.is_suppressed());
+
+    let finding = Finding {
+        rule_id: "language.rust.panic-risk".to_string(),
+        category: FindingCategory::CodeQuality,
+        severity: base_severity,
+        evidence: vec![Evidence {
+            path: file.path.clone(),
+            line_start: 1,
+            line_end: None,
+            snippet: "panic!(\"boom\")".to_string(),
+        }],
+        ..Finding::default()
+    };
+
+    let mut applied = apply_file_decision("language.rust.panic-risk", &file, finding, Some(signal))
+        .expect("finding should remain visible");
+    applied.populate_rule_metadata();
+
+    let provenance = applied
+        .provenance
+        .knowledge_decision
+        .as_ref()
+        .expect("knowledge decision provenance");
+    assert_eq!(provenance.base_severity, base_severity);
+    assert_eq!(provenance.signal.as_deref(), Some(signal));
+    assert_eq!(provenance.decided_severity, expected.severity);
+    assert_eq!(
+        provenance.action,
+        match expected.action {
+            RuleDecisionAction::Apply => KnowledgeDecisionAction::Apply,
+            RuleDecisionAction::Suppress => KnowledgeDecisionAction::Suppress,
+            RuleDecisionAction::Downgrade => KnowledgeDecisionAction::Downgrade,
+            RuleDecisionAction::Upgrade => KnowledgeDecisionAction::Upgrade,
+        }
+    );
+    assert_eq!(applied.provenance.detector, "language.rust.panic-risk");
+
+    let json = serde_json::to_value(&applied).expect("serialize finding");
+    assert_eq!(json["provenance"]["knowledge_decision"]["signal"], signal);
+    assert_eq!(
+        json["provenance"]["knowledge_decision"]["base_severity"],
+        base_severity.label()
+    );
+}
+
+#[test]
+fn default_provenance_omits_absent_knowledge_decision() {
+    let value = serde_json::to_value(crate::findings::provenance::FindingProvenance::default())
+        .expect("serialize provenance");
+    assert!(value.get("knowledge_decision").is_none());
+}

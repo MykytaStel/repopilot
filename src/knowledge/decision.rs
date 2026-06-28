@@ -1,4 +1,5 @@
 use crate::audits::context::{AuditContext, classify_file};
+use crate::findings::provenance::{KnowledgeDecisionAction, KnowledgeDecisionProvenance};
 use crate::findings::types::{Finding, Severity};
 use crate::frameworks::DetectedFramework;
 use crate::knowledge::active_knowledge;
@@ -575,10 +576,12 @@ pub fn apply_file_decision(
     mut finding: Finding,
     signal: Option<&str>,
 ) -> Option<Finding> {
-    let decision = decide_for_file(rule_id, file, finding.severity, signal);
+    let base_severity = finding.severity;
+    let decision = decide_for_file(rule_id, file, base_severity, signal);
     if decision.is_suppressed() {
         return None;
     }
+    record_decision_provenance(&mut finding, base_severity, signal, &decision);
     finding.severity = decision.severity;
     Some(finding)
 }
@@ -610,14 +613,36 @@ pub fn apply_project_decisions(facts: &ScanFacts, findings: Vec<Finding>) -> Vec
     findings
         .into_iter()
         .filter_map(|mut finding| {
-            let decision = decide_for_project(&finding.rule_id, facts, finding.severity, None);
+            let base_severity = finding.severity;
+            let decision = decide_for_project(&finding.rule_id, facts, base_severity, None);
             if decision.is_suppressed() {
                 return None;
             }
+            record_decision_provenance(&mut finding, base_severity, None, &decision);
             finding.severity = decision.severity;
             Some(finding)
         })
         .collect()
+}
+
+pub fn record_decision_provenance(
+    finding: &mut Finding,
+    base_severity: Severity,
+    signal: Option<&str>,
+    decision: &RuleDecision,
+) {
+    finding.provenance.knowledge_decision = Some(KnowledgeDecisionProvenance {
+        base_severity,
+        signal: signal.map(str::to_string),
+        action: match decision.action {
+            RuleDecisionAction::Apply => KnowledgeDecisionAction::Apply,
+            RuleDecisionAction::Suppress => KnowledgeDecisionAction::Suppress,
+            RuleDecisionAction::Downgrade => KnowledgeDecisionAction::Downgrade,
+            RuleDecisionAction::Upgrade => KnowledgeDecisionAction::Upgrade,
+        },
+        decided_severity: decision.severity,
+        reason: decision.reason.clone(),
+    });
 }
 
 include!("decision/helpers.rs");

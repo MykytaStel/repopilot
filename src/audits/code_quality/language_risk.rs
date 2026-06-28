@@ -87,11 +87,13 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
         let lifecycle = lookup_rule_metadata(&finding.rule_id)
             .map(|metadata| metadata.lifecycle)
             .unwrap_or(RuleLifecycle::Preview);
+        let knowledge_decision = finding.provenance.knowledge_decision.take();
         finding.provenance = FindingProvenance {
             detector: finding.rule_id.clone(),
             signal_source: SignalSource::TextHeuristic,
             rule_lifecycle: lifecycle,
             analysis_scope: AnalysisScope::File,
+            knowledge_decision,
         };
     }
 }
