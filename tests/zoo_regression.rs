@@ -55,9 +55,22 @@ fn zoo_snapshots_match_committed() {
     print!("{}", String::from_utf8_lossy(&output.stdout));
     eprint!("{}", String::from_utf8_lossy(&output.stderr));
 
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let failure_kind =
+        if output.status.code() == Some(2) || stderr.contains("SCANNER PREPARATION FAILED") {
+            "scanner build/resolution failure"
+        } else if output.status.code() == Some(3) || stderr.contains("SCANNER PROVENANCE FAILED") {
+            "scanner provenance/version failure"
+        } else if stdout.contains("DRIFT vs committed snapshot") {
+            "real snapshot drift"
+        } else {
+            "zoo scan failure"
+        };
+
     assert!(
         output.status.success(),
-        "zoo snapshots drifted from committed values. Review the diff above; \
+        "zoo regression failed ({failure_kind}). Review the output above; \
          if the change is intended, re-bless with \
          `python3 scripts/zoo.py scan --bless`."
     );

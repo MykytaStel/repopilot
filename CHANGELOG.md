@@ -71,6 +71,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **Real-repo zoo scans now build and run the current workspace RepoPilot by
+  default.** `python3 scripts/zoo.py scan` invokes Cargo once, uses the
+  executable Cargo reports, and prints scanner provenance before scanning so
+  stale `target/release` or `target/debug` artifacts can no longer make the gate
+  pass silently. Explicit external binaries remain supported with `--repopilot`,
+  but they are version/report-metadata checked and require
+  `--allow-version-mismatch` for intentional cross-version runs.
+
 - **`language.javascript.runtime-exit-risk` (and other generated-file-aware
   rules) no longer flag vendored/generated bundles such as Emscripten/WASM
   glue.** An Emscripten `process.exit` shim in compiled WASM bindings is not the
