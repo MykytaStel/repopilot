@@ -38,6 +38,7 @@ non-destructive, idempotent, and closed-world.
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
+| `repopilot_explain_finding` | Replay a file-scoped emitted finding by stable ID from the current MCP session | `finding_id`, `source` |
 
 `repopilot_explain_file` returns additive JSON fields for explicit scope,
 role evidence, applicability checks, every ordered override, severity
@@ -45,6 +46,17 @@ transitions, and the final default-profile visibility decision. It resolves
 executable-package manifest context from the MCP root so `cli-executable`
 classification matches normal scanning. Its rule base severity comes from the
 rule registry when a known `rule` is supplied.
+
+`repopilot_explain_finding` consumes a stable file-scoped finding ID from
+either `repopilot://last-scan` or `repopilot://last-review`. It uses the stored
+`provenance.knowledge_decision` inputs to replay the rule against the current
+workspace and returns the emitted finding, stored decision, full file/decision
+trace, and a `matched` or `drifted` comparison. A drift result means the source
+file or current bundled knowledge no longer reproduces the recorded action,
+severity, or reason. Repository, workspace, Git-diff, and framework-project
+findings are rejected explicitly because correct replay requires rebuilding
+their wider analysis context. The finding-level severity remains authoritative
+when detector-local policy differs from the Knowledge Engine output.
 
 Every tool accepts a workspace-relative `path` where applicable. Review defaults
 to `scope=changed`, `profile=default`, `fail_on_review=none`, and
@@ -109,9 +121,10 @@ The server exposes:
 Last-result resources appear after the corresponding tool has run. Identical
 non-scan tool calls are served from the in-process session cache; `repopilot_scan`
 uses the persistent cache above because its correctness depends on Git state.
-Session-cache invalidation for `repopilot_review_change`, `repopilot_context`,
-and `repopilot_explain_file` is intentionally left to the next MCP correctness
-PR.
+`repopilot_explain_finding` bypasses the session cache because its result depends
+on the mutable `last-scan` or `last-review` value. Session-cache invalidation for
+`repopilot_review_change`, `repopilot_context`, and `repopilot_explain_file`
+remains separate follow-up work.
 
 ## Prompts
 

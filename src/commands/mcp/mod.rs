@@ -8,6 +8,7 @@
 
 mod context;
 mod explain_file;
+mod explain_finding;
 mod jsonrpc;
 mod review_change;
 mod scan;
@@ -297,6 +298,7 @@ fn tools_list_result() -> Value {
             scan::definition(),
             context::definition(),
             explain_file::definition(),
+            explain_finding::definition(),
         ]
     })
 }
@@ -314,7 +316,9 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
         return Response::success(id, tool_result(name, Err(message)));
     }
 
-    let use_session_cache = name != scan::TOOL_NAME;
+    // Finding replay depends on the mutable last-scan/last-review session
+    // result, so caching it only by tool arguments would return stale evidence.
+    let use_session_cache = name != scan::TOOL_NAME && name != explain_finding::TOOL_NAME;
     let cache_key = format!("{name}:{}", arguments);
     if use_session_cache && let Some(cached) = state.cache.get(&cache_key) {
         return Response::success(id, tool_result(name, Ok(cached.clone())));
@@ -325,6 +329,12 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
         scan::TOOL_NAME => scan::call(&arguments),
         context::TOOL_NAME => context::call(&arguments),
         explain_file::TOOL_NAME => explain_file::call(&arguments, &state.root),
+        explain_finding::TOOL_NAME => explain_finding::call(
+            &arguments,
+            &state.root,
+            state.last_scan.as_deref(),
+            state.last_review.as_deref(),
+        ),
         other => Err(format!("unknown tool: {other}")),
     };
 

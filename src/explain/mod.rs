@@ -1,8 +1,13 @@
 pub mod builder;
+pub mod finding;
 pub mod model;
 pub mod render;
 
 pub use builder::{build_explain_report, build_explain_report_with_root};
+pub use finding::{
+    FindingDecisionReplay, FindingExplanationReport, FindingReplayStatus,
+    build_finding_explanation_from_report,
+};
 pub use model::{
     ExplainContext, ExplainDecision, ExplainDecisionTraceStep, ExplainReport, ExplainRoleEvidence,
     ExplainScope, ExplainSource,
