@@ -36,6 +36,18 @@ provenance must survive beyond classification. Role evidence does not alter a
 rule by itself; knowledge-pack decisions remain responsible for deciding how a
 role affects severity or suppression.
 
+## Knowledge-Decision Provenance
+
+Findings that pass through the Knowledge Engine preserve an optional replay
+record under `provenance.knowledge_decision`. It contains the supplied base
+severity, optional signal id, action, Knowledge Engine output severity, and
+reason.
+
+This records the Knowledge Engine layer only. A detector may apply a narrower
+local policy afterwards, so the finding-level `severity` remains authoritative.
+Suppressed decisions do not emit findings and remain available through explicit
+decision traces.
+
 ## Finding Contract
 
 Every rendered finding must have:

@@ -3,7 +3,7 @@ use crate::audits::context::{AuditContext, FileRole, FrameworkKind, LanguageKind
 use crate::audits::traits::FileAudit;
 use crate::findings::provenance::{AnalysisScope, FindingProvenance};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
-use crate::knowledge::decision::decide_for_audit_context;
+use crate::knowledge::decision::{decide_for_audit_context, record_decision_provenance};
 use crate::rules::{RuleLifecycle, SignalSource, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -81,14 +81,20 @@ impl LongFunctionAudit {
         // function spans from the AST. Languages with no tree-sitter grammar, or
         // the rare parse failure, fall back to the line/brace heuristic, whose
         // findings are stamped with text-heuristic provenance.
-        match parsed.tree() {
+        let mut findings = match parsed.tree() {
             Some(tree) => ast::detect_ast(tree, content, language, &file.path, policy),
             None => {
                 let mut findings = detect_long_functions(content, language, &file.path, policy);
                 mark_text_heuristic(&mut findings);
                 findings
             }
+        };
+
+        for finding in &mut findings {
+            record_decision_provenance(finding, Severity::Medium, None, &decision);
         }
+
+        findings
     }
 }
 
@@ -99,11 +105,13 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
         .map(|metadata| metadata.lifecycle)
         .unwrap_or(RuleLifecycle::Preview);
     for finding in findings {
+        let knowledge_decision = finding.provenance.knowledge_decision.take();
         finding.provenance = FindingProvenance {
             detector: RULE_ID.to_string(),
             signal_source: SignalSource::TextHeuristic,
             rule_lifecycle: lifecycle,
             analysis_scope: AnalysisScope::File,
+            knowledge_decision,
         };
     }
 }

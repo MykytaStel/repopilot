@@ -6,5 +6,6 @@ pub mod filter;
 pub mod provenance;
 pub mod quality;
 pub mod rule_config;
+pub mod severity;
 pub mod types;
 pub mod visibility;

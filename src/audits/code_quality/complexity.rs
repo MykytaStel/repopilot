@@ -1,7 +1,7 @@
 use crate::audits::context::classify_file;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use crate::knowledge::decision::decide_for_audit_context;
+use crate::knowledge::decision::{decide_for_audit_context, record_decision_provenance};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 
@@ -18,7 +18,7 @@ impl FileAudit for ComplexityAudit {
 
         let density = file.branch_count.saturating_mul(1000) / file.non_empty_lines;
 
-        let severity = if density >= config.complexity_high_threshold
+        let base_severity = if density >= config.complexity_high_threshold
             && file.non_empty_lines >= MIN_HIGH_COMPLEXITY_LOC
         {
             Severity::High
@@ -29,7 +29,7 @@ impl FileAudit for ComplexityAudit {
         };
 
         let context = classify_file(file);
-        let decision = decide_for_audit_context(RULE_ID, &context, severity, None);
+        let decision = decide_for_audit_context(RULE_ID, &context, base_severity, None);
 
         if decision.is_suppressed() {
             return vec![];
@@ -43,7 +43,7 @@ impl FileAudit for ComplexityAudit {
             config.complexity_medium_threshold
         };
 
-        vec![Finding {
+        let mut finding = Finding {
             id: String::new(),
             rule_id: RULE_ID.to_string(),
             recommendation: Finding::recommendation_for_rule_id(RULE_ID),
@@ -69,7 +69,9 @@ impl FileAudit for ComplexityAudit {
             docs_url: None,
             provenance: Default::default(),
             risk: Default::default(),
-        }]
+        };
+        record_decision_provenance(&mut finding, base_severity, None, &decision);
+        vec![finding]
     }
 }
 

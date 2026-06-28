@@ -1,5 +1,5 @@
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
-use crate::knowledge::decision::decide_for_file;
+use crate::knowledge::decision::{decide_for_file, record_decision_provenance};
 use crate::scan::facts::FileFacts;
 use std::path::Path;
 use tree_sitter::{Node, Tree};
@@ -193,20 +193,13 @@ fn push_pattern_finding(
     file: &FileFacts,
     findings: &mut Vec<Finding>,
 ) {
-    let decision = decide_for_file(
-        pattern.rule_id(),
-        file,
-        pattern.base_severity(),
-        Some(pattern.signal()),
-    );
+    let base_severity = pattern.base_severity();
+    let signal = pattern.signal();
+    let decision = decide_for_file(pattern.rule_id(), file, base_severity, Some(signal));
     if !decision.is_suppressed() {
-        findings.push(build_finding(
-            path,
-            line_number,
-            snippet,
-            pattern,
-            decision.severity,
-        ));
+        let mut finding = build_finding(path, line_number, snippet, pattern, decision.severity);
+        record_decision_provenance(&mut finding, base_severity, Some(signal), &decision);
+        findings.push(finding);
     }
 }
 

@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Findings now preserve replayable Knowledge Engine decision provenance.**
+  Knowledge-aware findings add optional `provenance.knowledge_decision` data
+  containing base severity, signal id, action, decided severity, and reason.
+  Enrichment and detector provenance overrides preserve the replay record.
+  Scan/review report schema moves from `0.19` to `0.20`; readers continue
+  accepting `0.16` through `0.19`. Finding IDs, baseline matching, visibility,
+  risk scoring, SARIF behavior, and detector decisions are unchanged.
+
 - **Rule decisions now expose an ordered, evidence-backed trace.** The Knowledge
   Engine has one trace-producing path that records rule lookup, configured
   applicability checks, the supplied base severity, every override in declaration

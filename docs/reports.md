@@ -11,15 +11,15 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.19:
+JSON scan reports include explicit schema metadata. The current schema is 0.20:
 
 ```json
 {
-  "schema_version": "0.19",
+  "schema_version": "0.20",
   "repopilot_version": "0.17.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.19",
+    "schema_version": "0.20",
     "repopilot_version": "0.17.0"
   },
   "root_path": ".",
@@ -99,7 +99,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.17.x` emits schema `0.19` unless the serialized contract changes.
+Binary `0.18.x` emits schema `0.20`.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -128,7 +128,8 @@ reports do not look clean when meaningful strict-only findings were hidden.
 Schema `0.18` adds the stable review-signal contract, suppression/gate metadata,
 and the explicit review gate result. Schema `0.19` makes the rule registry the
 single source of truth for finding severity/confidence and adds the optional
-`rule_false_positive_notes` map (additive).
+`rule_false_positive_notes` map. Schema `0.20` adds optional replayable
+Knowledge Engine decision provenance to findings.
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -138,9 +139,9 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `lines_of_code` | `non_empty_lines` |
 | `skipped_files_count` | `large_files_skipped` |
 
-The current reader accepts `0.16`, `0.17`, `0.18`, and `0.19` scan reports
-during the transition. Baseline files follow their separate baseline schema
-policy.
+The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, and `0.20` scan
+reports during the transition. Baseline files follow their separate baseline
+schema policy.
 
 ## Baseline JSON reports
 
@@ -158,11 +159,11 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.19",
+  "schema_version": "0.20",
   "repopilot_version": "0.17.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.19",
+    "schema_version": "0.20",
     "repopilot_version": "0.17.0"
   },
   "root_path": ".",
@@ -268,10 +269,30 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `severity` | string | One of `INFO`, `LOW`, `MEDIUM`, `HIGH`, or `CRITICAL`. |
 | `confidence` | string | One of `LOW`, `MEDIUM`, or `HIGH`; used to separate impact from certainty. |
 | `risk` | object | Explainable prioritization assessment with `score`, `priority`, stable `signals`, and `formula_version`. |
-| `provenance` | object | Detector, rule lifecycle, signal source, and analysis scope for explaining where the finding came from. |
+| `provenance` | object | Detector, lifecycle, signal source, analysis scope, and optional `knowledge_decision` replay data. |
 | `docs_url` | string? | Optional documentation link for the rule. |
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
+
+### Knowledge-decision provenance
+
+Knowledge-aware findings may include:
+
+```json
+{
+  "knowledge_decision": {
+    "base_severity": "MEDIUM",
+    "signal": "rust.panic",
+    "action": "upgrade",
+    "decided_severity": "HIGH",
+    "reason": "panic in reusable domain code"
+  }
+}
+```
+
+The nested field is omitted when a finding does not use a Knowledge Engine
+decision. `decided_severity` is the Knowledge Engine output; the finding-level
+`severity` remains authoritative after detector-local policy.
 
 ### Risk object
 

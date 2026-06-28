@@ -56,6 +56,7 @@ pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::
                 signal_source: signal.provenance.signal_source,
                 rule_lifecycle: signal.provenance.lifecycle,
                 analysis_scope: signal.provenance.analysis_scope,
+                knowledge_decision: None,
             },
             risk: Default::default(),
         });
