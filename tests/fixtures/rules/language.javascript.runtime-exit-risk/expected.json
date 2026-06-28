@@ -9,6 +9,10 @@
       "expected_rule_ids": []
     },
     {
+      "path": "false_positive_generated_bundle",
+      "expected_rule_ids": []
+    },
+    {
       "path": "true_positive",
       "expected_rule_ids": [
         "language.javascript.runtime-exit-risk"

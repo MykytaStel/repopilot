@@ -71,6 +71,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`language.javascript.runtime-exit-risk` (and other generated-file-aware
+  rules) no longer flag vendored/generated bundles such as Emscripten/WASM
+  glue.** An Emscripten `process.exit` shim in compiled WASM bindings is not the
+  reusable-library runtime-exit hazard the rule targets — the file is generated
+  output, not hand-maintained source. Generated-file detection now recognizes
+  these bundles by their Emscripten runtime marker or a bare, whole-file
+  `/* eslint-disable */` banner as the first line (a signature hand-written code
+  does not use), classifying them with the existing `generated` file role so the
+  rules that already opt into `suppress_generated` skip them. A scoped
+  `eslint-disable` for specific rules (or one that is not the first line) is left
+  as ordinary production code. Measured on the real-repo zoo, this removed
+  excalidraw's default-visible `woff2-bindings.ts` runtime-exit finding.
+
 - **`security.secret-candidate` treats an Algolia DocSearch `apiKey` as a
   Low-confidence (strict-only) finding instead of a default-visible secret.** The
   frontend search widget is configured with Algolia's **search-only** API key,
