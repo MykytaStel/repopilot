@@ -20,6 +20,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import zoo_expectations as ze
+import zoo_triage as zt
 from zoo_scanner import (
     ScannerPreparationError,
     ScannerProvenanceError,
@@ -32,6 +34,7 @@ from zoo_scanner import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = REPO_ROOT / "tests" / "zoo" / "manifest.toml"
 SNAPSHOT_DIR = REPO_ROOT / "tests" / "zoo" / "snapshots"
+EXPECTATION_DIR = REPO_ROOT / "tests" / "zoo" / "expectations"
 ZOO_DIR = REPO_ROOT / ".zoo"
 
 # Default-visible volume above this on a single repo flags a rule as a
@@ -177,6 +180,10 @@ def snapshot_for(repo: dict[str, Any], default_report: dict[str, Any], strict_re
     }
 
 
+def expectation_path(repo_name: str) -> Path:
+    return EXPECTATION_DIR / f"{repo_name}.toml"
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     repos = select(load_manifest(), args.only)
     try:
@@ -195,6 +202,7 @@ def cmd_scan(args: argparse.Namespace) -> int:
     print_scanner_provenance(scanner)
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     drift = False
+    live: dict[str, tuple[list[Any], list[Any]]] = {}
     for repo in repos:
         path = repo_path(repo)
         if not path.exists():
@@ -202,11 +210,13 @@ def cmd_scan(args: argparse.Namespace) -> int:
             drift = True
             continue
         print(f"  scanning {repo['name']} ...")
-        snap = snapshot_for(
-            repo,
-            scan_repo(scanner, path, "default"),
-            scan_repo(scanner, path, "strict"),
+        default_report = scan_repo(scanner, path, "default")
+        strict_report = scan_repo(scanner, path, "strict")
+        live[repo["name"]] = (
+            ze.parse_live_findings(default_report, path, "default"),
+            ze.parse_live_findings(strict_report, path, "strict"),
         )
+        snap = snapshot_for(repo, default_report, strict_report)
         out = SNAPSHOT_DIR / f"{repo['name']}.json"
         rendered = json.dumps(snap, indent=2, sort_keys=True) + "\n"
         if args.bless or not out.exists():
@@ -219,7 +229,57 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 print(f"    DRIFT vs committed snapshot {out.relative_to(REPO_ROOT)} (re-run with --bless to accept)")
             else:
                 print(f"    ok (default-visible: {snap['default']['visible_total']})")
-    return 1 if drift and not args.bless else 0
+
+    exp_diags = validate_expectations(repos, live)
+    print_expectation_diagnostics(exp_diags)
+    expectation_failed = any(ze.is_failure(d.kind) for d in exp_diags)
+    snapshot_failed = drift and not args.bless
+    return 1 if snapshot_failed or expectation_failed else 0
+
+
+def validate_expectations(
+    selected: list[dict[str, Any]],
+    live: dict[str, tuple[list[Any], list[Any]]],
+) -> list[ze.Diagnostic]:
+    """Parse + match expectation files for the selected repos against live findings."""
+    if not EXPECTATION_DIR.exists():
+        print("  no expectations directory; skipping expectation validation")
+        return []
+    manifest_names = [r["name"] for r in load_manifest()]
+    present_stems = [p.stem for p in EXPECTATION_DIR.glob("*.toml")]
+    required = [r["name"] for r in selected]
+    diags = list(ze.coverage_diagnostics(required, manifest_names, present_stems))
+    present = set(present_stems)
+    for repo in selected:
+        name = repo["name"]
+        if name not in present:
+            continue  # MISSING EXPECTATION FILE already reported by coverage_diagnostics
+        expectation, pdiags = ze.parse_expectation_file(expectation_path(name), name)
+        diags += pdiags
+        if expectation is None or name not in live:
+            continue
+        default_lives, strict_lives = live[name]
+        mdiags, _review = ze.match_repo(name, expectation, default_lives, strict_lives)
+        diags += mdiags
+    return diags
+
+
+def print_expectation_diagnostics(diags: list[ze.Diagnostic]) -> None:
+    if not diags:
+        print("\nexpectations: every default-visible finding labeled; strict anchors intact")
+        return
+    by_kind: dict[str, list[ze.Diagnostic]] = {}
+    for diag in diags:
+        by_kind.setdefault(diag.kind, []).append(diag)
+    print("\n== expectation review ==")
+    for kind in ze.DIAGNOSTIC_ORDER:
+        items = by_kind.get(kind)
+        if not items:
+            continue
+        tag = "FAIL" if ze.is_failure(kind) else "info"
+        print(f"\n[{tag}] {kind} ({len(items)})")
+        for diag in sorted(items, key=lambda d: (d.repo, d.message)):
+            print(f"  - {diag.repo}: {diag.message}")
 
 
 def cmd_report(_args: argparse.Namespace) -> int:
@@ -246,6 +306,122 @@ def cmd_report(_args: argparse.Namespace) -> int:
         print(f"\n## Noise suspects (>= {NOISE_SUSPECT_PER_REPO} default-visible on one repo)")
         for line in suspects:
             print(f"  - {line}")
+    report_reviewed_quality(snaps)
+    return 0
+
+
+def report_reviewed_quality(snaps: list[Path]) -> None:
+    """Reviewed signal-quality summary derived from committed snapshots + labels.
+
+    This reads only committed data (no clones): default-visible totals come from
+    snapshots, dispositions from expectation files. Live-only checks (stale /
+    missing anchor) are validated by `scan`; here a labeled vs snapshot-total
+    mismatch is surfaced as a coverage gap to re-run `scan`.
+    """
+    totals = ze.RepoReview(repo="(all)")
+    by_rule: Counter[str] = Counter()
+    per_repo: list[tuple[str, ze.RepoReview]] = []
+    coverage_gaps: list[str] = []
+    fp_lines: list[str] = []
+    for path in snaps:
+        snap = json.loads(path.read_text(encoding="utf-8"))
+        repo = snap["repo"]
+        review = ze.RepoReview(repo=repo, default_total=snap["default"]["visible_total"])
+        expectation, _ = ze.parse_expectation_file(expectation_path(repo), repo)
+        if expectation is not None:
+            for finding in expectation.findings:
+                if finding.profile == "strict":
+                    review.strict_anchors += 1
+                    continue
+                review.labeled += 1
+                by_rule[finding.rule_id] += 1
+                if finding.disposition == "actionable":
+                    review.actionable += 1
+                elif finding.disposition == "valid-but-accepted":
+                    review.valid_but_accepted += 1
+                elif finding.disposition == "false-positive":
+                    review.false_positive += 1
+                    fp_lines.append(f"{repo}: {finding.rule_id} @ {finding.path} — {finding.reason}")
+        review.unlabeled = max(0, review.default_total - review.labeled)
+        if review.labeled != review.default_total:
+            coverage_gaps.append(
+                f"{repo}: {review.labeled} labeled vs {review.default_total} default-visible (run `scan`)"
+            )
+        per_repo.append((repo, review))
+        for attr in ("default_total", "labeled", "unlabeled", "actionable", "valid_but_accepted", "false_positive", "strict_anchors"):
+            setattr(totals, attr, getattr(totals, attr) + getattr(review, attr))
+
+    reviewed = totals.actionable + totals.valid_but_accepted + totals.false_positive
+    print("\n# Reviewed signal quality (snapshots x labels)\n")
+    print(f"default-visible findings : {totals.default_total}")
+    print(f"labeled default findings : {totals.labeled}")
+    print(f"unlabeled default        : {totals.unlabeled}")
+    print(f"  actionable             : {totals.actionable}")
+    print(f"  valid-but-accepted     : {totals.valid_but_accepted}")
+    print(f"  false-positive         : {totals.false_positive}")
+    print(f"strict recall anchors    : {totals.strict_anchors}")
+    if reviewed:
+        proxy = (totals.actionable + totals.valid_but_accepted) / reviewed
+        rate = totals.actionable / reviewed
+        print(f"reviewed precision proxy : {proxy:.2f}  ((actionable+accepted)/reviewed; not measured precision)")
+        print(f"actionability rate       : {rate:.2f}  (actionable/reviewed)")
+
+    print("\n## Labeled default by rule")
+    for rule, count in sorted(by_rule.items()):
+        print(f"  {rule:46} {count:>4}")
+    print("\n## By repository (default_total / labeled / actionable / accepted / false-positive / strict-anchors)")
+    for repo, review in per_repo:
+        print(
+            f"  {repo:18} {review.default_total:>3} / {review.labeled:>3} / {review.actionable:>3} / "
+            f"{review.valid_but_accepted:>3} / {review.false_positive:>3} / {review.strict_anchors:>3}"
+        )
+    if coverage_gaps:
+        print("\n## Coverage gaps (labeled != snapshot default-visible)")
+        for line in coverage_gaps:
+            print(f"  - {line}")
+    if fp_lines:
+        print(f"\n## KNOWN FALSE POSITIVES ({len(fp_lines)}) — calibration debt, reported not suppressed")
+        for line in fp_lines:
+            print(f"  - {line}")
+
+
+def cmd_triage(args: argparse.Namespace) -> int:
+    repos = select(load_manifest(), args.only)
+    try:
+        scanner = prepare_scanner(REPO_ROOT, args.repopilot, args.allow_version_mismatch)
+    except ScannerPreparationError as exc:
+        print(f"SCANNER PREPARATION FAILED\n{exc}", file=sys.stderr)
+        return 2
+    except ScannerProvenanceError as exc:
+        print(f"SCANNER PROVENANCE FAILED\n{exc}", file=sys.stderr)
+        return 3
+
+    print_scanner_provenance(scanner)
+    any_unlabeled = False
+    for repo in repos:
+        path = repo_path(repo)
+        if not path.exists():
+            print(f"  {repo['name']}: NOT CLONED (run `zoo.py clone`), skip")
+            continue
+        default_lives = ze.parse_live_findings(scan_repo(scanner, path, "default"), path, "default")
+        expectation, _ = ze.parse_expectation_file(expectation_path(repo["name"]), repo["name"])
+        unlabeled = ze.unlabeled_default(expectation, default_lives)
+        if not unlabeled:
+            continue
+        any_unlabeled = True
+        print(f"\n===== {repo['name']}: {len(unlabeled)} unlabeled default finding(s) =====\n")
+        for live in unlabeled:
+            print(zt.render_triage_entry(repo["name"], live))
+        if args.write:
+            out = expectation_path(repo["name"])
+            if out.exists():
+                print(f"  (expectation file {out.name} exists; paste the skeleton(s) above and label them)")
+            else:
+                EXPECTATION_DIR.mkdir(parents=True, exist_ok=True)
+                out.write_text(zt.skeleton_file_text(repo["name"], unlabeled), encoding="utf-8")
+                print(f"  wrote REVIEW skeleton {out.relative_to(REPO_ROOT)} (every disposition is REVIEW_REQUIRED)")
+    if not any_unlabeled:
+        print("\nno unlabeled default findings — every default-visible finding is labeled")
     return 0
 
 
@@ -285,6 +461,21 @@ def main() -> int:
         help="allow --repopilot to use a version that differs from this workspace",
     )
     p_scan.set_defaults(func=cmd_scan)
+
+    p_triage = sub.add_parser("triage", help="print unlabeled default findings + TOML skeletons")
+    p_triage.add_argument("--only", help="comma-separated repo names")
+    p_triage.add_argument(
+        "--write",
+        action="store_true",
+        help="write a REVIEW_REQUIRED skeleton file for repos that have none (never guesses a disposition)",
+    )
+    p_triage.add_argument("--repopilot", help="explicit path to an external repopilot binary")
+    p_triage.add_argument(
+        "--allow-version-mismatch",
+        action="store_true",
+        help="allow --repopilot to use a version that differs from this workspace",
+    )
+    p_triage.set_defaults(func=cmd_triage)
 
     sub.add_parser("report", help="aggregate snapshots into a triage table").set_defaults(func=cmd_report)
 

@@ -8,6 +8,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **The real-repo zoo now records human-reviewed dispositions for findings.** A
+  new tracked `tests/zoo/expectations/<repo>.toml` layer (one versioned file per
+  manifest repo) sits alongside the generated snapshots: snapshots answer *what
+  RepoPilot emitted*, expectations answer *how a human reviewed it*. Every
+  default-visible finding must be exhaustively labeled `actionable`,
+  `valid-but-accepted`, or `false-positive` with a non-empty reason; selected
+  strict findings act as `selective` recall anchors that fail if they disappear.
+  `python3 scripts/zoo.py scan` now validates labels and reports snapshot drift
+  and expectation failures (unlabeled / stale / duplicate / invalid / ambiguous /
+  missing-anchor / known-false-positive) on separate channels; `triage` prints
+  unlabeled findings with evidence and a copy-paste `REVIEW_REQUIRED` skeleton
+  (never guessing a disposition); `report` adds a reviewed signal-quality summary
+  (actionable/accepted/false-positive totals, a reviewed precision *proxy*, and an
+  actionability rate). The matcher disambiguates findings that share a stable id
+  via line, so distinct occurrences are never merged. Labels never suppress
+  analyzer output — `false-positive` is surfaced as calibration debt, not a
+  suppression — and `--bless` never writes human labels. Hermetic
+  `zoo_expectations_contract` test covers the pure parse/match/render helpers; the
+  real zoo stays opt-in behind `REPOPILOT_ZOO=1`.
+
 - **`repopilot ai context --format json`** emits a structured, deterministic JSON
   handoff so agents get the same facts the Markdown brief carries without parsing
   Markdown, matching the JSON the MCP tools already return. Each finding includes

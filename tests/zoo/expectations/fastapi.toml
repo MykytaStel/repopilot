@@ -1,0 +1,29 @@
+schema_version = 1
+repo = "fastapi"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:fastapi/__init__.py:81cea0afc607c53a"
+rule_id = "architecture.circular-dependency"
+path = "fastapi/__init__.py"
+disposition = "valid-but-accepted"
+reason = "Package __init__ re-export cycle (fastapi/__init__.py <-> applications.py); an eager package-initialization cycle that upstream relies on import ordering to resolve."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:fastapi/_compat/__init__.py:f448052db436d085"
+rule_id = "architecture.circular-dependency"
+path = "fastapi/_compat/__init__.py"
+disposition = "valid-but-accepted"
+reason = "_compat package-init re-export cycle (_compat/__init__.py <-> _compat/v2.py); an intentional Pydantic v1/v2 compatibility shim."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.python.exception-risk:fastapi/applications.py:d5cb1115ff3a9dbb"
+rule_id = "language.python.exception-risk"
+path = "fastapi/applications.py"
+line = 926
+disposition = "valid-but-accepted"
+reason = "assert in a production path used as an internal precondition; downgraded to Low and retained as a strict recall anchor for the Python assert signal."

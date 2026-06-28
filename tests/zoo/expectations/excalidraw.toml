@@ -1,0 +1,64 @@
+schema_version = 1
+repo = "excalidraw"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:excalidraw-app/App.tsx:e575ed4f8104d3d4"
+rule_id = "architecture.circular-dependency"
+path = "excalidraw-app/App.tsx"
+disposition = "actionable"
+reason = "Two-node eager cycle between the app entry and App.tsx (App.tsx <-> index.tsx); a real load-order coupling at the application root."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:packages/common/src/index.ts:7b14cf4e6bb5e522"
+rule_id = "architecture.circular-dependency"
+path = "packages/common/src/index.ts"
+disposition = "valid-but-accepted"
+reason = "Barrel re-export cycle (common/src/index.ts <-> queue.ts); idiomatic package-index aggregation in a TS monorepo."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:packages/excalidraw/actions/actionHistory.tsx:5c057c5a6edef722"
+rule_id = "architecture.circular-dependency"
+path = "packages/excalidraw/actions/actionHistory.tsx"
+disposition = "actionable"
+reason = "Mutual dependency between actions/actionHistory.tsx and components/App.tsx inside a 100-file strongly-connected component; a genuine architectural tangle."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:excalidraw-app/data/firebase.ts:5c3e800a8ebb659a"
+rule_id = "architecture.circular-dependency"
+path = "excalidraw-app/data/firebase.ts"
+disposition = "valid-but-accepted"
+reason = "Barrel re-export cycle (data/firebase.ts <-> data/index.ts); idiomatic package-index aggregation."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:packages/element/src/Scene.ts:9cbbca234b2ff447"
+rule_id = "architecture.circular-dependency"
+path = "packages/element/src/Scene.ts"
+disposition = "valid-but-accepted"
+reason = "Barrel re-export cycle (element/src/Scene.ts <-> element/src/index.ts); idiomatic package-index aggregation."
+
+[[finding]]
+profile = "default"
+finding_id = "architecture.circular-dependency:packages/excalidraw/data/blob.ts:5c1b1535711c051e"
+rule_id = "architecture.circular-dependency"
+path = "packages/excalidraw/data/blob.ts"
+disposition = "actionable"
+reason = "Mutual dependency between data/blob.ts and data/filesystem.ts; two sibling modules that import each other directly."
+
+# Strict recall anchor: the public Algolia DocSearch key was downgraded to a
+# strict-only Low in #246. Keep it pinned so the downgrade can't silently become
+# a full suppression.
+[[finding]]
+profile = "strict"
+finding_id = "security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527"
+rule_id = "security.secret-candidate"
+path = "dev-docs/docusaurus.config.js"
+line = 139
+disposition = "valid-but-accepted"
+reason = "Public, search-only Algolia DocSearch apiKey in the docs site config; safe to publish and intentionally retained as a strict recall anchor (#246)."

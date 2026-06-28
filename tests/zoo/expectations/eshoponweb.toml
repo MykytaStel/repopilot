@@ -1,0 +1,71 @@
+schema_version = 1
+repo = "eshoponweb"
+default_coverage = "exhaustive"
+strict_coverage = "selective"
+
+# eShopOnWeb is a Microsoft reference/sample application. Every default secret is
+# a correctly detected hardcoded credential the app intentionally ships for local
+# demo/Docker use — a real structural fact, accepted by upstream, not a detector
+# false positive.
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:docker-compose.yml:51c0493bf3025959"
+rule_id = "security.secret-candidate"
+path = "docker-compose.yml"
+disposition = "valid-but-accepted"
+reason = "Hardcoded SA_PASSWORD in docker-compose; intentional demo credential for the sample app's local SQL Server container."
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:a9ec5b53067db7ff"
+rule_id = "security.secret-candidate"
+path = "src/ApplicationCore/Constants/AuthorizationConstants.cs"
+disposition = "valid-but-accepted"
+reason = "Hardcoded JWT_SECRET_KEY constant; demo signing key shipped by the reference app, not a production secret."
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:5a72f55e73b3db87"
+rule_id = "security.secret-candidate"
+path = "src/ApplicationCore/Constants/AuthorizationConstants.cs"
+disposition = "valid-but-accepted"
+reason = "Hardcoded DEFAULT_PASSWORD constant used to seed sample accounts; intentional demo credential."
+
+# appsettings.Docker.json: one stable id at two distinct lines (Catalog + Identity
+# connection strings) -> both occurrences are disambiguated by line.
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598"
+rule_id = "security.secret-candidate"
+path = "src/PublicApi/appsettings.Docker.json"
+line = 3
+disposition = "valid-but-accepted"
+reason = "CatalogConnection string with an embedded demo password for the Docker SQL container (PublicApi)."
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598"
+rule_id = "security.secret-candidate"
+path = "src/PublicApi/appsettings.Docker.json"
+line = 4
+disposition = "valid-but-accepted"
+reason = "IdentityConnection string with an embedded demo password for the Docker SQL container (PublicApi)."
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+rule_id = "security.secret-candidate"
+path = "src/Web/appsettings.Docker.json"
+line = 3
+disposition = "valid-but-accepted"
+reason = "CatalogConnection string with an embedded demo password for the Docker SQL container (Web)."
+
+[[finding]]
+profile = "default"
+finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+rule_id = "security.secret-candidate"
+path = "src/Web/appsettings.Docker.json"
+line = 4
+disposition = "valid-but-accepted"
+reason = "IdentityConnection string with an embedded demo password for the Docker SQL container (Web)."
