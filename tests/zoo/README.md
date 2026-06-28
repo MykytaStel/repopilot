@@ -34,6 +34,22 @@ Other helpers: `python3 scripts/zoo.py list` (manifest table),
 `python3 scripts/zoo.py verify-pins` (clones match pins), and `--only a,b`
 on `clone`/`scan` to work a subset.
 
+`scan` builds the current workspace once with Cargo, resolves the executable
+Cargo produced, validates its version/report metadata, and then reuses that
+binary for every repo/profile scan. Existing `target/release/repopilot` or
+`target/debug/repopilot` artifacts are never selected just because they already
+exist.
+
+To intentionally compare snapshots with an external binary:
+
+```bash
+python3 scripts/zoo.py scan --repopilot /path/to/repopilot
+python3 scripts/zoo.py scan --repopilot /path/to/repopilot --allow-version-mismatch
+```
+
+External binaries are provenance-checked too. A version mismatch fails unless
+`--allow-version-mismatch` is supplied.
+
 ## As a regression gate
 
 [`tests/zoo_regression.rs`](../zoo_regression.rs) wraps `zoo.py scan` and is

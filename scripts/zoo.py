@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
 """RepoPilot real-repo validation "zoo".
 
-Clones a curated set of real open-source repos (pinned to fixed commit SHAs)
-into a gitignored `.zoo/` directory, scans each with RepoPilot, and snapshots
-per-rule finding counts so we can track how the default profile behaves on real
-diversity — not just synthetic fixtures.
+Clones pinned real repositories into the gitignored `.zoo/`, scans them with the
+current workspace RepoPilot by default, and compares committed snapshots. Repo
+contents are never committed; only tests/zoo/snapshots/*.json are tracked.
 
-Repo contents are never committed; only tests/zoo/snapshots/*.json are tracked.
-
-Subcommands:
-    list          Print the manifest as a table.
-    verify-pins   Check each cloned repo HEAD matches its pinned SHA.
-    clone         Shallow-fetch each repo at its pinned SHA into .zoo/<name>/.
-    scan          Scan each cloned repo (default + strict) and write snapshots.
-    report        Aggregate snapshots into a per-rule noise-suspect table.
-
-Typical loop:
-    python3 scripts/zoo.py clone
-    python3 scripts/zoo.py scan            # writes tests/zoo/snapshots/*.json
-    python3 scripts/zoo.py report          # markdown triage table
-
-Use --bless on `scan` to (re)write committed snapshots after an intended change.
 See tests/zoo/README.md for the full workflow.
 """
 
@@ -35,6 +19,15 @@ import tomllib
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+from zoo_scanner import (
+    ScannerPreparationError,
+    ScannerProvenanceError,
+    prepare_scanner,
+    print_scanner_provenance,
+    run,
+    scan_repo,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = REPO_ROOT / "tests" / "zoo" / "manifest.toml"
@@ -66,19 +59,6 @@ def load_manifest() -> list[dict[str, Any]]:
 
 def repo_path(repo: dict[str, Any]) -> Path:
     return ZOO_DIR / repo["name"]
-
-
-# ----------------------------------------------------------------------------
-# git helpers
-# ----------------------------------------------------------------------------
-def run(cmd: list[str], cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        text=True,
-        capture_output=True,
-        check=check,
-    )
 
 
 def head_sha(path: Path) -> str | None:
@@ -158,30 +138,6 @@ def cmd_clone(args: argparse.Namespace) -> int:
     return 0
 
 
-def find_repopilot(explicit: str | None) -> list[str]:
-    """Resolve the repopilot invocation: explicit > release > debug > cargo run."""
-    if explicit:
-        return [explicit]
-    for build in ("release", "debug"):
-        candidate = REPO_ROOT / "target" / build / "repopilot"
-        if candidate.exists():
-            return [str(candidate)]
-    return ["cargo", "run", "-q", "--release", "--manifest-path", str(REPO_ROOT / "Cargo.toml"), "--"]
-
-
-def scan_repo(bin_cmd: list[str], path: Path, profile: str) -> dict[str, Any]:
-    proc = run(
-        bin_cmd + ["scan", str(path), "--format", "json", "--profile", profile],
-        check=False,
-    )
-    if proc.returncode not in (0, 1):  # 1 == findings present / fail-on threshold
-        raise SystemExit(f"scan failed for {path} ({profile}):\n{proc.stderr.strip()}")
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"scan produced invalid JSON for {path} ({profile}): {exc}")
-
-
 def visible_findings(report: dict[str, Any]) -> list[dict[str, Any]]:
     findings = report.get("findings")
     return [f for f in findings if isinstance(f, dict)] if isinstance(findings, list) else []
@@ -223,7 +179,20 @@ def snapshot_for(repo: dict[str, Any], default_report: dict[str, Any], strict_re
 
 def cmd_scan(args: argparse.Namespace) -> int:
     repos = select(load_manifest(), args.only)
-    bin_cmd = find_repopilot(args.repopilot)
+    try:
+        scanner = prepare_scanner(
+            REPO_ROOT,
+            args.repopilot,
+            args.allow_version_mismatch,
+        )
+    except ScannerPreparationError as exc:
+        print(f"SCANNER PREPARATION FAILED\n{exc}", file=sys.stderr)
+        return 2
+    except ScannerProvenanceError as exc:
+        print(f"SCANNER PROVENANCE FAILED\n{exc}", file=sys.stderr)
+        return 3
+
+    print_scanner_provenance(scanner)
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
     drift = False
     for repo in repos:
@@ -235,8 +204,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
         print(f"  scanning {repo['name']} ...")
         snap = snapshot_for(
             repo,
-            scan_repo(bin_cmd, path, "default"),
-            scan_repo(bin_cmd, path, "strict"),
+            scan_repo(scanner, path, "default"),
+            scan_repo(scanner, path, "strict"),
         )
         out = SNAPSHOT_DIR / f"{repo['name']}.json"
         rendered = json.dumps(snap, indent=2, sort_keys=True) + "\n"
@@ -306,7 +275,15 @@ def main() -> int:
     p_scan = sub.add_parser("scan", help="scan repos and write/check snapshots")
     p_scan.add_argument("--only", help="comma-separated repo names")
     p_scan.add_argument("--bless", action="store_true", help="(re)write committed snapshots")
-    p_scan.add_argument("--repopilot", help="path to repopilot binary (default: target/release|debug, else cargo run)")
+    p_scan.add_argument(
+        "--repopilot",
+        help="explicit path to an external repopilot binary (default: build current workspace)",
+    )
+    p_scan.add_argument(
+        "--allow-version-mismatch",
+        action="store_true",
+        help="allow --repopilot to use a version that differs from this workspace",
+    )
     p_scan.set_defaults(func=cmd_scan)
 
     sub.add_parser("report", help="aggregate snapshots into a triage table").set_defaults(func=cmd_report)
