@@ -3,14 +3,21 @@ use super::frameworks::{
 };
 use super::helpers::{
     is_app_entrypoint, is_build_tooling_path, is_config_file, is_generated_file, is_js_or_ts,
-    is_managed_test_support_path, is_test_support_file, path_contains_component, push_unique,
+    is_managed_test_support_path, is_test_support_file, path_contains_component,
 };
 use super::signals::ContextSignals;
-use crate::audits::context::model::{FileRole, FrameworkKind, LanguageKind};
+use crate::audits::context::model::{
+    FileRole, FrameworkKind, LanguageKind, RoleEvidence, RoleEvidenceSource,
+};
 use std::path::Path;
 
+// This is the single orchestration boundary for role classification. Keeping
+// all classifier inputs explicit makes path/content/framework decisions visible
+// and avoids hiding them inside mutable global state.
+#[allow(clippy::too_many_arguments)]
 pub fn classify_roles(
     roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
     path: &Path,
     content: &str,
     language: LanguageKind,
@@ -18,21 +25,36 @@ pub fn classify_roles(
     signals: &ContextSignals,
     is_test: bool,
 ) {
-    classify_static_roles(roles, path, content, language, signals, is_test);
+    classify_static_roles(roles, evidence, path, content, language, signals, is_test);
 
     if is_js_or_ts(language) {
-        classify_js_ts_roles(roles, path, content, frameworks);
+        classify_js_ts_roles(roles, evidence, path, content, frameworks);
     }
 
     if language == LanguageKind::CSharp {
-        classify_csharp_roles(roles, path, content, frameworks);
+        classify_csharp_roles(roles, evidence, path, content, frameworks);
     }
 
-    classify_entrypoint_and_path_roles(roles, path, content, language);
+    classify_entrypoint_and_path_roles(roles, evidence, path, content, language);
+}
+
+pub(super) fn push_role(
+    roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
+    role: FileRole,
+    source: RoleEvidenceSource,
+    reason: &'static str,
+) {
+    if roles.contains(&role) {
+        return;
+    }
+    roles.push(role);
+    evidence.push(RoleEvidence::new(role, source, reason));
 }
 
 fn classify_static_roles(
     roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
     path: &Path,
     content: &str,
     language: LanguageKind,
@@ -40,32 +62,63 @@ fn classify_static_roles(
     is_test: bool,
 ) {
     if is_config_file(path) {
-        push_unique(roles, FileRole::Config);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Config,
+            RoleEvidenceSource::Path,
+            "recognized configuration filename or path",
+        );
     }
 
     if signals.is_infrastructure_context() {
-        push_unique(roles, FileRole::Infrastructure);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Infrastructure,
+            RoleEvidenceSource::Signal,
+            "infrastructure context signal matched",
+        );
     }
 
     if is_generated_file(path, content) {
-        push_unique(roles, FileRole::Generated);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Generated,
+            RoleEvidenceSource::Mixed,
+            "generated/vendor path or generated-content marker matched",
+        );
     }
 
     if is_test {
-        push_unique(roles, FileRole::Test);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Test,
+            RoleEvidenceSource::Path,
+            "recognized test path or filename",
+        );
 
         if language == LanguageKind::Rust {
-            push_unique(roles, FileRole::RustTest);
+            push_role(
+                roles,
+                evidence,
+                FileRole::RustTest,
+                RoleEvidenceSource::Path,
+                "recognized Rust test path or filename",
+            );
         }
     }
 
-    // Test-support modules keep their production role but also carry this marker
-    // so opted-in rules (`rust.panic-risk`, `managed.fatal-exception-risk`) treat
-    // their assertion/placeholder throws as non-production without affecting any
-    // other rule. Rust uses a filename allow list; managed languages use dedicated
-    // Gradle/source-set shapes (not arbitrary `testing` package namespaces).
     if language == LanguageKind::Rust && is_test_support_file(path) {
-        push_unique(roles, FileRole::TestSupport);
+        push_role(
+            roles,
+            evidence,
+            FileRole::TestSupport,
+            RoleEvidenceSource::Path,
+            "recognized Rust test-support helper filename",
+        );
     }
 
     if matches!(
@@ -73,82 +126,171 @@ fn classify_static_roles(
         LanguageKind::Java | LanguageKind::Kotlin | LanguageKind::CSharp
     ) && is_managed_test_support_path(path)
     {
-        push_unique(roles, FileRole::TestSupport);
+        push_role(
+            roles,
+            evidence,
+            FileRole::TestSupport,
+            RoleEvidenceSource::Path,
+            "recognized managed-language test-support source-set path",
+        );
     }
 
-    // Build-tooling sources (Gradle convention plugins under `build-logic/` /
-    // `buildSrc/`) configure the build and never ship, so opted-in rules treat
-    // their build-failing throws as intended rather than runtime risk.
     if is_build_tooling_path(path) {
-        push_unique(roles, FileRole::BuildTooling);
+        push_role(
+            roles,
+            evidence,
+            FileRole::BuildTooling,
+            RoleEvidenceSource::Path,
+            "recognized build-logic or buildSrc path",
+        );
     }
 }
 
 fn classify_js_ts_roles(
     roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
     path: &Path,
     content: &str,
     frameworks: &[FrameworkKind],
 ) {
     if is_react_hook_file(path, content) {
-        push_unique(roles, FileRole::ReactHook);
-        push_unique(roles, FileRole::FrameworkHook);
+        push_role(
+            roles,
+            evidence,
+            FileRole::ReactHook,
+            RoleEvidenceSource::Mixed,
+            "React hook filename or implementation matched",
+        );
+        push_role(
+            roles,
+            evidence,
+            FileRole::FrameworkHook,
+            RoleEvidenceSource::Mixed,
+            "framework hook shape matched",
+        );
     }
 
     if frameworks.contains(&FrameworkKind::React) && is_react_component_file(path, content) {
-        push_unique(roles, FileRole::ReactComponent);
-        push_unique(roles, FileRole::FrameworkComponent);
+        push_role(
+            roles,
+            evidence,
+            FileRole::ReactComponent,
+            RoleEvidenceSource::Mixed,
+            "React framework plus component shape matched",
+        );
+        push_role(
+            roles,
+            evidence,
+            FileRole::FrameworkComponent,
+            RoleEvidenceSource::Mixed,
+            "framework component shape matched",
+        );
     }
 }
 
 fn classify_csharp_roles(
     roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
     path: &Path,
     content: &str,
     frameworks: &[FrameworkKind],
 ) {
-    // Compute lowercase only for C# where PascalCase identifiers need folding.
     let lower = content.to_lowercase();
     if frameworks.contains(&FrameworkKind::Unity) && lower.contains("monobehaviour") {
-        push_unique(roles, FileRole::UnityMonoBehaviour);
+        push_role(
+            roles,
+            evidence,
+            FileRole::UnityMonoBehaviour,
+            RoleEvidenceSource::Mixed,
+            "Unity framework plus MonoBehaviour base type matched",
+        );
     }
     if is_dotnet_controller(path, &lower) {
-        push_unique(roles, FileRole::DotNetController);
-        push_unique(roles, FileRole::FrameworkController);
+        push_role(
+            roles,
+            evidence,
+            FileRole::DotNetController,
+            RoleEvidenceSource::Mixed,
+            "ASP.NET controller path or type shape matched",
+        );
+        push_role(
+            roles,
+            evidence,
+            FileRole::FrameworkController,
+            RoleEvidenceSource::Mixed,
+            "framework controller shape matched",
+        );
     }
     if is_dotnet_service(path, &lower) {
-        push_unique(roles, FileRole::DotNetService);
-        push_unique(roles, FileRole::FrameworkService);
+        push_role(
+            roles,
+            evidence,
+            FileRole::DotNetService,
+            RoleEvidenceSource::Mixed,
+            ".NET service path or type shape matched",
+        );
+        push_role(
+            roles,
+            evidence,
+            FileRole::FrameworkService,
+            RoleEvidenceSource::Mixed,
+            "framework service shape matched",
+        );
     }
 }
 
 fn classify_entrypoint_and_path_roles(
     roles: &mut Vec<FileRole>,
+    evidence: &mut Vec<RoleEvidence>,
     path: &Path,
     content: &str,
     language: LanguageKind,
 ) {
     if is_app_entrypoint(path, content, language) {
-        push_unique(roles, FileRole::AppEntrypoint);
+        push_role(
+            roles,
+            evidence,
+            FileRole::AppEntrypoint,
+            RoleEvidenceSource::Mixed,
+            "recognized application entrypoint path or entry function",
+        );
     }
 
     if matches!(language, LanguageKind::Python | LanguageKind::Go)
         && path_contains_component(path, &["cmd", "bin", "scripts"])
     {
-        push_unique(roles, FileRole::Script);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Script,
+            RoleEvidenceSource::Path,
+            "command or script directory matched",
+        );
     }
 
     if path_contains_component(
         path,
         &["domain", "domains", "model", "models", "entity", "entities"],
     ) {
-        push_unique(roles, FileRole::Domain);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Domain,
+            RoleEvidenceSource::Path,
+            "domain/model/entity path component matched",
+        );
     }
 
     if path_contains_component(path, &["script", "scripts", "bin", "tools", "guards"])
         || is_guard_file(path)
     {
-        push_unique(roles, FileRole::Script);
+        push_role(
+            roles,
+            evidence,
+            FileRole::Script,
+            RoleEvidenceSource::Path,
+            "script/tool/guard path or filename matched",
+        );
     }
 }
 

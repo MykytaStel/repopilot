@@ -9,7 +9,8 @@ use crate::audits::pipeline::build_file_audits;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::scan::cache::{
-    FileRoleEntry, FindingsEntry, ScanCache, config_fingerprint, file_hash_entry,
+    FileRoleEntry, FileRoleEvidenceEntry, FindingsEntry, ScanCache, config_fingerprint,
+    file_hash_entry,
 };
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::types::{ChangedFileCacheTelemetry, ScanCacheTelemetry};
@@ -205,6 +206,15 @@ impl<'a> ChangedScanEngine<'a> {
                             imports: per_file.file_facts.imports.clone(),
                             deferred_imports: per_file.file_facts.deferred_imports.clone(),
                             roles: context.roles,
+                            role_evidence: context
+                                .role_evidence
+                                .into_iter()
+                                .map(|evidence| FileRoleEvidenceEntry {
+                                    role: evidence.role,
+                                    source: evidence.source,
+                                    reason: evidence.reason,
+                                })
+                                .collect(),
                             frameworks: context.frameworks,
                             runtimes: context.runtimes,
                             paradigms: context.paradigms,

@@ -1,6 +1,6 @@
 use super::*;
 use crate::audits::context::model::{
-    FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm, RuntimeKind,
+    FileRole, FrameworkKind, LanguageKind, ProgrammingParadigm, RoleEvidenceSource, RuntimeKind,
 };
 use crate::scan::facts::FileFacts;
 use std::path::PathBuf;

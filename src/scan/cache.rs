@@ -21,7 +21,8 @@ use std::time::UNIX_EPOCH;
 /// TypeScript/JavaScript type-only imports and exports erased at runtime.
 /// v6 invalidates cached file roles because classification now adds build-tooling
 /// and managed test-support roles.
-pub const CACHE_SCHEMA_VERSION: u32 = 6;
+/// v7 adds explainable role-evidence records to each cached file-role entry.
+pub const CACHE_SCHEMA_VERSION: u32 = 7;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
@@ -37,6 +38,13 @@ pub struct FileHashEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FileRoleEvidenceEntry {
+    pub role: String,
+    pub source: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileRoleEntry {
     pub path: String,
     pub hash: String,
@@ -47,6 +55,8 @@ pub struct FileRoleEntry {
     #[serde(default)]
     pub deferred_imports: Vec<String>,
     pub roles: Vec<String>,
+    #[serde(default)]
+    pub role_evidence: Vec<FileRoleEvidenceEntry>,
     pub frameworks: Vec<String>,
     pub runtimes: Vec<String>,
     pub paradigms: Vec<String>,
@@ -403,4 +413,53 @@ fn directory_size_bytes(path: &Path) -> u64 {
             }
         })
         .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_role_cache_round_trips_role_evidence() {
+        let cache = FileRolesCache {
+            schema_version: CACHE_SCHEMA_VERSION,
+            repopilot_version: "test".to_string(),
+            entries: vec![FileRoleEntry {
+                path: "src/lib.rs".to_string(),
+                hash: "hash".to_string(),
+                language: Some("Rust".to_string()),
+                non_empty_lines: 1,
+                imports: Vec::new(),
+                deferred_imports: Vec::new(),
+                roles: vec!["domain".to_string()],
+                role_evidence: vec![FileRoleEvidenceEntry {
+                    role: "domain".to_string(),
+                    source: "path".to_string(),
+                    reason: "domain/model/entity path component matched".to_string(),
+                }],
+                frameworks: Vec::new(),
+                runtimes: vec!["rust-library".to_string()],
+                paradigms: Vec::new(),
+                is_test: false,
+            }],
+        };
+
+        let encoded = serde_json::to_string(&cache).expect("serialize file-role cache");
+        let decoded: FileRolesCache =
+            serde_json::from_str(&encoded).expect("deserialize file-role cache");
+
+        assert_eq!(decoded, cache);
+        assert_eq!(decoded.entries[0].role_evidence[0].role, "domain");
+    }
+
+    #[test]
+    fn previous_file_role_cache_schema_is_rejected() {
+        let cache = FileRolesCache {
+            schema_version: CACHE_SCHEMA_VERSION - 1,
+            repopilot_version: "test".to_string(),
+            entries: Vec::new(),
+        };
+
+        assert!(!valid_file_roles_cache(&cache));
+    }
 }

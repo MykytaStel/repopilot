@@ -1,3 +1,4 @@
+use repopilot::scan::cache::CACHE_SCHEMA_VERSION;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
@@ -60,7 +61,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
-        6
+        CACHE_SCHEMA_VERSION
     );
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]

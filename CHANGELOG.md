@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **File-role classification now preserves explainable evidence.** The detailed
+  classifier records one typed evidence entry for every assigned role, including
+  whether it came from a path, content/framework marker, package manifest,
+  shared context signal, mixed evidence, or the unknown-role fallback.
+  Changed-scan file-role caches persist this evidence under cache schema v7 so
+  later explain/decision-trace surfaces can show why a role matched without
+  copying classifier heuristics. Existing role decisions, finding severity,
+  visibility, and report schemas are unchanged.
+
 - **The real-repo zoo now records human-reviewed dispositions for findings.** A
   new tracked `tests/zoo/expectations/<repo>.toml` layer (one versioned file per
   manifest repo) sits alongside the generated snapshots: snapshots answer *what
