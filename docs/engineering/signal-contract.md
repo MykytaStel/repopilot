@@ -23,6 +23,19 @@ The rule catalog and its quality gate are validated by `cargo test`
 (`tests/rule_eval_fixture_coverage.rs`), which runs every rule against its bundled
 true-positive/false-positive fixtures.
 
+## File-role Evidence
+
+Role classification is explainable data, not an opaque boolean. The detailed
+classifier records exactly one evidence entry for every assigned file role,
+including the source (`path`, `content`, `framework`, `manifest`, `signal`,
+`mixed`, or `fallback`) and a stable human-readable reason.
+
+The compatibility `classify_file` API still returns semantic context.
+Scanner/cache/explain surfaces use `classify_file_with_evidence` when role
+provenance must survive beyond classification. Role evidence does not alter a
+rule by itself; knowledge-pack decisions remain responsible for deciding how a
+role affects severity or suppression.
+
 ## Finding Contract
 
 Every rendered finding must have:

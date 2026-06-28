@@ -1,6 +1,6 @@
 use crate::analysis::parse::ParsedFile;
 use crate::audits::code_quality::complexity::count_branches;
-use crate::audits::context::classify_file;
+use crate::audits::context::classify_file_with_evidence;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
 use crate::graph::imports::{extract_deferred_imports_from, extract_imports_from};
@@ -26,10 +26,18 @@ pub(super) struct PerFileResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct PerFileContext {
     pub(super) roles: Vec<String>,
+    pub(super) role_evidence: Vec<PerFileRoleEvidence>,
     pub(super) frameworks: Vec<String>,
     pub(super) runtimes: Vec<String>,
     pub(super) paradigms: Vec<String>,
     pub(super) is_test: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct PerFileRoleEvidence {
+    pub(super) role: String,
+    pub(super) source: String,
+    pub(super) reason: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -359,9 +367,19 @@ fn skipped_result(
 
 impl PerFileContext {
     fn from_file(file: &FileFacts) -> Self {
-        let context = classify_file(file);
+        let classified = classify_file_with_evidence(file);
+        let context = classified.context;
         Self {
             roles: context.role_ids().into_iter().map(str::to_string).collect(),
+            role_evidence: classified
+                .role_evidence
+                .into_iter()
+                .map(|evidence| PerFileRoleEvidence {
+                    role: evidence.role.as_id().to_string(),
+                    source: evidence.source.as_id().to_string(),
+                    reason: evidence.reason.to_string(),
+                })
+                .collect(),
             frameworks: context
                 .framework_ids()
                 .into_iter()
