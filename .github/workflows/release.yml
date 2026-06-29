@@ -178,16 +178,22 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: Generate release notes from changelog
+      - name: Generate release notes from curated docs
+        id: release-notes
         run: |
           python3 scripts/release-contract.py notes \
             --tag "${GITHUB_REF_NAME}" \
             --output dist/release-notes.md
+          {
+            echo "title<<EOF"
+            python3 scripts/release-contract.py title --tag "${GITHUB_REF_NAME}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
-          name: RepoPilot ${{ github.ref_name }}
+          name: ${{ steps.release-notes.outputs.title }}
           files: |
             dist/*.tar.gz
             dist/*.zip
