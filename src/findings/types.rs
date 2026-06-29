@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::findings::provenance::{AnalysisScope, FindingProvenance};
+use crate::findings::provenance::FindingProvenance;
 pub use crate::findings::severity::Severity;
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -106,12 +106,13 @@ impl Finding {
             self.docs_url = metadata.docs_url.map(str::to_string);
         }
         if self.provenance.has_default_metadata() {
+            let analysis_scope = self.provenance.analysis_scope;
             let knowledge_decision = self.provenance.knowledge_decision.take();
             self.provenance = FindingProvenance {
                 detector: metadata.rule_id.to_string(),
                 signal_source: metadata.signal_source,
                 rule_lifecycle: metadata.lifecycle,
-                analysis_scope: AnalysisScope::for_signal_source(metadata.signal_source),
+                analysis_scope,
                 knowledge_decision,
             };
         }

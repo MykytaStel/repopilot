@@ -86,7 +86,7 @@ pub fn registered_project_audits(config: &ScanConfig) -> Vec<ProjectAuditRegistr
 pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
     let findings = registered_project_audits(config)
         .iter()
-        .flat_map(|registration| registration.audit.audit(scan_facts, config))
+        .flat_map(|registration| registration.run(scan_facts, config))
         .collect();
 
     apply_project_decisions(scan_facts, findings)

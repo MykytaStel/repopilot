@@ -179,7 +179,7 @@ pub fn registered_framework_audits(facts: &ScanFacts) -> Vec<FrameworkAuditRegis
 pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
     let findings = registered_framework_audits(facts)
         .iter()
-        .flat_map(|registration| registration.audit.audit(facts, config))
+        .flat_map(|registration| registration.run(facts, config))
         .collect();
 
     apply_project_decisions(facts, findings)

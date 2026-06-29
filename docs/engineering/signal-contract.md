@@ -19,6 +19,11 @@ Signal sources are explicit: `text-heuristic`, `ast`, `config-file`,
 `dependency-manifest`, `import-graph`, `framework-detector`, `git-diff`, or
 `mixed`. A text heuristic must not claim AST provenance.
 
+Analysis scope is independent from signal source. File audit runners stamp
+`file`, project audit runners stamp `repository`, and framework audit runners
+stamp `framework-project`. A project audit may use text-heuristic evidence, and
+that does not make the finding file-scoped.
+
 The rule catalog and its quality gate are validated by `cargo test`
 (`tests/rule_eval_fixture_coverage.rs`), which runs every rule against its bundled
 true-positive/false-positive fixtures.

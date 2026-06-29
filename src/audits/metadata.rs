@@ -1,3 +1,4 @@
+use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::FindingCategory;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,6 +14,15 @@ impl AuditKind {
             Self::File => "file",
             Self::Project => "project",
             Self::Framework => "framework",
+        }
+    }
+
+    /// Evidence source and execution scope are separate contracts.
+    pub fn analysis_scope(self) -> AnalysisScope {
+        match self {
+            Self::File => AnalysisScope::File,
+            Self::Project => AnalysisScope::Repository,
+            Self::Framework => AnalysisScope::FrameworkProject,
         }
     }
 }
@@ -54,6 +64,15 @@ mod tests {
         assert_eq!(AuditKind::File.label(), "file");
         assert_eq!(AuditKind::Project.label(), "project");
         assert_eq!(AuditKind::Framework.label(), "framework");
+        assert_eq!(AuditKind::File.analysis_scope(), AnalysisScope::File);
+        assert_eq!(
+            AuditKind::Project.analysis_scope(),
+            AnalysisScope::Repository
+        );
+        assert_eq!(
+            AuditKind::Framework.analysis_scope(),
+            AnalysisScope::FrameworkProject
+        );
     }
 
     #[test]

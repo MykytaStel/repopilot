@@ -6,6 +6,7 @@ mod registration;
 pub use file_audits::{build_file_audits, registered_file_audits};
 pub use framework_audits::{registered_framework_audits, run_framework_audits};
 pub use project_audits::{registered_project_audits, run_project_audits};
+pub(crate) use registration::stamp_findings_analysis_scope;
 pub use registration::{
     FileAuditRegistration, FrameworkAuditRegistration, ProjectAuditRegistration,
 };
@@ -14,11 +15,14 @@ pub use registration::{
 mod tests {
     use super::*;
     use crate::audits::metadata::AuditKind;
+    use crate::findings::enrichment::enrich_findings;
+    use crate::findings::provenance::AnalysisScope;
     use crate::frameworks::DetectedFramework;
-    use crate::rules::lookup_rule_metadata;
+    use crate::rules::{SignalSource, lookup_rule_metadata};
     use crate::scan::config::ScanConfig;
-    use crate::scan::facts::ScanFacts;
+    use crate::scan::facts::{FileFacts, ScanFacts};
     use std::collections::HashSet;
+    use std::path::PathBuf;
 
     #[test]
     fn registered_file_audits_have_rule_metadata() {
@@ -98,6 +102,56 @@ mod tests {
                 .iter()
                 .map(|registration| registration.metadata.clone()),
         );
+    }
+
+    #[test]
+    fn project_text_heuristic_scope_survives_registry_enrichment() {
+        let root = PathBuf::from("/repo");
+        let facts = ScanFacts {
+            root_path: root.clone(),
+            files: vec![
+                FileFacts {
+                    path: root.join("src/a.rs"),
+                    language: Some("Rust".to_string()),
+                    non_empty_lines: 1,
+                    ..FileFacts::default()
+                },
+                FileFacts {
+                    path: root.join("src/b.rs"),
+                    language: Some("Rust".to_string()),
+                    non_empty_lines: 1,
+                    ..FileFacts::default()
+                },
+            ],
+            ..ScanFacts::default()
+        };
+        let config = ScanConfig {
+            max_directory_modules: 1,
+            ..ScanConfig::default()
+        };
+
+        let mut findings = run_project_audits(&facts, &config);
+        let finding = findings
+            .iter()
+            .find(|finding| finding.rule_id == "architecture.too-many-modules")
+            .expect("too-many-modules finding");
+        assert_eq!(finding.provenance.analysis_scope, AnalysisScope::Repository);
+
+        enrich_findings(&mut findings, &root);
+        let finding = findings
+            .iter()
+            .find(|finding| finding.rule_id == "architecture.too-many-modules")
+            .expect("enriched too-many-modules finding");
+
+        assert_eq!(finding.provenance.analysis_scope, AnalysisScope::Repository);
+        assert_eq!(
+            finding.provenance.signal_source,
+            SignalSource::TextHeuristic
+        );
+
+        let value = serde_json::to_value(finding).expect("serialize finding");
+        assert_eq!(value["provenance"]["analysis_scope"], "repository");
+        assert_eq!(value["provenance"]["signal_source"], "text-heuristic");
     }
 
     fn assert_registrations_have_rule_metadata(
