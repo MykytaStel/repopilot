@@ -4,35 +4,29 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.18 — evidence you can click
+## Now: 0.19 — replayable evidence and lower default noise
 
-- point architecture findings at the real import line instead of `line 1`, so a
-  cycle or boundary violation lands on the code that caused it;
-- model detected workspaces (npm/yarn, pnpm, Cargo, `go.work`) as first-class
-  `Package` nodes, and auto-enable `architecture.package-boundary-violation` on
-  them without configuration;
-- score complexity per function (`code-quality.complex-function`, preview) by
-  nesting depth rather than counting branches flatly across a whole file;
-- grow the trust surface: a before/after review golden harness, fixtures for the
-  previously unpinned heuristic rules, a registry-generated
-  [rules reference](rules-reference.md), and config discovery that walks up to
-  the git root;
-- preserve JSON/SARIF, Action output, baseline, and MCP compatibility while new
-  signals stay at preview.
+- make MCP explanations replayable from emitted findings while preserving stable
+  baseline IDs and occurrence-level evidence selection;
+- carry Knowledge Engine decision provenance in schema `0.20` reports so agents
+  can compare stored and current decisions deterministically;
+- expose file-role evidence, executable-package manifest context, and ordered
+  decision traces without changing scan/review severity behavior;
+- keep strict-mode recall while moving low-confidence false positives out of the
+  default profile;
+- use the real-repo zoo snapshots and reviewed expectations as release evidence.
 
-No new rule family, distribution channel, hosted service, telemetry, or implicit
-LLM integration enters `0.18`. The JSON schema stays at `0.19`.
+No hosted service, telemetry, source upload, or implicit LLM integration is part
+of the current roadmap.
 
-## Next: 0.19
+## Next: 0.20
 
-- demote `code-quality.complex-file` now that the per-function rule covers the
-  honest cases (removal lands in `0.20`);
-- open a deprecation window for explicit `[architecture] package_roots` once
-  workspace auto-detection has field data;
-- back the remaining unfixtured heuristic rules with true/false-positive
-  fixtures and broaden the review golden matrix;
-- collect adoption evidence through reproducible reports, issues, and user
-  feedback, and improve first-run examples from observed failures.
+- use reviewed zoo dispositions to calibrate the remaining default-visible noise;
+- broaden replay/explanation coverage only where the required repository context
+  can be reconstructed deterministically;
+- keep deprecations explicit and evidence-backed before removing compatibility
+  surfaces;
+- improve first-run examples from observed user and CI failures.
 
 ## Later
 

@@ -16,11 +16,11 @@ JSON scan reports include explicit schema metadata. The current schema is 0.20:
 ```json
 {
   "schema_version": "0.20",
-  "repopilot_version": "0.17.0",
+  "repopilot_version": "0.19.0",
   "report": {
     "kind": "scan",
     "schema_version": "0.20",
-    "repopilot_version": "0.17.0"
+    "repopilot_version": "0.19.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -99,7 +99,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.18.x` emits schema `0.20`.
+Binary `0.19.x` emits schema `0.20`.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -160,11 +160,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.20",
-  "repopilot_version": "0.17.0",
+  "repopilot_version": "0.19.0",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.20",
-    "repopilot_version": "0.17.0"
+    "repopilot_version": "0.19.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -217,10 +217,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.17.0"
+    "repopilot_version": "0.19.0"
   },
   "tool": "repopilot",
-  "version": "0.17.0",
+  "version": "0.19.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

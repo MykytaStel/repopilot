@@ -56,8 +56,8 @@ Run the complete local gate:
 
 The gate runs formatting, clippy, all Rust tests, release-contract checks,
 dependency policy and security checks, shell and workflow validation, Cargo and
-npm package dry-runs, rule evaluation, self-scan signal quality, and the
-install-like product smoke suite.
+npm package dry-runs, review and scan performance checks, rule evaluation,
+self-scan signal quality, and the install-like product smoke suite.
 
 Required product workflows include:
 

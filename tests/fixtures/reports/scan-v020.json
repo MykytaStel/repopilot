@@ -1,10 +1,10 @@
 {
   "schema_version": "0.20",
-  "repopilot_version": "0.18.0",
+  "repopilot_version": "0.19.0",
   "report": {
     "kind": "scan",
     "schema_version": "0.20",
-    "repopilot_version": "0.18.0"
+    "repopilot_version": "0.19.0"
   },
   "root_path": ".",
   "mode": "full",

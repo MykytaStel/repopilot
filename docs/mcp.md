@@ -167,8 +167,8 @@ worker built with standard-library channels, so the stdio loop can receive
 `_meta.progressToken` receive start/completion `notifications/progress`.
 No async runtime is used.
 
-HTTP transport, hosted MCP, sampling, and source upload are outside the 0.16
-scope.
+HTTP transport, hosted MCP, sampling, and source upload are outside the current
+local stdio MCP scope.
 
 ## Manual Smoke Test
 

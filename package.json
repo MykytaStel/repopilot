@@ -1,6 +1,6 @@
 {
 	"name": "repopilot",
-	"version": "0.18.0",
+	"version": "0.19.0",
 	"description": "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge.",
 	"license": "MIT OR Apache-2.0",
 	"repository": {
@@ -21,7 +21,8 @@
 		"product:smoke": "bash scripts/smoke-product.sh",
 		"release:contract": "python3 scripts/release-contract.py check",
 		"test:release-contract": "python3 -m unittest discover -s scripts/tests -p 'test_*.py'",
-		"review:performance": "node scripts/check-review-performance.js"
+		"review:performance": "node scripts/check-review-performance.js",
+		"scan:performance": "node scripts/check-scan-performance.js"
 	},
 	"files": [
 		"bin",
@@ -29,11 +30,11 @@
 		"LICENSE"
 	],
 	"optionalDependencies": {
-		"@repopilot/darwin-arm64": "0.18.0",
-		"@repopilot/darwin-x64": "0.18.0",
-		"@repopilot/linux-arm64-gnu": "0.18.0",
-		"@repopilot/linux-x64-gnu": "0.18.0",
-		"@repopilot/win32-x64-msvc": "0.18.0"
+		"@repopilot/darwin-arm64": "0.19.0",
+		"@repopilot/darwin-x64": "0.19.0",
+		"@repopilot/linux-arm64-gnu": "0.19.0",
+		"@repopilot/linux-x64-gnu": "0.19.0",
+		"@repopilot/win32-x64-msvc": "0.19.0"
 	},
 	"keywords": [
 		"cli",
