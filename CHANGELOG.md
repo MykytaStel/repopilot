@@ -136,6 +136,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **Workspace-dependent MCP tools no longer return stale session results.**
+  Removed the arguments-only in-process result cache from
+  `repopilot_review_change`, `repopilot_context`, and
+  `repopilot_explain_file`. Each call now observes current source files,
+  manifests, configuration, feedback, ignore state, and Git changes, while
+  successful scan/review calls keep `last-scan` and `last-review` synchronized
+  with the exact returned result. `repopilot_scan` retains its separate
+  persistent cache with Git/config/input fingerprint validation. MCP schemas,
+  CLI behavior, findings, baselines, SARIF, and report schema `0.20` are
+  unchanged.
+
 - **Finding analysis scope now comes from the audit execution boundary.**
   File, project, and framework runners stamp `file`, `repository`, and
   `framework-project`; graph/coupling paths explicitly stamp repository scope.

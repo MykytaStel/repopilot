@@ -1,10 +1,10 @@
 //! The `repopilot_explain_file` MCP tool: how RepoPilot classifies one file and
 //! which rules/signals apply, wrapping the `repopilot::explain` report builder.
 
-use repopilot::explain::{build_explain_report_with_root, render_explain_report};
-use repopilot::findings::types::Severity;
+use repopilot::explain::{
+    base_severity_for_explain, build_explain_report_with_root, render_explain_report,
+};
 use repopilot::output::OutputFormat;
-use repopilot::rules::lookup_rule_metadata;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
@@ -51,10 +51,7 @@ pub fn call(arguments: &Value, root: &Path) -> Result<String, String> {
     let rule = arguments.get("rule").and_then(Value::as_str);
     let signal = arguments.get("signal").and_then(Value::as_str);
 
-    let base_severity = rule
-        .and_then(lookup_rule_metadata)
-        .map(|metadata| metadata.default_severity)
-        .unwrap_or(Severity::Info);
+    let base_severity = base_severity_for_explain(rule, signal);
     let report = build_explain_report_with_root(root, &path, rule, signal, base_severity)
         .map_err(|error| format!("explain failed: {error}"))?;
 

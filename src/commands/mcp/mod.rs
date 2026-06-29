@@ -15,15 +15,15 @@ mod scan;
 mod scan_cache;
 
 #[cfg(test)]
-mod session_cache_tests;
-#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod workspace_freshness_tests;
 
 use crate::cli::McpOptions;
 use jsonrpc::{METHOD_NOT_FOUND, Request, Response};
 use serde::Serialize;
 use serde_json::{Value, json};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, mpsc};
@@ -39,7 +39,6 @@ struct ServerState {
     root: PathBuf,
     negotiated: bool,
     initialized: bool,
-    cache: HashMap<String, String>,
     last_scan: Option<String>,
     last_review: Option<String>,
 }
@@ -316,14 +315,9 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
         return Response::success(id, tool_result(name, Err(message)));
     }
 
-    // Finding replay depends on the mutable last-scan/last-review session
-    // result, so caching it only by tool arguments would return stale evidence.
-    let use_session_cache = name != scan::TOOL_NAME && name != explain_finding::TOOL_NAME;
-    let cache_key = format!("{name}:{}", arguments);
-    if use_session_cache && let Some(cached) = state.cache.get(&cache_key) {
-        return Response::success(id, tool_result(name, Ok(cached.clone())));
-    }
-
+    // Workspace-dependent tool results are evaluated on every call.
+    // `repopilot_scan` owns its separate persistent cache with validated
+    // Git/config/input fingerprints.
     let outcome = match name {
         review_change::TOOL_NAME => review_change::call(&arguments),
         scan::TOOL_NAME => scan::call(&arguments),
@@ -339,9 +333,6 @@ fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Resp
     };
 
     if let Ok(text) = &outcome {
-        if use_session_cache {
-            state.cache.insert(cache_key, text.clone());
-        }
         match name {
             scan::TOOL_NAME => state.last_scan = Some(text.clone()),
             review_change::TOOL_NAME => state.last_review = Some(text.clone()),
