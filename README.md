@@ -118,8 +118,8 @@ controls shape it:
 ## MCP Server
 
 `repopilot mcp` exposes that context — fact-only, the way `--no-task` emits it —
-plus review, scan, and explain, as tools over stdio so coding agents can call it
-directly:
+plus review, scan, file explanation, and finding replay tools over stdio so
+coding agents can call it directly:
 
 ```bash
 claude mcp add repopilot -- repopilot mcp --root .

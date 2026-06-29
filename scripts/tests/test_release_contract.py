@@ -48,7 +48,7 @@ class ReleaseContractTests(unittest.TestCase):
             "### Fixed\n\n- Current.",
         )
         with self.assertRaises(release_contract.ContractError):
-            release_contract.release_section("0.18.0")
+            release_contract.release_section("0.19.0")
 
     def test_version_from_tag_rejects_non_release_refs(self) -> None:
         self.assertEqual(release_contract.version_from_tag("v0.17.0"), "0.17.0")

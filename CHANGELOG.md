@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+No entries yet.
+
+## [0.19.0] - 2026-06-29
+
 ### Added
 
 - **MCP can now explain emitted findings by stable ID.**
@@ -17,9 +21,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   findings are rejected rather than replayed with incomplete file-only context.
   The tool rejects findings without schema-`0.20` decision provenance, enforces
   the MCP root boundary, and bypasses the session cache so a newer scan or review
-  cannot reuse a stale explanation. CLI commands, scan/review schemas, finding
-  IDs, baseline behavior, visibility, SARIF, and detector decisions are
-  unchanged.
+  cannot reuse a stale explanation. If the same stable ID appears more than once
+  in a report, callers can pass `evidence_path` and `line_start` to select one
+  occurrence; ambiguous calls return structured candidates. CLI commands,
+  scan/review schemas, finding IDs, baseline behavior, visibility, SARIF, and
+  detector decisions are unchanged.
 
 - **Findings now preserve replayable Knowledge Engine decision provenance.**
   Knowledge-aware findings add optional `provenance.knowledge_decision` data
@@ -40,9 +46,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   classifier, including executable-package manifest context, a final
   default-profile visibility step, and explicit scope limits: repository graph context,
   `repopilot.toml` rule overrides, local feedback, baseline state, and full scan
-  filtering are not applied. The MCP tool uses registry default severity for known
-  rules. This is additive explain/MCP JSON; scan, review, SARIF, baseline, receipt,
-  finding IDs, severity decisions, and visibility behavior are unchanged.
+  filtering are not applied. The MCP tool uses detector-specific signal base
+  severity when known, then falls back to registry default severity for known
+  rules. This is additive explain/MCP JSON; scan, review, SARIF, baseline,
+  receipt, finding IDs, severity decisions, and visibility behavior are
+  unchanged.
 
 - **File-role classification now preserves explainable evidence.** The detailed
   classifier records one typed evidence entry for every assigned role, including
@@ -53,11 +61,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   copying classifier heuristics. Existing role decisions, finding severity,
   visibility, and report schemas are unchanged.
 
-- **The real-repo zoo now records human-reviewed dispositions for findings.** A
-  new tracked `tests/zoo/expectations/<repo>.toml` layer (one versioned file per
-  manifest repo) sits alongside the generated snapshots: snapshots answer *what
-  RepoPilot emitted*, expectations answer *how a human reviewed it*. Every
-  default-visible finding must be exhaustively labeled `actionable`,
+- **The real-repo zoo now records snapshots and human-reviewed dispositions.** A
+  curated manifest of 11 real open-source repositories is scanned reproducibly
+  via `scripts/zoo.py`, with default-visible snapshots committed under
+  `tests/zoo/snapshots/`. A tracked `tests/zoo/expectations/<repo>.toml` layer
+  (one versioned file per manifest repo) sits alongside those snapshots:
+  snapshots answer *what RepoPilot emitted*, expectations answer *how a human
+  reviewed it*. Every default-visible finding must be exhaustively labeled
+  `actionable`,
   `valid-but-accepted`, or `false-positive` with a non-empty reason; selected
   strict findings act as `selective` recall anchors that fail if they disappear.
   `python3 scripts/zoo.py scan` now validates labels and reports snapshot drift
@@ -97,6 +108,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   agents calling it received a thinner context than the CLI; they now get the same
   aggregate stack/size picture.
 
+- **Release verification now runs both performance guard scripts.** The existing
+  full-scan smoke benchmark is wired into `npm run scan:performance` and the
+  local release gate now runs it next to the changed-review performance check, so
+  the release checklist matches the shipped scripts.
+
 - **Agent-facing docs now document the false-positive/noise-reduction workflow.** MCP docs and AI-context workflow docs now call out strict-mode recall, exact duplicate aggregation, changed-scan limits, and the need for false-negative guard tests before hiding or downgrading signals.
 
 - **`language.javascript.runtime-exit-risk` downgrades `process.exit(...)` in a
@@ -135,15 +151,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   (excalidraw 76→1, changesets 38→1) with no loss of true signal.
 
 ### Fixed
-
-- **MCP finding replay can now disambiguate repeated stable IDs.**
-  `repopilot_explain_finding` accepts optional `evidence_path` and `line_start`
-  values to select one report occurrence while preserving the existing
-  baseline-stable finding ID. Calls without a locator remain backward compatible
-  for unique IDs; ambiguous IDs now return a structured candidate list instead
-  of a generic error. Scan/review schema `0.20`, baseline keys, finding IDs,
-  severity, visibility, SARIF, detector decisions, and file-scope replay
-  semantics are unchanged.
 
 - **Workspace-dependent MCP tools no longer return stale session results.**
   Removed the arguments-only in-process result cache from
@@ -291,18 +298,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   suppresses violations into such packages. Caught by the real-repo zoo:
   excalidraw dropped from 317 false positives to 0; packages without wildcard
   exports keep their boundary.
-
-### Added
-
-- **Real-repo validation "zoo".** A curated set of 11 real open-source repos
-  (`tests/zoo/manifest.toml`) spanning all 9 AST languages and their frameworks
-  is now scanned reproducibly via `scripts/zoo.py` (`clone`/`scan`/`report`),
-  pinned to fixed commit SHAs and cloned on demand into a gitignored `.zoo/`.
-  Per-repo default-visible finding snapshots are committed under
-  `tests/zoo/snapshots/`, and an opt-in regression test
-  (`REPOPILOT_ZOO=1 cargo test --test zoo_regression`) fails on any drift in
-  real-world output — turning the previously ad-hoc "run on a few real repos and
-  hunt false positives" loop into a permanent, evidence-backed gate.
 
 ## [0.18.0] - 2026-06-18
 
@@ -1139,7 +1134,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/MykytaStel/repopilot/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/MykytaStel/repopilot/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/MykytaStel/repopilot/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/MykytaStel/repopilot/compare/v0.14.0...v0.15.0

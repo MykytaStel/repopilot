@@ -87,6 +87,12 @@ npm pack --dry-run
 echo "==> Build release binary"
 cargo build --release
 
+echo "==> Changed review performance gate"
+npm run review:performance
+
+echo "==> Full scan performance gate"
+npm run scan:performance
+
 echo "==> Self-review signal quality"
 REVIEW_BASE="$(git tag --sort=-version:refname --merged HEAD | head -n 1 || true)"
 if [[ -z "$(git status --porcelain)" ]] &&

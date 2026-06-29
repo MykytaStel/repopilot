@@ -76,7 +76,7 @@ fn workspace_mode_builds_once_ignores_stale_target_binary_and_keeps_snapshots() 
     assert_contains(&stdout, "scanner mode: workspace");
     assert_contains(&stdout, "scanner profile: release");
     assert_contains(&stdout, format!("scanner binary: {}", h.current.display()));
-    assert_contains(&stdout, "scanner version: 0.18.0");
+    assert_contains(&stdout, "scanner version: 0.19.0");
     assert_contains(
         &stdout,
         "workspace commit: 0123456789abcdef0123456789abcdef01234567",
@@ -140,7 +140,7 @@ fn explicit_version_mismatch_requires_opt_in() {
         &mismatch,
     );
     assert_success(&allowed);
-    assert!(text(&allowed.stdout).contains("workspace version: 0.18.0 (mismatch allowed)"));
+    assert!(text(&allowed.stdout).contains("workspace version: 0.19.0 (mismatch allowed)"));
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn line_count(path: &Path) -> usize {
 }
 
 const CARGO_TOML: &str =
-    "[package]\nname = \"repopilot\"\nversion = \"0.18.0\"\nedition = \"2024\"\n";
+    "[package]\nname = \"repopilot\"\nversion = \"0.19.0\"\nedition = \"2024\"\n";
 const MANIFEST: &str = "[[repo]]\nname = \"sample\"\nurl = \"https://example.invalid/sample.git\"\nsha = \"abc123\"\nlanguage = \"rust\"\n";
 const SNAPSHOT: &str = "{\n  \"default\": {\n    \"by_priority\": {},\n    \"by_rule\": {},\n    \"fingerprints\": [],\n    \"visible_total\": 0\n  },\n  \"framework\": \"\",\n  \"language\": \"rust\",\n  \"repo\": \"sample\",\n  \"sha\": \"abc123\",\n  \"strict\": {\n    \"by_rule\": {},\n    \"visible_total\": 0\n  }\n}\n";
 
@@ -264,12 +264,12 @@ import json, os, sys
 with open(os.environ["FAKE_SCAN_LOG"], "a", encoding="utf-8") as log:
     log.write(sys.argv[0] + "|" + " ".join(sys.argv[1:]) + "\n")
 if sys.argv[1:] == ["--version"]:
-    print("repopilot " + os.environ.get("FAKE_REPOPILOT_VERSION", "0.18.0"))
+    print("repopilot " + os.environ.get("FAKE_REPOPILOT_VERSION", "0.19.0"))
     raise SystemExit(0)
 if len(sys.argv) > 1 and sys.argv[1] == "scan":
     profile = sys.argv[sys.argv.index("--profile") + 1]
-    version = os.environ.get("FAKE_REPOPILOT_VERSION", "0.18.0")
-    schema = os.environ.get("FAKE_REPOPILOT_SCHEMA_VERSION", "0.19")
+    version = os.environ.get("FAKE_REPOPILOT_VERSION", "0.19.0")
+    schema = os.environ.get("FAKE_REPOPILOT_SCHEMA_VERSION", "0.20")
     if profile == "strict":
         version = os.environ.get("FAKE_STRICT_REPOPILOT_VERSION", version)
         schema = os.environ.get("FAKE_STRICT_SCHEMA_VERSION", schema)
