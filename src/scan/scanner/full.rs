@@ -1,9 +1,12 @@
 use super::{collection, contract_stage};
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
-use crate::audits::pipeline::{build_file_audits, run_framework_audits, run_project_audits};
+use crate::audits::pipeline::{
+    build_file_audits, run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
+};
 use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
 use crate::findings::aggregation::aggregate_duplicate_findings;
 use crate::findings::enrichment::enrich_findings_timed;
+use crate::findings::provenance::AnalysisScope;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
 use crate::findings::types::Finding;
@@ -210,13 +213,19 @@ impl<'a> ScanEngine<'a> {
             },
             || ImportCouplingAudit.audit_with_graph(&facts, self.config, self.path),
         );
-        let query_findings = crate::audits::architecture::graph_queries::GraphQueriesAudit.audit(
-            &facts,
-            self.config,
-            &coupling_graph,
-            &resolution,
-            self.path,
+        let query_findings = stamp_findings_analysis_scope(
+            crate::audits::architecture::graph_queries::GraphQueriesAudit.audit(
+                &facts,
+                self.config,
+                &coupling_graph,
+                &resolution,
+                self.path,
+            ),
+            AnalysisScope::Repository,
         );
+
+        let coupling_findings =
+            stamp_findings_analysis_scope(coupling_findings, AnalysisScope::Repository);
 
         findings.extend(project_findings);
         findings.extend(framework_findings);

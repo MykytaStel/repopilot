@@ -1,6 +1,10 @@
+use crate::analysis::parse::ParsedFile;
 use crate::audits::metadata::{AuditKind, AuditMetadata};
 use crate::audits::traits::{FileAudit, ProjectAudit};
-use crate::findings::types::FindingCategory;
+use crate::findings::provenance::AnalysisScope;
+use crate::findings::types::{Finding, FindingCategory};
+use crate::scan::config::ScanConfig;
+use crate::scan::facts::{FileFacts, ScanFacts};
 
 pub const CODE_MARKER_RULES: &[&str] =
     &["code-marker.todo", "code-marker.fixme", "code-marker.hack"];
@@ -29,7 +33,10 @@ impl FileAuditRegistration {
     }
 
     pub(super) fn into_audit(self) -> Box<dyn FileAudit> {
-        self.audit
+        Box::new(ScopedFileAudit {
+            scope: self.metadata.kind.analysis_scope(),
+            audit: self.audit,
+        })
     }
 }
 
@@ -42,6 +49,13 @@ impl ProjectAuditRegistration {
     pub(super) fn new(metadata: AuditMetadata, audit: Box<dyn ProjectAudit>) -> Self {
         Self { metadata, audit }
     }
+
+    pub(super) fn run(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
+        stamp_findings_analysis_scope(
+            self.audit.audit(facts, config),
+            self.metadata.kind.analysis_scope(),
+        )
+    }
 }
 
 pub struct FrameworkAuditRegistration {
@@ -53,6 +67,43 @@ impl FrameworkAuditRegistration {
     pub(super) fn new(metadata: AuditMetadata, audit: Box<dyn ProjectAudit>) -> Self {
         Self { metadata, audit }
     }
+
+    pub(super) fn run(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
+        stamp_findings_analysis_scope(
+            self.audit.audit(facts, config),
+            self.metadata.kind.analysis_scope(),
+        )
+    }
+}
+
+struct ScopedFileAudit {
+    scope: AnalysisScope,
+    audit: Box<dyn FileAudit>,
+}
+
+impl FileAudit for ScopedFileAudit {
+    fn audit(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        stamp_findings_analysis_scope(self.audit.audit(file, config), self.scope)
+    }
+
+    fn audit_parsed(
+        &self,
+        file: &FileFacts,
+        parsed: &ParsedFile,
+        config: &ScanConfig,
+    ) -> Vec<Finding> {
+        stamp_findings_analysis_scope(self.audit.audit_parsed(file, parsed, config), self.scope)
+    }
+}
+
+pub(crate) fn stamp_findings_analysis_scope(
+    mut findings: Vec<Finding>,
+    scope: AnalysisScope,
+) -> Vec<Finding> {
+    for finding in &mut findings {
+        finding.provenance.analysis_scope = scope;
+    }
+    findings
 }
 
 pub(super) fn file_metadata(

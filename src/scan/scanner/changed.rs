@@ -1,8 +1,11 @@
 use super::changed_git::collect_changed_scope;
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
-use crate::audits::pipeline::{run_framework_audits, run_project_audits};
+use crate::audits::pipeline::{
+    run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
+};
 use crate::findings::aggregation::aggregate_duplicate_findings;
 use crate::findings::enrichment::enrich_findings_timed;
+use crate::findings::provenance::AnalysisScope;
 use crate::findings::quality::summarize_signal_quality_with_contract_violations;
 use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
 use crate::knowledge::decision::apply_project_decisions;
@@ -98,6 +101,9 @@ impl<'a> ChangedScanEngine<'a> {
                 )
             },
         );
+        let coupling_findings =
+            stamp_findings_analysis_scope(coupling_findings, AnalysisScope::Repository);
+
         file_stage.findings.extend(project_findings);
         file_stage.findings.extend(framework_findings);
         file_stage.findings.extend(apply_project_decisions(

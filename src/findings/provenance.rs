@@ -56,23 +56,10 @@ impl Default for FindingProvenance {
 }
 
 impl FindingProvenance {
+    /// Registry metadata may be missing even after a runner has stamped scope.
     pub fn has_default_metadata(&self) -> bool {
         self.detector == "unknown"
             && self.signal_source == SignalSource::Mixed
             && self.rule_lifecycle == RuleLifecycle::Preview
-            && self.analysis_scope == AnalysisScope::File
-    }
-}
-
-impl AnalysisScope {
-    pub fn for_signal_source(signal_source: SignalSource) -> Self {
-        match signal_source {
-            SignalSource::ConfigFile
-            | SignalSource::DependencyManifest
-            | SignalSource::ImportGraph => Self::Repository,
-            SignalSource::FrameworkDetector => Self::FrameworkProject,
-            SignalSource::GitDiff => Self::GitDiff,
-            SignalSource::TextHeuristic | SignalSource::Ast | SignalSource::Mixed => Self::File,
-        }
     }
 }

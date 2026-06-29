@@ -136,6 +136,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **Finding analysis scope now comes from the audit execution boundary.**
+  File, project, and framework runners stamp `file`, `repository`, and
+  `framework-project`; graph/coupling paths explicitly stamp repository scope.
+  Registry enrichment preserves this value instead of deriving it from
+  `signal_source`, so project text heuristics such as
+  `architecture.too-many-modules` cannot enter file-only replay. Signal source,
+  severity, confidence, visibility, finding IDs, schema `0.20`, baseline
+  behavior, and detector decisions are unchanged.
+
 - **Real-repo zoo scans now build and run the current workspace RepoPilot by
   default.** `python3 scripts/zoo.py scan` invokes Cargo once, uses the
   executable Cargo reports, and prints scanner provenance before scanning so
