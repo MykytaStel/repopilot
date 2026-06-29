@@ -37,12 +37,73 @@ pub enum FindingReplayStatus {
     Drifted,
 }
 
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+pub struct FindingOccurrenceLocator {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_start: Option<usize>,
+}
+
+impl FindingOccurrenceLocator {
+    pub fn is_empty(&self) -> bool {
+        self.evidence_path.is_none() && self.line_start.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct FindingOccurrenceCandidate {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_start: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line_end: Option<usize>,
+    pub rule_id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct FindingAmbiguityReport {
+    pub status: String,
+    pub source_report: String,
+    pub finding_id: String,
+    pub message: String,
+    pub candidates: Vec<FindingOccurrenceCandidate>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum FindingSelectionReport {
+    Explanation(Box<FindingExplanationReport>),
+    Ambiguity(FindingAmbiguityReport),
+}
+
 pub fn build_finding_explanation_from_report(
     mcp_root: &Path,
     report_json: &str,
     finding_id: &str,
     source_report: &str,
 ) -> Result<FindingExplanationReport, String> {
+    match build_finding_explanation_selection_from_report(
+        mcp_root,
+        report_json,
+        finding_id,
+        source_report,
+        None,
+    )? {
+        FindingSelectionReport::Explanation(report) => Ok(*report),
+        FindingSelectionReport::Ambiguity(ambiguity) => Err(ambiguity.message),
+    }
+}
+
+pub fn build_finding_explanation_selection_from_report(
+    mcp_root: &Path,
+    report_json: &str,
+    finding_id: &str,
+    source_report: &str,
+    locator: Option<&FindingOccurrenceLocator>,
+) -> Result<FindingSelectionReport, String> {
     if finding_id.trim().is_empty() {
         return Err("`finding_id` must not be empty".to_string());
     }
@@ -54,24 +115,59 @@ pub fn build_finding_explanation_from_report(
         .and_then(Value::as_array)
         .ok_or_else(|| "session report does not contain a findings array".to_string())?;
 
-    let matches = findings
+    let id_matches = findings
         .iter()
         .filter(|finding| finding.get("id").and_then(Value::as_str) == Some(finding_id))
         .collect::<Vec<_>>();
 
-    let finding_value = match matches.as_slice() {
-        [] => {
-            return Err(format!(
-                "finding `{finding_id}` was not found in {source_report}"
-            ));
-        }
-        [finding] => (*finding).clone(),
-        _ => {
-            return Err(format!(
-                "finding `{finding_id}` appears more than once in {source_report}"
-            ));
-        }
-    };
+    if id_matches.is_empty() {
+        return Err(format!(
+            "finding `{finding_id}` was not found in {source_report}"
+        ));
+    }
+
+    let active_locator = locator.filter(|locator| !locator.is_empty());
+    let selected_matches = id_matches
+        .iter()
+        .copied()
+        .filter(|finding| {
+            active_locator.is_none_or(|locator| finding_matches_locator(finding, locator))
+        })
+        .collect::<Vec<_>>();
+
+    if selected_matches.is_empty() {
+        return Err(format!(
+            "finding `{finding_id}` has no occurrence matching {} in {source_report}",
+            locator_description(active_locator.expect("active locator"))
+        ));
+    }
+
+    if selected_matches.len() > 1 {
+        let mut candidates = selected_matches
+            .iter()
+            .map(|finding| occurrence_candidate(finding))
+            .collect::<Vec<_>>();
+        candidates.sort_by(|left, right| {
+            left.evidence_path
+                .cmp(&right.evidence_path)
+                .then(left.line_start.cmp(&right.line_start))
+                .then(left.title.cmp(&right.title))
+        });
+
+        let message = format!(
+            "finding `{finding_id}` appears more than once in {source_report}; \
+             provide `evidence_path` and `line_start` from one candidate"
+        );
+        return Ok(FindingSelectionReport::Ambiguity(FindingAmbiguityReport {
+            status: "ambiguous".to_string(),
+            source_report: source_report.to_string(),
+            finding_id: finding_id.to_string(),
+            message,
+            candidates,
+        }));
+    }
+
+    let finding_value = (*selected_matches[0]).clone();
 
     // Review JSON flattens Finding and appends in_diff/baseline_status fields.
     // Serde ignores those additive fields while preserving the complete Finding.
@@ -80,7 +176,8 @@ pub fn build_finding_explanation_from_report(
 
     if finding.provenance.analysis_scope != AnalysisScope::File {
         return Err(format!(
-            "finding `{finding_id}` uses `{}` analysis scope;              repopilot_explain_finding currently supports file-scoped findings only",
+            "finding `{finding_id}` uses `{}` analysis scope; \
+             repopilot_explain_finding currently supports file-scoped findings only",
             analysis_scope_id(finding.provenance.analysis_scope)
         ));
     }
@@ -157,25 +254,108 @@ pub fn build_finding_explanation_from_report(
         FindingReplayStatus::Drifted
     };
 
-    Ok(FindingExplanationReport {
-        source_report: source_report.to_string(),
-        source_schema_version: report
-            .get("schema_version")
-            .and_then(Value::as_str)
-            .map(str::to_string),
-        source_root: source_root.to_string_lossy().to_string(),
-        finding,
-        stored_decision,
-        replay: FindingDecisionReplay {
-            status,
-            action_matches,
-            severity_matches,
-            reason_matches,
-            detector_local_severity_adjustment,
-            notes,
+    Ok(FindingSelectionReport::Explanation(Box::new(
+        FindingExplanationReport {
+            source_report: source_report.to_string(),
+            source_schema_version: report
+                .get("schema_version")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            source_root: source_root.to_string_lossy().to_string(),
+            finding,
+            stored_decision,
+            replay: FindingDecisionReplay {
+                status,
+                action_matches,
+                severity_matches,
+                reason_matches,
+                detector_local_severity_adjustment,
+                notes,
+            },
+            explanation,
         },
-        explanation,
-    })
+    )))
+}
+
+fn finding_matches_locator(finding: &Value, locator: &FindingOccurrenceLocator) -> bool {
+    let evidence = finding
+        .get("evidence")
+        .and_then(Value::as_array)
+        .and_then(|evidence| evidence.first());
+
+    if let Some(expected_path) = locator.evidence_path.as_deref() {
+        let Some(actual_path) = evidence
+            .and_then(|evidence| evidence.get("path"))
+            .and_then(Value::as_str)
+        else {
+            return false;
+        };
+        if normalize_report_path(actual_path) != normalize_report_path(expected_path) {
+            return false;
+        }
+    }
+
+    if let Some(expected_line) = locator.line_start {
+        let Some(actual_line) = evidence
+            .and_then(|evidence| evidence.get("line_start"))
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok())
+        else {
+            return false;
+        };
+        if actual_line != expected_line {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn occurrence_candidate(finding: &Value) -> FindingOccurrenceCandidate {
+    let evidence = finding
+        .get("evidence")
+        .and_then(Value::as_array)
+        .and_then(|evidence| evidence.first());
+
+    FindingOccurrenceCandidate {
+        evidence_path: evidence
+            .and_then(|evidence| evidence.get("path"))
+            .and_then(Value::as_str)
+            .map(normalize_report_path),
+        line_start: evidence
+            .and_then(|evidence| evidence.get("line_start"))
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok()),
+        line_end: evidence
+            .and_then(|evidence| evidence.get("line_end"))
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok()),
+        rule_id: finding
+            .get("rule_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        title: finding
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    }
+}
+
+fn locator_description(locator: &FindingOccurrenceLocator) -> String {
+    let mut parts = Vec::new();
+    if let Some(path) = locator.evidence_path.as_deref() {
+        parts.push(format!("evidence_path={}", normalize_report_path(path)));
+    }
+    if let Some(line) = locator.line_start {
+        parts.push(format!("line_start={line}"));
+    }
+    parts.join(", ")
+}
+
+fn normalize_report_path(path: &str) -> String {
+    path.replace('\\', "/")
 }
 
 fn resolve_source_root(mcp_root: &Path, report: &Value) -> Result<PathBuf, String> {

@@ -7,8 +7,10 @@ pub mod render;
 pub use base_severity::base_severity_for_explain;
 pub use builder::{build_explain_report, build_explain_report_with_root};
 pub use finding::{
-    FindingDecisionReplay, FindingExplanationReport, FindingReplayStatus,
-    build_finding_explanation_from_report,
+    FindingAmbiguityReport, FindingDecisionReplay, FindingExplanationReport,
+    FindingOccurrenceCandidate, FindingOccurrenceLocator, FindingReplayStatus,
+    FindingSelectionReport, build_finding_explanation_from_report,
+    build_finding_explanation_selection_from_report,
 };
 pub use model::{
     ExplainContext, ExplainDecision, ExplainDecisionTraceStep, ExplainReport, ExplainRoleEvidence,

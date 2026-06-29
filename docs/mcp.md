@@ -38,7 +38,7 @@ non-destructive, idempotent, and closed-world.
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
-| `repopilot_explain_finding` | Replay a file-scoped emitted finding by stable ID from the current MCP session | `finding_id`, `source` |
+| `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator | `finding_id`, `source`, `evidence_path`, `line_start` |
 
 `repopilot_explain_file` returns additive JSON fields for explicit scope,
 role evidence, applicability checks, every ordered override, severity
@@ -58,6 +58,31 @@ severity, or reason. Repository, workspace, Git-diff, and framework-project
 findings are rejected explicitly because correct replay requires rebuilding
 their wider analysis context. The finding-level severity remains authoritative
 when detector-local policy differs from the Knowledge Engine output.
+
+A finding ID is stable baseline identity, not guaranteed occurrence identity.
+When the selected report contains several entries with the same ID,
+`repopilot_explain_finding` returns:
+
+```json
+{
+  "status": "ambiguous",
+  "finding_id": "…",
+  "candidates": [
+    {
+      "evidence_path": "src/config.rs",
+      "line_start": 10
+    },
+    {
+      "evidence_path": "src/config.rs",
+      "line_start": 20
+    }
+  ]
+}
+```
+
+Pass one candidate back as `evidence_path` plus `line_start` to select the exact
+occurrence. The stable finding ID and baseline matching contract remain
+unchanged.
 
 Every tool accepts a workspace-relative `path` where applicable. Review defaults
 to `scope=changed`, `profile=default`, `fail_on_review=none`, and

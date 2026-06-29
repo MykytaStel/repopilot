@@ -1,7 +1,9 @@
 //! The `repopilot_explain_finding` MCP tool: replay one emitted finding by
 //! stable ID from the latest scan or review stored in this MCP session.
 
-use repopilot::explain::build_finding_explanation_from_report;
+use repopilot::explain::{
+    FindingOccurrenceLocator, build_finding_explanation_selection_from_report,
+};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -23,6 +25,15 @@ pub fn definition() -> Value {
                     "enum": ["last-scan", "last-review"],
                     "default": "last-scan",
                     "description": "Session report containing the finding."
+                },
+                "evidence_path": {
+                    "type": "string",
+                    "description": "Optional evidence path from an ambiguity candidate. Used with line_start to select one occurrence without changing the stable finding ID."
+                },
+                "line_start": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional evidence start line from an ambiguity candidate."
                 }
             },
             "required": ["finding_id"],
@@ -52,6 +63,17 @@ pub fn call(
         .get("source")
         .and_then(Value::as_str)
         .unwrap_or("last-scan");
+    let locator = FindingOccurrenceLocator {
+        evidence_path: arguments
+            .get("evidence_path")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        line_start: arguments
+            .get("line_start")
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok()),
+    };
+    let locator = (!locator.is_empty()).then_some(locator);
 
     let report = match source {
         "last-scan" => last_scan.ok_or_else(|| {
@@ -64,8 +86,14 @@ pub fn call(
         other => return Err(format!("invalid source: {other}")),
     };
 
-    let explanation = build_finding_explanation_from_report(root, report, finding_id, source)?;
-    serde_json::to_string_pretty(&explanation)
+    let selection = build_finding_explanation_selection_from_report(
+        root,
+        report,
+        finding_id,
+        source,
+        locator.as_ref(),
+    )?;
+    serde_json::to_string_pretty(&selection)
         .map_err(|error| format!("render finding explanation failed: {error}"))
 }
 
@@ -181,5 +209,70 @@ mod tests {
         .expect_err("missing scan must fail");
 
         assert!(error.contains("run repopilot_scan first"));
+    }
+
+    fn duplicate_report(report: &str) -> String {
+        let mut value: Value = serde_json::from_str(report).expect("report JSON");
+        let mut duplicate = value["findings"][0].clone();
+        duplicate["evidence"][0]["line_start"] = json!(2);
+        duplicate["evidence"][0]["snippet"] = json!("panic!(\"second\")");
+        value["findings"]
+            .as_array_mut()
+            .expect("findings array")
+            .push(duplicate);
+        serde_json::to_string(&value).expect("serialize duplicate report")
+    }
+
+    #[test]
+    fn tool_returns_candidates_for_an_ambiguous_stable_id() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let (report, finding_id) = report_fixture(temp.path());
+        let report = duplicate_report(&report);
+
+        let rendered = call(
+            &json!({
+                "finding_id": finding_id,
+                "source": "last-scan"
+            }),
+            temp.path(),
+            Some(&report),
+            None,
+        )
+        .expect("ambiguity is structured output");
+
+        let value: Value = serde_json::from_str(&rendered).expect("valid JSON");
+        assert_eq!(value["status"], "ambiguous");
+        assert_eq!(value["candidates"].as_array().map(Vec::len), Some(2));
+        assert_eq!(
+            value["candidates"][0]["evidence_path"],
+            "src/domain/service.rs"
+        );
+        assert_eq!(value["candidates"][0]["line_start"], 1);
+        assert_eq!(value["candidates"][1]["line_start"], 2);
+    }
+
+    #[test]
+    fn tool_resolves_an_ambiguous_id_with_an_occurrence_locator() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let (report, finding_id) = report_fixture(temp.path());
+        let report = duplicate_report(&report);
+
+        let rendered = call(
+            &json!({
+                "finding_id": finding_id,
+                "source": "last-scan",
+                "evidence_path": "src/domain/service.rs",
+                "line_start": 2
+            }),
+            temp.path(),
+            Some(&report),
+            None,
+        )
+        .expect("resolve finding occurrence");
+
+        let value: Value = serde_json::from_str(&rendered).expect("valid JSON");
+        assert_eq!(value["finding"]["evidence"][0]["line_start"], 2);
+        assert_eq!(value["replay"]["status"], "matched");
+        assert!(value.get("status").is_none());
     }
 }

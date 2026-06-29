@@ -136,6 +136,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **MCP finding replay can now disambiguate repeated stable IDs.**
+  `repopilot_explain_finding` accepts optional `evidence_path` and `line_start`
+  values to select one report occurrence while preserving the existing
+  baseline-stable finding ID. Calls without a locator remain backward compatible
+  for unique IDs; ambiguous IDs now return a structured candidate list instead
+  of a generic error. Scan/review schema `0.20`, baseline keys, finding IDs,
+  severity, visibility, SARIF, detector decisions, and file-scope replay
+  semantics are unchanged.
+
 - **Workspace-dependent MCP tools no longer return stale session results.**
   Removed the arguments-only in-process result cache from
   `repopilot_review_change`, `repopilot_context`, and
