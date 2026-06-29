@@ -6,7 +6,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-No entries yet.
+### Changed
+
+- GitHub Release notes now come from structurally validated curated
+  `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
+  release journal.
 
 ## [0.19.0] - 2026-06-29
 
