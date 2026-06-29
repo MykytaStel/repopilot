@@ -44,8 +44,9 @@ non-destructive, idempotent, and closed-world.
 role evidence, applicability checks, every ordered override, severity
 transitions, and the final default-profile visibility decision. It resolves
 executable-package manifest context from the MCP root so `cli-executable`
-classification matches normal scanning. Its rule base severity comes from the
-rule registry when a known `rule` is supplied.
+classification matches normal scanning. Its rule base severity comes from
+detector-specific signal defaults when known, then falls back to the rule
+registry when a known `rule` is supplied.
 
 `repopilot_explain_finding` consumes a stable file-scoped finding ID from
 either `repopilot://last-scan` or `repopilot://last-review`. It uses the stored
@@ -118,13 +119,14 @@ The server exposes:
 - `repopilot://last-scan`: the last successful scan in this session;
 - `repopilot://last-review`: the last successful review in this session.
 
-Last-result resources appear after the corresponding tool has run. Identical
-non-scan tool calls are served from the in-process session cache; `repopilot_scan`
-uses the persistent cache above because its correctness depends on Git state.
-`repopilot_explain_finding` bypasses the session cache because its result depends
-on the mutable `last-scan` or `last-review` value. Session-cache invalidation for
-`repopilot_review_change`, `repopilot_context`, and `repopilot_explain_file`
-remains separate follow-up work.
+Last-result resources appear after the corresponding tool has run.
+Workspace-dependent MCP tools are evaluated on every call so edits, manifest
+changes, feedback, ignore files, configuration, and review state cannot be
+hidden behind an arguments-only result cache. `repopilot_scan` keeps its separate
+persistent cache described above; that cache validates Git/config/input
+fingerprints and prefers a fresh scan whenever an input is uncertain.
+Successful scan and review calls always replace `repopilot://last-scan` and
+`repopilot://last-review` with the exact result returned to the client.
 
 ## Prompts
 

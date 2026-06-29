@@ -1,8 +1,10 @@
+mod base_severity;
 pub mod builder;
 pub mod finding;
 pub mod model;
 pub mod render;
 
+pub use base_severity::base_severity_for_explain;
 pub use builder::{build_explain_report, build_explain_report_with_root};
 pub use finding::{
     FindingDecisionReplay, FindingExplanationReport, FindingReplayStatus,
