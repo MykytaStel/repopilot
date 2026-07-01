@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(crate) static WEB_RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -11,6 +11,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some(
             "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/var",
         ),
@@ -28,6 +30,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A console.log statement was found outside of test files. Debug logging left in production code leaks information and adds noise.",
         recommendation: Some(
@@ -43,6 +47,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://react.dev/reference/react/Component"),
         description: "Class components are the legacy React API. Function components with hooks are now the recommended approach and are better supported by the React compiler.",
         recommendation: Some(
@@ -58,6 +64,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some(
             "https://react.dev/blog/2024/04/25/react-19-upgrade-guide#removed-proptypes",
         ),
@@ -75,6 +83,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some("https://react-native-async-storage.github.io/async-storage/docs/install"),
         description: "`@react-native-community/async-storage` is unmaintained. The actively maintained fork is `@react-native-async-storage/async-storage`.",
         recommendation: Some(
@@ -90,6 +100,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some("https://reactnavigation.org/docs/getting-started"),
         description: "The installed version of `@react-navigation/native` is not compatible with the React Native version in use.",
         recommendation: Some(
@@ -105,6 +117,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some(
             "https://docs.swmansion.com/react-native-reanimated/docs/fundamentals/installation",
         ),
@@ -122,6 +136,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some("https://docs.swmansion.com/react-native-gesture-handler/docs/installation"),
         description: "`react-native-gesture-handler` v1 does not support React Native ≥0.72. Gesture responder internals changed in 0.72.",
         recommendation: Some(
@@ -137,6 +153,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/new-architecture-intro"),
         description: "A dependency in use has no New Architecture (TurboModules / Fabric) support and will break when the New Architecture is enabled.",
         recommendation: Some(
@@ -152,6 +170,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::ConfigFile,
+
+        requirements: RuleRequirements::framework_config(RuleLifecycle::Preview),
         docs_url: Some("https://docs.djangoproject.com/en/stable/ref/settings/#debug"),
         description: "Django DEBUG mode exposes detailed error pages with stack traces, local variables, and settings values.",
         recommendation: Some(
@@ -167,6 +187,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::ConfigFile,
+
+        requirements: RuleRequirements::framework_config(RuleLifecycle::Preview),
         docs_url: Some("https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts"),
         description: "An empty ALLOWED_HOSTS setting leaves deployed Django services exposed to unsafe Host header handling.",
         recommendation: Some(
@@ -182,6 +204,8 @@ pub(crate) static WEB_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::framework_text(RuleLifecycle::Preview),
         docs_url: Some(
             "https://docs.djangoproject.com/en/stable/topics/db/sql/#passing-parameters-into-raw",
         ),

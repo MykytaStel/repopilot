@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(super) static RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -13,6 +13,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "Rust panic-style operations such as unwrap(), expect(), panic!, todo!, and unimplemented! can be risky in reusable production code. Their severity depends on whether the code is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
@@ -32,6 +34,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "Go panic and process-exit operations can terminate the program abruptly. Their risk depends on whether the file is test code, CLI boundary code, library code, or domain code.",
         recommendation: Some(
@@ -51,6 +55,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "A broad `except:` handler can hide unrelated failures. `assert` (often type-narrowing or an internal invariant) and `raise NotImplementedError` (usually an abstract-method declaration) are overwhelmingly intentional, so they are kept low and surface only under the strict profile.",
         recommendation: Some(
@@ -70,6 +76,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "A `process.exit(...)` call terminates the host process, which is expected at a CLI boundary but unsafe in reusable browser, Node, or package code.",
         recommendation: Some(
@@ -89,6 +97,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C# domain/library code can become runtime failures that callers cannot handle precisely.",
         recommendation: Some(
