@@ -360,6 +360,47 @@ def check_removed_vscode_surface() -> None:
         )
 
 
+def check_roadmap_docs() -> None:
+    roadmap = ROOT / "docs" / "roadmap" / "v0.20.md"
+    scorecard = ROOT / "docs" / "engineering" / "v0.20-release-scorecard.md"
+    required_files = {
+        "v0.20 roadmap": roadmap,
+        "v0.20 release scorecard": scorecard,
+    }
+    missing = [name for name, path in required_files.items() if not path.exists()]
+    if missing:
+        raise ContractError(
+            "Missing release documentation:\n  " + "\n  ".join(missing)
+        )
+
+    roadmap_text = read_text(roadmap)
+    required_headings = [
+        "Problem Statement",
+        "Product Promise",
+        "Non-Goals",
+        "Compatibility Contract",
+        "Planned PR Sequence",
+        "Release Gates",
+        "Definition of Done",
+    ]
+    missing_headings = [
+        heading
+        for heading in required_headings
+        if not re.search(rf"^##+ {re.escape(heading)}", roadmap_text, re.MULTILINE)
+    ]
+    if missing_headings:
+        raise ContractError(
+            "v0.20 roadmap missing required headings:\n  "
+            + "\n  ".join(missing_headings)
+        )
+
+    docs_index = read_text(ROOT / "docs" / "README.md")
+    if "roadmap/v0.20.md" not in docs_index:
+        raise ContractError("docs/README.md does not link to v0.20 roadmap")
+    if "v0.20-release-scorecard.md" not in docs_index:
+        raise ContractError("docs/README.md does not link to v0.20 release scorecard")
+
+
 def check_contract(tag: str | None) -> None:
     version = expected_version(tag)
     check_versions(version)
@@ -371,6 +412,7 @@ def check_contract(tag: str | None) -> None:
     check_action_pins()
     check_release_orchestration()
     check_removed_vscode_surface()
+    check_roadmap_docs()
     print(f"Release contract passed for {version}")
 
 

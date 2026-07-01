@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- v0.20 roadmap, performance benchmark matrix, and release scorecard define the
+  product, engineering, and compatibility contract before implementation starts.
+
 ### Changed
 
 - GitHub Release notes now come from structurally validated curated

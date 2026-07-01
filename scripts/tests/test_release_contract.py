@@ -221,6 +221,66 @@ class ReleaseContractTests(unittest.TestCase):
         ):
             release_contract.check_removed_vscode_surface()
 
+    def test_roadmap_docs_require_v020_roadmap_file(self) -> None:
+        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
+        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "Missing release documentation"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_require_v020_scorecard_file(self) -> None:
+        self.write(
+            "docs/roadmap/v0.20.md",
+            "# v0.20\n## Problem Statement\n## Product Promise\n"
+            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
+            "## Release Gates\n## Definition of Done\n",
+        )
+        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "Missing release documentation"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_require_headings(self) -> None:
+        self.write("docs/roadmap/v0.20.md", "# v0.20\n## Problem Statement\n")
+        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
+        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "missing required headings"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_require_index_links(self) -> None:
+        self.write(
+            "docs/roadmap/v0.20.md",
+            "# v0.20\n## Problem Statement\n## Product Promise\n"
+            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
+            "## Release Gates\n## Definition of Done\n",
+        )
+        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
+        self.write("docs/README.md", "- no links here\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "does not link"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_pass_when_complete(self) -> None:
+        self.write(
+            "docs/roadmap/v0.20.md",
+            "# v0.20\n## Problem Statement\n## Product Promise\n"
+            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
+            "## Release Gates\n## Definition of Done\n",
+        )
+        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
+        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
+
+        release_contract.check_roadmap_docs()
+
 
 if __name__ == "__main__":
     unittest.main()
