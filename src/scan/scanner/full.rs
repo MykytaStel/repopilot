@@ -19,6 +19,7 @@ use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use crate::scan::session::AnalysisSession;
 use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
@@ -32,11 +33,21 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     ScanEngine::new(path, config).run()
 }
 
+pub fn scan_session(session: &AnalysisSession) -> io::Result<ScanSummary> {
+    ScanEngine::from_session(session).run()
+}
+
 pub fn scan_path_with_config_and_facts_summary(
     path: &Path,
     config: &ScanConfig,
 ) -> io::Result<(ScanSummary, RepoFactsSummary)> {
     ScanEngine::new(path, config).run_with_facts_summary()
+}
+
+pub fn scan_session_with_facts_summary(
+    session: &AnalysisSession,
+) -> io::Result<(ScanSummary, RepoFactsSummary)> {
+    ScanEngine::from_session(session).run_with_facts_summary()
 }
 
 pub struct ScanEngine<'a> {
@@ -71,6 +82,10 @@ pub(super) struct ProjectAnalysisStage {
 impl<'a> ScanEngine<'a> {
     pub fn new(path: &'a Path, config: &'a ScanConfig) -> Self {
         Self { path, config }
+    }
+
+    pub fn from_session(session: &'a AnalysisSession) -> Self {
+        Self::new(session.analysis_path(), session.scan_config())
     }
 
     pub fn run(self) -> io::Result<ScanSummary> {

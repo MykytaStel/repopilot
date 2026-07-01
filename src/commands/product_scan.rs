@@ -2,7 +2,6 @@ use crate::commands::progress::{finish_spinner, make_spinner};
 use crate::commands::scan_config::{ScanConfigOverrides, build_scan_config};
 use crate::commands::{CliExit, EXIT_RUNTIME, EXIT_USAGE};
 use repopilot::config::loader::{load_default_config, load_optional_config};
-use repopilot::config::model::RepoPilotConfig;
 use repopilot::config::presets::{Preset, apply_preset};
 use repopilot::facts::RepoFactsSummary;
 use repopilot::findings::feedback::apply_local_feedback;
@@ -10,11 +9,12 @@ use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 use repopilot::review::diff::ChangedFile;
 use repopilot::scan::scanner::{
-    scan_changed_with_config, scan_path_with_config, scan_path_with_config_and_facts_summary,
-    scan_resolved_changed_with_config,
+    scan_changed_session, scan_resolved_changed_session, scan_session,
+    scan_session_with_facts_summary,
 };
+use repopilot::scan::session::AnalysisSession;
 use repopilot::scan::types::ScanSummary;
-use repopilot::scan::workspace_scan::scan_workspace_with_config;
+use repopilot::scan::workspace_scan::scan_workspace_session;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,6 @@ pub enum ProductScanMode {
         since: Option<String>,
     },
     ResolvedChanged {
-        repo_root: PathBuf,
         changed_files: Vec<ChangedFile>,
         base_ref: Option<String>,
     },
@@ -46,7 +45,7 @@ pub struct ProductScanRequest {
 pub struct ProductScanResult {
     pub summary: ScanSummary,
     pub repo_facts_summary: Option<RepoFactsSummary>,
-    pub repo_config: RepoPilotConfig,
+    pub session: AnalysisSession,
     pub scan_elapsed: Duration,
 }
 
@@ -80,6 +79,14 @@ fn run_product_scan_internal(
     }
 
     let scan_config = build_scan_config(&repo_config, request.overrides);
+    let session = AnalysisSession::new(
+        request.path.clone(),
+        repo_config,
+        scan_config,
+        request.visibility_profile,
+    );
+    debug_assert!(!session.revision().id().is_empty());
+
     let pb = if request.no_progress {
         None
     } else {
@@ -88,31 +95,21 @@ fn run_product_scan_internal(
     let scan_start = Instant::now();
     let scan_result = match &request.mode {
         ProductScanMode::Full if include_repo_facts_summary => {
-            scan_path_with_config_and_facts_summary(&request.path, &scan_config)
+            scan_session_with_facts_summary(&session)
                 .map(|(summary, facts_summary)| (summary, Some(facts_summary)))
         }
-        ProductScanMode::Full => {
-            scan_path_with_config(&request.path, &scan_config).map(|summary| (summary, None))
-        }
+        ProductScanMode::Full => scan_session(&session).map(|summary| (summary, None)),
         ProductScanMode::Workspace => {
-            scan_workspace_with_config(&request.path, &scan_config).map(|summary| (summary, None))
+            scan_workspace_session(&session).map(|summary| (summary, None))
         }
         ProductScanMode::Changed { since } => {
-            scan_changed_with_config(&request.path, &scan_config, since.as_deref())
-                .map(|summary| (summary, None))
+            scan_changed_session(&session, since.as_deref()).map(|summary| (summary, None))
         }
         ProductScanMode::ResolvedChanged {
-            repo_root,
             changed_files,
             base_ref,
-        } => scan_resolved_changed_with_config(
-            &request.path,
-            &scan_config,
-            repo_root.clone(),
-            changed_files.clone(),
-            base_ref.as_deref(),
-        )
-        .map(|summary| (summary, None)),
+        } => scan_resolved_changed_session(&session, changed_files.clone(), base_ref.as_deref())
+            .map(|summary| (summary, None)),
     };
     let scan_elapsed = scan_start.elapsed();
     finish_spinner(pb);
@@ -120,19 +117,19 @@ fn run_product_scan_internal(
     let (mut summary, repo_facts_summary) = scan_result?;
 
     if !request.ignore_feedback {
-        apply_local_feedback(&mut summary, &request.path)?;
+        apply_local_feedback(&mut summary, session.analysis_path())?;
     }
 
     if !request.pre_visibility_filter.is_empty() {
         request.pre_visibility_filter.apply_to_summary(&mut summary);
     }
 
-    apply_visibility_profile(&mut summary, request.visibility_profile);
+    apply_visibility_profile(&mut summary, session.visibility_profile());
 
     Ok(ProductScanResult {
         summary,
         repo_facts_summary,
-        repo_config,
+        session,
         scan_elapsed,
     })
 }

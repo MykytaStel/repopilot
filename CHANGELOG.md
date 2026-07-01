@@ -13,6 +13,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Scan, review, AI-context, baseline, and MCP analysis requests now execute through
+  one immutable `AnalysisSession` that owns the target path, resolved workspace
+  root, workspace revision, repository/scan configuration, and visibility profile.
+  Existing CLI output, report schemas, finding IDs, baselines, and MCP tools are
+  unchanged.
 - GitHub Release notes now come from structurally validated curated
   `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.

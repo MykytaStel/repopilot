@@ -10,6 +10,8 @@ pub mod markers;
 pub(crate) mod path_classification;
 #[doc(hidden)]
 pub mod scanner;
+#[doc(hidden)]
+pub mod session;
 pub mod types;
 #[doc(hidden)]
 pub mod workspace;

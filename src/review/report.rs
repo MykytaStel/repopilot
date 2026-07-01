@@ -13,6 +13,7 @@ use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, detect_boundary_signals, tiered};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
+use crate::scan::session::AnalysisSession;
 use crate::scan::types::ScanSummary;
 use std::path::{Path, PathBuf};
 
@@ -82,6 +83,15 @@ pub fn build_review_report_since(
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
     let input = load_review_input_since(scan_path, base)?;
     build_review_report_from_input(summary, input, baseline, config)
+}
+
+pub fn build_review_report_from_session(
+    summary: ScanSummary,
+    input: ReviewInput,
+    baseline: Option<(&Baseline, PathBuf)>,
+    session: &AnalysisSession,
+) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
+    build_review_report_from_input(summary, input, baseline, session.repo_config())
 }
 
 pub fn build_review_report_from_input(
