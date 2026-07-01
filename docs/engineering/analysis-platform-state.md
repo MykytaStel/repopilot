@@ -66,7 +66,7 @@ RepoPilot already provides:
 - `ScanFacts` and `FileFacts` as structured scan inputs;
 - shared parse-once tree-sitter parsing;
 - import extraction and graph-related logic;
-- rule metadata and a rule lifecycle;
+- rule metadata, lifecycle, and explicit scope/fact/cache requirements;
 - a finding contract with evidence, confidence, severity, provenance, and risk;
 - explainable risk scoring;
 - local feedback and suppressions;

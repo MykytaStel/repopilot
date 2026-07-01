@@ -1,4 +1,5 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
+use crate::rules::requirements::RuleRequirements;
 use crate::rules::{RuleLifecycle, SignalSource};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +22,9 @@ pub struct RuleMetadata {
     pub contextual_confidence: bool,
     pub lifecycle: RuleLifecycle,
     pub signal_source: SignalSource,
+    /// Declarative execution contract used by documentation now and by the
+    /// bounded scheduler/cache planner in later v0.20 milestones.
+    pub requirements: RuleRequirements,
     pub docs_url: Option<&'static str>,
     pub description: &'static str,
     pub recommendation: Option<&'static str>,
@@ -40,6 +44,7 @@ impl RuleMetadata {
         contextual_confidence: false,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
+        requirements: RuleRequirements::UNDECLARED,
         docs_url: None,
         description: "",
         recommendation: None,

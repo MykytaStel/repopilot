@@ -13,6 +13,10 @@ RepoPilot ships 52 rules across 5 categories. Every finding traces back to one o
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 An index file re-exports many modules or relies heavily on wildcard exports. Large barrel files can become unstable module hubs and make dependency boundaries harder to understand.
 
@@ -24,6 +28,10 @@ An index file re-exports many modules or relies heavily on wildcard exports. Lar
 - **Confidence:** HIGH
 - **Lifecycle:** stable
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Two or more files import each other, forming a cycle. Circular dependencies make build order undefined, complicate testing, and prevent dead-code elimination.
 
@@ -39,6 +47,10 @@ Two or more files import each other, forming a cycle. Circular dependencies make
 - **Confidence:** HIGH
 - **Lifecycle:** experimental
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 This production file is not imported by any other project file and is not a known entrypoint. It may be dead code.
 
@@ -52,6 +64,10 @@ This production file is not imported by any other project file and is not a know
 - **Confidence:** MEDIUM
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A file is nested deeply within the directory structure. Deep directory nesting makes the codebase harder to navigate, import from, and maintain.
 
@@ -63,6 +79,10 @@ A file is nested deeply within the directory structure. Deep directory nesting m
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A source file imports across three or more parent directories. Deep relative imports are fragile during refactors and often indicate missing module boundaries or aliases.
 
@@ -74,6 +94,10 @@ A source file imports across three or more parent directories. Deep relative imp
 - **Confidence:** HIGH
 - **Lifecycle:** stable
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 This file depends on an unusually large number of other internal modules, making it a fragile integration point that breaks whenever any dependency changes.
 
@@ -89,6 +113,10 @@ This file depends on an unusually large number of other internal modules, making
 - **Confidence:** HIGH
 - **Lifecycle:** stable
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 This file is both widely imported (high fan-in) and depends on many other modules (high fan-out). Changes here ripple across the codebase with no stable upstream to absorb them.
 
@@ -104,6 +132,10 @@ This file is both widely imported (high fan-in) and depends on many other module
 - **Confidence:** MEDIUM
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 This file has more lines of code than the configured threshold. Large files accumulate responsibilities over time and make navigation and testing harder.
 
@@ -115,6 +147,10 @@ This file has more lines of code than the configured threshold. Large files accu
 - **Confidence:** HIGH
 - **Lifecycle:** experimental
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A module imports another module from a higher layer than its own, against the order declared in `[[architecture.layers]]`. Opt-in: emits nothing unless layers are configured.
 
@@ -126,6 +162,10 @@ A module imports another module from a higher layer than its own, against the or
 - **Confidence:** MEDIUM
 - **Lifecycle:** experimental
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A file imports a private module from another package instead of using its public API. Auto-enabled on a detected npm/pnpm/Cargo/Go workspace; can also be driven explicitly with `[architecture] package_roots`.
 
@@ -139,6 +179,10 @@ A file imports a private module from another package instead of using its public
 - **Confidence:** HIGH
 - **Lifecycle:** experimental
 - **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A production module imports a test or fixture module.
 
@@ -150,6 +194,10 @@ A production module imports a test or fixture module.
 - **Confidence:** MEDIUM
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A directory contains more files than the configured threshold, suggesting it may need to be broken into sub-packages.
 
@@ -163,6 +211,10 @@ A directory contains more files than the configured threshold, suggesting it may
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A FIXME comment marks known broken or problematic code that has not yet been addressed.
 
@@ -174,6 +226,10 @@ A FIXME comment marks known broken or problematic code that has not yet been add
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A HACK comment marks a workaround that bypasses a proper solution. Hacks tend to become permanent and break under refactoring.
 
@@ -185,6 +241,10 @@ A HACK comment marks a workaround that bypasses a proper solution. Hacks tend to
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A TODO comment marks unfinished work. Unresolved TODOs accumulate as technical debt if not tracked in an issue tracker.
 
@@ -196,6 +256,10 @@ A TODO comment marks unfinished work. Unresolved TODOs accumulate as technical d
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 The file's branch count density exceeds the complexity threshold, indicating too many execution paths. High complexity increases the defect rate and testing burden.
 
@@ -207,6 +271,10 @@ The file's branch count density exceeds the complexity threshold, indicating too
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A function's control flow is deeply nested or branch-heavy, measured by a cognitive-complexity score that weights nesting depth rather than counting branches flatly. Deeply nested logic is disproportionately hard to read, test, and change.
 
@@ -220,6 +288,10 @@ A function's control flow is deeply nested or branch-heavy, measured by a cognit
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A source file contains deeply nested control flow blocks (if, loops, match, try). High nesting depth makes code hard to read, maintain, and test.
 
@@ -231,6 +303,10 @@ A source file contains deeply nested control flow blocks (if, loops, match, try)
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A function is longer than the configured line threshold. Long functions are harder to test, understand, and safely refactor.
 
@@ -244,6 +320,10 @@ A function is longer than the configured line threshold. Long functions are hard
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 Go panic and process-exit operations can terminate the program abruptly. Their risk depends on whether the file is test code, CLI boundary code, library code, or domain code.
 
@@ -257,6 +337,10 @@ Go panic and process-exit operations can terminate the program abruptly. Their r
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A `process.exit(...)` call terminates the host process, which is expected at a CLI boundary but unsafe in reusable browser, Node, or package code.
 
@@ -270,6 +354,10 @@ A `process.exit(...)` call terminates the host process, which is expected at a C
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C# domain/library code can become runtime failures that callers cannot handle precisely.
 
@@ -283,6 +371,10 @@ Generic fatal exceptions and not-implemented placeholders in Java, Kotlin, or C#
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A broad `except:` handler can hide unrelated failures. `assert` (often type-narrowing or an internal invariant) and `raise NotImplementedError` (usually an abstract-method declaration) are overwhelmingly intentional, so they are kept low and surface only under the strict profile.
 
@@ -296,6 +388,10 @@ A broad `except:` handler can hide unrelated failures. `assert` (often type-narr
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** file
+- **Required facts:** file-metadata, parsed-syntax, file-context
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 Rust panic-style operations such as unwrap(), expect(), panic!, todo!, and unimplemented! can be risky in reusable production code. Their severity depends on whether the code is test code, CLI boundary code, library code, or domain code.
 
@@ -311,6 +407,10 @@ Rust panic-style operations such as unwrap(), expect(), panic!, todo!, and unimp
 - **Confidence:** MEDIUM
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 The project has no recognisable test directory (tests/, __tests__, spec/). Without tests, correctness can only be verified manually.
 
@@ -322,6 +422,10 @@ The project has no recognisable test directory (tests/, __tests__, spec/). Witho
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** text-heuristic
+- **Execution scope:** repository
+- **Required facts:** file-metadata, file-content, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A source file has no matching test file. Untested code is more likely to regress during refactoring.
 
@@ -335,6 +439,10 @@ A source file has no matching test file. Untested code is more likely to regress
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** config-file
+- **Execution scope:** framework-project
+- **Required facts:** config-file, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Django DEBUG mode exposes detailed error pages with stack traces, local variables, and settings values.
 
@@ -348,6 +456,10 @@ Django DEBUG mode exposes detailed error pages with stack traces, local variable
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** config-file
+- **Execution scope:** framework-project
+- **Required facts:** config-file, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 An empty ALLOWED_HOSTS setting leaves deployed Django services exposed to unsafe Host header handling.
 
@@ -361,6 +473,10 @@ An empty ALLOWED_HOSTS setting leaves deployed Django services exposed to unsafe
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** text-heuristic
+- **Execution scope:** framework-project
+- **Required facts:** file-content, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 String formatting inside cursor.execute can turn user-controlled values into SQL injection risk.
 
@@ -374,6 +490,10 @@ String formatting inside cursor.execute can turn user-controlled values into SQL
 - **Confidence:** HIGH
 - **Lifecycle:** stable
 - **Signal source:** config-file
+- **Execution scope:** repository
+- **Required facts:** config-file, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A local `.env`/`.env.local` file or a shared `.env.*` variant with credential-shaped content was committed. Local env files commonly hold secrets; shared build env files may hold public browser configuration but still require content inspection.
 
@@ -389,6 +509,10 @@ A local `.env`/`.env.local` file or a shared `.env.*` variant with credential-sh
 - **Confidence:** HIGH
 - **Lifecycle:** stable
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A PEM-encoded private key block was found in a source file. Committed private keys can be extracted from git history even after deletion.
 
@@ -404,6 +528,10 @@ A PEM-encoded private key block was found in a source file. Committed private ke
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** text-heuristic
+- **Execution scope:** file
+- **Required facts:** file-metadata, file-content
+- **Cache policy:** per-file-content
+- **Produces:** finding
 
 A high-entropy string or a pattern matching a known secret format was found in source code. Hardcoded secrets are exposed to everyone with repository access.
 
@@ -421,6 +549,10 @@ A high-entropy string or a pattern matching a known secret format was found in s
 - **Confidence:** LOW
 - **Lifecycle:** experimental
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A console.log statement was found outside of test files. Debug logging left in production code leaks information and adds noise.
 
@@ -432,6 +564,10 @@ A console.log statement was found outside of test files. Debug logging left in p
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 `var` has function scope and is hoisted, which can produce subtle bugs. Modern JavaScript uses `const` and `let` instead.
 
@@ -445,6 +581,10 @@ A console.log statement was found outside of test files. Debug logging left in p
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** framework-detector
+- **Execution scope:** framework-project
+- **Required facts:** framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Android, iOS, or Expo configuration disagree about React Native New Architecture. Mismatched platforms produce inconsistent runtime behavior.
 
@@ -458,6 +598,10 @@ Android, iOS, or Expo configuration disagree about React Native New Architecture
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 AsyncStorage was removed from react-native core in v0.60 and throws a runtime error on modern versions.
 
@@ -471,6 +615,10 @@ AsyncStorage was removed from react-native core in v0.60 and throws a runtime er
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** framework-detector
+- **Execution scope:** framework-project
+- **Required facts:** framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 The project uses Turbo Native Modules or Fabric components but package.json does not define codegenConfig.
 
@@ -484,6 +632,10 @@ The project uses Turbo Native Modules or Fabric components but package.json does
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A React Native API removed from core is in use. Replace with the community package equivalent.
 
@@ -497,6 +649,10 @@ A React Native API removed from core is in use. Replace with the community packa
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Directly assigning to this.state bypasses React change detection; the component will not re-render.
 
@@ -510,6 +666,10 @@ Directly assigning to this.state bypasses React change detection; the component 
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A FlatList without keyExtractor falls back to array index keys, breaking list reconciliation when items are reordered or removed.
 
@@ -523,6 +683,10 @@ A FlatList without keyExtractor falls back to array index keys, breaking list re
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** framework-detector
+- **Execution scope:** framework-project
+- **Required facts:** framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Hermes is explicitly disabled. Hermes reduces startup time by 2-3x and is the default engine since React Native 0.70.
 
@@ -536,6 +700,10 @@ Hermes is explicitly disabled. Hermes reduces startup time by 2-3x and is the de
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** framework-detector
+- **Execution scope:** framework-project
+- **Required facts:** framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Hermes is configured differently across platforms, causing platform-specific runtime and performance behavior.
 
@@ -549,6 +717,10 @@ Hermes is configured differently across platforms, causing platform-specific run
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Inline style objects create a new object on every render, defeating memoization in React.memo and PureComponent children.
 
@@ -562,6 +734,10 @@ Inline style objects create a new object on every render, defeating memoization 
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** framework-detector
+- **Execution scope:** framework-project
+- **Required facts:** framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 The project does not have newArchEnabled set. The New Architecture eliminates the async JS bridge and is required by an increasing number of libraries.
 
@@ -575,6 +751,10 @@ The project does not have newArchEnabled set. The New Architecture eliminates th
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 react-navigation (v4) is no longer maintained and is incompatible with React Native 0.70+.
 
@@ -588,6 +768,10 @@ react-navigation (v4) is no longer maintained and is incompatible with React Nat
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 Class components are the legacy React API. Function components with hooks are now the recommended approach and are better supported by the React compiler.
 
@@ -601,6 +785,10 @@ Class components are the legacy React API. Function components with hooks are no
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** ast
+- **Execution scope:** framework-project
+- **Required facts:** parsed-syntax, file-context, framework-context
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 PropTypes adds runtime overhead and was removed from React 19. TypeScript or Flow provide better static type checking without runtime cost.
 
@@ -614,6 +802,10 @@ PropTypes adds runtime overhead and was removed from React 19. TypeScript or Flo
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 `@react-native-community/async-storage` is unmaintained. The actively maintained fork is `@react-native-async-storage/async-storage`.
 
@@ -627,6 +819,10 @@ PropTypes adds runtime overhead and was removed from React 19. TypeScript or Flo
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 `react-native-gesture-handler` v1 does not support React Native ≥0.72. Gesture responder internals changed in 0.72.
 
@@ -640,6 +836,10 @@ PropTypes adds runtime overhead and was removed from React 19. TypeScript or Flo
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 The installed version of `@react-navigation/native` is not compatible with the React Native version in use.
 
@@ -653,6 +853,10 @@ The installed version of `@react-navigation/native` is not compatible with the R
 - **Confidence:** MEDIUM
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 A dependency in use has no New Architecture (TurboModules / Fabric) support and will break when the New Architecture is enabled.
 
@@ -666,6 +870,10 @@ A dependency in use has no New Architecture (TurboModules / Fabric) support and 
 - **Confidence:** HIGH
 - **Lifecycle:** preview
 - **Signal source:** dependency-manifest
+- **Execution scope:** framework-project
+- **Required facts:** dependency-manifest, framework-context, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
 
 `react-native-reanimated` v2 is not compatible with React Native ≥0.73. v3 introduced breaking changes to the worklet runtime.
 

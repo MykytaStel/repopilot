@@ -13,6 +13,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Every registered rule now declares an internal `RuleRequirements` contract covering execution scope, required fact kinds, lifecycle, cache policy, and produced output. The generated rules reference and rule catalog expose the summary, while findings and scheduler behavior remain unchanged.
 - The scan fact model now acts as a shared `FactStore` and indexes one
   `ParsedArtifact` per analyzed source file. Artifacts preserve imports,
   runtime-deferred imports, conservative export facts, file-role evidence, and a

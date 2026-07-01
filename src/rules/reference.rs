@@ -76,8 +76,38 @@ fn render_rule(out: &mut String, rule: &RuleMetadata) {
     let _ = writeln!(out, "### `{}` — {}\n", rule.rule_id, rule.title);
     let _ = writeln!(out, "- **Severity:** {}", rule.default_severity.label());
     let _ = writeln!(out, "- **Confidence:** {}", rule.default_confidence.label());
-    let _ = writeln!(out, "- **Lifecycle:** {}", rule.lifecycle.label());
-    let _ = writeln!(out, "- **Signal source:** {}\n", rule.signal_source.label());
+    let _ = writeln!(
+        out,
+        "- **Lifecycle:** {}",
+        rule.requirements.lifecycle.label()
+    );
+    let _ = writeln!(out, "- **Signal source:** {}", rule.signal_source.label());
+    let _ = writeln!(
+        out,
+        "- **Execution scope:** {}",
+        rule.requirements.scope.label()
+    );
+    let required_facts = rule
+        .requirements
+        .fact_kinds
+        .iter()
+        .map(|fact| fact.label())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let _ = writeln!(out, "- **Required facts:** {required_facts}");
+    let _ = writeln!(
+        out,
+        "- **Cache policy:** {}",
+        rule.requirements.cache_policy.label()
+    );
+    let produces = rule
+        .requirements
+        .produces
+        .iter()
+        .map(|output| output.label())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let _ = writeln!(out, "- **Produces:** {produces}\n");
 
     let description = rule.description.trim();
     if !description.is_empty() {
