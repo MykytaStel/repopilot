@@ -13,6 +13,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- The scan fact model now acts as a shared `FactStore` and indexes one
+  `ParsedArtifact` per analyzed source file. Artifacts preserve imports,
+  runtime-deferred imports, conservative export facts, file-role evidence, and a
+  compact syntax summary from the same parse-once view used by file audits.
+  Existing findings, output schemas, CLI behavior, baselines, and MCP contracts
+  are unchanged.
 - Scan, review, AI-context, baseline, and MCP analysis requests now execute through
   one immutable `AnalysisSession` that owns the target path, resolved workspace
   root, workspace revision, repository/scan configuration, and visibility profile.

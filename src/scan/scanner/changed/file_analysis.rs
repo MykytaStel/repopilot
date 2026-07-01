@@ -5,6 +5,7 @@ use super::super::changed_telemetry::{change_status_label, record_skipped_cache_
 use super::super::file::{SkipReason, process_file_with_content};
 use super::super::summary::build_language_summary;
 use super::{ChangedDiscoveryStage, ChangedFileAnalysisStage, ChangedScanEngine};
+use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
 use crate::audits::pipeline::build_file_audits;
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangeStatus, ChangedFile};
@@ -186,6 +187,9 @@ impl<'a> ChangedScanEngine<'a> {
             &mut per_file.findings,
             repo_root,
         );
+        if let Some(artifact) = &mut per_file.artifact {
+            artifact.rebase_path(per_file.file_facts.path.clone());
+        }
 
         match per_file.skip_reason {
             SkipReason::None => {
@@ -195,7 +199,8 @@ impl<'a> ChangedScanEngine<'a> {
                     *languages.entry(language.clone()).or_insert(0) += 1;
                 }
 
-                if let Some(context) = per_file.context {
+                if let Some(artifact) = per_file.artifact.as_ref() {
+                    let context = &artifact.context;
                     cache.file_roles.insert(
                         cache_path.clone(),
                         FileRoleEntry {
@@ -205,19 +210,19 @@ impl<'a> ChangedScanEngine<'a> {
                             non_empty_lines: per_file.file_facts.non_empty_lines,
                             imports: per_file.file_facts.imports.clone(),
                             deferred_imports: per_file.file_facts.deferred_imports.clone(),
-                            roles: context.roles,
+                            roles: context.roles.clone(),
                             role_evidence: context
                                 .role_evidence
-                                .into_iter()
+                                .iter()
                                 .map(|evidence| FileRoleEvidenceEntry {
-                                    role: evidence.role,
-                                    source: evidence.source,
-                                    reason: evidence.reason,
+                                    role: evidence.role.clone(),
+                                    source: evidence.source.clone(),
+                                    reason: evidence.reason.clone(),
                                 })
                                 .collect(),
-                            frameworks: context.frameworks,
-                            runtimes: context.runtimes,
-                            paradigms: context.paradigms,
+                            frameworks: context.frameworks.clone(),
+                            runtimes: context.runtimes.clone(),
+                            paradigms: context.paradigms.clone(),
                             is_test: context.is_test,
                         },
                     );
@@ -237,6 +242,9 @@ impl<'a> ChangedScanEngine<'a> {
                 graph_file.content = None;
                 graph_patch_files.push(graph_file);
 
+                if let Some(artifact) = per_file.artifact {
+                    facts.insert_artifact(artifact);
+                }
                 facts.files.push(per_file.file_facts);
                 findings.extend(per_file.findings);
             }
@@ -287,7 +295,30 @@ impl<'a> ChangedScanEngine<'a> {
         cached_findings: Vec<Finding>,
     ) {
         let reuse_start = Instant::now();
+        let artifact = ParsedArtifact::from_legacy_cache(
+            PathBuf::from(&role_entry.path),
+            role_entry.language.clone(),
+            role_entry.imports.clone(),
+            role_entry.deferred_imports.clone(),
+            FileContextFacts {
+                roles: role_entry.roles.clone(),
+                role_evidence: role_entry
+                    .role_evidence
+                    .iter()
+                    .map(|evidence| RoleEvidenceFact {
+                        role: evidence.role.clone(),
+                        source: evidence.source.clone(),
+                        reason: evidence.reason.clone(),
+                    })
+                    .collect(),
+                frameworks: role_entry.frameworks.clone(),
+                runtimes: role_entry.runtimes.clone(),
+                paradigms: role_entry.paradigms.clone(),
+                is_test: role_entry.is_test,
+            },
+        );
         let mut graph_file = record_cached_file(facts, languages, &role_entry);
+        facts.insert_artifact(artifact);
         graph_file.content = None;
         graph_patch_files.push(graph_file);
         findings.extend(cached_findings);

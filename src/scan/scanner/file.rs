@@ -1,4 +1,6 @@
+use crate::analysis::exports::extract_exports;
 use crate::analysis::parse::ParsedFile;
+use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
 use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file_with_evidence;
 use crate::audits::traits::FileAudit;
@@ -18,26 +20,9 @@ pub(super) struct PerFileResult {
     pub(super) file_facts: FileFacts,
     pub(super) findings: Vec<Finding>,
     pub(super) language: Option<String>,
-    pub(super) context: Option<PerFileContext>,
+    pub(super) artifact: Option<ParsedArtifact>,
     pub(super) skip_reason: SkipReason,
     pub(super) skipped_bytes: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct PerFileContext {
-    pub(super) roles: Vec<String>,
-    pub(super) role_evidence: Vec<PerFileRoleEvidence>,
-    pub(super) frameworks: Vec<String>,
-    pub(super) runtimes: Vec<String>,
-    pub(super) paradigms: Vec<String>,
-    pub(super) is_test: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct PerFileRoleEvidence {
-    pub(super) role: String,
-    pub(super) source: String,
-    pub(super) reason: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,9 +212,9 @@ fn process_file_inner(
         return Ok(skipped_result_from_loaded(path, loaded));
     };
 
-    let context = PerFileContext::from_file(&full_facts);
+    let context = file_context_facts(&full_facts);
     let mut findings = Vec::new();
-    let (imports, deferred_imports) = {
+    let (imports, deferred_imports, exports, syntax) = {
         // Parse the file at most once and share the syntax tree across both
         // import extraction and every audit. Scoped so the borrow of
         // `full_facts` ends before the import lists are written back and it is moved.
@@ -237,13 +222,24 @@ fn process_file_inner(
         let lang = full_facts.language.as_deref();
         let imports = extract_imports_from(&parsed, lang);
         let deferred_imports = extract_deferred_imports_from(&parsed, lang);
+        let exports = extract_exports(parsed.content(), lang);
         for audit in file_audits {
             findings.extend(audit.audit_parsed(&full_facts, &parsed, config));
         }
-        (imports, deferred_imports)
+        let syntax = parsed.syntax_summary();
+        (imports, deferred_imports, exports, syntax)
     };
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
+    let artifact = ParsedArtifact::from_source(
+        full_facts.path.clone(),
+        full_facts.language.clone(),
+        full_facts.imports.clone(),
+        full_facts.deferred_imports.clone(),
+        exports,
+        context,
+        syntax,
+    );
 
     Ok(PerFileResult {
         file_facts: if retain_content {
@@ -253,7 +249,7 @@ fn process_file_inner(
         },
         findings,
         language,
-        context: Some(context),
+        artifact: Some(artifact),
         skip_reason: SkipReason::None,
         skipped_bytes: 0,
     })
@@ -275,18 +271,31 @@ pub(super) fn collect_file_facts(
     // No audits run on this path, so the parse view is built solely to extract
     // imports; it is still parsed at most once via the shared parsers. Bind the
     // result first so the view's borrow of `full_facts` ends before the write.
-    let (imports, deferred_imports) = {
+    let context = file_context_facts(&full_facts);
+    let (imports, deferred_imports, exports, syntax) = {
         let parsed = ParsedFile::for_facts(&full_facts);
         let lang = full_facts.language.as_deref();
         (
             extract_imports_from(&parsed, lang),
             extract_deferred_imports_from(&parsed, lang),
+            extract_exports(parsed.content(), lang),
+            parsed.syntax_summary(),
         )
     };
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
+    let artifact = ParsedArtifact::from_source(
+        full_facts.path.clone(),
+        full_facts.language.clone(),
+        full_facts.imports.clone(),
+        full_facts.deferred_imports.clone(),
+        exports,
+        context,
+        syntax,
+    );
 
     record_analyzed_file(facts, languages, &full_facts);
+    facts.insert_artifact(artifact);
     facts.files.push(full_facts);
 
     Ok(())
@@ -359,44 +368,43 @@ fn skipped_result(
         file_facts: empty_file_facts(path, language.clone()),
         findings: Vec::new(),
         language,
-        context: None,
+        artifact: None,
         skip_reason,
         skipped_bytes,
     }
 }
 
-impl PerFileContext {
-    fn from_file(file: &FileFacts) -> Self {
-        let classified = classify_file_with_evidence(file);
-        let context = classified.context;
-        Self {
-            roles: context.role_ids().into_iter().map(str::to_string).collect(),
-            role_evidence: classified
-                .role_evidence
-                .into_iter()
-                .map(|evidence| PerFileRoleEvidence {
-                    role: evidence.role.as_id().to_string(),
-                    source: evidence.source.as_id().to_string(),
-                    reason: evidence.reason.to_string(),
-                })
-                .collect(),
-            frameworks: context
-                .framework_ids()
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
-            runtimes: context
-                .runtime_ids()
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
-            paradigms: context
-                .paradigm_ids()
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
-            is_test: context.is_test,
-        }
+fn file_context_facts(file: &FileFacts) -> FileContextFacts {
+    let classified = classify_file_with_evidence(file);
+    let context = classified.context;
+
+    FileContextFacts {
+        roles: context.role_ids().into_iter().map(str::to_string).collect(),
+        role_evidence: classified
+            .role_evidence
+            .into_iter()
+            .map(|evidence| RoleEvidenceFact {
+                role: evidence.role.as_id().to_string(),
+                source: evidence.source.as_id().to_string(),
+                reason: evidence.reason.to_string(),
+            })
+            .collect(),
+        frameworks: context
+            .framework_ids()
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        runtimes: context
+            .runtime_ids()
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        paradigms: context
+            .paradigm_ids()
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        is_test: context.is_test,
     }
 }
 
