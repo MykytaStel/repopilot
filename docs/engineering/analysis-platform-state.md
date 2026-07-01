@@ -79,13 +79,22 @@ These capabilities are the foundation for the next architecture. The goal is to
 compose and deepen them, not replace working product paths with parallel
 commands.
 
-The first internal implementation steps now exist in `src/facts`: a facts-core
-skeleton, a minimal `ScanFacts -> RepoFacts` bridge, and an internal `RepoFacts`
-summary projection. The bridge currently preserves only repository root, file
-path, language, and non-empty line count. The summary provides aggregate file,
-language, line, and diagnostic counts without exposing raw facts. AI context now
-includes this summary as aggregate evidence; raw `RepoFacts` remain internal and
-are not exposed through scan JSON, review, report schemas, or MCP.
+The shared facts path now has two connected layers:
+
+- `scan::facts::FactStore` remains compatible with the existing `ScanFacts`
+  name while indexing one `ParsedArtifact` per analyzed source file;
+- each source artifact records imports, deferred/runtime-erased imports, detected
+  exports, file-role evidence, framework/runtime/paradigm context, and a compact
+  syntax-tree summary produced from the same parse-once view used by file audits;
+- legacy changed-scan cache hits are represented explicitly as incomplete
+  artifacts rather than pretending cached schema v7 contains syntax/export facts;
+- the public `ScanFacts -> RepoFacts` bridge deliberately remains the minimal
+  root/path/language/line-count projection, so this refactor does not expand the
+  public facts API or any scan JSON, review, SARIF, or MCP contract.
+
+The richer artifact index is currently crate-internal. Cache v2 persistence, rule
+requirements, deliberate public projections, and additional symbol/reference
+facts remain later milestones.
 
 ## What Is Missing
 

@@ -104,6 +104,9 @@ pub(super) fn analyze_discovered_files(
             }
             SkipReason::None => {}
         }
+        if let Some(artifact) = per_file.artifact {
+            facts.insert_artifact(artifact);
+        }
         facts.files.push(per_file.file_facts);
         findings.extend(per_file.findings);
     }
