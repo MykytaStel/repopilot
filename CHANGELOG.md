@@ -25,6 +25,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   root, workspace revision, repository/scan configuration, and visibility profile.
   Existing CLI output, report schemas, finding IDs, baselines, and MCP tools are
   unchanged.
+- Changed-scan context graph cache hits now patch cached graph nodes and outgoing
+  edges for added, modified, and deleted files instead of rebuilding dependency
+  edges from every cached node. Existing findings, output schemas, cache files,
+  and CLI behavior are unchanged.
 - GitHub Release notes now come from structurally validated curated
   `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.

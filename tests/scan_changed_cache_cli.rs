@@ -378,6 +378,45 @@ fn changed_scan_cache_hit_preserves_deferred_imports_for_graph_patch() {
 }
 
 #[test]
+fn changed_context_graph_summary_is_deterministic_across_thread_counts() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path().join("src/shared.ts"),
+        "export const shared = 1;\n",
+    );
+    write(
+        temp.path().join("src/a.ts"),
+        "import { shared } from './shared';\nexport const a = shared;\n",
+    );
+    write(
+        temp.path().join("src/b.ts"),
+        "import { shared } from './shared';\nexport const b = shared;\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    let initial_graph = scan_graph_json(temp.path());
+    assert_eq!(initial_graph["context_graph_cache"]["status"], "write");
+
+    write(
+        temp.path().join("src/shared.ts"),
+        "export const shared = 2;\nconst API_KEY = \"abc123xyz987\";\n",
+    );
+
+    let single_thread =
+        scan_changed_json_with_env(temp.path(), &["--changed"], &[("RAYON_NUM_THREADS", "1")]);
+    let multi_thread =
+        scan_changed_json_with_env(temp.path(), &["--changed"], &[("RAYON_NUM_THREADS", "4")]);
+
+    assert_eq!(single_thread["context_graph_cache"]["status"], "hit");
+    assert_eq!(multi_thread["context_graph_cache"]["status"], "hit");
+    assert_eq!(
+        single_thread["context_graph_summary"], multi_thread["context_graph_summary"],
+        "changed context graph summary must be deterministic across thread counts"
+    );
+}
+
+#[test]
 fn changed_scan_rejects_v4_cache_missing_inline_type_only_deferred_imports() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
@@ -559,9 +598,14 @@ fn changed_scan_rejects_invalid_flag_combinations() {
 }
 
 fn scan_changed_json(root: &Path, args: &[&str]) -> Value {
+    scan_changed_json_with_env(root, args, &[])
+}
+
+fn scan_changed_json_with_env(root: &Path, args: &[&str], envs: &[(&str, &str)]) -> Value {
     let output = repopilot()
         .args(["scan", ".", "--format", "json"])
         .args(args)
+        .envs(envs.iter().copied())
         .current_dir(root)
         .output()
         .expect("run repopilot scan");
