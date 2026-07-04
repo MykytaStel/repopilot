@@ -92,6 +92,24 @@ impl RepoContextGraph {
         );
         self.nodes.sort_by(|left, right| left.path.cmp(&right.path));
 
+        let known_file_set_changed = changed_files.iter().any(|file| {
+            matches!(
+                file.status,
+                ChangeStatus::Added | ChangeStatus::Deleted | ChangeStatus::Renamed
+            )
+        });
+        if known_file_set_changed {
+            let files = self
+                .nodes
+                .iter()
+                .map(RepoContextNode::to_file_facts)
+                .collect::<Vec<_>>();
+            let (edges, deferred_edges) = resolve_graph_edges(repo_root, &self.nodes, &files);
+            self.edges = edges;
+            self.deferred_edges = deferred_edges;
+            return;
+        }
+
         let patch_sources = patch_files
             .iter()
             .map(|file| relative_graph_path(repo_root, &file.path))
@@ -199,6 +217,32 @@ fn remove_edge_sources_and_targets(
     for targets in edges.values_mut() {
         targets.retain(|target| !removed.contains(target));
     }
+}
+
+fn resolve_graph_edges(
+    root: &Path,
+    nodes: &[RepoContextNode],
+    files: &[FileFacts],
+) -> (
+    BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) {
+    let known_files = known_files_by_normalized_path(root, nodes);
+    let known_file_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+    let mut edges = BTreeMap::new();
+    let mut deferred_edges = BTreeMap::new();
+
+    for file in files {
+        let source = relative_graph_path(root, &file.path);
+        let (resolved_edges, resolved_deferred_edges) =
+            resolve_file_edges(file, root, &known_files, &known_file_paths);
+        edges.insert(source.clone(), resolved_edges);
+        if !resolved_deferred_edges.is_empty() {
+            deferred_edges.insert(source, resolved_deferred_edges);
+        }
+    }
+
+    (edges, deferred_edges)
 }
 
 fn known_files_by_normalized_path(

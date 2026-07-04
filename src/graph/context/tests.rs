@@ -164,6 +164,95 @@ fn changed_graph_patch_matches_full_rebuild_for_add_modify_delete() {
     assert_eq!(patched_graph.deferred_edges, expected_graph.deferred_edges);
 }
 
+#[test]
+fn added_target_rechecks_unchanged_unresolved_importer() {
+    let root = PathBuf::from("/repo");
+    let initial_facts = scan_facts(&root, vec![file_fact("src/a.ts", &["./new"])]);
+    let initial_coupling = build_coupling_graph(&initial_facts, &root);
+    let mut patched_graph =
+        RepoContextGraph::from_scan_facts(&initial_facts, &root, initial_coupling);
+    assert!(
+        patched_graph
+            .edges
+            .get(Path::new("src/a.ts"))
+            .is_some_and(BTreeSet::is_empty),
+        "unresolved import should not have an edge before target exists"
+    );
+
+    let changed_files = vec![ChangedFile {
+        path: PathBuf::from("src/new.ts"),
+        status: ChangeStatus::Added,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let patch_files = vec![file_fact("src/new.ts", &[])];
+
+    patched_graph.apply_changed_facts(&root, &changed_files, &patch_files);
+
+    let expected_facts = scan_facts(
+        &root,
+        vec![
+            file_fact("src/a.ts", &["./new"]),
+            file_fact("src/new.ts", &[]),
+        ],
+    );
+    let expected_coupling = build_coupling_graph(&expected_facts, &root);
+    let expected_graph =
+        RepoContextGraph::from_scan_facts(&expected_facts, &root, expected_coupling);
+
+    assert_eq!(patched_graph.edges, expected_graph.edges);
+    assert_eq!(
+        patched_graph.edges.get(Path::new("src/a.ts")),
+        Some(&BTreeSet::from([PathBuf::from("src/new.ts")]))
+    );
+}
+
+#[test]
+fn deleted_preferred_target_rechecks_unchanged_importer_for_fallback() {
+    let root = PathBuf::from("/repo");
+    let initial_facts = scan_facts(
+        &root,
+        vec![
+            file_fact("src/a.ts", &["./foo"]),
+            file_fact("src/foo.ts", &[]),
+            file_fact("src/foo/index.ts", &[]),
+        ],
+    );
+    let initial_coupling = build_coupling_graph(&initial_facts, &root);
+    let mut patched_graph =
+        RepoContextGraph::from_scan_facts(&initial_facts, &root, initial_coupling);
+    assert_eq!(
+        patched_graph.edges.get(Path::new("src/a.ts")),
+        Some(&BTreeSet::from([PathBuf::from("src/foo.ts")]))
+    );
+
+    let changed_files = vec![ChangedFile {
+        path: PathBuf::from("src/foo.ts"),
+        status: ChangeStatus::Deleted,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+
+    patched_graph.apply_changed_facts(&root, &changed_files, &[]);
+
+    let expected_facts = scan_facts(
+        &root,
+        vec![
+            file_fact("src/a.ts", &["./foo"]),
+            file_fact("src/foo/index.ts", &[]),
+        ],
+    );
+    let expected_coupling = build_coupling_graph(&expected_facts, &root);
+    let expected_graph =
+        RepoContextGraph::from_scan_facts(&expected_facts, &root, expected_coupling);
+
+    assert_eq!(patched_graph.edges, expected_graph.edges);
+    assert_eq!(
+        patched_graph.edges.get(Path::new("src/a.ts")),
+        Some(&BTreeSet::from([PathBuf::from("src/foo/index.ts")]))
+    );
+}
+
 fn scan_facts(root: &Path, files: Vec<FileFacts>) -> ScanFacts {
     ScanFacts {
         root_path: root.to_path_buf(),
