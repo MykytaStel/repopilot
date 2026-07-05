@@ -1,10 +1,11 @@
-use super::file::{SkipReason, collect_file_facts, process_file};
+use super::file::{SkipReason, collect_file_facts, collect_file_facts_with_cache, process_file};
 use super::summary::build_language_summary;
 use super::walker::collect_paths;
 use crate::audits::traits::FileAudit;
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use crate::scan::parsed_cache::ParsedFactsCache;
 use crate::scan::workspace::{PackageRoot, package_roots};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -14,15 +15,6 @@ use std::path::{Path, PathBuf};
 pub(super) struct DiscoveredScanPaths {
     pub(super) facts: ScanFacts,
     pub(super) file_paths: Vec<PathBuf>,
-}
-
-pub(super) fn collect_and_audit_inline(
-    path: &Path,
-    config: &ScanConfig,
-    file_audits: &[Box<dyn FileAudit>],
-) -> io::Result<(ScanFacts, Vec<Finding>)> {
-    let discovered = discover_scan_paths(path, config)?;
-    analyze_discovered_files(discovered, file_audits, config)
 }
 
 pub(super) fn discover_scan_paths(
@@ -147,14 +139,55 @@ pub fn collect_scan_facts_with_config(path: &Path, config: &ScanConfig) -> io::R
     Ok(facts)
 }
 
-pub(crate) fn collect_scan_facts_without_content(
+#[cfg(test)]
+fn collect_scan_facts_without_content(path: &Path, config: &ScanConfig) -> io::Result<ScanFacts> {
+    ensure_path_exists(path)?;
+    let cache_root = parsed_cache_root(path);
+    let mut parsed_cache = ParsedFactsCache::load(&cache_root);
+    let facts =
+        collect_scan_facts_without_content_with_parsed_cache(path, config, &mut parsed_cache)?;
+    parsed_cache.retain_referenced_current_scan();
+    parsed_cache.write(&cache_root)?;
+    Ok(facts)
+}
+
+pub(super) fn collect_scan_facts_without_content_with_parsed_cache(
     path: &Path,
     config: &ScanConfig,
+    parsed_cache: &mut ParsedFactsCache,
 ) -> io::Result<ScanFacts> {
     ensure_path_exists(path)?;
 
-    let empty_audits: &[Box<dyn FileAudit>] = &[];
-    let (facts, _) = collect_and_audit_inline(path, config, empty_audits)?;
+    let mut facts = ScanFacts {
+        root_path: path.to_path_buf(),
+        ..ScanFacts::default()
+    };
+    let mut languages: HashMap<String, usize> = HashMap::new();
+    let roots = package_roots(&facts.root_path);
+
+    if path.is_file() {
+        facts.files_discovered = 1;
+        collect_file_facts_with_cache(
+            path,
+            &mut facts,
+            &mut languages,
+            config,
+            &roots,
+            parsed_cache,
+        )?;
+    } else {
+        collect_directory_facts_with_cache(
+            path,
+            &mut facts,
+            &mut languages,
+            config,
+            &roots,
+            parsed_cache,
+        )?;
+    }
+
+    facts.languages = build_language_summary(languages);
+
     Ok(facts)
 }
 
@@ -178,6 +211,32 @@ fn collect_directory_facts(
 
     for entry_path in file_paths {
         collect_file_facts(&entry_path, facts, languages, config, roots)?;
+    }
+
+    Ok(())
+}
+
+fn collect_directory_facts_with_cache(
+    path: &Path,
+    facts: &mut ScanFacts,
+    languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
+    roots: &[PackageRoot],
+    parsed_cache: &mut ParsedFactsCache,
+) -> io::Result<()> {
+    let collected = collect_paths(path, config)?;
+    let mut file_paths = collected.file_paths;
+    file_paths.sort();
+
+    facts.files_discovered = file_paths.len();
+    facts.files_skipped_repopilotignore = collected.files_skipped_repopilotignore;
+    facts.repopilotignore_path = collected.repopilotignore_path;
+    facts.directories_count = collected.directories_count;
+
+    apply_max_files_limit(&mut file_paths, facts, config);
+
+    for entry_path in file_paths {
+        collect_file_facts_with_cache(&entry_path, facts, languages, config, roots, parsed_cache)?;
     }
 
     Ok(())
@@ -209,4 +268,118 @@ fn apply_max_files_limit(
 
     facts.files_skipped_by_limit = file_paths.len().saturating_sub(max);
     file_paths.truncate(max);
+}
+
+#[cfg(test)]
+fn parsed_cache_root(path: &Path) -> PathBuf {
+    if path.is_file() {
+        return path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from("."));
+    }
+    path.to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn collect_without_content_reuses_cached_parsed_facts_on_warm_run() {
+        let temp = tempdir().expect("temp dir");
+        let src = temp.path().join("src");
+        fs::create_dir_all(&src).expect("create src");
+        fs::write(
+            src.join("lib.rs"),
+            "use crate::api::run;\nmod api;\npub fn main() { run(); }\n",
+        )
+        .expect("write source");
+        fs::write(src.join("api.rs"), "pub fn run() {}\n").expect("write api");
+        let original_api_hash = crate::scan::parsed_cache::content_hash("pub fn run() {}\n");
+
+        let first_before = crate::analysis::parse::parse_nanos_total();
+        let first = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
+            .expect("cold facts collection");
+        let first_parse = crate::analysis::parse::parse_nanos_total().saturating_sub(first_before);
+        assert_eq!(first.files_analyzed, 2);
+        assert!(first_parse > 0, "cold run should parse source files");
+        assert!(
+            temp.path()
+                .join(".repopilot/cache/parsed_facts_v2.json")
+                .is_file()
+        );
+
+        let second_before = crate::analysis::parse::parse_nanos_total();
+        let second = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
+            .expect("warm facts collection");
+        let second_parse =
+            crate::analysis::parse::parse_nanos_total().saturating_sub(second_before);
+
+        assert_eq!(second.files_analyzed, 2);
+        assert_eq!(second_parse, 0, "warm run should reuse parsed facts");
+
+        fs::write(src.join("api.rs"), "pub fn run() { if true { return; } }\n")
+            .expect("modify api");
+        let changed_before = crate::analysis::parse::parse_nanos_total();
+        let changed = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
+            .expect("changed facts collection");
+        let changed_parse =
+            crate::analysis::parse::parse_nanos_total().saturating_sub(changed_before);
+
+        assert_eq!(changed.files_analyzed, 2);
+        assert!(
+            changed_parse > 0,
+            "changed content should miss parsed cache"
+        );
+        assert!(!parsed_cache_hashes(temp.path()).contains(&original_api_hash));
+
+        fs::write(src.join("extra.rs"), "pub fn extra() {}\n").expect("add extra");
+        let extra_hash = crate::scan::parsed_cache::content_hash("pub fn extra() {}\n");
+        let added_before = crate::analysis::parse::parse_nanos_total();
+        let added = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
+            .expect("added-file facts collection");
+        let added_parse = crate::analysis::parse::parse_nanos_total().saturating_sub(added_before);
+        assert_eq!(added.files_analyzed, 3);
+        assert!(added_parse > 0, "added file should miss parsed cache");
+
+        fs::remove_file(src.join("extra.rs")).expect("remove extra");
+        let removed = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
+            .expect("removed-file facts collection");
+        assert_eq!(removed.files_analyzed, 2);
+        assert!(!parsed_cache_hashes(temp.path()).contains(&extra_hash));
+    }
+
+    #[test]
+    fn single_file_without_content_uses_parent_as_cache_root() {
+        let temp = tempdir().expect("temp dir");
+        let file = temp.path().join("single.rs");
+        fs::write(&file, "pub fn single() {}\n").expect("write single file");
+
+        let facts = collect_scan_facts_without_content(&file, &ScanConfig::default())
+            .expect("single-file facts collection");
+
+        assert_eq!(facts.files_analyzed, 1);
+        assert!(
+            temp.path()
+                .join(".repopilot/cache/parsed_facts_v2.json")
+                .is_file()
+        );
+        assert!(!file.join(".repopilot/cache/parsed_facts_v2.json").exists());
+    }
+
+    fn parsed_cache_hashes(root: &Path) -> Vec<String> {
+        let path = root.join(".repopilot/cache/parsed_facts_v2.json");
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).expect("read parsed cache"))
+                .expect("parse parsed cache");
+        value["entries"]
+            .as_array()
+            .expect("entries should be array")
+            .iter()
+            .filter_map(|entry| entry["content_hash"].as_str().map(str::to_string))
+            .collect()
+    }
 }

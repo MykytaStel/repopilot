@@ -14,6 +14,7 @@ use crate::scan::cache::{
     file_hash_entry,
 };
 use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::parsed_cache::{ParsedFactsCache, ParsedFactsEntry, content_hash};
 use crate::scan::types::{ChangedFileCacheTelemetry, ScanCacheTelemetry};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
@@ -30,6 +31,7 @@ impl<'a> ChangedScanEngine<'a> {
         let file_audits = build_file_audits(self.config);
         let cache_load_start = Instant::now();
         let mut cache = ScanCache::load(&discovery.repo_root);
+        let mut parsed_cache = ParsedFactsCache::load(&discovery.repo_root);
         let mut cache_telemetry = ScanCacheTelemetry {
             timings: crate::scan::types::ScanCacheTimings {
                 load_us: cache_load_start.elapsed().as_micros() as u64,
@@ -61,6 +63,7 @@ impl<'a> ChangedScanEngine<'a> {
                 &mut findings,
                 &mut directories,
                 &mut cache,
+                &mut parsed_cache,
                 &mut cache_telemetry,
                 &mut changed_file_reasons,
                 &mut graph_patch_files,
@@ -78,6 +81,7 @@ impl<'a> ChangedScanEngine<'a> {
             findings,
             graph_patch_files,
             cache,
+            parsed_cache,
             cache_telemetry,
             changed_file_reasons,
             elapsed_us: start.elapsed().as_micros() as u64,
@@ -97,6 +101,7 @@ impl<'a> ChangedScanEngine<'a> {
         findings: &mut Vec<Finding>,
         directories: &mut HashSet<PathBuf>,
         cache: &mut ScanCache,
+        parsed_cache: &mut ParsedFactsCache,
         cache_telemetry: &mut ScanCacheTelemetry,
         changed_file_reasons: &mut BTreeMap<String, usize>,
         graph_patch_files: &mut Vec<FileFacts>,
@@ -107,6 +112,7 @@ impl<'a> ChangedScanEngine<'a> {
             .or_insert(0) += 1;
 
         if changed_file.status == ChangeStatus::Deleted {
+            remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
             record_skipped_cache_file(
                 cache_telemetry,
                 &changed_file.path,
@@ -123,6 +129,7 @@ impl<'a> ChangedScanEngine<'a> {
             } else {
                 "missing-file"
             };
+            remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
             record_skipped_cache_file(cache_telemetry, &changed_file.path, &change_reason, reason);
             return Ok(());
         }
@@ -170,6 +177,7 @@ impl<'a> ChangedScanEngine<'a> {
                     findings,
                     cache_telemetry,
                     graph_patch_files,
+                    parsed_cache,
                     *role_entry,
                     cached_findings,
                 );
@@ -208,6 +216,7 @@ impl<'a> ChangedScanEngine<'a> {
                             hash: hash_entry.hash.clone(),
                             language: per_file.language.clone(),
                             non_empty_lines: per_file.file_facts.non_empty_lines,
+                            branch_count: per_file.file_facts.branch_count,
                             imports: per_file.file_facts.imports.clone(),
                             deferred_imports: per_file.file_facts.deferred_imports.clone(),
                             roles: context.roles.clone(),
@@ -224,8 +233,17 @@ impl<'a> ChangedScanEngine<'a> {
                             runtimes: context.runtimes.clone(),
                             paradigms: context.paradigms.clone(),
                             is_test: context.is_test,
+                            has_inline_tests: per_file.file_facts.has_inline_tests,
+                            in_executable_package: per_file.file_facts.in_executable_package,
                         },
                     );
+                    if let Some(content) = per_file.file_facts.content.as_deref() {
+                        parsed_cache.insert(ParsedFactsEntry::from_artifact(
+                            content_hash(content),
+                            &per_file.file_facts,
+                            artifact,
+                        ));
+                    }
                 }
 
                 cache.findings.insert(
@@ -291,32 +309,49 @@ impl<'a> ChangedScanEngine<'a> {
         findings: &mut Vec<Finding>,
         cache_telemetry: &mut ScanCacheTelemetry,
         graph_patch_files: &mut Vec<FileFacts>,
+        parsed_cache: &mut ParsedFactsCache,
         role_entry: FileRoleEntry,
         cached_findings: Vec<Finding>,
     ) {
         let reuse_start = Instant::now();
-        let artifact = ParsedArtifact::from_legacy_cache(
-            PathBuf::from(&role_entry.path),
-            role_entry.language.clone(),
-            role_entry.imports.clone(),
-            role_entry.deferred_imports.clone(),
-            FileContextFacts {
-                roles: role_entry.roles.clone(),
-                role_evidence: role_entry
-                    .role_evidence
-                    .iter()
-                    .map(|evidence| RoleEvidenceFact {
-                        role: evidence.role.clone(),
-                        source: evidence.source.clone(),
-                        reason: evidence.reason.clone(),
-                    })
-                    .collect(),
-                frameworks: role_entry.frameworks.clone(),
-                runtimes: role_entry.runtimes.clone(),
-                paradigms: role_entry.paradigms.clone(),
-                is_test: role_entry.is_test,
-            },
-        );
+        let context = FileContextFacts {
+            roles: role_entry.roles.clone(),
+            role_evidence: role_entry
+                .role_evidence
+                .iter()
+                .map(|evidence| RoleEvidenceFact {
+                    role: evidence.role.clone(),
+                    source: evidence.source.clone(),
+                    reason: evidence.reason.clone(),
+                })
+                .collect(),
+            frameworks: role_entry.frameworks.clone(),
+            runtimes: role_entry.runtimes.clone(),
+            paradigms: role_entry.paradigms.clone(),
+            is_test: role_entry.is_test,
+        };
+        let artifact = parsed_cache
+            .lookup(&role_entry.hash, role_entry.language.as_deref())
+            .map(|entry| {
+                ParsedArtifact::from_parsed_cache_v2(
+                    PathBuf::from(&role_entry.path),
+                    role_entry.language.clone(),
+                    entry.imports.clone(),
+                    entry.deferred_imports.clone(),
+                    entry.exports.clone(),
+                    context.clone(),
+                    (&entry.syntax).into(),
+                )
+            })
+            .unwrap_or_else(|| {
+                ParsedArtifact::from_legacy_cache(
+                    PathBuf::from(&role_entry.path),
+                    role_entry.language.clone(),
+                    role_entry.imports.clone(),
+                    role_entry.deferred_imports.clone(),
+                    context,
+                )
+            });
         let mut graph_file = record_cached_file(facts, languages, &role_entry);
         facts.insert_artifact(artifact);
         graph_file.content = None;
@@ -336,4 +371,17 @@ impl<'a> ChangedScanEngine<'a> {
                 cache_reason: "unchanged-content-and-config".to_string(),
             });
     }
+}
+
+fn remove_changed_cache_entries(
+    cache: &mut ScanCache,
+    parsed_cache: &mut ParsedFactsCache,
+    path: &Path,
+) {
+    let cache_path = path.to_string_lossy().replace('\\', "/");
+    if let Some(hash_entry) = cache.file_hashes.remove(&cache_path) {
+        parsed_cache.remove_content_hash(&hash_entry.hash);
+    }
+    cache.file_roles.remove(&cache_path);
+    cache.findings.remove(&cache_path);
 }

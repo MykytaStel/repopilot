@@ -33,8 +33,12 @@ impl<'a> ChangedScanEngine<'a> {
 
         let cache_write_start = Instant::now();
         file_stage.cache.write(&discovery.repo_root)?;
+        file_stage.parsed_cache.write(&discovery.repo_root)?;
         file_stage.cache_telemetry.timings.write_us =
             cache_write_start.elapsed().as_micros() as u64;
+        file_stage
+            .cache_telemetry
+            .record_parsed_cache(file_stage.parsed_cache.telemetry());
         finalize_cache_telemetry(
             &mut file_stage.cache_telemetry,
             file_stage.changed_file_reasons,
