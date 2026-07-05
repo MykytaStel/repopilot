@@ -9,6 +9,7 @@ use crate::graph::imports::{extract_deferred_imports_from, extract_imports_from}
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
+use crate::scan::parsed_cache::{ParsedFactsCache, ParsedFactsEntry, content_hash};
 use crate::scan::path_classification::is_low_signal_audit_path;
 use crate::scan::workspace::{PackageRoot, path_in_executable_package};
 use std::collections::HashMap;
@@ -262,17 +263,63 @@ pub(super) fn collect_file_facts(
     config: &ScanConfig,
     package_roots: &[PackageRoot],
 ) -> io::Result<()> {
+    collect_file_facts_inner(path, facts, languages, config, package_roots, None)
+}
+
+pub(super) fn collect_file_facts_with_cache(
+    path: &Path,
+    facts: &mut ScanFacts,
+    languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
+    package_roots: &[PackageRoot],
+    parsed_cache: &mut ParsedFactsCache,
+) -> io::Result<()> {
+    collect_file_facts_inner(
+        path,
+        facts,
+        languages,
+        config,
+        package_roots,
+        Some(parsed_cache),
+    )
+}
+
+fn collect_file_facts_inner(
+    path: &Path,
+    facts: &mut ScanFacts,
+    languages: &mut HashMap<String, usize>,
+    config: &ScanConfig,
+    package_roots: &[PackageRoot],
+    mut parsed_cache: Option<&mut ParsedFactsCache>,
+) -> io::Result<()> {
     let LoadedFile::Analyzable { mut full_facts, .. } =
         load_file_or_record_skip(path, facts, config, package_roots)?
     else {
         return Ok(());
     };
 
-    // No audits run on this path, so the parse view is built solely to extract
-    // imports; it is still parsed at most once via the shared parsers. Bind the
-    // result first so the view's borrow of `full_facts` ends before the write.
     let context = file_context_facts(&full_facts);
-    let (imports, deferred_imports, exports, syntax) = {
+    let content_hash = full_facts.content.as_deref().map(content_hash);
+    let cached = content_hash.as_deref().and_then(|hash| {
+        parsed_cache
+            .as_deref_mut()
+            .and_then(|cache| cache.lookup(hash, full_facts.language.as_deref()))
+    });
+
+    let mut from_parsed_cache = false;
+    let (imports, deferred_imports, exports, syntax) = if let Some(entry) = cached {
+        from_parsed_cache = true;
+        full_facts.branch_count = entry.branch_count;
+        full_facts.has_inline_tests = entry.has_inline_tests;
+        (
+            entry.imports,
+            entry.deferred_imports,
+            entry.exports,
+            (&entry.syntax).into(),
+        )
+    } else {
+        // No audits run on this path, so the parse view is built solely to
+        // extract imports and syntax facts.
         let parsed = ParsedFile::for_facts(&full_facts);
         let lang = full_facts.language.as_deref();
         (
@@ -284,15 +331,34 @@ pub(super) fn collect_file_facts(
     };
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
-    let artifact = ParsedArtifact::from_source(
-        full_facts.path.clone(),
-        full_facts.language.clone(),
-        full_facts.imports.clone(),
-        full_facts.deferred_imports.clone(),
-        exports,
-        context,
-        syntax,
-    );
+    let artifact = if from_parsed_cache {
+        ParsedArtifact::from_parsed_cache_v2(
+            full_facts.path.clone(),
+            full_facts.language.clone(),
+            full_facts.imports.clone(),
+            full_facts.deferred_imports.clone(),
+            exports,
+            context,
+            syntax,
+        )
+    } else {
+        ParsedArtifact::from_source(
+            full_facts.path.clone(),
+            full_facts.language.clone(),
+            full_facts.imports.clone(),
+            full_facts.deferred_imports.clone(),
+            exports,
+            context,
+            syntax,
+        )
+    };
+    if let (Some(cache), Some(hash)) = (parsed_cache.as_mut(), content_hash) {
+        cache.insert(ParsedFactsEntry::from_artifact(
+            hash,
+            &full_facts,
+            &artifact,
+        ));
+    }
 
     record_analyzed_file(facts, languages, &full_facts);
     facts.insert_artifact(artifact);

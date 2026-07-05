@@ -107,6 +107,7 @@ impl<'a> ChangedScanEngine<'a> {
             &discovery,
             &mut file_stage.facts,
             &file_stage.graph_patch_files,
+            &mut file_stage.parsed_cache,
         )?;
         let project_start = Instant::now();
         let ((project_findings, framework_findings), (coupling_findings, _, _)) = rayon::join(

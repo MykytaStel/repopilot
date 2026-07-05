@@ -58,6 +58,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     assert!(cache_dir.join("file_hashes.json").is_file());
     assert!(cache_dir.join("file_roles.json").is_file());
     assert!(cache_dir.join("findings.json").is_file());
+    assert!(cache_dir.join("parsed_facts_v2.json").is_file());
     assert!(cache_dir.join("repo_context.json").is_file());
     assert_eq!(
         read_json(&cache_dir.join("file_hashes.json"))["schema_version"],
@@ -70,10 +71,34 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
             .len(),
         64
     );
+    assert_eq!(
+        read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
+        "tree-sitter-imports-exports-v1"
+    );
+    assert_eq!(
+        read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]
+            .as_str()
+            .expect("content hash should be string"),
+        read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
+            .as_str()
+            .expect("file hash should be string")
+    );
 
     rewrite_cached_finding_title(&cache_dir.join("findings.json"), "Cached secret title");
     let cached = scan_changed_json(temp.path(), &["--changed"]);
     assert_eq!(cached["cache_telemetry"]["hits"], 1);
+    assert_eq!(cached["cache_telemetry"]["parsed_cache_hits"], 1);
+    assert_eq!(cached["cache_telemetry"]["parsed_cache_misses"], 0);
+    assert!(
+        cached["cache_telemetry"]["parsed_cache_entries_loaded"]
+            .as_u64()
+            .is_some_and(|count| count > 0)
+    );
+    assert!(
+        cached["cache_telemetry"]["parsed_cache_entries_written"]
+            .as_u64()
+            .is_some_and(|count| count > 0)
+    );
     assert_eq!(cached["context_graph_cache"]["status"], "hit");
     assert_eq!(cached["cache_telemetry"]["misses"], 0);
     assert_eq!(cached["cache_telemetry"]["hit_rate_percent"], 100);
@@ -124,6 +149,41 @@ fn changed_scan_and_cache_keep_distinct_secret_occurrences_with_colliding_baseli
     assert_eq!(secret_candidate_count(&cached), 2);
     assert_eq!(cached["cache_telemetry"]["hits"], 1);
     assert_eq!(cached["cache_telemetry"]["misses"], 0);
+}
+
+#[test]
+fn changed_scan_deletes_stale_path_and_parsed_cache_entries() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(temp.path().join("src/lib.rs"), "pub mod gone;\n");
+    write(temp.path().join("src/gone.rs"), "pub fn gone() {}\n");
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path().join("src/gone.rs"),
+        "pub fn gone() { if true { return; } }\n",
+    );
+    let first = scan_changed_json(temp.path(), &["--changed"]);
+    assert_eq!(first["cache_telemetry"]["misses"], 1);
+    let cache_dir = temp.path().join(".repopilot/cache");
+    let deleted_hash = read_json(&cache_dir.join("file_hashes.json"))["entries"][0]["hash"]
+        .as_str()
+        .expect("hash should be string")
+        .to_string();
+
+    fs::remove_file(temp.path().join("src/gone.rs")).expect("delete changed file");
+    let deleted = scan_changed_json(temp.path(), &["--changed"]);
+
+    assert_eq!(deleted["cache_telemetry"]["skipped"], 1);
+    assert!(
+        deleted["cache_telemetry"]["parsed_cache_invalidations"]
+            .as_u64()
+            .is_some_and(|count| count > 0)
+    );
+    assert!(!cache_paths(&cache_dir.join("file_hashes.json")).contains(&"src/gone.rs".to_string()));
+    assert!(!cache_paths(&cache_dir.join("file_roles.json")).contains(&"src/gone.rs".to_string()));
+    assert!(!cache_paths(&cache_dir.join("findings.json")).contains(&"src/gone.rs".to_string()));
+    assert!(!parsed_cache_hashes(&cache_dir).contains(&deleted_hash));
 }
 
 #[test]
@@ -735,6 +795,24 @@ fn write_json(path: &Path, value: &Value) {
 
 fn read_json(path: &Path) -> Value {
     serde_json::from_slice(&fs::read(path).expect("read json")).expect("json")
+}
+
+fn cache_paths(path: &Path) -> Vec<String> {
+    read_json(path)["entries"]
+        .as_array()
+        .expect("cache entries")
+        .iter()
+        .filter_map(|entry| entry["path"].as_str().map(str::to_string))
+        .collect()
+}
+
+fn parsed_cache_hashes(cache_dir: &Path) -> Vec<String> {
+    read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"]
+        .as_array()
+        .expect("parsed cache entries")
+        .iter()
+        .filter_map(|entry| entry["content_hash"].as_str().map(str::to_string))
+        .collect()
 }
 
 fn first_finding_title(json: &Value) -> &str {

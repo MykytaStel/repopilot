@@ -29,6 +29,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   edges for added, modified, and deleted files instead of rebuilding dependency
   edges from every cached node. Existing findings, output schemas, cache files,
   and CLI behavior are unchanged.
+- Analysis cache v2 now persists content-addressed parsed facts in
+  `.repopilot/cache/parsed_facts_v2.json`, allowing warm repo-context fact
+  collection to reuse unchanged imports, exports, and syntax summaries without
+  reparsing. Changed-scan misses populate the parsed-fact cache, warm hits
+  restore complete `ParsedCacheV2` artifacts when available, corrupt or stale
+  analysis-contract cache files are discarded without failing analysis, deleted
+  changed files prune stale path/content entries, and file-role cache schema v8
+  preserves the remaining `FileFacts` fields needed for warm/cold parity. The
+  changed-scan cache telemetry now includes parsed-cache hits, misses,
+  invalidations, corruptions, loaded entries, and written entries, making the
+  cache-v2 signals available for the #270 benchmark matrix. Full-scan AST audit
+  caching remains out of scope because those audits require the live
+  tree-sitter tree, not only persisted summaries.
 - GitHub Release notes now come from structurally validated curated
   `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.

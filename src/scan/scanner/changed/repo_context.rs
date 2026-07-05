@@ -12,6 +12,7 @@ use crate::graph::{CouplingGraph, build_coupling_graph};
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::cache::{config_fingerprint, relative_cache_path};
 use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::parsed_cache::ParsedFactsCache;
 use crate::scan::types::cache_diagnostic;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -24,6 +25,7 @@ impl<'a> ChangedScanEngine<'a> {
         discovery: &ChangedDiscoveryStage,
         facts: &mut ScanFacts,
         graph_patch_files: &[FileFacts],
+        parsed_cache: &mut ParsedFactsCache,
     ) -> io::Result<ChangedRepoContextStage> {
         let start = Instant::now();
         let mut diagnostics = Vec::new();
@@ -54,8 +56,12 @@ impl<'a> ChangedScanEngine<'a> {
             });
         }
 
-        let mut repo_context =
-            collection::collect_scan_facts_without_content(repo_root, self.config)?;
+        let mut repo_context = collection::collect_scan_facts_without_content_with_parsed_cache(
+            repo_root,
+            self.config,
+            parsed_cache,
+        )?;
+        parsed_cache.retain_referenced_current_scan();
 
         repo_context.detected_frameworks = detect_frameworks(repo_root);
         repo_context.framework_projects = detect_framework_projects(repo_root);

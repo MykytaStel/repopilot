@@ -77,10 +77,43 @@ pub struct ScanCacheTelemetry {
     pub misses: usize,
     pub skipped: usize,
     pub hit_rate_percent: u8,
+    #[serde(default)]
+    pub parsed_cache_hits: usize,
+    #[serde(default)]
+    pub parsed_cache_misses: usize,
+    #[serde(default)]
+    pub parsed_cache_invalidations: usize,
+    #[serde(default)]
+    pub parsed_cache_corruptions: usize,
+    #[serde(default)]
+    pub parsed_cache_entries_loaded: usize,
+    #[serde(default)]
+    pub parsed_cache_entries_written: usize,
     pub changed_file_reasons: Vec<ChangedFileReasonSummary>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub changed_files: Vec<ChangedFileCacheTelemetry>,
     pub timings: ScanCacheTimings,
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ParsedCacheTelemetry {
+    pub hits: usize,
+    pub misses: usize,
+    pub invalidations: usize,
+    pub corruptions: usize,
+    pub entries_loaded: usize,
+    pub entries_written: usize,
+}
+
+impl ScanCacheTelemetry {
+    pub fn record_parsed_cache(&mut self, telemetry: ParsedCacheTelemetry) {
+        self.parsed_cache_hits = telemetry.hits;
+        self.parsed_cache_misses = telemetry.misses;
+        self.parsed_cache_invalidations = telemetry.invalidations;
+        self.parsed_cache_corruptions = telemetry.corruptions;
+        self.parsed_cache_entries_loaded = telemetry.entries_loaded;
+        self.parsed_cache_entries_written = telemetry.entries_written;
+    }
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
