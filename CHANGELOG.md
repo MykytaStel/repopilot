@@ -53,6 +53,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `repopilot review`'s boundary, behavioral, algorithmic, and taint-lite
+  detectors now run in one unified pass over each changed file's pre/post git
+  content instead of two disconnected passes (boundary; then behavioral +
+  algorithmic + taint together). Each side of the diff is read and
+  tree-sitter-parsed at most once and shared across every detector that needs
+  it (`ReviewSource::tree()` memoizes the parse), down from up to 3
+  independent reads and 7 independent parses per file. No detector's matching
+  logic changed and review output is identical for existing fixtures;
+  `behavioral.rs`'s module doc now states its scope and limitations alongside
+  the other three delta types.
 - Every registered rule now declares an internal `RuleRequirements` contract covering execution scope, required fact kinds, lifecycle, cache policy, and produced output. The generated rules reference and rule catalog expose the summary, while findings and scheduler behavior remain unchanged.
 - The scan fact model now acts as a shared `FactStore` and indexes one
   `ParsedArtifact` per analyzed source file. Artifacts preserve imports,

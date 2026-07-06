@@ -9,6 +9,7 @@ pub mod model;
 pub(crate) mod paths;
 pub mod render;
 mod report;
+mod signal_pass;
 pub mod signals;
 
 pub use blast_radius::compute_blast_radius;
