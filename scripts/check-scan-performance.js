@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
 // Release-checklist smoke test for scan throughput. Mirrors
-// `check-review-performance.js`, but for `repopilot scan`: it builds the same
-// synthetic 480-file corpus as `benches/scan_bench.rs` (120 files × Rust / TS /
-// Python / Go) and asserts the warm wall-clock median stays under a generous
-// budget (~3× the expected time). This is a coarse guard against gross
-// regressions (e.g. an accidental O(n²)), not a tight criterion gate — run it
-// before a release, not in CI.
+// `check-review-performance.js`, and follows the v0.20 benchmark matrix
+// (`docs/engineering/performance-budgets.md`): the same synthetic multi-language
+// corpus shape as `benches/scan_bench.rs` (Rust / TS / Python / Go), at the
+// legacy 480-file size plus the matrix's medium (~1000 files) full scan and
+// cold/warm changed review. Asserts wall-clock medians stay under generous
+// budgets (well above the accounted-engine-time budgets in
+// `performance-budgets.md`). This is a coarse guard against gross regressions
+// (e.g. an accidental O(n^2)), not a tight criterion gate — run it before a
+// release, not in CI.
 //
-// Usage: node scripts/check-scan-performance.js [path/to/repopilot] [budget_ms]
+// Usage: node scripts/check-scan-performance.js [path/to/repopilot]
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -25,15 +28,19 @@ const binary = path.resolve(
       process.platform === "win32" ? "repopilot.exe" : "repopilot",
     ),
 );
-const budgetMs = Number(process.argv[3] || process.env.SCAN_BUDGET_MS || 3000);
 
-const FILES_PER_LANG = 120;
+const FILES_PER_LANG_LEGACY = 120; // 480 files: the original 0.19 budget fixture.
+const FILES_PER_LANG_MEDIUM = 250; // ~1000 files: the v0.20 matrix "medium synthetic".
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-scan-bench-"));
-const results = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-scan-results-"));
+const BUDGETS_MS = {
+  legacyFullScan: Number(process.env.SCAN_BUDGET_MS || 3000),
+  mediumFullScan: Number(process.env.MEDIUM_SCAN_BUDGET_MS || 6000),
+  mediumChangedReviewCold: Number(process.env.MEDIUM_CHANGED_COLD_BUDGET_MS || 6000),
+  mediumChangedReviewWarm: Number(process.env.MEDIUM_CHANGED_WARM_BUDGET_MS || 1500),
+};
 
-function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { cwd: root, encoding: "utf8", ...options });
+function run(cwd, command, args, options = {}) {
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", ...options });
   if (result.status !== 0) {
     throw new Error(
       `${command} ${args.join(" ")} failed (${result.status}): ${result.stderr}`,
@@ -42,9 +49,18 @@ function run(command, args, options = {}) {
   return result;
 }
 
-function scan(output) {
+function scan(cwd, output, extraArgs = []) {
   const started = process.hrtime.bigint();
-  run(binary, ["scan", ".", "--format", "json", "--output", output, "--no-progress"]);
+  run(cwd, binary, [
+    "scan",
+    ".",
+    "--format",
+    "json",
+    "--output",
+    output,
+    "--no-progress",
+    ...extraArgs,
+  ]);
   return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
 
@@ -69,54 +85,117 @@ function go(index) {
   return `package gopkg\n\nimport "fmt"\n\nfunc Run${index}(value int) int {\n    total := 0\n    for outer := 0; outer < value; outer++ {\n        if outer%2 == 0 {\n            for inner := 0; inner < outer; inner++ {\n                total += outer * inner\n            }\n        }\n    }\n    fmt.Sprintln(total)\n    return total\n}\n`;
 }
 
-function writeFile(subdir, name, contents) {
+function writeFile(root, subdir, name, contents) {
   const dir = path.join(root, subdir);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), contents);
 }
 
-try {
+function buildCorpus(root, filesPerLang) {
   fs.writeFileSync(path.join(root, "go.mod"), "module benchmod\n\ngo 1.22\n");
-  for (let index = 0; index < FILES_PER_LANG; index += 1) {
-    writeFile("src", `file_${index}.rs`, rust(index));
-    writeFile("web", `file_${index}.ts`, ts(index));
-    writeFile("py", `file_${index}.py`, py(index));
-    writeFile("gopkg", `file_${index}.go`, go(index));
+  for (let index = 0; index < filesPerLang; index += 1) {
+    writeFile(root, "src", `file_${index}.rs`, rust(index));
+    writeFile(root, "web", `file_${index}.ts`, ts(index));
+    writeFile(root, "py", `file_${index}.py`, py(index));
+    writeFile(root, "gopkg", `file_${index}.go`, go(index));
   }
-  const fileCount = FILES_PER_LANG * 4;
-
-  // Warm-up (fills the context-graph cache) so the measured runs reflect steady state.
-  scan(path.join(results, "warm.json"));
-
-  const timings = [];
-  for (let iteration = 0; iteration < 5; iteration += 1) {
-    timings.push(scan(path.join(results, `scan-${iteration}.json`)));
-  }
-  const medianMs = median(timings);
-
-  const report = JSON.parse(fs.readFileSync(path.join(results, "scan-4.json"), "utf8"));
-  const fileScanUs = report.scan_timings?.file_scan_us ?? null;
-
-  console.log(
-    JSON.stringify(
-      {
-        files: fileCount,
-        scan_median_ms: Number(medianMs.toFixed(2)),
-        per_file_median_ms: Number((medianMs / fileCount).toFixed(3)),
-        budget_ms: budgetMs,
-        internal_file_scan_us: fileScanUs,
-      },
-      null,
-      2,
-    ),
-  );
-
-  if (medianMs > budgetMs) {
-    throw new Error(
-      `scan of ${fileCount} files took ${medianMs.toFixed(0)}ms, over the ${budgetMs}ms budget`,
-    );
-  }
-} finally {
-  fs.rmSync(root, { recursive: true, force: true });
-  fs.rmSync(results, { recursive: true, force: true });
+  return filesPerLang * 4;
 }
+
+function withTempDirs(fn) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-scan-bench-"));
+  const results = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-scan-results-"));
+  try {
+    return fn(root, results);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(results, { recursive: true, force: true });
+  }
+}
+
+function measureFullScan(label, filesPerLang, budgetMs) {
+  return withTempDirs((root, results) => {
+    const fileCount = buildCorpus(root, filesPerLang);
+
+    // Warm-up (fills the context-graph cache) so the measured runs reflect steady state.
+    scan(root, path.join(results, "warm.json"));
+
+    const timings = [];
+    for (let iteration = 0; iteration < 5; iteration += 1) {
+      timings.push(scan(root, path.join(results, `scan-${iteration}.json`)));
+    }
+    const medianMs = median(timings);
+    const report = JSON.parse(fs.readFileSync(path.join(results, "scan-4.json"), "utf8"));
+
+    const row = {
+      scenario: `warm_full_scan_${label}`,
+      files: fileCount,
+      scan_median_ms: Number(medianMs.toFixed(2)),
+      per_file_median_ms: Number((medianMs / fileCount).toFixed(3)),
+      budget_ms: budgetMs,
+      internal_file_scan_us: report.scan_timings?.file_scan_us ?? null,
+    };
+    console.log(JSON.stringify(row, null, 2));
+
+    if (medianMs > budgetMs) {
+      throw new Error(
+        `warm full scan (${label}, ${fileCount} files) took ${medianMs.toFixed(0)}ms, over the ${budgetMs}ms budget`,
+      );
+    }
+    return medianMs;
+  });
+}
+
+function measureChangedReview(label, filesPerLang, coldBudgetMs, warmBudgetMs) {
+  return withTempDirs((root, results) => {
+    const fileCount = buildCorpus(root, filesPerLang);
+    run(root, "git", ["init", "-q"]);
+    run(root, "git", ["config", "user.email", "benchmark@repopilot.local"]);
+    run(root, "git", ["config", "user.name", "RepoPilot Benchmark"]);
+    run(root, "git", ["add", "."]);
+    run(root, "git", ["commit", "-qm", "benchmark baseline"]);
+    fs.appendFileSync(path.join(root, "src", "file_0.rs"), "\n// benchmark edit\n");
+
+    // Cold: no parsed-cache / repo-context cache exists yet for this fixture.
+    const coldMs = scan(root, path.join(results, "cold.json"), ["--changed"]);
+
+    // Warm: the edit above is never re-written, so every subsequent
+    // `--changed` scan reuses the parsed-facts and context-graph caches.
+    scan(root, path.join(results, "warm-0.json"), ["--changed"]);
+    const warmTimings = [];
+    for (let iteration = 0; iteration < 5; iteration += 1) {
+      warmTimings.push(scan(root, path.join(results, `warm-${iteration}.json`), ["--changed"]));
+    }
+    const warmMedianMs = median(warmTimings);
+
+    const row = {
+      scenario: `changed_review_${label}`,
+      files: fileCount,
+      cold_ms: Number(coldMs.toFixed(2)),
+      cold_budget_ms: coldBudgetMs,
+      warm_median_ms: Number(warmMedianMs.toFixed(2)),
+      warm_budget_ms: warmBudgetMs,
+    };
+    console.log(JSON.stringify(row, null, 2));
+
+    if (coldMs > coldBudgetMs) {
+      throw new Error(
+        `cold changed review (${label}, ${fileCount} files) took ${coldMs.toFixed(0)}ms, over the ${coldBudgetMs}ms budget`,
+      );
+    }
+    if (warmMedianMs > warmBudgetMs) {
+      throw new Error(
+        `warm changed review (${label}, ${fileCount} files) took ${warmMedianMs.toFixed(0)}ms, over the ${warmBudgetMs}ms budget`,
+      );
+    }
+  });
+}
+
+measureFullScan("legacy_480", FILES_PER_LANG_LEGACY, BUDGETS_MS.legacyFullScan);
+measureFullScan("medium_1000", FILES_PER_LANG_MEDIUM, BUDGETS_MS.mediumFullScan);
+measureChangedReview(
+  "medium_1000",
+  FILES_PER_LANG_MEDIUM,
+  BUDGETS_MS.mediumChangedReviewCold,
+  BUDGETS_MS.mediumChangedReviewWarm,
+);
