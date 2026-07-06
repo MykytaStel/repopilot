@@ -1,0 +1,3 @@
+{
+  "description": "Request input reaches a safe ORM lookup instead of a raw SQL sink, so review must emit zero signals."
+}

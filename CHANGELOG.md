@@ -20,6 +20,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   reference doc, lists every rule's lifecycle, a reviewed-precision estimate,
   and false-positive debt; its freshness and `docs/README.md` link are also
   enforced by the release contract. No rule behavior changed.
+- A new "review-zoo" differential fixture harness
+  (`tests/fixtures/review-zoo/`, `tests/review_zoo.rs`) measures `repopilot
+  review`'s signal precision boundary: for each of the boundary, behavioral,
+  and taint-lite delta types, a `safe/` fixture that must produce zero review
+  signals sits next to a minimal-edit `unsafe/` twin that must produce the
+  expected signal. Runs unconditionally in `cargo test --all`. No review
+  detector changes.
 
 ### Changed
 
