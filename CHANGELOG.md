@@ -51,6 +51,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - GitHub Release notes now come from structurally validated curated
   `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.
+- The v0.20 benchmark and determinism matrix is now enforced. A shared
+  `SyntheticSize` small/medium/large synthetic-repo generator
+  (`tests/support/synthetic_repo.rs`) backs a new `cargo test --all` CI gate
+  (`tests/perf_matrix.rs`) that verifies full-scan JSON stays identical across
+  1/2/4 `RAYON_NUM_THREADS` on the small and medium fixtures, and that the
+  parsed-cache v2 telemetry (#268) records hits, misses, and invalidations
+  correctly across changed, added, and removed files. `benches/scan_bench.rs`
+  adds warm full-scan benchmarks for the medium and large fixtures and
+  cold/warm changed-review benchmarks for the small and medium fixtures, and
+  `scripts/check-scan-performance.js` extends the release-only smoke gate with
+  the same medium-scale scenarios. `docs/engineering/performance-budgets.md`
+  records the initial baselines and budgets for every "to be baselined" v0.20
+  matrix row. No engine behavior changed.
 
 ## [0.19.0] - 2026-06-29
 
