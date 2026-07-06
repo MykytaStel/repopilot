@@ -42,6 +42,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   cache-v2 signals available for the #270 benchmark matrix. Full-scan AST audit
   caching remains out of scope because those audits require the live
   tree-sitter tree, not only persisted summaries.
+- The scan engine now schedules file audits in requirement-aware phases: text-only
+  audits run before parsed audits, parsed consumers share one lazily initialized
+  parse view, and project/framework audit registrations execute in parallel under
+  the bounded rayon pool. A determinism test now covers 1, 2, and 4 worker
+  threads, and the warm `scan_synthetic_480_files` benchmark reports no
+  performance change with a measured peak memory footprint.
 - GitHub Release notes now come from structurally validated curated
   `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.

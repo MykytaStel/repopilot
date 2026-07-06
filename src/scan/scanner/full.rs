@@ -1,7 +1,7 @@
 use super::{collection, contract_stage};
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{
-    build_file_audits, run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
+    run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
 };
 use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
 use crate::findings::aggregation::aggregate_duplicate_findings;
@@ -170,9 +170,7 @@ impl<'a> ScanEngine<'a> {
     ) -> io::Result<FileAnalysisStage> {
         let start = Instant::now();
         let parse_nanos_before = crate::analysis::parse::parse_nanos_total();
-        let file_audits = build_file_audits(self.config);
-        let (facts, findings) =
-            collection::analyze_discovered_files(discovered, &file_audits, self.config)?;
+        let (facts, findings) = collection::analyze_discovered_files(discovered, self.config)?;
         let parse_us =
             crate::analysis::parse::parse_nanos_total().saturating_sub(parse_nanos_before) / 1_000;
         Ok(FileAnalysisStage {

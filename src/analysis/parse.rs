@@ -7,7 +7,8 @@
 
 use crate::analysis::SyntaxSummary;
 use crate::scan::facts::FileFacts;
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tree_sitter::{Language, Parser, Tree};
@@ -125,7 +126,7 @@ pub(crate) fn parse_label(content: &str, label: &str) -> Option<Tree> {
 pub struct ParsedFile<'a> {
     content: &'a str,
     language_label: Option<&'a str>,
-    tree: OnceCell<Option<Tree>>,
+    tree: OnceLock<Option<Tree>>,
 }
 
 impl<'a> ParsedFile<'a> {
@@ -133,7 +134,7 @@ impl<'a> ParsedFile<'a> {
         Self {
             content,
             language_label,
-            tree: OnceCell::new(),
+            tree: OnceLock::new(),
         }
     }
 
