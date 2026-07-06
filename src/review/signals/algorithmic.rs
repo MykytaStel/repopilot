@@ -80,17 +80,14 @@ pub fn detect_algorithmic(
         return signals;
     };
 
-    let post_parsed = post.parsed();
-    let Some(post_tree) = post_parsed.tree() else {
+    let Some(post_tree) = post.tree() else {
         return signals;
     };
     let post_fns = collect_functions(post_tree.root_node(), post.content(), language);
 
     let pre_fns: Vec<FnMetrics> = pre_source
         .map(|src| {
-            let parsed = src.parsed();
-            parsed
-                .tree()
+            src.tree()
                 .map(|tree| collect_functions(tree.root_node(), src.content(), language))
                 .unwrap_or_default()
         })

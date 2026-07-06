@@ -1,6 +1,7 @@
 use super::blast_radius::compute_blast_radius;
-use super::content_signals::{ContentToggles, detect_content_signals};
+use super::content_signals::ContentToggles;
 use super::impact::compute_impact_paths;
+use super::signal_pass::detect_review_signals;
 use crate::baseline::Baseline;
 use crate::baseline::{
     BaselineScanReport, BaselineStatus, all_findings_new, diff_summary_against_baseline,
@@ -12,7 +13,7 @@ use crate::review::diff::{ChangedFile, OwnedDiffTarget, load_changed_files, reso
 use crate::review::feedback::apply_review_feedback;
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::paths::normalized_review_path;
-use crate::review::signals::{BoundarySignal, composites, detect_boundary_signals, tiered};
+use crate::review::signals::{BoundarySignal, composites, tiered};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::session::AnalysisSession;
 use crate::scan::types::ScanSummary;
@@ -107,16 +108,11 @@ pub fn build_review_report_from_input(
         changed_files,
     } = input;
     let target = target.as_borrowed();
-    let boundary_signals = detect_boundary_signals(
+    let (boundary_signals, content_signals) = detect_review_signals(
         &repo_root,
         target,
         &changed_files,
         &config.security_boundary,
-    );
-    let content_signals = detect_content_signals(
-        &repo_root,
-        target,
-        &changed_files,
         ContentToggles {
             behavioral: config.behavioral.enabled,
             algorithmic: config.algorithmic.enabled,

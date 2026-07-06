@@ -64,8 +64,7 @@ pub fn detect_behavioral_removed(
     let mut ast_success = false;
 
     if let (Some(pre_src), Some(post_src)) = (pre_source, post_source)
-        && let (Some(pre_tree), Some(post_tree)) =
-            (pre_src.parsed().tree(), post_src.parsed().tree())
+        && let (Some(pre_tree), Some(post_tree)) = (pre_src.tree(), post_src.tree())
     {
         let pre_try = count_try_blocks(pre_tree, pre_src.content(), file, ext, true);
         let post_try = count_try_blocks(post_tree, post_src.content(), file, ext, false);

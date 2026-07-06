@@ -1,9 +1,21 @@
-//! Behavioral "added X" change signals.
+//! Behavioral "added X" / "removed X" change signals.
 //!
 //! Walk the post-change AST to detect added calls or directives (network calls,
 //! subprocess execution, filesystem writes, environment variables, new dependency
 //! imports, and raw SQL queries) whose start lines fall within the changed ranges.
-//! Also handles path-based migration detection for newly added files.
+//! Also handles path-based migration detection for newly added files, and (via
+//! [`removed`]) the mirror image: error handling, auth checks, or test cases
+//! that disappeared between the pre- and post-change source.
+//!
+//! **Flag, don't prove** — same stance as boundary and algorithmic signals.
+//! Matching is a fixed per-language keyword/call-shape list (see
+//! [`keywords`]), not semantic understanding of *why* a call was added or
+//! removed: a network call wrapped behind a feature flag still counts as
+//! added, and a call renamed rather than removed can read as "removed" if the
+//! new name isn't in the list. The list is necessarily incomplete and will
+//! need tuning from real repos. Falls back to coarse token matching (no AST)
+//! for languages without a tree-sitter grammar — see
+//! [`BehavioralSignalSource::CoarseFallback`]. Ships at `preview`.
 
 mod csharp;
 mod dependency;
@@ -148,8 +160,7 @@ pub fn detect_behavioral_added(
         });
     }
 
-    let parsed = post_source.parsed();
-    let Some(tree) = parsed.tree() else {
+    let Some(tree) = post_source.tree() else {
         return signals;
     };
 
