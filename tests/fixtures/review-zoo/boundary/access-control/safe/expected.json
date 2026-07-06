@@ -1,0 +1,3 @@
+{
+  "description": "A new file under an ordinary path (src/utils/format.ts) touches no security boundary and has no I/O, so review must emit zero signals."
+}
