@@ -30,6 +30,7 @@ pub mod findings {
     };
     pub use crate::findings::record::FindingRecord;
     pub use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
+    pub use crate::findings::verification::build_verification_plan;
     pub use crate::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 }
 

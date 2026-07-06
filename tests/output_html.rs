@@ -1,5 +1,5 @@
 use repopilot::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
-use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
 use repopilot::scan::types::{
     HiddenSuggestionSummary, ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary,
@@ -30,7 +30,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
                 description: "description".to_string(),
                 category: FindingCategory::Security,
                 severity: Severity::High,
-                confidence: Default::default(),
+                confidence: Confidence::High,
                 evidence: vec![Evidence {
                     path: PathBuf::from("src/config.rs"),
                     line_start: 1,
@@ -64,6 +64,7 @@ fn html_output_escapes_snippets_and_renders_summary() {
     assert!(html.contains("security.secret-candidate"));
     assert!(html.contains("<strong>Context:</strong> description"));
     assert!(html.contains("<strong>Recommendation:</strong>"));
+    assert!(html.contains("<strong>Verification:</strong>"));
     assert!(html.contains("API_KEY = &quot;abc&lt;123&gt;&quot;"));
     assert!(!html.contains("API_KEY = \"abc<123>\""));
 }

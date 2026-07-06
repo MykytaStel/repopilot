@@ -11,4 +11,5 @@ pub mod record;
 pub mod rule_config;
 pub mod severity;
 pub mod types;
+pub mod verification;
 pub mod visibility;

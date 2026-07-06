@@ -18,16 +18,17 @@ pub struct DecisionRecord {
     pub confidence: Confidence,
     pub evidence: Vec<Evidence>,
     pub recommendation: String,
-    /// Always absent today — no review detector generates a verification
-    /// plan yet. The field exists so the schema is additive when generation
-    /// lands (roadmap #276), not a placeholder that needs a breaking change.
+    /// Present for high-confidence findings (see
+    /// [`crate::findings::verification::build_verification_plan`]); absent
+    /// otherwise, since a low/medium-confidence finding is already flagged as
+    /// uncertain and a step-by-step plan would overstate how actionable it is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_plan: Option<VerificationPlan>,
 }
 
-/// Intentionally minimal shape. Not populated by anything yet; `steps` is a
-/// reasonable v1 that #276 can extend additively (new optional fields) once
-/// verification-plan generation exists.
+/// Intentionally minimal shape: an ordered list of deterministic, evidence-backed
+/// steps. `steps` is a reasonable v1 that can extend additively (new optional
+/// fields) if richer plan structure is needed later.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VerificationPlan {
     pub steps: Vec<String>,
@@ -39,7 +40,7 @@ pub fn build_decision_record(finding: &Finding) -> DecisionRecord {
         confidence: finding.confidence,
         evidence: finding.evidence.clone(),
         recommendation: finding.recommendation_or_default().to_string(),
-        verification_plan: None,
+        verification_plan: crate::findings::verification::build_verification_plan(finding),
     }
 }
 
@@ -78,7 +79,10 @@ mod tests {
         assert_eq!(decision.confidence, Confidence::High);
         assert_eq!(decision.recommendation, "fix it");
         assert_eq!(decision.evidence, finding.evidence);
-        assert!(decision.verification_plan.is_none());
+        assert!(
+            decision.verification_plan.is_some(),
+            "high-confidence findings should get a verification plan"
+        );
     }
 
     #[test]
@@ -101,5 +105,6 @@ mod tests {
 
         let decision = build_decision_record(&finding);
         assert_eq!(decision.recommendation, Finding::GENERIC_RECOMMENDATION);
+        assert!(decision.verification_plan.is_none());
     }
 }
