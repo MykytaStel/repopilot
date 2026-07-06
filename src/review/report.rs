@@ -1,5 +1,6 @@
 use super::blast_radius::compute_blast_radius;
 use super::content_signals::{ContentToggles, detect_content_signals};
+use super::impact::compute_impact_paths;
 use crate::baseline::Baseline;
 use crate::baseline::{
     BaselineScanReport, BaselineStatus, all_findings_new, diff_summary_against_baseline,
@@ -136,6 +137,7 @@ pub fn build_review_report_from_input(
         changed_files,
         boundary_signals,
         content_signals,
+        config.review.impact_path_depth,
     ))
 }
 
@@ -145,9 +147,12 @@ fn classify_findings(
     changed_files: Vec<ChangedFile>,
     mut boundary_signals: Vec<BoundarySignal>,
     content_signals: super::content_signals::ContentSignals,
+    impact_path_depth: usize,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
+    let impact_paths =
+        compute_impact_paths(&summary, &repo_root, &changed_files, impact_path_depth);
     composites::enrich_blast_radius(
         &mut boundary_signals,
         summary.artifacts.coupling_graph.as_ref(),
@@ -201,6 +206,7 @@ fn classify_findings(
         baseline_path: baseline_report.baseline_path,
         changed_files,
         blast_radius,
+        impact_paths,
         boundary_signals,
         boundary_missing_test,
         tiered_signals,

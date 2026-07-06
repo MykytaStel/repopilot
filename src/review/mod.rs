@@ -4,6 +4,7 @@ mod content_signals;
 pub mod diff;
 mod feedback;
 mod gate;
+mod impact;
 pub mod model;
 pub(crate) mod paths;
 pub mod render;
@@ -13,6 +14,7 @@ pub mod signals;
 pub use blast_radius::compute_blast_radius;
 pub use ci::review_report_for_ci;
 pub use gate::{ReviewSignalGatePolicy, ReviewSignalGateResult};
+pub use impact::{AffectedSurface, FileImpact, ImpactPaths, compute_impact_paths};
 pub use report::{
     ReviewInput, build_review_report, build_review_report_from_input,
     build_review_report_from_session, build_review_report_since, load_review_input,

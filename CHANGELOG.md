@@ -39,6 +39,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `id`. Report schema advances additively to `0.21` (`0.16`-`0.20` readers
   still parse); AI-context JSON schema advances to `2`. No rule or baseline
   behavior changed.
+- `repopilot review` now traces bounded-depth dependency impact paths: for
+  each changed file, its direct (one-hop) and transitive (up to a
+  configurable `review.impact_path_depth`, default `3`) dependents, plus a
+  rolled-up affected-surface summary (impacted file count and distinct
+  affected directories). Surfaced in console, markdown, and JSON output
+  (`impact_paths`, `review.impact_path_depth`/`affected_files`/
+  `affected_directories`); MCP's `repopilot_review_change` inherits it via the
+  shared JSON. Computed from the same importer relation as the existing
+  one-hop `blast_radius`, which is untouched — so risk scoring and existing
+  blast-radius behavior are unchanged. Report schema advances additively to
+  `0.22` (`0.16`-`0.21` readers still parse).
 
 ### Changed
 
