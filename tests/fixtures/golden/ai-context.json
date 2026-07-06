@@ -3,7 +3,7 @@
   "project": "ai-context-sample",
   "focus": "all",
   "budget_tokens": 4096,
-  "approx_tokens": 1502,
+  "approx_tokens": 1816,
   "truncated": false,
   "findings_total": 2,
   "findings_included": 2,
@@ -80,7 +80,14 @@
             "snippet": "DEBUG = True"
           }
         ],
-        "recommendation": "Set DEBUG = False for deployed environments and load debug mode only from local development configuration."
+        "recommendation": "Set DEBUG = False for deployed environments and load debug mode only from local development configuration.",
+        "verification_plan": {
+          "steps": [
+            "Open tests/fixtures/projects/ai-context-sample/config/settings.py:1 and confirm the flagged code shown is still present: `DEBUG = True`.",
+            "Confirm the flagged input reaches this code without validation or sanitization, and check for an existing test covering this path.",
+            "This plan is generated from static evidence only — it does not execute code, run tests, or observe runtime behavior. Treat it as a starting point for manual or test-based confirmation, not proof the finding is a true or false positive."
+          ]
+        }
       }
     },
     {
@@ -142,7 +149,14 @@
             "snippet": "ALLOWED_HOSTS = []"
           }
         ],
-        "recommendation": "Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept."
+        "recommendation": "Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept.",
+        "verification_plan": {
+          "steps": [
+            "Open tests/fixtures/projects/ai-context-sample/config/settings.py:2 and confirm the flagged code shown is still present: `ALLOWED_HOSTS = []`.",
+            "Confirm the flagged input reaches this code without validation or sanitization, and check for an existing test covering this path.",
+            "This plan is generated from static evidence only — it does not execute code, run tests, or observe runtime behavior. Treat it as a starting point for manual or test-based confirmation, not proof the finding is a true or false positive."
+          ]
+        }
       }
     }
   ],

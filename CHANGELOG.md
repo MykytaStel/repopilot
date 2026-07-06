@@ -50,6 +50,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   one-hop `blast_radius`, which is untouched — so risk scoring and existing
   blast-radius behavior are unchanged. Report schema advances additively to
   `0.22` (`0.16`-`0.21` readers still parse).
+- High-confidence findings now include a deterministic verification plan
+  (`decision.verification_plan.steps`): one step per evidence entry naming its
+  `file:line` and flagged snippet, one category-specific "what to check" step
+  (Security/Architecture/CodeQuality/Testing/Framework), and a closing step
+  documenting that the plan is static-evidence-only and isn't proof. No LLM,
+  no randomness — a pure function of the finding, so the same finding always
+  gets the same plan. Populated once, in `build_decision_record`, so every
+  `DecisionRecord` consumer inherits it for free: scan/baseline/review JSON,
+  SARIF, AI-context JSON, and MCP's `repopilot_explain_finding`. Console,
+  Markdown, and HTML report output also render a `Verification:` block per
+  finding. Absent (not `null`) for medium/low-confidence findings.
 
 ### Changed
 
