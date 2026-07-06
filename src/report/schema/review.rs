@@ -107,7 +107,7 @@ impl<'a> ReviewJsonReport<'a> {
                 .iter()
                 .enumerate()
                 .map(|(index, finding)| ReviewJsonFinding {
-                    finding,
+                    record: FindingRecord::new(finding),
                     in_diff: report
                         .finding_status(index)
                         .map(|status| status.in_diff)
@@ -151,7 +151,7 @@ pub struct ReviewBaselineJsonMetadata {
 #[derive(Debug, Serialize)]
 pub struct ReviewJsonFinding<'a> {
     #[serde(flatten)]
-    pub finding: &'a Finding,
+    pub record: FindingRecord<'a>,
     pub in_diff: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub baseline_status: Option<BaselineStatus>,

@@ -27,6 +27,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   signals sits next to a minimal-edit `unsafe/` twin that must produce the
   expected signal. Runs unconditionally in `cargo test --all`. No review
   detector changes.
+- Findings now carry an `occurrence_key` and a canonical `decision` record
+  (severity, confidence, evidence, recommendation, and a `verification_plan`
+  placeholder for a future PR) shared verbatim across scan/baseline/review
+  JSON, SARIF, MCP, and AI context. `occurrence_key` disambiguates findings
+  that share a stable `id` — which can legitimately collide, since `id` is
+  intentionally tolerant of line moves and literal-value churn — by hashing
+  each finding's exact, unmasked evidence; two occurrences that share an `id`
+  but differ in location or snippet now always get distinct
+  `occurrence_key`s. Baseline matching is unchanged and still keys purely on
+  `id`. Report schema advances additively to `0.21` (`0.16`-`0.20` readers
+  still parse); AI-context JSON schema advances to `2`. No rule or baseline
+  behavior changed.
 
 ### Changed
 

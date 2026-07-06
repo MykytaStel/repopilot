@@ -14,11 +14,13 @@ pub mod findings {
         FindingContractReport, FindingContractViolation, FindingContractViolationKind,
         validate_finding_contract, validate_findings_contract,
     };
+    pub use crate::findings::decision::{DecisionRecord, VerificationPlan, build_decision_record};
     pub use crate::findings::feedback::{
         LocalFeedbackReport, LocalFeedbackValidation, LocalSuppression, apply_local_feedback,
         validate_local_feedback,
     };
     pub use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
+    pub use crate::findings::occurrence::occurrence_key;
     pub use crate::findings::provenance::{
         AnalysisScope, FindingProvenance, KnowledgeDecisionAction, KnowledgeDecisionProvenance,
     };
@@ -26,6 +28,7 @@ pub mod findings {
         ConfidenceCounts, RuleLifecycleCounts, SignalQualitySummary, SignalSourceCounts,
         summarize_signal_quality,
     };
+    pub use crate::findings::record::FindingRecord;
     pub use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
     pub use crate::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
 }

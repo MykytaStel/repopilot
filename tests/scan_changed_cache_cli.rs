@@ -149,6 +149,18 @@ fn changed_scan_and_cache_keep_distinct_secret_occurrences_with_colliding_baseli
     assert_eq!(secret_candidate_count(&cached), 2);
     assert_eq!(cached["cache_telemetry"]["hits"], 1);
     assert_eq!(cached["cache_telemetry"]["misses"], 0);
+
+    let secret_findings: Vec<&Value> = cached["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|finding| finding["rule_id"] == "security.secret-candidate")
+        .collect();
+    assert_eq!(secret_findings[0]["id"], secret_findings[1]["id"]);
+    assert_ne!(
+        secret_findings[0]["occurrence_key"], secret_findings[1]["occurrence_key"],
+        "colliding stable ids must still get distinct occurrence keys: {cached:#?}"
+    );
 }
 
 #[test]

@@ -10,6 +10,8 @@
 //! clock/rand/net), so it can be golden-tested.
 
 use crate::facts::RepoFactsSummary;
+use crate::findings::decision::{DecisionRecord, build_decision_record};
+use crate::findings::occurrence::occurrence_key;
 use crate::findings::types::{Finding, Severity};
 use crate::output::ai_context::{AiContextRenderOptions, AiFocusCategory, project_name};
 use crate::output::ai_plan::{PlanCluster, ordered_plan_clusters};
@@ -18,7 +20,7 @@ use crate::scan::types::ScanSummary;
 use serde::Serialize;
 
 /// Bumped when the JSON shape changes in a breaking way.
-pub const AI_CONTEXT_JSON_SCHEMA_VERSION: u32 = 1;
+pub const AI_CONTEXT_JSON_SCHEMA_VERSION: u32 = 2;
 
 /// Share of the budget findings may consume before plan clusters get a turn, so
 /// a finding-heavy repo still leaves room for the prioritized plan.
@@ -77,6 +79,7 @@ struct LanguageJson {
 #[derive(Serialize)]
 struct FindingJson {
     id: String,
+    occurrence_key: String,
     rule_id: String,
     category: &'static str,
     severity: &'static str,
@@ -92,6 +95,7 @@ struct FindingJson {
     workspace_package: Option<String>,
     risk: FindingRiskJson,
     evidence: Vec<EvidenceJson>,
+    decision: DecisionRecord,
 }
 
 #[derive(Serialize)]
@@ -296,6 +300,7 @@ fn facts_json(facts: &RepoFactsSummary) -> FactsJson {
 fn finding_json(finding: &Finding) -> FindingJson {
     FindingJson {
         id: finding.id.clone(),
+        occurrence_key: occurrence_key(finding),
         rule_id: finding.rule_id.clone(),
         category: finding.category.label(),
         severity: finding.severity.label(),
@@ -330,6 +335,7 @@ fn finding_json(finding: &Finding) -> FindingJson {
                 snippet: evidence.snippet.clone(),
             })
             .collect(),
+        decision: build_decision_record(finding),
     }
 }
 
