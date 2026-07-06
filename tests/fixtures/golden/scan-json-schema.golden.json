@@ -1,9 +1,9 @@
 {
-  "schema_version": "0.20",
+  "schema_version": "0.21",
   "repopilot_version": "{{VERSION}}",
   "report": {
     "kind": "scan",
-    "schema_version": "0.20",
+    "schema_version": "0.21",
     "repopilot_version": "{{VERSION}}"
   },
   "root_path": "demo-project",
@@ -80,6 +80,20 @@
           }
         ],
         "formula_version": "risk-v3"
+      },
+      "occurrence_key": "e7790f9b3520d9a2",
+      "decision": {
+        "severity": "HIGH",
+        "confidence": "HIGH",
+        "evidence": [
+          {
+            "path": "src/config.ts",
+            "line_start": 3,
+            "line_end": null,
+            "snippet": "export const API_TOKEN = \"<redacted>\";"
+          }
+        ],
+        "recommendation": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples."
       }
     }
   ],

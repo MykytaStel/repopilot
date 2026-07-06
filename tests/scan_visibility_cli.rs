@@ -322,6 +322,10 @@ fn strict_scan_keeps_distinct_secret_occurrences_with_colliding_baseline_keys() 
         secret_findings[0]["evidence"][0]["line_start"],
         secret_findings[1]["evidence"][0]["line_start"]
     );
+    assert_ne!(
+        secret_findings[0]["occurrence_key"], secret_findings[1]["occurrence_key"],
+        "colliding stable ids must still get distinct occurrence keys: {json:#?}"
+    );
 }
 
 #[test]

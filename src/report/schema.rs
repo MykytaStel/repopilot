@@ -1,6 +1,7 @@
 use crate::baseline::diff::{BaselineScanReport, BaselineStatus};
 use crate::baseline::gate::CiGateResult;
 use crate::findings::feedback::LocalFeedbackReport;
+use crate::findings::record::FindingRecord;
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject, ReactNativeArchitectureProfile};
 use crate::graph::CouplingGraph;
@@ -17,9 +18,15 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.20";
-const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] =
-    &["0.16", "0.17", "0.18", "0.19", SCAN_REPORT_SCHEMA_VERSION];
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.21";
+const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
+    "0.16",
+    "0.17",
+    "0.18",
+    "0.19",
+    "0.20",
+    SCAN_REPORT_SCHEMA_VERSION,
+];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,7 +86,7 @@ pub struct ScanJsonReport<'a> {
     pub binary_files_skipped: usize,
     pub skipped_bytes: u64,
     pub languages: &'a [LanguageSummary],
-    pub findings: &'a [Finding],
+    pub findings: Vec<FindingRecord<'a>>,
     pub detected_frameworks: &'a [DetectedFramework],
     pub framework_projects: &'a [FrameworkProject],
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -140,7 +147,12 @@ impl<'a> ScanJsonReport<'a> {
             binary_files_skipped: summary.metrics.binary_files_skipped,
             skipped_bytes: summary.metrics.skipped_bytes,
             languages: &summary.metrics.languages,
-            findings: &summary.artifacts.findings,
+            findings: summary
+                .artifacts
+                .findings
+                .iter()
+                .map(FindingRecord::new)
+                .collect(),
             detected_frameworks: &summary.artifacts.detected_frameworks,
             framework_projects: &summary.artifacts.framework_projects,
             react_native: summary.artifacts.react_native.as_ref(),
