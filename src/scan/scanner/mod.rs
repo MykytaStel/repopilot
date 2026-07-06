@@ -5,6 +5,7 @@ mod changed_telemetry;
 mod collection;
 mod contract_stage;
 mod file;
+mod file_pipeline;
 mod finalize;
 mod full;
 mod summary;
