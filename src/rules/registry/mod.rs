@@ -40,6 +40,7 @@ fn rule_index() -> &'static HashMap<&'static str, &'static RuleMetadata> {
 mod tests {
     use super::*;
     use crate::findings::types::{FindingCategory, Severity};
+    use crate::rules::{RuleCachePolicy, RuleOutputKind};
 
     #[test]
     fn known_rn_rule_returns_metadata() {
@@ -148,6 +149,35 @@ mod tests {
             assert!(
                 !rule.default_confidence.label().is_empty(),
                 "rule {} has empty default confidence",
+                rule.rule_id
+            );
+        }
+    }
+
+    #[test]
+    fn all_registered_rules_declare_requirements() {
+        for rule in all_rules() {
+            assert!(
+                rule.requirements.is_declared(),
+                "rule {} must declare requirements",
+                rule.rule_id
+            );
+            assert_eq!(
+                rule.requirements.lifecycle, rule.lifecycle,
+                "rule {} lifecycle contract drifted",
+                rule.rule_id
+            );
+            assert_ne!(
+                rule.requirements.cache_policy,
+                RuleCachePolicy::Uncached,
+                "rule {} must declare a cache policy",
+                rule.rule_id
+            );
+            assert!(
+                rule.requirements
+                    .produces
+                    .contains(&RuleOutputKind::Finding),
+                "rule {} must declare finding output",
                 rule.rule_id
             );
         }

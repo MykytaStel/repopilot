@@ -5,13 +5,18 @@ mod changed_telemetry;
 mod collection;
 mod contract_stage;
 mod file;
+mod file_pipeline;
 mod finalize;
 mod full;
 mod summary;
 mod walker;
 
-pub use changed::{scan_changed_with_config, scan_resolved_changed_with_config};
+pub use changed::{
+    scan_changed_session, scan_changed_with_config, scan_resolved_changed_session,
+    scan_resolved_changed_with_config,
+};
 pub use collection::{collect_scan_facts, collect_scan_facts_with_config};
 pub use full::{
     ScanEngine, scan_path, scan_path_with_config, scan_path_with_config_and_facts_summary,
+    scan_session, scan_session_with_facts_summary,
 };

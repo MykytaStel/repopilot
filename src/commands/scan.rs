@@ -52,7 +52,7 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let output_format = options
         .format
         .map(Into::into)
-        .unwrap_or(scan_result.repo_config.output.default_format);
+        .unwrap_or(scan_result.session.repo_config().output.default_format);
 
     if baseline_flow::uses_baseline_flow(&options) {
         return baseline_flow::run_baseline_scan_flow(

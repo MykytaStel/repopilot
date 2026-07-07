@@ -22,7 +22,8 @@ use std::time::UNIX_EPOCH;
 /// v6 invalidates cached file roles because classification now adds build-tooling
 /// and managed test-support roles.
 /// v7 adds explainable role-evidence records to each cached file-role entry.
-pub const CACHE_SCHEMA_VERSION: u32 = 7;
+/// v8 carries the remaining `FileFacts` fields needed for warm cache parity.
+pub const CACHE_SCHEMA_VERSION: u32 = 8;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";
@@ -51,6 +52,8 @@ pub struct FileRoleEntry {
     pub language: Option<String>,
     pub non_empty_lines: usize,
     #[serde(default)]
+    pub branch_count: usize,
+    #[serde(default)]
     pub imports: Vec<String>,
     #[serde(default)]
     pub deferred_imports: Vec<String>,
@@ -61,6 +64,10 @@ pub struct FileRoleEntry {
     pub runtimes: Vec<String>,
     pub paradigms: Vec<String>,
     pub is_test: bool,
+    #[serde(default)]
+    pub has_inline_tests: bool,
+    #[serde(default)]
+    pub in_executable_package: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -218,6 +225,21 @@ pub fn config_fingerprint(config: &ScanConfig) -> String {
                 docs_url: rule.docs_url,
                 description: rule.description,
                 recommendation: rule.recommendation,
+                required_scope: rule.requirements.scope.label(),
+                required_facts: rule
+                    .requirements
+                    .fact_kinds
+                    .iter()
+                    .map(|fact| fact.label())
+                    .collect(),
+                requirements_lifecycle: rule.requirements.lifecycle.label(),
+                cache_policy: rule.requirements.cache_policy.label(),
+                produces: rule
+                    .requirements
+                    .produces
+                    .iter()
+                    .map(|output| output.label())
+                    .collect(),
             })
             .collect(),
     };
@@ -260,6 +282,11 @@ struct RuleFingerprint {
     docs_url: Option<&'static str>,
     description: &'static str,
     recommendation: Option<&'static str>,
+    required_scope: &'static str,
+    required_facts: Vec<&'static str>,
+    requirements_lifecycle: &'static str,
+    cache_policy: &'static str,
+    produces: Vec<&'static str>,
 }
 
 pub fn relative_cache_path(root: &Path, path: &Path) -> String {
@@ -429,6 +456,7 @@ mod tests {
                 hash: "hash".to_string(),
                 language: Some("Rust".to_string()),
                 non_empty_lines: 1,
+                branch_count: 0,
                 imports: Vec::new(),
                 deferred_imports: Vec::new(),
                 roles: vec!["domain".to_string()],
@@ -441,6 +469,8 @@ mod tests {
                 runtimes: vec!["rust-library".to_string()],
                 paradigms: Vec::new(),
                 is_test: false,
+                has_inline_tests: false,
+                in_executable_package: false,
             }],
         };
 

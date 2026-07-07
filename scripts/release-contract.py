@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate release metadata and extract release notes from CHANGELOG.md."""
+"""Validate release metadata and render curated GitHub release notes."""
 
 from __future__ import annotations
 
@@ -8,8 +8,20 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from urllib.parse import unquote
+
+# `scripts/` is a sibling-import package (zoo.py, zoo_scorecard.py, ...) that
+# only resolves as `python3 scripts/xxx.py` puts `scripts/` on sys.path[0].
+# This module is also loaded via `importlib.util.spec_from_file_location` in
+# its own test file, which does not do that automatically — fix it once here
+# so `import zoo_scorecard` behaves the same either way.
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+import zoo_scorecard as zs  # noqa: E402  (after the sys.path fix above)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -21,6 +33,12 @@ RELEASE_HEADING = re.compile(
 )
 ACTION_USE = re.compile(r"^\s*-?\s*uses:\s*([^@\s]+)@([^\s#]+)", re.MULTILINE)
 PINNED_SHA = re.compile(r"^[0-9a-f]{40}$")
+RELEASE_FRONT_MATTER = re.compile(
+    r"\A---\n(?P<meta>.*?)\n---\n(?P<body>.*)\Z",
+    re.DOTALL,
+)
+RELEASE_SECTION = re.compile(r"^## (?P<title>[^\n]+)$", re.MULTILINE)
+RELEASE_REQUIRED_SECTIONS = ("Highlights", "Compatibility", "Upgrade")
 
 
 class ContractError(RuntimeError):
@@ -101,8 +119,101 @@ def release_section(version: str) -> str:
     end = match.end() + next_heading.start() if next_heading else len(changelog)
     body = changelog[match.end() : end].strip()
     if not body or not re.search(r"^### ", body, re.MULTILINE):
-        raise ContractError(f"CHANGELOG.md release {version} has no release notes")
+        raise ContractError(f"CHANGELOG.md release {version} has no technical entries")
     return body
+
+
+def release_notes(version: str) -> str:
+    title, description, body = release_document(version)
+    if not title:
+        raise ContractError(f"Release title for {version} is empty")
+    return f"{description}\n\n{body}"
+
+
+def release_title(version: str) -> str:
+    title, _description, _body = release_document(version)
+    return f"RepoPilot v{version}: {title}"
+
+
+def release_document(version: str) -> tuple[str, str, str]:
+    curated = ROOT / "docs" / "releases" / f"v{version}.md"
+    if not curated.exists():
+        raise ContractError(f"Missing curated GitHub release notes for {version}")
+
+    text = read_text(curated).strip()
+    if not text:
+        raise ContractError(f"Release notes for {version} are empty")
+    title, description, body = parse_release_document(version, text)
+    validate_release_note_body(version, body)
+    return title, description, body
+
+
+def parse_release_document(version: str, text: str) -> tuple[str, str, str]:
+    match = RELEASE_FRONT_MATTER.match(text)
+    if not match:
+        raise ContractError(
+            f"Release notes for {version} must start with title/description front matter"
+        )
+
+    metadata: dict[str, str] = {}
+    for line in match.group("meta").splitlines():
+        if not line.strip():
+            continue
+        key, separator, value = line.partition(":")
+        if not separator:
+            raise ContractError(f"Invalid release metadata line for {version}: {line}")
+        metadata[key.strip()] = value.strip().strip("\"'")
+
+    title = metadata.get("title", "")
+    description = metadata.get("description", "")
+    body = match.group("body").strip()
+    if not title:
+        raise ContractError(f"Release title for {version} is empty")
+    if not description:
+        raise ContractError(f"Release description for {version} is empty")
+    if not body:
+        raise ContractError(f"Release notes for {version} have no body")
+    return title, description, body
+
+
+def validate_release_note_body(version: str, body: str) -> None:
+    if re.search(r"^# ", body, re.MULTILINE):
+        raise ContractError(f"Release notes for {version} must not include an H1")
+
+    sections = list(RELEASE_SECTION.finditer(body))
+    titles = [section.group("title").strip() for section in sections]
+    if titles[: len(RELEASE_REQUIRED_SECTIONS)] != list(RELEASE_REQUIRED_SECTIONS):
+        expected = ", ".join(f"## {section}" for section in RELEASE_REQUIRED_SECTIONS)
+        raise ContractError(f"Release notes for {version} must start with {expected}")
+
+    highlights = release_section_body(body, sections, "Highlights")
+    highlight_count = len(re.findall(r"^- \S", highlights, re.MULTILINE))
+    if not 3 <= highlight_count <= 5:
+        raise ContractError(
+            f"Release notes for {version} must have 3-5 highlight bullets"
+        )
+
+    upgrade = release_section_body(body, sections, "Upgrade")
+    required_commands = [
+        f"cargo install repopilot --version {version} --force",
+        f"npm install -g repopilot@{version}",
+    ]
+    missing = [command for command in required_commands if command not in upgrade]
+    if missing:
+        raise ContractError(
+            f"Release notes for {version} missing pinned upgrade command: {missing[0]}"
+        )
+
+
+def release_section_body(
+    body: str, sections: list[re.Match[str]], title: str
+) -> str:
+    for index, section in enumerate(sections):
+        if section.group("title").strip() != title:
+            continue
+        end = sections[index + 1].start() if index + 1 < len(sections) else len(body)
+        return body[section.end() : end].strip()
+    raise ContractError(f"Release notes section is missing: {title}")
 
 
 def check_versions(version: str) -> None:
@@ -261,27 +372,138 @@ def check_removed_vscode_surface() -> None:
         )
 
 
+def check_roadmap_docs() -> None:
+    roadmap = ROOT / "docs" / "roadmap" / "v0.20.md"
+    scorecard = ROOT / "docs" / "engineering" / "v0.20-release-scorecard.md"
+    required_files = {
+        "v0.20 roadmap": roadmap,
+        "v0.20 release scorecard": scorecard,
+    }
+    missing = [name for name, path in required_files.items() if not path.exists()]
+    if missing:
+        raise ContractError(
+            "Missing release documentation:\n  " + "\n  ".join(missing)
+        )
+
+    roadmap_text = read_text(roadmap)
+    required_headings = [
+        "Problem Statement",
+        "Product Promise",
+        "Non-Goals",
+        "Compatibility Contract",
+        "Planned PR Sequence",
+        "Release Gates",
+        "Definition of Done",
+    ]
+    missing_headings = [
+        heading
+        for heading in required_headings
+        if not re.search(rf"^##+ {re.escape(heading)}", roadmap_text, re.MULTILINE)
+    ]
+    if missing_headings:
+        raise ContractError(
+            "v0.20 roadmap missing required headings:\n  "
+            + "\n  ".join(missing_headings)
+        )
+
+    docs_index = read_text(ROOT / "docs" / "README.md")
+    if "roadmap/v0.20.md" not in docs_index:
+        raise ContractError("docs/README.md does not link to v0.20 roadmap")
+    if "v0.20-release-scorecard.md" not in docs_index:
+        raise ContractError("docs/README.md does not link to v0.20 release scorecard")
+
+
+def check_rule_scorecard() -> None:
+    """The committed per-rule scorecard must be fresh and linked from the docs index.
+
+    Regenerated purely from committed inputs (zoo expectations + the generated
+    rules reference) — no clone, no network — so this always runs.
+    """
+    manifest_path = ROOT / "tests" / "zoo" / "manifest.toml"
+    expectation_dir = ROOT / "tests" / "zoo" / "expectations"
+    rules_reference = ROOT / "docs" / "rules-reference.md"
+    scorecard_path = ROOT / "docs" / "engineering" / "rule-scorecard.md"
+
+    for label, path in (
+        ("zoo manifest", manifest_path),
+        ("rules reference", rules_reference),
+        ("rule scorecard", scorecard_path),
+    ):
+        if not path.exists():
+            raise ContractError(f"Missing {label}: {path.relative_to(ROOT)}")
+
+    manifest = tomllib.loads(read_text(manifest_path)).get("repo", [])
+    rendered = zs.generate_scorecard(manifest, expectation_dir, rules_reference)
+    if read_text(scorecard_path) != rendered:
+        raise ContractError(
+            "docs/engineering/rule-scorecard.md is stale; "
+            "regenerate with `python3 scripts/zoo.py scorecard --write`"
+        )
+
+    docs_index = read_text(ROOT / "docs" / "README.md")
+    if "rule-scorecard.md" not in docs_index:
+        raise ContractError("docs/README.md does not link to the rule scorecard")
+
+
+def check_zoo_gate() -> None:
+    """Fail the release contract if the real-repo zoo gate fails, when available.
+
+    "Available" means every manifest repo is cloned under `.zoo/`
+    (`python3 scripts/zoo.py clone`). Cloning requires network access this
+    check does not perform itself, so it skips (not fails) when repos aren't
+    present — `verify-release.sh` clones them before calling this check so the
+    gate is enforced for real during release verification.
+    """
+    manifest_path = ROOT / "tests" / "zoo" / "manifest.toml"
+    if not manifest_path.exists():
+        raise ContractError(f"Missing zoo manifest: {manifest_path.relative_to(ROOT)}")
+    manifest = tomllib.loads(read_text(manifest_path)).get("repo", [])
+    zoo_dir = ROOT / ".zoo"
+    available = bool(manifest) and all((zoo_dir / repo["name"]).is_dir() for repo in manifest)
+    if not available:
+        print(
+            "zoo gate: repos not cloned under .zoo/ "
+            "(run `python3 scripts/zoo.py clone`); skipping"
+        )
+        return
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "zoo.py"), "scan"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        tail = "\n".join((result.stdout + result.stderr).splitlines()[-40:])
+        raise ContractError(f"zoo scan gate failed (exit {result.returncode}):\n{tail}")
+
+
 def check_contract(tag: str | None) -> None:
     version = expected_version(tag)
     check_versions(version)
     release_section(version)
+    release_notes(version)
     check_markdown_links()
     check_npm_claims()
     check_cargo_package()
     check_action_pins()
     check_release_orchestration()
     check_removed_vscode_surface()
+    check_roadmap_docs()
+    check_rule_scorecard()
+    check_zoo_gate()
     print(f"Release contract passed for {version}")
 
 
 def write_notes(tag: str, output: Path) -> None:
     version = version_from_tag(tag)
-    body = release_section(version)
+    body = release_notes(version)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         body
         + "\n\n"
-        + f"Full changelog: https://github.com/MykytaStel/repopilot/blob/v{version}/CHANGELOG.md\n",
+        + f"Full technical changelog: https://github.com/MykytaStel/repopilot/blob/{tag}/CHANGELOG.md\n",
         encoding="utf-8",
     )
     print(f"Wrote release notes for {version} to {output}")
@@ -297,6 +519,9 @@ def parse_args() -> argparse.Namespace:
     notes = subparsers.add_parser("notes")
     notes.add_argument("--tag", required=True)
     notes.add_argument("--output", required=True, type=Path)
+
+    title = subparsers.add_parser("title")
+    title.add_argument("--tag", required=True)
     return parser.parse_args()
 
 
@@ -305,8 +530,10 @@ def main() -> int:
     try:
         if args.command == "check":
             check_contract(args.tag)
-        else:
+        elif args.command == "notes":
             write_notes(args.tag, args.output)
+        else:
+            print(release_title(version_from_tag(args.tag)))
     except (ContractError, KeyError, OSError, subprocess.CalledProcessError) as error:
         print(f"release-contract: {error}", file=sys.stderr)
         return 1

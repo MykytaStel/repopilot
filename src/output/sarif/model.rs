@@ -1,3 +1,4 @@
+use crate::findings::decision::DecisionRecord;
 use crate::report::schema::ReportEnvelope;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -78,6 +79,9 @@ pub struct SarifResultProperties {
     pub category: String,
     pub confidence: String,
     pub recommendation: String,
+    #[serde(rename = "occurrenceKey")]
+    pub occurrence_key: String,
+    pub decision: DecisionRecord,
 }
 
 #[derive(Debug, Clone, Serialize)]

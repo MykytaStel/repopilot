@@ -32,6 +32,9 @@ pub struct RuleCatalogItem {
     pub false_positive_notes: Option<&'static str>,
     pub semantic_source: &'static str,
     pub required_scope: &'static str,
+    pub required_facts: Vec<&'static str>,
+    pub cache_policy: &'static str,
+    pub produces: Vec<&'static str>,
     pub fixture_coverage: RuleFixtureCoverage,
     pub false_positive_risk: &'static str,
     pub stability_gate_status: &'static str,
@@ -71,7 +74,7 @@ impl From<&'static RuleMetadata> for RuleCatalogItem {
             category: rule.category.label().to_string(),
             severity: rule.default_severity.label().to_string(),
             confidence: rule.default_confidence.label().to_string(),
-            lifecycle: rule.lifecycle,
+            lifecycle: rule.requirements.lifecycle,
             signal_source: rule.signal_source,
             docs_url: rule.docs_url,
             tags: rule.tags,
@@ -79,7 +82,20 @@ impl From<&'static RuleMetadata> for RuleCatalogItem {
             recommendation: rule.recommendation,
             false_positive_notes: rule.false_positive_notes,
             semantic_source: rule.signal_source.label(),
-            required_scope: required_scope(rule.signal_source),
+            required_scope: rule.requirements.scope.label(),
+            required_facts: rule
+                .requirements
+                .fact_kinds
+                .iter()
+                .map(|fact| fact.label())
+                .collect(),
+            cache_policy: rule.requirements.cache_policy.label(),
+            produces: rule
+                .requirements
+                .produces
+                .iter()
+                .map(|output| output.label())
+                .collect(),
             false_positive_risk: false_positive_risk(rule),
             stability_gate_status: stability_gate_status(rule, &fixture_coverage),
             fixture_coverage,
@@ -121,17 +137,6 @@ fn fixture_coverage_for_rule(rule_id: &str) -> RuleFixtureCoverage {
     }
 
     coverage
-}
-
-fn required_scope(source: SignalSource) -> &'static str {
-    match source {
-        SignalSource::ImportGraph => "repository-graph",
-        SignalSource::FrameworkDetector => "project-framework",
-        SignalSource::DependencyManifest | SignalSource::ConfigFile => "project-file",
-        SignalSource::GitDiff => "git-diff",
-        SignalSource::Mixed => "mixed",
-        SignalSource::TextHeuristic | SignalSource::Ast => "file-content",
-    }
 }
 
 fn false_positive_risk(rule: &RuleMetadata) -> &'static str {

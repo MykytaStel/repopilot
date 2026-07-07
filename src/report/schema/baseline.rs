@@ -91,7 +91,7 @@ impl<'a> BaselineJsonReport<'a> {
                 .iter()
                 .enumerate()
                 .map(|(index, finding)| FindingWithBaselineStatus {
-                    finding,
+                    record: FindingRecord::new(finding),
                     baseline_status: report.finding_status(index),
                 })
                 .collect(),
@@ -109,6 +109,6 @@ pub struct BaselineJsonMetadata {
 #[derive(Debug, Serialize)]
 pub struct FindingWithBaselineStatus<'a> {
     #[serde(flatten)]
-    pub finding: &'a Finding,
+    pub record: FindingRecord<'a>,
     pub baseline_status: BaselineStatus,
 }

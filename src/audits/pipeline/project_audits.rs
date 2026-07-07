@@ -10,6 +10,7 @@ use crate::findings::types::{Finding, FindingCategory};
 use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use rayon::prelude::*;
 
 pub fn registered_project_audits(config: &ScanConfig) -> Vec<ProjectAuditRegistration> {
     let mut audits = vec![
@@ -85,8 +86,11 @@ pub fn registered_project_audits(config: &ScanConfig) -> Vec<ProjectAuditRegistr
 
 pub fn run_project_audits(scan_facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
     let findings = registered_project_audits(config)
-        .iter()
-        .flat_map(|registration| registration.run(scan_facts, config))
+        .par_iter()
+        .map(|registration| registration.run(scan_facts, config))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flatten()
         .collect();
 
     apply_project_decisions(scan_facts, findings)

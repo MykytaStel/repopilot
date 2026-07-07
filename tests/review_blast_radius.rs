@@ -150,6 +150,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         baseline_path: None,
         changed_files: vec![changed_file("src/a.ts")],
         blast_radius: vec![PathBuf::from("src/b.ts")],
+        impact_paths: Default::default(),
         boundary_signals: vec![],
         boundary_missing_test: false,
         tiered_signals: TieredSignals::default(),

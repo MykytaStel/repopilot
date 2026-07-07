@@ -3,6 +3,7 @@ use crate::audits::metadata::{AuditKind, AuditMetadata};
 use crate::audits::traits::{FileAudit, ProjectAudit};
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::{Finding, FindingCategory};
+use crate::rules::{RuleRequirements, lookup_rule_metadata};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 
@@ -32,9 +33,52 @@ impl FileAuditRegistration {
         Self { metadata, audit }
     }
 
+    pub(crate) fn run(&self, file: &FileFacts, config: &ScanConfig) -> Vec<Finding> {
+        stamp_findings_analysis_scope(self.audit.audit(file, config), self.scope())
+    }
+
+    pub(crate) fn run_parsed(
+        &self,
+        file: &FileFacts,
+        parsed: &ParsedFile,
+        config: &ScanConfig,
+    ) -> Vec<Finding> {
+        stamp_findings_analysis_scope(self.audit.audit_parsed(file, parsed, config), self.scope())
+    }
+
+    pub(crate) fn requires_parsed_syntax(&self) -> bool {
+        self.requirements().requires_parsed_syntax()
+    }
+
+    pub(crate) fn requirements(&self) -> RuleRequirements {
+        let mut requirements = None;
+
+        for rule_id in self.metadata.rule_ids {
+            let Some(rule) = lookup_rule_metadata(rule_id) else {
+                continue;
+            };
+            let rule_requirements = rule.requirements;
+            if let Some(previous) = requirements {
+                debug_assert_eq!(
+                    previous, rule_requirements,
+                    "audit {} mixes incompatible rule requirements across rule ids",
+                    self.metadata.audit_id
+                );
+            } else {
+                requirements = Some(rule_requirements);
+            }
+        }
+
+        requirements.unwrap_or(RuleRequirements::UNDECLARED)
+    }
+
+    fn scope(&self) -> AnalysisScope {
+        self.metadata.kind.analysis_scope()
+    }
+
     pub(super) fn into_audit(self) -> Box<dyn FileAudit> {
         Box::new(ScopedFileAudit {
-            scope: self.metadata.kind.analysis_scope(),
+            scope: self.scope(),
             audit: self.audit,
         })
     }

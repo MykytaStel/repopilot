@@ -15,7 +15,7 @@ use repopilot::output::OutputFormat;
 use repopilot::report::writer::write_report;
 use repopilot::review::render::{render, render_review_sarif};
 use repopilot::review::{
-    ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_input,
+    ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input, load_review_input_since, review_report_for_ci,
 };
 use std::time::{Duration, Instant};
@@ -83,7 +83,6 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let diff_loading_us = duration_us(diff_started.elapsed());
     let scan_mode = match scope {
         ReviewScope::Changed => ProductScanMode::ResolvedChanged {
-            repo_root: review_input.repo_root.clone(),
             changed_files: review_input.changed_files.clone(),
             base_ref: review_input.target.base_ref().map(str::to_string),
         },
@@ -116,11 +115,11 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .map(|(baseline, path)| (baseline, path.clone()));
     let review_started = Instant::now();
-    let mut review_report = build_review_report_from_input(
+    let mut review_report = build_review_report_from_session(
         summary,
         review_input,
         baseline_ref,
-        &scan_result.repo_config,
+        &scan_result.session,
     )?;
     review_report.timings.diff_loading_us = diff_loading_us;
     review_report.timings.review_signals_us = duration_us(review_started.elapsed());

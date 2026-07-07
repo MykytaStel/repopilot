@@ -25,8 +25,21 @@ is a build input, not a compatibility promise for older compilers.
 ## Prepare
 
 Update the version consistently in Cargo, npm, the Action, and reusable
-workflow. Add a dated `CHANGELOG.md` section and leave
+workflow. Add a dated `CHANGELOG.md` section for the full technical record, add
+curated GitHub Release notes at `docs/releases/vX.Y.Z.md`, and leave
 `[Unreleased]` ready for the next change.
+
+Curated release notes should stay short and user-facing:
+
+1. `title` and `description` front matter;
+2. three to five highlights;
+3. breaking changes or compatibility notes;
+4. version-pinned Cargo and npm upgrade commands.
+
+Do not add an H1 or a full changelog link to the curated note. The release
+script uses the front-matter title as the GitHub Release title, renders the
+description as the first body paragraph, and appends the tagged `CHANGELOG.md`
+link automatically.
 
 Run the release contract:
 
@@ -37,7 +50,9 @@ python3 scripts/release-contract.py check
 It verifies:
 
 - all release versions and action pins agree;
-- the matching changelog section exists and can produce release notes;
+- the matching changelog section exists;
+- the curated GitHub Release note exists, has the required structure, and can
+  produce the release title and body;
 - local Markdown links resolve;
 - stale npm installer claims are absent;
 - third-party GitHub Actions are pinned to commit SHAs;
@@ -93,7 +108,8 @@ git push origin vX.Y.Z
 ```
 
 The release workflow validates the tag against repository metadata before any
-build. It extracts the GitHub Release body from the matching changelog section,
+build. It renders the GitHub Release title and body from
+`docs/releases/vX.Y.Z.md`, appends the tagged full technical changelog link,
 builds and attests platform archives, publishes crates.io, calls npm publishing,
 and updates the Homebrew tap. The npm workflow publishes checksum-verified
 platform packages before the root package through Trusted Publishing. Missing
