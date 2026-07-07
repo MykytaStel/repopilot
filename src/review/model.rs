@@ -2,6 +2,7 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::review::impact::ImpactPaths;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 use crate::scan::types::ScanSummary;
@@ -23,6 +24,7 @@ pub struct ReviewReport {
     pub baseline_path: Option<PathBuf>,
     pub changed_files: Vec<ChangedFile>,
     pub blast_radius: Vec<PathBuf>,
+    pub impact_paths: ImpactPaths,
     pub boundary_signals: Vec<BoundarySignal>,
     /// A code boundary (auth / request-trust) changed but no test moved.
     pub boundary_missing_test: bool,

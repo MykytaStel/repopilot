@@ -15,6 +15,7 @@ use crate::frameworks::DetectedFramework;
 use crate::knowledge::decision::apply_project_decisions;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use rayon::prelude::*;
 
 pub fn registered_framework_audits(facts: &ScanFacts) -> Vec<FrameworkAuditRegistration> {
     let scope = detect_framework_scope(facts);
@@ -178,8 +179,11 @@ pub fn registered_framework_audits(facts: &ScanFacts) -> Vec<FrameworkAuditRegis
 
 pub fn run_framework_audits(facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding> {
     let findings = registered_framework_audits(facts)
-        .iter()
-        .flat_map(|registration| registration.run(facts, config))
+        .par_iter()
+        .map(|registration| registration.run(facts, config))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flatten()
         .collect();
 
     apply_project_decisions(facts, findings)

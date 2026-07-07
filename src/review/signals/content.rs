@@ -10,18 +10,22 @@
 //! Nothing here judges the code. It only makes the before/after source available
 //! to the detectors, consistent with the "flag, don't prove" stance in `mod.rs`.
 
-use crate::analysis::parse::ParsedFile;
+use crate::analysis::parse::parse_label;
 use crate::review::diff::{ChangeStatus, ChangedFile, DiffTarget, git_show};
 use crate::scan::language::detect_language;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
+use tree_sitter::Tree;
 
 /// One side (pre- or post-change) of a changed file's source. Owns the content
-/// and detected language label so a borrowed [`ParsedFile`] view can be produced
-/// on demand without a second read.
+/// and detected language label, and memoizes its own tree-sitter parse so every
+/// delta detector that borrows the same `ReviewSource` (boundary, behavioral,
+/// algorithmic, taint-lite) shares one parse instead of re-parsing per detector.
 pub struct ReviewSource {
     content: String,
     language_label: Option<String>,
+    tree: OnceLock<Option<Tree>>,
 }
 
 impl ReviewSource {
@@ -30,6 +34,7 @@ impl ReviewSource {
         Self {
             content,
             language_label,
+            tree: OnceLock::new(),
         }
     }
 
@@ -38,10 +43,22 @@ impl ReviewSource {
         &self.content
     }
 
-    /// A parse-once view over this source. Yields a tree only for languages with
-    /// a tree-sitter grammar; otherwise the view exists but parses to nothing.
-    pub fn parsed(&self) -> ParsedFile<'_> {
-        ParsedFile::new(&self.content, self.language_label.as_deref())
+    /// The detected language label, if any (e.g. `"rust"`, `"typescript"`).
+    pub fn language_label(&self) -> Option<&str> {
+        self.language_label.as_deref()
+    }
+
+    /// Lazily parses (once) and returns the syntax tree, shared by every
+    /// detector that borrows this source. Yields a tree only for languages
+    /// with a tree-sitter grammar; otherwise `None`.
+    pub fn tree(&self) -> Option<&Tree> {
+        self.tree
+            .get_or_init(|| {
+                self.language_label
+                    .as_deref()
+                    .and_then(|label| parse_label(&self.content, label))
+            })
+            .as_ref()
     }
 }
 
@@ -49,6 +66,7 @@ fn source_from(content: String, path: &Path) -> ReviewSource {
     ReviewSource {
         content,
         language_label: detect_language(path).map(str::to_string),
+        tree: OnceLock::new(),
     }
 }
 
@@ -161,8 +179,8 @@ mod tests {
         assert_eq!(before.content(), "fn old() {}\n");
         assert_eq!(after.content(), "fn updated() {}\n");
         // The detected Rust grammar parses both sides.
-        assert!(before.parsed().tree().is_some());
-        assert!(after.parsed().tree().is_some());
+        assert!(before.tree().is_some());
+        assert!(after.tree().is_some());
     }
 
     #[test]

@@ -1,11 +1,15 @@
 pub mod aggregation;
 pub mod contract;
+pub mod decision;
 pub mod enrichment;
 pub mod feedback;
 pub mod filter;
+pub mod occurrence;
 pub mod provenance;
 pub mod quality;
+pub mod record;
 pub mod rule_config;
 pub mod severity;
 pub mod types;
+pub mod verification;
 pub mod visibility;

@@ -1,4 +1,5 @@
 use super::*;
+use crate::review::ImpactPaths;
 use crate::review::ReviewSignalGateResult;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
@@ -15,6 +16,7 @@ pub struct ReviewJsonReport<'a> {
     pub non_empty_lines: usize,
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
+    pub impact_paths: &'a ImpactPaths,
     pub boundary_signals: &'a [BoundarySignal],
     /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
@@ -65,6 +67,7 @@ impl<'a> ReviewJsonReport<'a> {
                 .iter()
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
+            impact_paths: &report.impact_paths,
             boundary_signals: &report.boundary_signals,
             tiered_signals: &report.tiered_signals,
             review_timings: report.timings,
@@ -78,6 +81,13 @@ impl<'a> ReviewJsonReport<'a> {
                 existing_in_diff_findings: report.existing_in_diff_count(),
                 boundary_signals: report.boundary_signals.len(),
                 boundary_missing_test: report.boundary_missing_test,
+                impact_path_depth: report.impact_paths.depth,
+                affected_files: report.impact_paths.affected_surface.impacted_files,
+                affected_directories: report
+                    .impact_paths
+                    .affected_surface
+                    .affected_directories
+                    .len(),
                 tiered_signals: TierCounts {
                     definitely: report.tiered_signals.definitely.len(),
                     maybe: report.tiered_signals.maybe.len(),
@@ -107,7 +117,7 @@ impl<'a> ReviewJsonReport<'a> {
                 .iter()
                 .enumerate()
                 .map(|(index, finding)| ReviewJsonFinding {
-                    finding,
+                    record: FindingRecord::new(finding),
                     in_diff: report
                         .finding_status(index)
                         .map(|status| status.in_diff)
@@ -129,6 +139,9 @@ pub struct ReviewJsonMetadata {
     pub existing_in_diff_findings: usize,
     pub boundary_signals: usize,
     pub boundary_missing_test: bool,
+    pub impact_path_depth: usize,
+    pub affected_files: usize,
+    pub affected_directories: usize,
     pub tiered_signals: TierCounts,
     pub severity_counts: SeverityCounts,
 }
@@ -151,7 +164,7 @@ pub struct ReviewBaselineJsonMetadata {
 #[derive(Debug, Serialize)]
 pub struct ReviewJsonFinding<'a> {
     #[serde(flatten)]
-    pub finding: &'a Finding,
+    pub record: FindingRecord<'a>,
     pub in_diff: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub baseline_status: Option<BaselineStatus>,

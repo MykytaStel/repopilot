@@ -1,6 +1,6 @@
 use crate::config::defaults::{
     DEFAULT_COMPLEX_FUNCTION_THRESHOLD, DEFAULT_COMPLEXITY_HIGH_THRESHOLD,
-    DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD, DEFAULT_HUGE_FILE_LINES,
+    DEFAULT_COMPLEXITY_MEDIUM_THRESHOLD, DEFAULT_HUGE_FILE_LINES, DEFAULT_IMPACT_PATH_DEPTH,
     DEFAULT_INSTABILITY_HUB_MIN_FAN_IN, DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT,
     DEFAULT_LONG_FUNCTION_LINES, DEFAULT_MAX_CONTROL_FLOW_DEPTH, DEFAULT_MAX_DIRECTORY_DEPTH,
     DEFAULT_MAX_DIRECTORY_MODULES, DEFAULT_MAX_FAN_OUT, DEFAULT_MAX_FILE_BYTES,
@@ -63,11 +63,24 @@ pub enum ReviewFailOn {
     Definitely,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 pub struct ReviewSection {
     pub scope: ReviewScope,
     pub fail_on: ReviewFailOn,
+    /// How many dependency hops `review` traces for impact paths: 1 =
+    /// immediate dependents only, 2+ = transitive dependents up to this depth.
+    pub impact_path_depth: usize,
+}
+
+impl Default for ReviewSection {
+    fn default() -> Self {
+        Self {
+            scope: ReviewScope::default(),
+            fail_on: ReviewFailOn::default(),
+            impact_path_depth: DEFAULT_IMPACT_PATH_DEPTH,
+        }
+    }
 }
 
 impl RepoPilotConfig {

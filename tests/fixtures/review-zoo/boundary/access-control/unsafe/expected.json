@@ -1,0 +1,11 @@
+{
+  "description": "A new file under src/auth touches who-can-do-what. Security-boundary changes are surfaced in the definitely-sensitive tier regardless of content.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "boundary",
+      "kind": "boundary.access-control",
+      "path": "src/auth/session.ts"
+    }
+  ]
+}

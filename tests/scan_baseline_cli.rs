@@ -316,6 +316,55 @@ fn fail_on_without_baseline_treats_all_findings_as_new() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("RepoPilot CI Gate failed"));
 }
 
+#[test]
+fn baseline_matching_keys_on_stable_id_not_occurrence_key() {
+    // Two colliding-id occurrences (same normalized secret pattern, different
+    // lines) both go into the baseline. A regression here must not start
+    // keying baseline matching on `occurrence_key` (which differs between
+    // them) instead of `id` (which is identical) — both must stay "existing".
+    let temp = tempdir().expect("failed to create temp dir");
+    let root = temp.path();
+    fs::create_dir_all(root.join("src")).expect("create src dir");
+    fs::write(
+        root.join("src/config.rs"),
+        "const API_KEY: &str = \"abc12345\";\nconst API_KEY: &str = \"def67890\";\n",
+    )
+    .expect("write source file");
+    create_baseline(root);
+
+    let output = repopilot()
+        .args([
+            "scan",
+            ".",
+            "--profile",
+            "strict",
+            "--baseline",
+            ".repopilot/baseline.json",
+            "--format",
+            "json",
+        ])
+        .current_dir(root)
+        .output()
+        .expect("failed to run scan");
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
+
+    let secret_findings: Vec<&Value> = json["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|finding| finding["rule_id"] == "security.secret-candidate")
+        .collect();
+    assert_eq!(secret_findings.len(), 2);
+    assert_eq!(secret_findings[0]["id"], secret_findings[1]["id"]);
+    assert_ne!(
+        secret_findings[0]["occurrence_key"],
+        secret_findings[1]["occurrence_key"]
+    );
+    assert_eq!(secret_findings[0]["baseline_status"], "existing");
+    assert_eq!(secret_findings[1]["baseline_status"], "existing");
+}
+
 fn create_baseline(root: &std::path::Path) {
     let output = repopilot()
         .args(["baseline", "create", "."])
