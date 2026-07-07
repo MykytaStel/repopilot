@@ -30,6 +30,7 @@ pub const DEFAULT_COMPLEX_FUNCTION_THRESHOLD: usize = 15;
 pub const DEFAULT_MAX_FAN_OUT: usize = 15;
 pub const DEFAULT_INSTABILITY_HUB_MIN_FAN_IN: usize = 5;
 pub const DEFAULT_INSTABILITY_HUB_MIN_INSTABILITY_PCT: usize = 75;
+pub const DEFAULT_IMPACT_PATH_DEPTH: usize = 3;
 
 pub fn default_ignored_paths() -> Vec<String> {
     DEFAULT_IGNORED_PATHS

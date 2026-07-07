@@ -6,7 +6,7 @@ use super::super::file::{SkipReason, process_file_with_content};
 use super::super::summary::build_language_summary;
 use super::{ChangedDiscoveryStage, ChangedFileAnalysisStage, ChangedScanEngine};
 use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
-use crate::audits::pipeline::build_file_audits;
+use crate::audits::pipeline::{FileAuditRegistration, registered_file_audits};
 use crate::findings::types::Finding;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::scan::cache::{
@@ -28,7 +28,7 @@ impl<'a> ChangedScanEngine<'a> {
     ) -> io::Result<ChangedFileAnalysisStage> {
         let start = Instant::now();
         let parse_nanos_before = crate::analysis::parse::parse_nanos_total();
-        let file_audits = build_file_audits(self.config);
+        let file_audits = registered_file_audits(self.config);
         let cache_load_start = Instant::now();
         let mut cache = ScanCache::load(&discovery.repo_root);
         let mut parsed_cache = ParsedFactsCache::load(&discovery.repo_root);
@@ -95,7 +95,7 @@ impl<'a> ChangedScanEngine<'a> {
         changed_file: &ChangedFile,
         repo_root: &Path,
         fingerprint: &str,
-        file_audits: &[Box<dyn crate::audits::traits::FileAudit>],
+        file_audits: &[FileAuditRegistration],
         facts: &mut ScanFacts,
         languages: &mut HashMap<String, usize>,
         findings: &mut Vec<Finding>,

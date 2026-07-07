@@ -1,4 +1,6 @@
 use crate::baseline::diff::BaselineScanReport;
+use crate::findings::decision::build_decision_record;
+use crate::findings::occurrence::occurrence_key;
 use crate::findings::types::{Finding, Severity};
 use crate::report::schema::ReportEnvelope;
 use crate::scan::types::ScanSummary;
@@ -37,6 +39,8 @@ pub fn findings_to_sarif(findings: &[Finding], root: &Path) -> SarifLog {
             category: f.category.label().to_string(),
             confidence: f.confidence.label().to_string(),
             recommendation: f.recommendation_or_default().to_string(),
+            occurrence_key: occurrence_key(f),
+            decision: build_decision_record(f),
         })
         .collect();
     findings_to_sarif_with_properties(findings, root, properties)
@@ -62,6 +66,8 @@ fn findings_to_sarif_with_baseline(report: &BaselineScanReport) -> SarifLog {
             category: finding.category.label().to_string(),
             confidence: finding.confidence.label().to_string(),
             recommendation: finding.recommendation_or_default().to_string(),
+            occurrence_key: occurrence_key(finding),
+            decision: build_decision_record(finding),
         })
         .collect();
 

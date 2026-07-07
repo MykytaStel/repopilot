@@ -1,5 +1,7 @@
 use super::builder::build_explain_report_with_root;
 use super::model::ExplainReport;
+use crate::findings::decision::{DecisionRecord, build_decision_record};
+use crate::findings::occurrence::occurrence_key;
 use crate::findings::provenance::{
     AnalysisScope, KnowledgeDecisionAction, KnowledgeDecisionProvenance,
 };
@@ -15,6 +17,8 @@ pub struct FindingExplanationReport {
     pub source_schema_version: Option<String>,
     pub source_root: String,
     pub finding: Finding,
+    pub occurrence_key: String,
+    pub decision: DecisionRecord,
     pub stored_decision: KnowledgeDecisionProvenance,
     pub replay: FindingDecisionReplay,
     pub explanation: ExplainReport,
@@ -254,6 +258,9 @@ pub fn build_finding_explanation_selection_from_report(
         FindingReplayStatus::Drifted
     };
 
+    let finding_occurrence_key = occurrence_key(&finding);
+    let decision = build_decision_record(&finding);
+
     Ok(FindingSelectionReport::Explanation(Box::new(
         FindingExplanationReport {
             source_report: source_report.to_string(),
@@ -263,6 +270,8 @@ pub fn build_finding_explanation_selection_from_report(
                 .map(str::to_string),
             source_root: source_root.to_string_lossy().to_string(),
             finding,
+            occurrence_key: finding_occurrence_key,
+            decision,
             stored_decision,
             replay: FindingDecisionReplay {
                 status,
