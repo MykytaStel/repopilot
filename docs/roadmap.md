@@ -19,14 +19,23 @@ the change reaches before merge.
 No hosted service, telemetry, source upload, or implicit LLM integration is part
 of the current roadmap.
 
-## Next: 0.20
+## Next: 0.20 — Trusted Change Intelligence
 
-- use reviewed zoo dispositions to calibrate the remaining default-visible noise;
-- broaden replay/explanation coverage only where the required repository context
-  can be reconstructed deterministically;
-- keep deprecations explicit and evidence-backed before removing compatibility
-  surfaces;
-- improve first-run examples from observed user and CI failures.
+See [roadmap/v0.20.md](roadmap/v0.20.md) for the full release contract,
+performance benchmarks, staged PR sequence, and release scorecard.
+
+- immutable analysis session and shared parsed facts for parse-once performance;
+- incremental context graph and content-addressed cache v2;
+- unified boundary, behavior, algorithm, and taint-lite review deltas with
+  dependency impact paths and deterministic verification plans;
+- canonical decision record across CLI, JSON, SARIF, MCP, AI context, and
+  GitHub Action;
+- promoted real-repo zoo as release evidence with review-zoo differential
+  fixtures;
+- MCP workspace revisions, analysis handles, and pagination;
+- verdict-first CLI output with progressive disclosure;
+- delta-focused GitHub Action PR comments and stable artifacts;
+- hardened analysis boundaries, redaction, and cache corruption recovery.
 
 ## Later
 

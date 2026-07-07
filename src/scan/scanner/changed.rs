@@ -11,6 +11,7 @@ use crate::findings::rule_config::{apply_rule_config, rule_config_diagnostics};
 use crate::knowledge::decision::apply_project_decisions;
 use crate::review::diff::ChangedFile;
 use crate::scan::config::ScanConfig;
+use crate::scan::session::AnalysisSession;
 use crate::scan::types::ScanSummary;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -24,6 +25,13 @@ pub fn scan_changed_with_config(
     ChangedScanEngine::new(path, config, base_ref).run()
 }
 
+pub fn scan_changed_session(
+    session: &AnalysisSession,
+    base_ref: Option<&str>,
+) -> io::Result<ScanSummary> {
+    ChangedScanEngine::new(session.analysis_path(), session.scan_config(), base_ref).run()
+}
+
 pub fn scan_resolved_changed_with_config(
     path: &Path,
     config: &ScanConfig,
@@ -32,6 +40,21 @@ pub fn scan_resolved_changed_with_config(
     base_ref: Option<&str>,
 ) -> io::Result<ScanSummary> {
     ChangedScanEngine::resolved(path, config, repo_root, changed_files, base_ref).run()
+}
+
+pub fn scan_resolved_changed_session(
+    session: &AnalysisSession,
+    changed_files: Vec<ChangedFile>,
+    base_ref: Option<&str>,
+) -> io::Result<ScanSummary> {
+    ChangedScanEngine::resolved(
+        session.analysis_path(),
+        session.scan_config(),
+        session.workspace_root().to_path_buf(),
+        changed_files,
+        base_ref,
+    )
+    .run()
 }
 
 struct ChangedScanEngine<'a> {
@@ -84,6 +107,7 @@ impl<'a> ChangedScanEngine<'a> {
             &discovery,
             &mut file_stage.facts,
             &file_stage.graph_patch_files,
+            &mut file_stage.parsed_cache,
         )?;
         let project_start = Instant::now();
         let ((project_findings, framework_findings), (coupling_findings, _, _)) = rayon::join(

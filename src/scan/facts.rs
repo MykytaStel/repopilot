@@ -1,10 +1,12 @@
+use crate::analysis::ParsedArtifact;
 use crate::frameworks::DetectedFramework;
 use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::scan::types::LanguageSummary;
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ScanFacts {
@@ -19,12 +21,29 @@ pub struct ScanFacts {
     pub skipped_bytes: u64,
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
+    pub artifacts: BTreeMap<PathBuf, ParsedArtifact>,
     pub detected_frameworks: Vec<DetectedFramework>,
     pub framework_projects: Vec<FrameworkProject>,
     pub react_native: Option<ReactNativeArchitectureProfile>,
     pub files_skipped_by_limit: usize,
     pub files_skipped_repopilotignore: usize,
     pub repopilotignore_path: Option<PathBuf>,
+}
+
+pub type FactStore = ScanFacts;
+
+impl ScanFacts {
+    pub fn insert_artifact(&mut self, artifact: ParsedArtifact) {
+        self.artifacts.insert(artifact.path.clone(), artifact);
+    }
+
+    pub fn artifact(&self, path: &Path) -> Option<&ParsedArtifact> {
+        self.artifacts.get(path)
+    }
+
+    pub fn artifacts(&self) -> impl Iterator<Item = &ParsedArtifact> {
+        self.artifacts.values()
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -64,5 +83,38 @@ impl FileContentProvider {
         }
 
         fs::read_to_string(&file.path).ok().map(Cow::Owned)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::{FileContextFacts, SyntaxSummary};
+
+    #[test]
+    fn fact_store_indexes_artifacts_by_path() {
+        let mut store = FactStore::default();
+        let artifact = ParsedArtifact::from_source(
+            PathBuf::from("src/lib.rs"),
+            Some("Rust".to_string()),
+            vec!["crate::facts".to_string()],
+            Vec::new(),
+            vec!["run".to_string()],
+            FileContextFacts::default(),
+            SyntaxSummary {
+                parsed: true,
+                root_kind: Some("source_file".to_string()),
+                has_errors: false,
+                named_child_count: 2,
+            },
+        );
+
+        store.insert_artifact(artifact);
+
+        let stored = store
+            .artifact(Path::new("src/lib.rs"))
+            .expect("artifact should be indexed");
+        assert_eq!(stored.exports, vec!["run"]);
+        assert_eq!(store.artifacts().count(), 1);
     }
 }

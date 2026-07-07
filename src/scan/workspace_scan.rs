@@ -3,6 +3,7 @@ use crate::findings::types::Finding;
 use crate::risk::{apply_cluster_overlay, apply_workspace_hotspot_overlay, sort_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::scanner::scan_path_with_config;
+use crate::scan::session::AnalysisSession;
 use crate::scan::types::{LanguageSummary, ScanDiagnostic, ScanSummary};
 use crate::scan::workspace::{WorkspacePackage, detect_workspace_packages};
 use rayon::prelude::*;
@@ -24,6 +25,23 @@ pub fn scan_workspace_with_config(
                 "--workspace was requested but no workspace packages were found; scanned as a single package",
             )
             .with_path(path),
+        );
+        return Ok(summary);
+    }
+
+    plan.execute()
+}
+
+pub fn scan_workspace_session(session: &AnalysisSession) -> io::Result<ScanSummary> {
+    let plan = WorkspaceScanPlan::detect(session.analysis_path(), session.scan_config());
+    if plan.packages.is_empty() {
+        let mut summary = crate::scan::scanner::scan_session(session)?;
+        summary.artifacts.diagnostics.push(
+            ScanDiagnostic::warning(
+                "workspace.no-packages",
+                "--workspace was requested but no workspace packages were found; scanned as a single package",
+            )
+            .with_path(session.analysis_path()),
         );
         return Ok(summary);
     }

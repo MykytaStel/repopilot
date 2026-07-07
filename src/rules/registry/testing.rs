@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(super) static RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -11,6 +11,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "The project has no recognisable test directory (tests/, __tests__, spec/). Without tests, correctness can only be verified manually.",
         recommendation: Some(
@@ -26,6 +28,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A source file has no matching test file. Untested code is more likely to regress during refactoring.",
         recommendation: Some(

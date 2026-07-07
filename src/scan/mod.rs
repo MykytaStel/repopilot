@@ -7,9 +7,13 @@ pub mod facts;
 pub mod language;
 #[doc(hidden)]
 pub mod markers;
+#[doc(hidden)]
+pub mod parsed_cache;
 pub(crate) mod path_classification;
 #[doc(hidden)]
 pub mod scanner;
+#[doc(hidden)]
+pub mod session;
 pub mod types;
 #[doc(hidden)]
 pub mod workspace;

@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -11,6 +11,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/stylesheet"),
         description: "Inline style objects create a new object on every render, defeating memoization in React.memo and PureComponent children.",
         recommendation: Some("Extract styles into a StyleSheet.create call outside the component."),
@@ -24,6 +26,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/out-of-tree-platforms"),
         description: "A React Native API removed from core is in use. Replace with the community package equivalent.",
         recommendation: Some(
@@ -39,6 +43,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/flatlist#keyextractor"),
         description: "A FlatList without keyExtractor falls back to array index keys, breaking list reconciliation when items are reordered or removed.",
         recommendation: Some(
@@ -54,6 +60,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://react-native-async-storage.github.io/async-storage/docs/install"),
         description: "AsyncStorage was removed from react-native core in v0.60 and throws a runtime error on modern versions.",
         recommendation: Some(
@@ -69,6 +77,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::DependencyManifest,
+
+        requirements: RuleRequirements::framework_manifest(RuleLifecycle::Preview),
         docs_url: Some("https://reactnavigation.org/docs/getting-started"),
         description: "react-navigation (v4) is no longer maintained and is incompatible with React Native 0.70+.",
         recommendation: Some(
@@ -84,6 +94,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::framework_ast(RuleLifecycle::Preview),
         docs_url: Some("https://react.dev/reference/react/Component#setstate"),
         description: "Directly assigning to this.state bypasses React change detection; the component will not re-render.",
         recommendation: Some(
@@ -99,6 +111,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::FrameworkDetector,
+
+        requirements: RuleRequirements::framework_detector(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/new-architecture-intro"),
         description: "The project does not have newArchEnabled set. The New Architecture eliminates the async JS bridge and is required by an increasing number of libraries.",
         recommendation: Some(
@@ -114,6 +128,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::FrameworkDetector,
+
+        requirements: RuleRequirements::framework_detector(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/new-architecture-intro"),
         description: "Android, iOS, or Expo configuration disagree about React Native New Architecture. Mismatched platforms produce inconsistent runtime behavior.",
         recommendation: Some(
@@ -129,6 +145,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::FrameworkDetector,
+
+        requirements: RuleRequirements::framework_detector(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/hermes"),
         description: "Hermes is configured differently across platforms, causing platform-specific runtime and performance behavior.",
         recommendation: Some(
@@ -144,6 +162,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::FrameworkDetector,
+
+        requirements: RuleRequirements::framework_detector(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/hermes"),
         description: "Hermes is explicitly disabled. Hermes reduces startup time by 2-3x and is the default engine since React Native 0.70.",
         recommendation: Some(
@@ -159,6 +179,8 @@ pub(crate) static REACT_NATIVE_RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::FrameworkDetector,
+
+        requirements: RuleRequirements::framework_detector(RuleLifecycle::Preview),
         docs_url: Some("https://reactnative.dev/docs/the-new-architecture/codegen"),
         description: "The project uses Turbo Native Modules or Fabric components but package.json does not define codegenConfig.",
         recommendation: Some(

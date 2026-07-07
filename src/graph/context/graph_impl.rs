@@ -1,5 +1,7 @@
 use super::summary::{build_language_summary, directory_count};
 use super::*;
+use crate::graph::resolve_import;
+use crate::graph::resolver::normalize_path;
 
 impl RepoContextGraph {
     pub fn from_scan_facts(facts: &ScanFacts, root: &Path, coupling_graph: CouplingGraph) -> Self {
@@ -90,15 +92,45 @@ impl RepoContextGraph {
         );
         self.nodes.sort_by(|left, right| left.path.cmp(&right.path));
 
-        let mut facts = self.to_scan_facts();
-        for file in &mut facts.files {
-            if file.path.is_relative() {
-                file.path = repo_root.join(&file.path);
+        let known_file_set_changed = changed_files.iter().any(|file| {
+            matches!(
+                file.status,
+                ChangeStatus::Added | ChangeStatus::Deleted | ChangeStatus::Renamed
+            )
+        });
+        if known_file_set_changed {
+            let files = self
+                .nodes
+                .iter()
+                .map(RepoContextNode::to_file_facts)
+                .collect::<Vec<_>>();
+            let (edges, deferred_edges) = resolve_graph_edges(repo_root, &self.nodes, &files);
+            self.edges = edges;
+            self.deferred_edges = deferred_edges;
+            return;
+        }
+
+        let patch_sources = patch_files
+            .iter()
+            .map(|file| relative_graph_path(repo_root, &file.path))
+            .collect::<HashSet<_>>();
+
+        remove_edge_sources_and_targets(&mut self.edges, &removed, &patch_sources);
+        remove_edge_sources_and_targets(&mut self.deferred_edges, &removed, &patch_sources);
+
+        let known_files = known_files_by_normalized_path(repo_root, &self.nodes);
+        let known_file_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+        for file in patch_files {
+            let source = relative_graph_path(repo_root, &file.path);
+            let (edges, deferred_edges) =
+                resolve_file_edges(file, repo_root, &known_files, &known_file_paths);
+            self.edges.insert(source.clone(), edges);
+            if deferred_edges.is_empty() {
+                self.deferred_edges.remove(&source);
+            } else {
+                self.deferred_edges.insert(source, deferred_edges);
             }
         }
-        let graph = build_coupling_graph(&facts, repo_root);
-        self.edges = relative_edges(graph.edges, repo_root);
-        self.deferred_edges = relative_edges(graph.deferred_edges, repo_root);
     }
 }
 
@@ -172,6 +204,108 @@ fn relative_edges(
             )
         })
         .collect()
+}
+
+fn remove_edge_sources_and_targets(
+    edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    removed: &HashSet<PathBuf>,
+    patch_sources: &HashSet<PathBuf>,
+) {
+    for source in removed.iter().chain(patch_sources) {
+        edges.remove(source);
+    }
+    for targets in edges.values_mut() {
+        targets.retain(|target| !removed.contains(target));
+    }
+}
+
+fn resolve_graph_edges(
+    root: &Path,
+    nodes: &[RepoContextNode],
+    files: &[FileFacts],
+) -> (
+    BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) {
+    let known_files = known_files_by_normalized_path(root, nodes);
+    let known_file_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+    let mut edges = BTreeMap::new();
+    let mut deferred_edges = BTreeMap::new();
+
+    for file in files {
+        let source = relative_graph_path(root, &file.path);
+        let (resolved_edges, resolved_deferred_edges) =
+            resolve_file_edges(file, root, &known_files, &known_file_paths);
+        edges.insert(source.clone(), resolved_edges);
+        if !resolved_deferred_edges.is_empty() {
+            deferred_edges.insert(source, resolved_deferred_edges);
+        }
+    }
+
+    (edges, deferred_edges)
+}
+
+fn known_files_by_normalized_path(
+    root: &Path,
+    nodes: &[RepoContextNode],
+) -> BTreeMap<PathBuf, PathBuf> {
+    nodes
+        .iter()
+        .map(|node| {
+            let absolute = absolute_graph_path(root, &node.path);
+            (normalize_path(&absolute), node.path.clone())
+        })
+        .collect()
+}
+
+fn resolve_file_edges(
+    file: &FileFacts,
+    root: &Path,
+    known_files: &BTreeMap<PathBuf, PathBuf>,
+    known_file_paths: &HashSet<PathBuf>,
+) -> (BTreeSet<PathBuf>, BTreeSet<PathBuf>) {
+    let source = relative_graph_path(root, &file.path);
+    let source_abs = normalize_path(&absolute_graph_path(root, &source));
+    let deferred_raws = file
+        .deferred_imports
+        .iter()
+        .map(|raw| raw.trim())
+        .collect::<HashSet<_>>();
+    let mut edges = BTreeSet::new();
+    let mut eager_targets = BTreeSet::new();
+
+    for raw in &file.imports {
+        if let Some(resolved) = resolve_import(raw, &source_abs, root, known_file_paths)
+            && resolved != source_abs
+            && let Some(target) = known_files.get(&resolved)
+        {
+            if !deferred_raws.contains(raw.trim()) {
+                eager_targets.insert(target.clone());
+            }
+            edges.insert(target.clone());
+        }
+    }
+
+    let mut deferred_edges = BTreeSet::new();
+    for raw in &file.deferred_imports {
+        if let Some(resolved) = resolve_import(raw, &source_abs, root, known_file_paths)
+            && resolved != source_abs
+            && let Some(target) = known_files.get(&resolved)
+            && !eager_targets.contains(target)
+        {
+            deferred_edges.insert(target.clone());
+        }
+    }
+
+    (edges, deferred_edges)
+}
+
+fn absolute_graph_path(root: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    }
 }
 
 fn relative_graph_path(root: &Path, path: &Path) -> PathBuf {

@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(super) static RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -13,6 +13,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ConfigFile,
+
+        requirements: RuleRequirements::repository_config(RuleLifecycle::Stable),
         docs_url: Some("https://12factor.net/config"),
         description: "A local `.env`/`.env.local` file or a shared `.env.*` variant with credential-shaped content was committed. Local env files commonly hold secrets; shared build env files may hold public browser configuration but still require content inspection.",
         recommendation: Some(
@@ -31,6 +33,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Stable),
         docs_url: Some(
             "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#reporting-a-security-issue",
         ),
@@ -53,6 +57,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Preview),
         docs_url: Some(
             "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling",
         ),

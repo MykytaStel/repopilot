@@ -201,7 +201,7 @@ fn ai_context_json_format_is_structured_facts_aware_and_clean() {
 
     let doc: serde_json::Value =
         serde_json::from_str(&stdout).expect("stdout should be valid JSON");
-    assert_eq!(doc["schema_version"], 1);
+    assert_eq!(doc["schema_version"], 2);
     // Phase: facts come through the real CLI path (the golden passes None).
     assert_eq!(
         doc["facts"]["total_files"], 2,

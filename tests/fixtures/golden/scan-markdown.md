@@ -71,5 +71,9 @@
   - Evidence: `src/config.ts:3` - export const API_TOKEN = "<redacted>";
   - Context: A high-entropy string or a pattern matching a known secret format was found in source code
   - Recommendation: Move the value to an environment variable or secrets manager
+  - Verification:
+    - Open src/config.ts:3 and confirm the flagged code shown is still present: `export const API_TOKEN = "<redacted>";`.
+    - Confirm the flagged input reaches this code without validation or sanitization, and check for an existing test covering this path.
+    - This plan is generated from static evidence only — it does not execute code, run tests, or observe runtime behavior. Treat it as a starting point for manual or test-based confirmation, not proof the finding is a true or false positive.
   - Docs: https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling
 

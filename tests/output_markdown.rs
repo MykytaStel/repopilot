@@ -261,6 +261,7 @@ fn cache_telemetry() -> ScanCacheTelemetry {
             write_us: 6_000,
             estimated_time_saved_us: Some(7_000),
         },
+        ..Default::default()
     }
 }
 

@@ -5,9 +5,12 @@
 //! `mod.rs` for the "flag, don't prove" philosophy.
 
 use super::BoundaryCategory;
+#[cfg(test)]
 use crate::analysis::parse::ParsedFile;
+use crate::review::signals::content::ReviewSource;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::collections::HashSet;
+#[cfg(test)]
 use std::path::Path;
 
 /// Classify a path into a boundary category, or `None` if it crosses none.
@@ -15,7 +18,10 @@ use std::path::Path;
 /// Priority order matters: more specific / path-anchored categories win, so a
 /// workflow file named `auth.yml` is reported as deploy surface, not access
 /// control.
-pub(super) fn classify_boundary(path: &str, custom: Option<&GlobSet>) -> Option<BoundaryCategory> {
+pub(in crate::review) fn classify_boundary(
+    path: &str,
+    custom: Option<&GlobSet>,
+) -> Option<BoundaryCategory> {
     let lower = path.to_ascii_lowercase();
     let file_name = lower.rsplit('/').next().unwrap_or(lower.as_str());
 
@@ -164,7 +170,7 @@ fn flush(current: &mut String, tokens: &mut HashSet<String>) {
 
 /// Compile the user's `extra_patterns` into a glob set, skipping any invalid
 /// pattern. Returns `None` when there is nothing to match.
-pub(super) fn build_custom_globset(patterns: &[String]) -> Option<GlobSet> {
+pub(in crate::review) fn build_custom_globset(patterns: &[String]) -> Option<GlobSet> {
     if patterns.is_empty() {
         return None;
     }
@@ -188,11 +194,28 @@ pub(super) fn build_custom_globset(patterns: &[String]) -> Option<GlobSet> {
 ///
 /// Scans the file contents for security-relevant decorators, annotations,
 /// macros, and specific library imports to detect access control or request trust boundaries.
+///
+/// Test-only: exercises `walk_ast_for_boundary` over raw `(path, content)` in
+/// isolation. Production code shares a parse via
+/// [`classify_boundary_ast_from_source`] instead.
+#[cfg(test)]
 pub(super) fn classify_boundary_ast(path: &Path, content: &str) -> Option<BoundaryCategory> {
     let language_label = crate::scan::language::detect_language(path)?;
     let parsed = ParsedFile::new(content, Some(language_label));
     let tree = parsed.tree()?;
     walk_ast_for_boundary(tree.root_node(), content, language_label)
+}
+
+/// Same classification, but over an already-parsed [`ReviewSource`] — shares
+/// its memoized tree instead of parsing the post-change content a second
+/// time. Used by the production review pass, which already has a source in
+/// hand; [`classify_boundary_ast`] stays for isolated unit tests.
+pub(in crate::review) fn classify_boundary_ast_from_source(
+    source: &ReviewSource,
+) -> Option<BoundaryCategory> {
+    let language_label = source.language_label()?;
+    let tree = source.tree()?;
+    walk_ast_for_boundary(tree.root_node(), source.content(), language_label)
 }
 
 fn walk_ast_for_boundary(

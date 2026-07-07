@@ -90,6 +90,7 @@ pub fn render_markdown_with_gates(
     }
 
     render_markdown_blast_radius(&mut output, report);
+    render_markdown_impact_paths(&mut output, report);
     render_markdown_tiered_signals(&mut output, report);
     render_markdown_findings_group(
         &mut output,
@@ -125,6 +126,52 @@ fn render_markdown_blast_radius(output: &mut String, report: &ReviewReport) {
 
     for path in &report.blast_radius {
         output.push_str(&format!("- `{}`\n", path.display()));
+    }
+
+    output.push('\n');
+}
+
+/// Bounded-depth dependency impact: per changed file, its direct and
+/// transitive dependents up to the configured depth, plus a rolled-up
+/// affected-surface summary. Additive to (and independent of) blast radius.
+fn render_markdown_impact_paths(output: &mut String, report: &ReviewReport) {
+    let impact = &report.impact_paths;
+    if impact.files.is_empty() {
+        return;
+    }
+
+    output.push_str("## Impact Paths\n\n");
+    output.push_str(&format!(
+        "{} file(s) across {} director{} may be affected (depth {}).\n\n",
+        impact.affected_surface.impacted_files,
+        impact.affected_surface.affected_directories.len(),
+        if impact.affected_surface.affected_directories.len() == 1 {
+            "y"
+        } else {
+            "ies"
+        },
+        impact.depth,
+    ));
+
+    let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
+    'files: for file_impact in &impact.files {
+        output.push_str(&format!("- `{}`\n", file_impact.path.display()));
+        for dependent in &file_impact.direct_dependents {
+            if remaining == 0 {
+                output.push_str("  - ... (truncated)\n");
+                break 'files;
+            }
+            output.push_str(&format!("  - direct: `{}`\n", dependent.display()));
+            remaining -= 1;
+        }
+        for dependent in &file_impact.transitive_dependents {
+            if remaining == 0 {
+                output.push_str("  - ... (truncated)\n");
+                break 'files;
+            }
+            output.push_str(&format!("  - transitive: `{}`\n", dependent.display()));
+            remaining -= 1;
+        }
     }
 
     output.push('\n');
