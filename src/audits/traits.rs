@@ -20,6 +20,6 @@ pub trait FileAudit: Send + Sync {
     }
 }
 
-pub trait ProjectAudit {
+pub trait ProjectAudit: Send + Sync {
     fn audit(&self, facts: &ScanFacts, config: &ScanConfig) -> Vec<Finding>;
 }

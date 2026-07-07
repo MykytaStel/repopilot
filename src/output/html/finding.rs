@@ -92,6 +92,18 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         r#"<p class="finding-meta"><strong>Recommendation:</strong> {}</p>"#,
         escape_html(finding.recommendation_or_default())
     );
+    let verification = crate::findings::verification::build_verification_plan(finding)
+        .map(|plan| {
+            let items = plan
+                .steps
+                .iter()
+                .map(|step| format!("<li>{}</li>", escape_html(step)))
+                .collect::<String>();
+            format!(
+                r#"<div class="finding-meta"><strong>Verification:</strong><ul>{items}</ul></div>"#
+            )
+        })
+        .unwrap_or_default();
     let risk = format!(
         r#"<p class="finding-meta"><strong>Priority:</strong> {} (risk {}/100){}</p>"#,
         finding.risk.priority.label(),
@@ -122,6 +134,7 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
   {}
   {}
   {}
+  {}
 </article>"#,
         finding.severity.lowercase_label(),
         finding.confidence.lowercase_label(),
@@ -139,6 +152,7 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         evidence,
         context,
         recommendation,
+        verification,
         risk,
         docs
     )
