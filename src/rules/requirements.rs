@@ -288,6 +288,10 @@ impl RuleRequirements {
             && !self.produces.is_empty()
             && self.cache_policy != RuleCachePolicy::Uncached
     }
+
+    pub fn requires_parsed_syntax(self) -> bool {
+        self.fact_kinds.contains(&FactKind::ParsedSyntax)
+    }
 }
 
 #[cfg(test)]
@@ -299,7 +303,7 @@ mod tests {
         let requirements = RuleRequirements::file_ast(RuleLifecycle::Preview);
 
         assert_eq!(requirements.scope, RuleScope::File);
-        assert!(requirements.fact_kinds.contains(&FactKind::ParsedSyntax));
+        assert!(requirements.requires_parsed_syntax());
         assert!(requirements.fact_kinds.contains(&FactKind::FileContext));
         assert_eq!(requirements.cache_policy, RuleCachePolicy::PerFileContent);
         assert!(requirements.is_declared());

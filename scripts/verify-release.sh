@@ -21,6 +21,9 @@ cargo clippy --all-targets --all-features -- -D warnings
 echo "==> Rust tests"
 cargo test --all
 
+echo "==> Zoo repos (real-world fixtures)"
+python3 scripts/zoo.py clone
+
 echo "==> Release contract"
 python3 scripts/release-contract.py check
 

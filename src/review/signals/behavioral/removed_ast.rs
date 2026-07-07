@@ -25,8 +25,7 @@ fn callee_text<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
 
 /// Counts the test cases in a source file, or `None` if it can't be parsed.
 pub(super) fn count_test_cases(source: &ReviewSource, ext: &str) -> Option<usize> {
-    let parsed = source.parsed();
-    let tree = parsed.tree()?;
+    let tree = source.tree()?;
     let content = source.content();
     let mut count = 0;
     walk_tests(tree.root_node(), content, ext, &mut count);

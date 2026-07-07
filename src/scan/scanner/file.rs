@@ -3,7 +3,7 @@ use crate::analysis::parse::ParsedFile;
 use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
 use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file_with_evidence;
-use crate::audits::traits::FileAudit;
+use crate::audits::pipeline::FileAuditRegistration;
 use crate::findings::types::Finding;
 use crate::graph::imports::{extract_deferred_imports_from, extract_imports_from};
 use crate::scan::config::ScanConfig;
@@ -16,6 +16,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::Path;
+
+use super::file_pipeline::analyze_file;
 
 pub(super) struct PerFileResult {
     pub(super) file_facts: FileFacts,
@@ -181,7 +183,7 @@ fn contains_call(content: &str, name: &str) -> bool {
 
 pub(super) fn process_file(
     path: &Path,
-    file_audits: &[Box<dyn FileAudit>],
+    file_audits: &[FileAuditRegistration],
     config: &ScanConfig,
     package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
@@ -190,7 +192,7 @@ pub(super) fn process_file(
 
 pub(super) fn process_file_with_content(
     path: &Path,
-    file_audits: &[Box<dyn FileAudit>],
+    file_audits: &[FileAuditRegistration],
     config: &ScanConfig,
     package_roots: &[PackageRoot],
 ) -> io::Result<PerFileResult> {
@@ -199,7 +201,7 @@ pub(super) fn process_file_with_content(
 
 fn process_file_inner(
     path: &Path,
-    file_audits: &[Box<dyn FileAudit>],
+    file_audits: &[FileAuditRegistration],
     config: &ScanConfig,
     retain_content: bool,
     package_roots: &[PackageRoot],
@@ -214,22 +216,12 @@ fn process_file_inner(
     };
 
     let context = file_context_facts(&full_facts);
-    let mut findings = Vec::new();
-    let (imports, deferred_imports, exports, syntax) = {
-        // Parse the file at most once and share the syntax tree across both
-        // import extraction and every audit. Scoped so the borrow of
-        // `full_facts` ends before the import lists are written back and it is moved.
-        let parsed = ParsedFile::for_facts(&full_facts);
-        let lang = full_facts.language.as_deref();
-        let imports = extract_imports_from(&parsed, lang);
-        let deferred_imports = extract_deferred_imports_from(&parsed, lang);
-        let exports = extract_exports(parsed.content(), lang);
-        for audit in file_audits {
-            findings.extend(audit.audit_parsed(&full_facts, &parsed, config));
-        }
-        let syntax = parsed.syntax_summary();
-        (imports, deferred_imports, exports, syntax)
-    };
+    let analysis = analyze_file(&full_facts, file_audits, config);
+    let findings = analysis.findings;
+    let imports = analysis.imports;
+    let deferred_imports = analysis.deferred_imports;
+    let exports = analysis.exports;
+    let syntax = analysis.syntax;
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
     let artifact = ParsedArtifact::from_source(

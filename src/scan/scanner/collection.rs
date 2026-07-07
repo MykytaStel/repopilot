@@ -1,7 +1,7 @@
 use super::file::{SkipReason, collect_file_facts, collect_file_facts_with_cache, process_file};
 use super::summary::build_language_summary;
 use super::walker::collect_paths;
-use crate::audits::traits::FileAudit;
+use crate::audits::pipeline::registered_file_audits;
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
@@ -52,13 +52,13 @@ pub(super) fn discover_scan_paths(
 
 pub(super) fn analyze_discovered_files(
     discovered: DiscoveredScanPaths,
-    file_audits: &[Box<dyn FileAudit>],
     config: &ScanConfig,
 ) -> io::Result<(ScanFacts, Vec<Finding>)> {
     let DiscoveredScanPaths {
         mut facts,
         file_paths,
     } = discovered;
+    let file_audits = registered_file_audits(config);
 
     // Package roots are resolved once from the scan root, then passed down so each
     // file's `in_executable_package` flag (set from its nearest package's manifest)
@@ -67,7 +67,7 @@ pub(super) fn analyze_discovered_files(
 
     let results: Vec<io::Result<_>> = file_paths
         .par_iter()
-        .map(|p| process_file(p, file_audits, config, &roots))
+        .map(|p| process_file(p, &file_audits, config, &roots))
         .collect();
 
     let mut languages: HashMap<String, usize> = HashMap::new();

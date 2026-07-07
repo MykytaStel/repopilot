@@ -281,6 +281,87 @@ class ReleaseContractTests(unittest.TestCase):
 
         release_contract.check_roadmap_docs()
 
+    def _write_zoo_scorecard_fixture(self) -> None:
+        self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
+        self.write("docs/rules-reference.md", "### `a.rule` — Title\n\n- **Lifecycle:** stable\n")
+        self.write(
+            "tests/zoo/expectations/repo-a.toml",
+            "schema_version = 1\n"
+            'repo = "repo-a"\n\n'
+            "[[finding]]\n"
+            'profile = "default"\n'
+            'finding_id = "a.rule:x.py:deadbeef"\n'
+            'rule_id = "a.rule"\n'
+            'path = "x.py"\n'
+            'disposition = "actionable"\n'
+            'reason = "fixture"\n',
+        )
+
+    def _fresh_rule_scorecard(self) -> str:
+        return release_contract.zs.generate_scorecard(
+            [{"name": "repo-a"}],
+            release_contract.ROOT / "tests/zoo/expectations",
+            release_contract.ROOT / "docs/rules-reference.md",
+        )
+
+    def test_rule_scorecard_requires_committed_files(self) -> None:
+        with self.assertRaisesRegex(release_contract.ContractError, "Missing"):
+            release_contract.check_rule_scorecard()
+
+    def test_rule_scorecard_fails_when_stale(self) -> None:
+        self._write_zoo_scorecard_fixture()
+        self.write("docs/engineering/rule-scorecard.md", "stale content\n")
+        self.write("docs/README.md", "- [x](engineering/rule-scorecard.md)\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "stale"):
+            release_contract.check_rule_scorecard()
+
+    def test_rule_scorecard_requires_docs_index_link(self) -> None:
+        self._write_zoo_scorecard_fixture()
+        self.write("docs/engineering/rule-scorecard.md", self._fresh_rule_scorecard())
+        self.write("docs/README.md", "- no links here\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "does not link"):
+            release_contract.check_rule_scorecard()
+
+    def test_rule_scorecard_passes_when_fresh(self) -> None:
+        self._write_zoo_scorecard_fixture()
+        self.write("docs/engineering/rule-scorecard.md", self._fresh_rule_scorecard())
+        self.write("docs/README.md", "- [x](engineering/rule-scorecard.md)\n")
+
+        release_contract.check_rule_scorecard()
+
+    def test_zoo_gate_skips_when_not_cloned(self) -> None:
+        self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
+
+        release_contract.check_zoo_gate()
+
+    def test_zoo_gate_fails_on_nonzero_scan_exit(self) -> None:
+        self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
+        (release_contract.ROOT / ".zoo" / "repo-a").mkdir(parents=True)
+        result = subprocess.CompletedProcess(
+            args=["zoo.py", "scan"], returncode=1, stdout="oops\n", stderr=""
+        )
+
+        with mock.patch.object(release_contract.subprocess, "run", return_value=result) as run_mock:
+            with self.assertRaisesRegex(release_contract.ContractError, "zoo scan gate failed"):
+                release_contract.check_zoo_gate()
+        run_mock.assert_called_once()
+
+    def test_zoo_gate_passes_when_scan_succeeds(self) -> None:
+        self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
+        (release_contract.ROOT / ".zoo" / "repo-a").mkdir(parents=True)
+        result = subprocess.CompletedProcess(
+            args=["zoo.py", "scan"], returncode=0, stdout="ok\n", stderr=""
+        )
+
+        with mock.patch.object(release_contract.subprocess, "run", return_value=result):
+            release_contract.check_zoo_gate()
+
+    def test_zoo_gate_requires_manifest_file(self) -> None:
+        with self.assertRaisesRegex(release_contract.ContractError, "Missing zoo manifest"):
+            release_contract.check_zoo_gate()
+
 
 if __name__ == "__main__":
     unittest.main()
