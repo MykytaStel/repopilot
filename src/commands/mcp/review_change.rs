@@ -9,7 +9,7 @@ use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::output::OutputFormat;
 use repopilot::review::render::render;
 use repopilot::review::{
-    ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_input,
+    ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input,
 };
 use serde_json::{Value, json};
@@ -101,7 +101,6 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     };
     let mode = match scope {
         "changed" => ProductScanMode::ResolvedChanged {
-            repo_root: input.repo_root.clone(),
             changed_files: input.changed_files.clone(),
             base_ref: input.target.base_ref().map(str::to_string),
         },
@@ -138,11 +137,14 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     let baseline_ref = baseline_file
         .as_ref()
         .map(|(baseline, path)| (baseline, path.clone()));
-    let repo_config = scan_result.repo_config;
     let review_started = Instant::now();
-    let mut review_report =
-        build_review_report_from_input(scan_result.summary, input, baseline_ref, &repo_config)
-            .map_err(|error| format!("review failed: {error}"))?;
+    let mut review_report = build_review_report_from_session(
+        scan_result.summary,
+        input,
+        baseline_ref,
+        &scan_result.session,
+    )
+    .map_err(|error| format!("review failed: {error}"))?;
     review_report.timings.diff_loading_us = diff_loading_us;
     review_report.timings.review_signals_us = duration_us(review_started.elapsed());
     if scope == "changed" {

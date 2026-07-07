@@ -37,4 +37,7 @@ adoption or CI policy.
 - [Release process](release.md)
 - [Distribution](distribution.md)
 - [Roadmap](roadmap.md)
+- [v0.20 roadmap and release contract](roadmap/v0.20.md)
+- [v0.20 release scorecard](engineering/v0.20-release-scorecard.md)
+- [Rule scorecard](engineering/rule-scorecard.md)
 - [GitHub ruleset](github-ruleset.md)

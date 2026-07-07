@@ -5,8 +5,10 @@
 //! thread keeps one reusable parser per grammar via `thread_local!`, so parsing
 //! is cheap to repeat and safe under the parallel file pipeline.
 
+use crate::analysis::SyntaxSummary;
 use crate::scan::facts::FileFacts;
-use std::cell::{OnceCell, RefCell};
+use std::cell::RefCell;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tree_sitter::{Language, Parser, Tree};
@@ -124,7 +126,7 @@ pub(crate) fn parse_label(content: &str, label: &str) -> Option<Tree> {
 pub struct ParsedFile<'a> {
     content: &'a str,
     language_label: Option<&'a str>,
-    tree: OnceCell<Option<Tree>>,
+    tree: OnceLock<Option<Tree>>,
 }
 
 impl<'a> ParsedFile<'a> {
@@ -132,7 +134,7 @@ impl<'a> ParsedFile<'a> {
         Self {
             content,
             language_label,
-            tree: OnceCell::new(),
+            tree: OnceLock::new(),
         }
     }
 
@@ -168,6 +170,20 @@ impl<'a> ParsedFile<'a> {
                     .and_then(|label| parse_label(self.content, label))
             })
             .as_ref()
+    }
+
+    pub(crate) fn syntax_summary(&self) -> SyntaxSummary {
+        let Some(tree) = self.tree() else {
+            return SyntaxSummary::unavailable();
+        };
+        let root = tree.root_node();
+
+        SyntaxSummary {
+            parsed: true,
+            root_kind: Some(root.kind().to_string()),
+            has_errors: root.has_error(),
+            named_child_count: root.named_child_count(),
+        }
     }
 }
 
@@ -259,6 +275,22 @@ mod tests {
     fn parsed_file_without_grammar_has_no_tree() {
         assert!(ParsedFile::new("class Main", Some("Ruby")).tree().is_none());
         assert!(ParsedFile::new("anything", None).tree().is_none());
+    }
+
+    #[test]
+    fn syntax_summary_reuses_the_same_cached_tree() {
+        let parsed = ParsedFile::new(
+            "use crate::facts;
+fn main() {}",
+            Some("Rust"),
+        );
+        let first = parsed.tree().expect("tree") as *const Tree;
+        let summary = parsed.syntax_summary();
+        let second = parsed.tree().expect("same tree") as *const Tree;
+
+        assert_eq!(first, second);
+        assert!(summary.parsed);
+        assert_eq!(summary.root_kind.as_deref(), Some("source_file"));
     }
 
     #[test]

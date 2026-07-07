@@ -1,7 +1,7 @@
 use super::{collection, contract_stage};
 use crate::audits::architecture::import_coupling::ImportCouplingAudit;
 use crate::audits::pipeline::{
-    build_file_audits, run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
+    run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
 };
 use crate::facts::{RepoFactsSummary, repo_facts_from_scan, summarize_repo_facts};
 use crate::findings::aggregation::aggregate_duplicate_findings;
@@ -19,6 +19,7 @@ use crate::knowledge::decision::apply_project_decisions;
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
+use crate::scan::session::AnalysisSession;
 use crate::scan::types::{ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
@@ -32,11 +33,21 @@ pub fn scan_path_with_config(path: &Path, config: &ScanConfig) -> io::Result<Sca
     ScanEngine::new(path, config).run()
 }
 
+pub fn scan_session(session: &AnalysisSession) -> io::Result<ScanSummary> {
+    ScanEngine::from_session(session).run()
+}
+
 pub fn scan_path_with_config_and_facts_summary(
     path: &Path,
     config: &ScanConfig,
 ) -> io::Result<(ScanSummary, RepoFactsSummary)> {
     ScanEngine::new(path, config).run_with_facts_summary()
+}
+
+pub fn scan_session_with_facts_summary(
+    session: &AnalysisSession,
+) -> io::Result<(ScanSummary, RepoFactsSummary)> {
+    ScanEngine::from_session(session).run_with_facts_summary()
 }
 
 pub struct ScanEngine<'a> {
@@ -71,6 +82,10 @@ pub(super) struct ProjectAnalysisStage {
 impl<'a> ScanEngine<'a> {
     pub fn new(path: &'a Path, config: &'a ScanConfig) -> Self {
         Self { path, config }
+    }
+
+    pub fn from_session(session: &'a AnalysisSession) -> Self {
+        Self::new(session.analysis_path(), session.scan_config())
     }
 
     pub fn run(self) -> io::Result<ScanSummary> {
@@ -155,9 +170,7 @@ impl<'a> ScanEngine<'a> {
     ) -> io::Result<FileAnalysisStage> {
         let start = Instant::now();
         let parse_nanos_before = crate::analysis::parse::parse_nanos_total();
-        let file_audits = build_file_audits(self.config);
-        let (facts, findings) =
-            collection::analyze_discovered_files(discovered, &file_audits, self.config)?;
+        let (facts, findings) = collection::analyze_discovered_files(discovered, self.config)?;
         let parse_us =
             crate::analysis::parse::parse_nanos_total().saturating_sub(parse_nanos_before) / 1_000;
         Ok(FileAnalysisStage {

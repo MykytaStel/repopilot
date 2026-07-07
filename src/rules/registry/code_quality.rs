@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(super) static RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -12,6 +12,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Preview),
         docs_url: None,
         description: "The file's branch count density exceeds the complexity threshold, indicating too many execution paths. High complexity increases the defect rate and testing burden.",
         recommendation: Some(
@@ -28,6 +30,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "A function is longer than the configured line threshold. Long functions are harder to test, understand, and safely refactor.",
         recommendation: Some(
@@ -46,6 +50,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A TODO comment marks unfinished work. Unresolved TODOs accumulate as technical debt if not tracked in an issue tracker.",
         recommendation: Some(
@@ -61,6 +67,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A FIXME comment marks known broken or problematic code that has not yet been addressed.",
         recommendation: Some(
@@ -76,6 +84,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A HACK comment marks a workaround that bypasses a proper solution. Hacks tend to become permanent and break under refactoring.",
         recommendation: Some(
@@ -91,6 +101,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "A function's control flow is deeply nested or branch-heavy, measured by a cognitive-complexity score that weights nesting depth rather than counting branches flatly. Deeply nested logic is disproportionately hard to read, test, and change.",
         recommendation: Some(
@@ -109,6 +121,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::Ast,
+
+        requirements: RuleRequirements::file_ast(RuleLifecycle::Preview),
         docs_url: None,
         description: "A source file contains deeply nested control flow blocks (if, loops, match, try). High nesting depth makes code hard to read, maintain, and test.",
         recommendation: Some(

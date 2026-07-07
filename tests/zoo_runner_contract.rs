@@ -31,6 +31,7 @@ impl Harness {
         copy_script(&root, "zoo.py");
         copy_script(&root, "zoo_scanner.py");
         copy_script(&root, "zoo_expectations.py");
+        copy_script(&root, "zoo_scorecard.py");
         copy_script(&root, "zoo_triage.py");
         fs::write(root.join("Cargo.toml"), CARGO_TOML).expect("Cargo.toml");
         fs::write(root.join("tests/zoo/manifest.toml"), MANIFEST).expect("manifest");

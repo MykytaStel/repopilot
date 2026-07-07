@@ -72,11 +72,11 @@ pub(super) fn record_cached_file(
         path: PathBuf::from(&entry.path),
         language: entry.language.clone(),
         non_empty_lines: entry.non_empty_lines,
-        branch_count: 0,
+        branch_count: entry.branch_count,
         imports: entry.imports.clone(),
         content: None,
-        has_inline_tests: entry.is_test,
-        in_executable_package: false,
+        has_inline_tests: entry.has_inline_tests,
+        in_executable_package: entry.in_executable_package,
         deferred_imports: entry.deferred_imports.clone(),
     };
     facts.files.push(file_facts.clone());

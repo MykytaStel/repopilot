@@ -9,7 +9,8 @@ pub fn repo_facts_from_scan(scan: &ScanFacts) -> RepoFacts {
             path: file.path.clone(),
             language: file.language.clone(),
             non_empty_lines: file.non_empty_lines,
-            // Scan facts combine filesystem metadata with detected and analyzed facts.
+            // Keep the public facts projection stable. Rich ParsedArtifact data
+            // remains crate-internal until a deliberate public contract is added.
             source: FactSource::Mixed,
             confidence: FactConfidence::High,
         })
@@ -67,5 +68,37 @@ mod tests {
         assert_eq!(facts.files[0].source, FactSource::Mixed);
         assert_eq!(facts.files[0].confidence, FactConfidence::High);
         assert!(facts.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn internal_artifacts_do_not_expand_the_public_file_fact_contract() {
+        use crate::analysis::{FileContextFacts, ParsedArtifact, SyntaxSummary};
+
+        let mut scan = ScanFacts {
+            root_path: PathBuf::from("/repo"),
+            files: vec![FileFacts {
+                path: PathBuf::from("/repo/src/lib.rs"),
+                language: Some("Rust".to_string()),
+                non_empty_lines: 12,
+                ..FileFacts::default()
+            }],
+            ..ScanFacts::default()
+        };
+        scan.insert_artifact(ParsedArtifact::from_source(
+            PathBuf::from("/repo/src/lib.rs"),
+            Some("Rust".to_string()),
+            vec!["crate::internal".to_string()],
+            Vec::new(),
+            vec!["run".to_string()],
+            FileContextFacts::default(),
+            SyntaxSummary::default(),
+        ));
+
+        let facts = repo_facts_from_scan(&scan);
+
+        assert_eq!(facts.files.len(), 1);
+        assert_eq!(facts.files[0].path, PathBuf::from("/repo/src/lib.rs"));
+        assert_eq!(facts.files[0].language.as_deref(), Some("Rust"));
+        assert_eq!(facts.files[0].non_empty_lines, 12);
     }
 }

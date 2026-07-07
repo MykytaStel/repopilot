@@ -4,6 +4,7 @@ use crate::graph::context::{ContextGraphCacheInfo, RepoContextGraph};
 use crate::review::diff::ChangedFile;
 use crate::scan::cache::ScanCache;
 use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::parsed_cache::ParsedFactsCache;
 use crate::scan::types::{ScanCacheTelemetry, ScanDiagnostic};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ pub(super) struct ChangedFileAnalysisStage {
     pub findings: Vec<Finding>,
     pub graph_patch_files: Vec<FileFacts>,
     pub cache: ScanCache,
+    pub parsed_cache: ParsedFactsCache,
     pub cache_telemetry: ScanCacheTelemetry,
     pub changed_file_reasons: BTreeMap<String, usize>,
     pub elapsed_us: u64,

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import zoo_expectations as ze
+import zoo_scorecard as zs
 import zoo_triage as zt
 from zoo_scanner import (
     ScannerPreparationError,
@@ -36,6 +37,8 @@ MANIFEST = REPO_ROOT / "tests" / "zoo" / "manifest.toml"
 SNAPSHOT_DIR = REPO_ROOT / "tests" / "zoo" / "snapshots"
 EXPECTATION_DIR = REPO_ROOT / "tests" / "zoo" / "expectations"
 ZOO_DIR = REPO_ROOT / ".zoo"
+RULES_REFERENCE = REPO_ROOT / "docs" / "rules-reference.md"
+RULE_SCORECARD = REPO_ROOT / "docs" / "engineering" / "rule-scorecard.md"
 
 # Default-visible volume above this on a single repo flags a rule as a
 # false-positive suspect in the `report` table (real code rarely has many
@@ -385,6 +388,25 @@ def report_reviewed_quality(snaps: list[Path]) -> None:
             print(f"  - {line}")
 
 
+def cmd_scorecard(args: argparse.Namespace) -> int:
+    """Regenerate the per-rule scorecard from committed expectations (no clones)."""
+    rendered = zs.generate_scorecard(load_manifest(), EXPECTATION_DIR, RULES_REFERENCE)
+    if args.write:
+        RULE_SCORECARD.parent.mkdir(parents=True, exist_ok=True)
+        RULE_SCORECARD.write_text(rendered, encoding="utf-8")
+        print(f"wrote {RULE_SCORECARD.relative_to(REPO_ROOT)}")
+        return 0
+    if not RULE_SCORECARD.exists():
+        print(f"MISSING {RULE_SCORECARD.relative_to(REPO_ROOT)} (run `zoo.py scorecard --write`)")
+        return 1
+    committed = RULE_SCORECARD.read_text(encoding="utf-8")
+    if committed != rendered:
+        print(f"STALE {RULE_SCORECARD.relative_to(REPO_ROOT)} (re-run with --write to refresh)")
+        return 1
+    print(f"ok ({RULE_SCORECARD.relative_to(REPO_ROOT)} matches committed expectations)")
+    return 0
+
+
 def cmd_triage(args: argparse.Namespace) -> int:
     repos = select(load_manifest(), args.only)
     try:
@@ -478,6 +500,12 @@ def main() -> int:
     p_triage.set_defaults(func=cmd_triage)
 
     sub.add_parser("report", help="aggregate snapshots into a triage table").set_defaults(func=cmd_report)
+
+    p_scorecard = sub.add_parser(
+        "scorecard", help="check or write the per-rule scorecard (no clones needed)"
+    )
+    p_scorecard.add_argument("--write", action="store_true", help="regenerate the committed scorecard doc")
+    p_scorecard.set_defaults(func=cmd_scorecard)
 
     args = parser.parse_args()
     return args.func(args)

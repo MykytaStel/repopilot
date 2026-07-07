@@ -1,6 +1,6 @@
 use crate::findings::types::{Confidence, FindingCategory, Severity};
 use crate::rules::metadata::RuleMetadata;
-use crate::rules::{RuleLifecycle, SignalSource};
+use crate::rules::{RuleLifecycle, RuleRequirements, SignalSource};
 
 pub(super) static RULES: &[RuleMetadata] = &[
     RuleMetadata {
@@ -12,6 +12,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::file_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "This file has more lines of code than the configured threshold. Large files accumulate responsibilities over time and make navigation and testing harder.",
         recommendation: Some(
@@ -27,6 +29,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A file is nested deeply within the directory structure. Deep directory nesting makes the codebase harder to navigate, import from, and maintain.",
         recommendation: Some(
@@ -43,6 +47,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Preview,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Preview),
         docs_url: None,
         description: "A source file imports across three or more parent directories. Deep relative imports are fragile during refactors and often indicate missing module boundaries or aliases.",
         recommendation: Some(
@@ -58,6 +64,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Low,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "An index file re-exports many modules or relies heavily on wildcard exports. Large barrel files can become unstable module hubs and make dependency boundaries harder to understand.",
         recommendation: Some(
@@ -73,6 +81,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::Medium,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::TextHeuristic,
+
+        requirements: RuleRequirements::repository_text(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A directory contains more files than the configured threshold, suggesting it may need to be broken into sub-packages.",
         recommendation: Some(
@@ -88,6 +98,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Stable),
         docs_url: Some(
             "https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture",
         ),
@@ -108,6 +120,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Stable),
         docs_url: Some(
             "https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture",
         ),
@@ -131,6 +145,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Stable,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Stable),
         docs_url: Some(
             "https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture",
         ),
@@ -155,6 +171,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Experimental),
         docs_url: None,
         description: "This production file is not imported by any other project file and is not a known entrypoint. It may be dead code.",
         recommendation: Some(
@@ -173,6 +191,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A module imports another module from a higher layer than its own, against the order declared in `[[architecture.layers]]`. Opt-in: emits nothing unless layers are configured.",
         recommendation: Some(
@@ -190,6 +210,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A production module imports a test or fixture module.",
         recommendation: Some(
@@ -210,6 +232,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         contextual_confidence: true,
         lifecycle: RuleLifecycle::Experimental,
         signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Experimental),
         docs_url: None,
         description: "A file imports a private module from another package instead of using its public API. Auto-enabled on a detected npm/pnpm/Cargo/Go workspace; can also be driven explicitly with `[architecture] package_roots`.",
         recommendation: Some(
