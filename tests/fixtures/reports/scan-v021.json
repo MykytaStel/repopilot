@@ -1,0 +1,112 @@
+{
+  "schema_version": "0.21",
+  "repopilot_version": "0.19.0",
+  "report": {
+    "kind": "scan",
+    "schema_version": "0.21",
+    "repopilot_version": "0.19.0"
+  },
+  "root_path": ".",
+  "mode": "full",
+  "changed_files_count": 0,
+  "repo_level_rules_included": true,
+  "files_discovered": 2,
+  "files_analyzed": 2,
+  "directories_count": 1,
+  "non_empty_lines": 12,
+  "large_files_skipped": 0,
+  "files_skipped_low_signal": 0,
+  "binary_files_skipped": 0,
+  "skipped_bytes": 0,
+  "languages": [],
+  "findings": [],
+  "detected_frameworks": [],
+  "framework_projects": [],
+  "coupling_graph": null,
+  "context_graph_summary": {
+    "files": 2,
+    "import_edges": 0
+  },
+  "context_graph_cache": {
+    "status": "write",
+    "reason": "context-graph-cache-updated",
+    "cache_path": ".repopilot/cache/repo_context.json"
+  },
+  "scan_duration_us": 100,
+  "health_score": 100,
+  "raw_findings_count": 0,
+  "visible_findings_count": 0,
+  "hidden_suggestions_count": 0,
+  "files_skipped_by_limit": 0,
+  "files_skipped_repopilotignore": 0,
+  "diagnostics": [
+    {
+      "code": "workspace.package-scan-failed",
+      "severity": "warning",
+      "message": "Package scan failed; results are partial.",
+      "path": "packages/api"
+    }
+  ],
+  "risk_summary": {
+    "total": 0,
+    "average_score": 0,
+    "counts": { "p0": 0, "p1": 0, "p2": 0, "p3": 0 }
+  },
+  "raw_signal_quality": {
+    "findings_total": 0,
+    "by_confidence": { "low": 0, "medium": 0, "high": 0 },
+    "by_lifecycle": { "experimental": 0, "preview": 0, "stable": 0, "deprecated": 0 },
+    "by_signal_source": {
+      "text_heuristic": 0,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "visible_signal_quality": {
+    "findings_total": 0,
+    "by_confidence": { "low": 0, "medium": 0, "high": 0 },
+    "by_lifecycle": { "experimental": 0, "preview": 0, "stable": 0, "deprecated": 0 },
+    "by_signal_source": {
+      "text_heuristic": 0,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "signal_quality": {
+    "findings_total": 0,
+    "by_confidence": { "low": 0, "medium": 0, "high": 0 },
+    "by_lifecycle": { "experimental": 0, "preview": 0, "stable": 0, "deprecated": 0 },
+    "by_signal_source": {
+      "text_heuristic": 0,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  }
+}

@@ -22,7 +22,7 @@ mod algorithmic_tests;
 pub mod behavioral;
 #[cfg(test)]
 mod behavioral_tests;
-mod classify;
+pub(in crate::review) mod classify;
 pub mod composites;
 pub mod content;
 pub mod taint;
@@ -123,7 +123,7 @@ pub fn detect_boundary_signals(
             if category.is_none()
                 && let Some(post_source) = content::post_change_source(repo_root, file, target)
             {
-                category = classify::classify_boundary_ast(&file.path, post_source.content());
+                category = classify::classify_boundary_ast_from_source(&post_source);
             }
 
             category.map(|category| BoundarySignal {

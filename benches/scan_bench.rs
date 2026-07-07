@@ -1,151 +1,27 @@
-//! Baseline scan-throughput benchmark.
+//! Scan and changed-review throughput benchmarks.
 //!
-//! Builds a synthetic multi-language repository in a temp directory once, then
-//! measures `scan_path_with_config` wall time. This establishes a performance
-//! baseline before the shared parsed-AST work (PR 5–7) so the dedup win is
-//! provable, and guards against scan regressions afterwards.
+//! `bench_scan` is the original baseline: a 480-file synthetic repo, kept at
+//! its original size so the pre-existing 0.19 budget stays comparable release
+//! over release. `bench_full_scan_matrix` and `bench_changed_review_matrix`
+//! add the v0.20 benchmark matrix (`docs/engineering/performance-budgets.md`)
+//! — medium/large warm full scans, and cold/warm changed review on small and
+//! medium synthetic repos.
 //!
 //! Run with: `cargo bench --bench scan_bench`
 
-use criterion::{Criterion, criterion_group, criterion_main};
-use repopilot::api::scan::{ScanConfig, scan_path_with_config};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use repopilot::api::scan::{ScanConfig, scan_changed_with_config, scan_path_with_config};
 use std::fs;
 use std::hint::black_box;
 use std::path::Path;
 use tempfile::TempDir;
 
-/// Files generated per language. 120 × 4 languages = 480 source files, enough
-/// to exercise the parallel file pipeline, the AST audits, and the import graph
-/// at a realistic small-repo scale without making the benchmark slow.
-const FILES_PER_LANG: usize = 120;
-
-const RUST_TEMPLATE: &str = r#"use crate::file_PREVNUM;
-
-pub fn compute_IDXNUM(input: i64) -> i64 {
-    let mut total = 0_i64;
-    for outer in 0..input {
-        if outer % 2 == 0 {
-            for inner in 0..outer {
-                if inner % 3 == 0 {
-                    total += outer * inner;
-                } else {
-                    total -= inner;
-                }
-            }
-        }
-    }
-    total
-}
-"#;
-
-const TS_TEMPLATE: &str = r#"import { compute } from "./file_PREVNUM";
-
-export function run_IDXNUM(input: number): number {
-    let total = 0;
-    for (let outer = 0; outer < input; outer++) {
-        if (outer % 2 === 0) {
-            for (let inner = 0; inner < outer; inner++) {
-                if (inner % 3 === 0) {
-                    total += outer * inner;
-                } else {
-                    total -= inner;
-                }
-            }
-        }
-    }
-    return total + compute;
-}
-"#;
-
-const PY_TEMPLATE: &str = r#"from .file_PREVNUM import compute
-
-
-def run_IDXNUM(value):
-    total = 0
-    for outer in range(value):
-        if outer % 2 == 0:
-            for inner in range(outer):
-                if inner % 3 == 0:
-                    total += outer * inner
-                else:
-                    total -= inner
-    return total + compute
-"#;
-
-const GO_TEMPLATE: &str = r#"package gopkg
-
-import "fmt"
-
-func RunIDXNUM(value int) int {
-    total := 0
-    for outer := 0; outer < value; outer++ {
-        if outer%2 == 0 {
-            for inner := 0; inner < outer; inner++ {
-                if inner%3 == 0 {
-                    total += outer * inner
-                } else {
-                    total -= inner
-                }
-            }
-        }
-    }
-    fmt.Sprintln(total)
-    return total
-}
-"#;
-
-fn render(template: &str, index: usize) -> String {
-    let prev = index.saturating_sub(1);
-    template
-        .replace("PREVNUM", &prev.to_string())
-        .replace("IDXNUM", &index.to_string())
-}
-
-fn write_file(root: &Path, subdir: &str, name: String, contents: String) {
-    let dir = root.join(subdir);
-    fs::create_dir_all(&dir).expect("create fixture subdir");
-    fs::write(dir.join(name), contents).expect("write fixture file");
-}
-
-fn build_synthetic_repo() -> TempDir {
-    let dir = tempfile::tempdir().expect("create temp repo");
-    let root = dir.path();
-
-    // A go.mod lets the Go resolver attempt module-relative resolution.
-    fs::write(root.join("go.mod"), "module benchmod\n\ngo 1.22\n").expect("write go.mod");
-
-    for index in 0..FILES_PER_LANG {
-        write_file(
-            root,
-            "src",
-            format!("file_{index}.rs"),
-            render(RUST_TEMPLATE, index),
-        );
-        write_file(
-            root,
-            "web",
-            format!("file_{index}.ts"),
-            render(TS_TEMPLATE, index),
-        );
-        write_file(
-            root,
-            "py",
-            format!("file_{index}.py"),
-            render(PY_TEMPLATE, index),
-        );
-        write_file(
-            root,
-            "gopkg",
-            format!("file_{index}.go"),
-            render(GO_TEMPLATE, index),
-        );
-    }
-
-    dir
-}
+#[path = "../tests/support/synthetic_repo.rs"]
+mod synthetic_repo;
+use synthetic_repo::{LEGACY_480_FILES_PER_LANG, SyntheticSize};
 
 fn bench_scan(c: &mut Criterion) {
-    let repo = build_synthetic_repo();
+    let repo = synthetic_repo::build_synthetic_repo(LEGACY_480_FILES_PER_LANG);
     let root = repo.path().to_path_buf();
     let config = ScanConfig::default();
 
@@ -158,6 +34,84 @@ fn bench_scan(c: &mut Criterion) {
     });
 }
 
+fn bench_full_scan_matrix(c: &mut Criterion) {
+    let config = ScanConfig::default();
+
+    for (label, size) in [
+        ("medium", SyntheticSize::Medium),
+        ("large", SyntheticSize::Large),
+    ] {
+        let repo = synthetic_repo::build_synthetic_repo(size.files_per_lang());
+        let root = repo.path().to_path_buf();
+
+        c.bench_function(&format!("scan_full_warm_{label}_synthetic"), |b| {
+            b.iter(|| {
+                let summary = scan_path_with_config(black_box(&root), black_box(&config))
+                    .expect("scan synthetic repo");
+                black_box(summary);
+            });
+        });
+    }
+}
+
+/// Builds a committed synthetic repo with one uncommitted edit, so every
+/// `--changed`-equivalent scan sees exactly one changed file relative to
+/// `HEAD` regardless of how many times it runs.
+fn build_changed_review_fixture(files_per_lang: usize) -> TempDir {
+    let repo = synthetic_repo::build_synthetic_repo(files_per_lang);
+    let root = repo.path();
+    synthetic_repo::init_git_repo(root);
+    synthetic_repo::commit_all(root, "initial");
+    let edited = root.join("src/file_0.rs");
+    let original = fs::read_to_string(&edited).expect("read edited file");
+    fs::write(&edited, format!("{original}\n// benchmark edit\n")).expect("edit file");
+    repo
+}
+
+fn clear_parsed_cache(root: &Path) {
+    let _ = fs::remove_dir_all(root.join(".repopilot/cache"));
+}
+
+fn bench_changed_review_matrix(c: &mut Criterion) {
+    let config = ScanConfig::default();
+
+    for (label, size) in [
+        ("small", SyntheticSize::Small),
+        ("medium", SyntheticSize::Medium),
+    ] {
+        let repo = build_changed_review_fixture(size.files_per_lang());
+        let root = repo.path().to_path_buf();
+
+        c.bench_function(&format!("changed_review_cold_{label}_synthetic"), |b| {
+            b.iter_batched(
+                || clear_parsed_cache(&root),
+                |()| {
+                    let summary = scan_changed_with_config(
+                        black_box(&root),
+                        black_box(&config),
+                        black_box(None),
+                    )
+                    .expect("cold changed review");
+                    black_box(summary);
+                },
+                BatchSize::SmallInput,
+            );
+        });
+
+        // Prime the parsed-facts cache once before measuring the warm path;
+        // the edit above never changes, so every subsequent run stays warm.
+        scan_changed_with_config(&root, &config, None).expect("warm the parsed cache");
+        c.bench_function(&format!("changed_review_warm_{label}_synthetic"), |b| {
+            b.iter(|| {
+                let summary =
+                    scan_changed_with_config(black_box(&root), black_box(&config), black_box(None))
+                        .expect("warm changed review");
+                black_box(summary);
+            });
+        });
+    }
+}
+
 criterion_group! {
     name = benches;
     // A 480-file scan runs ~180ms, so the default 100 samples would take ~19s.
@@ -166,4 +120,14 @@ criterion_group! {
     config = Criterion::default().sample_size(20);
     targets = bench_scan
 }
-criterion_main!(benches);
+
+criterion_group! {
+    name = matrix_benches;
+    // Medium/large full scans and repo-scale changed review are slower per
+    // iteration than the 480-file baseline; 10 samples keeps the full matrix
+    // under a couple of minutes while still catching >10% regressions.
+    config = Criterion::default().sample_size(10);
+    targets = bench_full_scan_matrix, bench_changed_review_matrix
+}
+
+criterion_main!(benches, matrix_benches);

@@ -103,8 +103,7 @@ pub fn detect_taint(file: &ChangedFile, post_source: Option<&ReviewSource>) -> V
         return Vec::new();
     };
 
-    let parsed = post.parsed();
-    let Some(tree) = parsed.tree() else {
+    let Some(tree) = post.tree() else {
         return Vec::new();
     };
 
