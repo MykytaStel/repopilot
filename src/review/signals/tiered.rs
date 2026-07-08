@@ -68,6 +68,11 @@ pub struct ReviewSignalProvenance {
     pub analysis_scope: AnalysisScope,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReviewSignalVerificationPlan {
+    pub steps: Vec<String>,
+}
+
 /// One unified review signal, ready to render under its tier.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReviewSignal {
@@ -97,6 +102,8 @@ pub struct ReviewSignal {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suppression_reason: Option<String>,
     pub gate_eligible: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_plan: Option<ReviewSignalVerificationPlan>,
 }
 
 /// The review's signals grouped by confidence tier.
@@ -307,6 +314,18 @@ fn build_signal(
     signal_source: SignalSource,
 ) -> ReviewSignal {
     let signal_id = stable_hash_hex(format!("{kind}\0{path}").as_bytes())[..16].to_string();
+    let gate_eligible = tier == ConfidenceTier::DefinitelySensitive;
+    let verification_plan = build_verification_plan(
+        kind,
+        family,
+        confidence,
+        &path,
+        line,
+        headline,
+        detail.as_deref(),
+        gate_eligible,
+    );
+
     ReviewSignal {
         signal_id,
         kind: kind.to_string(),
@@ -329,7 +348,114 @@ fn build_signal(
         },
         suppressed: false,
         suppression_reason: None,
-        gate_eligible: tier == ConfidenceTier::DefinitelySensitive,
+        gate_eligible,
+        verification_plan,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_verification_plan(
+    kind: &str,
+    family: SignalFamily,
+    confidence: Confidence,
+    path: &str,
+    line: Option<usize>,
+    headline: &str,
+    detail: Option<&str>,
+    gate_eligible: bool,
+) -> Option<ReviewSignalVerificationPlan> {
+    if !gate_eligible || confidence != Confidence::High || path.is_empty() {
+        return None;
+    }
+
+    let location = match line {
+        Some(line) => format!("{path}:{line}"),
+        None => path.to_string(),
+    };
+    let mut steps = vec![format!(
+        "Open {location} and confirm the changed diff still supports the review signal: {headline}."
+    )];
+
+    if let Some(detail) = detail.filter(|detail| !detail.trim().is_empty()) {
+        steps.push(format!(
+            "Compare the pre-change and post-change code around {location}; verify this detail is still accurate: {detail}."
+        ));
+    }
+
+    steps.push(family_specific_verification_step(kind, family).to_string());
+    steps.push(
+        "This plan is generated from Git diff/static review evidence only — it does not execute code, run tests, or observe runtime behavior. Treat it as a starting point for manual or test-based confirmation, not proof."
+            .to_string(),
+    );
+
+    Some(ReviewSignalVerificationPlan { steps })
+}
+
+fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
+    match family {
+        SignalFamily::Boundary => match kind {
+            "boundary.access-control" => {
+                "Confirm the changed access-control path still enforces the expected authentication, authorization, session, or permission behavior, and add or update a focused test when coverage is missing."
+            }
+            "boundary.request-trust" => {
+                "Confirm the changed request-trust surface still enforces the expected CORS, CSP, security-header, cookie, or request validation behavior."
+            }
+            "boundary.deploy-surface" => {
+                "Review the changed deploy or CI surface for privilege, secret, environment, artifact, and production rollout impact before merging."
+            }
+            "boundary.supply-chain" => {
+                "Review the dependency or lockfile change, confirm the package source and version are expected, and run the project's dependency/security checks."
+            }
+            "boundary.secret-config" => {
+                "Confirm no real secret was committed and that runtime configuration still comes from the intended secret-management path."
+            }
+            _ => {
+                "Review the changed boundary with the project owner and confirm it is covered by tests, configuration review, or a manual release checklist."
+            }
+        },
+        SignalFamily::Behavioral => match kind {
+            "behavioral.network-call-added" => {
+                "Confirm the new network call has the expected timeout, retry, error handling, authorization, and data exposure behavior."
+            }
+            "behavioral.subprocess-added" => {
+                "Confirm subprocess arguments cannot be controlled unsafely by user input and that failures are handled explicitly."
+            }
+            "behavioral.fs-write-added" => {
+                "Confirm the filesystem write target is expected, path traversal is not possible, and failures do not leave partial unsafe state."
+            }
+            "behavioral.env-var-introduced" => {
+                "Confirm the new environment variable is documented, validated at startup, and safe when missing or malformed."
+            }
+            "behavioral.migration-added" => {
+                "Review the migration forward/backward path, data-loss risk, locking behavior, and deployment ordering."
+            }
+            "behavioral.error-handling-removed" => {
+                "Confirm removing this error handling cannot hide failures, skip cleanup, or turn recoverable errors into unsafe success paths."
+            }
+            "behavioral.auth-check-removed" => {
+                "Confirm the removed auth check is replaced by an equivalent guard in the same request path or an earlier boundary."
+            }
+            _ => {
+                "Confirm the behavioral change is intentional and covered by a focused test or a documented manual check."
+            }
+        },
+        SignalFamily::Taint => match kind {
+            "taint.sql" => {
+                "Trace the changed input source to the SQL sink and confirm parameterization, escaping, validation, or an equivalent guard blocks injection."
+            }
+            "taint.exec" => {
+                "Trace the changed input source to the subprocess sink and confirm arguments are fixed, allowlisted, or safely encoded."
+            }
+            _ => {
+                "Trace the changed input source to the reported sink and confirm validation, allowlisting, or safe encoding exists on that path."
+            }
+        },
+        SignalFamily::Algorithmic => {
+            "Confirm the algorithmic change is intentional, covered by representative inputs, and does not regress the expected complexity envelope."
+        }
+        SignalFamily::Volume => {
+            "Split or manually sample the large diff so ownership, tests, and risky surfaces are reviewed instead of treating volume as proof."
+        }
     }
 }
 
@@ -352,6 +478,9 @@ fn deduplicate(tiered: &mut TieredSignals) {
                 existing.line_end = existing.evidence_lines.last().copied();
                 existing.line = existing.line_start;
                 existing.blast_radius = existing.blast_radius.max(signal.blast_radius);
+                if existing.verification_plan.is_none() {
+                    existing.verification_plan = signal.verification_plan.clone();
+                }
             })
             .or_insert(signal);
     }
