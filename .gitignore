@@ -3,7 +3,9 @@ node_modules/
 .repopilot/cache/
 # Scan caches written under any nested project root (e.g. when scanning a subdir).
 **/.repopilot/cache/
+.agents/
 .claude/
+.codex/
 dist/
 .DS_Store
 .idea/
