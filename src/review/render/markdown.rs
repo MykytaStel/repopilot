@@ -228,8 +228,8 @@ fn render_markdown_tier(
     }
 
     output.push_str(&format!("### {label}\n\n"));
-    output.push_str("| Signal | Location | Detail | Reach |\n");
-    output.push_str("| --- | --- | --- | --- |\n");
+    output.push_str("| Signal | Location | Detail | Reach | Verification |\n");
+    output.push_str("| --- | --- | --- | --- | --- |\n");
 
     let shown = active.len().min(*remaining);
     for signal in active.iter().take(shown) {
@@ -251,12 +251,19 @@ fn render_markdown_tier(
             0 => "—".to_string(),
             count => format!("imported by {count}"),
         };
+        let verification = signal
+            .verification_plan
+            .as_ref()
+            .and_then(|plan| plan.steps.first())
+            .map(|step| escape_table_cell(step))
+            .unwrap_or_else(|| "—".to_string());
         output.push_str(&format!(
-            "| {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} |\n",
             escape_table_cell(&signal.headline),
             location,
             detail,
-            reach
+            reach,
+            verification
         ));
     }
 

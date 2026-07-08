@@ -203,3 +203,72 @@ fn small_diff_with_nothing_flagged_is_silent() {
     let tiered = build_tiered(&[], &[], &[], &[], &large_diff(2));
     assert!(tiered.is_empty());
 }
+
+#[test]
+fn definitely_sensitive_signals_include_verification_plan() {
+    let tiered = build_tiered(
+        &[boundary(BoundaryCategory::AccessControl, "src/auth.ts")],
+        &[],
+        &[],
+        &[],
+        &[],
+    );
+
+    let plan = tiered.definitely[0]
+        .verification_plan
+        .as_ref()
+        .expect("definitely sensitive review signals should include a verification plan");
+
+    assert!(plan.steps.len() >= 3);
+    assert!(plan.steps[0].contains("src/auth.ts"));
+    assert!(
+        plan.steps
+            .iter()
+            .any(|step| step.contains("static review evidence only"))
+    );
+}
+
+#[test]
+fn maybe_and_noise_signals_do_not_get_verification_plans() {
+    let maybe = build_tiered(
+        &[],
+        &[behavioral(BehavioralKind::NetworkCallAdded, "src/api.ts")],
+        &[],
+        &[],
+        &[],
+    );
+    assert!(maybe.definitely.is_empty());
+    assert!(maybe.maybe[0].verification_plan.is_none());
+
+    let noise = build_tiered(&[], &[], &[], &[], &large_diff(6));
+    assert!(noise.noise[0].verification_plan.is_none());
+}
+
+#[test]
+fn review_signal_verification_plans_are_deterministic() {
+    let left = build_tiered(
+        &[],
+        &[behavioral(
+            BehavioralKind::EnvVarIntroduced,
+            "src/config.ts",
+        )],
+        &[],
+        &[],
+        &[],
+    );
+    let right = build_tiered(
+        &[],
+        &[behavioral(
+            BehavioralKind::EnvVarIntroduced,
+            "src/config.ts",
+        )],
+        &[],
+        &[],
+        &[],
+    );
+
+    assert_eq!(
+        left.definitely[0].verification_plan,
+        right.definitely[0].verification_plan
+    );
+}

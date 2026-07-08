@@ -212,6 +212,11 @@ fn render_tier_group(
             render_signal_detail(signal),
             render_reach_suffix(signal.blast_radius),
         ));
+        if let Some(plan) = &signal.verification_plan
+            && let Some(step) = plan.steps.first()
+        {
+            output.push_str(&format!("      Verify: {step}\n"));
+        }
     }
     *remaining = remaining.saturating_sub(shown);
     if active.len() > shown {
