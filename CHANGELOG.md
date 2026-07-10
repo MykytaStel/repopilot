@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- Bump the report schema to `0.23` and lock the review-signal verification-plan JSON contract for agent/CI consumers.
+
 ### Added
 
 - v0.20 roadmap, performance benchmark matrix, and release scorecard define the

@@ -272,3 +272,50 @@ fn review_signal_verification_plans_are_deterministic() {
         right.definitely[0].verification_plan
     );
 }
+
+#[test]
+fn review_signal_verification_plan_serializes_as_stable_steps_array() {
+    let tiered = build_tiered(
+        &[boundary(BoundaryCategory::AccessControl, "src/auth.ts")],
+        &[],
+        &[],
+        &[],
+        &[],
+    );
+
+    let value = serde_json::to_value(&tiered.definitely[0])
+        .expect("review signals should serialize to JSON");
+    let steps = value
+        .get("verification_plan")
+        .and_then(|plan| plan.get("steps"))
+        .and_then(serde_json::Value::as_array)
+        .expect("verification_plan.steps should be a stable JSON array");
+
+    assert_eq!(steps.len(), 3);
+    assert_eq!(
+        steps[0].as_str(),
+        Some(
+            "Open src/auth.ts and confirm the changed diff still supports the review signal: access control changed."
+        )
+    );
+    assert!(steps.iter().any(|step| {
+        step.as_str()
+            .is_some_and(|step| step.contains("static review evidence only"))
+    }));
+}
+
+#[test]
+fn maybe_signal_omits_verification_plan_in_json_contract() {
+    let tiered = build_tiered(
+        &[],
+        &[behavioral(BehavioralKind::NetworkCallAdded, "src/api.ts")],
+        &[],
+        &[],
+        &[],
+    );
+
+    let value =
+        serde_json::to_value(&tiered.maybe[0]).expect("review signals should serialize to JSON");
+
+    assert!(value.get("verification_plan").is_none());
+}
