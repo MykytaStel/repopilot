@@ -26,6 +26,10 @@ pub fn definition() -> Value {
                     "default": "last-scan",
                     "description": "Session report containing the finding."
                 },
+                "analysis_handle": {
+                    "type": "string",
+                    "description": "Optional scan/review handle to select a stored analysis instead of the latest result."
+                },
                 "evidence_path": {
                     "type": "string",
                     "description": "Optional evidence path from an ambiguity candidate. Used with line_start to select one occurrence without changing the stable finding ID."

@@ -10,6 +10,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- MCP tool results now carry a `workspaceRevision`; successful scan/review
+  calls also return an `analysisHandle` retained for the eight most recent
+  analyses. `repopilot_explain_finding` and `repopilot_context` accept that
+  handle and reject it explicitly after workspace drift. Scan/review finding
+  arrays support `offset`/`limit` pagination with total/next-page metadata,
+  while `repopilot mcp --max-response-bytes` (1 MiB by default) bounds every
+  serialized tool result. Existing report JSON and `structuredContent` shapes
+  remain unchanged.
 - v0.20 roadmap, performance benchmark matrix, and release scorecard define the
   product, engineering, and compatibility contract before implementation starts.
 - The real-repo validation zoo is now a release gate. `release-contract.py`

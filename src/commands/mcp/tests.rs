@@ -333,3 +333,121 @@ fn scan_then_explain_finding_replays_session_finding() {
             .is_some_and(|trace| !trace.is_empty())
     );
 }
+
+#[test]
+fn scan_paginates_and_handle_is_accepted_by_explain_and_context() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let source_path = temp.path().join("src/lib.rs");
+    std::fs::create_dir_all(source_path.parent().expect("parent")).expect("create src");
+    std::fs::write(&source_path, "pub fn dangerous() { panic!(\"boom\"); }\n")
+        .expect("write source");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        ..ServerState::default()
+    };
+
+    let scan_response = handle_tools_call(
+        json!(10),
+        &json!({
+            "name": "repopilot_scan",
+            "arguments": { "path": ".", "profile": "strict", "offset": 0, "limit": 1 }
+        }),
+        &mut state,
+    );
+    let scan_result = scan_response.result.expect("scan result");
+    assert_eq!(scan_result["isError"], false, "scan failed: {scan_result}");
+    assert!(scan_result["workspaceRevision"].is_string());
+    assert_eq!(scan_result["pagination"]["offset"], 0);
+    assert_eq!(scan_result["pagination"]["limit"], 1);
+    let handle = scan_result["analysisHandle"]
+        .as_str()
+        .expect("analysis handle")
+        .to_string();
+    let finding_id = scan_result["structuredContent"]["findings"][0]["id"]
+        .as_str()
+        .expect("finding id")
+        .to_string();
+
+    let explain_response = handle_tools_call(
+        json!(11),
+        &json!({
+            "name": "repopilot_explain_finding",
+            "arguments": { "analysis_handle": handle, "finding_id": finding_id }
+        }),
+        &mut state,
+    );
+    let explain_result = explain_response.result.expect("explain result");
+    assert_eq!(
+        explain_result["isError"], false,
+        "explain failed: {explain_result}"
+    );
+    assert_eq!(
+        explain_result["structuredContent"]["replay"]["status"],
+        "matched"
+    );
+
+    let context_response = handle_tools_call(
+        json!(12),
+        &json!({
+            "name": "repopilot_context",
+            "arguments": { "path": ".", "analysis_handle": handle, "budget": 256 }
+        }),
+        &mut state,
+    );
+    assert_eq!(
+        context_response.result.expect("context result")["isError"],
+        false
+    );
+}
+
+#[test]
+fn stale_analysis_handle_is_rejected_with_both_revisions() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    std::fs::write(temp.path().join("lib.rs"), "pub fn before() {}\n").expect("source");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        ..ServerState::default()
+    };
+    let scan = handle_tools_call(
+        json!(13),
+        &json!({ "name": "repopilot_scan", "arguments": { "path": "." } }),
+        &mut state,
+    )
+    .result
+    .expect("scan result");
+    let handle = scan["analysisHandle"].as_str().expect("handle");
+
+    std::fs::write(temp.path().join("lib.rs"), "pub fn after() {}\n").expect("edit");
+    let response = handle_tools_call(
+        json!(14),
+        &json!({
+            "name": "repopilot_context",
+            "arguments": { "path": ".", "analysis_handle": handle }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("context result");
+    assert_eq!(result["isError"], true);
+    let message = result["content"][0]["text"].as_str().expect("message");
+    assert!(message.contains("belongs to workspace revision"));
+    assert!(message.contains("current revision is"));
+    assert!(result["workspaceRevision"].is_string());
+}
+
+#[test]
+fn oversized_tool_result_is_replaced_by_a_bounded_error() {
+    let result = super::tool_result(
+        scan::TOOL_NAME,
+        Ok(json!({ "findings": [], "payload": "x".repeat(4096) }).to_string()),
+        "revision-1",
+        Some("scan-handle"),
+        None,
+        1024,
+    );
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["responseTruncated"], true);
+    assert!(serde_json::to_vec(&result).expect("serialize").len() <= 1024);
+}

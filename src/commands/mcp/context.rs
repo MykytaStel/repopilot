@@ -35,6 +35,10 @@ pub fn definition() -> Value {
                     "type": "integer",
                     "description": "Optional approximate token budget for the brief. Defaults to the standard budget."
                 },
+                "analysis_handle": {
+                    "type": "string",
+                    "description": "Optional scan/review handle whose workspace revision must still match before context is generated."
+                },
                 "config": { "type": "string", "description": "Optional repopilot.toml path." },
                 "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" }
             },

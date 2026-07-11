@@ -44,6 +44,8 @@ pub fn definition() -> Value {
                 "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" },
                 "fail_on_review": { "type": "string", "enum": ["none", "definitely"], "default": "none" },
                 "detail": { "type": "string", "enum": ["compact", "full"], "default": "compact" },
+                "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
                 "filters": {
                     "type": "object",
                     "properties": {
@@ -189,7 +191,7 @@ fn duration_us(duration: Duration) -> u64 {
     duration.as_micros().min(u128::from(u64::MAX)) as u64
 }
 
-fn compact_review_json(rendered: &str) -> Result<String, String> {
+pub(super) fn compact_review_json(rendered: &str) -> Result<String, String> {
     const LIMIT: usize = 20;
     let mut value: Value =
         serde_json::from_str(rendered).map_err(|error| format!("compact failed: {error}"))?;
