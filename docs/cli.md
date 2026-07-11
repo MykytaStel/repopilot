@@ -295,15 +295,19 @@ The default profile may hide low-confidence suggestions; use `scan`/`review` (or
 the MCP tools) with `--profile strict` when you need recall validation before
 deciding whether a signal should be downgraded, hidden, or kept visible.
 
-`ai context` emits Markdown by default. Pass `--format json` for a structured,
-deterministic handoff — project, risk summary, repository facts, focus-filtered
-findings (each with stable id, `risk` score/priority/signals, description,
-recommendation, and the full `evidence` list), and the P0–P3 plan — the same facts
-without Markdown parsing, matching the JSON the MCP tools return. The JSON form is
-**budget-aware**: findings are ordered by risk and added until the output reaches
-`--budget`, and the document reports `truncated` plus included/omitted counts, so
-the budget is honest. `--no-header`/`--no-task` affect Markdown only (JSON is
-always fact-only), and JSON output never mixes in the stderr token breakdown.
+`ai context` emits Markdown by default. Pass `--format json` for the canonical
+RepoPilot analysis artifact. Schema `3` uses an explicit `artifact` envelope and
+the same `FindingRecord` / `DecisionRecord` contract shared by scan, review, MCP,
+SARIF, and explain output. Each included finding carries its stable ID,
+`occurrence_key`, evidence, risk, recommendation, provenance, and deterministic
+verification plan when available.
+
+The artifact is **budget-aware**: findings are ordered by risk and included until
+the output reaches `--budget`. `budget` reports requested/approximate tokens and
+truncation; `summary` reports total/included/omitted findings, included
+verification plans, and remediation-plan cluster counts. `--no-header` and
+`--no-task` affect Markdown only; JSON is always fact-only and never mixes in the
+stderr token breakdown.
 
 ### Synopsis
 

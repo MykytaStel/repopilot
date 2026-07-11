@@ -201,7 +201,10 @@ fn ai_context_json_format_is_structured_facts_aware_and_clean() {
 
     let doc: serde_json::Value =
         serde_json::from_str(&stdout).expect("stdout should be valid JSON");
-    assert_eq!(doc["schema_version"], 2);
+    assert_eq!(doc["schema_version"], 3);
+    assert_eq!(doc["artifact"]["kind"], "repopilot-analysis");
+    assert_eq!(doc["artifact"]["version"], 1);
+    assert_eq!(doc["artifact"]["source"], "ai-context");
     // Phase: facts come through the real CLI path (the golden passes None).
     assert_eq!(
         doc["facts"]["total_files"], 2,
@@ -220,13 +223,23 @@ fn ai_context_json_format_is_structured_facts_aware_and_clean() {
         "evidence locations present: {secret}"
     );
     assert!(
-        secret["recommendation"].is_string(),
-        "recommendation present"
+        secret["decision"]["recommendation"].is_string(),
+        "canonical decision recommendation present"
+    );
+    assert!(
+        secret["decision"]["verification_plan"]["steps"]
+            .as_array()
+            .is_some_and(|steps| !steps.is_empty()),
+        "verification plan present"
     );
 
     // Budget is real: either the estimate fits, or the doc is explicitly truncated.
-    let approx = doc["approx_tokens"].as_u64().expect("approx_tokens");
-    let truncated = doc["truncated"].as_bool().expect("truncated flag");
+    let approx = doc["budget"]["approx_tokens"]
+        .as_u64()
+        .expect("approx_tokens");
+    let truncated = doc["budget"]["truncated"]
+        .as_bool()
+        .expect("truncated flag");
     assert!(
         approx <= 2048 || truncated,
         "budget ignored: approx={approx} truncated={truncated}"
@@ -255,7 +268,7 @@ fn ai_context_json_focus_filters_and_writes_output_file() {
             .as_array()
             .expect("findings")
             .iter()
-            .all(|finding| finding["category"] == "security"),
+            .all(|finding| finding["category"] == "SECURITY"),
         "focus did not filter: {doc}"
     );
 
