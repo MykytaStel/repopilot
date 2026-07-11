@@ -3,8 +3,8 @@ mod options;
 
 pub use args::{
     ColorArg, CompareOutputFormatArg, ConfidenceArg, FailOnArg, MaxFindingsArg, OutputFormatArg,
-    PriorityArg, ReviewFailOnArg, ReviewScopeArg, ScanOutputStyleArg, ScanProfileArg, SeverityArg,
-    parse_byte_size, parse_max_findings, parse_token_budget,
+    PriorityArg, ReviewDetailArg, ReviewFailOnArg, ReviewScopeArg, ScanOutputStyleArg,
+    ScanProfileArg, SeverityArg, parse_byte_size, parse_max_findings, parse_token_budget,
 };
 pub use options::*;
 

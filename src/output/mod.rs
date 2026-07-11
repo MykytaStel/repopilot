@@ -2,6 +2,7 @@ pub mod ai_context;
 pub(crate) mod ai_plan;
 pub mod color;
 pub mod console;
+pub mod decision_summary;
 mod dispatch;
 pub(crate) mod finding_helpers;
 pub mod html;
@@ -32,7 +33,15 @@ pub enum OutputFormat {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConsoleOutputStyle {
+    Summary,
     Compact,
+    Full,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DetailLevel {
+    Summary,
+    Findings,
     Full,
 }
 

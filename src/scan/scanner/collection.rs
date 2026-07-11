@@ -300,56 +300,81 @@ mod tests {
         fs::write(src.join("api.rs"), "pub fn run() {}\n").expect("write api");
         let original_api_hash = crate::scan::parsed_cache::content_hash("pub fn run() {}\n");
 
-        let first_before = crate::analysis::parse::parse_nanos_total();
-        let first = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
-            .expect("cold facts collection");
-        let first_parse = crate::analysis::parse::parse_nanos_total().saturating_sub(first_before);
-        assert_eq!(first.files_analyzed, 2);
-        assert!(first_parse > 0, "cold run should parse source files");
-        assert!(
-            temp.path()
-                .join(".repopilot/cache/parsed_facts_v2.json")
-                .is_file()
-        );
+        let mut cold_cache = ParsedFactsCache::load(temp.path());
+        let first = collect_scan_facts_without_content_with_parsed_cache(
+            temp.path(),
+            &ScanConfig::default(),
+            &mut cold_cache,
+        )
+        .expect("cold facts collection");
+        let cold_telemetry = cold_cache.telemetry();
 
-        let second_before = crate::analysis::parse::parse_nanos_total();
-        let second = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
-            .expect("warm facts collection");
-        let second_parse =
-            crate::analysis::parse::parse_nanos_total().saturating_sub(second_before);
+        assert_eq!(first.files_analyzed, 2);
+        assert_eq!(cold_telemetry.hits, 0);
+        assert_eq!(cold_telemetry.misses, 2);
+        cold_cache.retain_referenced_current_scan();
+        cold_cache.write(temp.path()).expect("write cold cache");
+
+        let mut warm_cache = ParsedFactsCache::load(temp.path());
+        let second = collect_scan_facts_without_content_with_parsed_cache(
+            temp.path(),
+            &ScanConfig::default(),
+            &mut warm_cache,
+        )
+        .expect("warm facts collection");
+        let warm_telemetry = warm_cache.telemetry();
 
         assert_eq!(second.files_analyzed, 2);
-        assert_eq!(second_parse, 0, "warm run should reuse parsed facts");
+        assert_eq!(warm_telemetry.entries_loaded, 2);
+        assert_eq!(warm_telemetry.hits, 2, "warm run should reuse parsed facts");
+        assert_eq!(
+            warm_telemetry.misses, 0,
+            "warm run should not reparse files"
+        );
+        warm_cache.retain_referenced_current_scan();
+        warm_cache.write(temp.path()).expect("write warm cache");
 
         fs::write(src.join("api.rs"), "pub fn run() { if true { return; } }\n")
             .expect("modify api");
-        let changed_before = crate::analysis::parse::parse_nanos_total();
-        let changed = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
-            .expect("changed facts collection");
-        let changed_parse =
-            crate::analysis::parse::parse_nanos_total().saturating_sub(changed_before);
+
+        let mut changed_cache = ParsedFactsCache::load(temp.path());
+        let changed = collect_scan_facts_without_content_with_parsed_cache(
+            temp.path(),
+            &ScanConfig::default(),
+            &mut changed_cache,
+        )
+        .expect("changed facts collection");
+        let changed_telemetry = changed_cache.telemetry();
 
         assert_eq!(changed.files_analyzed, 2);
-        assert!(
-            changed_parse > 0,
-            "changed content should miss parsed cache"
-        );
+        assert_eq!(changed_telemetry.hits, 1);
+        assert_eq!(changed_telemetry.misses, 1);
+        changed_cache.retain_referenced_current_scan();
+        changed_cache
+            .write(temp.path())
+            .expect("write changed cache");
         assert!(!parsed_cache_hashes(temp.path()).contains(&original_api_hash));
 
         fs::write(src.join("extra.rs"), "pub fn extra() {}\n").expect("add extra");
         let extra_hash = crate::scan::parsed_cache::content_hash("pub fn extra() {}\n");
-        let added_before = crate::analysis::parse::parse_nanos_total();
-        let added = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
-            .expect("added-file facts collection");
-        let added_parse = crate::analysis::parse::parse_nanos_total().saturating_sub(added_before);
-        assert_eq!(added.files_analyzed, 3);
-        assert!(added_parse > 0, "added file should miss parsed cache");
 
-        fs::remove_file(src.join("extra.rs")).expect("remove extra");
-        let removed = collect_scan_facts_without_content(temp.path(), &ScanConfig::default())
-            .expect("removed-file facts collection");
-        assert_eq!(removed.files_analyzed, 2);
-        assert!(!parsed_cache_hashes(temp.path()).contains(&extra_hash));
+        let mut expanded_cache = ParsedFactsCache::load(temp.path());
+        let expanded = collect_scan_facts_without_content_with_parsed_cache(
+            temp.path(),
+            &ScanConfig::default(),
+            &mut expanded_cache,
+        )
+        .expect("expanded facts collection");
+        let expanded_telemetry = expanded_cache.telemetry();
+
+        assert_eq!(expanded.files_analyzed, 3);
+        assert_eq!(expanded_telemetry.hits, 2);
+        assert_eq!(expanded_telemetry.misses, 1);
+        expanded_cache.retain_referenced_current_scan();
+        expanded_cache
+            .write(temp.path())
+            .expect("write expanded cache");
+        assert!(parsed_cache_hashes(temp.path()).contains(&extra_hash));
     }
 
     #[test]

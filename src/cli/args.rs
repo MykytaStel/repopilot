@@ -1,7 +1,9 @@
 use clap::ValueEnum;
 use repopilot::baseline::gate::FailOn;
 use repopilot::findings::types::{Confidence, Severity};
-use repopilot::output::{ColorChoice, ConsoleOutputStyle, FindingRenderLimit, OutputFormat};
+use repopilot::output::{
+    ColorChoice, ConsoleOutputStyle, DetailLevel, FindingRenderLimit, OutputFormat,
+};
 use repopilot::risk::RiskPriority;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -22,7 +24,15 @@ pub enum CompareOutputFormatArg {
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum ScanOutputStyleArg {
+    Summary,
     Compact,
+    Full,
+}
+
+#[derive(Clone, Copy, Debug, ValueEnum, PartialEq, Eq)]
+pub enum ReviewDetailArg {
+    Summary,
+    Findings,
     Full,
 }
 
@@ -118,8 +128,19 @@ impl From<OutputFormatArg> for OutputFormat {
 impl From<ScanOutputStyleArg> for ConsoleOutputStyle {
     fn from(style: ScanOutputStyleArg) -> Self {
         match style {
+            ScanOutputStyleArg::Summary => ConsoleOutputStyle::Summary,
             ScanOutputStyleArg::Compact => ConsoleOutputStyle::Compact,
             ScanOutputStyleArg::Full => ConsoleOutputStyle::Full,
+        }
+    }
+}
+
+impl From<ReviewDetailArg> for DetailLevel {
+    fn from(detail: ReviewDetailArg) -> Self {
+        match detail {
+            ReviewDetailArg::Summary => DetailLevel::Summary,
+            ReviewDetailArg::Findings => DetailLevel::Findings,
+            ReviewDetailArg::Full => DetailLevel::Full,
         }
     }
 }

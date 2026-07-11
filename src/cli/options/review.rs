@@ -1,6 +1,6 @@
 use crate::cli::{
-    CompareOutputFormatArg, ConfidenceArg, FailOnArg, PriorityArg, ReviewFailOnArg, ReviewScopeArg,
-    ScanProfileArg, SeverityArg,
+    CompareOutputFormatArg, ConfidenceArg, FailOnArg, MaxFindingsArg, PriorityArg, ReviewDetailArg,
+    ReviewFailOnArg, ReviewScopeArg, ScanProfileArg, SeverityArg, parse_max_findings,
 };
 use clap::Args;
 use std::path::PathBuf;
@@ -55,6 +55,14 @@ pub struct ReviewOptions {
     /// Output format for the review report
     #[arg(long, value_enum, default_value = "console")]
     pub format: CompareOutputFormatArg,
+
+    /// Progressive console disclosure: verdict only, top findings, or full evidence
+    #[arg(long, value_enum)]
+    pub detail: Option<ReviewDetailArg>,
+
+    /// Limit rendered console findings; use 'none' for all
+    #[arg(long, value_name = "N|none", value_parser = parse_max_findings)]
+    pub max_findings: Option<MaxFindingsArg>,
 
     /// Disable progress indicators
     #[arg(long)]

@@ -1,5 +1,6 @@
 pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
-    output.push_str("RepoPilot Scan\n");
+    output.push_str("RepoPilot Scan\n\n");
+    render_decision_summary(output, &scan_decision_summary(summary));
     writeln!(output, "Version: {TOOL_VERSION}").unwrap();
     writeln!(output, "Path: {}", summary.root_path.display()).unwrap();
     if let Some(profile) = &summary.visibility_profile {

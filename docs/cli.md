@@ -222,6 +222,8 @@ repopilot r [PATH] [OPTIONS]
 | `--scope` | `changed\|full` | `changed` | Analyze changed files or retain full-repository findings |
 | `--profile` | `default\|strict` | scope-dependent | Finding visibility; changed defaults to default, full defaults to strict |
 | `--format` | `console\|json\|markdown` | `console` | Output format |
+| `--detail` | `summary\|findings\|full` | `findings` | Verdict only, top decisions, or full evidence/verification |
+| `--max-findings` | integer or `none` | `5` | Limit console finding detail |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
 | `--sarif-output` | path | — | Write secondary review SARIF without a second scan |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |

@@ -1,4 +1,11 @@
 RepoPilot Scan
+
+Decision: BLOCK
+Why: Resolve scan errors or P0 evidence before shipping this repository.
+Decision inputs: 1 finding(s), P0 1, P1 0, 1 verification plan(s)
+Reasons:
+  - 1 P0 finding(s) are visible.
+
 Version: {{VERSION}}
 Path: demo-project
 Profile: default
