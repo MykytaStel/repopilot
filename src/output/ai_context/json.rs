@@ -1,49 +1,77 @@
-//! JSON form of the `ai context` handoff. The default Markdown brief is for a
-//! human skimming; agents that parse structured data get the same facts —
-//! evidence, snippets, risk, recommendation — without Markdown parsing, closing
-//! the asymmetry with the JSON-returning MCP tools.
+//! Canonical JSON analysis artifact emitted by `repopilot ai context --format json`.
 //!
-//! Like the Markdown renderer it is **budget-aware**: findings are ordered by
-//! risk and added until the serialized size reaches `--budget`, and the document
-//! reports exactly what was included vs omitted. `approx_tokens` is measured from
-//! the real (pretty) output, so an agent can trust it. Deterministic (no
-//! clock/rand/net), so it can be golden-tested.
+//! The Markdown brief remains optimized for a human/agent handoff. This JSON
+//! surface is the stable machine contract: it reuses [`FindingRecord`] and its
+//! canonical [`DecisionRecord`] instead of reconstructing a second finding DTO.
+//! That keeps scan, review, SARIF, MCP, explain, and AI-context consumers aligned.
+//!
+//! The artifact remains budget-aware. Findings are ordered by risk and included
+//! until the pretty-serialized output reaches `--budget`. The artifact explicitly
+//! reports requested/used budget, truncation, included/omitted findings, included
+//! verification plans, and plan-cluster counts.
+//!
+//! Deterministic by construction: no clock, network, randomness, or unstable map
+//! ordering is used, so the artifact is suitable for golden and CI contracts.
 
 use crate::facts::RepoFactsSummary;
-use crate::findings::decision::{DecisionRecord, build_decision_record};
-use crate::findings::occurrence::occurrence_key;
+use crate::findings::record::FindingRecord;
 use crate::findings::types::{Finding, Severity};
 use crate::output::ai_context::{AiContextRenderOptions, AiFocusCategory, project_name};
 use crate::output::ai_plan::{PlanCluster, ordered_plan_clusters};
 use crate::output::finding_helpers::finding_location_key;
+use crate::report::schema::{REPOPILOT_VERSION, SCAN_REPORT_SCHEMA_VERSION};
 use crate::scan::types::ScanSummary;
 use serde::Serialize;
 
-/// Bumped when the JSON shape changes in a breaking way.
-pub const AI_CONTEXT_JSON_SCHEMA_VERSION: u32 = 2;
+/// Bumped when the AI analysis artifact shape changes incompatibly.
+pub const AI_CONTEXT_JSON_SCHEMA_VERSION: u32 = 3;
 
-/// Share of the budget findings may consume before plan clusters get a turn, so
-/// a finding-heavy repo still leaves room for the prioritized plan.
+/// Version of the canonical RepoPilot analysis-artifact envelope.
+pub const AI_CONTEXT_ARTIFACT_VERSION: u32 = 1;
+
+/// Share of the available budget findings may consume before remediation-plan
+/// clusters get a turn.
 const FINDINGS_BUDGET_SHARE: usize = 70;
 
 #[derive(Serialize)]
-struct AiContextJson {
+struct AiContextArtifact<'a> {
     schema_version: u32,
+    artifact: ArtifactMetadata,
     project: String,
     focus: &'static str,
-    budget_tokens: usize,
-    approx_tokens: usize,
-    truncated: bool,
-    findings_total: usize,
-    findings_included: usize,
-    findings_omitted: usize,
-    plan_clusters_total: usize,
-    plan_clusters_included: usize,
+    budget: BudgetMetadata,
+    summary: ArtifactSummary,
     risk: RiskSummaryJson,
     #[serde(skip_serializing_if = "Option::is_none")]
     facts: Option<FactsJson>,
-    findings: Vec<FindingJson>,
+    findings: Vec<FindingRecord<'a>>,
     plan: Vec<PlanCluster>,
+}
+
+#[derive(Serialize)]
+struct ArtifactMetadata {
+    kind: &'static str,
+    version: u32,
+    source: &'static str,
+    report_schema_version: &'static str,
+    repopilot_version: &'static str,
+}
+
+#[derive(Serialize)]
+struct BudgetMetadata {
+    requested_tokens: usize,
+    approx_tokens: usize,
+    truncated: bool,
+}
+
+#[derive(Serialize)]
+struct ArtifactSummary {
+    findings_total: usize,
+    findings_included: usize,
+    findings_omitted: usize,
+    verification_plans_included: usize,
+    plan_clusters_total: usize,
+    plan_clusters_included: usize,
 }
 
 #[derive(Serialize)]
@@ -76,82 +104,33 @@ struct LanguageJson {
     non_empty_lines: usize,
 }
 
-#[derive(Serialize)]
-struct FindingJson {
-    id: String,
-    occurrence_key: String,
-    rule_id: String,
-    category: &'static str,
-    severity: &'static str,
-    confidence: &'static str,
-    title: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    description: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    recommendation: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    docs_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    workspace_package: Option<String>,
-    risk: FindingRiskJson,
-    evidence: Vec<EvidenceJson>,
-    decision: DecisionRecord,
-}
-
-#[derive(Serialize)]
-struct FindingRiskJson {
-    score: u8,
-    priority: &'static str,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    signals: Vec<RiskSignalJson>,
-}
-
-#[derive(Serialize)]
-struct RiskSignalJson {
-    id: String,
-    label: String,
-    weight: i16,
-    reason: String,
-}
-
-#[derive(Serialize)]
-struct EvidenceJson {
-    path: String,
-    line_start: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    line_end: Option<usize>,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    snippet: String,
-}
-
-/// Render the AI context handoff as pretty JSON. Deterministic and never panics:
-/// serializing this owned struct cannot realistically fail, but a failure is
-/// surfaced as an `{"error": ...}` document rather than a panic.
+/// Render the canonical AI analysis artifact as pretty JSON.
+///
+/// Serialization failure is returned as a small JSON error document instead of
+/// panicking. `approx_tokens` is calculated from the actual pretty output.
 pub fn render_json(
     summary: &ScanSummary,
     facts_summary: Option<&RepoFactsSummary>,
     opts: &AiContextRenderOptions,
 ) -> String {
-    let mut doc = build(summary, facts_summary, opts);
-    // Two-pass on the *pretty* encoding — the form the caller receives — so
-    // `approx_tokens` reflects the real output, not a denser compact form.
-    if let Ok(pretty) = serde_json::to_string_pretty(&doc) {
-        doc.approx_tokens = pretty.len() / 4;
+    let mut artifact = build(summary, facts_summary, opts);
+
+    if let Ok(pretty) = serde_json::to_string_pretty(&artifact) {
+        artifact.budget.approx_tokens = pretty.len() / 4;
     }
-    serde_json::to_string_pretty(&doc).unwrap_or_else(|error| {
-        format!("{{\n  \"error\": \"ai context json serialization failed: {error}\"\n}}")
+
+    serde_json::to_string_pretty(&artifact).unwrap_or_else(|error| {
+        format!("{{\n  \"error\": \"AI analysis artifact serialization failed: {error}\"\n}}")
     })
 }
 
-fn build(
-    summary: &ScanSummary,
+fn build<'a>(
+    summary: &'a ScanSummary,
     facts_summary: Option<&RepoFactsSummary>,
     opts: &AiContextRenderOptions,
-) -> AiContextJson {
+) -> AiContextArtifact<'a> {
     let budget_chars = opts.budget_tokens.saturating_mul(4);
 
-    // Focus-filtered findings, ordered by risk so truncation drops the least
-    // important first.
     let mut ordered: Vec<&Finding> = summary
         .artifacts
         .findings
@@ -162,49 +141,61 @@ fn build(
                 .is_none_or(|focus| focus.matches(&finding.category))
         })
         .collect();
-    ordered.sort_by(|a, b| {
-        crate::risk::compare_findings(a, b)
-            .then_with(|| finding_location_key(a).cmp(&finding_location_key(b)))
+
+    ordered.sort_by(|left, right| {
+        crate::risk::compare_findings(left, right)
+            .then_with(|| finding_location_key(left).cmp(&finding_location_key(right)))
     });
 
     let findings_total = ordered.len();
     let plan = ordered_plan_clusters(summary, opts.focus.as_ref());
-    let plan_total = plan.len();
+    let plan_clusters_total = plan.len();
 
-    let mut doc = AiContextJson {
+    let mut artifact = AiContextArtifact {
         schema_version: AI_CONTEXT_JSON_SCHEMA_VERSION,
+        artifact: ArtifactMetadata {
+            kind: "repopilot-analysis",
+            version: AI_CONTEXT_ARTIFACT_VERSION,
+            source: "ai-context",
+            report_schema_version: SCAN_REPORT_SCHEMA_VERSION,
+            repopilot_version: REPOPILOT_VERSION,
+        },
         project: project_name(summary),
         focus: focus_label(&opts.focus),
-        budget_tokens: opts.budget_tokens,
-        approx_tokens: 0,
-        truncated: false,
-        findings_total,
-        findings_included: 0,
-        findings_omitted: findings_total,
-        plan_clusters_total: plan_total,
-        plan_clusters_included: 0,
-        // Risk summary counts the whole focus-filtered set, not just what fits.
+        budget: BudgetMetadata {
+            requested_tokens: opts.budget_tokens,
+            approx_tokens: 0,
+            truncated: false,
+        },
+        summary: ArtifactSummary {
+            findings_total,
+            findings_included: 0,
+            findings_omitted: findings_total,
+            verification_plans_included: 0,
+            plan_clusters_total,
+            plan_clusters_included: 0,
+        },
         risk: risk_json(&ordered),
         facts: facts_summary.map(facts_json),
         findings: Vec::new(),
         plan: Vec::new(),
     };
 
-    // Measure the envelope (risk + facts + counts) with empty collections, then
-    // fill within the remaining budget — pretty bytes, matching the real output.
-    let base_cost = pretty_cost(&doc);
+    // Measure the envelope first, then reserve 30% of the remaining budget for
+    // the remediation plan. The first finding is retained as a signal floor.
+    let base_cost = pretty_cost(&artifact);
     let mut used = base_cost;
     let findings_ceiling =
         base_cost + budget_chars.saturating_sub(base_cost) * FINDINGS_BUDGET_SHARE / 100;
 
-    for finding in &ordered {
-        let json = finding_json(finding);
-        let cost = pretty_cost(&json) + 4; // +array comma/indentation
-        if !doc.findings.is_empty() && used + cost > findings_ceiling {
+    for finding in ordered {
+        let record = FindingRecord::new(finding);
+        let cost = pretty_cost(&record) + 4;
+        if !artifact.findings.is_empty() && used + cost > findings_ceiling {
             break;
         }
         used += cost;
-        doc.findings.push(json);
+        artifact.findings.push(record);
     }
 
     for cluster in plan {
@@ -213,29 +204,34 @@ fn build(
             break;
         }
         used += cost;
-        doc.plan.push(cluster);
+        artifact.plan.push(cluster);
     }
 
-    // The per-item estimate under-counts nested array indentation, so verify
-    // against the real pretty encoding and trim until it genuinely fits — plan
-    // clusters first (derived data), then the lowest-risk findings, always
-    // keeping at least one finding for signal.
-    while pretty_cost(&doc) > budget_chars {
-        if doc.plan.pop().is_some() {
+    // Verify the real pretty encoding. Derived plan clusters are removed first,
+    // then the lowest-priority included findings, while preserving one finding.
+    while pretty_cost(&artifact) > budget_chars {
+        if artifact.plan.pop().is_some() {
             continue;
         }
-        if doc.findings.len() > 1 {
-            doc.findings.pop();
+        if artifact.findings.len() > 1 {
+            artifact.findings.pop();
             continue;
         }
         break;
     }
 
-    doc.findings_included = doc.findings.len();
-    doc.findings_omitted = findings_total.saturating_sub(doc.findings.len());
-    doc.plan_clusters_included = doc.plan.len();
-    doc.truncated = doc.findings_omitted > 0 || doc.plan_clusters_included < plan_total;
-    doc
+    artifact.summary.findings_included = artifact.findings.len();
+    artifact.summary.findings_omitted = findings_total.saturating_sub(artifact.findings.len());
+    artifact.summary.verification_plans_included = artifact
+        .findings
+        .iter()
+        .filter(|record| record.decision.verification_plan.is_some())
+        .count();
+    artifact.summary.plan_clusters_included = artifact.plan.len();
+    artifact.budget.truncated = artifact.summary.findings_omitted > 0
+        || artifact.summary.plan_clusters_included < plan_clusters_total;
+
+    artifact
 }
 
 fn pretty_cost<T: Serialize>(value: &T) -> usize {
@@ -255,8 +251,14 @@ fn focus_label(focus: &Option<AiFocusCategory>) -> &'static str {
 }
 
 fn risk_json(findings: &[&Finding]) -> RiskSummaryJson {
-    let count = |severity: Severity| findings.iter().filter(|f| f.severity == severity).count();
+    let count = |severity: Severity| {
+        findings
+            .iter()
+            .filter(|finding| finding.severity == severity)
+            .count()
+    };
     let label = super::header::risk_level(findings);
+
     RiskSummaryJson {
         level: machine_level(label),
         label: label.to_string(),
@@ -269,7 +271,7 @@ fn risk_json(findings: &[&Finding]) -> RiskSummaryJson {
     }
 }
 
-/// `🟡 MODERATE` -> `moderate`. The label is always `<emoji> WORD`.
+/// `🟡 MODERATE` -> `moderate`.
 fn machine_level(label: &str) -> String {
     label
         .split_whitespace()
@@ -294,48 +296,6 @@ fn facts_json(facts: &RepoFactsSummary) -> FactsJson {
             })
             .collect(),
         diagnostics_count: facts.diagnostics_count,
-    }
-}
-
-fn finding_json(finding: &Finding) -> FindingJson {
-    FindingJson {
-        id: finding.id.clone(),
-        occurrence_key: occurrence_key(finding),
-        rule_id: finding.rule_id.clone(),
-        category: finding.category.label(),
-        severity: finding.severity.label(),
-        confidence: finding.confidence.label(),
-        title: finding.title.clone(),
-        description: finding.description.clone(),
-        recommendation: finding.recommendation_or_default().to_string(),
-        docs_url: finding.docs_url.clone(),
-        workspace_package: finding.workspace_package.clone(),
-        risk: FindingRiskJson {
-            score: finding.risk.score,
-            priority: finding.risk.priority.label(),
-            signals: finding
-                .risk
-                .signals
-                .iter()
-                .map(|signal| RiskSignalJson {
-                    id: signal.id.clone(),
-                    label: signal.label.clone(),
-                    weight: signal.weight,
-                    reason: signal.reason.clone(),
-                })
-                .collect(),
-        },
-        evidence: finding
-            .evidence
-            .iter()
-            .map(|evidence| EvidenceJson {
-                path: evidence.path.display().to_string(),
-                line_start: evidence.line_start,
-                line_end: evidence.line_end,
-                snippet: evidence.snippet.clone(),
-            })
-            .collect(),
-        decision: build_decision_record(finding),
     }
 }
 

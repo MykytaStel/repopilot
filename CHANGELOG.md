@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- `ai context --format json` now emits the canonical schema-v3 analysis artifact using shared finding/decision records, explicit budget metadata, and verification-plan counts.
 - Bump the report schema to `0.23` and lock the review-signal verification-plan JSON contract for agent/CI consumers.
 
 ### Added
