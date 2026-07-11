@@ -29,6 +29,8 @@ pub fn definition() -> Value {
                 "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" },
                 "scope": { "type": "string", "enum": ["full", "changed"], "default": "full" },
                 "base": { "type": "string", "description": "Optional base ref for changed scope." },
+                "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
+                "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
                 "filters": {
                     "type": "object",
                     "properties": {

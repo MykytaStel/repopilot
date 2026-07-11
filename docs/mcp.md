@@ -34,11 +34,20 @@ non-destructive, idempotent, and closed-world.
 
 | Tool | Purpose | Additional inputs |
 |---|---|---|
-| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, and gate result | `base`, `head`, `config`, `baseline`, `scope`, `profile`, `fail_on_review`, `detail` |
-| `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base` |
-| `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget` |
+| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, and gate result | `base`, `head`, `config`, `baseline`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit` |
+| `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base`, `offset`, `limit` |
+| `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget`, `analysis_handle` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
-| `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator | `finding_id`, `source`, `evidence_path`, `line_start` |
+| `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator | `finding_id`, `source`, `analysis_handle`, `evidence_path`, `line_start` |
+
+Every `tools/call` result includes `workspaceRevision`. Successful scan and
+review results additionally include `analysisHandle`; the server retains the
+eight most recent full analysis reports in memory. Pass a handle to
+`repopilot_explain_finding` to select that report rather than the latest result,
+or to `repopilot_context` to require that the generated context still belongs
+to the same workspace revision. Unknown, expired, or stale handles fail
+explicitly and report the current revision. Handles are session-local and are
+not persisted to disk.
 
 `repopilot_explain_file` returns additive JSON fields for explicit scope,
 role evidence, applicability checks, every ordered override, severity
@@ -90,6 +99,20 @@ to `scope=changed`, `profile=default`, `fail_on_review=none`, and
 20 total review signals; `detail=full` returns the complete JSON report. Scan
 and review accept `filters.min_severity`, `filters.min_confidence`,
 `filters.min_priority`, and `filters.rules`.
+
+Scan and review accept zero-based `offset` plus `limit` (1-1000) for the
+top-level `findings` array. A paginated result includes MCP-level `pagination`
+metadata with `offset`, `limit`, `total`, `returned`, and nullable
+`next_offset`; the JSON report itself remains schema-compatible. Review stores
+the full report behind its handle even when the immediate client response uses
+`detail=compact`.
+
+Serialized tool results are bounded to 1 MiB by default. Configure the bound
+with `repopilot mcp --max-response-bytes N` (`N >= 1024`). A result that still
+exceeds the bound is replaced with a small in-band error carrying
+`responseTruncated`, `responseLimitBytes`, `workspaceRevision`, and the analysis
+handle when one was created. Use filters, pagination, compact review detail, or
+a smaller context budget to stay below the limit.
 
 For agent-assisted remediation, treat default-profile tool output as the product
 view, not the full recall set. Use `profile=strict` when auditing false positives,

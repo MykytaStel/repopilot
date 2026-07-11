@@ -6,6 +6,7 @@
 //! preserving RepoPilot's local-first promise (nothing is uploaded; no AI
 //! service is called).
 
+mod analysis_store;
 mod context;
 mod explain_file;
 mod explain_finding;
@@ -13,6 +14,7 @@ mod jsonrpc;
 mod review_change;
 mod scan;
 mod scan_cache;
+mod tool_call;
 
 #[cfg(test)]
 mod tests;
@@ -20,33 +22,58 @@ mod tests;
 mod workspace_freshness_tests;
 
 use crate::cli::McpOptions;
+use analysis_store::AnalysisStore;
 use jsonrpc::{METHOD_NOT_FOUND, Request, Response};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, mpsc};
+use tool_call::handle_tools_call;
+#[cfg(test)]
+use tool_call::tool_result;
 
 const SERVER_NAME: &str = "repopilot";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LATEST_PROTOCOL_VERSION: &str = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[LATEST_PROTOCOL_VERSION, "2024-11-05"];
 const PARSE_ERROR: i32 = -32700;
+const DEFAULT_MAX_RESPONSE_BYTES: usize = 1_048_576;
 
-#[derive(Default)]
 struct ServerState {
     root: PathBuf,
     negotiated: bool,
     initialized: bool,
     last_scan: Option<String>,
     last_review: Option<String>,
+    analyses: AnalysisStore,
+    max_response_bytes: usize,
+}
+
+impl Default for ServerState {
+    fn default() -> Self {
+        Self {
+            root: PathBuf::new(),
+            negotiated: false,
+            initialized: false,
+            last_scan: None,
+            last_review: None,
+            analyses: AnalysisStore::default(),
+            max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
+        }
+    }
 }
 
 pub fn run(options: McpOptions) -> Result<(), Box<dyn std::error::Error>> {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
-    serve_with_root(BufReader::new(stdin), stdout, options.root)?;
+    serve_with_options(
+        BufReader::new(stdin),
+        stdout,
+        options.root,
+        options.max_response_bytes,
+    )?;
     Ok(())
 }
 
@@ -54,17 +81,24 @@ pub fn run(options: McpOptions) -> Result<(), Box<dyn std::error::Error>> {
 /// reader and writer so tests can exercise it with in-memory buffers.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn serve<R: BufRead, W: Write + Send>(reader: R, writer: W) -> std::io::Result<()> {
-    serve_with_root(reader, writer, PathBuf::from("."))
+    serve_with_options(
+        reader,
+        writer,
+        PathBuf::from("."),
+        DEFAULT_MAX_RESPONSE_BYTES,
+    )
 }
 
-pub fn serve_with_root<R: BufRead, W: Write + Send>(
+fn serve_with_options<R: BufRead, W: Write + Send>(
     reader: R,
     mut writer: W,
     root: PathBuf,
+    max_response_bytes: usize,
 ) -> std::io::Result<()> {
     let root = root.canonicalize().unwrap_or(root);
     let state = Arc::new(Mutex::new(ServerState {
         root,
+        max_response_bytes,
         ..ServerState::default()
     }));
     let cancelled = Arc::new(Mutex::new(HashSet::<String>::new()));
@@ -300,93 +334,6 @@ fn tools_list_result() -> Value {
             explain_finding::definition(),
         ]
     })
-}
-
-fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Response {
-    let name = params
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let mut arguments = params
-        .get("arguments")
-        .cloned()
-        .unwrap_or_else(|| json!({}));
-    if let Err(message) = resolve_tool_paths(&mut arguments, &state.root) {
-        return Response::success(id, tool_result(name, Err(message)));
-    }
-
-    // Workspace-dependent tool results are evaluated on every call.
-    // `repopilot_scan` owns its separate persistent cache with validated
-    // Git/config/input fingerprints.
-    let outcome = match name {
-        review_change::TOOL_NAME => review_change::call(&arguments),
-        scan::TOOL_NAME => scan::call(&arguments),
-        context::TOOL_NAME => context::call(&arguments),
-        explain_file::TOOL_NAME => explain_file::call(&arguments, &state.root),
-        explain_finding::TOOL_NAME => explain_finding::call(
-            &arguments,
-            &state.root,
-            state.last_scan.as_deref(),
-            state.last_review.as_deref(),
-        ),
-        other => Err(format!("unknown tool: {other}")),
-    };
-
-    if let Ok(text) = &outcome {
-        match name {
-            scan::TOOL_NAME => state.last_scan = Some(text.clone()),
-            review_change::TOOL_NAME => state.last_review = Some(text.clone()),
-            _ => {}
-        }
-    }
-    Response::success(id, tool_result(name, outcome))
-}
-
-/// Wraps a tool outcome in an MCP `tools/call` result. Failures are returned
-/// in-band as `isError: true` text, per MCP convention, so the agent sees them
-/// as tool output rather than a transport-level error.
-fn tool_result(name: &str, outcome: Result<String, String>) -> Value {
-    match outcome {
-        Ok(text) => {
-            let structured = serde_json::from_str::<Value>(&text).unwrap_or_else(|_| {
-                if name == context::TOOL_NAME {
-                    json!({ "markdown": text })
-                } else {
-                    json!({ "text": text })
-                }
-            });
-            json!({
-                "content": [{ "type": "text", "text": text }],
-                "structuredContent": structured,
-                "isError": false
-            })
-        }
-        Err(message) => {
-            json!({ "content": [{ "type": "text", "text": message }], "isError": true })
-        }
-    }
-}
-
-fn resolve_tool_paths(arguments: &mut Value, root: &Path) -> Result<(), String> {
-    for key in ["path", "config", "baseline"] {
-        let Some(value) = arguments.get(key).and_then(Value::as_str) else {
-            continue;
-        };
-        let candidate = if Path::new(value).is_absolute() {
-            PathBuf::from(value)
-        } else {
-            root.join(value)
-        };
-        let resolved = candidate.canonicalize().unwrap_or(candidate);
-        if !resolved.starts_with(root) {
-            return Err(format!(
-                "`{key}` must stay within MCP root {}",
-                root.display()
-            ));
-        }
-        arguments[key] = Value::String(resolved.to_string_lossy().to_string());
-    }
-    Ok(())
 }
 
 fn resources_list_result(state: &ServerState) -> Value {

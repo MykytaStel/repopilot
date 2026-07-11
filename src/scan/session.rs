@@ -1,6 +1,7 @@
 use crate::config::model::RepoPilotConfig;
 use crate::findings::visibility::FindingVisibilityProfile;
 use crate::scan::config::ScanConfig;
+use ignore::WalkBuilder;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,6 +31,11 @@ pub struct WorkspaceRevision {
 }
 
 impl WorkspaceRevision {
+    pub fn capture(path: &Path) -> Self {
+        let workspace_root = resolve_workspace_root(path);
+        capture_workspace_revision(&workspace_root)
+    }
+
     pub fn id(&self) -> &str {
         &self.id
     }
@@ -116,7 +122,7 @@ fn capture_workspace_revision(workspace_root: &Path) -> WorkspaceRevision {
         }
     } else {
         hasher.update(b"\nsource:filesystem");
-        hash_root_metadata(&mut hasher, workspace_root);
+        hash_filesystem(&mut hasher, workspace_root);
     }
 
     WorkspaceRevision {
@@ -148,20 +154,44 @@ fn hash_status_entries(hasher: &mut Sha256, workspace_root: &Path, entries: Vec<
     }
 }
 
-fn hash_root_metadata(hasher: &mut Sha256, workspace_root: &Path) {
-    let Ok(metadata) = fs::metadata(workspace_root) else {
-        hasher.update(b"\nmetadata:unavailable");
-        return;
-    };
+fn hash_filesystem(hasher: &mut Sha256, workspace_root: &Path) {
+    let root = workspace_root.to_path_buf();
+    let mut builder = WalkBuilder::new(workspace_root);
+    builder
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .filter_entry(move |entry| entry.path() == root || !is_internal_path(entry.path(), &root));
+    let mut files = builder
+        .build()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+        .map(|entry| entry.into_path())
+        .collect::<Vec<_>>();
+    files.sort();
 
-    hasher.update(b"\nlen:");
-    hasher.update(metadata.len().to_le_bytes());
-    if let Ok(modified) = metadata.modified()
-        && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
-    {
-        hasher.update(b"\nmodified:");
-        hasher.update(duration.as_nanos().to_le_bytes());
+    for path in files {
+        let relative = path.strip_prefix(workspace_root).unwrap_or(&path);
+        hasher.update(b"\nfile:");
+        hasher.update(relative.to_string_lossy().as_bytes());
+        if let Ok(bytes) = fs::read(&path) {
+            hasher.update(b"\n");
+            hasher.update(bytes);
+        }
     }
+}
+
+fn is_internal_path(path: &Path, root: &Path) -> bool {
+    let relative = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    relative == ".git"
+        || relative.starts_with(".git/")
+        || relative == CACHE_DIR
+        || relative.starts_with(&format!("{CACHE_DIR}/"))
 }
 
 fn git_text(path: &Path, args: &[&str]) -> Option<String> {
@@ -303,6 +333,24 @@ mod tests {
         let second = default_session(temp.path());
 
         assert_eq!(first.revision(), second.revision());
+    }
+
+    #[test]
+    fn non_git_revision_tracks_content_but_ignores_cache_files() {
+        let temp = tempdir().expect("tempdir");
+        let source = temp.path().join("source.rs");
+        std::fs::write(&source, "pub fn before() {}\n").expect("source");
+        let first = WorkspaceRevision::capture(temp.path());
+
+        let cache = temp.path().join(CACHE_DIR);
+        std::fs::create_dir_all(&cache).expect("cache dir");
+        std::fs::write(cache.join("entry.json"), "{}").expect("cache entry");
+        let after_cache = WorkspaceRevision::capture(temp.path());
+        assert_eq!(first, after_cache);
+
+        std::fs::write(&source, "pub fn after() {}\n").expect("edit source");
+        let after_edit = WorkspaceRevision::capture(temp.path());
+        assert_ne!(first, after_edit);
     }
 
     fn default_session(path: &Path) -> AnalysisSession {
