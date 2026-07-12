@@ -7,7 +7,7 @@ use repopilot::scan::types::{
 use std::path::PathBuf;
 
 #[test]
-fn html_output_escapes_snippets_and_renders_summary() {
+fn html_output_redacts_sensitive_snippets_and_renders_summary() {
     let summary = ScanSummary {
         metadata: ScanMetadata {
             root_path: PathBuf::from("demo"),
@@ -65,8 +65,9 @@ fn html_output_escapes_snippets_and_renders_summary() {
     assert!(html.contains("<strong>Context:</strong> description"));
     assert!(html.contains("<strong>Recommendation:</strong>"));
     assert!(html.contains("<strong>Verification:</strong>"));
-    assert!(html.contains("API_KEY = &quot;abc&lt;123&gt;&quot;"));
-    assert!(!html.contains("API_KEY = \"abc<123>\""));
+    assert!(html.contains("[sensitive evidence redacted]"));
+    assert!(!html.contains("abc&lt;123&gt;"));
+    assert!(!html.contains("abc<123>"));
 }
 
 #[test]

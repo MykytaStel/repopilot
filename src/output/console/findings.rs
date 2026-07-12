@@ -86,7 +86,8 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
         } else {
             evidence.path.display().to_string()
         };
-        let snippet = evidence.snippet.trim();
+        let snippet =
+            crate::findings::redaction::human_evidence_snippet(finding, evidence.snippet.trim());
         if snippet.is_empty() {
             writeln!(output, "        Evidence: {location}").unwrap();
         } else {
@@ -110,6 +111,7 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
     if let Some(plan) = crate::findings::verification::build_verification_plan(finding) {
         writeln!(output, "        Verification:").unwrap();
         for step in &plan.steps {
+            let step = crate::findings::redaction::human_verification_step(finding, step);
             writeln!(output, "          - {step}").unwrap();
         }
     }

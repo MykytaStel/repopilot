@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- GitHub Action reviews now produce a deterministic base/head finding delta,
+  update one sticky PR comment with only new/changed findings, emit compact
+  annotations, expose new/changed/resolved counts, and upload stable review
+  JSON, delta JSON, SARIF, and Markdown artifacts.
+- Agent-facing paths now use shared root confinement that rejects lexical and
+  symlink escapes even when the requested leaf does not exist. Human-readable
+  console, Markdown, HTML, AI-context, and review output centrally redacts
+  secret/private-key evidence and verification text; JSON/SARIF evidence
+  contracts remain unchanged.
 - Scan and review console output now lead with PASS/REVIEW/BLOCK decisions and progressive detail controls.
 - `ai context --format json` now emits the canonical schema-v3 analysis artifact using shared finding/decision records, explicit budget metadata, and verification-plan counts.
 - Bump the report schema to `0.23` and lock the review-signal verification-plan JSON contract for agent/CI consumers.

@@ -297,11 +297,15 @@ fn render_markdown_findings_group(
             .evidence
             .first()
             .map(|evidence| {
+                let snippet = crate::findings::redaction::human_evidence_snippet(
+                    finding,
+                    evidence.snippet.trim(),
+                );
                 format!(
                     "`{}:{}` - {}",
                     evidence.path.display(),
                     evidence.line_start,
-                    evidence.snippet.trim()
+                    snippet
                 )
             })
             .unwrap_or_else(|| "No evidence".to_string());

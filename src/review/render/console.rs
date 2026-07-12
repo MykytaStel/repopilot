@@ -314,11 +314,15 @@ fn render_findings_group(
             continue;
         }
         for evidence in &finding.evidence {
+            let snippet = crate::findings::redaction::human_evidence_snippet(
+                finding,
+                evidence.snippet.trim(),
+            );
             output.push_str(&format!(
                 "    Evidence: {}:{} - {}\n",
                 evidence.path.display(),
                 evidence.line_start,
-                evidence.snippet.trim()
+                snippet
             ));
         }
         output.push_str(&format!(
@@ -328,6 +332,7 @@ fn render_findings_group(
         if let Some(plan) = crate::findings::verification::build_verification_plan(finding) {
             output.push_str("    Verification:\n");
             for step in plan.steps {
+                let step = crate::findings::redaction::human_verification_step(finding, &step);
                 output.push_str(&format!("      - {step}\n"));
             }
         }
