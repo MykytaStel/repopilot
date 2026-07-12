@@ -1,24 +1,32 @@
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
+use crate::output::decision_summary::{render_decision_summary, review_decision_summary};
+use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
+use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::render_ranges_suffix;
 use crate::review::signals::tiered::ReviewSignal;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
 
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
-    render_console_with_gates(report, ci_gate, None)
+    render_console_with_options(report, ci_gate, None, ReviewRenderOptions::full())
 }
 
-pub fn render_console_with_gates(
+pub fn render_console_with_options(
     report: &ReviewReport,
     ci_gate: Option<&CiGateResult>,
     review_gate: Option<&ReviewSignalGateResult>,
+    options: ReviewRenderOptions,
 ) -> String {
     let mut output = String::new();
 
-    output.push_str("RepoPilot Review\n");
+    output.push_str("RepoPilot Review\n\n");
+    render_decision_summary(
+        &mut output,
+        &review_decision_summary(report, ci_gate, review_gate),
+    );
     output.push_str(&format!("Path: {}\n", report.summary.root_path.display()));
     output.push_str(&format!("Git root: {}\n", report.repo_root.display()));
     match &report.baseline_path {
@@ -68,6 +76,10 @@ pub fn render_console_with_gates(
         ));
     }
 
+    if options.detail == DetailLevel::Summary {
+        return output;
+    }
+
     output.push_str("\nChanged files:\n");
     if report.changed_files.is_empty() {
         output.push_str("  No changed files found\n");
@@ -82,15 +94,27 @@ pub fn render_console_with_gates(
         }
     }
 
-    render_blast_radius(&mut output, report);
-    render_impact_paths(&mut output, report);
+    if options.detail == DetailLevel::Full {
+        render_blast_radius(&mut output, report);
+        render_impact_paths(&mut output, report);
+    }
     render_tiered_signals(&mut output, report);
-    render_findings_group(&mut output, "In-diff findings", &report.in_diff_findings());
     render_findings_group(
         &mut output,
-        "Out-of-diff findings",
-        &report.out_of_diff_findings(),
+        "In-diff findings",
+        &report.in_diff_findings(),
+        options.detail,
+        options.findings_limit,
     );
+    if options.detail == DetailLevel::Full {
+        render_findings_group(
+            &mut output,
+            "Out-of-diff findings",
+            &report.out_of_diff_findings(),
+            options.detail,
+            options.findings_limit,
+        );
+    }
 
     output
 }
@@ -252,22 +276,43 @@ fn render_reach_suffix(blast_radius: usize) -> String {
     }
 }
 
-fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]) {
+fn render_findings_group(
+    output: &mut String,
+    label: &str,
+    findings: &[&Finding],
+    detail: DetailLevel,
+    findings_limit: FindingRenderLimit,
+) {
     output.push_str(&format!("\n{label}: {}\n", findings.len()));
-
     if findings.is_empty() {
         return;
     }
 
-    for finding in findings {
+    let shown = match detail {
+        DetailLevel::Summary => 0,
+        DetailLevel::Findings => findings_limit.compact_limit(findings.len()),
+        DetailLevel::Full => findings_limit.detailed_limit(findings.len()),
+    };
+
+    for finding in findings.iter().take(shown) {
+        let location = finding
+            .evidence
+            .first()
+            .map(|evidence| format!("{}:{}", evidence.path.display(), evidence.line_start))
+            .unwrap_or_else(|| ".".to_string());
         output.push_str(&format!(
-            "  [{} confidence={}] {} - {}\n",
+            "  [{} {} confidence={}] {} - {} — {}\n",
+            finding.risk.priority.label(),
             finding.severity_label(),
             finding.confidence_label(),
             finding.rule_id,
-            finding.title
+            finding.title,
+            location
         ));
 
+        if detail != DetailLevel::Full {
+            continue;
+        }
         for evidence in &finding.evidence {
             output.push_str(&format!(
                 "    Evidence: {}:{} - {}\n",
@@ -276,5 +321,22 @@ fn render_findings_group(output: &mut String, label: &str, findings: &[&Finding]
                 evidence.snippet.trim()
             ));
         }
+        output.push_str(&format!(
+            "    Recommendation: {}\n",
+            finding.recommendation_or_default()
+        ));
+        if let Some(plan) = crate::findings::verification::build_verification_plan(finding) {
+            output.push_str("    Verification:\n");
+            for step in plan.steps {
+                output.push_str(&format!("      - {step}\n"));
+            }
+        }
+    }
+
+    if shown < findings.len() {
+        output.push_str(&format!(
+            "  ... {} additional finding(s); use --detail full or --max-findings none\n",
+            findings.len() - shown
+        ));
     }
 }

@@ -26,6 +26,7 @@ pub fn render(summary: &ScanSummary) -> String {
 
 pub fn render_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
     match options.console_output_style {
+        ConsoleOutputStyle::Summary => compact::render_summary_with_options(summary, options),
         ConsoleOutputStyle::Compact => compact::render_with_options(summary, options),
         ConsoleOutputStyle::Full => render_full_with_options(summary, options),
     }
@@ -71,6 +72,9 @@ pub fn render_baseline_with_options(
     options: RenderOptions,
 ) -> String {
     match options.console_output_style {
+        ConsoleOutputStyle::Summary => {
+            compact::render_baseline_summary_with_options(report, ci_gate, options)
+        }
         ConsoleOutputStyle::Compact => {
             compact::render_baseline_with_options(report, ci_gate, options)
         }

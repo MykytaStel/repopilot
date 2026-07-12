@@ -1,6 +1,7 @@
 use crate::findings::types::Finding;
 use crate::frameworks::{DetectedFramework, FrameworkProject};
 use crate::output::color;
+use crate::output::decision_summary::{render_decision_summary, scan_decision_summary};
 use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::report_stats::{ReportStats, TOOL_VERSION};
 use crate::output::report_text::{console_severity_counts_text, named_counts_text};

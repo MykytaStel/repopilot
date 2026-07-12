@@ -148,7 +148,8 @@ fn given_clean_repo_when_scan_runs_default_then_compact_clean_summary_is_printed
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("RepoPilot Scan"));
-    assert!(stdout.contains("Status: Clean"));
+    assert!(stdout.contains("Decision: PASS"));
+    assert!(stdout.contains("Why: No visible findings require action in the selected profile."));
     assert!(stdout.contains("Risk: Low"));
     assert!(stdout.contains("Health: 100/100"));
     assert!(stdout.contains("Profile: default"));
@@ -185,7 +186,7 @@ fn given_quiet_when_scan_runs_then_next_steps_are_omitted() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("RepoPilot Scan"));
-    assert!(stdout.contains("Status: Clean"));
+    assert!(stdout.contains("Decision: PASS"));
     assert!(stdout.contains("Findings: 0 visible"));
     assert!(!stdout.contains("Next:"));
 }
@@ -235,7 +236,10 @@ fn given_repo_with_visible_findings_when_scan_runs_default_then_top_findings_are
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Status: Attention needed"));
+    assert!(stdout.contains("Decision: BLOCK"));
+    assert!(
+        stdout.contains("Why: Resolve scan errors or P0 evidence before shipping this repository.")
+    );
     assert!(stdout.contains("Findings: 1 visible"));
     assert!(stdout.contains("Top findings:"));
     assert!(stdout.contains("security.env-file-committed"));
@@ -432,7 +436,7 @@ fn given_ci_or_non_tty_when_color_auto_then_output_is_plain_and_stable() {
     assert_no_ansi(&output.stdout);
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("RepoPilot Scan"));
-    assert!(stdout.contains("Status: Clean"));
+    assert!(stdout.contains("Decision: PASS"));
 }
 
 #[test]

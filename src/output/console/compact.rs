@@ -2,15 +2,26 @@ use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::color;
+use crate::output::decision_summary::{render_decision_summary, scan_decision_summary};
 use crate::output::report_stats::{
     ReportStats, build_report_stats, first_location, indexed_sorted_findings,
 };
 use crate::output::{FindingRenderLimit, RenderOptions};
-use crate::scan::types::{DiagnosticSeverity, ScanSummary};
+use crate::scan::types::ScanSummary;
 use std::fmt::Write;
 use std::path::Path;
 
 mod header;
+
+pub(crate) fn render_summary_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
+    let stats = build_report_stats(summary);
+    let mut output = String::new();
+    render_summary_header(&mut output, summary, &stats);
+    if !options.quiet {
+        render_next_steps(&mut output, summary);
+    }
+    output
+}
 
 pub(crate) fn render_with_options(summary: &ScanSummary, options: RenderOptions) -> String {
     let stats = build_report_stats(summary);
@@ -22,6 +33,22 @@ pub(crate) fn render_with_options(summary: &ScanSummary, options: RenderOptions)
         render_next_steps(&mut output, summary);
     }
 
+    output
+}
+
+pub(crate) fn render_baseline_summary_with_options(
+    report: &BaselineScanReport,
+    ci_gate: Option<&CiGateResult>,
+    options: RenderOptions,
+) -> String {
+    let summary = &report.summary;
+    let stats = build_report_stats(summary);
+    let mut output = String::new();
+    render_summary_header(&mut output, summary, &stats);
+    render_baseline_block(&mut output, report, ci_gate);
+    if !options.quiet {
+        render_next_steps(&mut output, summary);
+    }
     output
 }
 
@@ -45,12 +72,10 @@ pub(crate) fn render_baseline_with_options(
 }
 
 fn render_summary_header(output: &mut String, summary: &ScanSummary, stats: &ReportStats) {
-    let visible_count = visible_findings_count(summary);
-    let status = status_label(summary, visible_count);
     let risk = compact_risk_label(stats);
 
     output.push_str("RepoPilot Scan\n\n");
-    writeln!(output, "Status: {}", color::status_label(status)).unwrap();
+    render_decision_summary(output, &scan_decision_summary(summary));
     writeln!(output, "Risk: {}", color::risk_label(risk)).unwrap();
     writeln!(output, "Health: {}/100", stats.health_score).unwrap();
     writeln!(output, "Profile: {}", profile_label(summary)).unwrap();
@@ -148,23 +173,6 @@ fn render_next_steps(output: &mut String, summary: &ScanSummary) {
         "  repopilot scan {path} --format markdown --output report.md"
     )
     .unwrap();
-}
-
-fn status_label(summary: &ScanSummary, visible_count: usize) -> &'static str {
-    if summary.has_error_diagnostics() {
-        "Scan completed with errors"
-    } else if visible_count > 0 {
-        "Attention needed"
-    } else if summary
-        .artifacts
-        .diagnostics
-        .iter()
-        .any(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
-    {
-        "Scan completed with warnings"
-    } else {
-        "Clean"
-    }
 }
 
 fn compact_risk_label(stats: &ReportStats) -> &'static str {

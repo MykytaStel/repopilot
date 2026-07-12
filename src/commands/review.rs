@@ -11,9 +11,9 @@ use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::model::{ReviewFailOn, ReviewScope};
 use repopilot::findings::visibility::FindingVisibilityProfile;
-use repopilot::output::OutputFormat;
+use repopilot::output::{DetailLevel, FindingRenderLimit, OutputFormat};
 use repopilot::report::writer::write_report;
-use repopilot::review::render::{render, render_review_sarif};
+use repopilot::review::render::{ReviewRenderOptions, render_review_sarif, render_with_options};
 use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input, load_review_input_since, review_report_for_ci,
@@ -143,20 +143,32 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let review_gate = ReviewSignalGateResult::evaluate(&review_report, review_gate_policy);
     review_report.timings.gating_us = duration_us(gating_started.elapsed());
     let output_format: OutputFormat = options.format.into();
+    let render_options = ReviewRenderOptions {
+        detail: options
+            .detail
+            .map(Into::into)
+            .unwrap_or(DetailLevel::Findings),
+        findings_limit: options
+            .max_findings
+            .map(Into::into)
+            .unwrap_or(FindingRenderLimit::Default),
+    };
     let rendering_started = Instant::now();
-    let mut rendered_report = render(
+    let mut rendered_report = render_with_options(
         &review_report,
         output_format,
         ci_gate.as_ref(),
         Some(&review_gate),
+        render_options,
     )?;
     review_report.timings.rendering_us = duration_us(rendering_started.elapsed());
     if output_format == OutputFormat::Json {
-        rendered_report = render(
+        rendered_report = render_with_options(
             &review_report,
             output_format,
             ci_gate.as_ref(),
             Some(&review_gate),
+            render_options,
         )?;
     }
 
