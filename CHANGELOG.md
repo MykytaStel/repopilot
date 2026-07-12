@@ -6,29 +6,34 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-- `repopilot init` can now generate a review-first GitHub Actions workflow and explicit Claude, Cursor, or generic MCP bootstrap examples without modifying external client settings.
-- MCP can now explain stored review signals by `signal_id`, expose retained analysis-handle summaries through `repopilot://analyses`, and return stored-only finding context when a safe live replay is unavailable.
-- Top-level help, README, and CLI/workflow references now provide one
-  review-first command chooser, document snapshot and summary output consistently,
-  clarify changed-scope versus full-scan behavior, and preserve the intentionally
-  reduced command surface.
-- Parsed-facts cache writes now use recoverable staged replacement and run cache/CLI smoke coverage on Linux, macOS, and Windows.
-- GitHub Action reviews now produce a deterministic base/head finding delta,
-  update one sticky PR comment with only new/changed findings, emit compact
-  annotations, expose new/changed/resolved counts, and upload stable review
-  JSON, delta JSON, SARIF, and Markdown artifacts.
-- Agent-facing paths now use shared root confinement that rejects lexical and
-  symlink escapes even when the requested leaf does not exist. Human-readable
-  console, Markdown, HTML, AI-context, and review output centrally redacts
-  secret/private-key evidence and verification text; JSON/SARIF evidence
-  contracts remain unchanged.
-- Scan and review console output now lead with PASS/REVIEW/BLOCK decisions and progressive detail controls.
-- `ai context --format json` now emits the canonical schema-v3 analysis artifact using shared finding/decision records, explicit budget metadata, and verification-plan counts.
-- Bump the report schema to `0.23` and lock the review-signal verification-plan JSON contract for agent/CI consumers.
+## [0.20.0] - 2026-07-12
+
+RepoPilot 0.20 turns repository scanning into a complete, review-first change
+workflow: explain what changed, show its impact, produce deterministic evidence
+for developers and agents, and carry the same decisions safely into CI and MCP.
 
 ### Added
 
-- MCP tool results now carry a `workspaceRevision`; successful scan/review
+- **`repopilot init` now bootstraps review automation without taking over user
+  settings.** It can generate a review-first GitHub Actions workflow and generic,
+  Claude, or Cursor MCP configuration examples. Generated files are deterministic,
+  existing files are preserved unless `--force` is explicit, and RepoPilot never
+  modifies an external client's settings automatically.
+
+- **GitHub Action reviews now focus on the pull-request delta.** The Action
+  compares base and head deterministically, classifies findings as new, changed,
+  resolved, or unchanged, updates one marker-owned sticky comment, emits compact
+  annotations, exposes delta counts, and uploads stable review JSON, delta JSON,
+  SARIF, and Markdown artifacts.
+
+- **MCP can explain review signals and discover retained analyses.** The new
+  `repopilot_explain_review_signal` tool resolves a stored signal by `signal_id`,
+  while `repopilot://analyses` lists retained scan/review handles newest-first.
+  Finding explanations return explicit stored-only context when a safe live replay
+  is unavailable instead of pretending the decision was reproduced.
+
+- **MCP analyses are revision-bound, pageable, and size-bounded.** Tool results
+  now carry a `workspaceRevision`; successful scan/review
   calls also return an `analysisHandle` retained for the eight most recent
   analyses. `repopilot_explain_finding` and `repopilot_context` accept that
   handle and reject it explicitly after workspace drift. Scan/review finding
@@ -36,9 +41,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   while `repopilot mcp --max-response-bytes` (1 MiB by default) bounds every
   serialized tool result. Existing report JSON and `structuredContent` shapes
   remain unchanged.
-- v0.20 roadmap, performance benchmark matrix, and release scorecard define the
+
+- **AI context now has one canonical machine-readable analysis artifact.**
+  `repopilot ai context --format json` emits schema v3 using the same finding and
+  decision records as scan, review, SARIF, and MCP, with explicit budget metadata,
+  truncation state, and verification-plan counts. Markdown remains the default.
+
+- **The v0.20 release contract is tracked in-repository.** The roadmap,
+  performance benchmark matrix, and release scorecard define the
   product, engineering, and compatibility contract before implementation starts.
-- The real-repo validation zoo is now a release gate. `release-contract.py`
+
+- **The real-repo validation zoo is now a release gate.** `release-contract.py`
   fails the release contract if `python3 scripts/zoo.py scan` fails (zero
   unlabeled default findings, zero stale expectations) whenever the 11 zoo
   repos are cloned under `.zoo/`, and `verify-release.sh` now clones them
@@ -48,14 +61,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   reference doc, lists every rule's lifecycle, a reviewed-precision estimate,
   and false-positive debt; its freshness and `docs/README.md` link are also
   enforced by the release contract. No rule behavior changed.
-- A new "review-zoo" differential fixture harness
+
+- **Review-signal precision now has differential safe/unsafe coverage.** A new
+  "review-zoo" fixture harness
   (`tests/fixtures/review-zoo/`, `tests/review_zoo.rs`) measures `repopilot
   review`'s signal precision boundary: for each of the boundary, behavioral,
   and taint-lite delta types, a `safe/` fixture that must produce zero review
   signals sits next to a minimal-edit `unsafe/` twin that must produce the
   expected signal. Runs unconditionally in `cargo test --all`. No review
   detector changes.
-- Findings now carry an `occurrence_key` and a canonical `decision` record
+
+- **Findings now have occurrence identity and one canonical decision record.**
+  Findings carry an `occurrence_key` and a canonical `decision` record
   (severity, confidence, evidence, recommendation, and a `verification_plan`
   placeholder for a future PR) shared verbatim across scan/baseline/review
   JSON, SARIF, MCP, and AI context. `occurrence_key` disambiguates findings
@@ -67,7 +84,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `id`. Report schema advances additively to `0.21` (`0.16`-`0.20` readers
   still parse); AI-context JSON schema advances to `2`. No rule or baseline
   behavior changed.
-- `repopilot review` now traces bounded-depth dependency impact paths: for
+
+- **Review now traces bounded dependency impact paths.** For
   each changed file, its direct (one-hop) and transitive (up to a
   configurable `review.impact_path_depth`, default `3`) dependents, plus a
   rolled-up affected-surface summary (impacted file count and distinct
@@ -78,8 +96,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   one-hop `blast_radius`, which is untouched — so risk scoring and existing
   blast-radius behavior are unchanged. Report schema advances additively to
   `0.22` (`0.16`-`0.21` readers still parse).
-- High-confidence findings now include a deterministic verification plan
-  (`decision.verification_plan.steps`): one step per evidence entry naming its
+
+- **High-confidence findings now include deterministic verification plans.**
+  Each `decision.verification_plan.steps` array contains one step per evidence
+  entry naming its
   `file:line` and flagged snippet, one category-specific "what to check" step
   (Security/Architecture/CodeQuality/Testing/Framework), and a closing step
   documenting that the plan is static-evidence-only and isn't proof. No LLM,
@@ -92,7 +112,23 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
-- `repopilot review`'s boundary, behavioral, algorithmic, and taint-lite
+- **Scan and review output is now verdict-first.** Console output starts with a
+  `PASS`, `REVIEW`, or `BLOCK` decision and supports progressive summary,
+  findings, and full-detail views. Machine-readable JSON and SARIF contracts and
+  existing exit-code behavior remain compatible.
+
+- **The CLI now guides users through the reduced, review-first command surface.**
+  Top-level help, README, and workflow references consistently explain when to
+  use `review`, `scan`, `snapshot`, `baseline`, AI context, and MCP, including
+  changed-scope versus full-scan behavior. Removed legacy commands stay removed.
+
+- **Review-signal verification is now a stable agent and CI contract.** Report
+  schema advances additively to `0.23`, with deterministic verification-plan
+  steps for definitely-sensitive review signals. Existing supported report
+  readers remain accepted.
+
+- **Review detectors now share one parse-once change-analysis pass.** The
+  boundary, behavioral, algorithmic, and taint-lite
   detectors now run in one unified pass over each changed file's pre/post git
   content instead of two disconnected passes (boundary; then behavioral +
   algorithmic + taint together). Each side of the diff is read and
@@ -102,24 +138,37 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   logic changed and review output is identical for existing fixtures;
   `behavioral.rs`'s module doc now states its scope and limitations alongside
   the other three delta types.
-- Every registered rule now declares an internal `RuleRequirements` contract covering execution scope, required fact kinds, lifecycle, cache policy, and produced output. The generated rules reference and rule catalog expose the summary, while findings and scheduler behavior remain unchanged.
-- The scan fact model now acts as a shared `FactStore` and indexes one
+
+- **Every registered rule now declares its analysis requirements.** The internal
+  `RuleRequirements` contract covers execution scope, required fact kinds,
+  lifecycle, cache policy, and produced output. The generated rules reference
+  and rule catalog expose the summary, while findings and scheduler behavior
+  remain unchanged.
+
+- **Scan facts and parsed artifacts are shared across analysis consumers.** The
+  scan fact model now acts as a shared `FactStore` and indexes one
   `ParsedArtifact` per analyzed source file. Artifacts preserve imports,
   runtime-deferred imports, conservative export facts, file-role evidence, and a
   compact syntax summary from the same parse-once view used by file audits.
   Existing findings, output schemas, CLI behavior, baselines, and MCP contracts
   are unchanged.
-- Scan, review, AI-context, baseline, and MCP analysis requests now execute through
+
+- **All analysis entry points now share one immutable session contract.** Scan,
+  review, AI-context, baseline, and MCP requests execute through
   one immutable `AnalysisSession` that owns the target path, resolved workspace
   root, workspace revision, repository/scan configuration, and visibility profile.
   Existing CLI output, report schemas, finding IDs, baselines, and MCP tools are
   unchanged.
-- Changed-scan context graph cache hits now patch cached graph nodes and outgoing
-  edges for added, modified, and deleted files instead of rebuilding dependency
+
+- **Changed scans patch the cached context graph incrementally.** Cache hits now
+  patch graph nodes and outgoing edges for added, modified, and deleted files
+  instead of rebuilding dependency
   edges from every cached node. Existing findings, output schemas, cache files,
   and CLI behavior are unchanged.
-- Analysis cache v2 now persists content-addressed parsed facts in
-  `.repopilot/cache/parsed_facts_v2.json`, allowing warm repo-context fact
+
+- **Analysis cache v2 now persists content-addressed parsed facts.** The cache
+  stores facts in `.repopilot/cache/parsed_facts_v2.json`, allowing warm
+  repo-context fact
   collection to reuse unchanged imports, exports, and syntax summaries without
   reparsing. Changed-scan misses populate the parsed-fact cache, warm hits
   restore complete `ParsedCacheV2` artifacts when available, corrupt or stale
@@ -131,16 +180,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   cache-v2 signals available for the #270 benchmark matrix. Full-scan AST audit
   caching remains out of scope because those audits require the live
   tree-sitter tree, not only persisted summaries.
-- The scan engine now schedules file audits in requirement-aware phases: text-only
+
+- **The scan engine now uses bounded, requirement-aware scheduling.** Text-only
   audits run before parsed audits, parsed consumers share one lazily initialized
   parse view, and project/framework audit registrations execute in parallel under
   the bounded rayon pool. A determinism test now covers 1, 2, and 4 worker
   threads, and the warm `scan_synthetic_480_files` benchmark reports no
   performance change with a measured peak memory footprint.
-- GitHub Release notes now come from structurally validated curated
-  `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
+
+- **GitHub Release notes are now curated and structurally validated.** Notes come
+  from `docs/releases/v*.md` files while `CHANGELOG.md` remains the full technical
   release journal.
-- The v0.20 benchmark and determinism matrix is now enforced. A shared
+
+- **Performance and determinism budgets are now enforced before release.** A shared
   `SyntheticSize` small/medium/large synthetic-repo generator
   (`tests/support/synthetic_repo.rs`) backs a new `cargo test --all` CI gate
   (`tests/perf_matrix.rs`) that verifies full-scan JSON stays identical across
@@ -153,6 +205,23 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   the same medium-scale scenarios. `docs/engineering/performance-budgets.md`
   records the initial baselines and budgets for every "to be baselined" v0.20
   matrix row. No engine behavior changed.
+
+### Fixed
+
+- **Agent-facing paths can no longer escape the selected workspace.** Shared
+  root confinement rejects lexical traversal and symlink escapes, including
+  requests whose final path does not yet exist. MCP and other agent-facing path
+  consumers use the same boundary checks.
+
+- **Sensitive evidence is consistently redacted from human-readable output.**
+  Console, Markdown, HTML, AI-context, and review rendering now redact secret and
+  private-key evidence, including verification text. JSON and SARIF retain their
+  established machine-readable evidence contracts.
+
+- **Parsed-facts cache writes recover safely from interrupted replacement.**
+  Writes use staged replacement with backup recovery, discard corrupt state
+  without failing analysis, and are covered by cache and CLI smoke tests on
+  Linux, macOS, and Windows.
 
 ## [0.19.0] - 2026-06-29
 

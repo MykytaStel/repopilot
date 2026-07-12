@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   review:
-    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.19.0
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.20.0
     with:
       fail-on-review: definitely
       fail-on-priority: p1
@@ -45,7 +45,7 @@ This default is read-only and works for fork PRs. It does not use
 
 - name: RepoPilot review
   id: repopilot
-  uses: MykytaStel/repopilot@v0.19.0
+  uses: MykytaStel/repopilot@v0.20.0
   with:
     command: review
     scope: changed
@@ -80,7 +80,7 @@ permissions:
   security-events: write
 
 steps:
-  - uses: MykytaStel/repopilot@v0.19.0
+  - uses: MykytaStel/repopilot@v0.20.0
     with:
       command: review
       upload-sarif: "true"
@@ -108,7 +108,7 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: MykytaStel/repopilot@v0.19.0
+  - uses: MykytaStel/repopilot@v0.20.0
     with:
       command: review
       comment: "true"

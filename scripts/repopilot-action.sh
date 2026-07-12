@@ -131,7 +131,7 @@ SUMMARY_SOURCE=""
 TMP_SUMMARY_OUTPUT=""
 REVIEW_SUMMARY_FILE=""
 
-# shellcheck disable=SC2317 # Invoked indirectly by the EXIT trap.
+# shellcheck disable=SC2317,SC2329 # Invoked indirectly by the EXIT trap below.
 cleanup_action_temp() {
   cleanup_review_temp
   if [[ -n "$TMP_SUMMARY_OUTPUT" && -f "$TMP_SUMMARY_OUTPUT" ]]; then
