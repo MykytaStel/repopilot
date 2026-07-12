@@ -90,6 +90,7 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
             "repopilot_context",
             "repopilot_explain_file",
             "repopilot_explain_finding",
+            "repopilot_explain_review_signal",
         ]
     );
 

@@ -95,6 +95,7 @@ fn tools_list_advertises_all_tools_with_schemas() {
             "repopilot_context",
             "repopilot_explain_file",
             "repopilot_explain_finding",
+            "repopilot_explain_review_signal",
         ]
     );
 
@@ -172,6 +173,12 @@ fn lists_resources_and_prompts() {
         json!({"jsonrpc":"2.0","id":2,"method":"prompts/list"}),
         json!({
             "jsonrpc":"2.0",
+            "id":4,
+            "method":"resources/read",
+            "params":{"uri":"repopilot://analyses"}
+        }),
+        json!({
+            "jsonrpc":"2.0",
             "id":3,
             "method":"prompts/get",
             "params":{"name":"review-change"}
@@ -192,12 +199,20 @@ fn lists_resources_and_prompts() {
             .iter()
             .any(|resource| resource["uri"] == "repopilot://repository-summary")
     );
+    assert!(
+        responses[0]["result"]["resources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|resource| resource["uri"] == "repopilot://analyses")
+    );
     assert_eq!(
         responses[1]["result"]["prompts"].as_array().unwrap().len(),
         2
     );
+    assert_eq!(responses[2]["result"]["contents"][0]["text"], "[]");
     assert_eq!(
-        responses[2]["result"]["messages"][0]["content"]["type"],
+        responses[3]["result"]["messages"][0]["content"]["type"],
         "text"
     );
 }
@@ -399,6 +414,47 @@ fn scan_paginates_and_handle_is_accepted_by_explain_and_context() {
         context_response.result.expect("context result")["isError"],
         false
     );
+}
+
+#[test]
+fn review_signal_tool_explains_the_latest_stored_signal() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let report = json!({
+        "tiered_signals": {
+            "definitely": [{
+                "signal_id": "signal-1",
+                "family": "behavioral",
+                "path": "src/api.rs",
+                "headline": "external call changed",
+                "gate_eligible": true,
+                "suppressed": false,
+                "verification_plan": { "steps": ["Exercise the changed integration."] }
+            }],
+            "maybe": [],
+            "noise": []
+        },
+        "impact_paths": { "files": [{ "path": "src/api.rs" }] }
+    })
+    .to_string();
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        last_review: Some(report),
+        ..ServerState::default()
+    };
+
+    let response = handle_tools_call(
+        json!(20),
+        &json!({
+            "name": "repopilot_explain_review_signal",
+            "arguments": { "signal_id": "signal-1" }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("tool result");
+    assert_eq!(result["isError"], false, "tool call failed: {result}");
+    assert_eq!(result["structuredContent"]["status"], "explained");
+    assert_eq!(result["structuredContent"]["gate"]["eligible"], true);
 }
 
 #[test]

@@ -64,6 +64,72 @@ impl AnalysisStore {
     pub fn get(&self, handle: &str) -> Option<&AnalysisRecord> {
         self.records.get(handle)
     }
+
+    pub fn summaries(&self) -> Vec<Value> {
+        self.order
+            .iter()
+            .rev()
+            .filter_map(|handle| {
+                let record = self.records.get(handle)?;
+                let report = serde_json::from_str::<Value>(&record.report).ok();
+                let findings = report
+                    .as_ref()
+                    .and_then(|value| value.get("findings"))
+                    .and_then(Value::as_array)
+                    .map_or(0, Vec::len);
+                let review_signals = report
+                    .as_ref()
+                    .and_then(|value| value.get("tiered_signals"))
+                    .map(count_review_signals)
+                    .unwrap_or(0);
+                Some(json!({
+                    "analysis_handle": handle,
+                    "kind": record.kind.label(),
+                    "workspace_revision": record.workspace_revision,
+                    "findings": findings,
+                    "review_signals": review_signals
+                }))
+            })
+            .collect()
+    }
+}
+
+fn count_review_signals(tiered: &Value) -> usize {
+    ["definitely", "maybe", "noise"]
+        .into_iter()
+        .filter_map(|tier| tiered.get(tier).and_then(Value::as_array))
+        .map(Vec::len)
+        .sum()
+}
+
+#[cfg(test)]
+mod summary_tests {
+    use super::*;
+
+    #[test]
+    fn summaries_are_newest_first_and_count_analysis_contents() {
+        let mut store = AnalysisStore::default();
+        let scan = store.insert(
+            AnalysisKind::Scan,
+            json!({ "findings": [{ "id": "one" }] }).to_string(),
+            "revision-1",
+        );
+        let review = store.insert(
+            AnalysisKind::Review,
+            json!({
+                "findings": [],
+                "tiered_signals": { "definitely": [{}], "maybe": [{}], "noise": [] }
+            })
+            .to_string(),
+            "revision-1",
+        );
+
+        let summaries = store.summaries();
+        assert_eq!(summaries[0]["analysis_handle"], review);
+        assert_eq!(summaries[0]["review_signals"], 2);
+        assert_eq!(summaries[1]["analysis_handle"], scan);
+        assert_eq!(summaries[1]["findings"], 1);
+    }
 }
 
 fn analysis_handle(kind: AnalysisKind, report: &str, workspace_revision: &str) -> String {

@@ -10,6 +10,7 @@ mod analysis_store;
 mod context;
 mod explain_file;
 mod explain_finding;
+mod explain_review_signal;
 mod jsonrpc;
 mod review_change;
 mod scan;
@@ -332,6 +333,7 @@ fn tools_list_result() -> Value {
             context::definition(),
             explain_file::definition(),
             explain_finding::definition(),
+            explain_review_signal::definition(),
         ]
     })
 }
@@ -346,6 +348,11 @@ fn resources_list_result(state: &ServerState) -> Value {
         json!({
             "uri": "repopilot://repository-summary",
             "name": "RepoPilot repository summary",
+            "mimeType": "application/json"
+        }),
+        json!({
+            "uri": "repopilot://analyses",
+            "name": "Available RepoPilot analysis handles",
             "mimeType": "application/json"
         }),
     ];
@@ -372,6 +379,8 @@ fn handle_resource_read(id: Value, params: &Value, state: &ServerState) -> Respo
         .and_then(Value::as_str)
         .unwrap_or_default();
     let text = match uri {
+        "repopilot://analyses" => serde_json::to_string_pretty(&state.analyses.summaries())
+            .unwrap_or_else(|_| "[]".to_string()),
         "repopilot://rules" => {
             let rules = repopilot::rules::all_rule_metadata()
                 .map(|rule| {
