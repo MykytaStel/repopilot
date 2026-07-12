@@ -38,7 +38,8 @@ non-destructive, idempotent, and closed-world.
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base`, `offset`, `limit` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget`, `analysis_handle` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
-| `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator | `finding_id`, `source`, `analysis_handle`, `evidence_path`, `line_start` |
+| `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator; returns a stored-only fallback when safe replay is unavailable | `finding_id`, `source`, `analysis_handle`, `evidence_path`, `line_start` |
+| `repopilot_explain_review_signal` | Explain one review signal with provenance, gate state, impact, verification, and limitations | `signal_id`, `analysis_handle` |
 
 Every `tools/call` result includes `workspaceRevision`. Successful scan and
 review results additionally include `analysisHandle`; the server retains the
@@ -164,6 +165,7 @@ The server exposes:
 - `repopilot://rules`: the rule catalog;
 - `repopilot://repository-summary`: workspace/config/baseline/feedback and
   session-result availability without triggering a scan;
+- `repopilot://analyses`: newest-first summaries for retained scan/review handles;
 - `repopilot://last-scan`: the last successful scan in this session;
 - `repopilot://last-review`: the last successful review in this session.
 

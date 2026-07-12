@@ -90,15 +90,76 @@ pub fn call(
         other => return Err(format!("invalid source: {other}")),
     };
 
-    let selection = build_finding_explanation_selection_from_report(
+    let selection = match build_finding_explanation_selection_from_report(
         root,
         report,
         finding_id,
         source,
         locator.as_ref(),
-    )?;
+    ) {
+        Ok(selection) => selection,
+        Err(reason) => {
+            return stored_fallback(report, finding_id, source, locator.as_ref(), &reason);
+        }
+    };
     serde_json::to_string_pretty(&selection)
         .map_err(|error| format!("render finding explanation failed: {error}"))
+}
+
+fn stored_fallback(
+    report: &str,
+    finding_id: &str,
+    source: &str,
+    locator: Option<&FindingOccurrenceLocator>,
+    reason: &str,
+) -> Result<String, String> {
+    let report: Value =
+        serde_json::from_str(report).map_err(|error| format!("invalid session report: {error}"))?;
+    let findings = report
+        .get("findings")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "session report does not contain a findings array".to_string())?;
+    let finding = findings.iter().find(|finding| {
+        finding.get("id").and_then(Value::as_str) == Some(finding_id)
+            && locator.is_none_or(|locator| fallback_matches_locator(finding, locator))
+    });
+    let Some(finding) = finding else {
+        return Err(reason.to_string());
+    };
+    let fallback = json!({
+        "status": "stored-only",
+        "source_report": source,
+        "finding_id": finding_id,
+        "message": "The finding is available, but a safe live decision replay is unavailable.",
+        "replay": { "status": "unavailable", "reason": reason },
+        "finding": finding,
+        "decision": finding.get("decision").cloned().unwrap_or(Value::Null),
+        "limitations": [
+            "This fallback preserves stored analysis evidence and does not claim a live replay.",
+            "Re-run the originating scan or review after workspace or configuration changes."
+        ]
+    });
+    serde_json::to_string_pretty(&fallback)
+        .map_err(|error| format!("render finding fallback failed: {error}"))
+}
+
+fn fallback_matches_locator(finding: &Value, locator: &FindingOccurrenceLocator) -> bool {
+    let evidence = finding
+        .get("evidence")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first());
+    locator.evidence_path.as_deref().is_none_or(|path| {
+        evidence
+            .and_then(|item| item.get("path"))
+            .and_then(Value::as_str)
+            == Some(path)
+    }) && locator.line_start.is_none_or(|line| {
+        evidence
+            .and_then(|item| item.get("line_start"))
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+            == Some(line)
+    })
 }
 
 #[cfg(test)]
@@ -213,6 +274,35 @@ mod tests {
         .expect_err("missing scan must fail");
 
         assert!(error.contains("run repopilot_scan first"));
+    }
+
+    #[test]
+    fn tool_returns_stored_fallback_when_live_replay_is_unsupported() {
+        let report = json!({
+            "findings": [{
+                "id": "project-wide",
+                "rule_id": "architecture.example",
+                "title": "Project-wide finding",
+                "description": "Stored evidence remains useful.",
+                "decision": { "severity": "medium" },
+                "provenance": { "analysis_scope": "project" },
+                "evidence": [{ "path": "Cargo.toml", "line_start": 1 }]
+            }]
+        })
+        .to_string();
+
+        let rendered = call(
+            &json!({ "finding_id": "project-wide" }),
+            Path::new("."),
+            Some(&report),
+            None,
+        )
+        .expect("stored fallback");
+        let value: Value = serde_json::from_str(&rendered).expect("valid JSON");
+        assert_eq!(value["status"], "stored-only");
+        assert_eq!(value["replay"]["status"], "unavailable");
+        assert_eq!(value["finding"]["id"], "project-wide");
+        assert_eq!(value["decision"]["severity"], "medium");
     }
 
     fn duplicate_report(report: &str) -> String {

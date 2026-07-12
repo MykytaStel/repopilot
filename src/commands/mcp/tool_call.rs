@@ -1,5 +1,7 @@
 use super::analysis_store::{self, AnalysisKind, AnalysisRecord};
-use super::{ServerState, context, explain_file, explain_finding, review_change, scan};
+use super::{
+    ServerState, context, explain_file, explain_finding, explain_review_signal, review_change, scan,
+};
 use crate::commands::mcp::jsonrpc::Response;
 use repopilot::scan::session::WorkspaceRevision;
 use serde_json::{Value, json};
@@ -79,6 +81,13 @@ fn dispatch_tool(
         context::TOOL_NAME => context::call(arguments),
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root),
         explain_finding::TOOL_NAME => call_explain_finding(arguments, state, referenced),
+        explain_review_signal::TOOL_NAME => {
+            let report = referenced
+                .filter(|record| record.kind == AnalysisKind::Review)
+                .map(|record| record.report.as_str())
+                .or(state.last_review.as_deref());
+            explain_review_signal::call(arguments, report)
+        }
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -92,8 +101,11 @@ fn referenced_analysis(
     let Some(handle) = arguments.get("analysis_handle").and_then(Value::as_str) else {
         return Ok(None);
     };
-    if !matches!(name, context::TOOL_NAME | explain_finding::TOOL_NAME) {
-        return Err("`analysis_handle` is only accepted by context and explain_finding".into());
+    if !matches!(
+        name,
+        context::TOOL_NAME | explain_finding::TOOL_NAME | explain_review_signal::TOOL_NAME
+    ) {
+        return Err("`analysis_handle` is only accepted by context, explain_finding, and explain_review_signal".into());
     }
     let record = state
         .analyses

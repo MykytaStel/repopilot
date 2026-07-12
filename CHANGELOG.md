@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- MCP can now explain stored review signals by `signal_id`, expose retained analysis-handle summaries through `repopilot://analyses`, and return stored-only finding context when a safe live replay is unavailable.
 - Top-level help, README, and CLI/workflow references now provide one
   review-first command chooser, document snapshot and summary output consistently,
   clarify changed-scope versus full-scan behavior, and preserve the intentionally
