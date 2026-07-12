@@ -117,6 +117,30 @@ repopilot scan . \
 
 See [Reports](reports.md) for schema and compatibility details.
 
+## Bootstrap Integrations
+
+Generate a review-first GitHub Actions workflow:
+
+```bash
+repopilot init --github-action
+```
+
+Generate an MCP configuration example without editing the external client:
+
+```bash
+repopilot init --mcp-client claude
+repopilot init --mcp-client cursor
+repopilot init --mcp-client generic
+```
+
+Generate the default config plus both integration bootstraps:
+
+```bash
+repopilot init --all
+```
+
+Generated files are deterministic and are not overwritten unless `--force` is passed.
+
 ## GitHub Pull Requests
 
 Use the reusable workflow:

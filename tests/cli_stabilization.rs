@@ -100,6 +100,31 @@ fn top_level_help_shows_stable_command_surface() {
 }
 
 #[test]
+fn init_generates_opt_in_bootstraps_and_preserves_owned_files() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    run_ok(&["init", "--all"], temp.path());
+
+    let config = temp.path().join("repopilot.toml");
+    let action = temp.path().join(".github/workflows/repopilot-review.yml");
+    let mcp = temp.path().join(".repopilot/bootstrap/generic.json");
+    assert!(config.is_file());
+    assert!(action.is_file());
+    assert!(mcp.is_file());
+    assert!(
+        fs::read_to_string(&action)
+            .expect("generated action")
+            .contains(&format!("@v{}", env!("CARGO_PKG_VERSION")))
+    );
+
+    fs::write(&action, "custom workflow\n").expect("customize action");
+    run_ok(&["init", "--all"], temp.path());
+    assert_eq!(
+        fs::read_to_string(action).expect("preserved action"),
+        "custom workflow\n"
+    );
+}
+
+#[test]
 fn scan_and_review_help_have_flag_descriptions() {
     let temp = tempfile::tempdir().expect("temp dir");
     let scan_help = stdout(&run_ok(&["scan", "--help"], temp.path()));

@@ -9,11 +9,8 @@ workspace are rejected.
 
 ## Register
 
-```bash
-claude mcp add repopilot -- repopilot mcp --root .
-```
-
-Generic client configuration:
+Generate a generic configuration with `repopilot init --mcp-client generic`, or
+use this equivalent entry in any compatible client:
 
 ```json
 {
@@ -25,6 +22,10 @@ Generic client configuration:
   }
 }
 ```
+
+Client-specific bootstrap examples are also available through
+`repopilot init --mcp-client claude` and `--mcp-client cursor`. They are thin
+adapters over the same `repopilot mcp --root .` server command.
 
 ## Tool Contract
 

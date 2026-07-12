@@ -13,7 +13,7 @@ pub fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Snapshot(options) => super::snapshot::run(options),
         Commands::Baseline(options) => super::baseline::run(options.command),
         Commands::Ai(options) => run_ai(options.command),
-        Commands::Init(options) => super::init::run(options.force, options.path),
+        Commands::Init(options) => super::init::run(options),
         Commands::Mcp(options) => super::mcp::run(options),
     }
 }
