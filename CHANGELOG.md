@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- Parsed-facts cache writes now use recoverable staged replacement and run cache/CLI smoke coverage on Linux, macOS, and Windows.
 - GitHub Action reviews now produce a deterministic base/head finding delta,
   update one sticky PR comment with only new/changed findings, emit compact
   annotations, expose new/changed/resolved counts, and upload stable review
