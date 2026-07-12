@@ -23,6 +23,9 @@ OUTPUT="${INPUT_OUTPUT:-}"
 RECEIPT="${INPUT_RECEIPT:-}"
 ARGS="${INPUT_ARGS:-}"
 SARIF_OUTPUT=""
+ACTION_ROOT="${GITHUB_ACTION_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# shellcheck source=scripts/repopilot-action-review.sh
+source "$ACTION_ROOT/scripts/repopilot-action-review.sh"
 
 RUN_ARGS=()
 case "$COMMAND" in
@@ -128,6 +131,14 @@ SUMMARY_SOURCE=""
 TMP_SUMMARY_OUTPUT=""
 REVIEW_SUMMARY_FILE=""
 
+# shellcheck disable=SC2317 # Invoked indirectly by the EXIT trap.
+cleanup_action_temp() {
+  cleanup_review_temp
+  if [[ -n "$TMP_SUMMARY_OUTPUT" && -f "$TMP_SUMMARY_OUTPUT" ]]; then
+    rm -f "$TMP_SUMMARY_OUTPUT"
+  fi
+}
+
 append_job_summary() {
   local status="$1"
   local source_file="${2:-}"
@@ -167,7 +178,7 @@ append_job_summary() {
   } >> "$GITHUB_STEP_SUMMARY"
 }
 
-trap 'if [[ -n "$TMP_SUMMARY_OUTPUT" && -f "$TMP_SUMMARY_OUTPUT" ]]; then rm -f "$TMP_SUMMARY_OUTPUT"; fi' EXIT
+trap cleanup_action_temp EXIT
 
 OUTFILE="${OUTPUT:-repopilot-results.sarif}"
 RUN_STATUS=0
@@ -216,49 +227,8 @@ else
 fi
 
 if [[ "$COMMAND" == "review" && "$FORMAT" == "json" && -f "$OUTPUT" ]]; then
-  REVIEW_SUMMARY_FILE="repopilot-review-summary.md"
-  {
-    echo "## RepoPilot Review"
-    echo
-    echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$OUTPUT")"
-    echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$OUTPUT")"
-    echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$OUTPUT")"
-    echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$OUTPUT")"
-    echo
-    jq -r '
-      [.tiered_signals.definitely[], .tiered_signals.maybe[]]
-      | map(select(.suppressed == false))[0:20][]
-      | "- **\(.headline)** — `\(.path)\(if .line_start then ":\(.line_start)" else "" end)`\(if .detail then ": \(.detail)" else "" end)"
-    ' "$OUTPUT"
-  } > "$REVIEW_SUMMARY_FILE"
+  finalize_review_artifacts "$OUTPUT"
   SUMMARY_SOURCE="$REVIEW_SUMMARY_FILE"
-
-  while IFS=$'\t' read -r level path line message; do
-    [[ -n "$path" ]] || continue
-    message="${message//%/%25}"
-    message="${message//$'\r'/'%0D'}"
-    message="${message//$'\n'/'%0A'}"
-    echo "::${level} file=${path},line=${line:-1}::${message}"
-  done < <(
-    jq -r '
-      ([.tiered_signals.definitely[] | select(.suppressed == false) | ["warning", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
-       + [.tiered_signals.maybe[] | select(.suppressed == false) | ["notice", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
-       + [.findings[] | select(.in_diff == true) | ["warning", (.evidence[0].path // ""), (.evidence[0].line_start // 1), .title]])[0:20][]
-      | @tsv
-    ' "$OUTPUT"
-  )
-
-  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    {
-      echo "review_json_file=$OUTPUT"
-      echo "review_sarif_file=$SARIF_OUTPUT"
-      echo "sarif_file=$SARIF_OUTPUT"
-      echo "summary_file=$REVIEW_SUMMARY_FILE"
-      echo "findings_count=$(jq -r '.review.in_diff_findings' "$OUTPUT")"
-      echo "signals_count=$(jq -r '.review.tiered_signals.total' "$OUTPUT")"
-      echo "gate_result=$(jq -r '.review_gate.status // "not-configured"' "$OUTPUT")"
-    } >> "$GITHUB_OUTPUT"
-  fi
 fi
 
 if [[ -n "$RECEIPT" && -n "${GITHUB_OUTPUT:-}" ]]; then

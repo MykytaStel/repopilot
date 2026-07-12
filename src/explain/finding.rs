@@ -197,15 +197,13 @@ pub fn build_finding_explanation_selection_from_report(
             )
         })?;
 
-    let canonical_mcp_root = mcp_root
-        .canonicalize()
-        .unwrap_or_else(|_| mcp_root.to_path_buf());
-    let source_root = resolve_source_root(&canonical_mcp_root, &report)?;
+    let confinement = crate::path_security::RootConfinement::named(mcp_root, "MCP root")?;
+    let source_root = resolve_source_root(&confinement, &report)?;
     let evidence = finding
         .evidence
         .first()
         .ok_or_else(|| format!("finding `{finding_id}` has no evidence path"))?;
-    let source_path = resolve_source_path(&canonical_mcp_root, &source_root, &evidence.path)?;
+    let source_path = resolve_source_path(&confinement, &source_root, &evidence.path)?;
 
     let explanation = build_explain_report_with_root(
         &source_root,
@@ -367,23 +365,19 @@ fn normalize_report_path(path: &str) -> String {
     path.replace('\\', "/")
 }
 
-fn resolve_source_root(mcp_root: &Path, report: &Value) -> Result<PathBuf, String> {
+fn resolve_source_root(
+    confinement: &crate::path_security::RootConfinement,
+    report: &Value,
+) -> Result<PathBuf, String> {
     let value = report
         .get("root_path")
         .and_then(Value::as_str)
         .unwrap_or(".");
-    let candidate = if Path::new(value).is_absolute() {
-        PathBuf::from(value)
-    } else {
-        mcp_root.join(value)
-    };
-    let resolved = candidate.canonicalize().unwrap_or(candidate);
-    ensure_within_mcp_root(mcp_root, &resolved, "session report root")?;
-    Ok(resolved)
+    confinement.resolve_allow_missing(Path::new(value), "session report root")
 }
 
 fn resolve_source_path(
-    mcp_root: &Path,
+    confinement: &crate::path_security::RootConfinement,
     source_root: &Path,
     evidence_path: &Path,
 ) -> Result<PathBuf, String> {
@@ -392,26 +386,7 @@ fn resolve_source_path(
     } else {
         source_root.join(evidence_path)
     };
-    let resolved = candidate.canonicalize().map_err(|error| {
-        format!(
-            "finding evidence file {} is unavailable: {error}",
-            candidate.display()
-        )
-    })?;
-    ensure_within_mcp_root(mcp_root, &resolved, "finding evidence path")?;
-    Ok(resolved)
-}
-
-fn ensure_within_mcp_root(root: &Path, path: &Path, label: &str) -> Result<(), String> {
-    if path.starts_with(root) {
-        Ok(())
-    } else {
-        Err(format!(
-            "{label} {} must stay within MCP root {}",
-            path.display(),
-            root.display()
-        ))
-    }
+    confinement.resolve_existing(&candidate, "finding evidence file")
 }
 
 fn analysis_scope_id(scope: AnalysisScope) -> &'static str {

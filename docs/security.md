@@ -17,6 +17,11 @@ repopilot ai context .
 
 It generates local Markdown from local scan findings. It does not call an LLM API.
 
+MCP tool paths and finding replay are confined to the configured MCP root.
+RepoPilot canonicalizes existing paths, checks the nearest existing ancestor for
+missing outputs, and rejects lexical traversal and symlink escapes before an
+analysis command runs.
+
 ## Installation security
 
 ### GitHub Release artifacts
@@ -93,6 +98,12 @@ Placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`,
 `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` are not treated as leaked secrets.
 If a real credential was committed, rotate it and consider the old value
 compromised even if it is later removed from the working tree.
+
+Secret-candidate and private-key evidence is centrally replaced with
+`[sensitive evidence redacted]` in console, Markdown, HTML, AI-context Markdown,
+review output, and rendered verification steps. Structured JSON and SARIF keep
+their additive schema contract; built-in secret detectors mask credential values
+before findings reach those formats.
 
 ## GitHub Actions permissions
 

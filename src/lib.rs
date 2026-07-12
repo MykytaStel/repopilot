@@ -41,6 +41,8 @@ pub mod knowledge;
 #[doc(hidden)]
 pub mod output;
 #[doc(hidden)]
+pub mod path_security;
+#[doc(hidden)]
 pub mod receipt;
 #[doc(hidden)]
 pub mod report;

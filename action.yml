@@ -117,12 +117,24 @@ outputs:
   review-sarif-file:
     description: "Path to the generated review SARIF file."
     value: ${{ steps.run.outputs.review_sarif_file }}
+  delta-json-file:
+    description: "Path to the deterministic base/head finding delta JSON file."
+    value: ${{ steps.run.outputs.delta_json_file }}
   conclusion:
     description: "RepoPilot conclusion: passed or failed."
     value: ${{ steps.run.outputs.conclusion }}
   findings-count:
     description: "Number of in-diff findings."
     value: ${{ steps.run.outputs.findings_count }}
+  new-findings-count:
+    description: "Number of findings introduced relative to the base revision."
+    value: ${{ steps.run.outputs.new_findings_count }}
+  changed-findings-count:
+    description: "Number of finding occurrences changed relative to the base revision."
+    value: ${{ steps.run.outputs.changed_findings_count }}
+  resolved-findings-count:
+    description: "Number of findings resolved relative to the base revision."
+    value: ${{ steps.run.outputs.resolved_findings_count }}
   signals-count:
     description: "Number of review signals."
     value: ${{ steps.run.outputs.signals_count }}

@@ -3,7 +3,7 @@ use super::{ServerState, context, explain_file, explain_finding, review_change, 
 use crate::commands::mcp::jsonrpc::Response;
 use repopilot::scan::session::WorkspaceRevision;
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(super) fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Response {
     let name = params
@@ -254,22 +254,12 @@ fn oversized_result(
 }
 
 fn resolve_tool_paths(arguments: &mut Value, root: &Path) -> Result<(), String> {
+    let confinement = repopilot::path_security::RootConfinement::named(root, "MCP root")?;
     for key in ["path", "config", "baseline"] {
         let Some(value) = arguments.get(key).and_then(Value::as_str) else {
             continue;
         };
-        let candidate = if Path::new(value).is_absolute() {
-            PathBuf::from(value)
-        } else {
-            root.join(value)
-        };
-        let resolved = candidate.canonicalize().unwrap_or(candidate);
-        if !resolved.starts_with(root) {
-            return Err(format!(
-                "`{key}` must stay within MCP root {}",
-                root.display()
-            ));
-        }
+        let resolved = confinement.resolve_allow_missing(Path::new(value), &format!("`{key}`"))?;
         arguments[key] = Value::String(resolved.to_string_lossy().to_string());
     }
     Ok(())

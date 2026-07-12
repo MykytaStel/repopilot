@@ -70,13 +70,14 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         .evidence
         .first()
         .map(|evidence| {
-            if evidence.snippet.trim().is_empty() {
+            let snippet = crate::findings::redaction::human_evidence_snippet(
+                finding,
+                evidence.snippet.trim(),
+            );
+            if snippet.is_empty() {
                 String::new()
             } else {
-                format!(
-                    r#"<pre class="snippet">{}</pre>"#,
-                    escape_html(evidence.snippet.trim())
-                )
+                format!(r#"<pre class="snippet">{}</pre>"#, escape_html(snippet))
             }
         })
         .unwrap_or_default();
@@ -97,7 +98,10 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
             let items = plan
                 .steps
                 .iter()
-                .map(|step| format!("<li>{}</li>", escape_html(step)))
+                .map(|step| {
+                    let step = crate::findings::redaction::human_verification_step(finding, step);
+                    format!("<li>{}</li>", escape_html(&step))
+                })
                 .collect::<String>();
             format!(
                 r#"<div class="finding-meta"><strong>Verification:</strong><ul>{items}</ul></div>"#

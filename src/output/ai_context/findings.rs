@@ -171,8 +171,7 @@ pub(super) fn render_finding_entry(
         && let Some(ev) = finding.evidence.first()
         && !ev.snippet.is_empty()
     {
-        let snippet = ev
-            .snippet
+        let snippet = crate::findings::redaction::human_evidence_snippet(finding, &ev.snippet)
             .lines()
             .take(snippet_lines)
             .collect::<Vec<_>>()

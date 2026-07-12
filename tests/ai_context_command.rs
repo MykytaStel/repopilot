@@ -60,7 +60,8 @@ fn ai_context_default_output_succeeds() {
     assert!(stdout.contains("- Rust: 2 files, 2 non-empty lines"));
     assert!(stdout.contains("Security"));
     assert!(stdout.contains("Possible secret detected"));
-    assert!(stdout.contains("sk_...***"));
+    assert!(stdout.contains("[sensitive evidence redacted]"));
+    assert!(!stdout.contains("sk_...***"));
     assert!(!stdout.contains(&temp.path().display().to_string()));
 }
 

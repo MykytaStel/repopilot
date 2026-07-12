@@ -33,6 +33,15 @@ on:
       signals-count:
         description: Review signal count
         value: ${{ jobs.review.outputs.signals-count }}
+      new-findings-count:
+        description: Findings introduced relative to the base revision
+        value: ${{ jobs.review.outputs.new-findings-count }}
+      changed-findings-count:
+        description: Finding occurrences changed relative to the base revision
+        value: ${{ jobs.review.outputs.changed-findings-count }}
+      resolved-findings-count:
+        description: Findings resolved relative to the base revision
+        value: ${{ jobs.review.outputs.resolved-findings-count }}
 
 permissions:
   contents: read
@@ -50,10 +59,14 @@ jobs:
       conclusion: ${{ steps.repopilot.outputs.conclusion }}
       findings-count: ${{ steps.repopilot.outputs.findings-count }}
       signals-count: ${{ steps.repopilot.outputs.signals-count }}
+      new-findings-count: ${{ steps.repopilot.outputs.new-findings-count }}
+      changed-findings-count: ${{ steps.repopilot.outputs.changed-findings-count }}
+      resolved-findings-count: ${{ steps.repopilot.outputs.resolved-findings-count }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Review pull request
         id: repopilot
@@ -75,6 +88,7 @@ jobs:
           name: repopilot-review
           path: |
             repopilot-review.json
+            repopilot-review-delta.json
             repopilot-review.sarif
             repopilot-review-summary.md
           if-no-files-found: warn

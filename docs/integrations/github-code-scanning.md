@@ -1,7 +1,7 @@
 # GitHub Pull Request Integration
 
-RepoPilot can produce a job summary, capped workflow annotations, JSON and SARIF
-artifacts, typed outputs, and an optional sticky PR comment from one review run.
+RepoPilot can produce a job summary, capped workflow annotations, JSON, SARIF,
+and base/head delta artifacts, typed outputs, and an optional sticky PR comment.
 
 ## Reusable Workflow
 
@@ -26,8 +26,11 @@ jobs:
 ```
 
 The workflow checks out full history, derives base/head SHAs from the PR event,
-runs one changed-scope JSON review, writes secondary SARIF, emits at most 20
-detailed annotations, and uploads the JSON/SARIF/Markdown artifacts.
+runs a changed-scope JSON review, and scans base/head in an isolated temporary
+worktree. It compares occurrence keys to classify findings as `new`, `changed`,
+`resolved`, or `unchanged`, writes secondary SARIF, emits at most 20 annotations
+for changed-code signals and new/changed findings, and uploads stable
+JSON/SARIF/Markdown artifacts.
 
 This default is read-only and works for fork PRs. It does not use
 `pull_request_target`.
@@ -38,6 +41,7 @@ This default is read-only and works for fork PRs. It does not use
 - uses: actions/checkout@v7
   with:
     fetch-depth: 0
+    ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
 - name: RepoPilot review
   id: repopilot
@@ -55,7 +59,15 @@ version/OS/architecture. It exposes:
 
 - `conclusion`, `exit-code`, and `gate-result`;
 - `findings-count` and `signals-count`;
-- `review-json-file`, `review-sarif-file`, and `sarif-file`.
+- `new-findings-count`, `changed-findings-count`, and
+  `resolved-findings-count`;
+- `review-json-file`, `delta-json-file`, `review-sarif-file`, and `sarif-file`.
+
+The stable review artifact set is `repopilot-review.json`,
+`repopilot-review-delta.json`, `repopilot-review.sarif`, and
+`repopilot-review-summary.md`. The delta artifact uses exact
+`occurrence_key` identity and falls back to stable finding ID plus exact evidence
+when comparing reports from an older compatible release.
 
 ## SARIF Upload
 
@@ -104,6 +116,9 @@ steps:
 
 Use comment mode only where `pull-requests: write` is intentionally granted.
 The default job summary and artifacts do not need it.
+The comment starts with `<!-- repopilot-review -->`, so subsequent runs update
+the same comment. Finding details are limited to new/changed occurrences; the
+summary also reports the resolved count.
 
 ## Full Scan
 
