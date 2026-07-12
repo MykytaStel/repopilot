@@ -135,7 +135,8 @@ repopilot ai context . --no-task --output ai-context.md"
         about = "Generate a default repopilot.toml configuration file",
         long_about = "Writes a repopilot.toml with all configurable thresholds set to their defaults.\n\n\
 Edit the generated file to tune thresholds for your project. RepoPilot automatically\n\
-reads repopilot.toml from the current working directory when running `scan`.\n\n\
+reads repopilot.toml from the current working directory for analysis commands,\n\
+including `scan`, `review`, `baseline create`, AI context, and MCP tools.\n\n\
 Configuration precedence: CLI flags > repopilot.toml > built-in defaults.",
         after_help = "EXAMPLES:\n  \
 repopilot init\n  \

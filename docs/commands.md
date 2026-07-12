@@ -3,6 +3,22 @@
 This guide covers the main RepoPilot workflows. Use the [CLI reference](cli.md)
 for every command and flag.
 
+## Choose A Workflow
+
+| Situation | Start here | Why |
+|---|---|---|
+| I changed code locally | `repopilot review .` | Focuses on the current Git diff |
+| I am reviewing a branch or pull request | `repopilot review . --base origin/main` | Compares the branch against its merge base |
+| An AI agent is about to edit the repository | `repopilot snapshot` | Creates a stable before-marker |
+| I want a complete repository audit | `repopilot scan .` | Includes repository-wide rules |
+| I am adopting RepoPilot in an older repository | `repopilot baseline create .` | Separates accepted debt from new findings |
+| I need evidence for an external assistant | `repopilot ai context .` | Produces a bounded local handoff |
+| I want an agent to call RepoPilot directly | `repopilot mcp --root .` | Exposes read-only local MCP tools |
+
+Do not treat changed-scope analysis as a full repository audit. Do not regenerate a
+baseline merely to make a gate pass: a baseline update records an explicit acceptance
+of current findings.
+
 ## Review Before Merge
 
 Review local staged, unstaged, and untracked changes:

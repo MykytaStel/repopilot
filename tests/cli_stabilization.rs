@@ -61,8 +61,25 @@ fn top_level_help_shows_stable_command_surface() {
         "review must be presented before scan\n{help}"
     );
 
-    for command in ["baseline", "scan", "review", "snapshot", "ai", "init"] {
+    for command in [
+        "baseline", "scan", "review", "snapshot", "ai", "init", "mcp",
+    ] {
         assert!(help.contains(command), "help should show {command}\n{help}");
+    }
+
+    for workflow in [
+        "Choose by intent:",
+        "review      inspect the change you are about to merge",
+        "scan        audit the whole repository",
+        "mcp         expose local read-only analysis tools",
+        "COMMON WORKFLOWS:",
+        "repopilot review . --detail full",
+        "repopilot mcp --root .",
+    ] {
+        assert!(
+            help.contains(workflow),
+            "top-level help should guide workflow {workflow:?}\n{help}"
+        );
     }
 
     for removed in [
@@ -94,6 +111,7 @@ fn scan_and_review_help_have_flag_descriptions() {
     assert!(scan_help.contains("Disable progress indicators"));
     assert!(scan_help.contains("Suppress progress indicators and next-step hints"));
     assert!(scan_help.contains("Limit rendered human-format finding details"));
+    assert!(scan_help.contains("summary"));
 
     assert!(review_help.contains("Path to project, folder, or file to review"));
     assert!(review_help.contains("Base Git ref for branch/CI review"));

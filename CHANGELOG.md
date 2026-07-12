@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- Top-level help, README, and CLI/workflow references now provide one
+  review-first command chooser, document snapshot and summary output consistently,
+  clarify changed-scope versus full-scan behavior, and preserve the intentionally
+  reduced command surface.
 - Parsed-facts cache writes now use recoverable staged replacement and run cache/CLI smoke coverage on Linux, macOS, and Windows.
 - GitHub Action reviews now produce a deterministic base/head finding delta,
   update one sticky PR comment with only new/changed findings, emit compact

@@ -12,12 +12,33 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 
 ---
 
+## Which command should I use?
+
+| Goal | Command |
+|---|---|
+| Review local staged, unstaged, and untracked changes | `repopilot review .` |
+| Review a branch before merge | `repopilot review . --base origin/main` |
+| See full evidence and verification steps | `repopilot review . --detail full` |
+| Audit the complete repository | `repopilot scan .` |
+| Show the full recall surface for calibration | `repopilot scan . --profile strict` |
+| Adopt an existing repository without blocking on old debt | `repopilot baseline create .` |
+| Review all work performed after an agent starts | `repopilot snapshot`, then `repopilot review --since-snapshot` |
+| Prepare bounded evidence for an external assistant | `repopilot ai context .` |
+| Give an MCP client direct read-only analysis tools | `repopilot mcp --root .` |
+
+`review` is the default daily workflow. `scan` is the authoritative repository-wide
+audit. Changed scans and changed-scope reviews intentionally omit some repository-level
+architecture, framework, testing, and coupling checks.
+
+---
+
 ## Commands
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| [`review`](#review) | `r` | Review findings that touch changed Git diff lines |
-| [`scan`](#scan) | `s` | Scan a project, folder, or file for findings |
+| [`review`](#review) | `r` | Review findings and signals that touch a Git change |
+| [`scan`](#scan) | `s` | Scan a project, folder, or file for repository-wide findings |
+| [`snapshot`](#snapshot) | — | Mark repository state before an agent or manual change |
 | [`ai context`](#ai-context) | — | Generate an LLM-ready handoff (context, plan, and guidance) from a scan |
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
@@ -63,7 +84,7 @@ repopilot s <PATH> [OPTIONS]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--format` | `console\|json\|markdown\|html\|sarif` | `console` | Output format |
-| `--output-style` | `compact\|full` | `compact` | Console output style; use `full` for detailed diagnostics |
+| `--output-style` | `summary\|compact\|full` | `compact` | Verdict only, bounded findings, or the complete console report |
 | `--quiet` | flag | — | Suppress progress indicators and next-step hints while keeping findings and status |
 | `--no-progress` | flag | — | Disable progress indicators |
 | `--max-findings` | `N\|none` | compact: 5, full/Markdown: all | Limit rendered human-format finding details; JSON and SARIF remain complete |
@@ -165,6 +186,21 @@ skip repo-level architecture, framework, testing, and coupling rules. Use a full
 scan for authoritative repository-wide risk. Changed-scan summaries include
 `cache_telemetry` with cache hits, misses, skipped files, changed-file reasons,
 per-file cache decisions, and cache timing impact.
+
+---
+
+## `snapshot`
+
+Marks the current repository state before an AI agent or developer begins a change.
+
+```bash
+repopilot snapshot
+# perform the change
+repopilot review --since-snapshot
+```
+
+The snapshot records the starting Git state; it is not a repository backup and does
+not modify commits or working-tree files.
 
 ---
 
