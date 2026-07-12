@@ -6,6 +6,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+- `repopilot init` can now generate a review-first GitHub Actions workflow and explicit Claude, Cursor, or generic MCP bootstrap examples without modifying external client settings.
 - MCP can now explain stored review signals by `signal_id`, expose retained analysis-handle summaries through `repopilot://analyses`, and return stored-only finding context when a safe live replay is unavailable.
 - Top-level help, README, and CLI/workflow references now provide one
   review-first command chooser, document snapshot and summary output consistently,

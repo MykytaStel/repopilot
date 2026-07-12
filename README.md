@@ -136,9 +136,9 @@ controls shape it:
 plus review, scan, file explanation, and finding replay tools over stdio so
 coding agents can call it directly:
 
-```bash
-claude mcp add repopilot -- repopilot mcp --root .
-```
+Generate a client-neutral MCP configuration example with
+`repopilot init --mcp-client generic`. Client-specific Claude Code and Cursor
+adapters are available through the same `--mcp-client` option.
 
 The MCP server is synchronous, root-confined, and makes no network or LLM calls.
 See [MCP server](https://github.com/MykytaStel/repopilot/blob/main/docs/mcp.md).

@@ -10,7 +10,7 @@ pub mod snapshot;
 pub use ai::{AiCommands, AiOptions};
 pub use baseline::{BaselineCommands, BaselineOptions};
 pub use cache::{CacheCommands, CacheOptions};
-pub use init::InitOptions;
+pub use init::{InitOptions, McpClientArg};
 pub use mcp::McpOptions;
 pub use review::ReviewOptions;
 pub use scan::ScanOptions;
@@ -133,30 +133,32 @@ repopilot ai context . --no-task --output ai-context.md"
     /// Generate a default repopilot.toml configuration file
     #[command(
         about = "Generate a default repopilot.toml configuration file",
-        long_about = "Writes a repopilot.toml with all configurable thresholds set to their defaults.\n\n\
-Edit the generated file to tune thresholds for your project. RepoPilot automatically\n\
+        long_about = "Writes a repopilot.toml and can optionally generate RepoPilot-owned GitHub Action and MCP bootstrap files.\n\n\
+Edit the generated config to tune thresholds for your project. RepoPilot automatically\n\
 reads repopilot.toml from the current working directory for analysis commands,\n\
 including `scan`, `review`, `baseline create`, AI context, and MCP tools.\n\n\
+Bootstrap files are opt-in and external client settings are never modified automatically.\n\n\
 Configuration precedence: CLI flags > repopilot.toml > built-in defaults.",
         after_help = "EXAMPLES:\n  \
 repopilot init\n  \
 repopilot init --force            # overwrite existing config\n  \
-repopilot init --path ./config/repopilot.toml"
+repopilot init --github-action\n  \
+repopilot init --mcp-client generic\n  \
+repopilot init --all"
     )]
     Init(InitOptions),
 
     /// Run a local Model Context Protocol server over stdio
     #[command(
         about = "Run a local Model Context Protocol server over stdio",
-        long_about = "Exposes RepoPilot to AI agents (Claude Code, Cursor, …) as MCP tools they can\n\
+        long_about = "Exposes RepoPilot to any compatible client as local MCP tools it can\n\
 call directly. The server speaks JSON-RPC 2.0 over stdin/stdout; nothing is\n\
 uploaded and no AI service is called — every tool runs the same local analysis as\n\
-the CLI.\n\n\
-Register it with your agent, for example:\n  \
-claude mcp add repopilot -- repopilot mcp",
+the CLI. Use `repopilot init --mcp-client generic` or a client-specific bootstrap\n\
+when you need a configuration example.",
         after_help = "EXAMPLES:\n  \
 repopilot mcp                               # run the stdio server (clients launch this)\n  \
-claude mcp add repopilot -- repopilot mcp   # register with Claude Code"
+repopilot mcp --root /path/to/repository    # confine tools to one workspace"
     )]
     Mcp(McpOptions),
 }

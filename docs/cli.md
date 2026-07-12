@@ -466,7 +466,15 @@ repopilot init [OPTIONS]
 repopilot init
 repopilot init --force
 repopilot init --path ./config/repopilot.toml
+repopilot init --github-action
+repopilot init --mcp-client claude
+repopilot init --mcp-client cursor
+repopilot init --all
 ```
+
+Bootstrap flags generate RepoPilot-owned files only. Existing files are preserved
+unless `--force` is passed. MCP bootstrap output is written under
+`.repopilot/bootstrap/`; RepoPilot does not modify external client settings automatically.
 
 ---
 
@@ -491,12 +499,13 @@ repopilot mcp [--root PATH]
 | `repopilot_context` | Budgeted, AI-ready Markdown brief (optional `focus`, `budget`) |
 | `repopilot_explain_file` | How one file is classified and which rules and signals apply |
 | `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional evidence occurrence |
+| `repopilot_explain_review_signal` | Explain a stored review signal by stable ID |
 
 ### Examples
 
 ```bash
-# Register with Claude Code
-claude mcp add repopilot -- repopilot mcp --root .
+# Generate a client-neutral MCP configuration example
+repopilot init --mcp-client generic
 
 # Manual smoke test (list the available tools)
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | repopilot mcp --root .
