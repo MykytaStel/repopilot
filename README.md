@@ -36,6 +36,21 @@ npm install -g repopilot
 Homebrew, curl, GitHub Releases, and source builds are documented in
 [Installation](https://github.com/MykytaStel/repopilot/blob/main/docs/install.md).
 
+## Choose Your Workflow
+
+| Goal | Command |
+|---|---|
+| Review what changed before merge | `repopilot review .` |
+| Review a branch against main | `repopilot review . --base origin/main` |
+| Audit the whole repository | `repopilot scan .` |
+| Adopt existing debt gradually | `repopilot baseline create .` |
+| Review a complete agent run | `repopilot snapshot` then `repopilot review --since-snapshot` |
+| Prepare context for an assistant | `repopilot ai context .` |
+| Connect a local MCP client | `repopilot mcp --root .` |
+
+`review` is the daily change-review workflow. Use `scan` when repository-wide
+architecture, framework, testing, and coupling results must be authoritative.
+
 ## Review A Change
 
 Review the working tree against `HEAD`:
