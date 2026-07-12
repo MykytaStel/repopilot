@@ -11,6 +11,8 @@ use std::path::Path;
 const PARSED_FACTS_SCHEMA_VERSION: u32 = 2;
 const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-v1";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
+const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
+const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
 const MAX_PARSED_FACTS_ENTRIES: usize = 16_384;
 
 #[derive(Debug, Default, Clone)]
@@ -51,11 +53,22 @@ struct ParsedFactsFile {
 
 impl ParsedFactsCache {
     pub fn load(root: &Path) -> Self {
-        let path = cache_dir(root).join(PARSED_FACTS_NAME);
-        let Some(cache) = read_cache::<ParsedFactsFile>(&path) else {
+        let cache_root = cache_dir(root);
+        let primary = cache_root.join(PARSED_FACTS_NAME);
+        let backup = cache_root.join(PARSED_FACTS_BACKUP_NAME);
+        let primary_exists = primary.exists();
+
+        let cache = read_cache::<ParsedFactsFile>(&primary).or_else(|| {
+            let recovered = read_cache::<ParsedFactsFile>(&backup)?;
+            let _ = fs::create_dir_all(&cache_root);
+            let _ = fs::copy(&backup, &primary);
+            Some(recovered)
+        });
+
+        let Some(cache) = cache else {
             return Self {
                 telemetry: ParsedCacheTelemetry {
-                    corruptions: usize::from(path.exists()),
+                    corruptions: usize::from(primary_exists),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -150,7 +163,28 @@ impl ParsedFactsCache {
         };
         self.telemetry.entries_written = file.entries.len();
         let rendered = serde_json::to_string_pretty(&file).map_err(io::Error::other)?;
-        fs::write(cache_root.join(PARSED_FACTS_NAME), rendered)
+        let primary = cache_root.join(PARSED_FACTS_NAME);
+        let backup = cache_root.join(PARSED_FACTS_BACKUP_NAME);
+        let temporary = cache_root.join(PARSED_FACTS_TEMP_NAME);
+
+        let _ = fs::remove_file(&temporary);
+        fs::write(&temporary, rendered)?;
+
+        if primary.exists() {
+            let _ = fs::remove_file(&backup);
+            fs::rename(&primary, &backup)?;
+        }
+
+        if let Err(error) = fs::rename(&temporary, &primary) {
+            if backup.exists() && !primary.exists() {
+                let _ = fs::rename(&backup, &primary);
+            }
+            let _ = fs::remove_file(&temporary);
+            return Err(error);
+        }
+
+        let _ = fs::remove_file(&backup);
+        Ok(())
     }
 
     fn enforce_entry_limit(&mut self) {
@@ -290,6 +324,41 @@ mod tests {
         let loaded = ParsedFactsCache::load(temp.path());
         assert!(loaded.get("hash", Some("Rust")).is_none());
         assert_eq!(loaded.telemetry().corruptions, 1);
+    }
+
+    #[test]
+    fn parsed_facts_cache_recovers_valid_backup_when_primary_is_corrupt() {
+        let temp = tempdir().expect("temp dir");
+        let mut cache = ParsedFactsCache::default();
+        cache.insert(entry("hash"));
+        cache.write(temp.path()).expect("write parsed cache");
+
+        let cache_root = cache_dir(temp.path());
+        let primary = cache_root.join(PARSED_FACTS_NAME);
+        let backup = cache_root.join(PARSED_FACTS_BACKUP_NAME);
+        fs::copy(&primary, &backup).expect("copy backup");
+        fs::write(&primary, "{not json").expect("corrupt primary");
+
+        let loaded = ParsedFactsCache::load(temp.path());
+
+        assert!(loaded.get("hash", Some("Rust")).is_some());
+        assert_eq!(loaded.telemetry().entries_loaded, 1);
+        assert!(read_cache::<ParsedFactsFile>(&primary).is_some());
+    }
+
+    #[test]
+    fn parsed_facts_cache_repeated_writes_leave_no_staging_files() {
+        let temp = tempdir().expect("temp dir");
+        let mut cache = ParsedFactsCache::default();
+        cache.insert(entry("first"));
+        cache.write(temp.path()).expect("first write");
+        cache.insert(entry("second"));
+        cache.write(temp.path()).expect("second write");
+
+        let cache_root = cache_dir(temp.path());
+        assert!(cache_root.join(PARSED_FACTS_NAME).is_file());
+        assert!(!cache_root.join(PARSED_FACTS_TEMP_NAME).exists());
+        assert!(!cache_root.join(PARSED_FACTS_BACKUP_NAME).exists());
     }
 
     #[test]
