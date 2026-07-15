@@ -19,4 +19,5 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
             grammar: ParseLanguage::CSharp,
         },
     ],
+    imports: None,
 };

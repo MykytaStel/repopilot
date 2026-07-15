@@ -1,14 +1,38 @@
-use crate::graph::imports::common::extract_string_literal;
+use crate::analysis::parse::ParsedFile;
+use crate::languages::import_support::extract_string_literal;
 use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
-pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
+pub(super) fn eager(parsed: &ParsedFile) -> HashSet<String> {
+    parsed
+        .tree()
+        .map(|tree| extract(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+pub(super) fn spans(parsed: &ParsedFile) -> BTreeMap<String, (usize, usize)> {
+    parsed
+        .tree()
+        .map(|tree| extract_spans(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+/// Type-only imports (`import type`, `export type`) — erased by the
+/// compiler, so cycle detection subtracts them.
+pub(super) fn deferred(parsed: &ParsedFile) -> HashSet<String> {
+    parsed
+        .tree()
+        .map(|tree| extract_type_only(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
     let mut result = BTreeMap::new();
     visit(tree.root_node(), content, &mut result);
     result
 }
 
-pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
+fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
@@ -20,7 +44,7 @@ pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
 /// deferred imports). A module that is *also* imported as a value anywhere —
 /// including a mixed `import { type A, B }`, a default/namespace import, or a
 /// dynamic `import("…")` — is a runtime edge and is excluded here.
-pub(super) fn extract_type_only(tree: &Tree, content: &str) -> HashSet<String> {
+fn extract_type_only(tree: &Tree, content: &str) -> HashSet<String> {
     let mut type_only: HashSet<String> = HashSet::new();
     let mut value: HashSet<String> = HashSet::new();
     collect_type_only(tree.root_node(), content, &mut type_only, &mut value);

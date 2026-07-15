@@ -29,6 +29,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Import extraction now lives on the language frontends.** The
+  per-language extractors moved from `graph/imports/*` to
+  `src/languages/*/imports.rs` behind an `ImportExtractor` contract (eager
+  edges, deferred/type-only edges, line spans); the coupling graph and edge
+  evidence dispatch through the registry instead of matching label strings,
+  and the shared JVM module split into Java and Kotlin frontends.
+  Behavior-frozen refactor: zoo snapshots unchanged across ripgrep, wagtail,
+  express, cobra, spring-petclinic, and nowinandroid.
 - **Language detection and parse dispatch now route through the frontend
   registry.** `ParseLanguage::from_label` delegates to the registry's
   grammar bindings (the only label→grammar table, pinned by a vocabulary

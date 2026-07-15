@@ -20,6 +20,7 @@
 //! not become one.
 
 pub mod capability;
+pub(crate) mod import_support;
 
 mod csharp;
 mod generic;
@@ -33,8 +34,9 @@ mod rust;
 #[cfg(test)]
 mod tests;
 
-use crate::analysis::parse::ParseLanguage;
+use crate::analysis::parse::{ParseLanguage, ParsedFile};
 use crate::audits::context::LanguageKind;
+use std::collections::{BTreeMap, HashSet};
 
 /// Binds one detection label (as stored on `FileFacts.language`) to the
 /// tree-sitter grammar that parses it. Mirrors `ParseLanguage::from_label`
@@ -58,6 +60,21 @@ pub(crate) fn grammar_for_label(label: &str) -> Option<ParseLanguage> {
     })
 }
 
+/// Per-language import extraction, owned by the frontend. All functions
+/// take the shared parse view so tree-based extractors reuse the one syntax
+/// tree the audits already produced; text-based extractors read
+/// `parsed.content()` and never parse.
+pub struct ImportExtractor {
+    /// Full import set — real coupling-graph edges.
+    pub(crate) eager: fn(&ParsedFile) -> HashSet<String>,
+    /// Edges that exist for coupling/fan-out but create no module-load
+    /// dependency (Python function-body imports, TS type-only imports);
+    /// cycle detection subtracts them. `None` when the language has none.
+    pub(crate) deferred: Option<fn(&ParsedFile) -> HashSet<String>>,
+    /// 1-indexed line spans per imported specifier, for edge evidence.
+    pub(crate) spans: fn(&ParsedFile) -> BTreeMap<String, (usize, usize)>,
+}
+
 /// Static descriptor for one language (or dialect family) frontend.
 pub struct LanguageFrontend {
     /// Stable slug; equals the primary knowledge-pack profile id.
@@ -74,6 +91,8 @@ pub struct LanguageFrontend {
     /// Detection labels this frontend can parse, with their grammars.
     /// Empty for frontends without a bundled tree-sitter grammar.
     pub grammars: &'static [GrammarBinding],
+    /// Import extraction, when the language has an extractor.
+    pub(crate) imports: Option<&'static ImportExtractor>,
 }
 
 /// Every registered frontend, including the generic fallback (last).
@@ -149,4 +168,21 @@ pub fn frontend_for_knowledge_id(id: &str) -> Option<&'static LanguageFrontend> 
         .iter()
         .copied()
         .find(|frontend| frontend.knowledge_ids.contains(&id))
+}
+
+/// The frontend answering for a detection label (`FileFacts.language`),
+/// matched via its display label or any of its grammar-binding labels.
+pub(crate) fn frontend_for_label(label: &str) -> Option<&'static LanguageFrontend> {
+    all_frontends().iter().copied().find(|frontend| {
+        frontend.label == label
+            || frontend
+                .grammars
+                .iter()
+                .any(|binding| binding.label == label)
+    })
+}
+
+/// The import extractor for a detection label, if the language has one.
+pub(crate) fn imports_for_label(label: &str) -> Option<&'static ImportExtractor> {
+    frontend_for_label(label).and_then(|frontend| frontend.imports)
 }

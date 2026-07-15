@@ -10,4 +10,5 @@ pub(super) static GENERIC: LanguageFrontend = LanguageFrontend {
     kind: LanguageKind::Unknown,
     knowledge_ids: &[],
     grammars: &[],
+    imports: None,
 };

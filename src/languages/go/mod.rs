@@ -2,6 +2,16 @@ use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
+mod imports;
+
+use super::ImportExtractor;
+
+static GO_IMPORTS: ImportExtractor = ImportExtractor {
+    eager: imports::eager,
+    deferred: None,
+    spans: imports::spans,
+};
+
 pub(super) static GO: LanguageFrontend = LanguageFrontend {
     id: "go",
     label: "Go",
@@ -11,4 +21,5 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
         label: "Go",
         grammar: ParseLanguage::Go,
     }],
+    imports: Some(&GO_IMPORTS),
 };

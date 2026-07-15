@@ -2,6 +2,16 @@ use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
+mod imports;
+
+use super::ImportExtractor;
+
+static PYTHON_IMPORTS: ImportExtractor = ImportExtractor {
+    eager: imports::eager,
+    deferred: Some(imports::deferred),
+    spans: imports::spans,
+};
+
 pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
     id: "python",
     label: "Python",
@@ -11,4 +21,5 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
         label: "Python",
         grammar: ParseLanguage::Python,
     }],
+    imports: Some(&PYTHON_IMPORTS),
 };
