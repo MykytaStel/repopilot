@@ -302,6 +302,33 @@ fn removed_recognizer_extensions_are_pinned() {
     }
 }
 
+/// Pins which frontends carry runtime-risk tables. Rust intentionally has
+/// none here: its dedicated `rust_panic_risk` audit is a separate rule
+/// family, and how it counts toward the capability model is a decision for
+/// the honesty pass, not a refactor default.
+#[test]
+fn runtime_risk_participation_is_pinned() {
+    let with_risk: BTreeSet<&str> = [
+        "typescript",
+        "javascript",
+        "python",
+        "go",
+        "java",
+        "kotlin",
+        "csharp",
+    ]
+    .into_iter()
+    .collect();
+    for frontend in all_frontends() {
+        assert_eq!(
+            frontend.risk.is_some(),
+            with_risk.contains(frontend.id),
+            "runtime-risk participation changed for frontend '{}'",
+            frontend.id
+        );
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —

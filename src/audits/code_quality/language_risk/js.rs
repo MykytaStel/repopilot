@@ -72,7 +72,7 @@ impl JsRiskPattern {
 /// `bin/`/`scripts/` path, or an app-entrypoint is downgraded to Low (hidden in
 /// the default profile, retained under `--profile strict`), while reusable code
 /// keeps it at High.
-pub(super) fn emit_js_node(
+pub(crate) fn emit_js_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -112,4 +112,27 @@ fn is_process_exit_call(node: Node<'_>, content: &str) -> bool {
         .child_by_field_name("property")
         .and_then(|n| node_text(n, content));
     object == Some("process") && property == Some("exit")
+}
+
+/// Line-scanner fallback: run every JS-family pattern against one sanitized line.
+pub(crate) fn emit_line(
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    for pattern in JsRiskPattern::ALL {
+        if pattern.matches(trimmed, path) {
+            push_pattern_finding(
+                pattern,
+                path,
+                line_index + 1,
+                raw_line.trim(),
+                file,
+                findings,
+            );
+        }
+    }
 }

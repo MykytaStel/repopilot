@@ -25,4 +25,5 @@ pub(super) static RUST: LanguageFrontend = LanguageFrontend {
     imports: Some(&RUST_IMPORTS),
     taint: None,
     review: Some(&review::RUST_REVIEW),
+    risk: None,
 };

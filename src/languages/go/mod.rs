@@ -4,6 +4,7 @@ use crate::audits::context::LanguageKind;
 
 mod imports;
 mod review;
+mod risk;
 
 use super::ImportExtractor;
 
@@ -25,4 +26,5 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
     imports: Some(&GO_IMPORTS),
     taint: Some(&review::GO_TAINT),
     review: Some(&review::GO_REVIEW),
+    risk: Some(&risk::GO_RISK),
 };

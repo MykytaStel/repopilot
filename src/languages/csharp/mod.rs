@@ -1,3 +1,5 @@
+mod risk;
+
 use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
@@ -23,6 +25,7 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
     imports: None,
     taint: None,
     review: Some(&CSHARP_REVIEW),
+    risk: Some(&risk::CSHARP_RISK),
 };
 
 // Boundary stays unwired: the old dispatch matched the label "CSharp", but

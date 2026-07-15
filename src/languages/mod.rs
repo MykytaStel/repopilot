@@ -98,6 +98,10 @@ pub struct LanguageFrontend {
     pub(crate) taint: Option<&'static crate::review::signals::taint::tables::TaintTables>,
     /// Boundary/algorithmic review-signal node-kind tables.
     pub(crate) review: Option<&'static crate::review::signals::tables::ReviewTables>,
+    /// Runtime-risk audit tables (AST + line-scanner emitters). Rust's
+    /// dedicated `rust_panic_risk` audit is separate and not counted here.
+    pub(crate) risk:
+        Option<&'static crate::audits::code_quality::language_risk::tables::RiskTables>,
 }
 
 /// Every registered frontend, including the generic fallback (last).

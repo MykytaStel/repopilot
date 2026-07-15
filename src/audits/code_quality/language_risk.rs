@@ -37,47 +37,38 @@ impl LanguageRiskAudit {
             return vec![];
         };
 
-        let Some(language_id) = file.language.as_deref().and_then(language_id_for_name) else {
+        let Some(risk) = file
+            .language
+            .as_deref()
+            .and_then(language_id_for_name)
+            .and_then(crate::languages::frontend_for_knowledge_id)
+            .and_then(|frontend| frontend.risk)
+        else {
             return vec![];
         };
-
-        if !is_ast_runtime_language(language_id) {
-            // Languages without an AST runtime detector (Go, Java/Kotlin, C#)
-            // keep the sanitized line scanner and text-heuristic provenance.
-            return detect_language_risks(language_id, content, &file.path, file);
-        }
 
         match parsed.tree() {
             Some(tree) => {
                 let mut findings = Vec::new();
-                emit_findings_for_tree(language_id, tree, content, &file.path, file, &mut findings);
+                tables::walk_tree_with(
+                    risk.emit_node,
+                    tree,
+                    content,
+                    &file.path,
+                    file,
+                    &mut findings,
+                );
                 findings
             }
             None => {
                 // The file did not parse; fall back to the line scanner but keep
                 // provenance honest by stamping the findings as text-heuristic.
-                let mut findings = detect_language_risks(language_id, content, &file.path, file);
+                let mut findings = detect_language_risks(risk, content, &file.path, file);
                 mark_text_heuristic(&mut findings);
                 findings
             }
         }
     }
-}
-
-/// Runtime-risk languages with an AST detector (matched from the syntax tree).
-fn is_ast_runtime_language(language_id: &str) -> bool {
-    matches!(
-        language_id,
-        "python"
-            | "go"
-            | "typescript"
-            | "typescript-react"
-            | "javascript"
-            | "javascript-react"
-            | "java"
-            | "kotlin"
-            | "csharp"
-    )
 }
 
 /// Overrides provenance for line-scanner fallback findings so they report
@@ -99,7 +90,7 @@ fn mark_text_heuristic(findings: &mut [Finding]) {
 }
 
 fn detect_language_risks(
-    language_id: &str,
+    risk: &'static tables::RiskTables,
     content: &str,
     path: &Path,
     file: &FileFacts,
@@ -108,7 +99,7 @@ fn detect_language_risks(
     let mut in_block_comment = false;
 
     for (line_index, raw_line) in content.lines().enumerate() {
-        let sanitized = if language_id == "python" {
+        let sanitized = if risk.sanitizer == tables::RiskLineSanitizer::Python {
             match sanitize_python_line(raw_line) {
                 Some(s) => s,
                 None => continue,
@@ -122,23 +113,14 @@ fn detect_language_risks(
             continue;
         }
 
-        emit_findings_for_line(
-            language_id,
-            trimmed,
-            path,
-            raw_line,
-            line_index,
-            file,
-            &mut findings,
-        );
+        (risk.emit_line)(trimmed, path, raw_line, line_index, file, &mut findings);
     }
 
     findings
 }
 
-mod pattern;
-
-use self::pattern::{emit_findings_for_line, emit_findings_for_tree};
+pub(crate) mod pattern;
+pub(crate) mod tables;
 
 #[cfg(test)]
 mod tests;

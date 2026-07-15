@@ -4,6 +4,7 @@ use crate::audits::context::LanguageKind;
 
 mod imports;
 mod review;
+mod risk;
 
 use super::ImportExtractor;
 
@@ -25,4 +26,5 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
     imports: Some(&KOTLIN_IMPORTS),
     taint: None,
     review: Some(&review::KOTLIN_REVIEW),
+    risk: Some(&risk::KOTLIN_RISK),
 };
