@@ -3,6 +3,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod review;
 
 use super::ImportExtractor;
 
@@ -23,4 +24,5 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
     }],
     imports: Some(&KOTLIN_IMPORTS),
     taint: None,
+    review: Some(&review::KOTLIN_REVIEW),
 };

@@ -24,4 +24,5 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
     }],
     imports: Some(&PYTHON_IMPORTS),
     taint: Some(&review::PYTHON_TAINT),
+    review: Some(&review::PYTHON_REVIEW),
 };

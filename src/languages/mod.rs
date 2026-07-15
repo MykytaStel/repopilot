@@ -96,6 +96,8 @@ pub struct LanguageFrontend {
     /// Taint-lite tables (sources, sinks, sanitizers, grammar shapes), when
     /// the language participates in taint analysis.
     pub(crate) taint: Option<&'static crate::review::signals::taint::tables::TaintTables>,
+    /// Boundary/algorithmic review-signal node-kind tables.
+    pub(crate) review: Option<&'static crate::review::signals::tables::ReviewTables>,
 }
 
 /// Every registered frontend, including the generic fallback (last).
@@ -196,4 +198,11 @@ pub(crate) fn taint_for_label(
     label: &str,
 ) -> Option<&'static crate::review::signals::taint::tables::TaintTables> {
     frontend_for_label(label).and_then(|frontend| frontend.taint)
+}
+
+/// The review-signal tables for a detection label, if wired.
+pub(crate) fn review_for_label(
+    label: &str,
+) -> Option<&'static crate::review::signals::tables::ReviewTables> {
+    frontend_for_label(label).and_then(|frontend| frontend.review)
 }

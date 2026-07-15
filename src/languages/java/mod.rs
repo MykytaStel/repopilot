@@ -3,6 +3,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod review;
 
 use super::ImportExtractor;
 
@@ -23,4 +24,5 @@ pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
     }],
     imports: Some(&JAVA_IMPORTS),
     taint: None,
+    review: Some(&review::JAVA_REVIEW),
 };

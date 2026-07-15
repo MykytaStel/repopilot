@@ -41,6 +41,9 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     if frontend.taint.is_some() {
         wired.push(Capability::TaintFlows);
     }
+    if frontend.review.is_some() {
+        wired.push(Capability::ReviewSignals);
+    }
     wired
 }
 

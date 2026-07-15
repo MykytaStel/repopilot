@@ -1,6 +1,7 @@
 //! Taint tables for Python. Source idioms target Flask/Django/FastAPI; sinks
 //! mirror the behavioral "added X" detectors.
 
+use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
 use crate::review::signals::taint::ast::{callee_ends_with, has_descendant_kind};
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text, receiver_method};
 use crate::review::signals::taint::tables::TaintTables;
@@ -139,3 +140,23 @@ fn quoted_value(text: &str) -> Option<&str> {
     let end = value.as_bytes().iter().position(|byte| *byte == quote)?;
     Some(&value[..end])
 }
+
+pub(super) static PYTHON_REVIEW: ReviewTables = ReviewTables {
+    boundary: Some(&BoundaryKinds {
+        decorator_kinds: &["decorator"],
+        import_kinds: &["import_statement", "import_from_statement"],
+    }),
+    algorithmic: &AlgorithmicKinds {
+        function_kinds: &["function_definition"],
+        loop_kinds: &["for_statement", "while_statement"],
+        call_kinds: &["call"],
+        control_flow_kinds: &[
+            "if_statement",
+            "for_statement",
+            "while_statement",
+            "match_statement",
+            "try_statement",
+        ],
+        if_kinds: &["if_statement"],
+    },
+};

@@ -29,6 +29,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Boundary and algorithmic review signals are table-driven per language
+  frontend.** The per-language node-kind sets behind
+  `match_node_for_boundary` and the algorithmic matchers moved to
+  `ReviewTables` on the frontends; the engines keep the shared keyword
+  vocabularies and stay language-neutral. C#'s AST boundary classification
+  remains unwired — the old dispatch matched a label detection never emits —
+  and is now documented and pinned instead of silently dead. Behavior-frozen
+  refactor.
 - **Taint-lite is now table-driven per language frontend.** The per-language
   source idioms, coercion lists, grammar shapes, and sink classifiers moved
   to `src/languages/{javascript,python,go}/review.rs` as a `TaintTables`

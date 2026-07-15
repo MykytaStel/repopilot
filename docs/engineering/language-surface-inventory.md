@@ -80,10 +80,15 @@ design (with reason).
 - [ ] `src/review/signals/behavioral/removed.rs:154` —
       `supports_coarse_removed_detection(ext)`: extension allowlist for the
       text fallback. → PR-4.
-- [ ] `src/review/signals/classify.rs:318` — `match_node_for_boundary`:
-      per-language node-kind + keyword boundary matching. → PR-4.
-- [ ] `src/review/signals/algorithmic/lang.rs:13` — `function_name` and
-      node-kind matchers per language label. → PR-4.
+- [x] `src/review/signals/classify.rs` — `match_node_for_boundary` takes its
+      node kinds from the frontend's `BoundaryKinds` table; keyword
+      vocabularies stay shared in the engine. C#'s boundary is deliberately
+      unwired (the old dispatch matched the label "CSharp" while detection
+      emits "C#" — a dead arm; enabling it is a behavior change queued for
+      the honesty pass). Pinned by `review_table_coverage_is_pinned`. (PR-4b)
+- [x] `src/review/signals/algorithmic/lang.rs` — matchers consume the
+      frontend's `AlgorithmicKinds` table (function/loop/call/control-flow/if
+      kinds); label matches are gone from the engine. (PR-4b)
 
 ## Runtime risk and code-quality spans
 
