@@ -1,7 +1,9 @@
 //! Taint tables for Go. Source idioms target net/http and Gin; sinks mirror
 //! the behavioral "added X" detectors.
 
-use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
+use crate::review::signals::tables::{
+    AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
+};
 use crate::review::signals::taint::ast::callee_starts_with;
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text};
 use crate::review::signals::taint::tables::TaintTables;
@@ -132,4 +134,26 @@ pub(super) static GO_REVIEW: ReviewTables = ReviewTables {
         ],
         if_kinds: &["if_statement"],
     },
+    removed: Some(&GO_REMOVED),
+};
+
+pub(super) static GO_REMOVED: RemovedTables = RemovedTables {
+    extensions: &["go"],
+    is_test_case: |node, content| {
+        node.kind() == "function_declaration"
+            && node
+                .child_by_field_name("name")
+                .and_then(|name| name.utf8_text(content.as_bytes()).ok())
+                .is_some_and(|name| name.starts_with("Test"))
+    },
+    // Inspect only the `if` condition, not the whole statement body, so a
+    // nested `if err != nil` does not inflate the enclosing block's count.
+    is_error_handling: |node, content| {
+        node.kind() == "if_statement"
+            && node
+                .child_by_field_name("condition")
+                .and_then(|cond| cond.utf8_text(content.as_bytes()).ok())
+                .is_some_and(|cond| cond.contains("err") && cond.contains("nil"))
+    },
+    auth_call_kinds: &["call_expression"],
 };

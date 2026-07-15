@@ -1,7 +1,7 @@
 use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
-use crate::review::signals::tables::{AlgorithmicKinds, ReviewTables};
+use crate::review::signals::tables::{AlgorithmicKinds, RemovedTables, ReviewTables};
 
 pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
     id: "csharp",
@@ -55,4 +55,17 @@ static CSHARP_REVIEW: ReviewTables = ReviewTables {
         ],
         if_kinds: &["if_statement"],
     },
+    removed: Some(&CSHARP_REMOVED),
+};
+
+static CSHARP_REMOVED: RemovedTables = RemovedTables {
+    extensions: &["cs"],
+    is_test_case: |node, content| {
+        node.kind() == "method_declaration"
+            && node.utf8_text(content.as_bytes()).is_ok_and(|text| {
+                text.contains("[Test]") || text.contains("[TestMethod]") || text.contains("[Fact]")
+            })
+    },
+    is_error_handling: |node, _| node.kind() == "try_statement",
+    auth_call_kinds: &["invocation_expression"],
 };

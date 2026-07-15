@@ -206,3 +206,17 @@ pub(crate) fn review_for_label(
 ) -> Option<&'static crate::review::signals::tables::ReviewTables> {
     frontend_for_label(label).and_then(|frontend| frontend.review)
 }
+
+/// The removed-behavior recognizers claiming a file extension, if any. This
+/// dispatch predates label-based detection; the extension lists live on the
+/// tables verbatim and the guard tests keep them from drifting or colliding.
+pub(crate) fn removed_for_extension(
+    ext: &str,
+) -> Option<&'static crate::review::signals::tables::RemovedTables> {
+    all_frontends().iter().find_map(|frontend| {
+        frontend
+            .review
+            .and_then(|review| review.removed)
+            .filter(|removed| removed.extensions.contains(&ext))
+    })
+}

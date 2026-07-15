@@ -29,6 +29,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Removed-behavior recognizers live on the language frontends.** The
+  extension-dispatched AST walks that detect deleted tests, removed error
+  handling, and removed auth checks now consult per-frontend
+  `RemovedTables`; the walk engine is language-neutral and the extension
+  vocabulary (including the historically unreachable `cts`) is pinned by a
+  guard test. The coarse text fallback for frontend-less languages is
+  unchanged by design. Behavior-frozen refactor.
 - **Boundary and algorithmic review signals are table-driven per language
   frontend.** The per-language node-kind sets behind
   `match_node_for_boundary` and the algorithmic matchers moved to

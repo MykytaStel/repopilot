@@ -1,7 +1,9 @@
 //! Taint tables for Python. Source idioms target Flask/Django/FastAPI; sinks
 //! mirror the behavioral "added X" detectors.
 
-use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
+use crate::review::signals::tables::{
+    AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
+};
 use crate::review::signals::taint::ast::{callee_ends_with, has_descendant_kind};
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text, receiver_method};
 use crate::review::signals::taint::tables::TaintTables;
@@ -159,4 +161,18 @@ pub(super) static PYTHON_REVIEW: ReviewTables = ReviewTables {
         ],
         if_kinds: &["if_statement"],
     },
+    removed: Some(&PYTHON_REMOVED),
+};
+
+pub(super) static PYTHON_REMOVED: RemovedTables = RemovedTables {
+    extensions: &["py"],
+    is_test_case: |node, content| {
+        node.kind() == "function_definition"
+            && node
+                .child_by_field_name("name")
+                .and_then(|name| name.utf8_text(content.as_bytes()).ok())
+                .is_some_and(|name| name.starts_with("test_"))
+    },
+    is_error_handling: |node, _| node.kind() == "try_statement",
+    auth_call_kinds: &["call"],
 };
