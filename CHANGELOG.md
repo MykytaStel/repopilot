@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Language frontend registry skeleton (`src/languages/`).** First brick of
+  the 0.21 language contract: static per-language descriptors unifying the
+  knowledge-pack profiles, context-classifier kinds, and tree-sitter grammar
+  bindings behind one lookup, with guard tests that keep grammar dispatch in
+  lockstep and a support-honesty ledger documenting languages whose declared
+  `rule-aware` level exceeds their actual wiring (java, kotlin, csharp, c,
+  cpp today). Wired to nothing yet — dispatch migrates behind the registry
+  in follow-up, behavior-frozen PRs. Working checklist:
+  `docs/engineering/language-surface-inventory.md`.
 - **"Guard your agent runs" guide (`docs/agent-guardrail.md`).** End-to-end
   recipes for wrapping a coding-agent session with deterministic review:
   session snapshot + stop-hook gate for Claude Code, MCP bootstrap for agent

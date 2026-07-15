@@ -39,6 +39,8 @@ pub mod graph;
 #[doc(hidden)]
 pub mod knowledge;
 #[doc(hidden)]
+pub mod languages;
+#[doc(hidden)]
 pub mod output;
 #[doc(hidden)]
 pub mod path_security;

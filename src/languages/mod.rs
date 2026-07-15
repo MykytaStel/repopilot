@@ -1,0 +1,141 @@
+//! Language frontend registry — the single place that answers "what does
+//! RepoPilot know about language X".
+//!
+//! Today language knowledge is spread across detection profiles
+//! (`knowledge/packs/core.toml`), grammar wiring (`analysis/parse.rs`),
+//! import extractors (`graph/imports/*`), review signal tables, runtime-risk
+//! patterns, and path conventions. Each frontend in this registry will own
+//! its language's slice of those concerns; consumers look the frontend up by
+//! [`LanguageKind`] or knowledge-pack id instead of matching on label
+//! strings.
+//!
+//! This module is the 0.21 skeleton (PR-1): descriptors and guard tests
+//! only, wired to nothing. Follow-up PRs migrate dispatch here one concern
+//! at a time (detection/parse, imports, review tables, risk, conventions),
+//! each behavior-frozen against the zoo snapshots. Per-language files grow
+//! into directories when they gain their first extractor.
+//!
+//! Frontends are static data assembled at compile time — this is not a
+//! plugin system, and per the Knowledge Engine runtime boundaries it must
+//! not become one.
+
+pub mod capability;
+
+mod csharp;
+mod generic;
+mod go;
+mod java;
+mod javascript;
+mod kotlin;
+mod python;
+mod rust;
+
+#[cfg(test)]
+mod tests;
+
+use crate::analysis::parse::ParseLanguage;
+use crate::audits::context::LanguageKind;
+
+/// Binds one detection label (as stored on `FileFacts.language`) to the
+/// tree-sitter grammar that parses it. Mirrors `ParseLanguage::from_label`
+/// until parse dispatch is rewired through the registry; the guard tests
+/// keep the two in lockstep in the meantime.
+pub struct GrammarBinding {
+    pub label: &'static str,
+    // Read only by the guard tests until PR-2 routes parse dispatch here.
+    #[allow(dead_code)]
+    pub(crate) grammar: ParseLanguage,
+}
+
+/// Static descriptor for one language (or dialect family) frontend.
+pub struct LanguageFrontend {
+    /// Stable slug; equals the primary knowledge-pack profile id.
+    pub id: &'static str,
+    /// Primary display label, as produced by language detection.
+    pub label: &'static str,
+    /// Context-classifier kind this frontend answers for.
+    pub kind: LanguageKind,
+    /// Knowledge-pack profile ids this frontend claims, dialects included
+    /// (e.g. `typescript` claims `typescript-react`). Detection data —
+    /// extensions, filenames, aliases — stays in the pack; the frontend
+    /// references profiles instead of duplicating them.
+    pub knowledge_ids: &'static [&'static str],
+    /// Detection labels this frontend can parse, with their grammars.
+    /// Empty for frontends without a bundled tree-sitter grammar.
+    pub grammars: &'static [GrammarBinding],
+}
+
+/// Every registered frontend, including the generic fallback (last).
+static ALL_FRONTENDS: [&LanguageFrontend; 9] = [
+    &rust::RUST,
+    &javascript::TYPESCRIPT,
+    &javascript::JAVASCRIPT,
+    &python::PYTHON,
+    &go::GO,
+    &java::JAVA,
+    &csharp::CSHARP,
+    &kotlin::KOTLIN,
+    &generic::GENERIC,
+];
+
+pub fn all_frontends() -> &'static [&'static LanguageFrontend] {
+    &ALL_FRONTENDS
+}
+
+/// The frontend responsible for `kind`. Kinds without a dedicated frontend
+/// fall back to [`generic::GENERIC`]; the match is exhaustive so adding a
+/// `LanguageKind` variant forces a routing decision here.
+pub fn frontend_for_kind(kind: LanguageKind) -> &'static LanguageFrontend {
+    match kind {
+        LanguageKind::Rust => &rust::RUST,
+        LanguageKind::TypeScript => &javascript::TYPESCRIPT,
+        LanguageKind::JavaScript => &javascript::JAVASCRIPT,
+        LanguageKind::Python => &python::PYTHON,
+        LanguageKind::Go => &go::GO,
+        LanguageKind::Java => &java::JAVA,
+        LanguageKind::CSharp => &csharp::CSHARP,
+        LanguageKind::Kotlin => &kotlin::KOTLIN,
+        LanguageKind::Swift
+        | LanguageKind::C
+        | LanguageKind::Cpp
+        | LanguageKind::CHeader
+        | LanguageKind::Php
+        | LanguageKind::Ruby
+        | LanguageKind::Dart
+        | LanguageKind::Scala
+        | LanguageKind::Shell
+        | LanguageKind::PowerShell
+        | LanguageKind::Sql
+        | LanguageKind::Html
+        | LanguageKind::Css
+        | LanguageKind::Scss
+        | LanguageKind::Elixir
+        | LanguageKind::Erlang
+        | LanguageKind::Haskell
+        | LanguageKind::OCaml
+        | LanguageKind::FSharp
+        | LanguageKind::R
+        | LanguageKind::Julia
+        | LanguageKind::Lua
+        | LanguageKind::Perl
+        | LanguageKind::Zig
+        | LanguageKind::Solidity
+        | LanguageKind::ObjectiveC
+        | LanguageKind::Terraform
+        | LanguageKind::Dockerfile
+        | LanguageKind::Nix
+        | LanguageKind::Json
+        | LanguageKind::Toml
+        | LanguageKind::Yaml
+        | LanguageKind::Markdown
+        | LanguageKind::Unknown => &generic::GENERIC,
+    }
+}
+
+/// The frontend that claims a knowledge-pack profile id, if any.
+pub fn frontend_for_knowledge_id(id: &str) -> Option<&'static LanguageFrontend> {
+    all_frontends()
+        .iter()
+        .copied()
+        .find(|frontend| frontend.knowledge_ids.contains(&id))
+}
