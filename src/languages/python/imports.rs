@@ -1,14 +1,38 @@
+use crate::analysis::parse::ParsedFile;
 use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
-pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
+pub(super) fn eager(parsed: &ParsedFile) -> HashSet<String> {
+    parsed
+        .tree()
+        .map(|tree| extract(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+pub(super) fn spans(parsed: &ParsedFile) -> BTreeMap<String, (usize, usize)> {
+    parsed
+        .tree()
+        .map(|tree| extract_spans(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+/// Imports deferred into a function body — the Python idiom for breaking a
+/// load-time cycle; cycle detection subtracts them.
+pub(super) fn deferred(parsed: &ParsedFile) -> HashSet<String> {
+    parsed
+        .tree()
+        .map(|tree| extract_deferred(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
     let mut scan = ImportScan::default();
     visit(tree.root_node(), content, false, &mut scan);
     // Eager spans win when a module is imported both ways (collected last).
     scan.deferred.into_iter().chain(scan.eager).collect()
 }
 
-pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
+fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
@@ -21,7 +45,7 @@ pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
 /// cycle it broke. A module imported *both* eagerly and lazily keeps its eager
 /// edge, so it is excluded here. Module-scope imports inside `if`/`try` blocks
 /// run at import time and are never deferred.
-pub(super) fn extract_deferred(tree: &Tree, content: &str) -> HashSet<String> {
+fn extract_deferred(tree: &Tree, content: &str) -> HashSet<String> {
     let mut scan = ImportScan::default();
     visit(tree.root_node(), content, false, &mut scan);
     scan.deferred

@@ -42,16 +42,19 @@ design (with reason).
 
 ## Imports and graph
 
-- [ ] `src/graph/imports.rs:30` — `extract_imports_from`: label-string match
-      dispatching to `graph/imports/{rust,ts,python,go,jvm}.rs`. → PR-3
-      (`frontend().imports`).
-- [ ] `src/graph/imports.rs:59` — `extract_deferred_imports_from`: same
-      dispatch for Python function-body imports (0.19 cycle-breaker). → PR-3,
-      byte-identical behavior.
-- [ ] `src/graph/imports/{common,go,jvm,python,rust,ts,lines}.rs` — the
-      per-language extractors. Already per-language (the contract's seed);
-      relocate under `src/languages/*/imports.rs` with thin re-export
-      adapters for one release. → PR-3.
+- [x] `src/graph/imports.rs` — `extract_imports_from` and
+      `extract_deferred_imports_from` dispatch via
+      `languages::imports_for_label`; the label matches are gone. Coverage
+      pinned by `import_extractor_coverage_is_pinned`. (PR-3)
+- [x] `src/graph/imports/{go,jvm,python,rust,ts}.rs` — extractors moved to
+      `src/languages/{go,java,kotlin,python,rust,javascript}/imports.rs`
+      behind `ImportExtractor` (eager/deferred/spans); `jvm.rs` split into
+      java/kotlin; `common.rs` became `languages/import_support.rs`. Python
+      deferred and TS type-only semantics unchanged (zoo-frozen on six
+      repos). (PR-3)
+- [x] `src/graph/imports/lines.rs` — `import_line_spans` uses the
+      frontend's `spans` extractor; per-language match removed. The module
+      stays as the public edge-evidence API. (PR-3)
 - [-] `src/graph/resolver/`, `src/graph/v2/` — resolution and graph
       algorithms consume extracted imports; no language dispatch inside.
       Stays language-agnostic by contract (guard: no-dispatch lint, PR-7).

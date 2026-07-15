@@ -1,13 +1,28 @@
+use crate::analysis::parse::ParsedFile;
 use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
-pub(super) fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
+pub(super) fn eager(parsed: &ParsedFile) -> HashSet<String> {
+    parsed
+        .tree()
+        .map(|tree| extract(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+pub(super) fn spans(parsed: &ParsedFile) -> BTreeMap<String, (usize, usize)> {
+    parsed
+        .tree()
+        .map(|tree| extract_spans(tree, parsed.content()))
+        .unwrap_or_default()
+}
+
+fn extract_spans(tree: &Tree, content: &str) -> BTreeMap<String, (usize, usize)> {
     let mut result = BTreeMap::new();
     visit(tree.root_node(), content, &mut result);
     result
 }
 
-pub(super) fn extract(tree: &Tree, content: &str) -> HashSet<String> {
+fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 

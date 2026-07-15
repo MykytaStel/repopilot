@@ -154,6 +154,39 @@ fn kinds_route_to_their_frontends_and_the_rest_to_generic() {
     }
 }
 
+/// Pins which frontends own an import extractor and which deferred-edge
+/// semantics they register, so a migration cannot silently drop a language
+/// from the coupling graph (or grow deferred behavior a language never had).
+#[test]
+fn import_extractor_coverage_is_pinned() {
+    let with_deferred: BTreeSet<&str> =
+        ["typescript", "javascript", "python"].into_iter().collect();
+    let without_imports: BTreeSet<&str> = ["csharp", "generic"].into_iter().collect();
+
+    for frontend in all_frontends() {
+        match frontend.imports {
+            Some(extractor) => {
+                assert!(
+                    !without_imports.contains(frontend.id),
+                    "frontend '{}' unexpectedly gained an import extractor; update the pin",
+                    frontend.id
+                );
+                assert_eq!(
+                    extractor.deferred.is_some(),
+                    with_deferred.contains(frontend.id),
+                    "deferred-import semantics changed for frontend '{}'",
+                    frontend.id
+                );
+            }
+            None => assert!(
+                without_imports.contains(frontend.id),
+                "frontend '{}' lost its import extractor",
+                frontend.id
+            ),
+        }
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —

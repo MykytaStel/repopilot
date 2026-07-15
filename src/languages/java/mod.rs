@@ -2,6 +2,16 @@ use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
+mod imports;
+
+use super::ImportExtractor;
+
+static JAVA_IMPORTS: ImportExtractor = ImportExtractor {
+    eager: imports::eager,
+    deferred: None,
+    spans: imports::spans,
+};
+
 pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
     id: "java",
     label: "Java",
@@ -11,4 +21,5 @@ pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
         label: "Java",
         grammar: ParseLanguage::Java,
     }],
+    imports: Some(&JAVA_IMPORTS),
 };

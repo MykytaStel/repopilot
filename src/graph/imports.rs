@@ -1,14 +1,7 @@
 use crate::analysis::parse::ParsedFile;
-use std::collections::HashSet;
-use tree_sitter::Tree;
+use crate::languages::imports_for_label;
 
-mod common;
-mod go;
-mod jvm;
 pub mod lines;
-mod python;
-mod rust;
-mod ts;
 
 /// Extracts raw import strings from file content based on language.
 /// Returns a deduplicated list.
@@ -22,24 +15,16 @@ pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
 
 /// Extracts raw import strings from an already-built parse view.
 ///
-/// The scan pipeline calls this with the same [`ParsedFile`] the per-file audits
-/// receive, so a file's syntax tree is produced once and shared between import
-/// extraction and the AST audits rather than parsed separately for each.
+/// The per-language extractors live on the language frontend registry
+/// (`languages::*::imports`); this dispatches to the frontend claiming the
+/// label. The scan pipeline calls it with the same [`ParsedFile`] the
+/// per-file audits receive, so a file's syntax tree is produced once and
+/// shared between import extraction and the AST audits.
 pub(crate) fn extract_imports_from(parsed: &ParsedFile, language: Option<&str>) -> Vec<String> {
-    let content = parsed.content();
-    let set: HashSet<String> = match language {
-        Some("Rust") => from_tree(parsed, |tree| rust::extract(tree, content)),
-        Some("TypeScript")
-        | Some("TypeScript React")
-        | Some("JavaScript")
-        | Some("JavaScript React") => from_tree(parsed, |tree| ts::extract(tree, content)),
-        Some("Python") => from_tree(parsed, |tree| python::extract(tree, content)),
-        Some("Go") => go::extract(content),
-        Some("Java") => jvm::extract_java(content),
-        Some("Kotlin") => jvm::extract_kotlin(content),
-        _ => return Vec::new(),
-    };
-    set.into_iter().collect()
+    match language.and_then(imports_for_label) {
+        Some(extractor) => (extractor.eager)(parsed).into_iter().collect(),
+        None => Vec::new(),
+    }
 }
 
 /// Imports that are real edges in the coupling graph but must be subtracted by
@@ -50,29 +35,19 @@ pub(crate) fn extract_imports_from(parsed: &ParsedFile, language: Option<&str>) 
 ///   compiler erases, so they are type-only and never run at load time.
 ///
 /// These stay full edges for coupling, fan-out, and dead-module analysis; only
-/// cycle detection subtracts them. Other languages have none.
+/// cycle detection subtracts them. Languages whose frontend registers no
+/// deferred extractor have none.
 pub(crate) fn extract_deferred_imports_from(
     parsed: &ParsedFile,
     language: Option<&str>,
 ) -> Vec<String> {
-    let content = parsed.content();
-    let set: HashSet<String> = match language {
-        Some("Python") => from_tree(parsed, |tree| python::extract_deferred(tree, content)),
-        Some("TypeScript")
-        | Some("TypeScript React")
-        | Some("JavaScript")
-        | Some("JavaScript React") => {
-            from_tree(parsed, |tree| ts::extract_type_only(tree, content))
-        }
-        _ => return Vec::new(),
-    };
-    set.into_iter().collect()
-}
-
-/// Runs `visit` over the shared syntax tree, yielding no imports when the file
-/// has no parseable grammar or tree-sitter could not produce a tree.
-fn from_tree(parsed: &ParsedFile, visit: impl FnOnce(&Tree) -> HashSet<String>) -> HashSet<String> {
-    parsed.tree().map(visit).unwrap_or_default()
+    match language
+        .and_then(imports_for_label)
+        .and_then(|e| e.deferred)
+    {
+        Some(deferred) => deferred(parsed).into_iter().collect(),
+        None => Vec::new(),
+    }
 }
 
 #[cfg(test)]

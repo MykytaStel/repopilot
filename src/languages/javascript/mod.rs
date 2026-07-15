@@ -5,6 +5,16 @@ use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
+mod imports;
+
+use super::ImportExtractor;
+
+static JS_FAMILY_IMPORTS: ImportExtractor = ImportExtractor {
+    eager: imports::eager,
+    deferred: Some(imports::deferred),
+    spans: imports::spans,
+};
+
 pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
     id: "typescript",
     label: "TypeScript",
@@ -20,6 +30,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
             grammar: ParseLanguage::Tsx,
         },
     ],
+    imports: Some(&JS_FAMILY_IMPORTS),
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -37,4 +48,5 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
             grammar: ParseLanguage::JavaScript,
         },
     ],
+    imports: Some(&JS_FAMILY_IMPORTS),
 };

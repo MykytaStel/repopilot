@@ -28,13 +28,15 @@ pub enum Capability {
     Frameworks,
 }
 
-/// Capabilities currently wired for `frontend`. Only [`Capability::Parse`]
-/// is derivable in the skeleton; each migration PR extends this from the
-/// fields it adds to [`LanguageFrontend`].
+/// Capabilities currently wired for `frontend`, derived from the fields the
+/// migration PRs add to [`LanguageFrontend`].
 pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     let mut wired = Vec::new();
     if !frontend.grammars.is_empty() {
         wired.push(Capability::Parse);
+    }
+    if frontend.imports.is_some() {
+        wired.push(Capability::Imports);
     }
     wired
 }
