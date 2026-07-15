@@ -3,6 +3,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod review;
 
 use super::ImportExtractor;
 
@@ -22,4 +23,5 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Go,
     }],
     imports: Some(&GO_IMPORTS),
+    taint: Some(&review::GO_TAINT),
 };

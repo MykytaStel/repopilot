@@ -22,4 +22,5 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Kotlin,
     }],
     imports: Some(&KOTLIN_IMPORTS),
+    taint: None,
 };

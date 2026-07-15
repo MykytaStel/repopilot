@@ -11,4 +11,5 @@ pub(super) static GENERIC: LanguageFrontend = LanguageFrontend {
     knowledge_ids: &[],
     grammars: &[],
     imports: None,
+    taint: None,
 };

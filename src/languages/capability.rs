@@ -38,6 +38,9 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     if frontend.imports.is_some() {
         wired.push(Capability::Imports);
     }
+    if frontend.taint.is_some() {
+        wired.push(Capability::TaintFlows);
+    }
     wired
 }
 

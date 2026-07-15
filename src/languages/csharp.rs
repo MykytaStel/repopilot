@@ -20,4 +20,5 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
         },
     ],
     imports: None,
+    taint: None,
 };

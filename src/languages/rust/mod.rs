@@ -22,4 +22,5 @@ pub(super) static RUST: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Rust,
     }],
     imports: Some(&RUST_IMPORTS),
+    taint: None,
 };
