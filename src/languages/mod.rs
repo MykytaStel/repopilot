@@ -42,9 +42,20 @@ use crate::audits::context::LanguageKind;
 /// keep the two in lockstep in the meantime.
 pub struct GrammarBinding {
     pub label: &'static str,
-    // Read only by the guard tests until PR-2 routes parse dispatch here.
-    #[allow(dead_code)]
     pub(crate) grammar: ParseLanguage,
+}
+
+/// The grammar bound to a detection label, if any frontend claims it. This
+/// is the single label→grammar table; `ParseLanguage::from_label` delegates
+/// here.
+pub(crate) fn grammar_for_label(label: &str) -> Option<ParseLanguage> {
+    all_frontends().iter().find_map(|frontend| {
+        frontend
+            .grammars
+            .iter()
+            .find(|binding| binding.label == label)
+            .map(|binding| binding.grammar)
+    })
 }
 
 /// Static descriptor for one language (or dialect family) frontend.

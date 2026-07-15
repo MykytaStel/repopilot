@@ -66,15 +66,13 @@ pub fn language_kind_from_name(name: &str) -> Option<LanguageKind> {
 }
 
 pub fn language_kind_from_id(id: &str) -> LanguageKind {
+    // Languages with a dedicated frontend own their kind; the match below
+    // covers only detect-/context-level languages without one.
+    if let Some(frontend) = crate::languages::frontend_for_knowledge_id(id) {
+        return frontend.kind;
+    }
+
     match id {
-        "rust" => LanguageKind::Rust,
-        "typescript" | "typescript-react" => LanguageKind::TypeScript,
-        "javascript" | "javascript-react" => LanguageKind::JavaScript,
-        "csharp" => LanguageKind::CSharp,
-        "python" => LanguageKind::Python,
-        "go" => LanguageKind::Go,
-        "java" => LanguageKind::Java,
-        "kotlin" => LanguageKind::Kotlin,
         "swift" => LanguageKind::Swift,
         "c" => LanguageKind::C,
         "cpp" => LanguageKind::Cpp,
@@ -135,6 +133,26 @@ mod tests {
             detect_language_for_path(Path::new("infra/main.tf")),
             Some("Terraform")
         );
+    }
+
+    #[test]
+    fn frontend_claimed_ids_keep_their_kinds() {
+        // Pins the id→kind mapping for ids whose kind now comes from the
+        // language frontend registry, so delegation cannot silently remap.
+        for (id, kind) in [
+            ("rust", LanguageKind::Rust),
+            ("typescript", LanguageKind::TypeScript),
+            ("typescript-react", LanguageKind::TypeScript),
+            ("javascript", LanguageKind::JavaScript),
+            ("javascript-react", LanguageKind::JavaScript),
+            ("python", LanguageKind::Python),
+            ("go", LanguageKind::Go),
+            ("java", LanguageKind::Java),
+            ("csharp", LanguageKind::CSharp),
+            ("kotlin", LanguageKind::Kotlin),
+        ] {
+            assert_eq!(language_kind_from_id(id), kind, "id '{id}' remapped");
+        }
     }
 
     #[test]

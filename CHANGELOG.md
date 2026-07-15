@@ -29,6 +29,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Language detection and parse dispatch now route through the frontend
+  registry.** `ParseLanguage::from_label` delegates to the registry's
+  grammar bindings (the only label→grammar table, pinned by a vocabulary
+  guard test), and `language_kind_from_id` takes the kind from the claiming
+  frontend, leaving the hardcoded map to cover only languages without one.
+  Behavior-frozen refactor: no findings, signals, or output change.
 - **README rewritten around reviewing code you didn't write.** Leads with the
   real-repo demo and the deterministic/local/evidence positioning, moves
   workflow detail into the docs, and links the new agent-guardrail guide.
