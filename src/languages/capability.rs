@@ -44,6 +44,9 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     if frontend.review.is_some() {
         wired.push(Capability::ReviewSignals);
     }
+    if frontend.risk.is_some() {
+        wired.push(Capability::RuntimeRisk);
+    }
     wired
 }
 

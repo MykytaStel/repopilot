@@ -4,6 +4,7 @@ use crate::audits::context::LanguageKind;
 
 mod imports;
 mod review;
+mod risk;
 
 use super::ImportExtractor;
 
@@ -25,4 +26,5 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
     imports: Some(&PYTHON_IMPORTS),
     taint: Some(&review::PYTHON_TAINT),
     review: Some(&review::PYTHON_REVIEW),
+    risk: Some(&risk::PYTHON_RISK),
 };

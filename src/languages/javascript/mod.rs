@@ -7,6 +7,7 @@ use crate::audits::context::LanguageKind;
 
 mod imports;
 mod review;
+mod risk;
 
 use super::ImportExtractor;
 
@@ -34,6 +35,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
     imports: Some(&JS_FAMILY_IMPORTS),
     taint: Some(&review::JS_FAMILY_TAINT),
     review: Some(&review::JS_FAMILY_REVIEW),
+    risk: Some(&risk::JS_FAMILY_RISK),
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -54,4 +56,5 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
     imports: Some(&JS_FAMILY_IMPORTS),
     taint: Some(&review::JS_FAMILY_TAINT),
     review: Some(&review::JS_FAMILY_REVIEW),
+    risk: Some(&risk::JS_FAMILY_RISK),
 };

@@ -98,13 +98,19 @@ design (with reason).
 
 ## Runtime risk and code-quality spans
 
-- [ ] `src/audits/code_quality/language_risk.rs:68` —
-      `is_ast_runtime_language(language_id)` allowlist +
-      `language_risk/{js,go,python,managed}.rs` pattern modules. → PR-5
-      (`frontend().risk`).
-- [ ] `src/audits/code_quality/rust_panic_risk/` — Rust-only audit wired as
-      its own rule family; pattern data joins the Rust frontend, severity
-      calibration stays in the Knowledge Engine. → PR-5.
+- [x] `src/audits/code_quality/language_risk.rs` — the audit dispatches via
+      `frontend.risk` (`RiskTables`: AST emitter + line-scanner emitter +
+      sanitizer choice); the `is_ast_runtime_language` allowlist and both
+      per-language match dispatchers are gone. Pattern definitions stay with
+      their emitters in `language_risk/{js,go,python,managed}.rs`; frontends
+      reference them. Pinned by `runtime_risk_participation_is_pinned`.
+      (PR-5)
+- [-] `src/audits/code_quality/rust_panic_risk/` — stays a dedicated
+      Rust-only audit (own rule family, severity calibration in the
+      Knowledge Engine). It contains no cross-language dispatch to migrate;
+      how it counts toward the Rust frontend's computed capability is an
+      honesty-pass decision (PR-9), pinned meanwhile by the risk
+      participation guard.
 - [ ] `src/audits/code_quality/function_spans.rs:42` — function-node kinds
       per label (long/complex function). → PR-5.
 - [ ] `src/audits/code_quality/long_function/brace.rs`,

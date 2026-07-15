@@ -29,6 +29,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Runtime-risk detection dispatches through the language frontends.** The
+  runtime-risk audit consults the frontend's `RiskTables` (AST emitter,
+  line-scanner fallback, comment-sanitizer choice) instead of matching
+  language ids in two places; pattern definitions stay with their emitters
+  and participation is pinned by a guard test. Rust's dedicated panic-risk
+  audit is unchanged. Behavior-frozen refactor: zoo snapshots unchanged
+  across seven repos covering all six runtime-risk languages.
 - **Removed-behavior recognizers live on the language frontends.** The
   extension-dispatched AST walks that detect deleted tests, removed error
   handling, and removed auth checks now consult per-frontend

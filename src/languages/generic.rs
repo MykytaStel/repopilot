@@ -13,4 +13,5 @@ pub(super) static GENERIC: LanguageFrontend = LanguageFrontend {
     imports: None,
     taint: None,
     review: None,
+    risk: None,
 };

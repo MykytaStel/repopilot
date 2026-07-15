@@ -73,7 +73,7 @@ impl GoRiskPattern {
 
 /// Emits Go runtime-risk findings from the syntax tree: `panic(...)`,
 /// `log.Fatal`/`log.Fatalf`, and `os.Exit`.
-pub(super) fn emit_go_node(
+pub(crate) fn emit_go_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -116,5 +116,28 @@ pub(super) fn emit_go_node(
             file,
             findings,
         );
+    }
+}
+
+/// Line-scanner fallback: run every Go pattern against one sanitized line.
+pub(crate) fn emit_line(
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    for pattern in GoRiskPattern::ALL {
+        if pattern.matches(trimmed, path) {
+            push_pattern_finding(
+                pattern,
+                path,
+                line_index + 1,
+                raw_line.trim(),
+                file,
+                findings,
+            );
+        }
     }
 }
