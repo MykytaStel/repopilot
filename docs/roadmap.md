@@ -4,38 +4,33 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.19 — replayable evidence and lower default noise
+## Now: 0.21 — agent-run review as the default workflow
 
-- make MCP explanations replayable from emitted findings while preserving stable
-  baseline IDs and occurrence-level evidence selection;
-- carry Knowledge Engine decision provenance in schema `0.20` reports so agents
-  can compare stored and current decisions deterministically;
-- expose file-role evidence, executable-package manifest context, and ordered
-  decision traces without changing scan/review severity behavior;
-- keep strict-mode recall while moving low-confidence false positives out of the
-  default profile;
-- use the real-repo zoo snapshots and reviewed expectations as release evidence.
+The analysis engine is ahead of its adoption. This cycle is about making the
+core promise — deterministic review of a change you didn't write — trivially
+easy to wire in, and letting real users drive what gets built next.
 
-No hosted service, telemetry, source upload, or implicit LLM integration is part
-of the current roadmap.
+- documented guardrail recipes: session snapshot + stop-hook review for
+  Claude Code, MCP bootstrap for agent clients, review-first CI gate
+  (see [Guard your agent runs](agent-guardrail.md));
+- a reproducible real-repo demo (pinned zoo checkout) showing a plausible
+  agent edit caught by `repopilot review`;
+- README and docs lead with change review; scan/baseline positioned as the
+  adoption surface;
+- precision work only in response to reported noise — the zoo regression
+  gate holds the current signal quality; no new speculative rules.
 
-## Next: 0.20 — Trusted Change Intelligence
+No hosted service, telemetry, source upload, or implicit LLM integration is
+part of the roadmap.
 
-See [roadmap/v0.20.md](roadmap/v0.20.md) for the full release contract,
-performance benchmarks, staged PR sequence, and release scorecard.
+## Shipped: 0.20
 
-- immutable analysis session and shared parsed facts for parse-once performance;
-- incremental context graph and content-addressed cache v2;
-- unified boundary, behavior, algorithm, and taint-lite review deltas with
-  dependency impact paths and deterministic verification plans;
-- canonical decision record across CLI, JSON, SARIF, MCP, AI context, and
-  GitHub Action;
-- promoted real-repo zoo as release evidence with review-zoo differential
-  fixtures;
-- MCP workspace revisions, analysis handles, and pagination;
-- verdict-first CLI output with progressive disclosure;
-- delta-focused GitHub Action PR comments and stable artifacts;
-- hardened analysis boundaries, redaction, and cache corruption recovery.
+Parse-once analysis sessions with a content-addressed cache, unified review
+deltas (boundary, behavior, algorithm, taint-lite) with dependency impact
+paths, a canonical decision record across CLI/JSON/SARIF/MCP/Action surfaces,
+MCP analysis handles with pagination, verdict-first CLI output, and the
+real-repo zoo promoted to release evidence. Details:
+[v0.20 roadmap and release contract](roadmap/v0.20.md).
 
 ## Later
 

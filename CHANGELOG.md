@@ -6,6 +6,27 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **"Guard your agent runs" guide (`docs/agent-guardrail.md`).** End-to-end
+  recipes for wrapping a coding-agent session with deterministic review:
+  session snapshot + stop-hook gate for Claude Code, MCP bootstrap for agent
+  clients, and a review-first CI gate. Linked from the README and docs index.
+- **Reproducible agent-review demo on a real repository.**
+  `scripts/demo-agent-edit.sh` applies a plausible "optimize images" edit to
+  the pinned zoo Wagtail checkout that also drops a permission check and
+  pipes request input into a shell; `docs/demos/03-agent-review.tape` records
+  `repopilot review` catching it (GIF and MP4 in `docs/demos/`).
+
+### Changed
+
+- **README rewritten around reviewing code you didn't write.** Leads with the
+  real-repo demo and the deterministic/local/evidence positioning, moves
+  workflow detail into the docs, and links the new agent-guardrail guide.
+- **Roadmap updated.** 0.20 marked shipped, and the current cycle focuses on
+  agent-run review adoption; the 0.20 contract doc title no longer uses a
+  marketing codename.
+
 ## [0.20.0] - 2026-07-12
 
 RepoPilot 0.20 turns repository scanning into a complete, review-first change
