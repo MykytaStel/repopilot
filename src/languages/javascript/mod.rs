@@ -6,6 +6,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod review;
 
 use super::ImportExtractor;
 
@@ -31,6 +32,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
         },
     ],
     imports: Some(&JS_FAMILY_IMPORTS),
+    taint: Some(&review::JS_FAMILY_TAINT),
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -49,4 +51,5 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
         },
     ],
     imports: Some(&JS_FAMILY_IMPORTS),
+    taint: Some(&review::JS_FAMILY_TAINT),
 };

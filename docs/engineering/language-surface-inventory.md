@@ -61,20 +61,16 @@ design (with reason).
 
 ## Review signals
 
-- [ ] `src/review/signals/taint/sources.rs:40` — HTTP/process input source
-      patterns, one flat list covering JS/TS, Python, Go, Rust idioms. →
-      PR-4 splits per frontend `ReviewTables`.
-- [ ] `src/review/signals/taint/sinks.rs:60` — SQL/exec/fs/network sink
-      callee tables (`subprocess`, `os.system`, `child_process.exec`,
-      `exec.Command`, JDBC-style `.execute`). → PR-4.
-- [ ] `src/review/signals/taint/sanitizers.rs` — parameterized-query and
-      escaping tables. → PR-4.
-- [ ] `src/review/signals/taint/mod.rs:50` — `TaintLang::from_label`: a
-      second, private label→language enum gating which files get taint
-      analysis (found during PR-2). → PR-4; frontends key the tables and the
-      enum dissolves.
-- [ ] `src/review/signals/taint/ast.rs`, `flow.rs` — engine; must lose any
-      residual label checks. → PR-4.
+- [x] Taint-lite is table-driven: per-language source idioms, coercion
+      lists, grammar shapes, and sink classifiers live in
+      `src/languages/{javascript,python,go}/review.rs` as
+      `taint::tables::TaintTables`; the engines (`flow`, `sources`,
+      `sanitizers`) are language-neutral and `TaintLang` is gone — gating is
+      the frontend's `taint` field, pinned by
+      `taint_participation_is_pinned`. Shared callee helpers stay in
+      `taint/sinks.rs` (model) and `taint/ast.rs`. Equivalence evidence: the
+      taint test suite unchanged and green, plus the wagtail agent demo
+      firing identical signals. (PR-4a)
 - [ ] `src/review/signals/behavioral/keywords.rs:21` — auth keyword
       vocabulary (strong/exact tokens, mutation verbs). Mostly
       language-neutral English identifiers; stays shared, but per-frontend

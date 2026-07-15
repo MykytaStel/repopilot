@@ -13,10 +13,11 @@
 //! is the query expression itself: a static query string with the value passed as
 //! a separate bind parameter is the safe, parameterized pattern.
 
-use super::ast::{callee_ends_with, callee_starts_with, first_named_arg, has_descendant_kind};
-use super::sinks::{Sink, SinkKind, classify_sink};
+use super::TaintSignal;
+use super::ast::first_named_arg;
+use super::sinks::{Sink, SinkKind};
 use super::sources::{SourceKind, node_has_source};
-use super::{TaintLang, TaintSignal};
+use super::tables::TaintTables;
 use crate::review::diff::ChangedFile;
 use crate::review::signals::behavioral::truncate_str;
 use std::collections::HashMap;
@@ -25,55 +26,59 @@ use tree_sitter::Node;
 pub(super) fn detect(
     root: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     file: &ChangedFile,
     out: &mut Vec<TaintSignal>,
 ) {
-    detect_scope(root, content, lang, file, out);
+    detect_scope(root, content, tables, file, out);
 }
 
 fn detect_scope(
     root: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     file: &ChangedFile,
     out: &mut Vec<TaintSignal>,
 ) {
-    let tainted = seed_tainted(root, content, lang);
-    check_sinks(root, content, lang, file, &tainted, out);
-    detect_nested_scopes(root, content, lang, file, out);
+    let tainted = seed_tainted(root, content, tables);
+    check_sinks(root, content, tables, file, &tainted, out);
+    detect_nested_scopes(root, content, tables, file, out);
 }
 
 fn detect_nested_scopes(
     node: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     file: &ChangedFile,
     out: &mut Vec<TaintSignal>,
 ) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        if lang.is_flow_scope(child) {
-            detect_scope(child, content, lang, file, out);
+        if (tables.is_flow_scope)(child) {
+            detect_scope(child, content, tables, file, out);
         } else {
-            detect_nested_scopes(child, content, lang, file, out);
+            detect_nested_scopes(child, content, tables, file, out);
         }
     }
 }
 
 // ── Seeding ─────────────────────────────────────────────────────────────────
 
-fn seed_tainted(root: Node<'_>, content: &str, lang: TaintLang) -> HashMap<String, SourceKind> {
+fn seed_tainted(
+    root: Node<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+) -> HashMap<String, SourceKind> {
     let mut assignments: Vec<Assignment<'_>> = Vec::new();
-    collect_assignments(root, lang, content, &mut assignments);
+    collect_assignments(root, tables, content, &mut assignments);
     // Process in document order so a later reassignment overrides an earlier one;
     // a single forward pass then resolves `a = src; b = a; c = b` chains.
     assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
 
     let mut tainted: HashMap<String, SourceKind> = HashMap::new();
     for assignment in &assignments {
-        match node_has_source(assignment.rhs, content, lang)
-            .or_else(|| node_mentions_tainted(assignment.rhs, content, lang, &tainted))
+        match node_has_source(assignment.rhs, content, tables)
+            .or_else(|| node_mentions_tainted(assignment.rhs, content, tables, &tainted))
         {
             // A tainted/source value sets (or re-sets) taint for each target name.
             Some(kind) => {
@@ -106,70 +111,37 @@ struct Assignment<'a> {
 
 fn collect_assignments<'a>(
     node: Node<'a>,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     content: &str,
     out: &mut Vec<Assignment<'a>>,
 ) {
-    if let Some((lhs, rhs)) = assignment_parts(node, lang) {
+    if let Some((lhs, rhs)) = assignment_parts(node, tables) {
         let mut names = Vec::new();
         collect_lhs_names(lhs, content, &mut names);
         if !names.is_empty() {
             out.push(Assignment {
                 names,
                 rhs,
-                augmenting: is_augmenting(node, lang),
+                augmenting: (tables.is_augmenting)(node),
             });
         }
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        if !lang.is_flow_scope(child) {
-            collect_assignments(child, lang, content, out);
+        if !(tables.is_flow_scope)(child) {
+            collect_assignments(child, tables, content, out);
         }
     }
 }
 
-/// Whether `node` is a compound assignment that combines with the existing value
-/// (`x += …`), as opposed to a plain replacement (`x = …`, `x := …`).
-fn is_augmenting(node: Node<'_>, lang: TaintLang) -> bool {
-    match lang {
-        TaintLang::Python => node.kind() == "augmented_assignment",
-        TaintLang::Go => {
-            node.kind() == "assignment_statement" && {
-                let mut cursor = node.walk();
-                node.children(&mut cursor).any(|child| {
-                    matches!(
-                        child.kind(),
-                        "+=" | "-="
-                            | "*="
-                            | "/="
-                            | "%="
-                            | "&="
-                            | "|="
-                            | "^="
-                            | "<<="
-                            | ">>="
-                            | "&^="
-                    )
-                })
-            }
-        }
-        // tree-sitter-javascript models `x += …` as a distinct
-        // `augmented_assignment_expression` node that `assignment_parts` does not
-        // collect, so anything collected here is a plain `=`.
-        TaintLang::Js => false,
-    }
-}
-
-/// The (target, value) nodes of an assignment-like node, per grammar.
-fn assignment_parts<'a>(node: Node<'a>, lang: TaintLang) -> Option<(Node<'a>, Node<'a>)> {
+/// The (target, value) nodes of an assignment-like node, per the grammar's
+/// assignment node kinds from the language's [`TaintTables`].
+fn assignment_parts<'a>(
+    node: Node<'a>,
+    tables: &'static TaintTables,
+) -> Option<(Node<'a>, Node<'a>)> {
     let kind = node.kind();
-    let is_assignment = match lang {
-        TaintLang::Js => matches!(kind, "variable_declarator" | "assignment_expression"),
-        TaintLang::Python => matches!(kind, "assignment" | "augmented_assignment"),
-        TaintLang::Go => matches!(kind, "short_var_declaration" | "assignment_statement"),
-    };
-    if !is_assignment {
+    if !tables.assignment_kinds.contains(&kind) {
         return None;
     }
     let (lhs_field, rhs_field) = if kind == "variable_declarator" {
@@ -216,14 +188,14 @@ fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
 fn node_mentions_tainted(
     node: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     tainted: &HashMap<String, SourceKind>,
 ) -> Option<SourceKind> {
-    if lang.is_flow_scope(node) {
+    if (tables.is_flow_scope)(node) {
         return None;
     }
     // A sanitizer/coercion call neutralizes whatever it wraps; do not descend.
-    if super::sanitizers::is_sanitizer_call(node, content, lang) {
+    if super::sanitizers::is_sanitizer_call(node, content, tables) {
         return None;
     }
     if node.kind() == "identifier" {
@@ -235,7 +207,7 @@ fn node_mentions_tainted(
 
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
-        .find_map(|child| node_mentions_tainted(child, content, lang, tainted))
+        .find_map(|child| node_mentions_tainted(child, content, tables, tainted))
 }
 
 // ── Sink checking ─────────────────────────────────────────────────────────────
@@ -243,15 +215,15 @@ fn node_mentions_tainted(
 fn check_sinks(
     node: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     file: &ChangedFile,
     tainted: &HashMap<String, SourceKind>,
     out: &mut Vec<TaintSignal>,
 ) {
-    if let Some(sink) = classify_sink(node, content, lang) {
+    if let Some(sink) = (tables.classify_sink)(node, content) {
         let line = node.start_position().row + 1;
         if file.contains_line(line)
-            && let Some(source) = sink_taint(&sink, content, lang, tainted)
+            && let Some(source) = sink_taint(&sink, content, tables, tainted)
         {
             let call_text = node.utf8_text(content.as_bytes()).unwrap_or("");
             out.push(TaintSignal {
@@ -271,8 +243,8 @@ fn check_sinks(
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        if !lang.is_flow_scope(child) {
-            check_sinks(child, content, lang, file, tainted, out);
+        if !(tables.is_flow_scope)(child) {
+            check_sinks(child, content, tables, file, tainted, out);
         }
     }
 }
@@ -280,13 +252,13 @@ fn check_sinks(
 fn sink_taint(
     sink: &Sink<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     tainted: &HashMap<String, SourceKind>,
 ) -> Option<SourceKind> {
     match sink.kind {
-        SinkKind::Sql => sql_taint(sink.args, content, lang, tainted),
-        _ => node_has_source(sink.args, content, lang)
-            .or_else(|| node_mentions_tainted(sink.args, content, lang, tainted)),
+        SinkKind::Sql => sql_taint(sink.args, content, tables, tainted),
+        _ => node_has_source(sink.args, content, tables)
+            .or_else(|| node_mentions_tainted(sink.args, content, tables, tainted)),
     }
 }
 
@@ -297,37 +269,19 @@ fn sink_taint(
 fn sql_taint(
     args: Node<'_>,
     content: &str,
-    lang: TaintLang,
+    tables: &'static TaintTables,
     tainted: &HashMap<String, SourceKind>,
 ) -> Option<SourceKind> {
     let first = first_named_arg(args)?;
     let first_text = first.utf8_text(content.as_bytes()).unwrap_or("");
 
-    if is_string_building(first, content, lang) {
-        return node_has_source(first, content, lang)
-            .or_else(|| node_mentions_tainted(first, content, lang, tainted));
+    if (tables.is_string_building)(first, content) {
+        return node_has_source(first, content, tables)
+            .or_else(|| node_mentions_tainted(first, content, tables, tainted));
     }
     if first.kind() == "identifier" {
         return tainted.get(first_text).copied();
     }
     // A request value used directly as the whole query expression (rare, unsafe).
-    node_has_source(first, content, lang)
-}
-
-/// Whether `node` constructs a string from parts — concatenation, interpolation,
-/// or a `format`/`Sprintf` call — the positions where injected input is dangerous.
-fn is_string_building(node: Node<'_>, content: &str, lang: TaintLang) -> bool {
-    match lang {
-        TaintLang::Js => matches!(node.kind(), "template_string" | "binary_expression"),
-        TaintLang::Python => {
-            node.kind() == "binary_operator"
-                || (node.kind() == "string" && has_descendant_kind(node, "interpolation"))
-                || (node.kind() == "call" && callee_ends_with(node, content, ".format"))
-        }
-        TaintLang::Go => {
-            node.kind() == "binary_expression"
-                || (node.kind() == "call_expression"
-                    && callee_starts_with(node, content, "fmt.Sprint"))
-        }
-    }
+    node_has_source(first, content, tables)
 }

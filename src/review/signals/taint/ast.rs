@@ -1,11 +1,11 @@
 use tree_sitter::Node;
 
-pub(super) fn first_named_arg(args: Node<'_>) -> Option<Node<'_>> {
+pub(crate) fn first_named_arg(args: Node<'_>) -> Option<Node<'_>> {
     let mut cursor = args.walk();
     args.named_children(&mut cursor).next()
 }
 
-pub(super) fn has_descendant_kind(node: Node<'_>, kind: &str) -> bool {
+pub(crate) fn has_descendant_kind(node: Node<'_>, kind: &str) -> bool {
     if node.kind() == kind {
         return true;
     }
@@ -21,10 +21,10 @@ fn callee_text<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {
         .map(str::trim)
 }
 
-pub(super) fn callee_ends_with(node: Node<'_>, content: &str, suffix: &str) -> bool {
+pub(crate) fn callee_ends_with(node: Node<'_>, content: &str, suffix: &str) -> bool {
     callee_text(node, content).is_some_and(|text| text.ends_with(suffix))
 }
 
-pub(super) fn callee_starts_with(node: Node<'_>, content: &str, prefix: &str) -> bool {
+pub(crate) fn callee_starts_with(node: Node<'_>, content: &str, prefix: &str) -> bool {
     callee_text(node, content).is_some_and(|text| text.starts_with(prefix))
 }

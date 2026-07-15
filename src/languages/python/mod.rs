@@ -3,6 +3,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod review;
 
 use super::ImportExtractor;
 
@@ -22,4 +23,5 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Python,
     }],
     imports: Some(&PYTHON_IMPORTS),
+    taint: Some(&review::PYTHON_TAINT),
 };

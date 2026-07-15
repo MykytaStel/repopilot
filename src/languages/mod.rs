@@ -93,6 +93,9 @@ pub struct LanguageFrontend {
     pub grammars: &'static [GrammarBinding],
     /// Import extraction, when the language has an extractor.
     pub(crate) imports: Option<&'static ImportExtractor>,
+    /// Taint-lite tables (sources, sinks, sanitizers, grammar shapes), when
+    /// the language participates in taint analysis.
+    pub(crate) taint: Option<&'static crate::review::signals::taint::tables::TaintTables>,
 }
 
 /// Every registered frontend, including the generic fallback (last).
@@ -185,4 +188,12 @@ pub(crate) fn frontend_for_label(label: &str) -> Option<&'static LanguageFronten
 /// The import extractor for a detection label, if the language has one.
 pub(crate) fn imports_for_label(label: &str) -> Option<&'static ImportExtractor> {
     frontend_for_label(label).and_then(|frontend| frontend.imports)
+}
+
+/// The taint tables for a detection label, if the language participates in
+/// taint analysis.
+pub(crate) fn taint_for_label(
+    label: &str,
+) -> Option<&'static crate::review::signals::taint::tables::TaintTables> {
+    frontend_for_label(label).and_then(|frontend| frontend.taint)
 }

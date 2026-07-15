@@ -187,6 +187,25 @@ fn import_extractor_coverage_is_pinned() {
     }
 }
 
+/// Pins which frontends participate in taint-lite. The gate used to be the
+/// private `TaintLang::from_label` enum; now it is the frontend's `taint`
+/// field, and this pin keeps a refactor from silently adding or removing a
+/// language from taint analysis.
+#[test]
+fn taint_participation_is_pinned() {
+    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go"]
+        .into_iter()
+        .collect();
+    for frontend in all_frontends() {
+        assert_eq!(
+            frontend.taint.is_some(),
+            with_taint.contains(frontend.id),
+            "taint participation changed for frontend '{}'",
+            frontend.id
+        );
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —

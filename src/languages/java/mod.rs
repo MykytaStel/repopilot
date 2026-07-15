@@ -22,4 +22,5 @@ pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Java,
     }],
     imports: Some(&JAVA_IMPORTS),
+    taint: None,
 };

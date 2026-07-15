@@ -29,6 +29,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Taint-lite is now table-driven per language frontend.** The per-language
+  source idioms, coercion lists, grammar shapes, and sink classifiers moved
+  to `src/languages/{javascript,python,go}/review.rs` as a `TaintTables`
+  contract; the flow engine is language-neutral and the private `TaintLang`
+  enum is gone — whether a language participates in taint analysis is now
+  visible on its frontend and pinned by a guard test. Behavior-frozen: the
+  full taint test suite and review goldens are unchanged.
 - **Import extraction now lives on the language frontends.** The
   per-language extractors moved from `graph/imports/*` to
   `src/languages/*/imports.rs` behind an `ImportExtractor` contract (eager
