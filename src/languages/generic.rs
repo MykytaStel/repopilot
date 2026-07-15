@@ -12,4 +12,5 @@ pub(super) static GENERIC: LanguageFrontend = LanguageFrontend {
     grammars: &[],
     imports: None,
     taint: None,
+    review: None,
 };

@@ -206,6 +206,50 @@ fn taint_participation_is_pinned() {
     }
 }
 
+/// Pins which frontends carry review-signal tables and whether their AST
+/// boundary classification is wired. C#'s boundary stays `None` on purpose:
+/// the old dispatch matched the label "CSharp" while detection emits "C#",
+/// so enabling it is a deliberate behavior change, not a refactor default.
+#[test]
+fn review_table_coverage_is_pinned() {
+    let with_review: BTreeSet<&str> = [
+        "rust",
+        "typescript",
+        "javascript",
+        "python",
+        "go",
+        "java",
+        "kotlin",
+        "csharp",
+    ]
+    .into_iter()
+    .collect();
+    let without_boundary: BTreeSet<&str> = ["csharp"].into_iter().collect();
+
+    for frontend in all_frontends() {
+        match frontend.review {
+            Some(tables) => {
+                assert!(
+                    with_review.contains(frontend.id),
+                    "frontend '{}' unexpectedly gained review tables; update the pin",
+                    frontend.id
+                );
+                assert_eq!(
+                    tables.boundary.is_none(),
+                    without_boundary.contains(frontend.id),
+                    "boundary wiring changed for frontend '{}'",
+                    frontend.id
+                );
+            }
+            None => assert!(
+                !with_review.contains(frontend.id),
+                "frontend '{}' lost its review tables",
+                frontend.id
+            ),
+        }
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —

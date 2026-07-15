@@ -1,6 +1,7 @@
 //! Taint tables for Go. Source idioms target net/http and Gin; sinks mirror
 //! the behavioral "added X" detectors.
 
+use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
 use crate::review::signals::taint::ast::callee_starts_with;
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text};
 use crate::review::signals::taint::tables::TaintTables;
@@ -112,3 +113,23 @@ fn go_open_file_is_write(args: Node<'_>, content: &str) -> bool {
     .iter()
     .any(|flag| text.contains(flag))
 }
+
+pub(super) static GO_REVIEW: ReviewTables = ReviewTables {
+    boundary: Some(&BoundaryKinds {
+        decorator_kinds: &[],
+        import_kinds: &["import_spec", "import_declaration"],
+    }),
+    algorithmic: &AlgorithmicKinds {
+        function_kinds: &["function_declaration", "method_declaration"],
+        loop_kinds: &["for_statement"],
+        call_kinds: &["call_expression"],
+        control_flow_kinds: &[
+            "if_statement",
+            "for_statement",
+            "expression_switch_statement",
+            "type_switch_statement",
+            "select_statement",
+        ],
+        if_kinds: &["if_statement"],
+    },
+};

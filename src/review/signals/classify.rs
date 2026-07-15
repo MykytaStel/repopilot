@@ -320,23 +320,17 @@ fn match_node_for_boundary(
     content: &str,
     language: &str,
 ) -> Option<BoundaryCategory> {
-    // Which node kinds carry a boundary signal differs per language, but the
-    // matching itself is shared and token-aware. `check_request_trust` is only
-    // set for import-like nodes, where a CORS/header library can appear.
-    let check_request_trust = match (language, node.kind()) {
-        ("JavaScript" | "JavaScript React" | "TypeScript" | "TypeScript React", "decorator")
-        | ("Python", "decorator")
-        | ("Rust", "attribute_item" | "use_declaration")
-        | ("Java" | "Kotlin", "annotation")
-        | ("CSharp", "attribute" | "using_directive") => false,
-        (
-            "JavaScript" | "JavaScript React" | "TypeScript" | "TypeScript React",
-            "import_statement" | "export_statement" | "call_expression",
-        )
-        | ("Python", "import_statement" | "import_from_statement")
-        | ("Go", "import_spec" | "import_declaration")
-        | ("Java" | "Kotlin", "import_declaration") => true,
-        _ => return None,
+    // Which node kinds carry a boundary signal comes from the language
+    // frontend's boundary table; the matching itself is shared and
+    // token-aware. `check_request_trust` is only set for import-like nodes,
+    // where a CORS/header library can appear.
+    let kinds = crate::languages::review_for_label(language)?.boundary?;
+    let check_request_trust = if kinds.decorator_kinds.contains(&node.kind()) {
+        false
+    } else if kinds.import_kinds.contains(&node.kind()) {
+        true
+    } else {
+        return None;
     };
 
     let text = node

@@ -24,4 +24,5 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
     }],
     imports: Some(&GO_IMPORTS),
     taint: Some(&review::GO_TAINT),
+    review: Some(&review::GO_REVIEW),
 };

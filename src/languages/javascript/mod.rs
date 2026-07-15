@@ -33,6 +33,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
     ],
     imports: Some(&JS_FAMILY_IMPORTS),
     taint: Some(&review::JS_FAMILY_TAINT),
+    review: Some(&review::JS_FAMILY_REVIEW),
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -52,4 +53,5 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
     ],
     imports: Some(&JS_FAMILY_IMPORTS),
     taint: Some(&review::JS_FAMILY_TAINT),
+    review: Some(&review::JS_FAMILY_REVIEW),
 };

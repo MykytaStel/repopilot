@@ -2,6 +2,7 @@
 //! share a grammar shape, so one table covers both frontends. Source idioms
 //! target Express/Koa; sinks mirror the behavioral "added X" detectors.
 
+use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text, receiver_method};
 use crate::review::signals::taint::tables::TaintTables;
 use tree_sitter::Node;
@@ -110,3 +111,36 @@ fn callee_is_or_ends_with(callee: &str, names: &[&str]) -> bool {
         .iter()
         .any(|name| callee == *name || callee.ends_with(&format!(".{name}")))
 }
+
+pub(super) static JS_FAMILY_REVIEW: ReviewTables = ReviewTables {
+    boundary: Some(&BoundaryKinds {
+        decorator_kinds: &["decorator"],
+        import_kinds: &["import_statement", "export_statement", "call_expression"],
+    }),
+    algorithmic: &AlgorithmicKinds {
+        function_kinds: &[
+            "function_declaration",
+            "generator_function_declaration",
+            "method_definition",
+        ],
+        loop_kinds: &[
+            "for_statement",
+            "for_in_statement",
+            "for_of_statement",
+            "while_statement",
+            "do_statement",
+        ],
+        call_kinds: &["call_expression"],
+        control_flow_kinds: &[
+            "if_statement",
+            "for_statement",
+            "for_in_statement",
+            "for_of_statement",
+            "while_statement",
+            "do_statement",
+            "switch_statement",
+            "try_statement",
+        ],
+        if_kinds: &["if_statement"],
+    },
+};
