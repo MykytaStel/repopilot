@@ -18,22 +18,27 @@ design (with reason).
       (`LanguageFrontend.knowledge_ids`) instead of duplicating extensions.
       PR-9 reconciles over-declared levels (java/kotlin/csharp/c/cpp claim
       `rule-aware` today; the guard-test ledger documents the gap).
-- [ ] `src/knowledge/language.rs:68` — `language_kind_from_id`: hardcoded
-      id→`LanguageKind` map, duplicated against the pack. → PR-2.
-- [ ] `src/audits/context/model/kinds.rs:2` — `LanguageKind` enum (43
+- [x] `src/knowledge/language.rs` — `language_kind_from_id`: ids claimed by
+      a frontend now take their kind from the registry; the residual match
+      covers only languages without a frontend and shrinks as frontends are
+      added. Pinned by `frontend_claimed_ids_keep_their_kinds`. (PR-2)
+- [-] `src/audits/context/model/kinds.rs:2` — `LanguageKind` enum (43
       variants). Stays; the registry routes every variant
-      (`frontend_for_kind` is exhaustive). → PR-2 consumers.
+      (`frontend_for_kind` is exhaustive).
 
 ## Parse layer
 
-- [ ] `src/analysis/parse.rs:31` — `ParseLanguage` enum (9 grammars).
-- [ ] `src/analysis/parse.rs:46` — `ParseLanguage::from_label`: label-string
-      → grammar map. Registry `GrammarBinding`s mirror it 1:1 today (guard
-      test enforces lockstep). → PR-2 replaces with registry lookup.
-- [ ] `src/analysis/parse.rs:62` — thread-local parser table. Stays, keyed
-      by `ParseLanguage`; only the label dispatch moves.
-- [ ] `src/scan/parsed_cache.rs`, `src/analysis/artifact.rs` — parse-once
-      caches keyed by label strings. → PR-2.
+- [-] `src/analysis/parse.rs:31` — `ParseLanguage` enum (9 grammars). Stays
+      as the grammar identity; frontends bind labels to it.
+- [x] `src/analysis/parse.rs` — `ParseLanguage::from_label` delegates to
+      `languages::grammar_for_label`; the registry bindings are the only
+      label→grammar table, pinned by `grammar_label_vocabulary_is_pinned`.
+      (PR-2)
+- [-] `src/analysis/parse.rs:62` — thread-local parser table. Stays, keyed
+      by `ParseLanguage`; only the label dispatch moved.
+- [-] `src/scan/parsed_cache.rs`, `src/analysis/artifact.rs` — parse-once
+      caches treat the label as an opaque cache key and route parsing via
+      `from_label`; no dispatch of their own (verified in PR-2).
 
 ## Imports and graph
 
@@ -61,6 +66,10 @@ design (with reason).
       `exec.Command`, JDBC-style `.execute`). → PR-4.
 - [ ] `src/review/signals/taint/sanitizers.rs` — parameterized-query and
       escaping tables. → PR-4.
+- [ ] `src/review/signals/taint/mod.rs:50` — `TaintLang::from_label`: a
+      second, private label→language enum gating which files get taint
+      analysis (found during PR-2). → PR-4; frontends key the tables and the
+      enum dissolves.
 - [ ] `src/review/signals/taint/ast.rs`, `flow.rs` — engine; must lose any
       residual label checks. → PR-4.
 - [ ] `src/review/signals/behavioral/keywords.rs:21` — auth keyword

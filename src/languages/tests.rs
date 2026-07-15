@@ -40,21 +40,23 @@ fn grammar_list_is_exhaustive(grammar: ParseLanguage) {
     }
 }
 
-/// The full label vocabulary `ParseLanguage::from_label` accepts today.
-/// Bindings must cover exactly this set until parse dispatch moves into the
-/// registry; drift in either direction fails below.
-const ALL_PARSE_LABELS: [&str; 11] = [
-    "Rust",
-    "TypeScript",
-    "TypeScript React",
-    "JavaScript",
-    "JavaScript React",
-    "Python",
-    "Go",
-    "Java",
-    "CSharp",
-    "C#",
-    "Kotlin",
+/// The pinned label→grammar vocabulary. The registry is the only
+/// label→grammar table (`ParseLanguage::from_label` delegates to it), so
+/// this pin is what keeps an accidental binding edit — a dropped label or a
+/// dialect pointed at the wrong grammar — from silently changing parse
+/// behavior. Extend it deliberately when a frontend gains a label.
+const PINNED_LABEL_GRAMMARS: [(&str, ParseLanguage); 11] = [
+    ("Rust", ParseLanguage::Rust),
+    ("TypeScript", ParseLanguage::TypeScript),
+    ("TypeScript React", ParseLanguage::Tsx),
+    ("JavaScript", ParseLanguage::JavaScript),
+    ("JavaScript React", ParseLanguage::JavaScript),
+    ("Python", ParseLanguage::Python),
+    ("Go", ParseLanguage::Go),
+    ("Java", ParseLanguage::Java),
+    ("CSharp", ParseLanguage::CSharp),
+    ("C#", ParseLanguage::CSharp),
+    ("Kotlin", ParseLanguage::Kotlin),
 ];
 
 #[test]
@@ -84,25 +86,26 @@ fn every_grammar_is_claimed_by_exactly_one_frontend() {
 }
 
 #[test]
-fn grammar_bindings_stay_in_lockstep_with_parse_dispatch() {
-    let mut bound_labels = BTreeSet::new();
-    for frontend in all_frontends() {
-        for binding in frontend.grammars {
-            assert_eq!(
-                ParseLanguage::from_label(binding.label),
-                Some(binding.grammar),
-                "frontend '{}' binds label '{}' differently than ParseLanguage::from_label",
-                frontend.id,
-                binding.label
-            );
-            bound_labels.insert(binding.label);
-        }
+fn grammar_label_vocabulary_is_pinned() {
+    for (label, grammar) in PINNED_LABEL_GRAMMARS {
+        assert_eq!(
+            grammar_for_label(label),
+            Some(grammar),
+            "label '{label}' no longer resolves to the pinned grammar"
+        );
     }
 
-    let expected: BTreeSet<&str> = ALL_PARSE_LABELS.into_iter().collect();
+    let bound_labels: BTreeSet<&str> = all_frontends()
+        .iter()
+        .flat_map(|frontend| frontend.grammars.iter().map(|binding| binding.label))
+        .collect();
+    let pinned: BTreeSet<&str> = PINNED_LABEL_GRAMMARS
+        .into_iter()
+        .map(|(label, _)| label)
+        .collect();
     assert_eq!(
-        bound_labels, expected,
-        "registry grammar labels and ParseLanguage::from_label drifted apart"
+        bound_labels, pinned,
+        "registry grammar labels drifted from the pinned vocabulary"
     );
 }
 
