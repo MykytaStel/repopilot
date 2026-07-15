@@ -2,7 +2,9 @@
 //! share a grammar shape, so one table covers both frontends. Source idioms
 //! target Express/Koa; sinks mirror the behavioral "added X" detectors.
 
-use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
+use crate::review::signals::tables::{
+    AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
+};
 use crate::review::signals::taint::sinks::{Sink, SinkKind, callee_text, receiver_method};
 use crate::review::signals::taint::tables::TaintTables;
 use tree_sitter::Node;
@@ -143,4 +145,21 @@ pub(super) static JS_FAMILY_REVIEW: ReviewTables = ReviewTables {
         ],
         if_kinds: &["if_statement"],
     },
+    removed: Some(&JS_FAMILY_REMOVED),
+};
+
+pub(super) static JS_FAMILY_REMOVED: RemovedTables = RemovedTables {
+    extensions: &["js", "mjs", "cjs", "ts", "mts", "cts", "tsx", "jsx"],
+    is_test_case: |node, content| {
+        node.kind() == "call_expression"
+            && node
+                .child_by_field_name("function")
+                .and_then(|callee| callee.utf8_text(content.as_bytes()).ok())
+                .is_some_and(|callee| {
+                    let callee = callee.trim();
+                    callee == "test" || callee == "it" || callee == "describe"
+                })
+    },
+    is_error_handling: |node, _| node.kind() == "try_statement",
+    auth_call_kinds: &["call_expression"],
 };

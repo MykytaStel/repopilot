@@ -1,7 +1,9 @@
 //! Review-signal tables for Kotlin: boundary node kinds and algorithmic
 //! node-kind sets.
 
-use crate::review::signals::tables::{AlgorithmicKinds, BoundaryKinds, ReviewTables};
+use crate::review::signals::tables::{
+    AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
+};
 
 pub(super) static KOTLIN_REVIEW: ReviewTables = ReviewTables {
     boundary: Some(&BoundaryKinds {
@@ -22,4 +24,17 @@ pub(super) static KOTLIN_REVIEW: ReviewTables = ReviewTables {
         ],
         if_kinds: &["if_expression"],
     },
+    removed: Some(&KOTLIN_REMOVED),
+};
+
+pub(super) static KOTLIN_REMOVED: RemovedTables = RemovedTables {
+    extensions: &["kt", "kts"],
+    is_test_case: |node, content| {
+        (node.kind() == "method_declaration" || node.kind() == "function_declaration")
+            && node
+                .utf8_text(content.as_bytes())
+                .is_ok_and(|text| text.contains("@Test"))
+    },
+    is_error_handling: |node, _| node.kind() == "try_expression",
+    auth_call_kinds: &["method_invocation", "call_expression"],
 };

@@ -250,6 +250,58 @@ fn review_table_coverage_is_pinned() {
     }
 }
 
+/// Pins the removed-behavior recognizer coverage: which frontends carry one
+/// and the exact extension vocabulary, and that no extension is claimed
+/// twice. `cts` is knowingly unreachable (detection never labels it) —
+/// preserved verbatim from the pre-registry dispatch, not an endorsement.
+#[test]
+fn removed_recognizer_extensions_are_pinned() {
+    let expected: BTreeMap<&str, usize> = [
+        ("js", 2),
+        ("mjs", 2),
+        ("cjs", 2),
+        ("ts", 2),
+        ("mts", 2),
+        ("cts", 2),
+        ("tsx", 2),
+        ("jsx", 2),
+        ("py", 1),
+        ("go", 1),
+        ("rs", 1),
+        ("java", 1),
+        ("kt", 1),
+        ("kts", 1),
+        ("cs", 1),
+    ]
+    .into_iter()
+    .collect();
+
+    let mut claims: BTreeMap<&str, usize> = BTreeMap::new();
+    for frontend in all_frontends() {
+        let Some(removed) = frontend.review.and_then(|review| review.removed) else {
+            continue;
+        };
+        for ext in removed.extensions {
+            *claims.entry(ext).or_default() += 1;
+        }
+    }
+
+    // The JS family table is shared by the typescript and javascript
+    // frontends, so its extensions are claimed twice — by the same static.
+    // Everything else must be claimed exactly once.
+    assert_eq!(
+        claims, expected,
+        "removed-recognizer extension vocabulary drifted"
+    );
+
+    for ext in expected.keys() {
+        assert!(
+            crate::languages::removed_for_extension(ext).is_some(),
+            "extension '{ext}' lost its removed-behavior recognizer"
+        );
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —

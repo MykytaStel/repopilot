@@ -71,15 +71,21 @@ design (with reason).
       `taint/sinks.rs` (model) and `taint/ast.rs`. Equivalence evidence: the
       taint test suite unchanged and green, plus the wagtail agent demo
       firing identical signals. (PR-4a)
-- [ ] `src/review/signals/behavioral/keywords.rs:21` — auth keyword
-      vocabulary (strong/exact tokens, mutation verbs). Mostly
-      language-neutral English identifiers; stays shared, but per-frontend
-      *additions* (e.g. Spring `@PreAuthorize`) become table entries. → PR-4.
-- [ ] `src/review/signals/behavioral/removed_ast.rs` — per-language AST
-      queries counting auth checks / try blocks / test cases. → PR-4.
-- [ ] `src/review/signals/behavioral/removed.rs:154` —
-      `supports_coarse_removed_detection(ext)`: extension allowlist for the
-      text fallback. → PR-4.
+- [-] `src/review/signals/behavioral/keywords.rs` — auth keyword vocabulary
+      (strong/exact tokens, mutation verbs). Language-neutral English
+      identifiers; stays shared by design. Per-frontend *additions* (e.g.
+      Spring `@PreAuthorize`) arrive with the Java promotion (PR-8).
+- [x] `src/review/signals/behavioral/removed_ast.rs` — the walks consult the
+      frontend's `RemovedTables` (test-case / error-handling recognizers,
+      auth call kinds), dispatched by extension exactly as before; a file no
+      frontend claims counts zero everywhere, matching the old fall-through.
+      Extension vocabulary pinned (uniqueness + the knowingly-dead `cts`) by
+      `removed_recognizer_extensions_are_pinned`. (PR-4c)
+- [-] `src/review/signals/behavioral/removed.rs` —
+      `supports_coarse_removed_detection(ext)`: the coarse text fallback
+      covers languages that deliberately have *no* frontend (shell, C/C++,
+      PHP, Ruby, Swift). It is fallback policy, not a frontend capability;
+      revisit only when those languages gain frontends.
 - [x] `src/review/signals/classify.rs` — `match_node_for_boundary` takes its
       node kinds from the frontend's `BoundaryKinds` table; keyword
       vocabularies stay shared in the engine. C#'s boundary is deliberately

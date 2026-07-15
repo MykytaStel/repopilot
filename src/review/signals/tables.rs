@@ -31,6 +31,22 @@ pub struct AlgorithmicKinds {
     pub(crate) if_kinds: &'static [&'static str],
 }
 
+/// Recognizers for the "removed behavioral signal" detectors (deleted tests,
+/// removed error handling, removed auth checks).
+pub struct RemovedTables {
+    /// Extensions this table answers for. This dispatch predates label-based
+    /// detection and is kept verbatim — including `cts`, which detection
+    /// never labels today, preserved as-is rather than silently dropped.
+    pub(crate) extensions: &'static [&'static str],
+    /// Whether a node declares one test case (`it(...)`, `def test_…`, …).
+    pub(crate) is_test_case: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
+    /// Whether a node is an error-handling construct (try/catch,
+    /// `if err != nil`, `match … Err(…)`).
+    pub(crate) is_error_handling: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
+    /// Call node kinds inspected for auth-check callees.
+    pub(crate) auth_call_kinds: &'static [&'static str],
+}
+
 /// The review-signal tables a frontend registers.
 pub struct ReviewTables {
     /// Boundary node kinds; `None` when the language's AST boundary
@@ -38,4 +54,6 @@ pub struct ReviewTables {
     /// old dispatch, and enabling it is a behavior change for a later PR).
     pub(crate) boundary: Option<&'static BoundaryKinds>,
     pub(crate) algorithmic: &'static AlgorithmicKinds,
+    /// Removed-behavior recognizers; extension-dispatched (legacy).
+    pub(crate) removed: Option<&'static RemovedTables>,
 }
