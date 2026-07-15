@@ -20,7 +20,9 @@
 //! not become one.
 
 pub mod capability;
+pub(crate) mod conventions;
 pub(crate) mod import_support;
+mod reference;
 
 mod csharp;
 mod generic;
@@ -33,6 +35,8 @@ mod rust;
 
 #[cfg(test)]
 mod tests;
+
+pub use reference::render_language_support_markdown;
 
 use crate::analysis::parse::{ParseLanguage, ParsedFile};
 use crate::audits::context::LanguageKind;
@@ -102,6 +106,8 @@ pub struct LanguageFrontend {
     /// dedicated `rust_panic_risk` audit is separate and not counted here.
     pub(crate) risk:
         Option<&'static crate::audits::code_quality::language_risk::tables::RiskTables>,
+    /// Path and naming conventions (test files, test support, entrypoints).
+    pub(crate) conventions: &'static conventions::PathConventions,
 }
 
 /// Every registered frontend, including the generic fallback (last).

@@ -1,104 +1,57 @@
 # Language and Framework Support
 
-RepoPilot combines generic repository heuristics with language and framework-aware
-rules.
+<!-- @generated from the language frontend registry — do not edit by hand. -->
+<!-- Regenerate with `REPOPILOT_BLESS=1 cargo test --test language_support_doc`. -->
 
-## Support tiers
+RepoPilot combines generic repository heuristics with language-aware
+analysis owned by *language frontends* (`src/languages/`). The capability
+columns below are derived from what each frontend actually wires — a column
+cannot be claimed without the code behind it. `Declared` is the support
+level the bundled knowledge pack asserts; where it exceeds the wired
+capabilities, the gap is tracked by the registry's support-honesty guard
+test rather than hidden.
 
-### Tier 1 — rule-aware
+## Frontend capabilities
 
-These languages and ecosystems have deeper rule coverage:
+| Language | Grammar | Imports | Review signals | Taint flows | Runtime risk | Conventions | Declared |
+|---|---|---|---|---|---|---|---|
+| Rust | ✓ | ✓ | ✓ | — | — | ✓ | rule-aware |
+| TypeScript | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
+| JavaScript | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
+| Python | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
+| Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
+| Java | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
+| C# | ✓ | — | ✓ | — | ✓ | ✓ | rule-aware |
+| Kotlin | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
 
-- Rust
-- JavaScript
-- TypeScript
-- React
-- React Native
-- Expo
-- Python
-- Go
+Notes:
 
-### Tier 2 — context-aware / partial
+- **Rust runtime risk** is covered by the dedicated `rust.panic-risk` rule
+family rather than the shared runtime-risk audit, so its column reads “—”
+here; how it counts toward the capability model is tracked in the
+support-honesty ledger.
+- **C# review signals** exclude AST boundary classification: the pre-registry
+dispatch never matched the label detection emits, and enabling it is a
+deliberate behavior change, not a docs update.
+- JavaScript and TypeScript (with their React dialects) share one frontend
+family: the same grammar shapes, import extractor, and signal tables.
 
-These languages may have detection, import extraction, long-function checks, or
-runtime-risk checks, but not full framework-specific coverage:
+## Detected languages without a frontend
 
-- Java
-- Kotlin
-- C#
-- C
-- C++
+Files in these languages still contribute to repository size, scan
+scope, file roles (via the shared context classifier), and generic findings;
+they have no language-specific extractors.
 
-### Tier 3 — detect-only / generic
-
-Other files can still contribute to repository size, scan scope, and generic
-findings when supported by the scanner.
-
-## Current rule families
-
-### Architecture
-
-- large files
-- too many modules per directory
-- deep nesting
-- deep relative imports
-- risky barrel files
-- excessive fan-out
-- high-instability hubs
-- circular dependencies
-
-### Code quality
-
-- long functions
-- complexity density
-- TODO/FIXME/HACK markers
-- language runtime-risk patterns
-
-### Security
-
-- hardcoded secret candidates
-- private key candidates
-- committed `.env` files
-
-### Testing
-
-- missing test folders
-- source files without test counterparts
-
-### Framework
-
-- React Native architecture profile
-- Hermes / New Architecture mismatch
-- React Native deprecated APIs
-- React Native dependency health
-- React class components
-- PropTypes in typed React projects
-- JavaScript `var`
-- debug `console.log`
-
-## Framework detection
-
-RepoPilot detects framework signals from project files such as:
-
-- `package.json`
-- React Native native configuration files
-- Expo config
-- `requirements.txt`
-- `pyproject.toml`
-- `go.mod`
-
-Detected frameworks are used to reduce irrelevant findings. For example, React web
-rules should not run on every React Native project just because React is installed.
+- **Context-aware (shared classifier):** Swift, PHP, Ruby, Dart, Scala, Shell, PowerShell, SQL, HTML, CSS, SCSS, Elixir, Erlang, Haskell, OCaml, F#, Terraform, Dockerfile, Nix.
+- **Import-aware:** C/C++ Header.
+- **Detect-only:** R, Julia, Lua, Perl, Zig, Solidity, Objective-C, YAML, TOML, JSON, Markdown.
+- **Declared rule-aware without wiring:** C, C++.
 
 ## Rule philosophy
 
-RepoPilot should not treat every paradigm as a smell.
-
-Functional, object-oriented, procedural, and declarative code can all be valid.
-Rules should use context and confidence instead of assuming one style is always
-better.
-
-Preferred rule design:
+RepoPilot should not treat every paradigm as a smell. Functional,
+object-oriented, procedural, and declarative code can all be valid; rules
+use context and confidence instead of assuming one style is always better:
 
 ```text
 evidence + context + severity + confidence + recommendation
@@ -106,13 +59,13 @@ evidence + context + severity + confidence + recommendation
 
 ## Limitations
 
-RepoPilot is not a full compiler or type checker. Some rules are text-based or
-heuristic. Findings should be treated as review signals, not absolute truth.
+RepoPilot is not a compiler or type checker. Some rules are text-based or
+heuristic; findings are review signals, not absolute truth. Use
+language-specific tools alongside it: `cargo clippy`, `tsc`/ESLint, Ruff and
+Pyright, `go vet`, or your build's own checks.
 
-Use language-specific tools alongside RepoPilot:
+## Adding a language
 
-- Rust: `cargo clippy`, `cargo test`
-- TypeScript: `tsc`, ESLint
-- Python: Ruff, Pyright, pytest
-- Go: `go test`, `go vet`
-- Java/Kotlin: Gradle/Maven checks
+The whole point of the frontend contract is that support is added by
+writing tables, not by editing engines. The checklist lives in
+[Add a language](engineering/add-a-language.md).

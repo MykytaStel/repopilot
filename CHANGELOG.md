@@ -8,6 +8,29 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Generated language support matrix.** `docs/language-support.md` is now
+  rendered from the language frontend registry with a drift test
+  (`REPOPILOT_BLESS=1 cargo test --test language_support_doc`): capability
+  columns are derived from what each frontend actually wires, with the
+  knowledge pack's declared levels shown alongside and known gaps documented
+  instead of hidden.
+- **"Add a language" contributor guide and scaffolder.**
+  `docs/engineering/add-a-language.md` walks the frontend contract end to
+  end (profile → descriptor → grammar → tables → fixtures → zoo acceptance →
+  generated docs), and `scripts/new-language.py` stamps a starter module
+  whose TODOs mirror the checklist.
+
+### Changed
+
+- **Path and naming conventions live on the language frontends.** Test-file
+  naming, the `test_` prefix opt-out (Rust), test-support recognizers (with
+  their role-evidence reasons), and app-entrypoint content probes moved to
+  `frontend.conventions`; the context classifier and role classification
+  consult them, while cross-language path rules stay shared. Behavior-frozen
+  refactor: zoo snapshots unchanged across seven repos.
+
+### Added
+
 - **Language frontend registry skeleton (`src/languages/`).** First brick of
   the 0.21 language contract: static per-language descriptors unifying the
   knowledge-pack profiles, context-classifier kinds, and tree-sitter grammar

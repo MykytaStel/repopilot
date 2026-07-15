@@ -120,28 +120,36 @@ design (with reason).
 
 ## Conventions and context
 
-- [ ] `src/scan/path_classification.rs:34` — test-like filename conventions
-      (`test_*`, `*_test`, `tests.rs`, Rust-specific carve-outs from the
-      0.18 low-signal fix). → PR-6 (`frontend().conventions`).
-- [ ] Test-support allowlist (`testutil.rs`, `test_utils.rs`, …) and
-      `FileRole::TestSupport` wiring from the 0.19 cycle — role logic stays
-      in the context classifier; the *name lists* become convention data. →
-      PR-6.
+- [-] `src/scan/path_classification.rs` — the low-signal audit-path
+      heuristic keeps its own (deliberately different) vocabulary from the
+      role classifier's `is_test_file`; unifying them is a behavior change,
+      tracked as a known residual, not a refactor default.
+- [x] Test-file naming, the `test_` prefix opt-out, test-support
+      recognizers (Rust allowlist + managed source-set shapes, evidence
+      reasons preserved), and entrypoint content probes live on
+      `frontend.conventions` (`languages/conventions.rs`); the classifier
+      helpers and role classification consult them. Shared path components
+      (`tests/`, `__tests__/`, `tests_` prefix) and the entrypoint
+      *filename* list stay cross-language by design. Pinned by
+      `path_conventions_are_pinned`. (PR-6)
 - [-] `src/audits/context/classify/` — role/paradigm/runtime classification
       consumes shared context signals; stays the owner of cross-language
       context. Frontend conventions feed it; it does not move. (Declared
       `context-aware` pack levels are justified here, which is why the PR-1
       honesty ledger only covers `rule-aware` claims.)
 - [ ] `src/audits/framework/` + manifest readers (`package.json`,
-      `pyproject.toml`, `go.mod`, …) — framework probes per ecosystem. →
-      PR-6 (probe registration), detection logic unchanged.
+      `pyproject.toml`, `go.mod`, …) — framework probes per ecosystem.
+      Deferred: probe registration moves when a frontend actually needs to
+      contribute one (Java/Spring in the promotion PR); detection logic
+      unchanged either way.
 
 ## Output and docs
 
-- [ ] `docs/language-support.md` — hand-maintained tier table, already
-      drifted from the pack (pack says java/kotlin/csharp/c/cpp are
-      rule-aware; doc says Tier 2; the wiring says context at best). → PR-7
-      generates it from the registry with a BLESS drift test.
+- [x] `docs/language-support.md` — generated from the registry
+      (`languages/reference.rs`, BLESS drift test
+      `tests/language_support_doc.rs`): capability columns derived from
+      wiring, declared pack levels shown alongside, honest notes for the
+      Rust panic-audit accounting and the unwired C# boundary. (PR-7)
 - [-] `src/output/ai_context/repo_facts.rs`, report renderers — print
       labels/tiers; consume registry values after PR-7, no language logic of
       their own.

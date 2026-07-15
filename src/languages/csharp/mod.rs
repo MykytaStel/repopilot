@@ -1,5 +1,6 @@
 mod risk;
 
+use super::conventions::{MANAGED_TEST_SUPPORT, PathConventions};
 use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
@@ -25,6 +26,7 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
     imports: None,
     taint: None,
     review: Some(&CSHARP_REVIEW),
+    conventions: &CSHARP_CONVENTIONS,
     risk: Some(&risk::CSHARP_RISK),
 };
 
@@ -71,4 +73,11 @@ static CSHARP_REMOVED: RemovedTables = RemovedTables {
     },
     is_error_handling: |node, _| node.kind() == "try_statement",
     auth_call_kinds: &["invocation_expression"],
+};
+
+static CSHARP_CONVENTIONS: PathConventions = PathConventions {
+    test_file_name: |name| name.ends_with("test.cs") || name.ends_with("tests.cs"),
+    test_prefix_marks_test: true,
+    test_support: Some(&MANAGED_TEST_SUPPORT),
+    entrypoint_content: None,
 };

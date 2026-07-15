@@ -1,3 +1,4 @@
+use super::conventions::PathConventions;
 use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
@@ -26,5 +27,13 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
     imports: Some(&GO_IMPORTS),
     taint: Some(&review::GO_TAINT),
     review: Some(&review::GO_REVIEW),
+    conventions: &GO_CONVENTIONS,
     risk: Some(&risk::GO_RISK),
+};
+
+static GO_CONVENTIONS: PathConventions = PathConventions {
+    test_file_name: |name| name.ends_with("_test.go"),
+    test_prefix_marks_test: true,
+    test_support: None,
+    entrypoint_content: Some(|content| content.contains("func main(")),
 };

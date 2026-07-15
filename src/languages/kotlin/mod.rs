@@ -1,3 +1,4 @@
+use super::conventions::{MANAGED_TEST_SUPPORT, PathConventions};
 use super::{GrammarBinding, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
@@ -26,5 +27,13 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
     imports: Some(&KOTLIN_IMPORTS),
     taint: None,
     review: Some(&review::KOTLIN_REVIEW),
+    conventions: &KOTLIN_CONVENTIONS,
     risk: Some(&risk::KOTLIN_RISK),
+};
+
+static KOTLIN_CONVENTIONS: PathConventions = PathConventions {
+    test_file_name: |name| name.ends_with("test.kt") || name.ends_with("tests.kt"),
+    test_prefix_marks_test: true,
+    test_support: Some(&MANAGED_TEST_SUPPORT),
+    entrypoint_content: None,
 };
