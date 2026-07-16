@@ -20,7 +20,7 @@ test rather than hidden.
 | JavaScript | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Python | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
-| Java | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
+| Java | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | C# | ✓ | — | ✓ | — | ✓ | ✓ | rule-aware |
 | Kotlin | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
 
@@ -42,10 +42,9 @@ Files in these languages still contribute to repository size, scan
 scope, file roles (via the shared context classifier), and generic findings;
 they have no language-specific extractors.
 
-- **Context-aware (shared classifier):** Swift, PHP, Ruby, Dart, Scala, Shell, PowerShell, SQL, HTML, CSS, SCSS, Elixir, Erlang, Haskell, OCaml, F#, Terraform, Dockerfile, Nix.
+- **Context-aware (shared classifier):** C, C++, Swift, PHP, Ruby, Dart, Scala, Shell, PowerShell, SQL, HTML, CSS, SCSS, Elixir, Erlang, Haskell, OCaml, F#, Terraform, Dockerfile, Nix.
 - **Import-aware:** C/C++ Header.
 - **Detect-only:** R, Julia, Lua, Perl, Zig, Solidity, Objective-C, YAML, TOML, JSON, Markdown.
-- **Declared rule-aware without wiring:** C, C++.
 
 ## Rule philosophy
 

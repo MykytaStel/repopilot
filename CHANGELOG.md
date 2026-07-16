@@ -8,6 +8,28 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Java taint-lite.** The Java frontend now carries taint tables
+  (`HttpServletRequest` sources; JDBC `execute*`, `Runtime.exec`, and
+  `Files.write` sinks with a Java-specific `method_invocation` classifier),
+  so a request parameter reaching a shell or SQL sink is flagged like it is
+  in the other languages. Conservative and high-specificity: the pinned
+  Spring PetClinic checkout stays at zero findings. A second reproducible
+  demo (`scripts/demo-java-agent-edit.sh`, `docs/demos/04-java-agent-review.gif`)
+  shows the flow being caught.
+
+### Changed
+
+- **Support-honesty pass.** `c` and `cpp` — declared `rule-aware` in the
+  knowledge pack but with no tree-sitter grammar or frontend — are corrected
+  to `context-aware`. With Java's taint wiring completing its contract, the
+  computed-support ledger now names exactly two languages whose declared
+  level still exceeds the unified frontend wiring, each for a documented
+  reason (Rust's runtime-risk lives in the separate panic-risk audit; C#
+  lacks import/taint tables). The generated support matrix reflects all of
+  this.
+
+### Added
+
 - **Generated language support matrix.** `docs/language-support.md` is now
   rendered from the language frontend registry with a drift test
   (`REPOPILOT_BLESS=1 cargo test --test language_support_doc`): capability
