@@ -3,7 +3,7 @@ use super::frameworks::{
 };
 use super::helpers::{
     is_app_entrypoint, is_build_tooling_path, is_config_file, is_generated_file, is_js_or_ts,
-    is_managed_test_support_path, is_test_support_file, path_contains_component,
+    path_contains_component,
 };
 use super::signals::ContextSignals;
 use crate::audits::context::model::{
@@ -111,27 +111,16 @@ fn classify_static_roles(
         }
     }
 
-    if language == LanguageKind::Rust && is_test_support_file(path) {
-        push_role(
-            roles,
-            evidence,
-            FileRole::TestSupport,
-            RoleEvidenceSource::Path,
-            "recognized Rust test-support helper filename",
-        );
-    }
-
-    if matches!(
-        language,
-        LanguageKind::Java | LanguageKind::Kotlin | LanguageKind::CSharp
-    ) && is_managed_test_support_path(path)
+    if let Some(support) = crate::languages::conventions::conventions_for_kind(language)
+        .test_support
+        .filter(|support| (support.matches)(path))
     {
         push_role(
             roles,
             evidence,
             FileRole::TestSupport,
             RoleEvidenceSource::Path,
-            "recognized managed-language test-support source-set path",
+            support.reason,
         );
     }
 

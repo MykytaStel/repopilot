@@ -52,7 +52,7 @@ pub fn is_test_file(path: &Path) -> bool {
         .map(|name| name.to_lowercase())
         .unwrap_or_default();
 
-    path_text.starts_with("tests/")
+    if path_text.starts_with("tests/")
         || path_text.starts_with("tests\\")
         || path_text.contains("/tests/")
         || path_text.contains("\\tests\\")
@@ -62,35 +62,21 @@ pub fn is_test_file(path: &Path) -> bool {
         || path_text.contains("\\fixtures\\")
         || path_text.contains("/__tests__/")
         || path_text.contains("\\__tests__\\")
-        || file_name.ends_with(".test.ts")
-        || file_name.ends_with(".test.tsx")
-        || file_name.ends_with(".test.js")
-        || file_name.ends_with(".test.jsx")
-        || file_name.ends_with(".spec.ts")
-        || file_name.ends_with(".spec.tsx")
-        || file_name.ends_with(".spec.js")
-        || file_name.ends_with(".spec.jsx")
-        || file_name.ends_with("_test.go")
-        || file_name.ends_with("_test.py")
-        || file_name.ends_with("test.java")
-        || file_name.ends_with("tests.java")
-        || file_name.ends_with("test.kt")
-        || file_name.ends_with("tests.kt")
-        || file_name.ends_with("test.cs")
-        || file_name.ends_with("tests.cs")
-        // The `test_` prefix is a Python / JS test convention. It is NOT a Rust
-        // one (Rust uses `tests/`, `#[cfg(test)]`, or plural `_tests.rs`), where
-        // it instead collides with production modules like `test_edges.rs`.
-        || (file_name.starts_with("test_") && !file_name.ends_with(".rs"))
-        // Rust test modules carry no path component (a sibling `tests.rs` /
-        // `tests_render.rs` / `*_tests.rs` pulled in via `#[cfg(test)] mod ...;`).
-        // Only the *plural* forms are used for Rust test files; the singular
-        // `*_test.rs` collides with production names (e.g. `source_without_test.rs`),
-        // so it is deliberately omitted — real `*_test.rs` integration tests live
-        // under `tests/` and are already matched by the path checks above.
-        || file_name == "tests.rs"
-        || file_name.ends_with("_tests.rs")
+        // Sibling test modules pulled in without a path component
+        // (`tests_render.rs` and friends) — a cross-language prefix form.
         || file_name.starts_with("tests_")
+    {
+        return true;
+    }
+
+    // Language-specific file naming (`.spec.ts`, `_test.go`, plural
+    // `_tests.rs`, …) comes from the frontend's conventions, as does whether
+    // the `test_` prefix convention applies — it is NOT a Rust one (Rust
+    // uses `tests/`, `#[cfg(test)]`, or plural `_tests.rs`), where it
+    // collides with production modules like `test_edges.rs`.
+    let conventions = crate::languages::conventions::conventions_for_path(path);
+    (conventions.test_file_name)(&file_name)
+        || (file_name.starts_with("test_") && conventions.test_prefix_marks_test)
 }
 
 /// True for Rust *test-support* modules — `testutil.rs`, `test_utils.rs`,
@@ -102,41 +88,12 @@ pub fn is_test_file(path: &Path) -> bool {
 /// treat it specially; the file keeps its ordinary production role for every
 /// other rule. An explicit allow list keeps the collision-prone `test_*` prefix
 /// (the production `test_edges.rs` / `source_without_test.rs`) out.
+#[cfg(test)] // production callers go through the frontend conventions
 pub fn is_test_support_file(path: &Path) -> bool {
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .map(|name| name.to_lowercase())
-        .unwrap_or_default();
-
-    matches!(
-        file_name.as_str(),
-        "testutil.rs"
-            | "testutils.rs"
-            | "test_util.rs"
-            | "test_utils.rs"
-            | "test_support.rs"
-            | "test_helper.rs"
-            | "test_helpers.rs"
-    )
-}
-
-/// True for a managed-language *test-support module directory* — a source tree
-/// dedicated to test doubles and helpers shared across modules. This is limited
-/// to Gradle/source-set shapes that indicate a whole helper module/source set,
-/// such as `core/testing/src/main/...`, `core/testsupport/src/main/...`, or
-/// `module/src/testFixtures/...`; a package namespace component like
-/// `app/src/main/kotlin/com/example/testing/...` is ordinary production code.
-pub fn is_managed_test_support_path(path: &Path) -> bool {
-    let components = normalized_components(path);
-
-    components.windows(3).any(|window| {
-        matches!(window[0].as_str(), "testing" | "testsupport")
-            && window[1] == "src"
-            && window[2] == "main"
-    }) || components
-        .windows(2)
-        .any(|window| window[0] == "src" && window[1] == "testfixtures")
+    crate::languages::frontend_for_kind(LanguageKind::Rust)
+        .conventions
+        .test_support
+        .is_some_and(|support| (support.matches)(path))
 }
 
 /// True for *build-tooling* sources — Gradle convention plugins and build logic
@@ -144,13 +101,6 @@ pub fn is_managed_test_support_path(path: &Path) -> bool {
 /// in the application, so a `throw`/`TODO()` there fails the build by design.
 pub fn is_build_tooling_path(path: &Path) -> bool {
     path_contains_component(path, &["build-logic", "buildsrc"])
-}
-
-fn normalized_components(path: &Path) -> Vec<String> {
-    path.to_string_lossy()
-        .split(['/', '\\'])
-        .map(normalize)
-        .collect()
 }
 
 pub fn is_config_file(path: &Path) -> bool {
@@ -246,9 +196,9 @@ pub fn is_app_entrypoint(path: &Path, content: &str, language: LanguageKind) -> 
             | "main.js"
             | "main.tsx"
             | "main.jsx"
-    ) || (language == LanguageKind::Python && content.contains("if __name__ == \"__main__\""))
-        || (language == LanguageKind::Go && content.contains("func main("))
-        || (language == LanguageKind::Rust && content.contains("fn main("))
+    ) || crate::languages::conventions::conventions_for_kind(language)
+        .entrypoint_content
+        .is_some_and(|probe| probe(content))
 }
 
 #[cfg(test)]

@@ -329,6 +329,42 @@ fn runtime_risk_participation_is_pinned() {
     }
 }
 
+/// Pins the convention surface: the Rust `test_` prefix opt-out, which
+/// frontends carry a test-support recognizer (and its evidence reason), and
+/// which carry an entrypoint content probe.
+#[test]
+fn path_conventions_are_pinned() {
+    use super::conventions::all_conventions;
+
+    for (id, conventions) in all_conventions() {
+        assert_eq!(
+            conventions.test_prefix_marks_test,
+            id != "rust",
+            "test_ prefix convention changed for frontend '{id}'"
+        );
+
+        let expected_support_reason = match id {
+            "rust" => Some("recognized Rust test-support helper filename"),
+            "java" | "kotlin" | "csharp" => {
+                Some("recognized managed-language test-support source-set path")
+            }
+            _ => None,
+        };
+        assert_eq!(
+            conventions.test_support.map(|support| support.reason),
+            expected_support_reason,
+            "test-support convention changed for frontend '{id}'"
+        );
+
+        let expects_entry_probe = matches!(id, "rust" | "python" | "go");
+        assert_eq!(
+            conventions.entrypoint_content.is_some(),
+            expects_entry_probe,
+            "entrypoint content probe changed for frontend '{id}'"
+        );
+    }
+}
+
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose frontends do not yet justify it. Migration PRs shrink this set by
 /// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —
