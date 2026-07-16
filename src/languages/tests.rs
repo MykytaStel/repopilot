@@ -193,7 +193,7 @@ fn import_extractor_coverage_is_pinned() {
 /// language from taint analysis.
 #[test]
 fn taint_participation_is_pinned() {
-    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go"]
+    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go", "java"]
         .into_iter()
         .collect();
     for frontend in all_frontends() {
@@ -366,26 +366,24 @@ fn path_conventions_are_pinned() {
 }
 
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
-/// whose frontends do not yet justify it. Migration PRs shrink this set by
-/// wiring capabilities (or PR-9 downgrades over-claimed pack declarations —
-/// `c`/`cpp` have no grammar at all and are the first candidates). It must
-/// never grow.
+/// whose unified frontend wiring does not fully justify it. It must never
+/// grow. After the honesty pass it names exactly two, each for a documented
+/// reason:
+///
+/// - **rust** — its runtime-risk coverage is the dedicated `rust.panic-risk`
+///   audit, which lives outside the shared frontend `risk` table, so the
+///   capability model does not count it. Real coverage exists; the
+///   accounting is the gap.
+/// - **csharp** — no import extractor and no taint tables yet; boundary
+///   classification is intentionally unwired (the old dispatch matched a
+///   label detection never emits).
+///
+/// `c`/`cpp` left the ledger by an honest pack downgrade (no grammar, no
+/// frontend → context-aware); every other rule-aware language now computes
+/// to rule-aware through the contract.
 #[test]
 fn declared_rule_aware_support_gap_ledger_only_shrinks() {
-    let expected_gaps: BTreeSet<&str> = [
-        "c",
-        "cpp",
-        "csharp",
-        "go",
-        "java",
-        "javascript",
-        "kotlin",
-        "python",
-        "rust",
-        "typescript",
-    ]
-    .into_iter()
-    .collect();
+    let expected_gaps: BTreeSet<&str> = ["csharp", "rust"].into_iter().collect();
 
     let mut gaps = BTreeSet::new();
     for profile in &active_knowledge().languages {

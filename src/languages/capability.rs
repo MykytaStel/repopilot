@@ -47,6 +47,14 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     if frontend.risk.is_some() {
         wired.push(Capability::RuntimeRisk);
     }
+    // A non-generic conventions table means the frontend owns test-file and
+    // entrypoint conventions for its language.
+    if !std::ptr::eq(
+        frontend.conventions,
+        &super::conventions::GENERIC_CONVENTIONS,
+    ) {
+        wired.push(Capability::TestConventions);
+    }
     wired
 }
 

@@ -46,6 +46,10 @@ scripts/demo-agent-edit.sh .zoo/wagtail
 repopilot review .zoo/wagtail
 ```
 
+The same review works across languages — the identical flow in a Spring
+controller (`scripts/demo-java-agent-edit.sh` on the pinned PetClinic
+checkout) is caught the same way.
+
 > RepoPilot reports structural evidence, not a security verdict. A flagged
 > flow is a path to verify, not a confirmed vulnerability. Use it beside
 > tests, linters, and dedicated security tools.

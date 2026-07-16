@@ -10,6 +10,8 @@ file, not the number.
 Status legend: `[ ]` not migrated · `[x]` migrated · `[-]` stays put by
 design (with reason).
 
+**0.21 status:** every dispatch row is migrated or closed by design; Java is promoted to rule-aware through the contract (taint tables + the existing boundary/behavioral/algorithmic wiring); the pack's over-declared `c`/`cpp` levels are downgraded, leaving the honesty ledger at exactly `{csharp, rust}`, each documented.
+
 ## Detection and identity
 
 - [ ] `src/knowledge/packs/core.toml` — 43 `[[languages]]` profiles: id,
