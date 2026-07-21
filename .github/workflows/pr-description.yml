@@ -1,0 +1,60 @@
+name: PR Description
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-description-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  fill:
+    name: Generate PR description
+    # Same-repo branches only: a fork PR's GITHUB_TOKEN cannot write to it,
+    # and this workflow only ever fills a PR the same way `gh pr edit` would.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Skip if the description was already edited
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # GitHub applies the template with CRLF line endings; normalize
+          # both sides before comparing so a freshly opened, untouched PR
+          # is recognized as such.
+          current="$(gh pr view "$PR_NUMBER" --json body --jq .body | tr -d '\r')"
+          template="$(tr -d '\r' < .github/pull_request_template.md)"
+          if [ "$current" != "$template" ]; then
+            echo "already-edited=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already-edited=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate and apply description
+        if: steps.guard.outputs.already-edited == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        # `actions/checkout` with fetch-depth: 0 already unshallows the repo,
+        # so `origin/$BASE_REF` is resolvable without an extra fetch.
+        run: |
+          set -euo pipefail
+          python3 scripts/generate-pr-body.py \
+            --base "origin/$BASE_REF" \
+            --head "HEAD" > /tmp/pr-body.md
+          gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.md
