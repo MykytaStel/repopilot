@@ -38,6 +38,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
     review: Some(&review::JS_FAMILY_REVIEW),
     conventions: &JS_FAMILY_CONVENTIONS,
     risk: Some(&risk::JS_FAMILY_RISK),
+    dedicated_risk_audit: None,
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -60,6 +61,7 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
     review: Some(&review::JS_FAMILY_REVIEW),
     conventions: &JS_FAMILY_CONVENTIONS,
     risk: Some(&risk::JS_FAMILY_RISK),
+    dedicated_risk_audit: None,
 };
 
 static JS_FAMILY_CONVENTIONS: PathConventions = PathConventions {

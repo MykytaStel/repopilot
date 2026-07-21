@@ -102,10 +102,21 @@ pub struct LanguageFrontend {
     pub(crate) taint: Option<&'static crate::review::signals::taint::tables::TaintTables>,
     /// Boundary/algorithmic review-signal node-kind tables.
     pub(crate) review: Option<&'static crate::review::signals::tables::ReviewTables>,
-    /// Runtime-risk audit tables (AST + line-scanner emitters). Rust's
-    /// dedicated `rust_panic_risk` audit is separate and not counted here.
+    /// Runtime-risk audit tables (AST + line-scanner emitters) for the
+    /// shared, generic engine. `None` for a language whose runtime-risk
+    /// coverage instead lives in a dedicated, standalone audit — see
+    /// [`dedicated_risk_audit`](Self::dedicated_risk_audit).
     pub(crate) risk:
         Option<&'static crate::audits::code_quality::language_risk::tables::RiskTables>,
+    /// The rule id of a standalone, language-specific runtime-risk audit
+    /// that satisfies the `RuntimeRisk` capability outside the shared
+    /// engine — set when a language's runtime-risk logic is contextual
+    /// enough (path-aware suppression, structural analysis) that forcing it
+    /// into the generic per-node `RiskTables` shape would be churn without
+    /// benefit. Rust's `language.rust.panic-risk` is the only one today.
+    /// Documentation only; the audit itself is wired into the scan pipeline
+    /// independently and does not run through this pointer.
+    pub(crate) dedicated_risk_audit: Option<&'static str>,
     /// Path and naming conventions (test files, test support, entrypoints).
     pub(crate) conventions: &'static conventions::PathConventions,
 }
