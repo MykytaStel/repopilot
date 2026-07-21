@@ -161,7 +161,7 @@ fn kinds_route_to_their_frontends_and_the_rest_to_generic() {
 fn import_extractor_coverage_is_pinned() {
     let with_deferred: BTreeSet<&str> =
         ["typescript", "javascript", "python"].into_iter().collect();
-    let without_imports: BTreeSet<&str> = ["csharp", "generic"].into_iter().collect();
+    let without_imports: BTreeSet<&str> = ["generic"].into_iter().collect();
 
     for frontend in all_frontends() {
         match frontend.imports {
@@ -193,7 +193,7 @@ fn import_extractor_coverage_is_pinned() {
 /// language from taint analysis.
 #[test]
 fn taint_participation_is_pinned() {
-    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go", "java"]
+    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go", "java", "csharp"]
         .into_iter()
         .collect();
     for frontend in all_frontends() {
@@ -207,9 +207,9 @@ fn taint_participation_is_pinned() {
 }
 
 /// Pins which frontends carry review-signal tables and whether their AST
-/// boundary classification is wired. C#'s boundary stays `None` on purpose:
-/// the old dispatch matched the label "CSharp" while detection emits "C#",
-/// so enabling it is a deliberate behavior change, not a refactor default.
+/// boundary classification is wired. Every table-carrying frontend now has
+/// boundary wired (C#'s historical dead-arm exception was closed by the
+/// honesty pass).
 #[test]
 fn review_table_coverage_is_pinned() {
     let with_review: BTreeSet<&str> = [
@@ -224,7 +224,7 @@ fn review_table_coverage_is_pinned() {
     ]
     .into_iter()
     .collect();
-    let without_boundary: BTreeSet<&str> = ["csharp"].into_iter().collect();
+    let without_boundary: BTreeSet<&str> = BTreeSet::new();
 
     for frontend in all_frontends() {
         match frontend.review {
@@ -367,23 +367,19 @@ fn path_conventions_are_pinned() {
 
 /// The honesty ledger. Languages the bundled pack declares `rule-aware`
 /// whose unified frontend wiring does not fully justify it. It must never
-/// grow. After the honesty pass it names exactly two, each for a documented
-/// reason:
+/// grow. After Phase A1 it names exactly one:
 ///
 /// - **rust** — its runtime-risk coverage is the dedicated `rust.panic-risk`
 ///   audit, which lives outside the shared frontend `risk` table, so the
 ///   capability model does not count it. Real coverage exists; the
-///   accounting is the gap.
-/// - **csharp** — no import extractor and no taint tables yet; boundary
-///   classification is intentionally unwired (the old dispatch matched a
-///   label detection never emits).
+///   accounting is the gap (closed by A2).
 ///
 /// `c`/`cpp` left the ledger by an honest pack downgrade (no grammar, no
-/// frontend → context-aware); every other rule-aware language now computes
-/// to rule-aware through the contract.
+/// frontend); `csharp` completed its contract (imports, taint, boundary) in
+/// A1; every other rule-aware language computes through the contract.
 #[test]
 fn declared_rule_aware_support_gap_ledger_only_shrinks() {
-    let expected_gaps: BTreeSet<&str> = ["csharp", "rust"].into_iter().collect();
+    let expected_gaps: BTreeSet<&str> = ["rust"].into_iter().collect();
 
     let mut gaps = BTreeSet::new();
     for profile in &active_knowledge().languages {

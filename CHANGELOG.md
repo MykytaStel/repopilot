@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **C# completes its frontend contract.** `using`-directive import
+  extraction (aliases and `global using` included; `using (resource)` forms
+  excluded) feeds the coupling graph; ASP.NET taint tables
+  (`Request.Query`/`Form`/`Headers` sources → `Process.Start`, SqlCommand
+  `Execute*`, `File.WriteAll*` sinks) flag request-input flows; and AST
+  boundary classification is enabled — the pre-registry dispatch matched a
+  label detection never emits, so `[Authorize]` attributes and security
+  `using` directives never participated before. The support-honesty ledger
+  now names only Rust (its panic-risk accounting, closed next). eshoponweb
+  zoo snapshot unchanged: zero new default-visible findings.
+
+### Added
+
 - **Java taint-lite.** The Java frontend now carries taint tables
   (`HttpServletRequest` sources; JDBC `execute*`, `Runtime.exec`, and
   `Files.write` sinks with a Java-specific `method_invocation` classifier),

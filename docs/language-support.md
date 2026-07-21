@@ -21,7 +21,7 @@ test rather than hidden.
 | Python | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Java | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
-| C# | ✓ | — | ✓ | — | ✓ | ✓ | rule-aware |
+| C# | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Kotlin | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
 
 Notes:
@@ -30,9 +30,6 @@ Notes:
 family rather than the shared runtime-risk audit, so its column reads “—”
 here; how it counts toward the capability model is tracked in the
 support-honesty ledger.
-- **C# review signals** exclude AST boundary classification: the pre-registry
-dispatch never matched the label detection emits, and enabling it is a
-deliberate behavior change, not a docs update.
 - JavaScript and TypeScript (with their React dialects) share one frontend
 family: the same grammar shapes, import extractor, and signal tables.
 

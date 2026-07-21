@@ -1,10 +1,20 @@
+mod imports;
+mod review;
 mod risk;
 
 use super::conventions::{MANAGED_TEST_SUPPORT, PathConventions};
-use super::{GrammarBinding, LanguageFrontend};
+use super::{GrammarBinding, ImportExtractor, LanguageFrontend};
 use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
-use crate::review::signals::tables::{AlgorithmicKinds, RemovedTables, ReviewTables};
+use crate::review::signals::tables::{
+    AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
+};
+
+static CSHARP_IMPORTS: ImportExtractor = ImportExtractor {
+    eager: imports::eager,
+    deferred: None,
+    spans: imports::spans,
+};
 
 pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
     id: "csharp",
@@ -23,19 +33,22 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
             grammar: ParseLanguage::CSharp,
         },
     ],
-    imports: None,
-    taint: None,
+    imports: Some(&CSHARP_IMPORTS),
+    taint: Some(&review::CSHARP_TAINT),
     review: Some(&CSHARP_REVIEW),
     conventions: &CSHARP_CONVENTIONS,
     risk: Some(&risk::CSHARP_RISK),
 };
 
-// Boundary stays unwired: the old dispatch matched the label "CSharp", but
-// detection emits "C#", so C# never received AST boundary classification.
-// Enabling it is a deliberate behavior change for the honesty pass, not a
-// refactor side effect.
 static CSHARP_REVIEW: ReviewTables = ReviewTables {
-    boundary: None,
+    // Enabled by the honesty pass: the pre-registry dispatch matched the
+    // label "CSharp" while detection emits "C#", so these node kinds were
+    // dead. C# attributes (`[Authorize]`) and `using` directives now
+    // participate in boundary classification like every other language.
+    boundary: Some(&BoundaryKinds {
+        decorator_kinds: &["attribute"],
+        import_kinds: &["using_directive"],
+    }),
     algorithmic: &AlgorithmicKinds {
         function_kinds: &[
             "method_declaration",
