@@ -27,7 +27,12 @@ pub(super) static RUST: LanguageFrontend = LanguageFrontend {
     taint: None,
     review: Some(&review::RUST_REVIEW),
     conventions: &RUST_CONVENTIONS,
+    // No shared RiskTables: Rust's runtime-risk coverage is a dedicated,
+    // context-sensitive audit (structural infallibility detection,
+    // report-renderer path awareness) that the generic per-node table shape
+    // was never designed for. See `dedicated_risk_audit` below.
     risk: None,
+    dedicated_risk_audit: Some("language.rust.panic-risk"),
 };
 
 static RUST_CONVENTIONS: PathConventions = PathConventions {

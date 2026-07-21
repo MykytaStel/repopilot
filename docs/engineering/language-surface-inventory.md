@@ -107,12 +107,14 @@ design (with reason).
       their emitters in `language_risk/{js,go,python,managed}.rs`; frontends
       reference them. Pinned by `runtime_risk_participation_is_pinned`.
       (PR-5)
-- [-] `src/audits/code_quality/rust_panic_risk/` — stays a dedicated
+- [x] `src/audits/code_quality/rust_panic_risk/` — stays a dedicated
       Rust-only audit (own rule family, severity calibration in the
-      Knowledge Engine). It contains no cross-language dispatch to migrate;
-      how it counts toward the Rust frontend's computed capability is an
-      honesty-pass decision (PR-9), pinned meanwhile by the risk
-      participation guard.
+      Knowledge Engine, 1.6k lines of context-sensitive detection); it
+      contains no cross-language dispatch to migrate. Its accounting is
+      closed: `LanguageFrontend.dedicated_risk_audit` documents the rule id
+      and satisfies the `RuntimeRisk` capability alongside the shared
+      `risk` table, without moving any pattern logic. Pinned by
+      `runtime_risk_participation_is_pinned`. (Phase A2)
 - [ ] `src/audits/code_quality/function_spans.rs:42` — function-node kinds
       per label (long/complex function). → PR-5.
 - [ ] `src/audits/code_quality/long_function/brace.rs`,

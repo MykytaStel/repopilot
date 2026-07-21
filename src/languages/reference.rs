@@ -44,10 +44,11 @@ test rather than hidden.\n"
     let _ = writeln!(
         out,
         "\nNotes:\n\n\
-- **Rust runtime risk** is covered by the dedicated `rust.panic-risk` rule\n\
-  family rather than the shared runtime-risk audit, so its column reads “—”\n\
-  here; how it counts toward the capability model is tracked in the\n\
-  support-honesty ledger.\n\
+- **Rust runtime risk** reads “✓ (dedicated)”: coverage comes from the\n\
+  standalone `language.rust.panic-risk` audit — structural infallibility\n\
+  detection, report-renderer path awareness — rather than the shared\n\
+  per-node runtime-risk table other languages use. Too contextual for that\n\
+  generic shape; it still counts toward the `RuntimeRisk` capability.\n\
 - JavaScript and TypeScript (with their React dialects) share one frontend\n\
   family: the same grammar shapes, import extractor, and signal tables.\n"
     );
@@ -121,7 +122,7 @@ fn frontend_row(frontend: &LanguageFrontend) -> String {
         mark(frontend.imports.is_some()),
         mark(frontend.review.is_some()),
         mark(frontend.taint.is_some()),
-        mark(frontend.risk.is_some()),
+        runtime_risk_cell(frontend),
         mark(!std::ptr::eq(
             frontend.conventions,
             &super::conventions::GENERIC_CONVENTIONS
@@ -132,6 +133,16 @@ fn frontend_row(frontend: &LanguageFrontend) -> String {
 
 fn mark(wired: bool) -> &'static str {
     if wired { "✓" } else { "—" }
+}
+
+fn runtime_risk_cell(frontend: &LanguageFrontend) -> &'static str {
+    if frontend.risk.is_some() {
+        "✓"
+    } else if frontend.dedicated_risk_audit.is_some() {
+        "✓ (dedicated)"
+    } else {
+        "—"
+    }
 }
 
 fn support_label(level: SupportLevel) -> &'static str {

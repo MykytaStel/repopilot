@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Support-honesty ledger is now empty.** Rust's dedicated
+  `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
+  detection (structural infallibility, report-renderer path awareness) that
+  doesn't fit the shared per-language `RiskTables` shape — is now accounted
+  for via a documented `dedicated_risk_audit` marker on its frontend rather
+  than left uncounted. It satisfies the `RuntimeRisk` capability alongside
+  the shared table other languages use; no pattern logic moved. The
+  generated support matrix renders this distinctly as "✓ (dedicated)". Every
+  language the knowledge pack declares `rule-aware` now computes to
+  `rule-aware` through the frontend contract, with zero exceptions left.
 - **C# completes its frontend contract.** `using`-directive import
   extraction (aliases and `global using` included; `using (resource)` forms
   excluded) feeds the coupling graph; ASP.NET taint tables

@@ -44,7 +44,10 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     if frontend.review.is_some() {
         wired.push(Capability::ReviewSignals);
     }
-    if frontend.risk.is_some() {
+    // Runtime risk comes from either the shared per-node table or a
+    // standalone, language-specific audit too contextual for that generic
+    // shape (see `dedicated_risk_audit`); either satisfies the capability.
+    if frontend.risk.is_some() || frontend.dedicated_risk_audit.is_some() {
         wired.push(Capability::RuntimeRisk);
     }
     // A non-generic conventions table means the frontend owns test-file and
