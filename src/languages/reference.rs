@@ -48,9 +48,6 @@ test rather than hidden.\n"
   family rather than the shared runtime-risk audit, so its column reads “—”\n\
   here; how it counts toward the capability model is tracked in the\n\
   support-honesty ledger.\n\
-- **C# review signals** exclude AST boundary classification: the pre-registry\n\
-  dispatch never matched the label detection emits, and enabling it is a\n\
-  deliberate behavior change, not a docs update.\n\
 - JavaScript and TypeScript (with their React dialects) share one frontend\n\
   family: the same grammar shapes, import extractor, and signal tables.\n"
     );
