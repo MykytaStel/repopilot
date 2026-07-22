@@ -4,38 +4,36 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.19 — replayable evidence and lower default noise
+## Now: 0.21 — trust the default output, calibrate it to your repo
 
-- make MCP explanations replayable from emitted findings while preserving stable
-  baseline IDs and occurrence-level evidence selection;
-- carry Knowledge Engine decision provenance in schema `0.20` reports so agents
-  can compare stored and current decisions deterministically;
-- expose file-role evidence, executable-package manifest context, and ordered
-  decision traces without changing scan/review severity behavior;
-- keep strict-mode recall while moving low-confidence false positives out of the
-  default profile;
-- use the real-repo zoo snapshots and reviewed expectations as release evidence.
+One larger release, three layers. The language frontend contract landed
+first (registry, per-language tables, generated support matrix, contributor
+guide); the rest of the cycle builds on it:
 
-No hosted service, telemetry, source upload, or implicit LLM integration is part
-of the current roadmap.
+- **contract honesty to zero** — complete C# (imports, taint, boundary),
+  account for Rust's dedicated panic-risk audit, Kotlin taint, framework
+  probes on frontends; the support ledger ends empty;
+- **local knowledge overlays** — a declarative, diffable local file that
+  calibrates known rules to a repository (severity, suppression) without
+  code execution or plugins;
+- **local analysis history** — a `.repopilot/` ledger of past runs:
+  risk deltas vs the previous scan and accumulated agent-session evidence;
+- **new languages via the cheap path** — added as frontend modules with a
+  pinned zoo repository as the acceptance gate;
+- guardrail recipes, reproducible agent-edit demos, and the review-first
+  README continue as the adoption surface.
 
-## Next: 0.20 — Trusted Change Intelligence
+No hosted service, telemetry, source upload, or implicit LLM integration is
+part of the roadmap.
 
-See [roadmap/v0.20.md](roadmap/v0.20.md) for the full release contract,
-performance benchmarks, staged PR sequence, and release scorecard.
+## Shipped: 0.20
 
-- immutable analysis session and shared parsed facts for parse-once performance;
-- incremental context graph and content-addressed cache v2;
-- unified boundary, behavior, algorithm, and taint-lite review deltas with
-  dependency impact paths and deterministic verification plans;
-- canonical decision record across CLI, JSON, SARIF, MCP, AI context, and
-  GitHub Action;
-- promoted real-repo zoo as release evidence with review-zoo differential
-  fixtures;
-- MCP workspace revisions, analysis handles, and pagination;
-- verdict-first CLI output with progressive disclosure;
-- delta-focused GitHub Action PR comments and stable artifacts;
-- hardened analysis boundaries, redaction, and cache corruption recovery.
+Parse-once analysis sessions with a content-addressed cache, unified review
+deltas (boundary, behavior, algorithm, taint-lite) with dependency impact
+paths, a canonical decision record across CLI/JSON/SARIF/MCP/Action surfaces,
+MCP analysis handles with pagination, verdict-first CLI output, and the
+real-repo zoo promoted to release evidence. Details:
+[v0.20 roadmap and release contract](roadmap/v0.20.md).
 
 ## Later
 

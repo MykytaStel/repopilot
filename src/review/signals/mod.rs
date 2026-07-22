@@ -25,6 +25,7 @@ mod behavioral_tests;
 pub(in crate::review) mod classify;
 pub mod composites;
 pub mod content;
+pub(crate) mod tables;
 pub mod taint;
 #[cfg(test)]
 mod tests;

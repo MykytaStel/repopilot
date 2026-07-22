@@ -20,11 +20,12 @@
 //! - [`flow`] seeds tainted locals from sources and reports when one reaches a
 //!   sink, gated to the changed lines so it stays change-scoped.
 
-mod ast;
+pub(crate) mod ast;
 mod flow;
 mod sanitizers;
-mod sinks;
+pub(crate) mod sinks;
 mod sources;
+pub(crate) mod tables;
 #[cfg(test)]
 mod tests;
 
@@ -32,49 +33,9 @@ use crate::review::diff::ChangedFile;
 use crate::review::signals::content::ReviewSource;
 use crate::scan::language::detect_language;
 use serde::Serialize;
-use tree_sitter::Node;
 
 pub use sinks::SinkKind;
 pub use sources::SourceKind;
-
-/// The languages taint-lite understands. JS/TS (and their React variants) share a
-/// grammar shape, so one matcher covers them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TaintLang {
-    Js,
-    Python,
-    Go,
-}
-
-impl TaintLang {
-    fn from_label(label: &str) -> Option<Self> {
-        match label {
-            "JavaScript" | "JavaScript React" | "TypeScript" | "TypeScript React" => Some(Self::Js),
-            "Python" => Some(Self::Python),
-            "Go" => Some(Self::Go),
-            _ => None,
-        }
-    }
-
-    fn is_flow_scope(self, node: Node<'_>) -> bool {
-        match self {
-            Self::Js => matches!(
-                node.kind(),
-                "function_declaration"
-                    | "generator_function_declaration"
-                    | "method_definition"
-                    | "function_expression"
-                    | "generator_function"
-                    | "arrow_function"
-            ),
-            Self::Python => matches!(node.kind(), "function_definition" | "lambda"),
-            Self::Go => matches!(
-                node.kind(),
-                "function_declaration" | "method_declaration" | "func_literal"
-            ),
-        }
-    }
-}
 
 /// One untrusted-input-reaches-sink flow found in a changed file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -99,7 +60,8 @@ pub fn detect_taint(file: &ChangedFile, post_source: Option<&ReviewSource>) -> V
     let Some(post) = post_source else {
         return Vec::new();
     };
-    let Some(lang) = detect_language(&file.path).and_then(TaintLang::from_label) else {
+    let Some(tables) = detect_language(&file.path).and_then(crate::languages::taint_for_label)
+    else {
         return Vec::new();
     };
 
@@ -108,7 +70,7 @@ pub fn detect_taint(file: &ChangedFile, post_source: Option<&ReviewSource>) -> V
     };
 
     let mut signals = Vec::new();
-    flow::detect(tree.root_node(), post.content(), lang, file, &mut signals);
+    flow::detect(tree.root_node(), post.content(), tables, file, &mut signals);
 
     let mut unique: Vec<TaintSignal> = Vec::new();
     for signal in signals {

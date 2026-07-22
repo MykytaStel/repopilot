@@ -1,7 +1,16 @@
-use crate::graph::imports::common::extract_string_literal;
+use crate::analysis::parse::ParsedFile;
+use crate::languages::import_support::extract_string_literal;
 use std::collections::{BTreeMap, HashSet};
 
-pub(super) fn extract_spans(content: &str) -> BTreeMap<String, (usize, usize)> {
+pub(super) fn eager(parsed: &ParsedFile) -> HashSet<String> {
+    extract(parsed.content())
+}
+
+pub(super) fn spans(parsed: &ParsedFile) -> BTreeMap<String, (usize, usize)> {
+    extract_spans(parsed.content())
+}
+
+fn extract_spans(content: &str) -> BTreeMap<String, (usize, usize)> {
     let mut result = BTreeMap::new();
     let mut in_import_block = false;
 
@@ -38,7 +47,7 @@ pub(super) fn extract_spans(content: &str) -> BTreeMap<String, (usize, usize)> {
     result
 }
 
-pub(super) fn extract(content: &str) -> HashSet<String> {
+fn extract(content: &str) -> HashSet<String> {
     extract_spans(content).into_keys().collect()
 }
 

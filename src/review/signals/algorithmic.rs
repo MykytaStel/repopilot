@@ -14,6 +14,7 @@ mod lang;
 
 use crate::review::diff::ChangedFile;
 use crate::review::signals::content::ReviewSource;
+use crate::review::signals::tables::AlgorithmicKinds;
 use crate::scan::language::detect_language;
 use lang::{function_name, is_call_node, is_control_flow_node, is_else_if, is_loop_node};
 use serde::Serialize;
@@ -76,19 +77,22 @@ pub fn detect_algorithmic(
     let Some(post) = post_source else {
         return signals;
     };
-    let Some(language) = detect_language(&file.path) else {
+    let Some(kinds) = detect_language(&file.path)
+        .and_then(crate::languages::review_for_label)
+        .map(|tables| tables.algorithmic)
+    else {
         return signals;
     };
 
     let Some(post_tree) = post.tree() else {
         return signals;
     };
-    let post_fns = collect_functions(post_tree.root_node(), post.content(), language);
+    let post_fns = collect_functions(post_tree.root_node(), post.content(), kinds);
 
     let pre_fns: Vec<FnMetrics> = pre_source
         .map(|src| {
             src.tree()
-                .map(|tree| collect_functions(tree.root_node(), src.content(), language))
+                .map(|tree| collect_functions(tree.root_node(), src.content(), kinds))
                 .unwrap_or_default()
         })
         .unwrap_or_default();
@@ -181,21 +185,30 @@ fn emit_signals(
     }
 }
 
-fn collect_functions(root: Node<'_>, content: &str, language: &str) -> Vec<FnMetrics> {
+fn collect_functions(
+    root: Node<'_>,
+    content: &str,
+    kinds: &'static AlgorithmicKinds,
+) -> Vec<FnMetrics> {
     let mut out = Vec::new();
-    collect_visit(root, content, language, &mut out);
+    collect_visit(root, content, kinds, &mut out);
     out
 }
 
-fn collect_visit(node: Node<'_>, content: &str, language: &str, out: &mut Vec<FnMetrics>) {
-    if let Some(name) = function_name(node, language, content) {
+fn collect_visit(
+    node: Node<'_>,
+    content: &str,
+    kinds: &'static AlgorithmicKinds,
+    out: &mut Vec<FnMetrics>,
+) {
+    if let Some(name) = function_name(node, kinds, content) {
         let start_line = node.start_position().row + 1;
         let end_line = node.end_position().row + 1;
         out.push(FnMetrics {
-            max_nesting: subtree_max_nesting(node, language, 0),
-            has_nested_loop: subtree_has_nested_loop(node, language, false),
+            max_nesting: subtree_max_nesting(node, kinds, 0),
+            has_nested_loop: subtree_has_nested_loop(node, kinds, false),
             line_span: end_line.saturating_sub(start_line) + 1,
-            is_recursive: subtree_calls_function(node, language, content, &name, true),
+            is_recursive: subtree_calls_function(node, kinds, content, &name, true),
             name,
             start_line,
             end_line,
@@ -204,32 +217,36 @@ fn collect_visit(node: Node<'_>, content: &str, language: &str, out: &mut Vec<Fn
 
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_visit(child, content, language, out);
+        collect_visit(child, content, kinds, out);
     }
 }
 
 /// Deepest control-flow nesting under `node`. `if/else if` chains count once.
-fn subtree_max_nesting(node: Node<'_>, language: &str, depth: usize) -> usize {
-    let is_cf = is_control_flow_node(node.kind(), language) && !is_else_if(node, language);
+fn subtree_max_nesting(node: Node<'_>, kinds: &'static AlgorithmicKinds, depth: usize) -> usize {
+    let is_cf = is_control_flow_node(node.kind(), kinds) && !is_else_if(node, kinds);
     let here = if is_cf { depth + 1 } else { depth };
     let mut max = here;
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        max = max.max(subtree_max_nesting(child, language, here));
+        max = max.max(subtree_max_nesting(child, kinds, here));
     }
     max
 }
 
 /// Whether any loop under `node` sits inside another loop (a potential O(n^2)).
-fn subtree_has_nested_loop(node: Node<'_>, language: &str, inside_loop: bool) -> bool {
-    let is_loop = is_loop_node(node.kind(), language);
+fn subtree_has_nested_loop(
+    node: Node<'_>,
+    kinds: &'static AlgorithmicKinds,
+    inside_loop: bool,
+) -> bool {
+    let is_loop = is_loop_node(node.kind(), kinds);
     if is_loop && inside_loop {
         return true;
     }
     let next = inside_loop || is_loop;
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        if subtree_has_nested_loop(child, language, next) {
+        if subtree_has_nested_loop(child, kinds, next) {
             return true;
         }
     }
@@ -238,15 +255,15 @@ fn subtree_has_nested_loop(node: Node<'_>, language: &str, inside_loop: bool) ->
 
 fn subtree_calls_function(
     node: Node<'_>,
-    language: &str,
+    kinds: &'static AlgorithmicKinds,
     content: &str,
     function: &str,
     is_root: bool,
 ) -> bool {
-    if !is_root && function_name(node, language, content).is_some() {
+    if !is_root && function_name(node, kinds, content).is_some() {
         return false;
     }
-    if is_call_node(node, language)
+    if is_call_node(node, kinds)
         && call_target(node, content).is_some_and(|target| {
             target == function
                 || target == format!("self.{function}")
@@ -258,7 +275,7 @@ fn subtree_calls_function(
     }
     let mut cursor = node.walk();
     node.children(&mut cursor)
-        .any(|child| subtree_calls_function(child, language, content, function, false))
+        .any(|child| subtree_calls_function(child, kinds, content, function, false))
 }
 
 fn call_target<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {

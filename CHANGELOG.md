@@ -6,6 +6,147 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **Support-honesty ledger is now empty.** Rust's dedicated
+  `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
+  detection (structural infallibility, report-renderer path awareness) that
+  doesn't fit the shared per-language `RiskTables` shape — is now accounted
+  for via a documented `dedicated_risk_audit` marker on its frontend rather
+  than left uncounted. It satisfies the `RuntimeRisk` capability alongside
+  the shared table other languages use; no pattern logic moved. The
+  generated support matrix renders this distinctly as "✓ (dedicated)". Every
+  language the knowledge pack declares `rule-aware` now computes to
+  `rule-aware` through the frontend contract, with zero exceptions left.
+- **C# completes its frontend contract.** `using`-directive import
+  extraction (aliases and `global using` included; `using (resource)` forms
+  excluded) feeds the coupling graph; ASP.NET taint tables
+  (`Request.Query`/`Form`/`Headers` sources → `Process.Start`, SqlCommand
+  `Execute*`, `File.WriteAll*` sinks) flag request-input flows; and AST
+  boundary classification is enabled — the pre-registry dispatch matched a
+  label detection never emits, so `[Authorize]` attributes and security
+  `using` directives never participated before. The support-honesty ledger
+  now names only Rust (its panic-risk accounting, closed next). eshoponweb
+  zoo snapshot unchanged: zero new default-visible findings.
+
+### Added
+
+- **Java taint-lite.** The Java frontend now carries taint tables
+  (`HttpServletRequest` sources; JDBC `execute*`, `Runtime.exec`, and
+  `Files.write` sinks with a Java-specific `method_invocation` classifier),
+  so a request parameter reaching a shell or SQL sink is flagged like it is
+  in the other languages. Conservative and high-specificity: the pinned
+  Spring PetClinic checkout stays at zero findings. A second reproducible
+  demo (`scripts/demo-java-agent-edit.sh`, `docs/demos/04-java-agent-review.gif`)
+  shows the flow being caught.
+
+### Changed
+
+- **Support-honesty pass.** `c` and `cpp` — declared `rule-aware` in the
+  knowledge pack but with no tree-sitter grammar or frontend — are corrected
+  to `context-aware`. With Java's taint wiring completing its contract, the
+  computed-support ledger now names exactly two languages whose declared
+  level still exceeds the unified frontend wiring, each for a documented
+  reason (Rust's runtime-risk lives in the separate panic-risk audit; C#
+  lacks import/taint tables). The generated support matrix reflects all of
+  this.
+
+### Added
+
+- **Generated language support matrix.** `docs/language-support.md` is now
+  rendered from the language frontend registry with a drift test
+  (`REPOPILOT_BLESS=1 cargo test --test language_support_doc`): capability
+  columns are derived from what each frontend actually wires, with the
+  knowledge pack's declared levels shown alongside and known gaps documented
+  instead of hidden.
+- **"Add a language" contributor guide and scaffolder.**
+  `docs/engineering/add-a-language.md` walks the frontend contract end to
+  end (profile → descriptor → grammar → tables → fixtures → zoo acceptance →
+  generated docs), and `scripts/new-language.py` stamps a starter module
+  whose TODOs mirror the checklist.
+
+### Changed
+
+- **Path and naming conventions live on the language frontends.** Test-file
+  naming, the `test_` prefix opt-out (Rust), test-support recognizers (with
+  their role-evidence reasons), and app-entrypoint content probes moved to
+  `frontend.conventions`; the context classifier and role classification
+  consult them, while cross-language path rules stay shared. Behavior-frozen
+  refactor: zoo snapshots unchanged across seven repos.
+
+### Added
+
+- **Language frontend registry skeleton (`src/languages/`).** First brick of
+  the 0.21 language contract: static per-language descriptors unifying the
+  knowledge-pack profiles, context-classifier kinds, and tree-sitter grammar
+  bindings behind one lookup, with guard tests that keep grammar dispatch in
+  lockstep and a support-honesty ledger documenting languages whose declared
+  `rule-aware` level exceeds their actual wiring (java, kotlin, csharp, c,
+  cpp today). Wired to nothing yet — dispatch migrates behind the registry
+  in follow-up, behavior-frozen PRs. Working checklist:
+  `docs/engineering/language-surface-inventory.md`.
+- **"Guard your agent runs" guide (`docs/agent-guardrail.md`).** End-to-end
+  recipes for wrapping a coding-agent session with deterministic review:
+  session snapshot + stop-hook gate for Claude Code, MCP bootstrap for agent
+  clients, and a review-first CI gate. Linked from the README and docs index.
+- **Reproducible agent-review demo on a real repository.**
+  `scripts/demo-agent-edit.sh` applies a plausible "optimize images" edit to
+  the pinned zoo Wagtail checkout that also drops a permission check and
+  pipes request input into a shell; `docs/demos/03-agent-review.tape` records
+  `repopilot review` catching it (GIF and MP4 in `docs/demos/`).
+
+### Changed
+
+- **Runtime-risk detection dispatches through the language frontends.** The
+  runtime-risk audit consults the frontend's `RiskTables` (AST emitter,
+  line-scanner fallback, comment-sanitizer choice) instead of matching
+  language ids in two places; pattern definitions stay with their emitters
+  and participation is pinned by a guard test. Rust's dedicated panic-risk
+  audit is unchanged. Behavior-frozen refactor: zoo snapshots unchanged
+  across seven repos covering all six runtime-risk languages.
+- **Removed-behavior recognizers live on the language frontends.** The
+  extension-dispatched AST walks that detect deleted tests, removed error
+  handling, and removed auth checks now consult per-frontend
+  `RemovedTables`; the walk engine is language-neutral and the extension
+  vocabulary (including the historically unreachable `cts`) is pinned by a
+  guard test. The coarse text fallback for frontend-less languages is
+  unchanged by design. Behavior-frozen refactor.
+- **Boundary and algorithmic review signals are table-driven per language
+  frontend.** The per-language node-kind sets behind
+  `match_node_for_boundary` and the algorithmic matchers moved to
+  `ReviewTables` on the frontends; the engines keep the shared keyword
+  vocabularies and stay language-neutral. C#'s AST boundary classification
+  remains unwired — the old dispatch matched a label detection never emits —
+  and is now documented and pinned instead of silently dead. Behavior-frozen
+  refactor.
+- **Taint-lite is now table-driven per language frontend.** The per-language
+  source idioms, coercion lists, grammar shapes, and sink classifiers moved
+  to `src/languages/{javascript,python,go}/review.rs` as a `TaintTables`
+  contract; the flow engine is language-neutral and the private `TaintLang`
+  enum is gone — whether a language participates in taint analysis is now
+  visible on its frontend and pinned by a guard test. Behavior-frozen: the
+  full taint test suite and review goldens are unchanged.
+- **Import extraction now lives on the language frontends.** The
+  per-language extractors moved from `graph/imports/*` to
+  `src/languages/*/imports.rs` behind an `ImportExtractor` contract (eager
+  edges, deferred/type-only edges, line spans); the coupling graph and edge
+  evidence dispatch through the registry instead of matching label strings,
+  and the shared JVM module split into Java and Kotlin frontends.
+  Behavior-frozen refactor: zoo snapshots unchanged across ripgrep, wagtail,
+  express, cobra, spring-petclinic, and nowinandroid.
+- **Language detection and parse dispatch now route through the frontend
+  registry.** `ParseLanguage::from_label` delegates to the registry's
+  grammar bindings (the only label→grammar table, pinned by a vocabulary
+  guard test), and `language_kind_from_id` takes the kind from the claiming
+  frontend, leaving the hardcoded map to cover only languages without one.
+  Behavior-frozen refactor: no findings, signals, or output change.
+- **README rewritten around reviewing code you didn't write.** Leads with the
+  real-repo demo and the deterministic/local/evidence positioning, moves
+  workflow detail into the docs, and links the new agent-guardrail guide.
+- **Roadmap updated.** 0.20 marked shipped, and the current cycle focuses on
+  agent-run review adoption; the 0.20 contract doc title no longer uses a
+  marketing codename.
+
 ## [0.20.0] - 2026-07-12
 
 RepoPilot 0.20 turns repository scanning into a complete, review-first change

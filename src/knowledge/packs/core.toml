@@ -68,14 +68,16 @@ support = "rule-aware"
 id = "c"
 name = "C"
 extensions = ["c"]
-support = "rule-aware"
+# No tree-sitter grammar or frontend; honestly the shared context classifier.
+support = "context-aware"
 
 [[languages]]
 id = "cpp"
 name = "C++"
 aliases = ["cxx", "cc"]
 extensions = ["cpp", "cc", "cxx", "hpp", "hh", "hxx"]
-support = "rule-aware"
+# No tree-sitter grammar or frontend; honestly the shared context classifier.
+support = "context-aware"
 
 [[languages]]
 id = "c-header"

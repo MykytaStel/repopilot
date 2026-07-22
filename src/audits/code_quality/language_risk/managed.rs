@@ -85,7 +85,7 @@ impl ManagedRiskPattern {
 /// Emits Java runtime-risk findings from the syntax tree: generic fatal
 /// `throw new RuntimeException/IllegalStateException(...)`, not-implemented
 /// throws, and `TODO(...)` placeholders.
-pub(super) fn emit_java_node(
+pub(crate) fn emit_java_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -137,7 +137,7 @@ pub(super) fn emit_java_node(
 
 /// Emits Kotlin runtime-risk findings: generic fatal `throw RuntimeException/
 /// IllegalStateException(...)`, not-implemented throws, and `TODO(...)`.
-pub(super) fn emit_kotlin_node(
+pub(crate) fn emit_kotlin_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -190,7 +190,7 @@ pub(super) fn emit_kotlin_node(
 /// Emits C# runtime-risk findings: generic fatal `throw new Exception/
 /// RuntimeException/IllegalStateException(...)`, not-implemented throws, and
 /// `TODO(...)`.
-pub(super) fn emit_csharp_node(
+pub(crate) fn emit_csharp_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -242,5 +242,51 @@ pub(super) fn emit_csharp_node(
             file,
             findings,
         );
+    }
+}
+
+/// Line-scanner fallback: run every JVM pattern against one sanitized line.
+pub(crate) fn emit_line_jvm(
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    for pattern in ManagedRiskPattern::JVM_PATTERNS {
+        if pattern.matches(trimmed, path) {
+            push_pattern_finding(
+                pattern,
+                path,
+                line_index + 1,
+                raw_line.trim(),
+                file,
+                findings,
+            );
+        }
+    }
+}
+
+/// Line-scanner fallback: run every C# pattern against one sanitized line.
+pub(crate) fn emit_line_csharp(
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    for pattern in ManagedRiskPattern::CSHARP_PATTERNS {
+        if pattern.matches(trimmed, path) {
+            push_pattern_finding(
+                pattern,
+                path,
+                line_index + 1,
+                raw_line.trim(),
+                file,
+                findings,
+            );
+        }
     }
 }

@@ -6,6 +6,7 @@ node_modules/
 .agents/
 .claude/
 .codex/
+.specify/
 dist/
 .DS_Store
 .idea/
@@ -44,6 +45,8 @@ __pycache__/
 
 docs/demos/*.tape
 !docs/demos/02-review.tape
+!docs/demos/03-agent-review.tape
+!docs/demos/04-java-agent-review.tape
 docs/demos/*.log
 
 # Real-repo validation zoo: repos are cloned here on demand, never committed.

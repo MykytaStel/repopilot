@@ -42,20 +42,11 @@ pub(crate) enum ParseLanguage {
 
 impl ParseLanguage {
     /// Maps a RepoPilot language label (as produced by language detection and
-    /// stored on `FileFacts.language`) to a parseable grammar, if any.
+    /// stored on `FileFacts.language`) to a parseable grammar, if any. The
+    /// label→grammar table lives on the language frontend registry; this is
+    /// a convenience alias for grammar consumers.
     pub(crate) fn from_label(label: &str) -> Option<Self> {
-        match label {
-            "Rust" => Some(Self::Rust),
-            "TypeScript" => Some(Self::TypeScript),
-            "TypeScript React" => Some(Self::Tsx),
-            "JavaScript" | "JavaScript React" => Some(Self::JavaScript),
-            "Python" => Some(Self::Python),
-            "Go" => Some(Self::Go),
-            "Java" => Some(Self::Java),
-            "CSharp" | "C#" => Some(Self::CSharp),
-            "Kotlin" => Some(Self::Kotlin),
-            _ => None,
-        }
+        crate::languages::grammar_for_label(label)
     }
 }
 

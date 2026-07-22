@@ -14,39 +14,20 @@
 //! *their* sink and would cause false negatives if applied to SQL/exec/fs
 //! universally — recognizing them per-sink is a documented follow-up.
 
-use super::TaintLang;
+use super::tables::TaintTables;
 use tree_sitter::Node;
 
-const JS_COERCIONS: &[&str] = &["Number", "parseInt", "parseFloat", "BigInt", "Boolean"];
-
-const PY_COERCIONS: &[&str] = &["int", "float", "bool"];
-
-const GO_COERCIONS: &[&str] = &[
-    "strconv.Atoi",
-    "strconv.ParseInt",
-    "strconv.ParseFloat",
-    "strconv.ParseBool",
-];
-
 /// Whether `node` is a call to a numeric/boolean coercion that universally
-/// neutralizes its argument, so the walkers should not descend into it.
-pub(super) fn is_sanitizer_call(node: Node<'_>, content: &str, lang: TaintLang) -> bool {
-    let is_call = match lang {
-        TaintLang::Js | TaintLang::Go => node.kind() == "call_expression",
-        TaintLang::Python => node.kind() == "call",
-    };
-    if !is_call {
+/// neutralizes its argument, so the walkers should not descend into it. The
+/// coercion list and the grammar's call node kind come from the language's
+/// [`TaintTables`].
+pub(super) fn is_sanitizer_call(node: Node<'_>, content: &str, tables: &TaintTables) -> bool {
+    if node.kind() != tables.coercion_call_kind {
         return false;
     }
     let Some(callee) = node.child_by_field_name("function") else {
         return false;
     };
     let text = callee.utf8_text(content.as_bytes()).unwrap_or("").trim();
-
-    let coercions = match lang {
-        TaintLang::Js => JS_COERCIONS,
-        TaintLang::Python => PY_COERCIONS,
-        TaintLang::Go => GO_COERCIONS,
-    };
-    coercions.contains(&text)
+    tables.coercions.contains(&text)
 }

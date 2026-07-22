@@ -7,6 +7,7 @@ adoption or CI policy.
 ## User Guides
 
 - [Installation](install.md)
+- [Guard your agent runs](agent-guardrail.md)
 - [Common workflows](commands.md)
 - [CLI reference](cli.md)
 - [Configuration and local feedback](configuration.md)
@@ -31,6 +32,8 @@ adoption or CI policy.
 - [Analysis platform state](engineering/analysis-platform-state.md)
 - [Dependency Graph v2 design](engineering/dependency-graph-v2.md)
 - [Signal contract](engineering/signal-contract.md)
+- [Language surface inventory](engineering/language-surface-inventory.md)
+- [Add a language](engineering/add-a-language.md)
 - [Engine pipeline](engineering/engine-pipeline.md)
 - [Graph scan hardening](engineering/graph-scan-hardening.md)
 - [Performance budgets](engineering/performance-budgets.md)

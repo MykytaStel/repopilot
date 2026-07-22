@@ -82,7 +82,7 @@ impl PythonRiskPattern {
 
 /// Emits Python runtime-risk findings from the syntax tree: bare `except:`,
 /// `assert` statements, and `NotImplementedError` placeholders.
-pub(super) fn emit_python_node(
+pub(crate) fn emit_python_node(
     node: Node<'_>,
     content: &str,
     path: &Path,
@@ -135,4 +135,27 @@ fn raises_bare_not_implemented(node: Node<'_>, content: &str) -> bool {
     node.named_children(&mut cursor).any(|child| {
         child.kind() == "identifier" && node_text(child, content) == Some("NotImplementedError")
     })
+}
+
+/// Line-scanner fallback: run every Python pattern against one sanitized line.
+pub(crate) fn emit_line(
+    trimmed: &str,
+    path: &Path,
+    raw_line: &str,
+    line_index: usize,
+    file: &FileFacts,
+    findings: &mut Vec<Finding>,
+) {
+    for pattern in PythonRiskPattern::ALL {
+        if pattern.matches(trimmed, path) {
+            push_pattern_finding(
+                pattern,
+                path,
+                line_index + 1,
+                raw_line.trim(),
+                file,
+                findings,
+            );
+        }
+    }
 }
