@@ -22,7 +22,7 @@ test rather than hidden.
 | Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Java | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | C# | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
-| Kotlin | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
+| Kotlin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 
 Notes:
 
