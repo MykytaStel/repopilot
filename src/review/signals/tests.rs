@@ -321,6 +321,26 @@ fn classify_boundary_ast_detects_security_patterns() {
         classify_boundary_ast(Path::new("main.go"), go_code),
         Some(BoundaryCategory::AccessControl)
     );
+
+    // C# attribute (boundary enabled by the honesty pass — the old dispatch
+    // matched a label detection never emits, so this never fired before).
+    let cs_code = r#"
+        class OrdersController {
+            [Authorize(Roles = "admin")]
+            public void Delete(int id) {}
+        }
+    "#;
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/OrdersController.cs"), cs_code),
+        Some(BoundaryCategory::AccessControl)
+    );
+
+    // C# using directive naming a security namespace.
+    let cs_using = "using Microsoft.AspNetCore.Authorization;\n";
+    assert_eq!(
+        classify_boundary_ast(Path::new("src/Startup.cs"), cs_using),
+        Some(BoundaryCategory::AccessControl)
+    );
 }
 
 #[test]
