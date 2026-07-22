@@ -25,7 +25,7 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
         grammar: ParseLanguage::Kotlin,
     }],
     imports: Some(&KOTLIN_IMPORTS),
-    taint: None,
+    taint: Some(&review::KOTLIN_TAINT),
     review: Some(&review::KOTLIN_REVIEW),
     conventions: &KOTLIN_CONVENTIONS,
     risk: Some(&risk::KOTLIN_RISK),

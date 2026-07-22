@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Kotlin taint analysis.** Added Ktor (`call.receiveText`, `call.parameters`),
+  Android (`intent.getStringExtra`, `savedStateHandle.get`), and Servlet request
+  sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables.
+
 - **Support-honesty ledger is now empty.** Rust's dedicated
   `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
   detection (structural infallibility, report-renderer path awareness) that
