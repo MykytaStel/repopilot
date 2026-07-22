@@ -29,6 +29,7 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
     review: Some(&review::KOTLIN_REVIEW),
     conventions: &KOTLIN_CONVENTIONS,
     risk: Some(&risk::KOTLIN_RISK),
+    dedicated_risk_audit: None,
 };
 
 static KOTLIN_CONVENTIONS: PathConventions = PathConventions {
