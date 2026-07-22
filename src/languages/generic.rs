@@ -15,4 +15,5 @@ pub(super) static GENERIC: LanguageFrontend = LanguageFrontend {
     review: None,
     conventions: &super::conventions::GENERIC_CONVENTIONS,
     risk: None,
+    dedicated_risk_audit: None,
 };

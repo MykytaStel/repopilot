@@ -29,6 +29,7 @@ pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
     review: Some(&review::JAVA_REVIEW),
     conventions: &JAVA_CONVENTIONS,
     risk: Some(&risk::JAVA_RISK),
+    dedicated_risk_audit: None,
 };
 
 static JAVA_CONVENTIONS: PathConventions = PathConventions {

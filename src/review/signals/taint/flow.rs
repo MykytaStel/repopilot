@@ -149,10 +149,22 @@ fn assignment_parts<'a>(
     } else {
         ("left", "right")
     };
-    Some((
-        node.child_by_field_name(lhs_field)?,
-        node.child_by_field_name(rhs_field)?,
-    ))
+    let lhs = node.child_by_field_name(lhs_field)?;
+    if let Some(rhs) = node.child_by_field_name(rhs_field) {
+        return Some((lhs, rhs));
+    }
+    // C#'s grammar attaches a declarator's initializer as a trailing
+    // anonymous child rather than a `value` field; a declarator without an
+    // initializer (`let x;`, `int x;`) has no such child and stays `None`.
+    if kind == "variable_declarator" {
+        let mut cursor = node.walk();
+        let init = node
+            .named_children(&mut cursor)
+            .filter(|child| child.id() != lhs.id())
+            .last()?;
+        return Some((lhs, init));
+    }
+    None
 }
 
 /// Simple local names bound by an assignment target. Member/index/selector
