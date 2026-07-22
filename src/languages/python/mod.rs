@@ -29,6 +29,7 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
     review: Some(&review::PYTHON_REVIEW),
     conventions: &PYTHON_CONVENTIONS,
     risk: Some(&risk::PYTHON_RISK),
+    dedicated_risk_audit: None,
 };
 
 static PYTHON_CONVENTIONS: PathConventions = PathConventions {
