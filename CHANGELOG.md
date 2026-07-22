@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **Framework dedup only caught adjacent duplicates.** `detect_frameworks`
+  deduplicated with `Vec::dedup()`, which removes consecutive duplicates
+  only; the same framework reported by two different probes (not adjacent
+  in the list) survived into the final result. Deduplication is now
+  order-independent via a `HashSet`, and `DetectedFramework` derives `Hash`
+  to support it.
+
 ### Added
 
 - **Framework probes refactoring.** Framework detection probes for JS/TS (`NextJs`,
@@ -15,7 +24,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - **Kotlin taint analysis.** Added Ktor (`call.receiveText`, `call.parameters`),
   Android (`intent.getStringExtra`, `savedStateHandle.get`), and Servlet request
-  sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables.
+  sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables. Callee
+  extraction strips explicit generic type arguments (`call.receive<String>()`),
+  so sink/coercion classification isn't defeated by a type parameter; flow-scope
+  and string-building node kinds were also widened (`primary_constructor`,
+  `class_initializer`, `property_accessor`, Kotlin's `line`/`multi_line` string
+  templates).
 
 - **Support-honesty ledger is now empty.** Rust's dedicated
   `language.rust.panic-risk` audit — 1.6k lines of context-sensitive

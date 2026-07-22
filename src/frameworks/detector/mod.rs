@@ -15,7 +15,8 @@ pub fn detect_frameworks(root: &Path) -> Vec<DetectedFramework> {
             frameworks.extend(probe(root));
         }
     }
-    frameworks.dedup();
+    let mut seen = std::collections::HashSet::new();
+    frameworks.retain(|item| seen.insert(item.clone()));
     frameworks
 }
 

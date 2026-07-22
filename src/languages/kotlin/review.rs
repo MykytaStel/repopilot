@@ -38,7 +38,12 @@ pub(super) static KOTLIN_TAINT: TaintTables = TaintTables {
 fn is_flow_scope(node: Node<'_>) -> bool {
     matches!(
         node.kind(),
-        "function_declaration" | "secondary_constructor" | "lambda_literal"
+        "function_declaration"
+            | "primary_constructor"
+            | "secondary_constructor"
+            | "class_initializer"
+            | "property_accessor"
+            | "lambda_literal"
     )
 }
 
@@ -51,11 +56,15 @@ fn is_augmenting(node: Node<'_>) -> bool {
 }
 
 fn is_string_building(node: Node<'_>, content: &str) -> bool {
-    node.kind() == "additive_expression"
-        || node.kind() == "string_literal"
-        || (node.kind() == "call_expression"
-            && kotlin_callee(node, content)
-                .is_some_and(|callee| callee.ends_with(".format") || callee == "String.format"))
+    matches!(
+        node.kind(),
+        "additive_expression"
+            | "string_literal"
+            | "line_string_expression"
+            | "multi_line_string_expression"
+    ) || (node.kind() == "call_expression"
+        && kotlin_callee(node, content)
+            .is_some_and(|callee| callee.ends_with(".format") || callee == "String.format"))
 }
 
 fn kotlin_callee<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {
@@ -64,10 +73,15 @@ fn kotlin_callee<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {
         node.children(&mut cursor)
             .find(|c| c.kind() == "value_arguments")
     })?;
-    content
+    let raw = content
         .get(node.start_byte()..args.start_byte())
         .map(str::trim)
-        .filter(|callee| !callee.is_empty())
+        .filter(|callee| !callee.is_empty())?;
+    let callee = match raw.find('<') {
+        Some(idx) => raw[..idx].trim(),
+        None => raw,
+    };
+    Some(callee)
 }
 
 fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
@@ -167,5 +181,31 @@ mod tests {
         find_calls(root, code, &mut sinks);
 
         assert_eq!(sinks, vec![SinkKind::FsWrite, SinkKind::Exec]);
+    }
+
+    #[test]
+    fn classifies_kotlin_generic_calls_and_sinks() {
+        let code = r#"
+            fun process(call: ApplicationCall) {
+                val data = call.receive<String>()
+                File("output.txt").writeText(data)
+            }
+        "#;
+        let tree = parse(code, ParseLanguage::Kotlin).unwrap();
+        let root = tree.root_node();
+
+        let mut sinks = Vec::new();
+        fn find_calls<'a>(node: Node<'a>, content: &'a str, sinks: &mut Vec<SinkKind>) {
+            if let Some(sink) = classify_sink(node, content) {
+                sinks.push(sink.kind);
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                find_calls(child, content, sinks);
+            }
+        }
+        find_calls(root, code, &mut sinks);
+
+        assert_eq!(sinks, vec![SinkKind::FsWrite]);
     }
 }
