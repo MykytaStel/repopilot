@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::frameworks::react_native::ReactNativeArchitectureProfile;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(tag = "name", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DetectedFramework {
     ReactNative { version: Option<String> },
