@@ -193,9 +193,17 @@ fn import_extractor_coverage_is_pinned() {
 /// language from taint analysis.
 #[test]
 fn taint_participation_is_pinned() {
-    let with_taint: BTreeSet<&str> = ["typescript", "javascript", "python", "go", "java", "csharp"]
-        .into_iter()
-        .collect();
+    let with_taint: BTreeSet<&str> = [
+        "typescript",
+        "javascript",
+        "python",
+        "go",
+        "java",
+        "kotlin",
+        "csharp",
+    ]
+    .into_iter()
+    .collect();
     for frontend in all_frontends() {
         assert_eq!(
             frontend.taint.is_some(),
