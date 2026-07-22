@@ -30,6 +30,7 @@ pub(super) static JAVA: LanguageFrontend = LanguageFrontend {
     conventions: &JAVA_CONVENTIONS,
     risk: Some(&risk::JAVA_RISK),
     dedicated_risk_audit: None,
+    framework_probe: None,
 };
 
 static JAVA_CONVENTIONS: PathConventions = PathConventions {

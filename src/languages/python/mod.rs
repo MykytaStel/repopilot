@@ -30,6 +30,7 @@ pub(super) static PYTHON: LanguageFrontend = LanguageFrontend {
     conventions: &PYTHON_CONVENTIONS,
     risk: Some(&risk::PYTHON_RISK),
     dedicated_risk_audit: None,
+    framework_probe: Some(crate::frameworks::detector::python::detect_python_frameworks),
 };
 
 static PYTHON_CONVENTIONS: PathConventions = PathConventions {

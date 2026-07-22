@@ -39,6 +39,7 @@ pub(super) static TYPESCRIPT: LanguageFrontend = LanguageFrontend {
     conventions: &JS_FAMILY_CONVENTIONS,
     risk: Some(&risk::JS_FAMILY_RISK),
     dedicated_risk_audit: None,
+    framework_probe: Some(crate::frameworks::detector::js::detect_js_frameworks),
 };
 
 pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
@@ -62,6 +63,7 @@ pub(super) static JAVASCRIPT: LanguageFrontend = LanguageFrontend {
     conventions: &JS_FAMILY_CONVENTIONS,
     risk: Some(&risk::JS_FAMILY_RISK),
     dedicated_risk_audit: None,
+    framework_probe: Some(crate::frameworks::detector::js::detect_js_frameworks),
 };
 
 static JS_FAMILY_CONVENTIONS: PathConventions = PathConventions {

@@ -1,17 +1,21 @@
 use crate::frameworks::types::DetectedFramework;
 use std::path::Path;
 
-mod go;
-mod js;
-mod python;
+pub(crate) mod go;
+pub(crate) mod js;
+pub(crate) mod python;
 mod workspace;
 
 pub use workspace::detect_framework_projects;
 
 pub fn detect_frameworks(root: &Path) -> Vec<DetectedFramework> {
-    let mut frameworks = js::detect_js_frameworks(root);
-    frameworks.extend(python::detect_python_frameworks(root));
-    frameworks.extend(go::detect_go_frameworks(root));
+    let mut frameworks = Vec::new();
+    for frontend in crate::languages::all_frontends() {
+        if let Some(probe) = frontend.framework_probe {
+            frameworks.extend(probe(root));
+        }
+    }
+    frameworks.dedup();
     frameworks
 }
 

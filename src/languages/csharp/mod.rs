@@ -39,6 +39,7 @@ pub(super) static CSHARP: LanguageFrontend = LanguageFrontend {
     conventions: &CSHARP_CONVENTIONS,
     risk: Some(&risk::CSHARP_RISK),
     dedicated_risk_audit: None,
+    framework_probe: None,
 };
 
 static CSHARP_REVIEW: ReviewTables = ReviewTables {

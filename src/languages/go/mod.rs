@@ -30,6 +30,7 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
     conventions: &GO_CONVENTIONS,
     risk: Some(&risk::GO_RISK),
     dedicated_risk_audit: None,
+    framework_probe: Some(crate::frameworks::detector::go::detect_go_frameworks),
 };
 
 static GO_CONVENTIONS: PathConventions = PathConventions {

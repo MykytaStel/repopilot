@@ -1,7 +1,7 @@
 use crate::frameworks::types::DetectedFramework;
 use std::path::Path;
 
-pub(super) fn detect_go_frameworks(root: &Path) -> Vec<DetectedFramework> {
+pub(crate) fn detect_go_frameworks(root: &Path) -> Vec<DetectedFramework> {
     let content = match std::fs::read_to_string(root.join("go.mod")) {
         Ok(c) => c,
         Err(_) => return vec![],
