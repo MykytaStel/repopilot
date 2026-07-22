@@ -15,24 +15,22 @@ test rather than hidden.
 
 | Language | Grammar | Imports | Review signals | Taint flows | Runtime risk | Conventions | Declared |
 |---|---|---|---|---|---|---|---|
-| Rust | ✓ | ✓ | ✓ | — | — | ✓ | rule-aware |
+| Rust | ✓ | ✓ | ✓ | — | ✓ (dedicated) | ✓ | rule-aware |
 | TypeScript | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | JavaScript | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Python | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Java | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
-| C# | ✓ | — | ✓ | — | ✓ | ✓ | rule-aware |
+| C# | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Kotlin | ✓ | ✓ | ✓ | — | ✓ | ✓ | rule-aware |
 
 Notes:
 
-- **Rust runtime risk** is covered by the dedicated `rust.panic-risk` rule
-family rather than the shared runtime-risk audit, so its column reads “—”
-here; how it counts toward the capability model is tracked in the
-support-honesty ledger.
-- **C# review signals** exclude AST boundary classification: the pre-registry
-dispatch never matched the label detection emits, and enabling it is a
-deliberate behavior change, not a docs update.
+- **Rust runtime risk** reads “✓ (dedicated)”: coverage comes from the
+standalone `language.rust.panic-risk` audit — structural infallibility
+detection, report-renderer path awareness — rather than the shared
+per-node runtime-risk table other languages use. Too contextual for that
+generic shape; it still counts toward the `RuntimeRisk` capability.
 - JavaScript and TypeScript (with their React dialects) share one frontend
 family: the same grammar shapes, import extractor, and signal tables.
 
