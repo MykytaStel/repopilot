@@ -58,6 +58,9 @@ pub fn capabilities(frontend: &LanguageFrontend) -> Vec<Capability> {
     ) {
         wired.push(Capability::TestConventions);
     }
+    if frontend.framework_probe.is_some() {
+        wired.push(Capability::Frameworks);
+    }
     wired
 }
 

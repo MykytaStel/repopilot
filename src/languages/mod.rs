@@ -119,6 +119,9 @@ pub struct LanguageFrontend {
     pub(crate) dedicated_risk_audit: Option<&'static str>,
     /// Path and naming conventions (test files, test support, entrypoints).
     pub(crate) conventions: &'static conventions::PathConventions,
+    /// Framework detection probe, when the language frontend owns a probe.
+    pub(crate) framework_probe:
+        Option<fn(&std::path::Path) -> Vec<crate::frameworks::types::DetectedFramework>>,
 }
 
 /// Every registered frontend, including the generic fallback (last).

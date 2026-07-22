@@ -30,6 +30,7 @@ pub(super) static KOTLIN: LanguageFrontend = LanguageFrontend {
     conventions: &KOTLIN_CONVENTIONS,
     risk: Some(&risk::KOTLIN_RISK),
     dedicated_risk_audit: None,
+    framework_probe: None,
 };
 
 static KOTLIN_CONVENTIONS: PathConventions = PathConventions {

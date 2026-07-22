@@ -2,7 +2,7 @@ use crate::frameworks::detector::extract_version;
 use crate::frameworks::types::DetectedFramework;
 use std::path::Path;
 
-pub(super) fn detect_js_frameworks(root: &Path) -> Vec<DetectedFramework> {
+pub(crate) fn detect_js_frameworks(root: &Path) -> Vec<DetectedFramework> {
     let pkg_path = root.join("package.json");
     let content = match std::fs::read_to_string(&pkg_path) {
         Ok(c) => c,

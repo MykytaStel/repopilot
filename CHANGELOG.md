@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Framework probes refactoring.** Framework detection probes for JS/TS (`NextJs`,
+  `React`, `ReactNative`, `Expo`, `Vue`, `Nuxt`, `Svelte`, `Angular`, `Express`, `NestJs`),
+  Python (`Django`, `Flask`, `FastApi`), and Go (`Gin`, `Echo`, `Fiber`) now register
+  through their respective language frontends in the unified frontend registry.
+
 - **Kotlin taint analysis.** Added Ktor (`call.receiveText`, `call.parameters`),
   Android (`intent.getStringExtra`, `savedStateHandle.get`), and Servlet request
   sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables.

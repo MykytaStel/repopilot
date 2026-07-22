@@ -351,6 +351,23 @@ fn runtime_risk_participation_is_pinned() {
     }
 }
 
+/// Pins which frontends register a framework detection probe.
+#[test]
+fn framework_probe_coverage_is_pinned() {
+    let with_framework_probes: BTreeSet<&str> = ["typescript", "javascript", "python", "go"]
+        .into_iter()
+        .collect();
+
+    for frontend in all_frontends() {
+        assert_eq!(
+            frontend.framework_probe.is_some(),
+            with_framework_probes.contains(frontend.id),
+            "framework probe registration changed for frontend '{}'",
+            frontend.id
+        );
+    }
+}
+
 /// Pins the convention surface: the Rust `test_` prefix opt-out, which
 /// frontends carry a test-support recognizer (and its evidence reason), and
 /// which carry an entrypoint content probe.

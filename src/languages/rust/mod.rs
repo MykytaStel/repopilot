@@ -33,6 +33,7 @@ pub(super) static RUST: LanguageFrontend = LanguageFrontend {
     // was never designed for. See `dedicated_risk_audit` below.
     risk: None,
     dedicated_risk_audit: Some("language.rust.panic-risk"),
+    framework_probe: None,
 };
 
 static RUST_CONVENTIONS: PathConventions = PathConventions {
