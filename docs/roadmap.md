@@ -4,21 +4,24 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.21 — agent-run review as the default workflow
+## Now: 0.21 — trust the default output, calibrate it to your repo
 
-The analysis engine is ahead of its adoption. This cycle is about making the
-core promise — deterministic review of a change you didn't write — trivially
-easy to wire in, and letting real users drive what gets built next.
+One larger release, three layers. The language frontend contract landed
+first (registry, per-language tables, generated support matrix, contributor
+guide); the rest of the cycle builds on it:
 
-- documented guardrail recipes: session snapshot + stop-hook review for
-  Claude Code, MCP bootstrap for agent clients, review-first CI gate
-  (see [Guard your agent runs](agent-guardrail.md));
-- a reproducible real-repo demo (pinned zoo checkout) showing a plausible
-  agent edit caught by `repopilot review`;
-- README and docs lead with change review; scan/baseline positioned as the
-  adoption surface;
-- precision work only in response to reported noise — the zoo regression
-  gate holds the current signal quality; no new speculative rules.
+- **contract honesty to zero** — complete C# (imports, taint, boundary),
+  account for Rust's dedicated panic-risk audit, Kotlin taint, framework
+  probes on frontends; the support ledger ends empty;
+- **local knowledge overlays** — a declarative, diffable local file that
+  calibrates known rules to a repository (severity, suppression) without
+  code execution or plugins;
+- **local analysis history** — a `.repopilot/` ledger of past runs:
+  risk deltas vs the previous scan and accumulated agent-session evidence;
+- **new languages via the cheap path** — added as frontend modules with a
+  pinned zoo repository as the acceptance gate;
+- guardrail recipes, reproducible agent-edit demos, and the review-first
+  README continue as the adoption surface.
 
 No hosted service, telemetry, source upload, or implicit LLM integration is
 part of the roadmap.

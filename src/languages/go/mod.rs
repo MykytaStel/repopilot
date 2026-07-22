@@ -29,6 +29,7 @@ pub(super) static GO: LanguageFrontend = LanguageFrontend {
     review: Some(&review::GO_REVIEW),
     conventions: &GO_CONVENTIONS,
     risk: Some(&risk::GO_RISK),
+    dedicated_risk_audit: None,
 };
 
 static GO_CONVENTIONS: PathConventions = PathConventions {
