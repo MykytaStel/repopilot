@@ -164,6 +164,7 @@ pub struct RuleDecision {
     pub severity: Severity,
     pub reason: Option<String>,
     pub risk_signal: Option<RuleRiskAdjustment>,
+    pub via_overlay: bool,
 }
 
 impl RuleDecision {
@@ -173,6 +174,7 @@ impl RuleDecision {
             severity,
             reason: None,
             risk_signal: None,
+            via_overlay: false,
         }
     }
 
@@ -182,6 +184,7 @@ impl RuleDecision {
             severity: Severity::Info,
             reason: Some(reason.into()),
             risk_signal: None,
+            via_overlay: false,
         }
     }
 
@@ -191,6 +194,11 @@ impl RuleDecision {
 
     pub fn with_risk_signal(mut self, risk_signal: Option<RuleRiskAdjustment>) -> Self {
         self.risk_signal = risk_signal;
+        self
+    }
+
+    pub fn with_via_overlay(mut self, via_overlay: bool) -> Self {
+        self.via_overlay = via_overlay;
         self
     }
 }
@@ -207,4 +215,16 @@ pub struct RuleMatchContext<'a> {
     pub is_low_signal: bool,
     pub signal: Option<&'a str>,
     pub base_severity: Severity,
+    pub path: Option<&'a str>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apply_and_suppress_default_via_overlay_to_false() {
+        assert!(!RuleDecision::apply(Severity::Low).via_overlay);
+        assert!(!RuleDecision::suppress("test").via_overlay);
+    }
 }

@@ -135,6 +135,7 @@ fn suppresses_low_signal_for_rules_with_flag() {
         is_low_signal: true,
         signal: None,
         base_severity: Severity::Medium,
+        path: None,
     });
 
     assert!(decision.is_suppressed());

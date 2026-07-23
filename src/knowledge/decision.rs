@@ -541,6 +541,7 @@ fn decide_with_context(
         is_low_signal,
         signal,
         base_severity,
+        path: None,
     })
 }
 
@@ -567,6 +568,7 @@ fn decide_with_context_trace(
         is_low_signal,
         signal,
         base_severity,
+        path: None,
     })
 }
 
@@ -606,6 +608,7 @@ pub fn decide_for_project(
         is_low_signal: false,
         signal,
         base_severity,
+        path: None,
     })
 }
 
