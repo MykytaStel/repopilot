@@ -47,7 +47,7 @@ suppressions:
 
     assert_eq!(validation.suppressions.len(), 0);
     assert_eq!(validation.invalid_suppressions_count, 2);
-    assert_eq!(validation.diagnostics.len(), 2);
+    assert_eq!(validation.diagnostics.len(), 3);
 }
 
 #[test]
@@ -93,4 +93,23 @@ fn indexed_matching_considers_all_evidence_paths_and_suppression_order() {
     };
 
     assert_eq!(matching_suppression_index(&finding, &index), Some(1));
+}
+
+#[test]
+fn existing_feedback_file_gets_a_deprecation_diagnostic() {
+    let content = r#"
+suppressions:
+  - rule_id: architecture.large-file
+    path: src/big.rs
+"#;
+    let validation = validate_feedback_content(content, PathBuf::from(".repopilot/feedback.yml"));
+
+    assert!(
+        validation
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "feedback.deprecated"),
+        "expected a feedback.deprecated diagnostic, got: {:?}",
+        validation.diagnostics
+    );
 }
