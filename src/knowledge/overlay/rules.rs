@@ -125,6 +125,7 @@ pub fn active_overlay() -> &'static OverlayRules {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::knowledge::overlay::OverlayTarget;
 
     #[test]
     fn init_active_overlay_reads_the_repo_root_file() {
@@ -152,5 +153,29 @@ mod tests {
         let rules = OverlayRules::load(dir.path()).expect("load overlay");
         assert!(!rules.exists());
         assert!(rules.entries().is_empty());
+    }
+
+    #[test]
+    fn mark_matched_is_safe_under_concurrent_calls() {
+        use rayon::prelude::*;
+
+        let entries = (0..8)
+            .map(|i| OverlayEntry {
+                index: i + 1,
+                target: OverlayTarget::Rule(format!("rule-{i}")),
+                path_text: None,
+                path_glob: None,
+                severity: Some(crate::findings::severity::Severity::Low),
+                reason: None,
+                expires: None,
+            })
+            .collect();
+        let rules = OverlayRules::from_entries_for_test(entries);
+
+        (0..8usize).into_par_iter().for_each(|i| {
+            rules.mark_matched(i);
+        });
+
+        assert!(rules.unmatched_entries().is_empty());
     }
 }
