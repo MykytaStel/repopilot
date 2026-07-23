@@ -2,6 +2,8 @@ use super::{OVERLAY_PATH, OverlayEntry, OverlayValidation, parse_overlay_content
 use crate::scan::types::ScanDiagnostic;
 use std::io;
 use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -54,8 +56,22 @@ impl OverlayRules {
         &self.validation.overlay_path
     }
 
-    // Consumed starting in PR-2/PR-3 (decision-engine + unmatched-entries diagnostic wiring); remove this attribute once that lands.
-    #[allow(dead_code)]
+    #[cfg(test)]
+    pub fn from_entries_for_test(entries: Vec<OverlayEntry>) -> Self {
+        let matched = entries.iter().map(|_| AtomicBool::new(false)).collect();
+        Self {
+            validation: OverlayValidation {
+                overlay_path: PathBuf::from(OVERLAY_PATH),
+                exists: true,
+                entries,
+                invalid_entries_count: 0,
+                parse_error: None,
+                diagnostics: Vec::new(),
+            },
+            matched,
+        }
+    }
+
     pub(crate) fn mark_matched(&self, index_in_entries: usize) {
         if let Some(flag) = self.matched.get(index_in_entries) {
             flag.store(true, Ordering::Relaxed);

@@ -373,7 +373,7 @@ fn overlay_suppresses_a_matching_rule_and_path() {
         expires: None,
     };
 
-    let decision = apply_overlay_for_test(&context, &[entry]);
+    let decision = apply_overlay_for_test(&context, vec![entry]);
     assert!(decision.is_suppressed());
     assert!(decision.via_overlay);
 }
@@ -409,7 +409,7 @@ fn overlay_downgrades_severity_and_preserves_reason_for_a_matching_rule_and_path
         expires: None,
     };
 
-    let decision = apply_overlay_for_test(&context, &[entry]);
+    let decision = apply_overlay_for_test(&context, vec![entry]);
     assert_eq!(decision.severity, Severity::Low);
     assert!(decision.via_overlay);
     assert_eq!(decision.action, RuleDecisionAction::Downgrade);
@@ -450,7 +450,7 @@ fn overlay_downgrade_to_info_survives_enrichment() {
         expires: None,
     };
 
-    let decision = apply_overlay_for_test(&context, &[entry]);
+    let decision = apply_overlay_for_test(&context, vec![entry]);
     assert_eq!(decision.severity, Severity::Info);
     assert!(decision.via_overlay);
 
@@ -474,4 +474,50 @@ fn default_provenance_omits_absent_knowledge_decision() {
     let value = serde_json::to_value(crate::findings::provenance::FindingProvenance::default())
         .expect("serialize provenance");
     assert!(value.get("knowledge_decision").is_none());
+}
+
+#[test]
+fn overlay_entry_is_marked_matched_even_when_a_later_entry_wins() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    let rules = crate::knowledge::overlay::OverlayRules::from_entries_for_test(vec![
+        OverlayEntry {
+            index: 1,
+            target: OverlayTarget::Rule("architecture.large-file".to_string()),
+            path_text: None,
+            path_glob: None,
+            severity: Some(Severity::Low),
+            reason: None,
+            expires: None,
+        },
+        OverlayEntry {
+            index: 2,
+            target: OverlayTarget::Rule("architecture.large-file".to_string()),
+            path_text: None,
+            path_glob: None,
+            severity: None,
+            reason: Some("final suppress".to_string()),
+            expires: None,
+        },
+    ]);
+
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: None,
+    };
+
+    let mut trace = TraceRecorder::disabled();
+    let decision = RuleDecision::apply(context.base_severity);
+    let _ = apply_overlay_entries_with_marking(&context, &rules, decision, &mut trace);
+
+    assert!(rules.unmatched_entries().is_empty());
 }

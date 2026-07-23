@@ -7,14 +7,14 @@ use repopilot::facts::RepoFactsSummary;
 use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
-use repopilot::knowledge::init_active_overlay;
+use repopilot::knowledge::{active_overlay, init_active_overlay};
 use repopilot::review::diff::ChangedFile;
 use repopilot::scan::scanner::{
     scan_changed_session, scan_resolved_changed_session, scan_session,
     scan_session_with_facts_summary,
 };
 use repopilot::scan::session::AnalysisSession;
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanDiagnostic, ScanSummary};
 use repopilot::scan::workspace_scan::scan_workspace_session;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -118,6 +118,18 @@ fn run_product_scan_internal(
     finish_spinner(pb);
 
     let (mut summary, repo_facts_summary) = scan_result?;
+
+    let unmatched_overlay = active_overlay().unmatched_entries();
+    if !unmatched_overlay.is_empty() {
+        summary.artifacts.diagnostics.push(ScanDiagnostic::warning(
+            "overlay.unmatched-entries",
+            format!(
+                "{} overlay entr{} in .repopilot/overlay.toml never matched a finding during this scan.",
+                unmatched_overlay.len(),
+                if unmatched_overlay.len() == 1 { "y" } else { "ies" }
+            ),
+        ));
+    }
 
     if !request.ignore_feedback {
         apply_local_feedback(&mut summary, session.analysis_path())?;

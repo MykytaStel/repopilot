@@ -417,23 +417,23 @@ fn apply_overlay(
     decision: RuleDecision,
     trace: &mut TraceRecorder<'_>,
 ) -> RuleDecision {
-    apply_overlay_entries(
+    apply_overlay_entries_with_marking(
         context,
-        crate::knowledge::overlay::active_overlay().entries(),
+        crate::knowledge::overlay::active_overlay(),
         decision,
         trace,
     )
 }
 
-fn apply_overlay_entries(
+fn apply_overlay_entries_with_marking(
     context: &RuleMatchContext<'_>,
-    entries: &[crate::knowledge::overlay::OverlayEntry],
+    rules: &crate::knowledge::overlay::OverlayRules,
     mut decision: RuleDecision,
     trace: &mut TraceRecorder<'_>,
 ) -> RuleDecision {
     use crate::knowledge::overlay::OverlayTarget;
 
-    for entry in entries {
+    for (position, entry) in rules.entries().iter().enumerate() {
         let OverlayTarget::Rule(rule_id) = &entry.target else {
             continue;
         };
@@ -453,6 +453,8 @@ fn apply_overlay_entries(
         if !path_matches {
             continue;
         }
+
+        rules.mark_matched(position);
 
         let before = decision.severity;
         decision = match entry.severity {
@@ -504,11 +506,12 @@ fn apply_overlay_entries(
 #[cfg(test)]
 pub(crate) fn apply_overlay_for_test(
     context: &RuleMatchContext<'_>,
-    entries: &[crate::knowledge::overlay::OverlayEntry],
+    entries: Vec<crate::knowledge::overlay::OverlayEntry>,
 ) -> RuleDecision {
+    let rules = crate::knowledge::overlay::OverlayRules::from_entries_for_test(entries);
     let mut trace = TraceRecorder::disabled();
     let decision = RuleDecision::apply(context.base_severity);
-    apply_overlay_entries(context, entries, decision, &mut trace)
+    apply_overlay_entries_with_marking(context, &rules, decision, &mut trace)
 }
 
 fn record_applicability<F>(
