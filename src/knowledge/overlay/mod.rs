@@ -1,10 +1,11 @@
 use crate::findings::severity::Severity;
 use crate::scan::types::ScanDiagnostic;
 use serde::Deserialize;
-use std::io;
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::path::PathBuf;
+
+pub mod rules;
+
+pub use rules::{OverlayRules, active_overlay, init_active_overlay};
 
 pub const OVERLAY_PATH: &str = ".repopilot/overlay.toml";
 
@@ -203,94 +204,6 @@ fn clean(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-pub struct OverlayRules {
-    validation: OverlayValidation,
-    matched: Vec<AtomicBool>,
-}
-
-static OVERLAY: OnceLock<OverlayRules> = OnceLock::new();
-
-impl OverlayRules {
-    pub fn load(root: &Path) -> io::Result<Self> {
-        let overlay_path = root.join(OVERLAY_PATH);
-        if !overlay_path.is_file() {
-            return Ok(Self {
-                validation: OverlayValidation {
-                    overlay_path,
-                    exists: false,
-                    ..OverlayValidation::default()
-                },
-                matched: Vec::new(),
-            });
-        }
-        let content = std::fs::read_to_string(&overlay_path)?;
-        let validation = parse_overlay_content(&content, overlay_path);
-        let matched = validation
-            .entries
-            .iter()
-            .map(|_| AtomicBool::new(false))
-            .collect();
-        Ok(Self {
-            validation,
-            matched,
-        })
-    }
-
-    pub fn exists(&self) -> bool {
-        self.validation.exists
-    }
-
-    pub fn entries(&self) -> &[OverlayEntry] {
-        &self.validation.entries
-    }
-
-    pub fn diagnostics(&self) -> &[ScanDiagnostic] {
-        &self.validation.diagnostics
-    }
-
-    pub fn overlay_path(&self) -> &std::path::Path {
-        &self.validation.overlay_path
-    }
-
-    pub(crate) fn mark_matched(&self, index_in_entries: usize) {
-        if let Some(flag) = self.matched.get(index_in_entries) {
-            flag.store(true, Ordering::Relaxed);
-        }
-    }
-
-    /// Entries whose index was never marked matched during the scan —
-    /// candidates for pruning. Consumed by a later PR's diagnostic pass.
-    pub fn unmatched_entries(&self) -> Vec<&OverlayEntry> {
-        self.validation
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| !self.matched[*i].load(Ordering::Relaxed))
-            .map(|(_, entry)| entry)
-            .collect()
-    }
-}
-
-/// Initializes the process-wide overlay for `root`. Must be called once,
-/// before any `decide()` calls happen for this scan/review invocation — the
-/// CLI and MCP server both operate on exactly one repo root per process, so
-/// a single `OnceLock` (mirroring `active_knowledge()`) is safe.
-pub fn init_active_overlay(root: &Path) -> &'static OverlayRules {
-    OVERLAY.get_or_init(|| {
-        OverlayRules::load(root).unwrap_or_else(|_| OverlayRules {
-            validation: OverlayValidation::default(),
-            matched: Vec::new(),
-        })
-    })
-}
-
-pub fn active_overlay() -> &'static OverlayRules {
-    OVERLAY.get_or_init(|| OverlayRules {
-        validation: OverlayValidation::default(),
-        matched: Vec::new(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -428,33 +341,5 @@ mod tests {
             OverlayTarget::Kind("behavioral".to_string())
         );
         assert!(validation.entries[0].severity.is_none());
-    }
-
-    #[test]
-    fn init_active_overlay_reads_the_repo_root_file() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let repopilot_dir = dir.path().join(".repopilot");
-        std::fs::create_dir_all(&repopilot_dir).expect("mkdir");
-        std::fs::write(
-            repopilot_dir.join("overlay.toml"),
-            r#"
-                [[overlay]]
-                rule = "architecture.large-file"
-                severity = "low"
-            "#,
-        )
-        .expect("write overlay.toml");
-
-        let rules = OverlayRules::load(dir.path()).expect("load overlay");
-        assert!(rules.exists());
-        assert_eq!(rules.entries().len(), 1);
-    }
-
-    #[test]
-    fn missing_overlay_file_is_not_an_error() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let rules = OverlayRules::load(dir.path()).expect("load overlay");
-        assert!(!rules.exists());
-        assert!(rules.entries().is_empty());
     }
 }
