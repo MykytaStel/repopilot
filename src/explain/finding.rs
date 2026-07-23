@@ -471,6 +471,7 @@ mod tests {
                     action,
                     decided_severity: decision.final_severity,
                     reason: stored_reason.or(decision.reason),
+                    overlay_applied: false,
                 }),
             },
             risk: Default::default(),

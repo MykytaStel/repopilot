@@ -327,6 +327,22 @@ fn applied_file_decision_preserves_replayable_provenance() {
 }
 
 #[test]
+fn record_decision_provenance_flags_overlay_applied_decisions() {
+    let decision = RuleDecision::apply(Severity::Low).with_via_overlay(true);
+    let mut finding = Finding::default();
+    record_decision_provenance(&mut finding, Severity::High, None, &decision);
+
+    assert!(
+        finding
+            .provenance
+            .knowledge_decision
+            .as_ref()
+            .expect("provenance recorded")
+            .overlay_applied
+    );
+}
+
+#[test]
 fn overlay_suppresses_a_matching_rule_and_path() {
     use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
 

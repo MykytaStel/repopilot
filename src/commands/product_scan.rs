@@ -7,6 +7,7 @@ use repopilot::facts::RepoFactsSummary;
 use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
+use repopilot::knowledge::init_active_overlay;
 use repopilot::review::diff::ChangedFile;
 use repopilot::scan::scanner::{
     scan_changed_session, scan_resolved_changed_session, scan_session,
@@ -86,6 +87,8 @@ fn run_product_scan_internal(
         request.visibility_profile,
     );
     debug_assert!(!session.revision().id().is_empty());
+
+    init_active_overlay(&request.path);
 
     let pb = if request.no_progress {
         None

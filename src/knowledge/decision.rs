@@ -762,6 +762,7 @@ pub fn record_decision_provenance(
         },
         decided_severity: decision.severity,
         reason: decision.reason.clone(),
+        overlay_applied: decision.via_overlay,
     });
 }
 
