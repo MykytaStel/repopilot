@@ -54,6 +54,8 @@ impl OverlayRules {
         &self.validation.overlay_path
     }
 
+    // Consumed starting in PR-2/PR-3 (decision-engine + unmatched-entries diagnostic wiring); remove this attribute once that lands.
+    #[allow(dead_code)]
     pub(crate) fn mark_matched(&self, index_in_entries: usize) {
         if let Some(flag) = self.matched.get(index_in_entries) {
             flag.store(true, Ordering::Relaxed);
