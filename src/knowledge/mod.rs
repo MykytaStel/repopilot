@@ -4,6 +4,7 @@ pub mod framework;
 pub mod language;
 pub mod loader;
 pub mod model;
+pub mod overlay;
 pub mod paradigm;
 pub mod rule;
 pub mod runtime;
@@ -17,3 +18,4 @@ pub use model::{
     KnowledgeBase, LanguageProfile, RuleDecision, RuleDecisionAction, RuleMatchContext,
     SupportLevel,
 };
+pub use overlay::{OverlayEntry, OverlayTarget, OverlayValidation};
