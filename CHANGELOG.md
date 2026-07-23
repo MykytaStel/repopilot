@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **A legitimate `Info` severity decision was silently discarded during enrichment.**
+  `Finding::populate_rule_metadata` used `Severity::Info` (which is also
+  `Severity::default()`) as a sentinel meaning "the audit never set severity,
+  fill in the registry default." This couldn't distinguish that from a real
+  decision — a knowledge-pack override or an `.repopilot/overlay.toml` entry
+  explicitly downgrading a rule to `info` — so any such downgrade was reset
+  back to the registry's default severity right after the decision engine
+  applied it. The sentinel check now also requires
+  `provenance.knowledge_decision.is_none()`, since that provenance is only
+  stamped once a finding has passed through the decision engine with a real
+  severity already assigned.
+
 - **Framework dedup only caught adjacent duplicates.** `detect_frameworks`
   deduplicated with `Vec::dedup()`, which removes consecutive duplicates
   only; the same framework reported by two different probes (not adjacent

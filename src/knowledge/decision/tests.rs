@@ -417,6 +417,59 @@ fn overlay_downgrades_severity_and_preserves_reason_for_a_matching_rule_and_path
 }
 
 #[test]
+fn overlay_downgrade_to_info_survives_enrichment() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    // Regression test: `Severity::Info` is also `Severity::default()`, the
+    // sentinel `Finding::populate_rule_metadata` uses to mean "the audit
+    // never set severity, fill in the registry default." A legitimate
+    // overlay decision that lands on Info must not be mistaken for that
+    // sentinel and silently reset back to the registry default (Medium for
+    // architecture.large-file) during enrichment.
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: Some("legacy/big.rs"),
+    };
+
+    let entry = OverlayEntry {
+        index: 1,
+        target: OverlayTarget::Rule("architecture.large-file".to_string()),
+        path_text: Some("legacy/**".to_string()),
+        path_glob: Some(globset::Glob::new("legacy/**").unwrap().compile_matcher()),
+        severity: Some(Severity::Info),
+        reason: Some("legacy freeze, informational only".to_string()),
+        expires: None,
+    };
+
+    let decision = apply_overlay_for_test(&context, &[entry]);
+    assert_eq!(decision.severity, Severity::Info);
+    assert!(decision.via_overlay);
+
+    // Mirrors what `apply_file_decision` does once it has a non-suppressed
+    // decision: stamp provenance, then adopt the decided severity.
+    let mut finding = Finding {
+        rule_id: "architecture.large-file".to_string(),
+        severity: Severity::High,
+        ..Finding::default()
+    };
+    record_decision_provenance(&mut finding, Severity::High, None, &decision);
+    finding.severity = decision.severity;
+
+    finding.populate_rule_metadata();
+
+    assert_eq!(finding.severity, Severity::Info);
+}
+
+#[test]
 fn default_provenance_omits_absent_knowledge_decision() {
     let value = serde_json::to_value(crate::findings::provenance::FindingProvenance::default())
         .expect("serialize provenance");
