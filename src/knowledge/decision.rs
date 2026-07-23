@@ -401,6 +401,12 @@ fn decide_internal(context: &RuleMatchContext<'_>, trace: &mut TraceRecorder<'_>
         }
     }
 
+    // The overlay stage below is only unreachable for rule ids with no bundled
+    // knowledge entry (see the early return at the top of this function). That
+    // cannot happen for any overlay entry: overlay validation
+    // (`src/knowledge/overlay/mod.rs::build_entry`) already rejects unregistered
+    // rule ids, and every registered rule id is guaranteed a knowledge entry by
+    // `knowledge::loader::tests::all_registered_rules_have_knowledge_applicability`.
     decision = apply_overlay(context, decision, trace);
 
     decision
@@ -450,9 +456,13 @@ fn apply_overlay_entries(
 
         let before = decision.severity;
         decision = match entry.severity {
-            Some(severity) => RuleDecision::apply(severity)
-                .with_risk_signal(decision.risk_signal.clone())
-                .with_via_overlay(true),
+            Some(severity) => RuleDecision {
+                action: severity_transition_action(before, severity),
+                severity,
+                reason: entry.reason.clone(),
+                risk_signal: decision.risk_signal.clone(),
+                via_overlay: true,
+            },
             None => RuleDecision::suppress(
                 entry
                     .reason
@@ -473,15 +483,7 @@ fn apply_overlay_entries(
                     entry.path_text.clone().unwrap_or_else(|| "*".to_string())
                 ),
             ],
-            action: Some(if decision.is_suppressed() {
-                RuleDecisionAction::Suppress
-            } else if decision.severity > before {
-                RuleDecisionAction::Upgrade
-            } else if decision.severity < before {
-                RuleDecisionAction::Downgrade
-            } else {
-                RuleDecisionAction::Apply
-            }),
+            action: Some(decision.action),
             severity_before: before,
             severity_after: decision.severity,
             reason: decision

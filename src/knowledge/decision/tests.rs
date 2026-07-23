@@ -363,6 +363,44 @@ fn overlay_suppresses_a_matching_rule_and_path() {
 }
 
 #[test]
+fn overlay_downgrades_severity_and_preserves_reason_for_a_matching_rule_and_path() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    // Constructs a RuleMatchContext directly (not through decide_for_file) so
+    // it does not depend on process-global overlay state seeded by other
+    // tests running concurrently.
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: Some("legacy/big.rs"),
+    };
+
+    let entry = OverlayEntry {
+        index: 1,
+        target: OverlayTarget::Rule("architecture.large-file".to_string()),
+        path_text: Some("legacy/**".to_string()),
+        path_glob: Some(globset::Glob::new("legacy/**").unwrap().compile_matcher()),
+        severity: Some(Severity::Low),
+        reason: Some("legacy freeze".to_string()),
+        expires: None,
+    };
+
+    let decision = apply_overlay_for_test(&context, &[entry]);
+    assert_eq!(decision.severity, Severity::Low);
+    assert!(decision.via_overlay);
+    assert_eq!(decision.action, RuleDecisionAction::Downgrade);
+    assert_eq!(decision.reason.as_deref(), Some("legacy freeze"));
+}
+
+#[test]
 fn default_provenance_omits_absent_knowledge_decision() {
     let value = serde_json::to_value(crate::findings::provenance::FindingProvenance::default())
         .expect("serialize provenance");

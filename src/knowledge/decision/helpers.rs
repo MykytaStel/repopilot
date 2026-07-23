@@ -104,6 +104,18 @@ fn apply_override(
     }
 }
 
+/// Three-way comparison between a previous and a new severity, expressed as
+/// the `RuleDecisionAction` that transition represents.
+fn severity_transition_action(before: Severity, after: Severity) -> RuleDecisionAction {
+    if after > before {
+        RuleDecisionAction::Upgrade
+    } else if after < before {
+        RuleDecisionAction::Downgrade
+    } else {
+        RuleDecisionAction::Apply
+    }
+}
+
 fn language_support_satisfies(
     rule: &crate::knowledge::model::RuleApplicability,
     context_languages: &[&str],
