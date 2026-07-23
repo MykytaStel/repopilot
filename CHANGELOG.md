@@ -6,22 +6,28 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-### Fixed
-
-- **Framework dedup only caught adjacent duplicates.** `detect_frameworks`
-  deduplicated with `Vec::dedup()`, which removes consecutive duplicates
-  only; the same framework reported by two different probes (not adjacent
-  in the list) survived into the final result. Deduplication is now
-  order-independent via a `HashSet`, and `DetectedFramework` derives `Hash`
-  to support it.
-
 ### Added
 
+- **`.repopilot/overlay.toml` — local knowledge overlays.** A declarative,
+  diffable file that calibrates known rules to a repository: `[[overlay]]`
+  entries target a `rule` id or a review-signal `kind`, optionally scoped to
+  a path glob, and either override severity or suppress the finding entirely
+  (absent `severity` = suppress), with optional `reason`/`expires`. Rule-scoped
+  overlay decisions are applied as a new stage in the Decision Engine and are
+  visible through the existing decision trace/`explain` surface, not a silent
+  post-scan filter. Overlay severity wins over `repopilot.toml`'s `[rules]
+  severity_overrides` when both apply to the same finding; `repopilot.toml`'s
+  `disable` list remains absolute. Kind-scoped entries (behavioral/algorithmic/
+  taint/boundary review signals) are matched the same way `.repopilot/
+  feedback.yml` already matched them (including path globs), just read from
+  the new file, and checked first; `feedback.yml`'s own kind-scoped
+  suppressions still apply as a fallback so existing files keep working
+  unchanged until migrated. Supersedes `.repopilot/feedback.yml`, which now
+  emits a deprecation warning.
 - **Framework probes refactoring.** Framework detection probes for JS/TS (`NextJs`,
   `React`, `ReactNative`, `Expo`, `Vue`, `Nuxt`, `Svelte`, `Angular`, `Express`, `NestJs`),
   Python (`Django`, `Flask`, `FastApi`), and Go (`Gin`, `Echo`, `Fiber`) now register
   through their respective language frontends in the unified frontend registry.
-
 - **Kotlin taint analysis.** Added Ktor (`call.receiveText`, `call.parameters`),
   Android (`intent.getStringExtra`, `savedStateHandle.get`), and Servlet request
   sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables. Callee
@@ -30,7 +36,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   and string-building node kinds were also widened (`primary_constructor`,
   `class_initializer`, `property_accessor`, Kotlin's `line`/`multi_line` string
   templates).
-
 - **Support-honesty ledger is now empty.** Rust's dedicated
   `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
   detection (structural infallibility, report-renderer path awareness) that
@@ -51,9 +56,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `using` directives never participated before. The support-honesty ledger
   now names only Rust (its panic-risk accounting, closed next). eshoponweb
   zoo snapshot unchanged: zero new default-visible findings.
-
-### Added
-
 - **Java taint-lite.** The Java frontend now carries taint tables
   (`HttpServletRequest` sources; JDBC `execute*`, `Runtime.exec`, and
   `Files.write` sinks with a Java-specific `method_invocation` classifier),
@@ -62,20 +64,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   Spring PetClinic checkout stays at zero findings. A second reproducible
   demo (`scripts/demo-java-agent-edit.sh`, `docs/demos/04-java-agent-review.gif`)
   shows the flow being caught.
-
-### Changed
-
-- **Support-honesty pass.** `c` and `cpp` — declared `rule-aware` in the
-  knowledge pack but with no tree-sitter grammar or frontend — are corrected
-  to `context-aware`. With Java's taint wiring completing its contract, the
-  computed-support ledger now names exactly two languages whose declared
-  level still exceeds the unified frontend wiring, each for a documented
-  reason (Rust's runtime-risk lives in the separate panic-risk audit; C#
-  lacks import/taint tables). The generated support matrix reflects all of
-  this.
-
-### Added
-
 - **Generated language support matrix.** `docs/language-support.md` is now
   rendered from the language frontend registry with a drift test
   (`REPOPILOT_BLESS=1 cargo test --test language_support_doc`): capability
@@ -87,18 +75,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   end (profile → descriptor → grammar → tables → fixtures → zoo acceptance →
   generated docs), and `scripts/new-language.py` stamps a starter module
   whose TODOs mirror the checklist.
-
-### Changed
-
-- **Path and naming conventions live on the language frontends.** Test-file
-  naming, the `test_` prefix opt-out (Rust), test-support recognizers (with
-  their role-evidence reasons), and app-entrypoint content probes moved to
-  `frontend.conventions`; the context classifier and role classification
-  consult them, while cross-language path rules stay shared. Behavior-frozen
-  refactor: zoo snapshots unchanged across seven repos.
-
-### Added
-
 - **Language frontend registry skeleton (`src/languages/`).** First brick of
   the 0.21 language contract: static per-language descriptors unifying the
   knowledge-pack profiles, context-classifier kinds, and tree-sitter grammar
@@ -120,6 +96,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Support-honesty pass.** `c` and `cpp` — declared `rule-aware` in the
+  knowledge pack but with no tree-sitter grammar or frontend — are corrected
+  to `context-aware`. With Java's taint wiring completing its contract, the
+  computed-support ledger now names exactly two languages whose declared
+  level still exceeds the unified frontend wiring, each for a documented
+  reason (Rust's runtime-risk lives in the separate panic-risk audit; C#
+  lacks import/taint tables). The generated support matrix reflects all of
+  this.
+- **Path and naming conventions live on the language frontends.** Test-file
+  naming, the `test_` prefix opt-out (Rust), test-support recognizers (with
+  their role-evidence reasons), and app-entrypoint content probes moved to
+  `frontend.conventions`; the context classifier and role classification
+  consult them, while cross-language path rules stay shared. Behavior-frozen
+  refactor: zoo snapshots unchanged across seven repos.
 - **Runtime-risk detection dispatches through the language frontends.** The
   runtime-risk audit consults the frontend's `RiskTables` (AST emitter,
   line-scanner fallback, comment-sanitizer choice) instead of matching
@@ -169,6 +159,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - **Roadmap updated.** 0.20 marked shipped, and the current cycle focuses on
   agent-run review adoption; the 0.20 contract doc title no longer uses a
   marketing codename.
+
+### Fixed
+
+- **A legitimate `Info` severity decision was silently discarded during enrichment.**
+  `Finding::populate_rule_metadata` used `Severity::Info` (which is also
+  `Severity::default()`) as a sentinel meaning "the audit never set severity,
+  fill in the registry default." This couldn't distinguish that from a real
+  decision — a knowledge-pack override or an `.repopilot/overlay.toml` entry
+  explicitly downgrading a rule to `info` — so any such downgrade was reset
+  back to the registry's default severity right after the decision engine
+  applied it. The sentinel check now also requires
+  `provenance.knowledge_decision.is_none()`, since that provenance is only
+  stamped once a finding has passed through the decision engine with a real
+  severity already assigned.
+- **Framework dedup only caught adjacent duplicates.** `detect_frameworks`
+  deduplicated with `Vec::dedup()`, which removes consecutive duplicates
+  only; the same framework reported by two different probes (not adjacent
+  in the list) survived into the final result. Deduplication is now
+  order-independent via a `HashSet`, and `DetectedFramework` derives `Hash`
+  to support it.
 
 ## [0.20.0] - 2026-07-12
 

@@ -225,6 +225,7 @@ mod tests {
                     action,
                     decided_severity: decision.final_severity,
                     reason: decision.reason,
+                    overlay_applied: false,
                 }),
             },
             risk: Default::default(),

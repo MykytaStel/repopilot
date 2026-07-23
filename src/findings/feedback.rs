@@ -217,6 +217,17 @@ pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> Local
         }
     }
 
+    diagnostics.push(
+        ScanDiagnostic::warning(
+            "feedback.deprecated",
+            "`.repopilot/feedback.yml` is deprecated in favor of `.repopilot/overlay.toml`, \
+             which adds path-glob and severity-override support. It will be removed in a \
+             future release; see docs/knowledge-engine.md for the equivalent overlay entries."
+                .to_string(),
+        )
+        .with_path(feedback_path.clone()),
+    );
+
     LocalFeedbackValidation {
         feedback_path,
         exists: true,

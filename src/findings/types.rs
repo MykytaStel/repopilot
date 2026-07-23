@@ -120,7 +120,20 @@ impl Finding {
         // The rule registry owns severity and confidence. Context (audit tiers,
         // knowledge-pack overrides) may lower severity or raise it up to the
         // declared ceiling, never above it.
-        let is_default_severity = self.severity == Severity::Info;
+        //
+        // `Severity::Info` doubles as both the lowest real severity and the
+        // "audit never set this" sentinel (it's `Severity::default()`), so a
+        // bare `severity == Info` check can't tell a genuine Info decision
+        // apart from an untouched field. `knowledge_decision` is only stamped
+        // once a finding has passed through the decision engine
+        // (`apply_file_decision` / `apply_project_decisions` / a direct
+        // `record_decision_provenance` call) with a real severity already
+        // assigned by the audit, so its presence is what distinguishes
+        // "deliberately Info" from "never set" — mirroring the
+        // `Confidence::Medium`-as-sentinel caveat documented in
+        // `graph_queries/mod.rs`.
+        let is_default_severity =
+            self.severity == Severity::Info && self.provenance.knowledge_decision.is_none();
         if is_default_severity {
             self.severity = metadata.default_severity;
         } else {
@@ -171,3 +184,6 @@ impl Confidence {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

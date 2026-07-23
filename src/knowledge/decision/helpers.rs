@@ -66,12 +66,14 @@ fn apply_override(
             severity: override_rule.severity.unwrap_or(current),
             reason: override_rule.reason.clone(),
             risk_signal,
+            via_overlay: false,
         },
         RuleDecisionAction::Suppress => RuleDecision {
             action: RuleDecisionAction::Suppress,
             severity: Severity::Info,
             reason: override_rule.reason.clone(),
             risk_signal: None,
+            via_overlay: false,
         },
         RuleDecisionAction::Downgrade => {
             let severity = override_rule
@@ -83,6 +85,7 @@ fn apply_override(
                 severity,
                 reason: override_rule.reason.clone(),
                 risk_signal,
+                via_overlay: false,
             }
         }
         RuleDecisionAction::Upgrade => {
@@ -95,8 +98,21 @@ fn apply_override(
                 severity,
                 reason: override_rule.reason.clone(),
                 risk_signal,
+                via_overlay: false,
             }
         }
+    }
+}
+
+/// Three-way comparison between a previous and a new severity, expressed as
+/// the `RuleDecisionAction` that transition represents.
+fn severity_transition_action(before: Severity, after: Severity) -> RuleDecisionAction {
+    if after > before {
+        RuleDecisionAction::Upgrade
+    } else if after < before {
+        RuleDecisionAction::Downgrade
+    } else {
+        RuleDecisionAction::Apply
     }
 }
 

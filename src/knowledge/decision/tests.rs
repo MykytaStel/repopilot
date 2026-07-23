@@ -135,6 +135,7 @@ fn suppresses_low_signal_for_rules_with_flag() {
         is_low_signal: true,
         signal: None,
         base_severity: Severity::Medium,
+        path: None,
     });
 
     assert!(decision.is_suppressed());
@@ -326,8 +327,197 @@ fn applied_file_decision_preserves_replayable_provenance() {
 }
 
 #[test]
+fn record_decision_provenance_flags_overlay_applied_decisions() {
+    let decision = RuleDecision::apply(Severity::Low).with_via_overlay(true);
+    let mut finding = Finding::default();
+    record_decision_provenance(&mut finding, Severity::High, None, &decision);
+
+    assert!(
+        finding
+            .provenance
+            .knowledge_decision
+            .as_ref()
+            .expect("provenance recorded")
+            .overlay_applied
+    );
+}
+
+#[test]
+fn overlay_suppresses_a_matching_rule_and_path() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    // This test constructs a RuleMatchContext directly (not through
+    // decide_for_file) so it does not depend on process-global overlay
+    // state seeded by other tests running concurrently.
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: Some("legacy/big.rs"),
+    };
+
+    let entry = OverlayEntry {
+        index: 1,
+        target: OverlayTarget::Rule("architecture.large-file".to_string()),
+        path_text: Some("legacy/**".to_string()),
+        path_glob: Some(globset::Glob::new("legacy/**").unwrap().compile_matcher()),
+        severity: None,
+        reason: Some("legacy freeze".to_string()),
+        expires: None,
+    };
+
+    let decision = apply_overlay_for_test(&context, vec![entry]);
+    assert!(decision.is_suppressed());
+    assert!(decision.via_overlay);
+}
+
+#[test]
+fn overlay_downgrades_severity_and_preserves_reason_for_a_matching_rule_and_path() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    // Constructs a RuleMatchContext directly (not through decide_for_file) so
+    // it does not depend on process-global overlay state seeded by other
+    // tests running concurrently.
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: Some("legacy/big.rs"),
+    };
+
+    let entry = OverlayEntry {
+        index: 1,
+        target: OverlayTarget::Rule("architecture.large-file".to_string()),
+        path_text: Some("legacy/**".to_string()),
+        path_glob: Some(globset::Glob::new("legacy/**").unwrap().compile_matcher()),
+        severity: Some(Severity::Low),
+        reason: Some("legacy freeze".to_string()),
+        expires: None,
+    };
+
+    let decision = apply_overlay_for_test(&context, vec![entry]);
+    assert_eq!(decision.severity, Severity::Low);
+    assert!(decision.via_overlay);
+    assert_eq!(decision.action, RuleDecisionAction::Downgrade);
+    assert_eq!(decision.reason.as_deref(), Some("legacy freeze"));
+}
+
+#[test]
+fn overlay_downgrade_to_info_survives_enrichment() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    // Regression test: `Severity::Info` is also `Severity::default()`, the
+    // sentinel `Finding::populate_rule_metadata` uses to mean "the audit
+    // never set severity, fill in the registry default." A legitimate
+    // overlay decision that lands on Info must not be mistaken for that
+    // sentinel and silently reset back to the registry default (Medium for
+    // architecture.large-file) during enrichment.
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: Some("legacy/big.rs"),
+    };
+
+    let entry = OverlayEntry {
+        index: 1,
+        target: OverlayTarget::Rule("architecture.large-file".to_string()),
+        path_text: Some("legacy/**".to_string()),
+        path_glob: Some(globset::Glob::new("legacy/**").unwrap().compile_matcher()),
+        severity: Some(Severity::Info),
+        reason: Some("legacy freeze, informational only".to_string()),
+        expires: None,
+    };
+
+    let decision = apply_overlay_for_test(&context, vec![entry]);
+    assert_eq!(decision.severity, Severity::Info);
+    assert!(decision.via_overlay);
+
+    // Mirrors what `apply_file_decision` does once it has a non-suppressed
+    // decision: stamp provenance, then adopt the decided severity.
+    let mut finding = Finding {
+        rule_id: "architecture.large-file".to_string(),
+        severity: Severity::High,
+        ..Finding::default()
+    };
+    record_decision_provenance(&mut finding, Severity::High, None, &decision);
+    finding.severity = decision.severity;
+
+    finding.populate_rule_metadata();
+
+    assert_eq!(finding.severity, Severity::Info);
+}
+
+#[test]
 fn default_provenance_omits_absent_knowledge_decision() {
     let value = serde_json::to_value(crate::findings::provenance::FindingProvenance::default())
         .expect("serialize provenance");
     assert!(value.get("knowledge_decision").is_none());
+}
+
+#[test]
+fn overlay_entry_is_marked_matched_even_when_a_later_entry_wins() {
+    use crate::knowledge::overlay::{OverlayEntry, OverlayTarget};
+
+    let rules = crate::knowledge::overlay::OverlayRules::from_entries_for_test(vec![
+        OverlayEntry {
+            index: 1,
+            target: OverlayTarget::Rule("architecture.large-file".to_string()),
+            path_text: None,
+            path_glob: None,
+            severity: Some(Severity::Low),
+            reason: None,
+            expires: None,
+        },
+        OverlayEntry {
+            index: 2,
+            target: OverlayTarget::Rule("architecture.large-file".to_string()),
+            path_text: None,
+            path_glob: None,
+            severity: None,
+            reason: Some("final suppress".to_string()),
+            expires: None,
+        },
+    ]);
+
+    let context = RuleMatchContext {
+        rule_id: "architecture.large-file",
+        languages: &["rust"],
+        frameworks: &[],
+        roles: &[],
+        paradigms: &[],
+        runtimes: &[],
+        is_test: false,
+        is_low_signal: false,
+        signal: None,
+        base_severity: Severity::High,
+        path: None,
+    };
+
+    let mut trace = TraceRecorder::disabled();
+    let decision = RuleDecision::apply(context.base_severity);
+    let _ = apply_overlay_entries_with_marking(&context, &rules, decision, &mut trace);
+
+    assert!(rules.unmatched_entries().is_empty());
 }

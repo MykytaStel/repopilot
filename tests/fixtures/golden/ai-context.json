@@ -11,7 +11,7 @@
   "focus": "all",
   "budget": {
     "requested_tokens": 4096,
-    "approx_tokens": 2162,
+    "approx_tokens": 2180,
     "truncated": false
   },
   "summary": {
@@ -59,7 +59,8 @@
         "knowledge_decision": {
           "base_severity": "HIGH",
           "action": "apply",
-          "decided_severity": "HIGH"
+          "decided_severity": "HIGH",
+          "overlay_applied": false
         }
       },
       "risk": {
@@ -145,7 +146,8 @@
         "knowledge_decision": {
           "base_severity": "HIGH",
           "action": "apply",
-          "decided_severity": "HIGH"
+          "decided_severity": "HIGH",
+          "overlay_applied": false
         }
       },
       "risk": {

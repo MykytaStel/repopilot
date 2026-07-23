@@ -21,6 +21,8 @@ pub struct KnowledgeDecisionProvenance {
     pub decided_severity: Severity,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default)]
+    pub overlay_applied: bool,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
