@@ -2,8 +2,10 @@
 //!
 //! Runs after enrichment (so the registry contract has already been applied)
 //! and before risk scoring (so priorities reflect the overridden severity).
-//! A severity override is absolute: it wins over the registry default, audit
-//! tiers, and knowledge-pack adjustments.
+//! A severity override wins over the registry default, audit tiers, and
+//! generic knowledge-pack adjustments — but a path-scoped local overlay
+//! decision (`.repopilot/overlay.toml`) is more specific and wins over this
+//! global override instead of being clobbered by it.
 
 use crate::findings::types::Finding;
 use crate::scan::config::ScanConfig;
