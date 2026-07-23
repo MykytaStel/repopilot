@@ -17,6 +17,14 @@ pub fn apply_rule_config(findings: &mut Vec<Finding>, config: &ScanConfig) {
     findings.retain(|finding| !config.disabled_rules.contains(&finding.rule_id));
 
     for finding in findings.iter_mut() {
+        let overlay_applied = finding
+            .provenance
+            .knowledge_decision
+            .as_ref()
+            .is_some_and(|decision| decision.overlay_applied);
+        if overlay_applied {
+            continue;
+        }
         if let Some(severity) = config.severity_overrides.get(&finding.rule_id) {
             finding.severity = *severity;
         }
@@ -86,5 +94,34 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].code, "config.rules");
         assert!(diagnostics[0].message.contains("`nope`"));
+    }
+
+    #[test]
+    fn repopilot_toml_severity_override_is_skipped_when_overlay_already_decided() {
+        use crate::findings::provenance::{KnowledgeDecisionAction, KnowledgeDecisionProvenance};
+
+        let mut config = ScanConfig::default();
+        config
+            .severity_overrides
+            .insert("architecture.large-file".to_string(), Severity::High);
+
+        let mut overlay_decided = finding("architecture.large-file", Severity::Low);
+        overlay_decided.provenance.knowledge_decision = Some(KnowledgeDecisionProvenance {
+            base_severity: Severity::High,
+            signal: None,
+            action: KnowledgeDecisionAction::Downgrade,
+            decided_severity: Severity::Low,
+            reason: Some("overlay[1] matched".to_string()),
+            overlay_applied: true,
+        });
+
+        let mut findings = vec![overlay_decided];
+        apply_rule_config(&mut findings, &config);
+
+        assert_eq!(
+            findings[0].severity,
+            Severity::Low,
+            "repopilot.toml must not clobber a severity overlay already decided"
+        );
     }
 }
