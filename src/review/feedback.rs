@@ -43,6 +43,8 @@ pub(super) fn overlay_review_suppression<'a>(
         {
             return false;
         }
+        // Absent path glob = applies repo-wide for this kind, intentionally mirroring how
+        // `repopilot.toml [rules] severity_overrides` are unscoped for `rule`-based decisions.
         match &entry.path_glob {
             None => true,
             Some(glob) => glob.is_match(&signal.path),
@@ -115,5 +117,38 @@ mod tests {
         let signal = sample_signal("behavioral", "src/main.rs");
 
         assert!(overlay_review_suppression(&entries, &signal).is_none());
+    }
+
+    #[test]
+    fn kind_mismatch_never_suppresses_regardless_of_path() {
+        // Path glob would match if the kind matched, but the entry is scoped to "taint"
+        // while the signal is "behavioral" — the kind check must short-circuit first.
+        let entries = vec![kind_entry("taint", "scripts/**")];
+        let signal = sample_signal("behavioral", "scripts/deploy.sh");
+
+        assert!(overlay_review_suppression(&entries, &signal).is_none());
+    }
+
+    #[test]
+    fn expired_entry_is_not_applied() {
+        let mut entry = kind_entry("behavioral", "scripts/**");
+        entry.expires = Some(chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
+        let entries = vec![entry];
+        let signal = sample_signal("behavioral", "scripts/deploy.sh");
+
+        assert!(overlay_review_suppression(&entries, &signal).is_none());
+    }
+
+    #[test]
+    fn first_matching_entry_wins_when_multiple_entries_could_match() {
+        let mut first = kind_entry("behavioral", "scripts/**");
+        first.reason = Some("first entry reason".to_string());
+        let mut second = kind_entry("behavioral", "scripts/**");
+        second.reason = Some("second entry reason".to_string());
+        let entries = vec![first, second];
+        let signal = sample_signal("behavioral", "scripts/deploy.sh");
+
+        let matched = overlay_review_suppression(&entries, &signal).expect("should suppress");
+        assert_eq!(matched.reason.as_deref(), Some("first entry reason"));
     }
 }
