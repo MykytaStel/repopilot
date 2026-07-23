@@ -468,6 +468,48 @@ fn given_machine_readable_formats_when_scan_runs_then_reports_are_unchanged() {
 }
 
 #[test]
+fn given_overlay_with_unknown_rule_when_scan_runs_then_validation_diagnostic_is_surfaced() {
+    // Given
+    let project = fixture_project();
+    let repopilot_dir = project.path().join(".repopilot");
+    fs::create_dir_all(&repopilot_dir).expect("create .repopilot dir");
+    fs::write(
+        repopilot_dir.join("overlay.toml"),
+        r#"
+            [[overlay]]
+            rule = "not-a-real-rule-id"
+            severity = "low"
+        "#,
+    )
+    .expect("write overlay.toml");
+
+    // When
+    let output = repopilot()
+        .args(["scan", ".", "--format", "json"])
+        .current_dir(project.path())
+        .output()
+        .expect("run repopilot");
+
+    // Then
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).expect("json output");
+    let diagnostics = report["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "overlay.unknown-rule"),
+        "expected an overlay.unknown-rule diagnostic in: {diagnostics:?}"
+    );
+}
+
+#[test]
 fn given_conflicting_color_flags_when_scan_runs_then_usage_error_is_returned() {
     // Given
     let project = fixture_project();

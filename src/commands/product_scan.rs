@@ -119,6 +119,11 @@ fn run_product_scan_internal(
 
     let (mut summary, repo_facts_summary) = scan_result?;
 
+    summary
+        .artifacts
+        .diagnostics
+        .extend(active_overlay().diagnostics().to_vec());
+
     let unmatched_overlay = active_overlay().unmatched_entries();
     if !unmatched_overlay.is_empty() {
         summary.artifacts.diagnostics.push(ScanDiagnostic::warning(
