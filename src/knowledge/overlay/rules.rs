@@ -79,7 +79,8 @@ impl OverlayRules {
     }
 
     /// Entries whose index was never marked matched during the scan —
-    /// candidates for pruning. Consumed by a later PR's diagnostic pass.
+    /// candidates for pruning. Surfaced as a scan diagnostic by
+    /// `commands::product_scan`.
     pub fn unmatched_entries(&self) -> Vec<&OverlayEntry> {
         self.validation
             .entries
