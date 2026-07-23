@@ -1,30 +1,69 @@
+use crate::findings::feedback::{ReviewSuppression, validate_local_feedback};
 use crate::knowledge::overlay::{OverlayEntry, OverlayTarget, active_overlay};
 use crate::review::signals::tiered::{ReviewSignal, TieredSignals};
 use crate::scan::types::ScanSummary;
 use std::path::Path;
 
+/// Suppresses kind-scoped review signals from two sources: the current
+/// `.repopilot/overlay.toml` (checked first — it is the newer, recommended
+/// mechanism) and the deprecated `.repopilot/feedback.yml` (checked as a
+/// fallback, so existing `feedback.yml` files keep suppressing review
+/// signals unchanged until migrated, per its deprecation warning).
 pub(super) fn apply_review_feedback(
     tiered: &mut TieredSignals,
     summary: &mut ScanSummary,
-    _repo_root: &Path,
+    repo_root: &Path,
 ) {
-    let entries = active_overlay().entries();
-    if entries.is_empty() {
+    let overlay_entries = active_overlay().entries();
+    let feedback_suppressions = validate_local_feedback(repo_root)
+        .map(|validation| validation.review_suppressions)
+        .unwrap_or_default();
+
+    if overlay_entries.is_empty() && feedback_suppressions.is_empty() {
         return;
     }
+
     let mut suppressed = 0;
     for signal in tiered.iter_mut() {
-        let Some(entry) = overlay_review_suppression(entries, signal) else {
-            continue;
-        };
-        signal.suppressed = true;
-        signal.gate_eligible = false;
-        signal.suppression_reason = entry.reason.clone();
-        suppressed += 1;
+        if let Some(entry) = overlay_review_suppression(overlay_entries, signal) {
+            signal.suppressed = true;
+            signal.gate_eligible = false;
+            signal.suppression_reason = entry.reason.clone();
+            suppressed += 1;
+        } else if let Some(suppression) =
+            feedback_review_suppression(&feedback_suppressions, signal)
+        {
+            signal.suppressed = true;
+            signal.gate_eligible = false;
+            signal.suppression_reason = suppression.reason.clone();
+            suppressed += 1;
+        }
     }
     if let Some(report) = summary.local_feedback.as_mut() {
         report.suppressed_review_signals_count = suppressed;
     }
+}
+
+fn feedback_review_suppression<'a>(
+    suppressions: &'a [ReviewSuppression],
+    signal: &ReviewSignal,
+) -> Option<&'a ReviewSuppression> {
+    suppressions.iter().find(|suppression| {
+        if suppression.kind != signal.kind || feedback_suppression_expired(suppression) {
+            return false;
+        }
+        globset::Glob::new(&suppression.path)
+            .map(|glob| glob.compile_matcher().is_match(&signal.path))
+            .unwrap_or(false)
+    })
+}
+
+fn feedback_suppression_expired(suppression: &ReviewSuppression) -> bool {
+    suppression
+        .expires
+        .as_deref()
+        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+        .is_some_and(|date| date < chrono::Utc::now().date_naive())
 }
 
 pub(super) fn overlay_review_suppression<'a>(
@@ -150,5 +189,67 @@ mod tests {
 
         let matched = overlay_review_suppression(&entries, &signal).expect("should suppress");
         assert_eq!(matched.reason.as_deref(), Some("first entry reason"));
+    }
+
+    fn feedback_suppression(kind: &str, path: &str) -> ReviewSuppression {
+        ReviewSuppression {
+            index: 1,
+            kind: kind.to_string(),
+            path: path.to_string(),
+            reason: Some("reviewed boundary migration".to_string()),
+            expires: None,
+        }
+    }
+
+    #[test]
+    fn feedback_yml_suppresses_a_matching_kind_and_path() {
+        let suppressions = vec![feedback_suppression(
+            "boundary.access-control",
+            "src/auth/**",
+        )];
+        let signal = sample_signal("boundary.access-control", "src/auth/login.rs");
+
+        assert!(feedback_review_suppression(&suppressions, &signal).is_some());
+    }
+
+    #[test]
+    fn feedback_yml_does_not_suppress_a_non_matching_path() {
+        let suppressions = vec![feedback_suppression(
+            "boundary.access-control",
+            "src/auth/**",
+        )];
+        let signal = sample_signal("boundary.access-control", "src/main.rs");
+
+        assert!(feedback_review_suppression(&suppressions, &signal).is_none());
+    }
+
+    #[test]
+    fn feedback_yml_expired_entry_is_not_applied() {
+        let mut suppression = feedback_suppression("boundary.access-control", "src/auth/**");
+        suppression.expires = Some("2000-01-01".to_string());
+        let suppressions = vec![suppression];
+        let signal = sample_signal("boundary.access-control", "src/auth/login.rs");
+
+        assert!(feedback_review_suppression(&suppressions, &signal).is_none());
+    }
+
+    #[test]
+    fn overlay_wins_when_both_overlay_and_feedback_yml_would_match() {
+        // Both sources match the same signal; overlay.toml is the newer, recommended
+        // mechanism, so its entry — not feedback.yml's — decides the suppression reason.
+        let overlay_entries = vec![kind_entry("boundary.access-control", "src/auth/**")];
+        let feedback_suppressions = vec![feedback_suppression(
+            "boundary.access-control",
+            "src/auth/**",
+        )];
+        let signal = sample_signal("boundary.access-control", "src/auth/login.rs");
+
+        let overlay_match = overlay_review_suppression(&overlay_entries, &signal)
+            .expect("overlay entry should match");
+        assert_eq!(
+            overlay_match.reason.as_deref(),
+            Some("ops scripts shell out on purpose")
+        );
+        assert!(feedback_review_suppression(&feedback_suppressions, &signal).is_some());
     }
 }
