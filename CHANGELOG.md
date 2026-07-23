@@ -6,6 +6,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **`.repopilot/overlay.toml` — local knowledge overlays.** A declarative,
+  diffable file that calibrates known rules to a repository: `[[overlay]]`
+  entries target a `rule` id or a review-signal `kind`, optionally scoped to
+  a path glob, and either override severity or suppress the finding entirely
+  (absent `severity` = suppress), with optional `reason`/`expires`. Rule-scoped
+  overlay decisions are applied as a new stage in the Decision Engine and are
+  visible through the existing decision trace/`explain` surface, not a silent
+  post-scan filter. Overlay severity wins over `repopilot.toml`'s `[rules]
+  severity_overrides` when both apply to the same finding; `repopilot.toml`'s
+  `disable` list remains absolute. Kind-scoped entries (behavioral/algorithmic/
+  taint/boundary review signals) are matched the same way `.repopilot/
+  feedback.yml` already matched them (including path globs), just read from
+  the new file. Supersedes `.repopilot/feedback.yml`, which now emits a
+  deprecation warning; existing `feedback.yml` files keep working unchanged
+  until migrated.
+
 ### Fixed
 
 - **A legitimate `Info` severity decision was silently discarded during enrichment.**
