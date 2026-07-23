@@ -18,6 +18,7 @@ pub enum DecisionTraceStage {
     Applicability,
     BaseDecision,
     Override,
+    Overlay,
 }
 
 impl DecisionTraceStage {
@@ -27,6 +28,7 @@ impl DecisionTraceStage {
             DecisionTraceStage::Applicability => "applicability",
             DecisionTraceStage::BaseDecision => "base-decision",
             DecisionTraceStage::Override => "override",
+            DecisionTraceStage::Overlay => "overlay",
         }
     }
 }
@@ -399,7 +401,112 @@ fn decide_internal(context: &RuleMatchContext<'_>, trace: &mut TraceRecorder<'_>
         }
     }
 
+    decision = apply_overlay(context, decision, trace);
+
     decision
+}
+
+fn apply_overlay(
+    context: &RuleMatchContext<'_>,
+    decision: RuleDecision,
+    trace: &mut TraceRecorder<'_>,
+) -> RuleDecision {
+    apply_overlay_entries(
+        context,
+        crate::knowledge::overlay::active_overlay().entries(),
+        decision,
+        trace,
+    )
+}
+
+fn apply_overlay_entries(
+    context: &RuleMatchContext<'_>,
+    entries: &[crate::knowledge::overlay::OverlayEntry],
+    mut decision: RuleDecision,
+    trace: &mut TraceRecorder<'_>,
+) -> RuleDecision {
+    use crate::knowledge::overlay::OverlayTarget;
+
+    for entry in entries {
+        let OverlayTarget::Rule(rule_id) = &entry.target else {
+            continue;
+        };
+        if rule_id != context.rule_id {
+            continue;
+        }
+        if let Some(expires) = entry.expires
+            && expires < chrono::Utc::now().date_naive()
+        {
+            continue;
+        }
+        let path_matches = match (&entry.path_glob, context.path) {
+            (None, _) => true,
+            (Some(glob), Some(path)) => glob.is_match(path),
+            (Some(_), None) => false,
+        };
+        if !path_matches {
+            continue;
+        }
+
+        let before = decision.severity;
+        decision = match entry.severity {
+            Some(severity) => RuleDecision::apply(severity)
+                .with_risk_signal(decision.risk_signal.clone())
+                .with_via_overlay(true),
+            None => RuleDecision::suppress(
+                entry
+                    .reason
+                    .clone()
+                    .unwrap_or_else(|| format!("overlay[{}] suppresses this rule", entry.index)),
+            )
+            .with_via_overlay(true),
+        };
+
+        trace.push(|| DecisionTraceStep {
+            stage: DecisionTraceStage::Overlay,
+            status: DecisionTraceStatus::Applied,
+            label: format!("overlay[{}]", entry.index),
+            criteria: vec![
+                format!("rule={rule_id}"),
+                format!(
+                    "path={}",
+                    entry.path_text.clone().unwrap_or_else(|| "*".to_string())
+                ),
+            ],
+            action: Some(if decision.is_suppressed() {
+                RuleDecisionAction::Suppress
+            } else if decision.severity > before {
+                RuleDecisionAction::Upgrade
+            } else if decision.severity < before {
+                RuleDecisionAction::Downgrade
+            } else {
+                RuleDecisionAction::Apply
+            }),
+            severity_before: before,
+            severity_after: decision.severity,
+            reason: decision
+                .reason
+                .clone()
+                .unwrap_or_else(|| format!("overlay[{}] matched", entry.index)),
+            override_index: None,
+        });
+
+        if decision.is_suppressed() {
+            return decision;
+        }
+    }
+
+    decision
+}
+
+#[cfg(test)]
+pub(crate) fn apply_overlay_for_test(
+    context: &RuleMatchContext<'_>,
+    entries: &[crate::knowledge::overlay::OverlayEntry],
+) -> RuleDecision {
+    let mut trace = TraceRecorder::disabled();
+    let decision = RuleDecision::apply(context.base_severity);
+    apply_overlay_entries(context, entries, decision, &mut trace)
 }
 
 fn record_applicability<F>(
@@ -457,6 +564,7 @@ pub fn decide_for_audit_context(
         false,
         base_severity,
         signal,
+        None,
     )
 }
 
@@ -474,6 +582,7 @@ pub fn decide_for_audit_context_with_trace(
         false,
         base_severity,
         signal,
+        None,
     )
 }
 
@@ -487,6 +596,7 @@ pub fn decide_for_file(
     let mut language_ids = language_ids_for_file(file, &context);
     dedup_static_ids(&mut language_ids);
     let is_low_signal = is_low_signal_audit_path(&file.path) && !context.is_test;
+    let path = file.path.to_str();
     decide_with_context(
         rule_id,
         &language_ids,
@@ -494,6 +604,7 @@ pub fn decide_for_file(
         is_low_signal,
         base_severity,
         signal,
+        path,
     )
 }
 
@@ -507,6 +618,7 @@ pub fn decide_for_file_with_trace(
     let mut language_ids = language_ids_for_file(file, &context);
     dedup_static_ids(&mut language_ids);
     let is_low_signal = is_low_signal_audit_path(&file.path) && !context.is_test;
+    let path = file.path.to_str();
     decide_with_context_trace(
         rule_id,
         &language_ids,
@@ -514,6 +626,7 @@ pub fn decide_for_file_with_trace(
         is_low_signal,
         base_severity,
         signal,
+        path,
     )
 }
 
@@ -524,6 +637,7 @@ fn decide_with_context(
     is_low_signal: bool,
     base_severity: Severity,
     signal: Option<&str>,
+    path: Option<&str>,
 ) -> RuleDecision {
     let framework_ids = context.framework_ids();
     let role_ids = context.role_ids();
@@ -541,7 +655,7 @@ fn decide_with_context(
         is_low_signal,
         signal,
         base_severity,
-        path: None,
+        path,
     })
 }
 
@@ -552,6 +666,7 @@ fn decide_with_context_trace(
     is_low_signal: bool,
     base_severity: Severity,
     signal: Option<&str>,
+    path: Option<&str>,
 ) -> RuleDecisionTrace {
     let framework_ids = context.framework_ids();
     let role_ids = context.role_ids();
@@ -568,7 +683,7 @@ fn decide_with_context_trace(
         is_low_signal,
         signal,
         base_severity,
-        path: None,
+        path,
     })
 }
 
