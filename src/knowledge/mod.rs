@@ -18,4 +18,7 @@ pub use model::{
     KnowledgeBase, LanguageProfile, RuleDecision, RuleDecisionAction, RuleMatchContext,
     SupportLevel,
 };
-pub use overlay::{OverlayEntry, OverlayTarget, OverlayValidation};
+pub use overlay::{
+    OverlayEntry, OverlayRules, OverlayTarget, OverlayValidation, active_overlay,
+    init_active_overlay,
+};
