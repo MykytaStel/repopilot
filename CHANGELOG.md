@@ -109,6 +109,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Documentation hygiene.** The v0.21 release contract now lives at
+  `docs/roadmap/v0.21.md`, following the same convention as `v0.20.md` and
+  linked from the docs index and roadmap. Agent workflow output that had been
+  committed by accident (`docs/superpowers/`, `specs/`) is removed and
+  git-ignored; product documentation belongs in `docs/`.
 - **Support-honesty pass.** `c` and `cpp` — declared `rule-aware` in the
   knowledge pack but with no tree-sitter grammar or frontend — are corrected
   to `context-aware`. With Java's taint wiring completing its contract, the

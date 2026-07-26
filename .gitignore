@@ -7,6 +7,10 @@ node_modules/
 .claude/
 .codex/
 .specify/
+# Agent workflow output (spec-kit feature specs, generated plans). Product
+# documentation belongs in docs/, not in agent scratch directories.
+/specs/
+docs/superpowers/
 dist/
 .DS_Store
 .idea/
