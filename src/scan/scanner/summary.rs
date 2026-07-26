@@ -118,6 +118,7 @@ pub(super) fn build_scan_summary(
             raw_signal_quality: signal_quality.clone(),
             visible_signal_quality: signal_quality.clone(),
             signal_quality,
+            risk_delta: None,
         },
     }
 }

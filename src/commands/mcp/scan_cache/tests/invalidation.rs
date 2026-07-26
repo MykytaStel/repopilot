@@ -170,6 +170,37 @@ fn feedback_and_repopilotignore_content_changes_invalidate_the_key() {
 }
 
 #[test]
+fn overlay_changes_invalidate_but_generated_history_does_not() {
+    let (_dir, root) = init_repo();
+    let scan_path = root.join("src");
+    let overlay = root.join(".repopilot/overlay.toml");
+    std::fs::create_dir_all(overlay.parent().unwrap()).unwrap();
+    std::fs::write(
+        &overlay,
+        "[[overlay]]\nrule = \"security.secret-candidate\"\n",
+    )
+    .unwrap();
+    let first = cache_key(&scan_path, &args(&scan_path)).unwrap();
+
+    std::fs::write(
+        &overlay,
+        "[[overlay]]\nrule = \"architecture.large-file\"\n",
+    )
+    .unwrap();
+    let second = cache_key(&scan_path, &args(&scan_path)).unwrap();
+    assert_ne!(first, second, "an overlay edit must invalidate");
+
+    let history = root.join(".repopilot/history/runs.jsonl");
+    std::fs::create_dir_all(history.parent().unwrap()).unwrap();
+    std::fs::write(history, "{}\n").unwrap();
+    assert_eq!(
+        second,
+        cache_key(&scan_path, &args(&scan_path)).unwrap(),
+        "generated history must not invalidate"
+    );
+}
+
+#[test]
 fn parent_gitignore_change_invalidates_subdir_scan_and_never_serves_stale_cache() {
     let (_dir, root) = init_repo();
     std::fs::write(root.join("src/generated.rs"), "pub fn generated() {}\n").unwrap();

@@ -3,6 +3,7 @@ use crate::findings::types::Finding;
 use crate::output::decision_summary::{render_decision_summary, review_decision_summary};
 use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
+use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::render_ranges_suffix;
@@ -27,6 +28,34 @@ pub fn render_console_with_options(
         &mut output,
         &review_decision_summary(report, ci_gate, review_gate),
     );
+    let readiness = derive_readiness(
+        report,
+        ci_gate,
+        review_gate,
+        report.summary.artifacts.risk_delta.as_ref(),
+    );
+    output.push_str(&format!(
+        "Merge readiness: {}\n",
+        readiness.verdict.label().to_uppercase()
+    ));
+    if !readiness.ownership.suggested_owners.is_empty() {
+        output.push_str(&format!(
+            "Suggested owners: {}\n",
+            readiness
+                .ownership
+                .suggested_owners
+                .iter()
+                .map(|owner| owner.value.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    if !readiness.ownership.unowned_paths.is_empty() {
+        output.push_str(&format!(
+            "Unowned changed/impacted paths: {}\n",
+            readiness.ownership.unowned_paths.len()
+        ));
+    }
     output.push_str(&format!("Path: {}\n", report.summary.root_path.display()));
     output.push_str(&format!("Git root: {}\n", report.repo_root.display()));
     match &report.baseline_path {

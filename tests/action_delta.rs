@@ -56,7 +56,7 @@ while (($#)); do
 done
 if [[ "$command" == "review" ]]; then
   cat > "$output" <<'JSON'
-{"review":{"in_diff_findings":1,"tiered_signals":{"definitely":0,"maybe":0,"noise":0,"total":0}},"tiered_signals":{"definitely":[],"maybe":[],"noise":[]},"findings":[]}
+{"merge_readiness":{"verdict":"ready"},"review":{"in_diff_findings":1,"tiered_signals":{"definitely":0,"maybe":0,"noise":0,"total":0}},"tiered_signals":{"definitely":[],"maybe":[],"noise":[]},"findings":[]}
 JSON
   printf '{"version":"2.1.0","runs":[]}\n' > "$sarif"
   exit 0
@@ -121,4 +121,5 @@ fi
     assert!(summary.contains("**New findings:** 1"));
     assert!(summary.contains("**Changed findings:** 1"));
     assert!(summary.contains("**Resolved findings:** 1"));
+    assert!(summary.contains("**Merge readiness:** ready"));
 }

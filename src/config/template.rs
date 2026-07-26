@@ -73,6 +73,12 @@ enabled = true
 
 [output]
 default_format = "console"
+
+[history]
+# Opt in to a local, bounded ledger used for compatible risk deltas.
+enabled = false
+max_runs = 50
+max_bytes = 5242880
 "#
     )
 }

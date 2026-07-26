@@ -11,6 +11,7 @@ use repopilot::baseline::reader::read_baseline;
 use repopilot::config::loader::{load_default_config, load_optional_config};
 use repopilot::config::model::{ReviewFailOn, ReviewScope};
 use repopilot::findings::visibility::FindingVisibilityProfile;
+use repopilot::history::{AnalysisScope, ReceiptContext, record_session};
 use repopilot::output::{DetailLevel, FindingRenderLimit, OutputFormat};
 use repopilot::report::writer::write_report;
 use repopilot::review::render::{ReviewRenderOptions, render_review_sarif, render_with_options};
@@ -81,6 +82,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         )?
     };
     let diff_loading_us = duration_us(diff_started.elapsed());
+    let history_target = review_input.target.clone();
     let scan_mode = match scope {
         ReviewScope::Changed => ProductScanMode::ResolvedChanged {
             changed_files: review_input.changed_files.clone(),
@@ -107,8 +109,8 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     })?;
     let summary = scan_result.summary;
 
-    let baseline_file = match options.baseline {
-        Some(baseline_path) => Some((read_baseline(&baseline_path)?, baseline_path)),
+    let baseline_file = match options.baseline.as_ref() {
+        Some(baseline_path) => Some((read_baseline(baseline_path)?, baseline_path.clone())),
         None => None,
     };
     let baseline_ref = baseline_file
@@ -142,6 +144,26 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         });
     let review_gate = ReviewSignalGateResult::evaluate(&review_report, review_gate_policy);
     review_report.timings.gating_us = duration_us(gating_started.elapsed());
+    if (options.record_history || scan_result.session.repo_config().history.enabled)
+        && !review_report.summary.has_error_diagnostics()
+    {
+        let outcome = record_session(
+            &scan_result.session,
+            review_history_context(scope, &history_target, &options),
+            &review_report.summary.artifacts.findings,
+        );
+        if let Some(repopilot::history::ComparisonResult::Compatible(delta)) = outcome.comparison {
+            review_report.summary.artifacts.risk_delta = Some(delta);
+        }
+        for diagnostic in outcome.diagnostics {
+            review_report.summary.artifacts.diagnostics.push(
+                repopilot::scan::types::ScanDiagnostic::warning(
+                    format!("history.{}", diagnostic.kind.code()),
+                    diagnostic.message,
+                ),
+            );
+        }
+    }
     let output_format: OutputFormat = options.format.into();
     let render_options = ReviewRenderOptions {
         detail: options
@@ -197,6 +219,48 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn review_history_context(
+    scope: ReviewScope,
+    target: &repopilot::review::diff::OwnedDiffTarget,
+    options: &ReviewOptions,
+) -> ReceiptContext {
+    let scope = match scope {
+        ReviewScope::Changed => AnalysisScope::ReviewChanged,
+        ReviewScope::Full => AnalysisScope::ReviewFull,
+    };
+    let selection_fingerprint = repopilot::scan::cache::stable_hash_hex(
+        format!(
+            "{:?}|{:?}|{:?}|{:?}|{:?}",
+            options.scope,
+            options.min_severity,
+            options.min_confidence,
+            options.min_priority,
+            options.profile
+        )
+        .as_bytes(),
+    );
+    match target {
+        repopilot::review::diff::OwnedDiffTarget::WorkingTree => ReceiptContext {
+            scope,
+            base_ref: Some("HEAD".to_string()),
+            head_ref: None,
+            selection_fingerprint: selection_fingerprint.clone(),
+        },
+        repopilot::review::diff::OwnedDiffTarget::Refs { base, head } => ReceiptContext {
+            scope,
+            base_ref: Some(base.clone()),
+            head_ref: Some(head.clone()),
+            selection_fingerprint: selection_fingerprint.clone(),
+        },
+        repopilot::review::diff::OwnedDiffTarget::SinceRef { base } => ReceiptContext {
+            scope,
+            base_ref: Some(base.clone()),
+            head_ref: None,
+            selection_fingerprint,
+        },
+    }
 }
 
 fn duration_us(duration: Duration) -> u64 {

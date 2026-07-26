@@ -2,6 +2,7 @@ use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
+use crate::review::{ReadinessVerdict, derive_readiness};
 use crate::risk::RiskPriority;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write;
@@ -93,6 +94,12 @@ pub fn review_decision_summary(
     ci_gate: Option<&CiGateResult>,
     review_gate: Option<&ReviewSignalGateResult>,
 ) -> DecisionSummary {
+    let readiness = derive_readiness(
+        report,
+        ci_gate,
+        review_gate,
+        report.summary.artifacts.risk_delta.as_ref(),
+    );
     let findings = report.in_diff_findings();
     let stats = finding_stats(&findings);
     let definitely_sensitive = report
@@ -107,20 +114,10 @@ pub fn review_decision_summary(
         .iter()
         .filter(|signal| !signal.suppressed)
         .count();
-    let finding_gate_failed = ci_gate.is_some_and(|gate| !gate.passed());
-    let review_gate_failed = review_gate.is_some_and(|gate| !gate.passed());
-
-    let verdict = if finding_gate_failed || review_gate_failed {
-        DecisionVerdict::Block
-    } else if stats.p0 > 0
-        || stats.p1 > 0
-        || definitely_sensitive > 0
-        || maybe_sensitive > 0
-        || !findings.is_empty()
-    {
-        DecisionVerdict::Review
-    } else {
-        DecisionVerdict::Pass
+    let verdict = match readiness.verdict {
+        ReadinessVerdict::Ready => DecisionVerdict::Pass,
+        ReadinessVerdict::Review => DecisionVerdict::Review,
+        ReadinessVerdict::Blocked => DecisionVerdict::Block,
     };
 
     let headline = match verdict {
@@ -138,27 +135,11 @@ pub fn review_decision_summary(
         }
     };
 
-    let mut reasons = Vec::new();
-    if finding_gate_failed {
-        reasons.push("The configured finding gate failed.".to_string());
-    }
-    if review_gate_failed {
-        reasons.push("The configured definitely-sensitive review gate failed.".to_string());
-    }
-    push_priority_reasons(&mut reasons, stats.p0, stats.p1);
-    if definitely_sensitive > 0 {
-        reasons.push(format!(
-            "{definitely_sensitive} definitely-sensitive review signal(s) require confirmation."
-        ));
-    }
-    if maybe_sensitive > 0 {
-        reasons.push(format!(
-            "{maybe_sensitive} maybe-sensitive review signal(s) are visible."
-        ));
-    }
-    if report.boundary_missing_test {
-        reasons.push("A code boundary changed without a corresponding test change.".to_string());
-    }
+    let reasons = readiness
+        .reasons
+        .into_iter()
+        .map(|reason| format!("{} {}", reason.count, reason.message))
+        .collect();
 
     DecisionSummary {
         verdict,

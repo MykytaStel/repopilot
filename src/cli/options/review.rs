@@ -76,6 +76,10 @@ pub struct ReviewOptions {
     #[arg(long, value_name = "PATH")]
     pub sarif_output: Option<PathBuf>,
 
+    /// Record this review in the bounded local history ledger
+    #[arg(long)]
+    pub record_history: bool,
+
     /// Override the large-file LOC threshold
     #[arg(long)]
     pub max_file_loc: Option<usize>,

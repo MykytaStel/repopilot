@@ -12,6 +12,7 @@ use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, OwnedDiffTarget, load_changed_files, resolve_git_root};
 use crate::review::feedback::apply_review_feedback;
 use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::review::ownership::{OwnershipIndex, OwnershipSummary};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, tiered};
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
@@ -149,6 +150,9 @@ fn classify_findings(
     let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
     let impact_paths =
         compute_impact_paths(&summary, &repo_root, &changed_files, impact_path_depth);
+    let ownership_discovery = OwnershipIndex::discover(&repo_root);
+    let ownership =
+        OwnershipSummary::for_impact(&changed_files, &impact_paths, &ownership_discovery.index);
     composites::enrich_blast_radius(
         &mut boundary_signals,
         summary.artifacts.coupling_graph.as_ref(),
@@ -203,6 +207,8 @@ fn classify_findings(
         changed_files,
         blast_radius,
         impact_paths,
+        ownership,
+        ownership_diagnostics: ownership_discovery.diagnostics,
         boundary_signals,
         boundary_missing_test,
         tiered_signals,

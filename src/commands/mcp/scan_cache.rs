@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 
 const SCHEMA: &str = "mcp-scan-cache-v1";
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
+const OVERLAY_PATH: &str = ".repopilot/overlay.toml";
 const REPOPILOT_IGNORE_FILENAME: &str = ".repopilotignore";
 
 /// The cache key for a scan call, or `None` when cache correctness cannot be
@@ -53,6 +54,8 @@ fn cache_key_with_metadata(
     hasher.update(config_blob(path, arguments).as_bytes());
     hasher.update(b"\nfeedback:");
     hasher.update(path_blob(path.join(FEEDBACK_PATH)).as_bytes());
+    hasher.update(b"\noverlay:");
+    hasher.update(path_blob(repo_root.join(OVERLAY_PATH)).as_bytes());
     hasher.update(b"\nrepopilotignore:");
     hasher.update(path_blob(repopilotignore_path(path)).as_bytes());
     hasher.update(b"\nignore-sources:");

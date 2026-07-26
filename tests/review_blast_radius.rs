@@ -151,6 +151,8 @@ fn render_console_includes_blast_radius_section_when_present() {
         changed_files: vec![changed_file("src/a.ts")],
         blast_radius: vec![PathBuf::from("src/b.ts")],
         impact_paths: Default::default(),
+        ownership: Default::default(),
+        ownership_diagnostics: Vec::new(),
         boundary_signals: vec![],
         boundary_missing_test: false,
         tiered_signals: TieredSignals::default(),

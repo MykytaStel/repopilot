@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Opt-in local risk memory.** `scan` and `review` accept
+  `--record-history`, or repositories can enable `[history]` explicitly.
+  Versioned, bounded receipts under `.repopilot/history/` compare only
+  compatible analysis contracts and classify finding occurrences as new,
+  persisting, resolved, or severity-shifted. JSON and human reports project
+  the compatible delta without changing existing exit behavior.
+- **Ownership-aware merge readiness.** Review reports now derive one stable
+  `ready`, `review`, or `blocked` verdict from findings, gates, review signals,
+  blast radius, and CODEOWNERS. The record includes deterministic reason codes,
+  suggested owners, unowned surfaces, verification steps, and limitations;
+  console, Markdown, JSON, MCP review output, and the GitHub Action summary
+  consume the same contract. The record also carries bounded dependency-impact
+  paths so consumers do not have to reconstruct the affected surface.
 - **`.repopilot/overlay.toml` — local knowledge overlays.** A declarative,
   diffable file that calibrates known rules to a repository: `[[overlay]]`
   entries target a `rule` id or a review-signal `kind`, optionally scoped to
@@ -162,6 +175,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **Subdirectory scans could miss repository overlays.** Root
+  `.repopilot/overlay.toml` discovery and MCP cache invalidation now work when
+  the requested analysis target is a nested directory. Generated history and
+  cache files remain excluded from workspace fingerprints, and
+  `--ignore-feedback` now bypasses both legacy feedback and overlays.
+- **Concurrent history writers could exhaust a spin loop or leave a stale lock
+  after interruption.** History now uses an OS-backed file lock with bounded
+  waiting; abandoned lock files no longer block later analyses.
 - **A legitimate `Info` severity decision was silently discarded during enrichment.**
   `Finding::populate_rule_metadata` used `Severity::Info` (which is also
   `Severity::default()`) as a sentinel meaning "the audit never set severity,

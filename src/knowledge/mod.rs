@@ -20,5 +20,5 @@ pub use model::{
 };
 pub use overlay::{
     OverlayEntry, OverlayRules, OverlayTarget, OverlayValidation, active_overlay,
-    init_active_overlay,
+    init_active_overlay, init_active_overlay_disabled,
 };

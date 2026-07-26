@@ -47,6 +47,10 @@ pub struct ScanOptions {
     #[arg(long, value_name = "PATH")]
     pub receipt: Option<PathBuf>,
 
+    /// Record this scan in the bounded local history ledger
+    #[arg(long)]
+    pub record_history: bool,
+
     /// Path to a repopilot.toml config file
     #[arg(long)]
     pub config: Option<PathBuf>,

@@ -55,6 +55,37 @@ repopilot review . --fail-on-review definitely
 Use `--scope full --profile strict` only when a change review also needs the
 complete repository audit.
 
+Every review includes a deterministic merge-readiness record:
+
+- `ready` means no blocking or review-required evidence was found.
+- `review` identifies findings, signals, ownership gaps, or impacted surfaces
+  that need human attention.
+- `blocked` means an active finding or review gate failed.
+
+JSON and MCP review output expose the same `merge_readiness` object used by the
+console and Markdown renderers.
+
+## Compare Risk Across Runs
+
+History is local, bounded, and disabled by default. Record two compatible
+analyses to see what is new, persisting, resolved, or changed severity:
+
+```bash
+repopilot scan . --record-history
+repopilot scan . --record-history --format json
+```
+
+The same opt-in is available for review:
+
+```bash
+repopilot review . --record-history
+```
+
+Receipts live under `.repopilot/history/` and are never uploaded. RepoPilot
+compares only runs with the same target, scope, revisions, profile, filters,
+configuration, overlay, and report schema; it never treats an incompatible
+changed-only run as proof that full-scan findings were resolved.
+
 ## Review An Agent Run
 
 Create a marker before an agent starts editing:

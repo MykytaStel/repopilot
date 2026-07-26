@@ -1,0 +1,138 @@
+# RepoPilot 0.21 Breakthrough Release Design
+
+## Product Direction
+
+RepoPilot 0.21 turns deterministic analysis into a local merge decision. The
+release answers four questions in one workflow:
+
+1. Did repository risk improve or regress?
+2. What code and dependency surfaces did the change affect?
+3. Who should review those surfaces?
+4. What must be verified before merge?
+
+The release remains local-only, deterministic, review-first, and compatible
+with existing command and report surfaces.
+
+## Release Pillars
+
+### Risk Memory
+
+Opt-in local history stores versioned, bounded run receipts. A comparison
+identity prevents incompatible scopes, profiles, configurations, overlays, or
+base/head revisions from producing false risk deltas. Finding occurrences, not
+line-insensitive baseline IDs, are the comparison unit.
+
+### Merge Readiness
+
+A shared merge-readiness record combines the current decision verdict,
+changed-code signals, dependency impact, ownership, verification steps, known
+limitations, and an optional compatible risk delta. Its verdict is one of:
+
+- `ready`: no blocking or review-required reason remains;
+- `review`: human verification or ownership attention is required;
+- `blocked`: the active decision contract contains a blocking reason.
+
+Stable reason codes make the verdict inspectable and testable.
+
+### Ownership-Aware Impact
+
+RepoPilot parses GitHub-compatible CODEOWNERS files and applies last-matching
+rule precedence. Changed and impacted files receive deterministic owner
+suggestions. When no named owner exists, RepoPilot reports package or directory
+boundaries without inventing people or mining Git history.
+
+### Existing-Language Depth
+
+The release improves current rule-aware frontends instead of adding a shallow
+ninth language:
+
+- Java: Spring MVC and Spring Boot request-to-sink flows;
+- Kotlin: Spring and Ktor flows plus Kotlin call-expression precision;
+- C#: ASP.NET Core request/model-binding flows;
+- TypeScript and JavaScript: Next.js App Router, Express, Fastify, and Hono;
+- Python: FastAPI, Django, and Flask flows;
+- Go: `net/http`, Gin, Echo, and Fiber flows;
+- Rust: Axum, Actix, and Rocket boundary evidence plus panic-risk precision.
+
+Every behavior change requires a minimal unsafe fixture and a near-identical
+safe guard. Rust does not gain a generic taint claim without an evidence-backed
+design.
+
+### Trust Hardening
+
+The committed overlay participates in cache and workspace fingerprints, while
+generated history and cache state do not. History writes are bounded and
+atomically replace pruned state. Corruption and write failures are visible as
+structured diagnostics without turning a successful analysis into a false
+failure.
+
+## Architecture
+
+### Canonical Records
+
+`RunReceiptV1` owns one analysis contract and its occurrence records.
+`ComparisonIdentity` determines compatibility. `RiskDelta` classifies two
+compatible receipts. `MergeReadinessRecord` is the only source for human and
+machine readiness projections.
+
+The records are pure data. Storage, comparison, ownership discovery, verdict
+derivation, and rendering remain separate focused modules.
+
+### Data Flow
+
+1. Analysis produces findings, decisions, changed-code signals, and impact.
+2. Ownership discovery maps changed and impacted paths.
+3. Optional history lookup selects the newest compatible receipt.
+4. Delta computation classifies occurrence records.
+5. Readiness derivation combines decisions, signals, impact, owners,
+   verification, limitations, and the optional delta.
+6. Output adapters render the shared records.
+7. When explicitly enabled, a successful analysis records a bounded receipt.
+
+History recording happens after analysis and cannot change the findings or
+readiness derived for that run.
+
+## Error Handling
+
+- Disabled history creates no state.
+- Missing history is a normal `unavailable` comparison.
+- Unsupported receipt schemas are skipped with a diagnostic.
+- A truncated final JSONL record is ignored and reported.
+- Atomic replacement protects pruning from interrupted writes.
+- Concurrent update detection retries a bounded number of times, then reports
+  that the run was not recorded.
+- Missing or invalid CODEOWNERS degrades to unowned boundaries with a
+  diagnostic; it never invents owners.
+- Invalid overlay entries remain governed by the existing overlay diagnostic
+  contract.
+
+## Compatibility
+
+- No new top-level CLI command.
+- New fields are additive in JSON, MCP, Action, and AI context contracts.
+- Existing exit-code behavior stays stable.
+- History is opt-in through existing command/config surfaces.
+- `.repopilot/overlay.toml` is repository policy and can be committed.
+- `.repopilot/cache/` and `.repopilot/history/` are generated local state.
+
+## Verification Strategy
+
+Development follows red-green-refactor for each behavior:
+
+- comparison compatibility and occurrence collisions;
+- atomic bounded storage and corruption recovery;
+- overlay cache invalidation;
+- CODEOWNERS precedence and fallback boundaries;
+- deterministic readiness verdict and projection parity;
+- per-framework safe/unsafe language fixtures;
+- generated documentation and schema compatibility;
+- full release gate and self-scan before handoff.
+
+## Explicit Non-Goals
+
+- Hosted storage, telemetry, source upload, or implicit LLM calls.
+- Runtime execution or automatic execution of suggested tests.
+- Git-history-based owner inference.
+- A new language frontend.
+- A new top-level command.
+- A plugin runtime or executable overlay rules.

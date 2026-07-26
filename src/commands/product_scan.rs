@@ -7,7 +7,7 @@ use repopilot::facts::RepoFactsSummary;
 use repopilot::findings::feedback::apply_local_feedback;
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::{FindingVisibilityProfile, apply_visibility_profile};
-use repopilot::knowledge::{active_overlay, init_active_overlay};
+use repopilot::knowledge::{active_overlay, init_active_overlay, init_active_overlay_disabled};
 use repopilot::review::diff::ChangedFile;
 use repopilot::scan::scanner::{
     scan_changed_session, scan_resolved_changed_session, scan_session,
@@ -88,7 +88,11 @@ fn run_product_scan_internal(
     );
     debug_assert!(!session.revision().id().is_empty());
 
-    init_active_overlay(&request.path);
+    if request.ignore_feedback {
+        init_active_overlay_disabled();
+    } else {
+        init_active_overlay(session.workspace_root());
+    }
 
     let pb = if request.no_progress {
         None

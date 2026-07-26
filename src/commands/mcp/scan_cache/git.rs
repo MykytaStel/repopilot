@@ -3,8 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const CACHE_DIR: &str = ".repopilot/cache";
-
 pub(super) fn working_tree_fingerprint(repo_root: &Path) -> Option<String> {
     let head = git(repo_root, &["rev-parse", "HEAD"])?;
     let status_args = ["status", "--porcelain=v1", "-z", "-uall"];
@@ -157,8 +155,10 @@ fn status_entries(status: &[u8]) -> Vec<StatusEntry> {
 }
 
 fn is_cache_path(rel: &str) -> bool {
-    rel == CACHE_DIR
-        || rel.starts_with(&format!("{CACHE_DIR}/"))
-        || rel.ends_with(&format!("/{CACHE_DIR}"))
-        || rel.contains(&format!("/{CACHE_DIR}/"))
+    let normalized = rel.replace('\\', "/");
+    let clean = normalized.trim_start_matches("./");
+    let components = clean.split('/').collect::<Vec<_>>();
+    components
+        .windows(2)
+        .any(|pair| pair == [".repopilot", "cache"] || pair == [".repopilot", "history"])
 }
