@@ -24,7 +24,8 @@ guide); the rest of the cycle builds on it:
   README continue as the adoption surface.
 
 No hosted service, telemetry, source upload, or implicit LLM integration is
-part of the roadmap.
+part of the roadmap. Details:
+[v0.21 roadmap and release contract](roadmap/v0.21.md).
 
 ## Shipped: 0.20
 
