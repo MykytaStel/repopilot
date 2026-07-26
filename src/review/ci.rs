@@ -67,6 +67,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             raw_signal_quality: in_diff_signal_quality.clone(),
             visible_signal_quality: in_diff_signal_quality.clone(),
             signal_quality: in_diff_signal_quality,
+            risk_delta: None,
         },
     };
     recompute_summary_metrics(&mut summary);

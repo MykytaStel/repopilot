@@ -89,6 +89,7 @@ write_review_summary() {
     else
       echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$review_json")"
     fi
+    echo "- **Merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
     echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$review_json")"
     echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$review_json")"
     echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$review_json")"

@@ -3,6 +3,7 @@ use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::render_helpers::escape_table_cell;
 use crate::review::ReviewSignalGateResult;
+use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::signals::tiered::ReviewSignal;
@@ -22,6 +23,28 @@ pub fn render_markdown_with_gates(
 
     output.push_str("# RepoPilot Review Report\n\n");
     output.push_str("## Summary\n\n");
+    let readiness = derive_readiness(
+        report,
+        ci_gate,
+        review_gate,
+        report.summary.artifacts.risk_delta.as_ref(),
+    );
+    output.push_str(&format!(
+        "- **Merge readiness:** `{}`\n",
+        readiness.verdict.label()
+    ));
+    if !readiness.ownership.suggested_owners.is_empty() {
+        output.push_str(&format!(
+            "- **Suggested owners:** {}\n",
+            readiness
+                .ownership
+                .suggested_owners
+                .iter()
+                .map(|owner| format!("`{}`", owner.value))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
     output.push_str(&format!(
         "- **Path:** `{}`\n",
         report.summary.root_path.display()

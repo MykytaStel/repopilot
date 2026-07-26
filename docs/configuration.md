@@ -91,6 +91,22 @@ repopilot review . --fail-on-review definitely
 See [CLI reference → Gates](cli.md#gates) for the full two-axis gate model
 (finding gate vs review-signal gate).
 
+## Local History
+
+Risk history is opt-in. Enable it for every `scan` and `review` in a repository:
+
+```toml
+[history]
+enabled = true
+max_runs = 50
+max_bytes = 5242880
+```
+
+Alternatively, use `--record-history` for one command. Receipts are stored in
+`.repopilot/history/runs.jsonl`, bounded by both limits, and ignored by Git and
+analysis fingerprints. Invalid or interrupted receipt lines produce diagnostics
+without failing the underlying analysis.
+
 ## Opt-in architecture rules
 
 Two graph rules are **off by default** and emit nothing until you describe your
@@ -215,30 +231,37 @@ repopilot scan . --baseline .repopilot/baseline.json --fail-on new-high
 Do not refresh the baseline just to silence CI. Refresh it only when the team
 explicitly accepts the current findings as technical debt.
 
-## Local Feedback
+## Local Knowledge Overlay
 
-RepoPilot reads repository-local suppressions from `.repopilot/feedback.yml`.
-Finding suppressions use `rule_id + path`; review-signal suppressions use
-namespaced `kind + path`.
+RepoPilot supports path-scoped local rule calibration and suppressions via `.repopilot/overlay.toml`. Overlay decisions are evaluated directly inside the Decision Engine trace (`decide_with_trace` / `explain`).
 
-```yaml
-suppressions:
-  - rule_id: architecture.large-file
-    path: "src/generated/schema.rs"
-    reason: generated schema boundary
-  - kind: behavioral.network-call-added
-    path: "src/generated/**"
-    reason: generated client transport
-    expires: "2026-12-31"
+```toml
+# Suppress a rule for specific paths
+[[overlay]]
+rule = "architecture.large-file"
+path = "src/generated/**"
+reason = "Generated code boundary"
+
+# Override severity for specific paths
+[[overlay]]
+rule = "behavioral.panic-risk"
+path = "src/cli/**"
+severity = "low"
+reason = "CLI handlers can terminate on unrecoverable input"
+
+# Suppress review signals by kind with expiration
+[[overlay]]
+kind = "behavioral.network-call-added"
+path = "src/generated/**"
+reason = "Generated client transport"
+expires = "2026-12-31"
 ```
 
-Suppressions are applied by `scan` and `review`; malformed entries surface as
-report diagnostics rather than silently dropping findings.
+Use `--ignore-feedback` on `scan` or `review` to bypass overlay rules.
 
-Use `--ignore-feedback` on `scan` or `review` for an unsuppressed report.
-Expired review suppressions no longer apply. Reports expose suppression counts
-through `local_feedback` metadata so policy never hides findings silently.
+## Local Feedback (Deprecated)
 
-Do not commit `.repopilot/feedback.yml` by default. Commit it only when the
-suppression is a reviewed team policy; keep temporary or personal suppressions
-local.
+> [!NOTE]
+> `.repopilot/feedback.yml` is deprecated in favor of `.repopilot/overlay.toml`.
+
+Existing `.repopilot/feedback.yml` files continue to function, but raise a deprecation diagnostic suggesting migration to `.repopilot/overlay.toml`.

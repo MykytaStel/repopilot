@@ -24,7 +24,7 @@ by `scan`, `review`, `ai`, or CI.
 | Rule metadata | Title, category, default severity, docs URL, description, and recommendation in the rule registry. |
 | Applicability | Knowledge Engine data that defines which languages, frameworks, runtimes, paradigms, and file roles a rule applies to. |
 | Calibration | Deterministic severity, suppression, or risk adjustments based on local file/project context. |
-| Local overlay | A future local file that can tune known rules in an inspectable way. Not enabled by default. |
+| Local overlay | A declarative `.repopilot/overlay.toml` file that calibrates known rules by path/rule/kind in an inspectable way. |
 | Local learning | User-controlled local calibration or fixtures, not model training or remote telemetry. |
 | Declarative context | Infrastructure, config, markup, query, and data-description files that should not be judged like imperative application code. |
 | Infrastructure context | Terraform, Dockerfile, Nix, Kubernetes, Helm, CI workflow, and infra-directory files where orchestration is expected. |
@@ -123,12 +123,13 @@ path/language/content
 Future rules should prefer the shared context signals instead of adding another
 local copy of the same path or language checks inside an individual audit.
 
-## Local Feedback And Future Overlays
+## Local Overlays and Local Feedback
 
-RepoPilot's first local calibration surface is `.repopilot/feedback.yml` for
-explicit suppressions, applied by `scan` and `review`. Future overlays should
-remain inspectable local calibration, not a plugin runtime.
-Local overlays should be normal files that users can review, commit, diff, or
-delete. They may tune known rule severity, confidence, or suppression decisions,
-but they must not execute arbitrary code, load remote packs, or change scan
-behavior silently.
+RepoPilot's primary local calibration surface is `.repopilot/overlay.toml` for path-scoped rule calibration (severity override) and suppressions. Local overlay decisions evaluate directly inside the Decision Engine trace (`decide_with_trace` / `explain`).
+
+`.repopilot/feedback.yml` is deprecated in favor of `.repopilot/overlay.toml`.
+
+Local overlays are inspectable local calibration files, not a plugin runtime:
+- Declarative files that users can review, commit, diff, or delete.
+- Tune known rule severity or suppression decisions with path globs.
+- Cannot execute arbitrary code, load remote packs, or change scan behavior silently.

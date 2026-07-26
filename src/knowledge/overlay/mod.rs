@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 pub mod rules;
 
-pub use rules::{OverlayRules, active_overlay, init_active_overlay};
+pub use rules::{OverlayRules, active_overlay, init_active_overlay, init_active_overlay_disabled};
 
 pub const OVERLAY_PATH: &str = ".repopilot/overlay.toml";
 

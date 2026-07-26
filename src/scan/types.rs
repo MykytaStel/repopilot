@@ -86,6 +86,8 @@ pub struct ScanArtifacts {
     pub hidden_suggestions: Vec<HiddenSuggestionSummary>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<ScanDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub risk_delta: Option<crate::history::RiskDelta>,
     #[serde(default)]
     pub raw_signal_quality: SignalQualitySummary,
     #[serde(default)]

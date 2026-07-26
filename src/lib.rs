@@ -37,6 +37,8 @@ pub mod frameworks;
 #[doc(hidden)]
 pub mod graph;
 #[doc(hidden)]
+pub mod history;
+#[doc(hidden)]
 pub mod knowledge;
 #[doc(hidden)]
 pub mod languages;

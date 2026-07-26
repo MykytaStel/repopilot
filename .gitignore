@@ -41,6 +41,7 @@ __pycache__/
 !/.repopilot/.gitkeep
 !/.repopilot/config.toml
 !/.repopilot/config.example.toml
+!/.repopilot/overlay.toml
 .repopilot-patches/
 
 docs/demos/*.tape

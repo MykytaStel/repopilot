@@ -1,6 +1,8 @@
 use super::*;
 use crate::review::ImpactPaths;
+use crate::review::MergeReadinessRecord;
 use crate::review::ReviewSignalGateResult;
+use crate::review::derive_readiness;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 
@@ -17,6 +19,7 @@ pub struct ReviewJsonReport<'a> {
     pub changed_files: &'a [ChangedFile],
     pub blast_radius: Vec<String>,
     pub impact_paths: &'a ImpactPaths,
+    pub merge_readiness: MergeReadinessRecord,
     pub boundary_signals: &'a [BoundarySignal],
     /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
@@ -68,6 +71,12 @@ impl<'a> ReviewJsonReport<'a> {
                 .map(|path| path.to_string_lossy().to_string())
                 .collect(),
             impact_paths: &report.impact_paths,
+            merge_readiness: derive_readiness(
+                report,
+                ci_gate,
+                review_gate,
+                report.summary.artifacts.risk_delta.as_ref(),
+            ),
             boundary_signals: &report.boundary_signals,
             tiered_signals: &report.tiered_signals,
             review_timings: report.timings,

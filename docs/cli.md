@@ -92,11 +92,12 @@ repopilot s <PATH> [OPTIONS]
 | `--no-color` | flag | — | Disable ANSI color in console output |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
 | `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
+| `--record-history` | flag | — | Record this analysis in the bounded local risk-history ledger |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Finding gate by severity/status; exit code 1 on a breach (see [Gates](#gates)) |
 | `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority; mutually exclusive with `--fail-on` |
-| `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
+| `--ignore-feedback` | flag | — | Ignore local overlay and legacy feedback calibration |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |
@@ -262,13 +263,14 @@ repopilot r [PATH] [OPTIONS]
 | `--max-findings` | integer or `none` | `5` | Limit console finding detail |
 | `-o, --output` | path | stdout | Write report to a file instead of stdout |
 | `--sarif-output` | path | — | Write secondary review SARIF without a second scan |
+| `--record-history` | flag | — | Record this review in the bounded local risk-history ledger |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
 | `--baseline` | path | — | Path to a baseline file |
 | `--fail-on` | threshold | — | Finding gate by severity/status on **in-diff** findings (see [Gates](#gates)) |
 | `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority on **in-diff** findings; mutually exclusive with `--fail-on` |
 | `--fail-on-review` | `none\|definitely` | `none` | Review-signal gate; config peer `[review] fail_on` |
 | `--no-progress` | flag | — | Disable progress indicators |
-| `--ignore-feedback` | flag | — | Ignore `.repopilot/feedback.yml` local suppressions |
+| `--ignore-feedback` | flag | — | Ignore local overlay and legacy feedback calibration |
 | `--max-file-loc` | integer | `300` | Maximum non-empty LOC before a file is flagged as large |
 | `--max-directory-modules` | integer | `20` | Maximum files per directory before flagging |
 | `--max-directory-depth` | integer | `5` | Maximum nesting depth before flagging |

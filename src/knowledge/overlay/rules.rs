@@ -16,7 +16,7 @@ static OVERLAY: OnceLock<OverlayRules> = OnceLock::new();
 
 impl OverlayRules {
     pub fn load(root: &Path) -> io::Result<Self> {
-        let overlay_path = root.join(OVERLAY_PATH);
+        let overlay_path = discover_overlay(root).unwrap_or_else(|| root.join(OVERLAY_PATH));
         if !overlay_path.is_file() {
             return Ok(Self {
                 validation: OverlayValidation {
@@ -92,6 +92,20 @@ impl OverlayRules {
     }
 }
 
+fn discover_overlay(start: &Path) -> Option<std::path::PathBuf> {
+    let mut directory = start;
+    loop {
+        let candidate = directory.join(OVERLAY_PATH);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if directory.join(".git").exists() {
+            return None;
+        }
+        directory = directory.parent()?;
+    }
+}
+
 /// Initializes the process-wide overlay for `root`. Must be called exactly
 /// once, before any `decide()` calls happen for this scan/review invocation
 /// — the CLI and MCP server both operate on exactly one repo root per
@@ -112,6 +126,13 @@ pub fn init_active_overlay(root: &Path) -> &'static OverlayRules {
             validation: OverlayValidation::default(),
             matched: Vec::new(),
         })
+    })
+}
+
+pub fn init_active_overlay_disabled() -> &'static OverlayRules {
+    OVERLAY.get_or_init(|| OverlayRules {
+        validation: OverlayValidation::default(),
+        matched: Vec::new(),
     })
 }
 

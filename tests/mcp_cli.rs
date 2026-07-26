@@ -115,6 +115,47 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
 }
 
 #[test]
+fn mcp_review_projects_the_canonical_merge_readiness_record() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("src dir");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn value() -> i32 { 1 }\n",
+    )
+    .unwrap();
+    git(temp.path(), &["init", "-q"]);
+    git(temp.path(), &["config", "user.email", "test@example.com"]);
+    git(temp.path(), &["config", "user.name", "Test"]);
+    git(temp.path(), &["add", "."]);
+    git(temp.path(), &["commit", "-qm", "initial"]);
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn value() -> i32 { 2 }\n",
+    )
+    .unwrap();
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":"."}}}"#,
+        ],
+        temp.path(),
+    );
+
+    let text = responses[1]["result"]["content"][0]["text"]
+        .as_str()
+        .expect("text content");
+    let report: Value = serde_json::from_str(text).expect("review report is json");
+    assert!(matches!(
+        report["merge_readiness"]["verdict"].as_str(),
+        Some("ready" | "review" | "blocked")
+    ));
+    assert!(report["merge_readiness"]["impact"].is_object());
+    assert!(report["merge_readiness"]["ownership"].is_object());
+}
+
+#[test]
 fn mcp_context_tool_includes_repository_facts() {
     // Phase 1: the context tool wraps the facts-aware renderer (like the CLI),
     // so an agent gets the aggregate stack/size picture, not a thinner brief.

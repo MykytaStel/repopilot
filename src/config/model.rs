@@ -25,6 +25,7 @@ pub struct RepoPilotConfig {
     pub algorithmic: AlgorithmicSection,
     pub taint: TaintSection,
     pub output: OutputSection,
+    pub history: HistorySection,
 }
 
 /// Per-rule configuration: turn individual rules off or pin their severity.
@@ -358,6 +359,24 @@ impl Default for OutputSection {
     fn default() -> Self {
         Self {
             default_format: OutputFormat::Console,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct HistorySection {
+    pub enabled: bool,
+    pub max_runs: usize,
+    pub max_bytes: u64,
+}
+
+impl Default for HistorySection {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_runs: crate::history::DEFAULT_MAX_RUNS,
+            max_bytes: crate::history::DEFAULT_MAX_BYTES,
         }
     }
 }

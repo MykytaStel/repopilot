@@ -119,6 +119,8 @@ pub struct ScanJsonReport<'a> {
     pub local_feedback: Option<&'a LocalFeedbackReport>,
     #[serde(skip_serializing_if = "diagnostics_empty")]
     pub diagnostics: &'a [ScanDiagnostic],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_delta: Option<&'a crate::history::RiskDelta>,
     pub risk_summary: RiskSummary,
     pub raw_signal_quality: crate::findings::quality::SignalQualitySummary,
     pub visible_signal_quality: crate::findings::quality::SignalQualitySummary,
@@ -175,6 +177,7 @@ impl<'a> ScanJsonReport<'a> {
             cache_telemetry: summary.cache_telemetry.as_ref(),
             local_feedback: summary.local_feedback.as_ref(),
             diagnostics: &summary.artifacts.diagnostics,
+            risk_delta: summary.artifacts.risk_delta.as_ref(),
             risk_summary: RiskSummary::from_findings(&summary.artifacts.findings),
             raw_signal_quality: summary.artifacts.raw_signal_quality.clone(),
             visible_signal_quality: summary.artifacts.visible_signal_quality.clone(),

@@ -6,7 +6,9 @@ mod feedback;
 mod gate;
 mod impact;
 pub mod model;
+mod ownership;
 pub(crate) mod paths;
+mod readiness;
 pub mod render;
 mod report;
 mod signal_pass;
@@ -16,6 +18,12 @@ pub use blast_radius::compute_blast_radius;
 pub use ci::review_report_for_ci;
 pub use gate::{ReviewSignalGatePolicy, ReviewSignalGateResult};
 pub use impact::{AffectedSurface, FileImpact, ImpactPaths, compute_impact_paths};
+pub use ownership::{
+    Owner, OwnershipDiagnostic, OwnershipDiscovery, OwnershipIndex, OwnershipSummary, PathOwnership,
+};
+pub use readiness::{
+    MergeReadinessRecord, ReadinessReason, ReadinessReasonCode, ReadinessVerdict, derive_readiness,
+};
 pub use report::{
     ReviewInput, build_review_report, build_review_report_from_input,
     build_review_report_from_session, build_review_report_since, load_review_input,

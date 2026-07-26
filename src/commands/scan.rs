@@ -8,6 +8,7 @@ use crate::commands::product_scan::{
     ProductScanRequest, enforce_diagnostics_exit_policy, run_product_scan,
 };
 use crate::commands::scan_config::ScanConfigOverrides;
+use repopilot::history::{AnalysisScope, ReceiptContext, record_session};
 use repopilot::output::{
     ColorChoice, ColorDestination, ConsoleOutputStyle, FindingRenderLimit, RenderOptions,
     render_scan_summary_with_options,
@@ -26,6 +27,7 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     let fail_on_priority = options.fail_on_priority.map(Into::into);
     let visibility_profile = validation::scan_visibility_profile(&options);
     let scan_mode = validation::scan_mode_from_options(&options);
+    let history_context = scan_history_context(&scan_mode, &options);
 
     let scan_result = run_product_scan(ProductScanRequest {
         path: options.path.clone(),
@@ -68,6 +70,11 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     if !priority_filter.is_empty() {
         priority_filter.apply_to_summary(&mut summary);
     }
+    if (options.record_history || scan_result.session.repo_config().history.enabled)
+        && !summary.has_error_diagnostics()
+    {
+        apply_history(&mut summary, &scan_result.session, history_context);
+    }
 
     let render_options = render_options_for_scan(&options);
     let render_start = Instant::now();
@@ -87,8 +94,74 @@ pub fn run(options: ScanOptions) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     enforce_diagnostics_exit_policy(&summary)?;
-
     Ok(())
+}
+
+fn apply_history(
+    summary: &mut ScanSummary,
+    session: &repopilot::scan::session::AnalysisSession,
+    context: ReceiptContext,
+) {
+    let outcome = record_session(session, context, &summary.artifacts.findings);
+    if let Some(repopilot::history::ComparisonResult::Compatible(delta)) = outcome.comparison {
+        summary.artifacts.risk_delta = Some(delta);
+    }
+    for diagnostic in outcome.diagnostics {
+        summary
+            .artifacts
+            .diagnostics
+            .push(repopilot::scan::types::ScanDiagnostic::warning(
+                format!("history.{}", diagnostic.kind.code()),
+                diagnostic.message,
+            ));
+    }
+}
+
+fn scan_history_context(
+    mode: &crate::commands::product_scan::ProductScanMode,
+    options: &ScanOptions,
+) -> ReceiptContext {
+    let selection_fingerprint = repopilot::scan::cache::stable_hash_hex(
+        format!(
+            "{:?}|{:?}|{:?}|{:?}|{}|{}|{:?}",
+            options.min_severity,
+            options.min_confidence,
+            options.min_priority,
+            options.rule,
+            options.include_maintainability,
+            options.include_low_signal,
+            options.preset
+        )
+        .as_bytes(),
+    );
+    match mode {
+        crate::commands::product_scan::ProductScanMode::Full => ReceiptContext {
+            scope: AnalysisScope::Full,
+            base_ref: None,
+            head_ref: None,
+            selection_fingerprint: selection_fingerprint.clone(),
+        },
+        crate::commands::product_scan::ProductScanMode::Workspace => ReceiptContext {
+            scope: AnalysisScope::Workspace,
+            base_ref: None,
+            head_ref: None,
+            selection_fingerprint: selection_fingerprint.clone(),
+        },
+        crate::commands::product_scan::ProductScanMode::Changed { since } => ReceiptContext {
+            scope: AnalysisScope::Changed,
+            base_ref: Some(since.clone().unwrap_or_else(|| "HEAD".to_string())),
+            head_ref: None,
+            selection_fingerprint: selection_fingerprint.clone(),
+        },
+        crate::commands::product_scan::ProductScanMode::ResolvedChanged { base_ref, .. } => {
+            ReceiptContext {
+                scope: AnalysisScope::Changed,
+                base_ref: Some(base_ref.clone().unwrap_or_else(|| "HEAD".to_string())),
+                head_ref: None,
+                selection_fingerprint,
+            }
+        }
+    }
 }
 
 pub(super) fn render_options_for_scan(options: &ScanOptions) -> RenderOptions {

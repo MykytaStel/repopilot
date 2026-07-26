@@ -510,6 +510,62 @@ fn given_overlay_with_unknown_rule_when_scan_runs_then_validation_diagnostic_is_
 }
 
 #[test]
+fn given_root_overlay_when_scanning_subdirectory_then_overlay_is_loaded() {
+    let project = fixture_project();
+    let repopilot_dir = project.path().join(".repopilot");
+    fs::create_dir_all(&repopilot_dir).expect("create .repopilot dir");
+    fs::write(
+        repopilot_dir.join("overlay.toml"),
+        "[[overlay]]\nrule = \"not-a-real-rule-id\"\nseverity = \"low\"\n",
+    )
+    .expect("write overlay.toml");
+
+    let output = repopilot()
+        .args(["scan", "src", "--format", "json"])
+        .current_dir(project.path())
+        .output()
+        .expect("run repopilot");
+
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert!(report["diagnostics"].as_array().is_some_and(|diagnostics| {
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "overlay.unknown-rule")
+    }));
+}
+
+#[test]
+fn ignore_feedback_bypasses_overlay_validation_and_decisions() {
+    let project = fixture_project();
+    let repopilot_dir = project.path().join(".repopilot");
+    fs::create_dir_all(&repopilot_dir).expect("create .repopilot dir");
+    fs::write(
+        repopilot_dir.join("overlay.toml"),
+        "[[overlay]]\nrule = \"not-a-real-rule-id\"\nseverity = \"low\"\n",
+    )
+    .expect("write overlay.toml");
+
+    let output = repopilot()
+        .args(["scan", ".", "--format", "json", "--ignore-feedback"])
+        .current_dir(project.path())
+        .output()
+        .expect("run repopilot");
+
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("json output");
+    assert!(
+        !report["diagnostics"].as_array().is_some_and(|diagnostics| {
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic["code"]
+                    .as_str()
+                    .is_some_and(|code| code.starts_with("overlay."))
+            })
+        })
+    );
+}
+
+#[test]
 fn given_conflicting_color_flags_when_scan_runs_then_usage_error_is_returned() {
     // Given
     let project = fixture_project();
