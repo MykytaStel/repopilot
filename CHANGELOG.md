@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Next.js App Router taint analysis.** The JavaScript/TypeScript frontend
+  now recognizes `NextRequest.nextUrl.searchParams`, `Request.json()`, and
+  `Request.formData()` as HTTP request sources, surfacing changed App Router
+  handlers where untrusted input reaches raw SQL, exec, or filesystem-write
+  sinks through the existing taint-lite contract. Parameterized SQL remains
+  quiet, outbound `Response.json()` is excluded, and differential safe/unsafe
+  review-zoo fixtures pin the precision boundary.
 - **Opt-in local risk memory.** `scan` and `review` accept
   `--record-history`, or repositories can enable `[history]` explicitly.
   Versioned, bounded receipts under `.repopilot/history/` compare only

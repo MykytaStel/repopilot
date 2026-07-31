@@ -1,0 +1,12 @@
+{
+  "description": "Next.js App Router search parameters are concatenated into raw SQL, so taint-lite must report the request-to-SQL flow.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.sql",
+      "path": "app/api/users/route.ts",
+      "headline": "untrusted input reaches raw SQL"
+    }
+  ]
+}
