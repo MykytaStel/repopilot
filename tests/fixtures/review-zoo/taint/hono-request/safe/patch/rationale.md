@@ -1,1 +1,1 @@
-The request-derived value is passed to an unchanged helper that owns a parameterized SQL query, so the changed handler introduces no raw SQL or taint signal.
+The Hono route introduces `c.req.query("id")` but only returns the value through `c.json()`. No SQL, exec, filesystem-write, or outbound-network sink exists in the safe fixture, so review must remain silent.
