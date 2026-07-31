@@ -1,4 +1,4 @@
 export function runCommand(req: any) {
-  const command = "echo safe";
-  return exec(command);
+  const cmd = "echo safe";
+  return exec(cmd);
 }
