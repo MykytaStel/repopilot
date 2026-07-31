@@ -1,0 +1,1 @@
+The Hono route introduces `c.req.query("id")` but only returns the value through `c.json()`. No SQL, exec, filesystem-write, or outbound-network sink exists in the safe fixture, so review must remain silent.

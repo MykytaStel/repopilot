@@ -1,6 +1,6 @@
 //! Taint tables for the JS dialect family. JS/TS (and their React variants)
 //! share a grammar shape, so one table covers both frontends. Source idioms
-//! target Express/Koa, Next.js App Router, and Fastify; sinks mirror the
+//! target Express/Koa, Next.js App Router, Fastify, and Hono; sinks mirror the
 //! behavioral "added X" detectors.
 
 use crate::review::signals::tables::{
@@ -42,6 +42,16 @@ pub(super) static JS_FAMILY_TAINT: TaintTables = TaintTables {
         "req.protocol",
         "ctx.query",
         "ctx.request.body",
+        "c.req.query",
+        "c.req.queries",
+        "c.req.param",
+        "c.req.header",
+        "c.req.json",
+        "c.req.parseBody",
+        "c.req.text",
+        "c.req.arrayBuffer",
+        "c.req.raw",
+        "c.req.url",
     ],
     argv_sources: &["process.argv"],
     source_access_kinds: &["member_expression"],
@@ -307,6 +317,73 @@ async function send(reply: FastifyReply) {
         assert!(
             signals.is_empty(),
             "Fastify response serialization is not a request source"
+        );
+    }
+
+    #[test]
+    fn hono_query_concatenated_into_sql_is_flagged() {
+        let signals = run(r#"
+app.get("/users", async (c) => {
+  const id = c.req.query("id");
+  return db.query("SELECT * FROM users WHERE id = " + id);
+});
+"#);
+
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, SourceKind::HttpRequest);
+        assert_eq!(signals[0].sink, SinkKind::Sql);
+    }
+
+    #[test]
+    fn hono_request_values_reaching_fs_write_are_flagged() {
+        for source in [
+            "c.req.param(\"name\")",
+            "c.req.header(\"x-file\")",
+            "await c.req.json()",
+            "await c.req.parseBody()",
+            "await c.req.text()",
+            "c.req.url",
+        ] {
+            let code = format!(
+                r#"
+app.post("/write", async (c) => {{
+  const value = {source};
+  fs.writeFile(value, "content", () => {{}});
+}});
+"#
+            );
+            let signals = run(&code);
+
+            assert_eq!(signals.len(), 1, "Hono source {source} must propagate");
+            assert_eq!(signals[0].source, SourceKind::HttpRequest);
+            assert_eq!(signals[0].sink, SinkKind::FsWrite);
+        }
+    }
+
+    #[test]
+    fn hono_parameterized_query_is_not_flagged() {
+        let signals = run(r#"
+app.get("/users", async (c) => {
+  const id = c.req.query("id");
+  return db.query("SELECT * FROM users WHERE id = $1", [id]);
+});
+"#);
+
+        assert!(signals.is_empty(), "parameterized Hono query is safe");
+    }
+
+    #[test]
+    fn hono_context_json_is_not_treated_as_request_input() {
+        let signals = run(r#"
+app.get("/report", async (c) => {
+  const response = c.json({ filename: "report.txt" });
+  fs.writeFile(response.filename, "content", () => {});
+});
+"#);
+
+        assert!(
+            signals.is_empty(),
+            "Hono response serialization is not a request source"
         );
     }
 
