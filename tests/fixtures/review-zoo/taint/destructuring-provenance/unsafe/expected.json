@@ -6,7 +6,7 @@
       "family": "taint",
       "kind": "taint.exec",
       "path": "src/handler.ts",
-      "headline": "untrusted input reaches command execution"
+      "headline": "untrusted input reaches subprocess/exec"
     }
   ]
 }
