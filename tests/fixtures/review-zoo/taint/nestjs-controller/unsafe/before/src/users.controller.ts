@@ -1,0 +1,10 @@
+import { Controller, Get } from "@nestjs/common";
+
+@Controller("users")
+export class UsersController {
+  @Get(":id")
+  findOne() {
+    const id = "system";
+    return db.query("SELECT * FROM users WHERE id = $1", [id]);
+  }
+}
