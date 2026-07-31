@@ -1,0 +1,3 @@
+{
+  "description": "Hono query input is bound separately from SQL text, so taint-lite must remain quiet."
+}
