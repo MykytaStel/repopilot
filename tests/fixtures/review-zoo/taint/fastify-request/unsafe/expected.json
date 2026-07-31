@@ -1,5 +1,5 @@
 {
-  "description": "Fastify request URL metadata is concatenated into SQL, so taint-lite must report the request-to-SQL flow.",
+  "description": "Fastify request IP metadata is concatenated into SQL, so taint-lite must report the request-to-SQL flow.",
   "expect": [
     {
       "bucket": "definitely",
