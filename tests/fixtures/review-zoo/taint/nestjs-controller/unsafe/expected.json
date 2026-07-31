@@ -1,0 +1,12 @@
+{
+  "description": "A NestJS route parameter concatenated into SQL must produce a deterministic taint signal.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.sql",
+      "path": "src/users.controller.ts",
+      "headline": "untrusted input reaches raw SQL"
+    }
+  ]
+}
