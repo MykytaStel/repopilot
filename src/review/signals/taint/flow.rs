@@ -132,11 +132,7 @@ fn path_is_same_or_descendant(path: &str, parent: &str) -> bool {
 
 // ── Seeding ─────────────────────────────────────────────────────────────────
 
-fn seed_tainted(
-    root: Node<'_>,
-    content: &str,
-    tables: &'static TaintTables,
-) -> TaintState {
+fn seed_tainted(root: Node<'_>, content: &str, tables: &'static TaintTables) -> TaintState {
     let mut tainted = TaintState::default();
     collect_request_bound_parameters(root, content, tables, &mut tainted);
 
@@ -384,9 +380,7 @@ fn access_path(node: Node<'_>, content: &str) -> Option<String> {
 
 fn normalize_access_path(text: &str) -> Option<String> {
     let normalized = text.trim().replace("?.", ".");
-    if normalized.is_empty()
-        || normalized.contains(['(', ')', '[', ']', ' ', '\t', '\n', '\r'])
-    {
+    if normalized.is_empty() || normalized.contains(['(', ')', '[', ']', ' ', '\t', '\n', '\r']) {
         return None;
     }
     let mut segments = normalized.split('.');
@@ -394,19 +388,17 @@ fn normalize_access_path(text: &str) -> Option<String> {
     if !is_identifier(first) || !segments.clone().all(is_identifier) {
         return None;
     }
-    if segments.next().is_none() {
-        return None;
-    }
+    segments.next()?;
     Some(normalized)
 }
 
 fn is_identifier(segment: &str) -> bool {
     let mut chars = segment.chars();
-    let Some(first) = chars.next() else {
-        return false;
+    let first = match chars.next() {
+        Some(c) => c,
+        None => return false,
     };
-    (first.is_ascii_alphabetic() || matches!(first, '_' | '$'))
-        && chars.all(is_identifier_char)
+    (first.is_ascii_alphabetic() || matches!(first, '_' | '$')) && chars.all(is_identifier_char)
 }
 
 fn node_mentions_tainted(
@@ -577,8 +569,14 @@ mod tests {
 
     #[test]
     fn access_paths_reject_calls_and_dynamic_indexes() {
-        assert_eq!(normalize_access_path("body.user.id"), Some("body.user.id".into()));
-        assert_eq!(normalize_access_path("body?.user?.id"), Some("body.user.id".into()));
+        assert_eq!(
+            normalize_access_path("body.user.id"),
+            Some("body.user.id".into())
+        );
+        assert_eq!(
+            normalize_access_path("body?.user?.id"),
+            Some("body.user.id".into())
+        );
         assert_eq!(normalize_access_path("body[userKey]"), None);
         assert_eq!(normalize_access_path("getBody().id"), None);
     }
