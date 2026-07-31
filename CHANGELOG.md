@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Fastify request taint analysis.** The JavaScript/TypeScript frontend now
+  recognizes Fastify URL and proxy-derived request metadata, including
+  `request.raw.url`, `request.url`, `request.ip`, `request.ips`,
+  `request.hostname`, and `request.protocol`, as HTTP request sources.
+  Parameterized SQL remains quiet, `reply.send()` is excluded from source
+  classification, and differential safe/unsafe review-zoo fixtures pin the
+  request-to-raw-SQL boundary.
 - **Next.js App Router taint analysis.** The JavaScript/TypeScript frontend
   now recognizes `NextRequest.nextUrl.searchParams`, `Request.json()`, and
   `Request.formData()` as HTTP request sources, surfacing changed App Router
@@ -733,7 +740,9 @@ for developers and agents, and carry the same decisions safely into CI and MCP.
   context-driven escalation pushed these to a **visible High**. A structural
   syntax-tree check now skips an `unwrap`/`expect` chained onto a literal
   `Regex::new`/`Selector::parse` (handling the multi-line
-  `Regex::new(\n    r"…",\n).unwrap()` form the previous text heuristic could
+  `Regex::new(\
+    r"…",\
+).unwrap()` form the previous text heuristic could
   not see); a pattern built from a runtime value still stays a panic risk.
 - **`architecture.dead-module` no longer claims High confidence on monorepo
   files whose importers it cannot resolve.** The "nothing imports this file"
@@ -781,9 +790,9 @@ for developers and agents, and carry the same decisions safely into CI and MCP.
   unwrap to High.** `serde_json::to_string(&value).unwrap()` (and `to_value`,
   `to_vec`, `to_writer`, and the YAML/TOML equivalents) serializes an owned,
   in-memory value — an in-process, effectively-infallible operation — yet the
-  `serde_json`/`json` external-failure signals escalated it to a **visible
-  High** in the default profile, the same way a genuine parse of untrusted
-  input is. On real services that persist structured data this was the dominant
+  `serde_json`/`json` external-failure signals escalated it to a **visible High**
+  in the default profile, the same way a genuine parse of untrusted input is.
+  On real services that persist structured data this was the dominant
   panic-risk false positive. A serialization unwrap is now the ordinary
   (Medium, hidden-by-default) panic risk; *deserialization*
   (`from_str`/`from_slice`/`from_reader`/`from_value`) still escalates to High
@@ -1189,15 +1198,15 @@ RepoPilot 0.15 turns review from *scanning the code* into *understanding the
 change*. `repopilot review` now reads the diff itself — security boundaries,
 behavioral shifts (added network/subprocess/filesystem/SQL, removed error
 handling or auth checks), and algorithmic deltas (deeper nesting, a new nested
-loop, a function that grew or became recursive) — and presents them grouped into
-three confidence tiers, across the console, Markdown, and JSON outputs and over
-MCP to AI agents. Every signal is a structural fact, never a verdict: it flags,
-it does not prove. New `repopilot snapshot` + `review --since-snapshot` mark the
-repository before an agent or manual change and review everything since — the
-deterministic, local check an agent can run on its own edits before handing you
-the PR. Security-boundary detection now also reads file content via the shared
-syntax tree with token-aware matching. Everything new ships at `preview` and runs
-entirely locally — nothing uploaded, no AI service called.
+loop, a function that grew or became recursive) — and presents them grouped
+into three confidence tiers, across the console, Markdown, and JSON outputs and
+over MCP to AI agents. Every signal is a structural fact, never a verdict: it
+flags, it does not prove. New `repopilot snapshot` + `review --since-snapshot`
+mark the repository before an agent or manual change and review everything
+since — the deterministic, local check an agent can run on its own edits before
+handing you the PR. Security-boundary detection now also reads file content via
+the shared syntax tree with token-aware matching. Everything new ships at
+`preview` and runs entirely locally — nothing uploaded and no AI service called.
 
 ### Added
 
