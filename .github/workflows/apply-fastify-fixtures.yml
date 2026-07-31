@@ -1,13 +1,15 @@
 name: Apply Fastify changelog
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize]
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.head_ref == 'feat/fastify-request-taint'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
