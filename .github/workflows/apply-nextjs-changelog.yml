@@ -1,0 +1,53 @@
+name: Apply Next.js changelog entry
+
+on:
+  push:
+    branches:
+      - feat/nextjs-app-router-taint
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: feat/nextjs-app-router-taint
+
+      - name: Add changelog entry
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          marker = "### Added\n\n"
+          entry = (
+              "- **Next.js App Router taint analysis.** The JavaScript/TypeScript frontend\n"
+              "  now recognizes `NextRequest.nextUrl.searchParams`, `Request.json()`, and\n"
+              "  `Request.formData()` as HTTP request sources, surfacing changed App Router\n"
+              "  handlers where untrusted input reaches raw SQL, exec, or filesystem-write\n"
+              "  sinks through the existing taint-lite contract. Parameterized SQL remains\n"
+              "  quiet, outbound `Response.json()` is excluded, and differential safe/unsafe\n"
+              "  review-zoo fixtures pin the precision boundary.\n"
+          )
+
+          if entry not in text:
+              if marker not in text:
+                  raise SystemExit("Unreleased Added section was not found")
+              changelog.write_text(text.replace(marker, marker + entry, 1), encoding="utf-8")
+
+          Path(".github/workflows/apply-nextjs-changelog.yml").unlink(missing_ok=True)
+          PY
+
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md .github/workflows/apply-nextjs-changelog.yml
+          git commit -m "docs: document Next.js App Router taint support"
+          git push origin HEAD:"${GITHUB_REF_NAME}"
