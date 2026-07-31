@@ -75,8 +75,6 @@ fn seed_tainted(
 
     let mut assignments: Vec<Assignment<'_>> = Vec::new();
     collect_assignments(root, tables, content, &mut assignments);
-    // Process in document order so a later reassignment overrides an earlier one;
-    // a single forward pass then resolves `a = src; b = a; c = b` chains.
     assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
 
     for assignment in &assignments {
@@ -100,10 +98,9 @@ fn seed_tainted(
 }
 
 /// Seed request-controlled names that are bound directly by a framework
-/// parameter decorator rather than by an assignment. The traversal and binding
-/// extraction are grammar-oriented; the narrow decorator allowlist keeps this
-/// first slice conservative and avoids treating response/DI/custom decorators as
-/// request input.
+/// parameter decorator rather than by an assignment. A narrow set of NestJS
+/// primitive parsing pipes is treated as an opaque clean boundary because its
+/// output cannot carry string injection or path/command metacharacters.
 fn collect_request_bound_parameters(
     node: Node<'_>,
     content: &str,
@@ -113,6 +110,7 @@ fn collect_request_bound_parameters(
     if is_parameter_node(node) {
         let text = node.utf8_text(content.as_bytes()).unwrap_or("");
         if is_nest_request_parameter(text)
+            && !has_nest_primitive_pipe(text)
             && let Some(name) = parameter_binding_name(node, content)
         {
             out.insert(name, SourceKind::HttpRequest);
@@ -138,15 +136,42 @@ fn is_parameter_node(node: Node<'_>) -> bool {
 fn is_nest_request_parameter(text: &str) -> bool {
     ["Body", "Query", "Param", "Headers", "Req", "Request"]
         .iter()
-        .any(|name| {
-            let marker = format!("@{name}");
-            text.find(&marker).is_some_and(|start| {
-                text[start + marker.len()..]
-                    .chars()
-                    .next()
-                    .is_none_or(|next| next == '(' || next.is_whitespace())
-            })
-        })
+        .any(|name| contains_decorator_token(text, name))
+}
+
+fn has_nest_primitive_pipe(text: &str) -> bool {
+    [
+        "ParseIntPipe",
+        "ParseFloatPipe",
+        "ParseBoolPipe",
+        "ParseUUIDPipe",
+    ]
+    .iter()
+    .any(|pipe| contains_identifier_token(text, pipe))
+}
+
+fn contains_decorator_token(text: &str, name: &str) -> bool {
+    let marker = format!("@{name}");
+    text.match_indices(&marker).any(|(start, _)| {
+        let suffix = &text[start + marker.len()..];
+        suffix
+            .chars()
+            .next()
+            .is_none_or(|next| next == '(' || next.is_whitespace())
+    })
+}
+
+fn contains_identifier_token(text: &str, identifier: &str) -> bool {
+    text.match_indices(identifier).any(|(start, _)| {
+        let before = text[..start].chars().next_back();
+        let after = text[start + identifier.len()..].chars().next();
+        before.is_none_or(|ch| !is_identifier_char(ch))
+            && after.is_none_or(|ch| !is_identifier_char(ch))
+    })
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '$')
 }
 
 fn parameter_binding_name(node: Node<'_>, content: &str) -> Option<String> {
@@ -183,9 +208,6 @@ fn first_binding_identifier(node: Node<'_>, content: &str) -> Option<String> {
         .find_map(|child| first_binding_identifier(child, content))
 }
 
-/// One assignment found in a scope: the local names it targets, its value node,
-/// and whether it is a compound assignment (`+=`, …) that combines with the old
-/// value rather than replacing it.
 struct Assignment<'a> {
     names: Vec<String>,
     rhs: Node<'a>,
@@ -366,4 +388,34 @@ fn sql_taint(
         return tainted.get(first_text).copied();
     }
     node_has_source(first, content, tables)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn primitive_nest_pipes_are_recognized_with_token_boundaries() {
+        for pipe in [
+            "ParseIntPipe",
+            "ParseFloatPipe",
+            "ParseBoolPipe",
+            "ParseUUIDPipe",
+        ] {
+            let parameter = format!("@Param(\"id\", {pipe}) id: string");
+            assert!(has_nest_primitive_pipe(&parameter), "missing {pipe}");
+        }
+
+        assert!(!has_nest_primitive_pipe(
+            "@Param(\"id\", MyParseIntPipe) id: string"
+        ));
+    }
+
+    #[test]
+    fn configurable_and_custom_nest_pipes_remain_tainted() {
+        for pipe in ["ValidationPipe", "ParseEnumPipe", "CustomPipe"] {
+            let parameter = format!("@Body({pipe}) body: Payload");
+            assert!(!has_nest_primitive_pipe(&parameter), "unexpected {pipe}");
+        }
+    }
 }

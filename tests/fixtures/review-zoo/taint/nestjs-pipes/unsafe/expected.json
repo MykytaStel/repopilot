@@ -1,0 +1,12 @@
+{
+  "description": "A custom NestJS pipe is not assumed to sanitize request input before raw SQL concatenation.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.sql",
+      "path": "src/users.controller.ts",
+      "headline": "untrusted input reaches raw SQL"
+    }
+  ]
+}
