@@ -1,0 +1,12 @@
+{
+  "description": "A request-controlled value assigned to one field of a clean local object must reach a string-built SQL sink.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.sql",
+      "path": "src/handler.ts",
+      "headline": "untrusted input reaches raw SQL"
+    }
+  ]
+}
