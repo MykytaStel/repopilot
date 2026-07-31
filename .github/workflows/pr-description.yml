@@ -2,10 +2,10 @@ name: PR Description
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 concurrency:
@@ -15,6 +15,8 @@ concurrency:
 jobs:
   fill:
     name: Generate PR description
+    # Same-repo branches only: a fork PR's GITHUB_TOKEN cannot write to it,
+    # and this workflow only ever fills a PR the same way `gh pr edit` would.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
 
@@ -31,6 +33,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
+          # GitHub applies the template with CRLF line endings; normalize
+          # both sides before comparing so a freshly opened, untouched PR
+          # is recognized as such.
           current="$(gh pr view "$PR_NUMBER" --json body --jq .body | tr -d '\r')"
           template="$(tr -d '\r' < .github/pull_request_template.md)"
           if [ "$current" != "$template" ]; then
@@ -45,59 +50,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
+        # `actions/checkout` with fetch-depth: 0 already unshallows the repo,
+        # so `origin/$BASE_REF` is resolvable without an extra fetch.
         run: |
           set -euo pipefail
           python3 scripts/generate-pr-body.py \
             --base "origin/$BASE_REF" \
             --head "HEAD" > /tmp/pr-body.md
           gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.md
-
-  finalize-fastify-changelog:
-    name: Finalize Fastify changelog
-    if: github.event.pull_request.head.ref == 'feat/fastify-request-taint'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout head branch
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: feat/fastify-request-taint
-          fetch-depth: 0
-
-      - name: Patch changelog and restore workflows
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          changelog = Path("CHANGELOG.md")
-          text = changelog.read_text(encoding="utf-8")
-          marker = "### Added\n\n"
-          entry = '''- **Fastify request taint analysis.** The JavaScript/TypeScript frontend now
-  recognizes Fastify URL and proxy-derived request metadata, including
-  `request.raw.url`, `request.url`, `request.ip`, `request.ips`,
-  `request.hostname`, and `request.protocol`, as HTTP request sources.
-  Parameterized SQL remains quiet, `reply.send()` is excluded from source
-  classification, and differential safe/unsafe review-zoo fixtures pin the
-  request-to-raw-SQL boundary.
-'''
-          if entry not in text:
-              if marker not in text:
-                  raise SystemExit("CHANGELOG Added marker not found")
-              changelog.write_text(text.replace(marker, marker + entry, 1), encoding="utf-8")
-
-          helper = Path(".github/workflows/apply-fastify-fixtures.yml")
-          if helper.exists():
-              helper.unlink()
-          PY
-
-          git show origin/main:.github/workflows/pr-description.yml > .github/workflows/pr-description.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "docs: document Fastify request taint analysis"
-          git push origin HEAD:feat/fastify-request-taint
