@@ -1,11 +1,7 @@
-name: Apply Fastify review fixtures
+name: Apply Fastify changelog
 
 on:
   push:
-    branches:
-      - feat/fastify-request-taint
-    paths:
-      - .github/workflows/apply-fastify-fixtures.yml
 
 permissions:
   contents: write
@@ -19,68 +15,11 @@ jobs:
           ref: feat/fastify-request-taint
           fetch-depth: 0
 
-      - name: Add fixtures and changelog
+      - name: Update changelog and remove helper
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          files = {
-              "tests/fixtures/review-zoo/taint/fastify-request/safe/before/src/routes/audit.ts": '''import type { FastifyRequest } from "fastify";
-
-export async function audit(_request: FastifyRequest) {
-  const origin = "internal";
-  return db.query("SELECT * FROM audit_logs WHERE origin = $1", [origin]);
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/safe/after/src/routes/audit.ts": '''import type { FastifyRequest } from "fastify";
-
-export async function audit(request: FastifyRequest) {
-  const origin = request.raw.url;
-  return db.query("SELECT * FROM audit_logs WHERE origin = $1", [origin]);
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/safe/expected.json": '''{
-  "description": "Fastify request metadata is passed to a parameterized SQL query, so review must emit zero signals."
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/safe/patch/rationale.md": '''The Fastify route reads request-derived URL metadata but binds it separately from the SQL text. The source is real; the parameterized sink boundary must remain quiet.
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/unsafe/before/src/routes/audit.ts": '''import type { FastifyRequest } from "fastify";
-
-export async function audit(_request: FastifyRequest) {
-  const origin = "internal";
-  return db.query("SELECT * FROM audit_logs WHERE origin = '" + origin + "'");
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/unsafe/after/src/routes/audit.ts": '''import type { FastifyRequest } from "fastify";
-
-export async function audit(request: FastifyRequest) {
-  const origin = request.raw.url;
-  return db.query("SELECT * FROM audit_logs WHERE origin = '" + origin + "'");
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/unsafe/expected.json": '''{
-  "description": "Fastify raw request URL metadata is concatenated into SQL, so taint-lite must report the request-to-SQL flow.",
-  "expect": [
-    {
-      "bucket": "definitely",
-      "family": "taint",
-      "kind": "taint.sql",
-      "path": "src/routes/audit.ts",
-      "headline": "untrusted input reaches raw SQL"
-    }
-  ]
-}
-''',
-              "tests/fixtures/review-zoo/taint/fastify-request/unsafe/patch/rationale.md": '''The route reads Fastify request-derived URL metadata and concatenates it directly into SQL text. This is the high-signal request-to-raw-SQL path the frontend must surface.
-''',
-          }
-
-          for name, content in files.items():
-              path = Path(name)
-              path.parent.mkdir(parents=True, exist_ok=True)
-              path.write_text(content, encoding="utf-8")
 
           changelog = Path("CHANGELOG.md")
           text = changelog.read_text(encoding="utf-8")
@@ -96,8 +35,7 @@ export async function audit(request: FastifyRequest) {
           if entry not in text:
               if marker not in text:
                   raise SystemExit("CHANGELOG Added marker not found")
-              text = text.replace(marker, marker + entry, 1)
-              changelog.write_text(text, encoding="utf-8")
+              changelog.write_text(text.replace(marker, marker + entry, 1), encoding="utf-8")
 
           Path(".github/workflows/apply-fastify-fixtures.yml").unlink()
           PY
@@ -105,5 +43,5 @@ export async function audit(request: FastifyRequest) {
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "test(review): add Fastify differential fixtures"
+          git commit -m "docs: document Fastify request taint analysis"
           git push origin HEAD:feat/fastify-request-taint
