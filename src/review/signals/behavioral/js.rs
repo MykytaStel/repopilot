@@ -79,10 +79,12 @@ pub(super) fn match_js(
                     });
                 }
             }
-            if callee_text.ends_with(".query")
-                || callee_text == "query"
-                || callee_text.ends_with(".execute")
-                || callee_text == "execute"
+            let is_hono_request_lookup = matches!(callee_text, "c.req.query" | "c.req.queries");
+            if !is_hono_request_lookup
+                && (callee_text.ends_with(".query")
+                    || callee_text == "query"
+                    || callee_text.ends_with(".execute")
+                    || callee_text == "execute")
             {
                 return Some(BehavioralSignal {
                     kind: BehavioralKind::RawSqlAdded,
