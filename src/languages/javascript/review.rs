@@ -1,7 +1,7 @@
 //! Taint tables for the JS dialect family. JS/TS (and their React variants)
 //! share a grammar shape, so one table covers both frontends. Source idioms
-//! target Express/Koa and Next.js App Router; sinks mirror the behavioral
-//! "added X" detectors.
+//! target Express/Koa, Next.js App Router, and Fastify; sinks mirror the
+//! behavioral "added X" detectors.
 
 use crate::review::signals::tables::{
     AlgorithmicKinds, BoundaryKinds, RemovedTables, ReviewTables,
@@ -23,12 +23,23 @@ pub(super) static JS_FAMILY_TAINT: TaintTables = TaintTables {
         "request.body",
         "request.headers",
         "request.cookies",
+        "request.url",
         "request.nextUrl.searchParams",
         "req.nextUrl.searchParams",
         "request.json",
         "req.json",
         "request.formData",
         "req.formData",
+        "request.raw.url",
+        "req.raw.url",
+        "request.ip",
+        "req.ip",
+        "request.ips",
+        "req.ips",
+        "request.hostname",
+        "req.hostname",
+        "request.protocol",
+        "req.protocol",
         "ctx.query",
         "ctx.request.body",
     ],
@@ -234,9 +245,74 @@ async function transform(response: Response) {
         );
     }
 
+    #[test]
+    fn fastify_raw_url_concatenated_into_sql_is_flagged() {
+        let signals = run(r#"
+async function audit(request: FastifyRequest) {
+  const origin = request.raw.url;
+  return db.query("SELECT * FROM audit_logs WHERE origin = '" + origin + "'");
+}
+"#);
+
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, SourceKind::HttpRequest);
+        assert_eq!(signals[0].sink, SinkKind::Sql);
+    }
+
+    #[test]
+    fn fastify_proxy_metadata_reaching_fs_write_is_flagged() {
+        for source in [
+            "request.ip",
+            "request.ips[0]",
+            "request.hostname",
+            "request.protocol",
+        ] {
+            let code = format!(
+                r#"
+async function persist(request: FastifyRequest) {{
+  const value = {source};
+  fs.writeFile(value, "content", () => {{}});
+}}
+"#
+            );
+            let signals = run(&code);
+
+            assert_eq!(signals.len(), 1, "Fastify source {source} must propagate");
+            assert_eq!(signals[0].source, SourceKind::HttpRequest);
+            assert_eq!(signals[0].sink, SinkKind::FsWrite);
+        }
+    }
+
+    #[test]
+    fn fastify_parameterized_query_is_not_flagged() {
+        let signals = run(r#"
+async function audit(request: FastifyRequest) {
+  const origin = request.raw.url;
+  return db.query("SELECT * FROM audit_logs WHERE origin = $1", [origin]);
+}
+"#);
+
+        assert!(signals.is_empty(), "parameterized Fastify query is safe");
+    }
+
+    #[test]
+    fn fastify_reply_send_is_not_treated_as_request_input() {
+        let signals = run(r#"
+async function send(reply: FastifyReply) {
+  const payload = reply.send({ filename: "report.txt" });
+  fs.writeFile(payload.filename, "content", () => {});
+}
+"#);
+
+        assert!(
+            signals.is_empty(),
+            "Fastify response serialization is not a request source"
+        );
+    }
+
     fn run(code: &str) -> Vec<TaintSignal> {
         let file = ChangedFile {
-            path: PathBuf::from("app/api/users/route.ts"),
+            path: PathBuf::from("src/routes/audit.ts"),
             status: ChangeStatus::Modified,
             ranges: vec![ChangedRange {
                 start: 1,
