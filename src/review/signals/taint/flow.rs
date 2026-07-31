@@ -1,12 +1,13 @@
 //! Intra-procedural taint propagation.
 //!
 //! Two passes per function/module scope: seed a set of tainted local names from
-//! assignments whose right-hand side reads a [`source`](super::sources) or
-//! references an already-tainted name — the assignments are processed in a single
-//! document-order forward pass, so `a = src; b = a; c = b` chains carry through —
-//! then report each [`sink`](super::sinks) call — gated to the changed lines —
-//! whose arguments carry a tainted value. Nested functions are analyzed with a
-//! fresh map so local names do not leak between procedures.
+//! request-bound parameters and assignments whose right-hand side reads a
+//! [`source`](super::sources) or references an already-tainted name. Assignments
+//! are processed in a single document-order forward pass, so `a = src; b = a;
+//! c = b` chains carry through. The engine then reports each [`sink`](super::sinks)
+//! call — gated to the changed lines — whose arguments carry a tainted value.
+//! Nested functions are analyzed with a fresh map so local names do not leak
+//! between procedures.
 //!
 //! For SQL the report is suppressed unless the tainted value is built *into* the
 //! query string (concatenation, interpolation, or a `format`/`Sprintf` call) or
@@ -69,26 +70,24 @@ fn seed_tainted(
     content: &str,
     tables: &'static TaintTables,
 ) -> HashMap<String, SourceKind> {
+    let mut tainted = HashMap::new();
+    collect_request_bound_parameters(root, content, tables, &mut tainted);
+
     let mut assignments: Vec<Assignment<'_>> = Vec::new();
     collect_assignments(root, tables, content, &mut assignments);
     // Process in document order so a later reassignment overrides an earlier one;
     // a single forward pass then resolves `a = src; b = a; c = b` chains.
     assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
 
-    let mut tainted: HashMap<String, SourceKind> = HashMap::new();
     for assignment in &assignments {
         match node_has_source(assignment.rhs, content, tables)
             .or_else(|| node_mentions_tainted(assignment.rhs, content, tables, &tainted))
         {
-            // A tainted/source value sets (or re-sets) taint for each target name.
             Some(kind) => {
                 for name in &assignment.names {
                     tainted.insert(name.clone(), kind);
                 }
             }
-            // A clean reassignment clears taint — `x = req.query.id; x = "safe"`.
-            // Compound assignment (`x += …`) combines with the old value, so it
-            // never clears.
             None if !assignment.augmenting => {
                 for name in &assignment.names {
                     tainted.remove(name);
@@ -98,6 +97,90 @@ fn seed_tainted(
         }
     }
     tainted
+}
+
+/// Seed request-controlled names that are bound directly by a framework
+/// parameter decorator rather than by an assignment. The traversal and binding
+/// extraction are grammar-oriented; the narrow decorator allowlist keeps this
+/// first slice conservative and avoids treating response/DI/custom decorators as
+/// request input.
+fn collect_request_bound_parameters(
+    node: Node<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+    out: &mut HashMap<String, SourceKind>,
+) {
+    if is_parameter_node(node) {
+        let text = node.utf8_text(content.as_bytes()).unwrap_or("");
+        if is_nest_request_parameter(text)
+            && let Some(name) = parameter_binding_name(node, content)
+        {
+            out.insert(name, SourceKind::HttpRequest);
+        }
+        return;
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if !(tables.is_flow_scope)(child) {
+            collect_request_bound_parameters(child, content, tables, out);
+        }
+    }
+}
+
+fn is_parameter_node(node: Node<'_>) -> bool {
+    matches!(
+        node.kind(),
+        "required_parameter" | "optional_parameter" | "rest_pattern"
+    )
+}
+
+fn is_nest_request_parameter(text: &str) -> bool {
+    ["Body", "Query", "Param", "Headers", "Req", "Request"]
+        .iter()
+        .any(|name| {
+            let marker = format!("@{name}");
+            text.find(&marker).is_some_and(|start| {
+                text[start + marker.len()..]
+                    .chars()
+                    .next()
+                    .is_none_or(|next| next == '(' || next.is_whitespace())
+            })
+        })
+}
+
+fn parameter_binding_name(node: Node<'_>, content: &str) -> Option<String> {
+    for field in ["pattern", "name"] {
+        if let Some(binding) = node.child_by_field_name(field)
+            && let Some(name) = first_binding_identifier(binding, content)
+        {
+            return Some(name);
+        }
+    }
+
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .filter(|child| !matches!(child.kind(), "decorator" | "type_annotation"))
+        .find_map(|child| first_binding_identifier(child, content))
+}
+
+fn first_binding_identifier(node: Node<'_>, content: &str) -> Option<String> {
+    if matches!(
+        node.kind(),
+        "identifier" | "shorthand_property_identifier_pattern"
+    ) {
+        return node
+            .utf8_text(content.as_bytes())
+            .ok()
+            .map(ToOwned::to_owned);
+    }
+    if matches!(node.kind(), "decorator" | "type_annotation") {
+        return None;
+    }
+
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .find_map(|child| first_binding_identifier(child, content))
 }
 
 /// One assignment found in a scope: the local names it targets, its value node,
@@ -134,8 +217,6 @@ fn collect_assignments<'a>(
     }
 }
 
-/// The (target, value) nodes of an assignment-like node, per the grammar's
-/// assignment node kinds from the language's [`TaintTables`].
 fn assignment_parts<'a>(
     node: Node<'a>,
     tables: &'static TaintTables,
@@ -153,9 +234,6 @@ fn assignment_parts<'a>(
     if let Some(rhs) = node.child_by_field_name(rhs_field) {
         return Some((lhs, rhs));
     }
-    // C#'s grammar attaches a declarator's initializer as a trailing
-    // anonymous child rather than a `value` field; a declarator without an
-    // initializer (`let x;`, `int x;`) has no such child and stays `None`.
     if kind == "variable_declarator" {
         let mut cursor = node.walk();
         let init = node
@@ -167,8 +245,6 @@ fn assignment_parts<'a>(
     None
 }
 
-/// Simple local names bound by an assignment target. Member/index/selector
-/// targets (`obj.field = …`, `m[k] = …`) bind no local name and are skipped.
 fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
     match lhs.kind() {
         "identifier" | "shorthand_property_identifier_pattern" => {
@@ -206,7 +282,6 @@ fn node_mentions_tainted(
     if (tables.is_flow_scope)(node) {
         return None;
     }
-    // A sanitizer/coercion call neutralizes whatever it wraps; do not descend.
     if super::sanitizers::is_sanitizer_call(node, content, tables) {
         return None;
     }
@@ -274,10 +349,6 @@ fn sink_taint(
     }
 }
 
-/// SQL is unsafe only when the tainted value is part of the *query expression*
-/// (first argument): built into the string, or a query variable/expression that
-/// is itself tainted. A static query string with the value bound as a later
-/// parameter argument is the safe pattern and yields `None`.
 fn sql_taint(
     args: Node<'_>,
     content: &str,
@@ -294,6 +365,5 @@ fn sql_taint(
     if first.kind() == "identifier" {
         return tainted.get(first_text).copied();
     }
-    // A request value used directly as the whole query expression (rare, unsafe).
     node_has_source(first, content, tables)
 }
