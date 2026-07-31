@@ -181,14 +181,12 @@ mod tests {
 
     #[test]
     fn nextjs_search_params_concatenated_into_sql_is_flagged() {
-        let signals = run(
-            r#"
+        let signals = run(r#"
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   return db.query("SELECT * FROM users WHERE id = " + id);
 }
-"#,
-        );
+"#);
 
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].source, SourceKind::HttpRequest);
@@ -196,47 +194,44 @@ export async function GET(request: NextRequest) {
     }
 
     #[test]
-    fn nextjs_request_json_reaching_exec_is_flagged() {
-        let signals = run(
-            r#"
+    fn nextjs_request_json_reaching_fs_write_is_flagged() {
+        let signals = run(r#"
 export async function POST(request: Request) {
   const body = await request.json();
-  exec("convert " + body.filename);
+  fs.writeFile(body.filename, "content", () => {});
 }
-"#,
-        );
+"#);
 
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].source, SourceKind::HttpRequest);
-        assert_eq!(signals[0].sink, SinkKind::Exec);
+        assert_eq!(signals[0].sink, SinkKind::FsWrite);
     }
 
     #[test]
     fn nextjs_parameterized_query_is_not_flagged() {
-        let signals = run(
-            r#"
+        let signals = run(r#"
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   return db.query("SELECT * FROM users WHERE id = $1", [id]);
 }
-"#,
-        );
+"#);
 
         assert!(signals.is_empty(), "parameterized App Router query is safe");
     }
 
     #[test]
     fn response_json_is_not_treated_as_request_input() {
-        let signals = run(
-            r#"
+        let signals = run(r#"
 async function transform(response: Response) {
   const body = await response.json();
-  exec("convert " + body.filename);
+  fs.writeFile(body.filename, "content", () => {});
 }
-"#,
-        );
+"#);
 
-        assert!(signals.is_empty(), "outbound response bodies are not request sources");
+        assert!(
+            signals.is_empty(),
+            "outbound response bodies are not request sources"
+        );
     }
 
     fn run(code: &str) -> Vec<TaintSignal> {
