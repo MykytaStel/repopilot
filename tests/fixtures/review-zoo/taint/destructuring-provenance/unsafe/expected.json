@@ -1,0 +1,12 @@
+{
+  "description": "Aliased object destructuring from request input must preserve taint into command execution.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.exec",
+      "path": "src/handler.ts",
+      "headline": "untrusted input reaches command execution"
+    }
+  ]
+}
