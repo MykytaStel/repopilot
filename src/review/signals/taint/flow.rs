@@ -1,13 +1,10 @@
 //! Intra-procedural taint propagation.
 //!
-//! Two passes per function/module scope: seed a set of tainted local names from
-//! request-bound parameters and assignments whose right-hand side reads a
-//! [`source`](super::sources) or references an already-tainted name. Assignments
-//! are processed in a single document-order forward pass, so `a = src; b = a;
-//! c = b` chains carry through. The engine then reports each [`sink`](super::sinks)
-//! call — gated to the changed lines — whose arguments carry a tainted value.
-//! Nested functions are analyzed with a fresh map so local names do not leak
-//! between procedures.
+//! Two passes per function/module scope: seed tainted local names and exact
+//! member paths from request-bound parameters and assignments, then report each
+//! changed-line sink whose arguments carry taint. Whole-object taint remains the
+//! conservative default, while exact member assignments can either add taint to
+//! a clean object or clean one field of a tainted object.
 //!
 //! For SQL the report is suppressed unless the tainted value is built *into* the
 //! query string (concatenation, interpolation, or a `format`/`Sprintf` call) or
@@ -21,7 +18,7 @@ use super::sources::{SourceKind, node_has_source};
 use super::tables::TaintTables;
 use crate::review::diff::ChangedFile;
 use crate::review::signals::behavioral::truncate_str;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
 pub(super) fn detect(
@@ -63,14 +60,84 @@ fn detect_nested_scopes(
     }
 }
 
+#[derive(Default)]
+struct TaintState {
+    names: HashMap<String, SourceKind>,
+    paths: HashMap<String, SourceKind>,
+    clean_paths: HashSet<String>,
+}
+
+impl TaintState {
+    fn mark_name(&mut self, name: &str, source: SourceKind) {
+        self.names.insert(name.to_string(), source);
+        self.remove_path_entries(name);
+    }
+
+    fn clear_name(&mut self, name: &str) {
+        self.names.remove(name);
+        self.remove_path_entries(name);
+    }
+
+    fn mark_path(&mut self, path: &str, source: SourceKind) {
+        self.paths.insert(path.to_string(), source);
+        self.clean_paths
+            .retain(|clean| !path_is_same_or_descendant(clean, path));
+    }
+
+    fn clear_path(&mut self, path: &str) {
+        self.paths
+            .retain(|tainted, _| !path_is_same_or_descendant(tainted, path));
+        self.clean_paths.insert(path.to_string());
+    }
+
+    fn source_for_path(&self, path: &str) -> Option<SourceKind> {
+        if self
+            .clean_paths
+            .iter()
+            .any(|clean| path_is_same_or_descendant(path, clean))
+        {
+            return None;
+        }
+
+        if let Some(source) = self.paths.get(path) {
+            return Some(*source);
+        }
+        if let Some((_, source)) = self
+            .paths
+            .iter()
+            .filter(|(candidate, _)| path_is_same_or_descendant(path, candidate))
+            .max_by_key(|(candidate, _)| candidate.len())
+        {
+            return Some(*source);
+        }
+
+        let root = path.split('.').next()?;
+        self.names.get(root).copied()
+    }
+
+    fn remove_path_entries(&mut self, root: &str) {
+        self.paths
+            .retain(|path, _| !path_is_same_or_descendant(path, root));
+        self.clean_paths
+            .retain(|path| !path_is_same_or_descendant(path, root));
+    }
+}
+
+fn path_is_same_or_descendant(path: &str, parent: &str) -> bool {
+    path == parent
+        || path
+            .strip_prefix(parent)
+            .is_some_and(|suffix| suffix.starts_with('.'))
+}
+
 // ── Seeding ─────────────────────────────────────────────────────────────────
 
 fn seed_tainted(
     root: Node<'_>,
     content: &str,
     tables: &'static TaintTables,
-) -> HashMap<String, SourceKind> {
-    let mut tainted = HashMap::new();
+) -> TaintState {
+    let mut tainted = TaintState::default();
     collect_request_bound_parameters(root, content, tables, &mut tainted);
 
     let mut assignments: Vec<Assignment<'_>> = Vec::new();
@@ -78,20 +145,23 @@ fn seed_tainted(
     assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
 
     for assignment in &assignments {
-        match node_has_source(assignment.rhs, content, tables)
-            .or_else(|| node_mentions_tainted(assignment.rhs, content, tables, &tainted))
-        {
-            Some(kind) => {
-                for name in &assignment.names {
-                    tainted.insert(name.clone(), kind);
-                }
+        let source = node_has_source(assignment.rhs, content, tables)
+            .or_else(|| node_mentions_tainted(assignment.rhs, content, tables, &tainted));
+
+        for name in &assignment.names {
+            match source {
+                Some(kind) => tainted.mark_name(name, kind),
+                None if !assignment.augmenting => tainted.clear_name(name),
+                None => {}
             }
-            None if !assignment.augmenting => {
-                for name in &assignment.names {
-                    tainted.remove(name);
-                }
+        }
+
+        if let Some(path) = &assignment.path {
+            match source {
+                Some(kind) => tainted.mark_path(path, kind),
+                None if !assignment.augmenting => tainted.clear_path(path),
+                None => {}
             }
-            None => {}
         }
     }
     tainted
@@ -105,7 +175,7 @@ fn collect_request_bound_parameters(
     node: Node<'_>,
     content: &str,
     tables: &'static TaintTables,
-    out: &mut HashMap<String, SourceKind>,
+    out: &mut TaintState,
 ) {
     if is_parameter_node(node) {
         let text = node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -113,7 +183,7 @@ fn collect_request_bound_parameters(
             && !has_nest_primitive_pipe(text)
             && let Some(name) = parameter_binding_name(node, content)
         {
-            out.insert(name, SourceKind::HttpRequest);
+            out.mark_name(&name, SourceKind::HttpRequest);
         }
         return;
     }
@@ -210,6 +280,7 @@ fn first_binding_identifier(node: Node<'_>, content: &str) -> Option<String> {
 
 struct Assignment<'a> {
     names: Vec<String>,
+    path: Option<String>,
     rhs: Node<'a>,
     augmenting: bool,
 }
@@ -223,9 +294,11 @@ fn collect_assignments<'a>(
     if let Some((lhs, rhs)) = assignment_parts(node, tables) {
         let mut names = Vec::new();
         collect_lhs_names(lhs, content, &mut names);
-        if !names.is_empty() {
+        let path = access_path(lhs, content);
+        if !names.is_empty() || path.is_some() {
             out.push(Assignment {
                 names,
+                path,
                 rhs,
                 augmenting: (tables.is_augmenting)(node),
             });
@@ -295,11 +368,52 @@ fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
     }
 }
 
+fn access_path(node: Node<'_>, content: &str) -> Option<String> {
+    if !matches!(
+        node.kind(),
+        "member_expression"
+            | "member_access_expression"
+            | "attribute"
+            | "selector_expression"
+            | "navigation_expression"
+    ) {
+        return None;
+    }
+    normalize_access_path(node.utf8_text(content.as_bytes()).ok()?)
+}
+
+fn normalize_access_path(text: &str) -> Option<String> {
+    let normalized = text.trim().replace("?.", ".");
+    if normalized.is_empty()
+        || normalized.contains(['(', ')', '[', ']', ' ', '\t', '\n', '\r'])
+    {
+        return None;
+    }
+    let mut segments = normalized.split('.');
+    let first = segments.next()?;
+    if !is_identifier(first) || !segments.clone().all(is_identifier) {
+        return None;
+    }
+    if segments.next().is_none() {
+        return None;
+    }
+    Some(normalized)
+}
+
+fn is_identifier(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || matches!(first, '_' | '$'))
+        && chars.all(is_identifier_char)
+}
+
 fn node_mentions_tainted(
     node: Node<'_>,
     content: &str,
     tables: &'static TaintTables,
-    tainted: &HashMap<String, SourceKind>,
+    tainted: &TaintState,
 ) -> Option<SourceKind> {
     if (tables.is_flow_scope)(node) {
         return None;
@@ -307,9 +421,12 @@ fn node_mentions_tainted(
     if super::sanitizers::is_sanitizer_call(node, content, tables) {
         return None;
     }
+    if let Some(path) = access_path(node, content) {
+        return tainted.source_for_path(&path);
+    }
     if node.kind() == "identifier" {
         let text = node.utf8_text(content.as_bytes()).ok()?;
-        if let Some(source) = tainted.get(text) {
+        if let Some(source) = tainted.names.get(text) {
             return Some(*source);
         }
     }
@@ -326,7 +443,7 @@ fn check_sinks(
     content: &str,
     tables: &'static TaintTables,
     file: &ChangedFile,
-    tainted: &HashMap<String, SourceKind>,
+    tainted: &TaintState,
     out: &mut Vec<TaintSignal>,
 ) {
     if let Some(sink) = (tables.classify_sink)(node, content) {
@@ -362,7 +479,7 @@ fn sink_taint(
     sink: &Sink<'_>,
     content: &str,
     tables: &'static TaintTables,
-    tainted: &HashMap<String, SourceKind>,
+    tainted: &TaintState,
 ) -> Option<SourceKind> {
     match sink.kind {
         SinkKind::Sql => sql_taint(sink.args, content, tables, tainted),
@@ -375,7 +492,7 @@ fn sql_taint(
     args: Node<'_>,
     content: &str,
     tables: &'static TaintTables,
-    tainted: &HashMap<String, SourceKind>,
+    tainted: &TaintState,
 ) -> Option<SourceKind> {
     let first = first_named_arg(args)?;
     let first_text = first.utf8_text(content.as_bytes()).unwrap_or("");
@@ -385,9 +502,10 @@ fn sql_taint(
             .or_else(|| node_mentions_tainted(first, content, tables, tainted));
     }
     if first.kind() == "identifier" {
-        return tainted.get(first_text).copied();
+        return tainted.names.get(first_text).copied();
     }
     node_has_source(first, content, tables)
+        .or_else(|| node_mentions_tainted(first, content, tables, tainted))
 }
 
 #[cfg(test)]
@@ -417,5 +535,51 @@ mod tests {
             let parameter = format!("@Body({pipe}) body: Payload");
             assert!(!has_nest_primitive_pipe(&parameter), "unexpected {pipe}");
         }
+    }
+
+    #[test]
+    fn exact_tainted_path_on_clean_object_is_tracked() {
+        let mut state = TaintState::default();
+        state.mark_path("target.filename", SourceKind::HttpRequest);
+
+        assert_eq!(
+            state.source_for_path("target.filename"),
+            Some(SourceKind::HttpRequest)
+        );
+        assert_eq!(state.source_for_path("target.label"), None);
+    }
+
+    #[test]
+    fn clean_path_overrides_whole_object_taint() {
+        let mut state = TaintState::default();
+        state.mark_name("body", SourceKind::HttpRequest);
+        state.clear_path("body.filename");
+
+        assert_eq!(state.source_for_path("body.filename"), None);
+        assert_eq!(
+            state.source_for_path("body.command"),
+            Some(SourceKind::HttpRequest)
+        );
+    }
+
+    #[test]
+    fn clearing_parent_path_cleans_nested_members() {
+        let mut state = TaintState::default();
+        state.mark_name("body", SourceKind::HttpRequest);
+        state.clear_path("body.user");
+
+        assert_eq!(state.source_for_path("body.user.id"), None);
+        assert_eq!(
+            state.source_for_path("body.account.id"),
+            Some(SourceKind::HttpRequest)
+        );
+    }
+
+    #[test]
+    fn access_paths_reject_calls_and_dynamic_indexes() {
+        assert_eq!(normalize_access_path("body.user.id"), Some("body.user.id".into()));
+        assert_eq!(normalize_access_path("body?.user?.id"), Some("body.user.id".into()));
+        assert_eq!(normalize_access_path("body[userKey]"), None);
+        assert_eq!(normalize_access_path("getBody().id"), None);
     }
 }
