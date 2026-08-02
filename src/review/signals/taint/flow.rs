@@ -154,10 +154,10 @@ fn seed_tainted(root: Node<'_>, content: &str, tables: &'static TaintTables) -> 
 
         let rhs_path = value_path(assignment.rhs, content);
         for binding in &assignment.bindings {
-            let binding_source = rhs_path
-                .as_deref()
-                .and_then(|base| tainted.source_for_path(&format!("{base}.{}", binding.path)))
-                .or(source);
+            let binding_source = match rhs_path.as_deref() {
+                Some(base) => tainted.source_for_path(&format!("{base}.{}", binding.path)),
+                None => source,
+            };
             match binding_source {
                 Some(kind) => tainted.mark_name(&binding.name, kind),
                 None if !assignment.augmenting => tainted.clear_name(&binding.name),
@@ -309,10 +309,10 @@ fn collect_assignments<'a>(
     if let Some((lhs, rhs)) = assignment_parts(node, tables) {
         let mut names = Vec::new();
         let mut bindings = Vec::new();
-        if lhs.kind() == "object_pattern" {
-            collect_object_bindings(lhs, content, "", &mut bindings);
-        } else {
-            collect_lhs_names(lhs, content, &mut names);
+        match lhs.kind() {
+            "object_pattern" => collect_object_bindings(lhs, content, "", &mut bindings),
+            "array_pattern" => collect_array_bindings(lhs, content, "", &mut bindings),
+            _ => collect_lhs_names(lhs, content, &mut names),
         }
         let path = access_path(lhs, content);
         if !names.is_empty() || !bindings.is_empty() || path.is_some() {
@@ -403,6 +403,22 @@ fn collect_object_bindings(
     }
 }
 
+fn collect_array_bindings(
+    node: Node<'_>,
+    content: &str,
+    prefix: &str,
+    out: &mut Vec<DestructuredBinding>,
+) {
+    let mut cursor = node.walk();
+    for (index, child) in node.named_children(&mut cursor).enumerate() {
+        if child.kind() == "rest_pattern" {
+            continue;
+        }
+        let path = join_binding_path(prefix, &index.to_string());
+        collect_binding_value(child, content, &path, out);
+    }
+}
+
 fn collect_binding_value(
     node: Node<'_>,
     content: &str,
@@ -419,6 +435,7 @@ fn collect_binding_value(
             }
         }
         "object_pattern" => collect_object_bindings(node, content, path, out),
+        "array_pattern" => collect_array_bindings(node, content, path, out),
         "assignment_pattern" => {
             if let Some(left) = node.child_by_field_name("left") {
                 collect_binding_value(left, content, path, out);
@@ -482,6 +499,7 @@ fn access_path(node: Node<'_>, content: &str) -> Option<String> {
             | "attribute"
             | "selector_expression"
             | "navigation_expression"
+            | "subscript_expression"
     ) {
         return None;
     }
@@ -490,16 +508,58 @@ fn access_path(node: Node<'_>, content: &str) -> Option<String> {
 
 fn normalize_access_path(text: &str) -> Option<String> {
     let normalized = text.trim().replace("?.", ".");
-    if normalized.is_empty() || normalized.contains(['(', ')', '[', ']', ' ', '\t', '\n', '\r']) {
+    if normalized.is_empty()
+        || normalized.contains(['(', ')', ' ', '\t', '\n', '\r'])
+    {
         return None;
     }
-    let mut segments = normalized.split('.');
-    let first = segments.next()?;
-    if !is_identifier(first) || !segments.clone().all(is_identifier) {
+
+    let bytes = normalized.as_bytes();
+    let mut index = 0;
+    let mut segments = Vec::new();
+
+    let first_start = index;
+    while index < bytes.len() && is_identifier_char(bytes[index] as char) {
+        index += 1;
+    }
+    if first_start == index || !is_identifier(&normalized[first_start..index]) {
         return None;
     }
-    segments.next()?;
-    Some(normalized)
+    segments.push(normalized[first_start..index].to_string());
+
+    while index < bytes.len() {
+        match bytes[index] as char {
+            '.' => {
+                index += 1;
+                let start = index;
+                while index < bytes.len() && is_identifier_char(bytes[index] as char) {
+                    index += 1;
+                }
+                if start == index || !is_identifier(&normalized[start..index]) {
+                    return None;
+                }
+                segments.push(normalized[start..index].to_string());
+            }
+            '[' => {
+                index += 1;
+                let start = index;
+                while index < bytes.len() && (bytes[index] as char).is_ascii_digit() {
+                    index += 1;
+                }
+                if start == index || index >= bytes.len() || bytes[index] as char != ']' {
+                    return None;
+                }
+                segments.push(normalized[start..index].to_string());
+                index += 1;
+            }
+            _ => return None,
+        }
+    }
+
+    if segments.len() < 2 {
+        return None;
+    }
+    Some(segments.join("."))
 }
 
 fn is_identifier(segment: &str) -> bool {
@@ -678,16 +738,21 @@ mod tests {
     }
 
     #[test]
-    fn access_paths_reject_calls_and_dynamic_indexes() {
+    fn access_paths_accept_static_indexes_and_reject_dynamic_indexes() {
         assert_eq!(
             normalize_access_path("body.user.id"),
             Some("body.user.id".into())
         );
         assert_eq!(
-            normalize_access_path("body?.user?.id"),
-            Some("body.user.id".into())
+            normalize_access_path("body?.items?.[0].command"),
+            Some("body.items.0.command".into())
+        );
+        assert_eq!(
+            normalize_access_path("items[12]"),
+            Some("items.12".into())
         );
         assert_eq!(normalize_access_path("body[userKey]"), None);
+        assert_eq!(normalize_access_path("items[-1]"), None);
         assert_eq!(normalize_access_path("getBody().id"), None);
     }
 
@@ -702,5 +767,30 @@ mod tests {
             state.source_for_path("body.command"),
             Some(SourceKind::HttpRequest)
         );
+    }
+
+    #[test]
+    fn clean_static_index_does_not_clean_siblings() {
+        let mut state = TaintState::default();
+        state.mark_name("items", SourceKind::HttpRequest);
+        state.clear_path("items.0");
+
+        assert_eq!(state.source_for_path("items.0"), None);
+        assert_eq!(
+            state.source_for_path("items.1"),
+            Some(SourceKind::HttpRequest)
+        );
+    }
+
+    #[test]
+    fn exact_tainted_index_on_clean_array_is_tracked() {
+        let mut state = TaintState::default();
+        state.mark_path("items.0", SourceKind::HttpRequest);
+
+        assert_eq!(
+            state.source_for_path("items.0"),
+            Some(SourceKind::HttpRequest)
+        );
+        assert_eq!(state.source_for_path("items.1"), None);
     }
 }
