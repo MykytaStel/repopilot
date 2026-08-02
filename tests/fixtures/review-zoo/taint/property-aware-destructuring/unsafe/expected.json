@@ -1,0 +1,12 @@
+{
+  "description": "A tainted object property destructured into a local name must preserve command-execution taint.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.exec",
+      "path": "src/handler.ts",
+      "headline": "untrusted input reaches subprocess/exec"
+    }
+  ]
+}
