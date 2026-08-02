@@ -1,0 +1,2 @@
+- Improve taint precision for static object destructuring by resolving each local binding against its source property path.
+- Preserve clean field overrides when destructuring from an otherwise tainted object while keeping unknown, rest, and computed patterns conservative.
