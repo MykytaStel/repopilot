@@ -152,6 +152,19 @@ fn seed_tainted(root: Node<'_>, content: &str, tables: &'static TaintTables) -> 
             }
         }
 
+        let rhs_path = value_path(assignment.rhs, content);
+        for binding in &assignment.bindings {
+            let binding_source = rhs_path
+                .as_deref()
+                .and_then(|base| tainted.source_for_path(&format!("{base}.{}", binding.path)))
+                .or(source);
+            match binding_source {
+                Some(kind) => tainted.mark_name(&binding.name, kind),
+                None if !assignment.augmenting => tainted.clear_name(&binding.name),
+                None => {}
+            }
+        }
+
         if let Some(path) = &assignment.path {
             match source {
                 Some(kind) => tainted.mark_path(path, kind),
@@ -274,8 +287,14 @@ fn first_binding_identifier(node: Node<'_>, content: &str) -> Option<String> {
         .find_map(|child| first_binding_identifier(child, content))
 }
 
+struct DestructuredBinding {
+    name: String,
+    path: String,
+}
+
 struct Assignment<'a> {
     names: Vec<String>,
+    bindings: Vec<DestructuredBinding>,
     path: Option<String>,
     rhs: Node<'a>,
     augmenting: bool,
@@ -289,11 +308,17 @@ fn collect_assignments<'a>(
 ) {
     if let Some((lhs, rhs)) = assignment_parts(node, tables) {
         let mut names = Vec::new();
-        collect_lhs_names(lhs, content, &mut names);
+        let mut bindings = Vec::new();
+        if lhs.kind() == "object_pattern" {
+            collect_object_bindings(lhs, content, "", &mut bindings);
+        } else {
+            collect_lhs_names(lhs, content, &mut names);
+        }
         let path = access_path(lhs, content);
-        if !names.is_empty() || path.is_some() {
+        if !names.is_empty() || !bindings.is_empty() || path.is_some() {
             out.push(Assignment {
                 names,
+                bindings,
                 path,
                 rhs,
                 augmenting: (tables.is_augmenting)(node),
@@ -336,6 +361,81 @@ fn assignment_parts<'a>(
     None
 }
 
+fn collect_object_bindings(
+    node: Node<'_>,
+    content: &str,
+    prefix: &str,
+    out: &mut Vec<DestructuredBinding>,
+) {
+    match node.kind() {
+        "shorthand_property_identifier_pattern" => {
+            if let Ok(name) = node.utf8_text(content.as_bytes()) {
+                let path = join_binding_path(prefix, name);
+                out.push(DestructuredBinding {
+                    name: name.to_string(),
+                    path,
+                });
+            }
+        }
+        "pair_pattern" => {
+            let Some(key) = node.child_by_field_name("key") else {
+                return;
+            };
+            let Some(value) = node.child_by_field_name("value") else {
+                return;
+            };
+            let Ok(key_text) = key.utf8_text(content.as_bytes()) else {
+                return;
+            };
+            if !is_identifier(key_text) {
+                return;
+            }
+            let path = join_binding_path(prefix, key_text);
+            collect_binding_value(value, content, &path, out);
+        }
+        "object_pattern" => {
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                collect_object_bindings(child, content, prefix, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn collect_binding_value(
+    node: Node<'_>,
+    content: &str,
+    path: &str,
+    out: &mut Vec<DestructuredBinding>,
+) {
+    match node.kind() {
+        "identifier" | "shorthand_property_identifier_pattern" => {
+            if let Ok(name) = node.utf8_text(content.as_bytes()) {
+                out.push(DestructuredBinding {
+                    name: name.to_string(),
+                    path: path.to_string(),
+                });
+            }
+        }
+        "object_pattern" => collect_object_bindings(node, content, path, out),
+        "assignment_pattern" => {
+            if let Some(left) = node.child_by_field_name("left") {
+                collect_binding_value(left, content, path, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn join_binding_path(prefix: &str, segment: &str) -> String {
+    if prefix.is_empty() {
+        segment.to_string()
+    } else {
+        format!("{prefix}.{segment}")
+    }
+}
+
 fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
     match lhs.kind() {
         "identifier" | "shorthand_property_identifier_pattern" => {
@@ -362,6 +462,16 @@ fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
         }
         _ => {}
     }
+}
+
+fn value_path(node: Node<'_>, content: &str) -> Option<String> {
+    if node.kind() == "identifier" {
+        return node
+            .utf8_text(content.as_bytes())
+            .ok()
+            .map(ToOwned::to_owned);
+    }
+    access_path(node, content)
 }
 
 fn access_path(node: Node<'_>, content: &str) -> Option<String> {
@@ -579,5 +689,18 @@ mod tests {
         );
         assert_eq!(normalize_access_path("body[userKey]"), None);
         assert_eq!(normalize_access_path("getBody().id"), None);
+    }
+
+    #[test]
+    fn clean_destructured_property_does_not_inherit_whole_object_taint() {
+        let mut state = TaintState::default();
+        state.mark_name("body", SourceKind::HttpRequest);
+        state.clear_path("body.id");
+
+        assert_eq!(state.source_for_path("body.id"), None);
+        assert_eq!(
+            state.source_for_path("body.command"),
+            Some(SourceKind::HttpRequest)
+        );
     }
 }
