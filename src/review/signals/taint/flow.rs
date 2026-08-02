@@ -507,7 +507,7 @@ fn access_path(node: Node<'_>, content: &str) -> Option<String> {
 }
 
 fn normalize_access_path(text: &str) -> Option<String> {
-    let normalized = text.trim().replace("?.", ".");
+    let normalized = text.trim().replace("?.[", "[").replace("?.", ".");
     if normalized.is_empty() || normalized.contains(['(', ')', ' ', '\t', '\n', '\r']) {
         return None;
     }
