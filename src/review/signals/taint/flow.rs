@@ -90,12 +90,14 @@ impl TaintState {
         self.clean_paths.insert(path.to_string());
     }
 
-    fn source_for_path(&self, path: &str) -> Option<SourceKind> {
-        if self
-            .clean_paths
+    fn is_path_explicitly_clean(&self, path: &str) -> bool {
+        self.clean_paths
             .iter()
             .any(|clean| path_is_same_or_descendant(path, clean))
-        {
+    }
+
+    fn source_for_path(&self, path: &str) -> Option<SourceKind> {
+        if self.is_path_explicitly_clean(path) {
             return None;
         }
 
@@ -155,7 +157,14 @@ fn seed_tainted(root: Node<'_>, content: &str, tables: &'static TaintTables) -> 
         let rhs_path = value_path(assignment.rhs, content);
         for binding in &assignment.bindings {
             let binding_source = match rhs_path.as_deref() {
-                Some(base) => tainted.source_for_path(&format!("{base}.{}", binding.path)),
+                Some(base) => {
+                    let path = format!("{base}.{}", binding.path);
+                    if tainted.is_path_explicitly_clean(&path) {
+                        None
+                    } else {
+                        tainted.source_for_path(&path).or(source)
+                    }
+                }
                 None => source,
             };
             match binding_source {
