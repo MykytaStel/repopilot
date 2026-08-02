@@ -508,9 +508,7 @@ fn access_path(node: Node<'_>, content: &str) -> Option<String> {
 
 fn normalize_access_path(text: &str) -> Option<String> {
     let normalized = text.trim().replace("?.", ".");
-    if normalized.is_empty()
-        || normalized.contains(['(', ')', ' ', '\t', '\n', '\r'])
-    {
+    if normalized.is_empty() || normalized.contains(['(', ')', ' ', '\t', '\n', '\r']) {
         return None;
     }
 
@@ -747,10 +745,7 @@ mod tests {
             normalize_access_path("body?.items?.[0].command"),
             Some("body.items.0.command".into())
         );
-        assert_eq!(
-            normalize_access_path("items[12]"),
-            Some("items.12".into())
-        );
+        assert_eq!(normalize_access_path("items[12]"), Some("items.12".into()));
         assert_eq!(normalize_access_path("body[userKey]"), None);
         assert_eq!(normalize_access_path("items[-1]"), None);
         assert_eq!(normalize_access_path("getBody().id"), None);
