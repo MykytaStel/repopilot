@@ -1,2 +1,0 @@
-- Lock object-destructuring taint propagation, alias bindings, and parameterized SQL safety with differential review-zoo coverage.
-- Keep rest patterns, computed keys, and array index provenance outside this slice.
