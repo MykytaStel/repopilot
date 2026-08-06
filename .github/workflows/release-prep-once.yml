@@ -1,0 +1,179 @@
+name: Prepare v0.21.0 Metadata Once
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'chore/release-v0.21.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Generate release metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          version = "0.21.0"
+          tag = f"v{version}"
+          release_date = "2026-08-06"
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              if old not in text:
+                  if new in text:
+                      return
+                  raise SystemExit(f"expected text not found in {path}: {old!r}")
+              file.write_text(text.replace(old, new), encoding="utf-8")
+
+          # Cargo updates this exact root package entry when package.version changes.
+          lock = Path("Cargo.lock")
+          lock_text = lock.read_text(encoding="utf-8")
+          pattern = re.compile(
+              r'(\[\[package\]\]\nname = "repopilot"\nversion = ")0\.20\.0("\n)'
+          )
+          lock_text, count = pattern.subn(rf'\g<1>{version}\g<2>', lock_text, count=1)
+          if count != 1 and f'name = "repopilot"\nversion = "{version}"' not in lock_text:
+              raise SystemExit("could not update RepoPilot package version in Cargo.lock")
+          lock.write_text(lock_text, encoding="utf-8")
+
+          for path in (
+              "docs/commands.md",
+              "docs/integrations/github-code-scanning.md",
+          ):
+              file = Path(path)
+              file.write_text(
+                  file.read_text(encoding="utf-8").replace("v0.20.0", tag),
+                  encoding="utf-8",
+              )
+
+          reports = Path("docs/reports.md")
+          text = reports.read_text(encoding="utf-8")
+          text = text.replace("The current schema is 0.20:", "The current schema is 0.23:")
+          text = text.replace('"schema_version": "0.20"', '"schema_version": "0.23"')
+          text = text.replace('"repopilot_version": "0.20.0"', '"repopilot_version": "0.21.0"')
+          text = text.replace('"version": "0.20.0"', '"version": "0.21.0"')
+          text = text.replace(
+              "Binary `0.19.x` emits schema `0.20`.",
+              "Binary `0.21.x` emits schema `0.23`.",
+          )
+          text = text.replace(
+              "Schema `0.20` adds optional replayable\nKnowledge Engine decision provenance to findings.",
+              "Schema `0.20` adds optional replayable Knowledge Engine decision provenance to\nfindings. Schema `0.21` adds occurrence identity and canonical decision records;\nschema `0.22` adds bounded dependency impact paths; schema `0.23` adds\ndeterministic verification plans for review signals.",
+          )
+          text = text.replace(
+              "The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, and `0.20` scan\nreports during the transition.",
+              "The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`, `0.21`,\n`0.22`, and `0.23` scan reports during the transition.",
+          )
+          reports.write_text(text, encoding="utf-8")
+
+          release_note = Path(f"docs/releases/v{version}.md")
+          release_note.write_text(
+              """---
+          title: Local risk memory, ownership-aware readiness, and deeper taint precision
+          description: RepoPilot 0.21 turns deterministic analysis into a local merge decision with risk deltas, CODEOWNERS-aware impact, repository overlays, and deeper framework-aware taint analysis.
+          ---
+
+          ## Highlights
+
+          - Opt-in local history compares compatible scan and review receipts and reports new, persisting, resolved, and severity-shifted finding occurrences without uploading repository data.
+          - One canonical `ready`, `review`, or `blocked` merge-readiness record combines findings, changed-code signals, dependency impact, CODEOWNERS suggestions, verification steps, limitations, and an optional risk delta across console, Markdown, JSON, MCP, and GitHub Actions.
+          - `.repopilot/overlay.toml` provides diffable repository policy for rule severity overrides and scoped suppressions, while the generated language capability matrix now derives support claims from actual frontend wiring.
+          - JavaScript and TypeScript review recognizes Next.js App Router, Fastify, Hono, and NestJS request flows; Java, Kotlin, and C# gain conservative request-to-sensitive-sink coverage through their unified language frontends.
+          - Taint-lite now tracks exact local object fields, static array indexes, and object or array destructuring paths, preserving clean overrides and sibling isolation while keeping dynamic indexes and interprocedural propagation explicitly out of scope.
+
+          ## Compatibility
+
+          RepoPilot 0.21 adds no top-level command and keeps existing gate and process exit-code behavior stable. JSON, MCP, Action, and AI-context changes remain additive, and existing scan readers continue accepting supported schema versions from `0.16` through `0.23`.
+
+          Taint analysis remains deterministic, intra-procedural, and focused on changed sink lines. Framework support covers the request and sink shapes documented by the language frontends; it does not claim arbitrary DTO model binding, custom validator or pipe semantics, heap alias analysis, dynamic indexes, or generic Rust taint.
+
+          ## Upgrade
+
+          ```bash
+          cargo install repopilot --version 0.21.0 --force
+          npm install -g repopilot@0.21.0
+          ```
+          """.replace("          ", ""),
+              encoding="utf-8",
+          )
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          release_heading = f"## [{version}] - {release_date}"
+          if release_heading not in text:
+              marker = "## [Unreleased]\n\n### Added"
+              replacement = (
+                  "## [Unreleased]\n\n"
+                  f"{release_heading}\n\n"
+                  "RepoPilot 0.21 turns deterministic repository analysis into a local merge\n"
+                  "decision with compatible risk deltas, ownership-aware readiness, repository\n"
+                  "policy overlays, unified language frontends, and deeper intra-procedural taint\n"
+                  "precision.\n\n"
+                  "### Added"
+              )
+              if marker not in text:
+                  raise SystemExit("could not locate Unreleased changelog section")
+              text = text.replace(marker, replacement, 1)
+
+          old_links = "[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...HEAD\n[0.19.0]:"
+          new_links = (
+              "[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...HEAD\n"
+              "[0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0\n"
+              "[0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0\n"
+              "[0.19.0]:"
+          )
+          if old_links in text:
+              text = text.replace(old_links, new_links, 1)
+          elif "[0.21.0]:" not in text:
+              raise SystemExit("could not update changelog comparison links")
+          changelog.write_text(text, encoding="utf-8")
+
+          roadmap = Path("docs/roadmap/v0.21.md")
+          text = roadmap.read_text(encoding="utf-8")
+          old = (
+              "The remaining v0.21 work is version synchronization, curated release notes, dated\n"
+              "changelog consolidation, distribution pins, and the full release gate."
+          )
+          new = (
+              "The v0.21 release candidate metadata is synchronized at `0.21.0`: Cargo and npm\n"
+              "packages, native package pins, the first-party Action, reusable workflow, curated\n"
+              "release notes, and the dated changelog. After this release PR passes the complete\n"
+              "gate and merges, the remaining operation is the explicit `v0.21.0` tag and\n"
+              "publication workflow."
+          )
+          if old in text:
+              text = text.replace(old, new, 1)
+          roadmap.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit generated release metadata
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet; then
+            echo "Release metadata already generated."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock CHANGELOG.md docs/commands.md \
+            docs/integrations/github-code-scanning.md docs/reports.md \
+            docs/releases/v0.21.0.md docs/roadmap/v0.21.md
+          git commit -m "chore(release): generate v0.21.0 metadata"
+          git push origin "HEAD:${HEAD_REF}"
