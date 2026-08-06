@@ -11,16 +11,16 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.20:
+JSON scan reports include explicit schema metadata. The current schema is 0.23:
 
 ```json
 {
-  "schema_version": "0.20",
-  "repopilot_version": "0.20.0",
+  "schema_version": "0.23",
+  "repopilot_version": "0.21.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.20",
-    "repopilot_version": "0.20.0"
+    "schema_version": "0.23",
+    "repopilot_version": "0.21.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -99,7 +99,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.19.x` emits schema `0.20`.
+Binary `0.21.x` emits schema `0.23`.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -128,8 +128,10 @@ reports do not look clean when meaningful strict-only findings were hidden.
 Schema `0.18` adds the stable review-signal contract, suppression/gate metadata,
 and the explicit review gate result. Schema `0.19` makes the rule registry the
 single source of truth for finding severity/confidence and adds the optional
-`rule_false_positive_notes` map. Schema `0.20` adds optional replayable
-Knowledge Engine decision provenance to findings.
+`rule_false_positive_notes` map. Schema `0.20` adds optional replayable Knowledge Engine decision provenance to
+findings. Schema `0.21` adds occurrence identity and canonical decision records;
+schema `0.22` adds bounded dependency impact paths; schema `0.23` adds
+deterministic verification plans for review signals.
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -139,8 +141,8 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `lines_of_code` | `non_empty_lines` |
 | `skipped_files_count` | `large_files_skipped` |
 
-The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, and `0.20` scan
-reports during the transition. Baseline files follow their separate baseline
+The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`, `0.21`,
+`0.22`, and `0.23` scan reports during the transition. Baseline files follow their separate baseline
 schema policy.
 
 ## Baseline JSON reports
@@ -159,12 +161,12 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.20",
-  "repopilot_version": "0.20.0",
+  "schema_version": "0.23",
+  "repopilot_version": "0.21.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.20",
-    "repopilot_version": "0.20.0"
+    "schema_version": "0.23",
+    "repopilot_version": "0.21.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -217,10 +219,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "5",
-    "repopilot_version": "0.20.0"
+    "repopilot_version": "0.21.0"
   },
   "tool": "repopilot",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

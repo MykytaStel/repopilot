@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-08-06
+
+RepoPilot 0.21 turns deterministic repository analysis into a local merge
+decision with compatible risk deltas, ownership-aware readiness, repository
+policy overlays, unified language frontends, and deeper intra-procedural taint
+precision.
+
 ### Added
 
 - **Fastify request taint analysis.** The JavaScript/TypeScript frontend now
@@ -1565,7 +1572,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/repopilot/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/MykytaStel/repopilot/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...v0.17.0
