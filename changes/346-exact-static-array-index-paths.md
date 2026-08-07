@@ -1,1 +1,0 @@
-- Taint-lite now tracks static numeric array indexes as exact local paths, including index-aware destructuring and clean sibling-preserving overrides.
