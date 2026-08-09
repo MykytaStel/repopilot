@@ -4,28 +4,31 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.21 — trust the default output, calibrate it to your repo
+## Now: 0.22 — repository intelligence and local verification
 
-One larger release, three layers. The language frontend contract landed
-first (registry, per-language tables, generated support matrix, contributor
-guide); the rest of the cycle builds on it:
+RepoPilot 0.22 turns the existing `review` and `scan` workflows into two
+projections of one evidence-driven repository intelligence core:
 
-- **contract honesty to zero** — complete C# (imports, taint, boundary),
-  account for Rust's dedicated panic-risk audit, Kotlin taint, framework
-  probes on frontends; the support ledger ends empty;
-- **local knowledge overlays** — a declarative, diffable local file that
-  calibrates known rules to a repository (severity, suppression) without
-  code execution or plugins;
-- **local analysis history** — a `.repopilot/` ledger of past runs:
-  risk deltas vs the previous scan and accumulated agent-session evidence;
-- **new languages via the cheap path** — added as frontend modules with a
-  pinned zoo repository as the acceptance gate;
-- guardrail recipes, reproducible agent-edit demos, and the review-first
-  README continue as the adoption surface.
+- **fast change review** for developers and coding agents, using the Git diff
+  plus only the repository context needed to explain risk and blast radius;
+- **incremental repository health** for maintainers, covering architecture
+  drift, broken-code evidence, antipatterns, hotspots, and risk trends;
+- **explicit local verification** through repository-configured, allowlisted
+  checks whose results participate in the same canonical readiness decision;
+- **measured signal quality and performance**, with zoo-backed rule evidence,
+  deterministic cache behavior, and separate review/scan budgets.
 
-No hosted service, telemetry, source upload, or implicit LLM integration is
-part of the roadmap. Details:
-[v0.21 roadmap and release contract](roadmap/v0.21.md).
+The release deepens the existing commands and MCP tools. It does not restore
+removed diagnostic commands, add a hosted service, upload source, introduce
+telemetry, or put an implicit LLM inside RepoPilot. Details:
+[v0.22 roadmap and release contract](roadmap/v0.22.md).
+
+## Shipped: 0.21
+
+Compatible local risk history, ownership-aware merge readiness, repository
+knowledge overlays, unified language frontend contracts, and deeper
+field-sensitive taint-lite precision. Details:
+[v0.21 release contract](roadmap/v0.21.md).
 
 ## Shipped: 0.20
 

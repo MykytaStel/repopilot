@@ -630,6 +630,30 @@ fn since_scan_uses_base_ref_scope() {
 }
 
 #[test]
+fn changed_scan_runs_graph_query_rules() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path().join("src/app.ts"),
+        "export function app() { return 1; }\n",
+    );
+    write(
+        temp.path().join("fixtures/data.ts"),
+        "export const fixture = 1;\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path().join("src/app.ts"),
+        "import { fixture } from '../fixtures/data';\nexport function app() { return fixture; }\n",
+    );
+
+    let changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);
+
+    assert_rule_present(&changed, "architecture.test-leak");
+}
+
+#[test]
 fn cache_clear_removes_cache_and_is_idempotent() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());

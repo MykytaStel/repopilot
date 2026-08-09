@@ -1,2 +1,0 @@
-- Add review-zoo coverage that locks conservative taint propagation through static array destructuring while keeping clean local arrays silent.
-- Document that exact numeric-index tracking and dynamic index analysis remain outside the current taint-lite contract.
