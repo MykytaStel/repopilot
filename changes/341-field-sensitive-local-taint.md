@@ -1,2 +1,0 @@
-- Track exact local member paths in taint-lite so request input assigned to one object field reaches sinks without tainting clean siblings.
-- Let clean exact-field reassignments override whole-object taint and reduce field-level false positives.

@@ -1,1 +1,0 @@
-- Add review-zoo coverage for direct static numeric subscript taint propagation and parameterized-safe usage.
