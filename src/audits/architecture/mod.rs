@@ -1,6 +1,8 @@
 pub mod barrel_file_risk;
 pub mod deep_directory_nesting;
 pub mod deep_relative_imports;
+pub(crate) mod graph_analysis;
+pub(crate) mod graph_context;
 pub mod graph_queries;
 pub mod import_coupling;
 pub mod large_file;

@@ -1,2 +1,0 @@
-- Treat NestJS `ParseIntPipe`, `ParseFloatPipe`, `ParseBoolPipe`, and `ParseUUIDPipe` controller parameters as validated primitive inputs in taint-lite.
-- Keep `ValidationPipe`, `ParseEnumPipe`, and custom pipes tainted unless their safety can be proven.
