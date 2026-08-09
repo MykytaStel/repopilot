@@ -29,6 +29,8 @@ adoption or CI policy.
 
 ## Maintainer Guides
 
+- [v0.22 repository intelligence design](engineering/v0.22-repository-intelligence-design.md)
+- [v0.22 Phase A1 context graph specification](engineering/v0.22-phase-a1-context-graph-v2.md)
 - [Analysis platform state](engineering/analysis-platform-state.md)
 - [Dependency Graph v2 design](engineering/dependency-graph-v2.md)
 - [Signal contract](engineering/signal-contract.md)
@@ -40,6 +42,7 @@ adoption or CI policy.
 - [Release process](release.md)
 - [Distribution](distribution.md)
 - [Roadmap](roadmap.md)
+- [v0.22 roadmap and release contract](roadmap/v0.22.md)
 - [v0.21 roadmap and release contract](roadmap/v0.21.md)
 - [v0.20 roadmap and release contract](roadmap/v0.20.md)
 - [v0.20 release scorecard](engineering/v0.20-release-scorecard.md)

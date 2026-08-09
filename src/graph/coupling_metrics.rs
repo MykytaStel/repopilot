@@ -9,6 +9,7 @@
 //! [`compute_metrics`]: super::compute_metrics
 
 use super::{CouplingGraph, FileMetrics};
+use crate::graph::v2::{GraphNodeId, GraphSnapshot};
 use crate::graph::v2::{build_coupling_graph_snapshot, compute_degrees};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -17,9 +18,16 @@ use std::path::PathBuf;
 /// graph v2 degrees. One entry per file, ordered by repository-relative path.
 pub fn coupling_file_metrics(graph: &CouplingGraph) -> Vec<FileMetrics> {
     let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
+    coupling_file_metrics_from_snapshot(&snapshot, &path_by_id)
+}
+
+pub(crate) fn coupling_file_metrics_from_snapshot(
+    snapshot: &GraphSnapshot,
+    path_by_id: &BTreeMap<GraphNodeId, PathBuf>,
+) -> Vec<FileMetrics> {
     let mut metrics: BTreeMap<PathBuf, FileMetrics> = BTreeMap::new();
 
-    for degree in compute_degrees(&snapshot).nodes {
+    for degree in compute_degrees(snapshot).nodes {
         let Some(path) = path_by_id.get(&degree.node_id) else {
             continue;
         };

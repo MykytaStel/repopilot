@@ -7,6 +7,7 @@ mod coupling_metrics;
 mod resolution_stats;
 
 pub use coupling_metrics::coupling_file_metrics;
+pub(crate) use coupling_metrics::coupling_file_metrics_from_snapshot;
 pub use imports::extract_imports;
 pub use resolution_stats::ImportResolutionStats;
 pub use resolver::resolve_import;
