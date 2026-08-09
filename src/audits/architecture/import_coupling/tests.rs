@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 
 use super::high_instability_hub_finding;
 use crate::findings::types::Confidence;
-use crate::graph::{FileMetrics, ImportResolutionStats};
+use crate::graph::FileMetrics;
+use crate::graph::v2::GraphReadiness;
 
 fn hub_metric() -> FileMetrics {
     FileMetrics {
@@ -22,7 +23,7 @@ fn hub_confidence_is_high_when_graph_is_complete() {
         5,
         70,
         None,
-        &ImportResolutionStats::default(),
+        GraphReadiness::Available,
     );
 
     assert_eq!(finding.confidence, Confidence::High);
@@ -34,11 +35,17 @@ fn hub_confidence_is_high_when_graph_is_complete() {
 
 #[test]
 fn hub_confidence_is_demoted_when_unresolved_imports_exist() {
-    let mut resolution = ImportResolutionStats::default();
-    resolution.record(Path::new("src/a.ts"), "./missing");
-
-    let finding =
-        high_instability_hub_finding(&hub_metric(), Path::new(""), 70, 5, 70, None, &resolution);
+    let finding = high_instability_hub_finding(
+        &hub_metric(),
+        Path::new(""),
+        70,
+        5,
+        70,
+        None,
+        GraphReadiness::Limited {
+            unresolved_internal: 1,
+        },
+    );
 
     assert_eq!(finding.confidence, Confidence::Medium);
     assert!(

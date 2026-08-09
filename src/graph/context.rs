@@ -1,10 +1,6 @@
 use crate::audits::context::{FileRole, classify_file};
 use crate::findings::types::Finding;
-use crate::graph::v2::{build_coupling_graph_snapshot, direct_dependents};
-use crate::graph::{
-    CouplingGraph, coupling_file_metrics, detect_cycles_bounded,
-    without_rust_module_containment_edges,
-};
+use crate::graph::{CouplingGraph, detect_cycles_bounded, without_rust_module_containment_edges};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::RiskPriority;
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -97,10 +93,12 @@ pub struct RepoContextGraphLoad {
     pub cache_info: ContextGraphCacheInfo,
 }
 
+mod analysis;
 mod cache;
 mod graph_impl;
 mod summary;
 
+use analysis::ContextGraphAnalysis;
 pub use cache::{
     context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
     write_repo_context_graph,
