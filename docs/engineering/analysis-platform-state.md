@@ -175,7 +175,10 @@ remain compatibility surfaces pending differential migration.
 
 1. Migrate the persisted context graph and bounded cycle projection only after
    graph-v2 parity fixtures cover their deferred-edge and path semantics.
-2. Make graph capability metadata enforce rule requirements and honest skips.
+2. **Done internally in v0.22 A2.** Graph capability metadata now drives an
+   available/limited/unavailable policy for graph-backed scan rules. Full and
+   changed scans share the same graph analysis bundle; a public skipped-analysis
+   projection remains deferred.
 3. Add language support tiers.
 4. Enrich the internal `RepoFacts` model with symbol/reference relationships.
 5. Add explicit, allowlisted local verification evidence.

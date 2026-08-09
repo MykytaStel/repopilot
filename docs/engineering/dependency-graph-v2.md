@@ -298,8 +298,11 @@ internal.
 3. **Done (A1).** Feed graph v2 into AI context hot files and primary context
    summary metrics. One internal context analysis view supplies degrees,
    one-hop dependents, and capability state without repeated snapshot builds.
-4. **Done (foundation).** Add graph capability metadata (`graph_capabilities`).
-   No rule consumes it yet; wiring rules to declare required graph facts is next.
+4. **Done (A2).** Graph capability metadata (`graph_capabilities`) feeds the
+   bounded available/limited/unavailable policy used by graph-backed scan rules.
+   Full and changed scans share one runner and one snapshot for coupling metrics,
+   graph queries, and readiness. Public skip diagnostics remain a later additive
+   projection.
 5. Migrate the persisted `RepoContextGraph` schema/cache and historical bounded
    cycle projection after differential fixtures cover deferred imports, Rust
    module-containment edges, changed-scan patching, and cycle ordering.

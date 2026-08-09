@@ -10,10 +10,11 @@ use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole, LanguageFamily};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
-use crate::graph::v2::{GraphNodeId, build_coupling_graph_snapshot};
-use crate::graph::{CouplingGraph, ImportResolutionStats};
-use crate::scan::config::ScanConfig;
-use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::graph::ImportResolutionStats;
+use crate::graph::v2::{
+    GraphClaim, GraphNodeId, GraphReadiness, graph_capabilities, graph_readiness,
+};
+use crate::scan::facts::FileFacts;
 
 mod edge_evidence;
 mod layers;
@@ -22,6 +23,7 @@ mod packages;
 #[cfg(test)]
 mod tests;
 
+use super::graph_context::GraphAuditContext;
 use edge_evidence::edge_evidence;
 use layers::LayerIndex;
 use packages::PackageIndex;
@@ -35,14 +37,13 @@ pub(crate) struct NodeInfo<'a> {
 }
 
 impl GraphQueriesAudit {
-    pub fn audit(
-        &self,
-        facts: &ScanFacts,
-        config: &ScanConfig,
-        graph: &CouplingGraph,
-        resolution: &ImportResolutionStats,
-        root: &Path,
-    ) -> Vec<Finding> {
+    pub(crate) fn audit(&self, analysis: &GraphAuditContext<'_>) -> Vec<Finding> {
+        let facts = analysis.facts;
+        let config = analysis.config;
+        let snapshot = analysis.snapshot;
+        let path_by_id = analysis.path_by_id;
+        let resolution = analysis.resolution;
+        let root = analysis.root;
         let classifier = ArchitectureClassifier::new(&config.module_mappings);
 
         let mut file_context = HashMap::new();
@@ -62,7 +63,7 @@ impl GraphQueriesAudit {
             .map(|f| crate::graph::resolver::normalize_path(&f.path))
             .collect();
 
-        let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
+        let capabilities = graph_capabilities(snapshot);
 
         let mut node_info: HashMap<GraphNodeId, NodeInfo> = HashMap::new();
         for node in &snapshot.nodes {
@@ -90,8 +91,11 @@ impl GraphQueriesAudit {
 
         for node in &snapshot.nodes {
             if let Some(info) = node_info.get(&node.id)
-                && let Some(finding) =
-                    dead_module_finding(info, fan_in.get(&node.id).copied(), resolution)
+                && let Some(finding) = dead_module_finding(
+                    info,
+                    fan_in.get(&node.id).copied(),
+                    target_absence_readiness(info, &capabilities, resolution),
+                )
             {
                 findings.push(finding);
             }
@@ -142,7 +146,7 @@ impl GraphQueriesAudit {
 fn dead_module_finding(
     info: &NodeInfo,
     fan_in: Option<usize>,
-    resolution: &ImportResolutionStats,
+    readiness: GraphReadiness,
 ) -> Option<Finding> {
     let ctx = &info.context;
     // "Dead module" only means something for files that participate in the
@@ -171,12 +175,7 @@ fn dead_module_finding(
         return None;
     }
 
-    let stem = info
-        .relative
-        .file_stem()
-        .map(|stem| stem.to_string_lossy())
-        .unwrap_or_default();
-    if resolution.could_target_stem(&stem) {
+    if matches!(readiness, GraphReadiness::Unavailable { .. }) {
         return None;
     }
 
@@ -184,14 +183,17 @@ fn dead_module_finding(
     // `Confidence::Medium` is the "unset, use the registry default" sentinel in
     // `populate_rule_metadata`, so a contextual demotion must use `Low` to
     // survive — otherwise the High default is restored and the demotion is lost.
-    let confidence = if resolution.is_empty() {
-        Confidence::High
-    } else {
+    let confidence = if let GraphReadiness::Limited {
+        unresolved_internal,
+    } = readiness
+    {
         snippet.push_str(&format!(
             " ({} unresolved internal import(s) in the repository — the import graph may be incomplete)",
-            resolution.total()
+            unresolved_internal
         ));
         Confidence::Low
+    } else {
+        Confidence::High
     };
 
     let mut finding = architecture_finding(
@@ -207,6 +209,19 @@ fn dead_module_finding(
     );
     finding.confidence = confidence;
     Some(finding)
+}
+
+fn target_absence_readiness(
+    info: &NodeInfo,
+    capabilities: &crate::graph::v2::GraphCapabilities,
+    resolution: &ImportResolutionStats,
+) -> GraphReadiness {
+    let stem = info
+        .relative
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or_default();
+    graph_readiness(capabilities, resolution, GraphClaim::TargetAbsence(stem))
 }
 
 /// A production file importing a test or fixture file leaks test-only code into
