@@ -1,0 +1,3 @@
+{
+  "description": "A clean exact-field reassignment must override whole-object taint for that field."
+}

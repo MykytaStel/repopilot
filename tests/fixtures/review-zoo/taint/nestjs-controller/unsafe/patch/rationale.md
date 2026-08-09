@@ -1,0 +1,1 @@
+The change introduces a NestJS `@Param("id")` request-bound parameter and concatenates it into a newly added raw SQL query. Both the source and sink are inside the changed range, so review must emit the canonical `taint.sql` signal.

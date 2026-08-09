@@ -5,6 +5,7 @@ mod coupling_snapshot;
 mod diagnostic;
 mod edge;
 mod node;
+mod readiness;
 mod snapshot;
 
 pub use algorithms::{
@@ -19,6 +20,7 @@ pub use coupling_snapshot::build_coupling_graph_snapshot;
 pub use diagnostic::GraphDiagnostic;
 pub use edge::{GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance};
 pub use node::{GraphNode, GraphNodeId, GraphNodeKind};
+pub use readiness::{GraphClaim, GraphReadiness, GraphReadinessReason, graph_readiness};
 pub use snapshot::GraphSnapshot;
 
 #[cfg(test)]
@@ -89,5 +91,60 @@ mod tests {
         assert_eq!(snapshot.edges[0].from, source_id);
         assert_eq!(snapshot.edges[0].to, target_id);
         assert_eq!(snapshot.edges[0].kind, GraphEdgeKind::DependsOn);
+    }
+
+    #[test]
+    fn graph_readiness_distinguishes_presence_and_absence_claims() {
+        let capabilities = GraphCapabilities {
+            file_nodes: 2,
+            resolved_dependency_edges: 1,
+            ..GraphCapabilities::default()
+        };
+        let mut resolution = crate::graph::ImportResolutionStats::default();
+        resolution.record(std::path::Path::new("src/a.ts"), "./missing/orphan");
+
+        assert_eq!(
+            graph_readiness(&capabilities, &resolution, GraphClaim::Presence),
+            GraphReadiness::Available
+        );
+        assert_eq!(
+            graph_readiness(&capabilities, &resolution, GraphClaim::RepositoryAbsence),
+            GraphReadiness::Limited {
+                unresolved_internal: 1
+            }
+        );
+        assert_eq!(
+            GraphReadiness::Limited {
+                unresolved_internal: 1
+            }
+            .reason_code(),
+            "graph.unresolved-internal-imports"
+        );
+        assert_eq!(
+            graph_readiness(
+                &capabilities,
+                &resolution,
+                GraphClaim::TargetAbsence("orphan")
+            ),
+            GraphReadiness::Unavailable {
+                unresolved_internal: 1,
+                reason: GraphReadinessReason::UnresolvedTarget,
+            }
+        );
+    }
+
+    #[test]
+    fn graph_readiness_requires_file_capability_for_absence_claims() {
+        assert_eq!(
+            graph_readiness(
+                &GraphCapabilities::default(),
+                &crate::graph::ImportResolutionStats::default(),
+                GraphClaim::RepositoryAbsence
+            ),
+            GraphReadiness::Unavailable {
+                unresolved_internal: 0,
+                reason: GraphReadinessReason::NoFileGraph,
+            }
+        );
     }
 }

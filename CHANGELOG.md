@@ -6,6 +6,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Graph-based scan rules now share one graph-v2 snapshot and an internal
+  available/limited/unavailable readiness policy. Absence claims are demoted or
+  skipped when unresolved internal imports weaken them, while proven-edge
+  findings remain actionable. Changed scans now run the same graph-query rules
+  as full scans.
+- Reuse one internal graph-v2 context analysis for AI-context degree metrics,
+  direct dependents, and capability state, preserving the existing bounded
+  context summary, JSON, MCP, and readiness contracts.
+
+## [0.21.0] - 2026-08-06
+
+RepoPilot 0.21 turns deterministic repository analysis into a local merge
+decision with compatible risk deltas, ownership-aware readiness, repository
+policy overlays, unified language frontends, and deeper intra-procedural taint
+precision.
+
 ### Added
 
 - **Opt-in local risk memory.** `scan` and `review` accept
@@ -37,10 +55,51 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   suppressions still apply as a fallback so existing files keep working
   unchanged until migrated. Supersedes `.repopilot/feedback.yml`, which now
   emits a deprecation warning.
-- **Framework probes refactoring.** Framework detection probes for JS/TS (`NextJs`,
-  `React`, `ReactNative`, `Expo`, `Vue`, `Nuxt`, `Svelte`, `Angular`, `Express`, `NestJs`),
-  Python (`Django`, `Flask`, `FastApi`), and Go (`Gin`, `Echo`, `Fiber`) now register
-  through their respective language frontends in the unified frontend registry.
+- **Field-sensitive taint-lite precision.** The taint-lite flow engine now
+  tracks exact local member and array-index paths instead of collapsing an
+  object or array to one tainted/clean state: request input assigned to a
+  single field or index reaches sinks while clean sibling fields, array
+  elements, and destructured bindings — including property-aware object
+  destructuring and index-aware array destructuring — stay quiet, and a
+  clean, exact field or index reassignment can override prior taint on
+  that path. Rest patterns, computed keys, and dynamic (non-literal) index
+  provenance stay outside this slice's contract, deferred alongside
+  collection-mutation and interprocedural propagation. Differential
+  review-zoo fixtures pin each precision boundary.
+- **Next.js App Router taint analysis.** The JavaScript/TypeScript frontend
+  now recognizes `NextRequest.nextUrl.searchParams`, `Request.json()`, and
+  `Request.formData()` as HTTP request sources, surfacing changed App Router
+  handlers where untrusted input reaches raw SQL, exec, or filesystem-write
+  sinks through the existing taint-lite contract. Parameterized SQL remains
+  quiet, outbound `Response.json()` is excluded, and differential safe/unsafe
+  review-zoo fixtures pin the precision boundary.
+- **Fastify request taint analysis.** The JavaScript/TypeScript frontend now
+  recognizes Fastify URL and proxy-derived request metadata, including
+  `request.raw.url`, `request.url`, `request.ip`, `request.ips`,
+  `request.hostname`, and `request.protocol`, as HTTP request sources.
+  Parameterized SQL remains quiet, `reply.send()` is excluded from source
+  classification, and differential safe/unsafe review-zoo fixtures pin the
+  request-to-raw-SQL boundary.
+- **Hono request taint analysis.** The JavaScript/TypeScript frontend now
+  recognizes Hono context request APIs — `c.req.query()`, `c.req.queries()`,
+  `c.req.param()`, `c.req.header()`, `c.req.json()`, `c.req.parseBody()`,
+  `c.req.text()`, `c.req.arrayBuffer()`, `c.req.raw`, and `c.req.url` — as
+  HTTP request sources. Parameterized SQL remains quiet, `c.json()` response
+  serialization is excluded from request-source classification, and
+  differential safe/unsafe review-zoo fixtures pin the request-to-raw-SQL
+  boundary.
+- **NestJS controller parameter taint analysis.** Controller parameters
+  decorated with `@Body()`, `@Query()`, `@Param()`, `@Headers()`, `@Req()`, or
+  `@Request()` are now treated as HTTP request sources for intra-procedural
+  taint propagation. Response, dependency-injection, and custom decorators
+  remain excluded, parameterized SQL stays quiet, and differential
+  review-zoo fixtures pin the safe and unsafe boundaries.
+- **NestJS primitive pipe sanitizers.** Parameters decorated with the
+  built-in `ParseIntPipe`, `ParseFloatPipe`, `ParseBoolPipe`, or
+  `ParseUUIDPipe` are treated as validated primitive inputs and no longer
+  carry taint into sinks. `ValidationPipe`, `ParseEnumPipe`, and custom
+  pipes stay tainted unless their safety can be proven, keeping the
+  sanitizer boundary conservative.
 - **Kotlin taint analysis.** Added Ktor (`call.receiveText`, `call.parameters`),
   Android (`intent.getStringExtra`, `savedStateHandle.get`), and Servlet request
   sources → `Exec`, `Sql`, and `FsWrite` sinks in Kotlin taint tables. Callee
@@ -49,16 +108,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   and string-building node kinds were also widened (`primary_constructor`,
   `class_initializer`, `property_accessor`, Kotlin's `line`/`multi_line` string
   templates).
-- **Support-honesty ledger is now empty.** Rust's dedicated
-  `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
-  detection (structural infallibility, report-renderer path awareness) that
-  doesn't fit the shared per-language `RiskTables` shape — is now accounted
-  for via a documented `dedicated_risk_audit` marker on its frontend rather
-  than left uncounted. It satisfies the `RuntimeRisk` capability alongside
-  the shared table other languages use; no pattern logic moved. The
-  generated support matrix renders this distinctly as "✓ (dedicated)". Every
-  language the knowledge pack declares `rule-aware` now computes to
-  `rule-aware` through the frontend contract, with zero exceptions left.
 - **C# completes its frontend contract.** `using`-directive import
   extraction (aliases and `global using` included; `using (resource)` forms
   excluded) feeds the coupling graph; ASP.NET taint tables
@@ -77,6 +126,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   Spring PetClinic checkout stays at zero findings. A second reproducible
   demo (`scripts/demo-java-agent-edit.sh`, `docs/demos/04-java-agent-review.gif`)
   shows the flow being caught.
+- **Framework probes refactoring.** Framework detection probes for JS/TS (`NextJs`,
+  `React`, `ReactNative`, `Expo`, `Vue`, `Nuxt`, `Svelte`, `Angular`, `Express`, `NestJs`),
+  Python (`Django`, `Flask`, `FastApi`), and Go (`Gin`, `Echo`, `Fiber`) now register
+  through their respective language frontends in the unified frontend registry.
+- **Support-honesty ledger is now empty.** Rust's dedicated
+  `language.rust.panic-risk` audit — 1.6k lines of context-sensitive
+  detection (structural infallibility, report-renderer path awareness) that
+  doesn't fit the shared per-language `RiskTables` shape — is now accounted
+  for via a documented `dedicated_risk_audit` marker on its frontend rather
+  than left uncounted. It satisfies the `RuntimeRisk` capability alongside
+  the shared table other languages use; no pattern logic moved. The
+  generated support matrix renders this distinctly as "✓ (dedicated)". Every
+  language the knowledge pack declares `rule-aware` now computes to
+  `rule-aware` through the frontend contract, with zero exceptions left.
 - **Generated language support matrix.** `docs/language-support.md` is now
   rendered from the language frontend registry with a drift test
   (`REPOPILOT_BLESS=1 cargo test --test language_support_doc`): capability
@@ -726,7 +789,9 @@ for developers and agents, and carry the same decisions safely into CI and MCP.
   context-driven escalation pushed these to a **visible High**. A structural
   syntax-tree check now skips an `unwrap`/`expect` chained onto a literal
   `Regex::new`/`Selector::parse` (handling the multi-line
-  `Regex::new(\n    r"…",\n).unwrap()` form the previous text heuristic could
+  `Regex::new(\
+    r"…",\
+).unwrap()` form the previous text heuristic could
   not see); a pattern built from a runtime value still stays a panic risk.
 - **`architecture.dead-module` no longer claims High confidence on monorepo
   files whose importers it cannot resolve.** The "nothing imports this file"
@@ -774,9 +839,9 @@ for developers and agents, and carry the same decisions safely into CI and MCP.
   unwrap to High.** `serde_json::to_string(&value).unwrap()` (and `to_value`,
   `to_vec`, `to_writer`, and the YAML/TOML equivalents) serializes an owned,
   in-memory value — an in-process, effectively-infallible operation — yet the
-  `serde_json`/`json` external-failure signals escalated it to a **visible
-  High** in the default profile, the same way a genuine parse of untrusted
-  input is. On real services that persist structured data this was the dominant
+  `serde_json`/`json` external-failure signals escalated it to a **visible High**
+  in the default profile, the same way a genuine parse of untrusted input is.
+  On real services that persist structured data this was the dominant
   panic-risk false positive. A serialization unwrap is now the ordinary
   (Medium, hidden-by-default) panic risk; *deserialization*
   (`from_str`/`from_slice`/`from_reader`/`from_value`) still escalates to High
@@ -1182,15 +1247,15 @@ RepoPilot 0.15 turns review from *scanning the code* into *understanding the
 change*. `repopilot review` now reads the diff itself — security boundaries,
 behavioral shifts (added network/subprocess/filesystem/SQL, removed error
 handling or auth checks), and algorithmic deltas (deeper nesting, a new nested
-loop, a function that grew or became recursive) — and presents them grouped into
-three confidence tiers, across the console, Markdown, and JSON outputs and over
-MCP to AI agents. Every signal is a structural fact, never a verdict: it flags,
-it does not prove. New `repopilot snapshot` + `review --since-snapshot` mark the
-repository before an agent or manual change and review everything since — the
-deterministic, local check an agent can run on its own edits before handing you
-the PR. Security-boundary detection now also reads file content via the shared
-syntax tree with token-aware matching. Everything new ships at `preview` and runs
-entirely locally — nothing uploaded, no AI service called.
+loop, a function that grew or became recursive) — and presents them grouped
+into three confidence tiers, across the console, Markdown, and JSON outputs and
+over MCP to AI agents. Every signal is a structural fact, never a verdict: it
+flags, it does not prove. New `repopilot snapshot` + `review --since-snapshot`
+mark the repository before an agent or manual change and review everything
+since — the deterministic, local check an agent can run on its own edits before
+handing you the PR. Security-boundary detection now also reads file content via
+the shared syntax tree with token-aware matching. Everything new ships at
+`preview` and runs entirely locally — nothing uploaded and no AI service called.
 
 ### Added
 
@@ -1549,7 +1614,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/repopilot/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/MykytaStel/repopilot/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/MykytaStel/repopilot/compare/v0.16.0...v0.17.0
