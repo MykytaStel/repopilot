@@ -1,10 +1,7 @@
+use super::graph_context::GraphAuditContext;
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
-use crate::graph::{
-    CouplingGraph, FileMetrics, ImportResolutionStats, build_coupling_graph_with_resolution,
-    coupling_file_metrics,
-};
-use crate::scan::config::ScanConfig;
-use crate::scan::facts::ScanFacts;
+use crate::graph::v2::{GraphClaim, GraphReadiness, graph_capabilities, graph_readiness};
+use crate::graph::{FileMetrics, coupling_file_metrics_from_snapshot};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -19,14 +16,16 @@ use rust_facade::is_pure_rust_facade;
 pub struct ImportCouplingAudit;
 
 impl ImportCouplingAudit {
-    pub fn audit_with_graph(
-        &self,
-        facts: &ScanFacts,
-        config: &ScanConfig,
-        root: &Path,
-    ) -> (Vec<Finding>, CouplingGraph, ImportResolutionStats) {
-        let (graph, resolution) = build_coupling_graph_with_resolution(facts, root);
-        let metrics = coupling_file_metrics(&graph);
+    pub(crate) fn audit(&self, context: &GraphAuditContext<'_>) -> Vec<Finding> {
+        let facts = context.facts;
+        let config = context.config;
+        let root = context.root;
+        let metrics = coupling_file_metrics_from_snapshot(context.snapshot, context.path_by_id);
+        let readiness = graph_readiness(
+            &graph_capabilities(context.snapshot),
+            context.resolution,
+            GraphClaim::RepositoryAbsence,
+        );
 
         let classifier = crate::analysis::ArchitectureClassifier::new(&config.module_mappings);
         let mut findings = Vec::new();
@@ -73,14 +72,14 @@ impl ImportCouplingAudit {
                     config.instability_hub_min_fan_in,
                     config.instability_hub_min_instability_pct,
                     file_facts,
-                    &resolution,
+                    readiness,
                 ));
             }
         }
 
-        cycles::emit_circular_dependency_findings(&graph, &prod_files, root, &mut findings);
+        cycles::emit_circular_dependency_findings(context.graph, &prod_files, root, &mut findings);
 
-        (findings, graph, resolution)
+        findings
     }
 }
 
@@ -137,7 +136,7 @@ fn high_instability_hub_finding(
     min_fan_in: usize,
     min_instability_pct: usize,
     file_facts: Option<&crate::scan::facts::FileFacts>,
-    resolution: &ImportResolutionStats,
+    readiness: GraphReadiness,
 ) -> Finding {
     let path = relative_path(&metric.path, root);
 
@@ -152,14 +151,17 @@ fn high_instability_hub_finding(
     // Instability is derived from fan-in; every unresolved relative import in
     // the repository is a potential missing importer of this file, so the
     // measured fan-in is a lower bound and the instability claim is weaker.
-    let confidence = if resolution.is_empty() {
-        Confidence::High
-    } else {
+    let confidence = if let GraphReadiness::Limited {
+        unresolved_internal,
+    } = readiness
+    {
         snippet.push_str(&format!(
             "\n{} unresolved relative import(s) in the repository — fan-in may be undercounted.",
-            resolution.total()
+            unresolved_internal
         ));
         Confidence::Medium
+    } else {
+        Confidence::High
     };
 
     if let Some(facts) = file_facts

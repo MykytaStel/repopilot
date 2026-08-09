@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Graph-based scan rules now share one graph-v2 snapshot and an internal
+  available/limited/unavailable readiness policy. Absence claims are demoted or
+  skipped when unresolved internal imports weaken them, while proven-edge
+  findings remain actionable. Changed scans now run the same graph-query rules
+  as full scans.
 - Reuse one internal graph-v2 context analysis for AI-context degree metrics,
   direct dependents, and capability state, preserving the existing bounded
   context summary, JSON, MCP, and readiness contracts.
