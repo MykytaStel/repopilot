@@ -2,16 +2,12 @@ use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureContext, FileRole, LanguageFamily, ModuleKind};
 use crate::findings::types::Confidence;
-use crate::graph::ImportResolutionStats;
+use crate::graph::v2::GraphReadiness;
 use crate::scan::config::{LayerSpec, ScanConfig};
 
 use super::layers::LayerIndex;
 use super::packages::PackageIndex;
 use super::{NodeInfo, dead_module_finding, test_leak_finding};
-
-fn complete_graph() -> ImportResolutionStats {
-    ImportResolutionStats::default()
-}
 
 fn node(
     relative: &str,
@@ -39,7 +35,7 @@ fn prod(relative: &str) -> NodeInfo<'static> {
 #[test]
 fn dead_module_flags_unreferenced_production_file() {
     let info = prod("src/orphan.ts");
-    let finding = dead_module_finding(&info, Some(0), &complete_graph());
+    let finding = dead_module_finding(&info, Some(0), GraphReadiness::Available);
     let finding = finding.expect("unreferenced production file should be flagged");
     assert_eq!(finding.confidence, Confidence::High);
 }
@@ -59,17 +55,17 @@ fn dead_module_ignores_non_code_files() {
         },
         facts: None,
     };
-    assert!(dead_module_finding(&markup, Some(0), &complete_graph()).is_none());
+    assert!(dead_module_finding(&markup, Some(0), GraphReadiness::Available).is_none());
 }
 
 #[test]
 fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
-    let resolution = complete_graph();
+    let readiness = GraphReadiness::Available;
     assert!(
         dead_module_finding(
             &node("src/main.rs", FileRole::Production, true, false),
             Some(0),
-            &resolution
+            readiness
         )
         .is_none()
     );
@@ -77,16 +73,16 @@ fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
         dead_module_finding(
             &node("src/lib.rs", FileRole::Production, false, true),
             Some(0),
-            &resolution
+            readiness
         )
         .is_none()
     );
-    assert!(dead_module_finding(&prod("src/used.ts"), Some(2), &resolution).is_none());
+    assert!(dead_module_finding(&prod("src/used.ts"), Some(2), readiness).is_none());
     assert!(
         dead_module_finding(
             &node("src/foo.test.ts", FileRole::Test, false, false),
             Some(0),
-            &resolution
+            readiness
         )
         .is_none()
     );
@@ -94,11 +90,14 @@ fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
 
 #[test]
 fn dead_module_is_demoted_to_low_when_graph_has_unresolved_imports() {
-    let mut resolution = ImportResolutionStats::default();
-    resolution.record(Path::new("src/other.ts"), "./missing-helper");
-
-    let finding = dead_module_finding(&prod("src/orphan.ts"), Some(0), &resolution)
-        .expect("dead module should still be reported when the graph is merely incomplete");
+    let finding = dead_module_finding(
+        &prod("src/orphan.ts"),
+        Some(0),
+        GraphReadiness::Limited {
+            unresolved_internal: 1,
+        },
+    )
+    .expect("dead module should still be reported when the graph is merely incomplete");
 
     // `Low` (not the `Medium` sentinel) so the registry keeps the demotion.
     assert_eq!(finding.confidence, Confidence::Low);
@@ -113,11 +112,16 @@ fn dead_module_is_demoted_to_low_when_graph_has_unresolved_imports() {
 
 #[test]
 fn dead_module_is_suppressed_when_unresolved_import_could_target_it() {
-    let mut resolution = ImportResolutionStats::default();
-    resolution.record(Path::new("src/other.ts"), "../legacy/orphan");
-
     assert!(
-        dead_module_finding(&prod("src/orphan.ts"), Some(0), &resolution).is_none(),
+        dead_module_finding(
+            &prod("src/orphan.ts"),
+            Some(0),
+            GraphReadiness::Unavailable {
+                unresolved_internal: 1,
+                reason: crate::graph::v2::GraphReadinessReason::UnresolvedTarget,
+            },
+        )
+        .is_none(),
         "an unresolved import matching the candidate's name is a plausible importer"
     );
 }
