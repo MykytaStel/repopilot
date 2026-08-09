@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Reuse one internal graph-v2 context analysis for AI-context degree metrics,
+  direct dependents, and capability state, preserving the existing bounded
+  context summary, JSON, MCP, and readiness contracts.
+
 ## [0.21.0] - 2026-08-06
 
 RepoPilot 0.21 turns deterministic repository analysis into a local merge
