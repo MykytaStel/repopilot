@@ -1,5 +1,5 @@
 use super::changed_git::collect_changed_scope;
-use crate::audits::architecture::import_coupling::ImportCouplingAudit;
+use crate::audits::architecture::graph_analysis::run_graph_analysis;
 use crate::audits::pipeline::{
     run_framework_audits, run_project_audits, stamp_findings_analysis_scope,
 };
@@ -110,23 +110,21 @@ impl<'a> ChangedScanEngine<'a> {
             &mut file_stage.parsed_cache,
         )?;
         let project_start = Instant::now();
-        let ((project_findings, framework_findings), (coupling_findings, _, _)) = rayon::join(
+        let ((project_findings, framework_findings), graph_analysis) = rayon::join(
             || {
                 rayon::join(
                     || run_project_audits(&repo_stage.repo_context, self.config),
                     || run_framework_audits(&repo_stage.repo_context, self.config),
                 )
             },
-            || {
-                ImportCouplingAudit.audit_with_graph(
-                    &repo_stage.repo_context,
-                    self.config,
-                    &discovery.repo_root,
-                )
-            },
+            || run_graph_analysis(&repo_stage.repo_context, self.config, &discovery.repo_root),
         );
-        let coupling_findings =
-            stamp_findings_analysis_scope(coupling_findings, AnalysisScope::Repository);
+        let coupling_findings = stamp_findings_analysis_scope(
+            graph_analysis.coupling_findings,
+            AnalysisScope::Repository,
+        );
+        let query_findings =
+            stamp_findings_analysis_scope(graph_analysis.query_findings, AnalysisScope::Repository);
 
         file_stage.findings.extend(project_findings);
         file_stage.findings.extend(framework_findings);
@@ -134,6 +132,7 @@ impl<'a> ChangedScanEngine<'a> {
             &repo_stage.repo_context,
             coupling_findings,
         ));
+        file_stage.findings.extend(query_findings);
         let post_scan_audits_us = project_start.elapsed().as_micros() as u64;
         let enrichment_us = enrich_findings_timed(&mut file_stage.findings, &discovery.repo_root);
         apply_rule_config(&mut file_stage.findings, self.config);
