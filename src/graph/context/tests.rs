@@ -106,6 +106,56 @@ fn summary_changed_blast_radius_lists_direct_importers() {
 }
 
 #[test]
+fn summary_orders_tied_metrics_and_retains_isolated_files() {
+    let a = PathBuf::from("src/a.rs");
+    let b = PathBuf::from("src/b.rs");
+    let shared = PathBuf::from("src/shared.rs");
+    let isolated = PathBuf::from("src/isolated.rs");
+    let graph = RepoContextGraph {
+        root_path: PathBuf::from("."),
+        nodes: vec![node(&b), node(&isolated), node(&shared), node(&a)],
+        edges: BTreeMap::from([
+            (a.clone(), BTreeSet::from([shared.clone()])),
+            (b.clone(), BTreeSet::from([shared.clone()])),
+        ]),
+        deferred_edges: BTreeMap::new(),
+        detected_frameworks: Vec::new(),
+        framework_projects: Vec::new(),
+        react_native: None,
+    };
+    let changed = vec![ChangedFile {
+        path: shared.clone(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+
+    let summary = summarize_context_graph(&graph, &[], &changed);
+
+    assert_eq!(summary.files, 4);
+    assert_eq!(summary.import_edges, 2);
+    assert_eq!(
+        summary
+            .top_hubs
+            .iter()
+            .map(|metric| metric.path.clone())
+            .collect::<Vec<_>>(),
+        vec![a.clone(), b.clone()]
+    );
+    assert_eq!(
+        summary
+            .top_dependencies
+            .iter()
+            .map(|metric| metric.path.clone())
+            .collect::<Vec<_>>(),
+        vec![shared.clone()]
+    );
+    assert_eq!(summary.changed_blast_radius, vec![a, b]);
+    assert!(summary.cycles.is_empty());
+    assert!(summary.truncated.is_empty());
+}
+
+#[test]
 fn changed_graph_patch_matches_full_rebuild_for_add_modify_delete() {
     let root = PathBuf::from("/repo");
     let initial_facts = scan_facts(

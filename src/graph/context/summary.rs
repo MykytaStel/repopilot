@@ -6,13 +6,48 @@ pub fn summarize_context_graph(
     changed_files: &[ChangedFile],
 ) -> ContextGraphSummary {
     let coupling_graph = graph.coupling_graph();
-    let mut metrics = coupling_file_metrics(&coupling_graph);
-    let node_by_path = graph
+    let analysis = ContextGraphAnalysis::from_graph(graph);
+    let ranked = ranked_metrics(graph, &analysis);
+    let (cycles, cycles_truncated) = bounded_cycles(&coupling_graph);
+    let dependents = analysis.direct_dependents_by_path();
+    let (changed_blast_radius, blast_radius_truncated) =
+        changed_blast_radius(&dependents, changed_files);
+    let (risky_clusters, risky_clusters_truncated) = risky_clusters(findings);
+    let truncated = truncation_labels([
+        ("top_hubs", ranked.top_hubs_truncated),
+        ("top_dependencies", ranked.top_dependencies_truncated),
+        ("cycles", cycles_truncated),
+        ("changed_blast_radius", blast_radius_truncated),
+        ("risky_clusters", risky_clusters_truncated),
+    ]);
+
+    ContextGraphSummary {
+        files: graph.nodes.len(),
+        import_edges: graph.edges.values().map(BTreeSet::len).sum(),
+        top_hubs: ranked.top_hubs,
+        top_dependencies: ranked.top_dependencies,
+        cycles,
+        changed_blast_radius,
+        risky_clusters,
+        truncated,
+    }
+}
+
+struct RankedMetrics {
+    top_hubs: Vec<ContextGraphFileMetric>,
+    top_dependencies: Vec<ContextGraphFileMetric>,
+    top_hubs_truncated: bool,
+    top_dependencies_truncated: bool,
+}
+
+fn ranked_metrics(graph: &RepoContextGraph, analysis: &ContextGraphAnalysis) -> RankedMetrics {
+    let mut metrics = analysis.file_metrics();
+    debug_assert_eq!(analysis.capabilities().file_nodes, metrics.len());
+    let nodes = graph
         .nodes
         .iter()
         .map(|node| (node.path.clone(), node))
         .collect::<HashMap<_, _>>();
-
     metrics.sort_by(|left, right| {
         right
             .fan_out
@@ -20,17 +55,11 @@ pub fn summarize_context_graph(
             .then_with(|| right.fan_in.cmp(&left.fan_in))
             .then_with(|| left.path.cmp(&right.path))
     });
-    let all_top_hubs = metrics
+    let hubs = metrics
         .iter()
         .filter(|metric| metric.fan_out > 0)
-        .map(|metric| metric_from_graph(metric, &node_by_path))
+        .map(|metric| metric_from_graph(metric, &nodes))
         .collect::<Vec<_>>();
-    let top_hubs_truncated = all_top_hubs.len() > MAX_CONTEXT_GRAPH_METRICS;
-    let top_hubs = all_top_hubs
-        .into_iter()
-        .take(MAX_CONTEXT_GRAPH_METRICS)
-        .collect();
-
     metrics.sort_by(|left, right| {
         right
             .fan_in
@@ -38,52 +67,38 @@ pub fn summarize_context_graph(
             .then_with(|| right.fan_out.cmp(&left.fan_out))
             .then_with(|| left.path.cmp(&right.path))
     });
-    let all_top_dependencies = metrics
+    let dependencies = metrics
         .iter()
         .filter(|metric| metric.fan_in > 0)
-        .map(|metric| metric_from_graph(metric, &node_by_path))
+        .map(|metric| metric_from_graph(metric, &nodes))
         .collect::<Vec<_>>();
-    let top_dependencies_truncated = all_top_dependencies.len() > MAX_CONTEXT_GRAPH_METRICS;
-    let top_dependencies = all_top_dependencies
-        .into_iter()
-        .take(MAX_CONTEXT_GRAPH_METRICS)
-        .collect();
+    RankedMetrics {
+        top_hubs_truncated: hubs.len() > MAX_CONTEXT_GRAPH_METRICS,
+        top_dependencies_truncated: dependencies.len() > MAX_CONTEXT_GRAPH_METRICS,
+        top_hubs: hubs.into_iter().take(MAX_CONTEXT_GRAPH_METRICS).collect(),
+        top_dependencies: dependencies
+            .into_iter()
+            .take(MAX_CONTEXT_GRAPH_METRICS)
+            .collect(),
+    }
+}
 
-    let cycle_graph = without_rust_module_containment_edges(&coupling_graph);
-    let mut cycles = detect_cycles_bounded(&cycle_graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
-    let cycles_truncated = cycles.len() > MAX_CONTEXT_GRAPH_CYCLES;
+fn bounded_cycles(graph: &CouplingGraph) -> (Vec<Vec<PathBuf>>, bool) {
+    // The historical path contract excludes deferred and Rust containment edges;
+    // graph-v2 SCC membership is not an equivalent public representation.
+    let graph = without_rust_module_containment_edges(graph);
+    let mut cycles = detect_cycles_bounded(&graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
+    let truncated = cycles.len() > MAX_CONTEXT_GRAPH_CYCLES;
     cycles.truncate(MAX_CONTEXT_GRAPH_CYCLES);
+    (cycles, truncated)
+}
 
-    let (changed_blast_radius, blast_radius_truncated) =
-        changed_blast_radius(&coupling_graph, changed_files);
-    let (risky_clusters, risky_clusters_truncated) = risky_clusters(findings);
-    let mut truncated = Vec::new();
-    if top_hubs_truncated {
-        truncated.push("top_hubs".to_string());
-    }
-    if top_dependencies_truncated {
-        truncated.push("top_dependencies".to_string());
-    }
-    if cycles_truncated {
-        truncated.push("cycles".to_string());
-    }
-    if blast_radius_truncated {
-        truncated.push("changed_blast_radius".to_string());
-    }
-    if risky_clusters_truncated {
-        truncated.push("risky_clusters".to_string());
-    }
-
-    ContextGraphSummary {
-        files: graph.nodes.len(),
-        import_edges: graph.edges.values().map(BTreeSet::len).sum(),
-        top_hubs,
-        top_dependencies,
-        cycles,
-        changed_blast_radius,
-        risky_clusters,
-        truncated,
-    }
+fn truncation_labels<const N: usize>(states: [(&str, bool); N]) -> Vec<String> {
+    states
+        .into_iter()
+        .filter(|(_, truncated)| *truncated)
+        .map(|(label, _)| label.to_string())
+        .collect()
 }
 
 fn metric_from_graph(
@@ -102,7 +117,7 @@ fn metric_from_graph(
 }
 
 fn changed_blast_radius(
-    graph: &CouplingGraph,
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     changed_files: &[ChangedFile],
 ) -> (Vec<PathBuf>, bool) {
     if changed_files.is_empty() {
@@ -113,22 +128,6 @@ fn changed_blast_radius(
         .iter()
         .map(|file| file.path.clone())
         .collect::<HashSet<_>>();
-    // Invert the dependency edges through the shared graph v2 one-hop
-    // `direct_dependents`, then key the importer sets back by repository path so
-    // the lookup below is unchanged.
-    let (snapshot, path_by_id) = build_coupling_graph_snapshot(graph);
-    let importers_by_target: BTreeMap<PathBuf, BTreeSet<PathBuf>> = direct_dependents(&snapshot)
-        .into_iter()
-        .filter_map(|(target_id, source_ids)| {
-            let target = path_by_id.get(&target_id)?.clone();
-            let sources = source_ids
-                .iter()
-                .filter_map(|id| path_by_id.get(id).cloned())
-                .collect::<BTreeSet<_>>();
-            Some((target, sources))
-        })
-        .collect();
-
     let mut impacted = BTreeSet::new();
     for path in &changed {
         if let Some(importers) = importers_by_target.get(path) {
