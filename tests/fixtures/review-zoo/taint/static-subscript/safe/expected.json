@@ -1,0 +1,4 @@
+{
+  "description": "A static subscript from a clean local array remains safe when used as a SQL bind parameter.",
+  "expect": []
+}

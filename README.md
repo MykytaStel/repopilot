@@ -99,6 +99,40 @@ Signals are advisory by default. Gate CI on the high-confidence tier:
 repopilot review . --base origin/main --fail-on-review definitely
 ```
 
+Every review also resolves to one merge-readiness verdict — `ready`,
+`review`, or `blocked` — built from findings, review signals, CODEOWNERS,
+and blast radius, with deterministic reason codes and suggested owners.
+Console, Markdown, JSON, MCP, and the GitHub Action summary all read the
+same record.
+
+## Compare risk across runs
+
+History is local, bounded, and off by default. Record two compatible
+analyses to see what's new, persisting, resolved, or changed severity —
+nothing leaves your machine:
+
+```bash
+repopilot review . --record-history
+repopilot scan . --record-history
+```
+
+Receipts live under `.repopilot/history/`.
+
+To calibrate a known rule to your repository instead of silencing it
+project-wide, add a scoped, diffable entry to `.repopilot/overlay.toml`:
+
+```toml
+[[overlay]]
+rule = "behavioral.panic-risk"
+path = "src/cli/**"
+severity = "low"
+reason = "CLI handlers can terminate on unrecoverable input"
+```
+
+Overlay decisions stay visible in `--profile strict` and the decision
+trace — never a silent post-scan filter. Details:
+[Configuration](https://github.com/MykytaStel/repopilot/blob/main/docs/configuration.md).
+
 ## Guard an agent run
 
 Take a snapshot before the agent starts, review everything it did — commits

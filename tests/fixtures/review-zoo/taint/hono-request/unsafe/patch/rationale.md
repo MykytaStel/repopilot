@@ -1,0 +1,1 @@
+The Hono route replaces a trusted identifier and parameterized SQL with `c.req.query("id")` concatenated into a raw SQL call. Because both the request source and unsafe sink are part of the changed range, review must emit a deterministic `taint.sql` signal.

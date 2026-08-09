@@ -1,0 +1,3 @@
+{
+  "description": "A field explicitly replaced with a clean value must remain clean when destructured from a tainted object."
+}

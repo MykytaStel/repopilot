@@ -101,8 +101,9 @@ facts remain later milestones.
 RepoPilot still needs a deeper fact-based platform with:
 
 - a richer `RepoFacts` model beyond the initial scan-facts bridge;
-- a first-class dependency graph with explicit core types and contracts,
-  following the [Dependency Graph v2 design](dependency-graph-v2.md);
+- completion of the graph-v2 migration for the persisted context graph and its
+  historical bounded cycle projection, following the
+  [Dependency Graph v2 design](dependency-graph-v2.md);
 - symbol facts for definitions, references, ownership, and relationships;
 - rule capabilities that declare which facts and analysis levels a rule needs;
 - language support tiers that make analysis depth and guarantees explicit;
@@ -165,17 +166,20 @@ builder now exist; the builder reuses RepoPilot's shared language-aware import
 resolvers and emits typed edges (`Imports`/`DependsOn`/`TestOf`) carrying
 provenance and a confidence tier. Deterministic internal graph algorithms cover
 degrees, hubs, SCC cycles, neighborhoods, transitive blast radius, directory-level
-dependency aggregation, and summaries. The `architecture.circular-dependency` scan
-rule now consumes the v2 SCC cycle detection internally (the first graph-related
-rule migrated); the remaining algorithms are not yet product-facing.
+dependency aggregation, and summaries. All three import-coupling scan rules and
+review blast radius consume graph v2. AI-context fallback metrics and the primary
+context summary use graph-v2 degrees and direct dependents; the primary summary
+reuses one internal analysis view for degrees, dependents, and capability state.
+The persisted `RepoContextGraph` and historical bounded cycle representation
+remain compatibility surfaces pending differential migration.
 
-1. Migrate remaining graph-related architecture rules to graph v2. The
-   `architecture.circular-dependency` rule now uses graph v2 cycle detection
-   internally (first rule migrated); remaining graph-related rules still need
-   migration.
-2. Feed graph v2 blast radius into review.
-3. Feed graph v2 hot files into AI context.
-4. Add graph capabilities metadata for rules.
-5. Add language support tiers.
-6. Add runtime evidence ingestion.
-7. Add evaluation fixtures.
+1. Migrate the persisted context graph and bounded cycle projection only after
+   graph-v2 parity fixtures cover their deferred-edge and path semantics.
+2. **Done internally in v0.22 A2.** Graph capability metadata now drives an
+   available/limited/unavailable policy for graph-backed scan rules. Full and
+   changed scans share the same graph analysis bundle; a public skipped-analysis
+   projection remains deferred.
+3. Add language support tiers.
+4. Enrich the internal `RepoFacts` model with symbol/reference relationships.
+5. Add explicit, allowlisted local verification evidence.
+6. Add evaluation fixtures and expand zoo-backed rule coverage.

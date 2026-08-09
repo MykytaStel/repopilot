@@ -1,0 +1,1 @@
+The controller replaces a trusted literal with a NestJS `@Param("id")` request-bound parameter and returns it as data. Because the value never reaches SQL, subprocess, filesystem, or network sinks, the review must remain silent.

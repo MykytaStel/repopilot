@@ -1,0 +1,3 @@
+{
+  "description": "Hono request input is returned through the response helper without reaching a sensitive sink, so the safe fixture must remain silent."
+}

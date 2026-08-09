@@ -1,0 +1,12 @@
+{
+  "description": "Cleaning one static index must not clean a tainted sibling index used for command execution.",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "taint",
+      "kind": "taint.exec",
+      "path": "src/handler.ts",
+      "headline": "untrusted input reaches subprocess/exec"
+    }
+  ]
+}

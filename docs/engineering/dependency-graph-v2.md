@@ -19,8 +19,9 @@ external dependency nodes, and unresolved relative imports record a bounded
 diagnostic. Edges carry typed kinds (`Imports` for resolved local files,
 `DependsOn` for external dependencies, `TestOf` for co-located test files),
 provenance, and a confidence tier (high for resolved files, medium for external
-packages, low for unresolved relative imports). It is not yet used by scan
-findings, review blast radius, AI context, or public report schemas.
+packages, low for unresolved relative imports). Graph-v2 projections now back
+the import-coupling scan rules, review blast radius, and AI-context graph metrics
+without exposing raw graph internals in public report schemas.
 
 Graph v2 now has internal algorithms for degree summaries, hubs, SCC-based cycle
 detection, local neighborhoods, transitive blast radius (reverse dependents of a
@@ -59,11 +60,13 @@ roadmap's rule-capability checks, with no command or report consumer yet. The v1
 `compute_metrics`/`RepoContextGraph` paths remain for consumers not yet migrated;
 all migrated outputs are byte-for-byte unchanged and guarded by parity tests.
 
-The largest remaining migration is the context graph subsystem
-(`RepoContextGraph` / `context_graph_summary`), which still backs the *primary* AI
-context graph projection (edit order, blast radius, high-context files). It should
-move to graph v2 only once v2 has equivalent deterministic fixtures and bounded
-behavior, as below.
+The primary `context_graph_summary` now constructs one reusable internal
+graph-v2 analysis view for degree metrics, one-hop dependents, and capability
+state. The persisted `RepoContextGraph` schema and historical bounded cycle
+projection remain compatibility paths: cycle output deliberately excludes
+deferred imports and Rust module-containment edges and is not equivalent to SCC
+membership. Those paths should move only after differential fixtures prove
+equivalent deterministic and bounded behavior.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
@@ -292,12 +295,14 @@ internal.
    graph-related rules can migrate onto the same snapshot next.
 2. **Done.** Feed graph v2 into review blast radius: the importer inversion is
    sourced from the snapshot via one-hop `direct_dependents`, output unchanged.
-3. **Done (fallback).** Feed graph v2 into AI context hot files: the coupling
-   fallback uses `coupling_file_metrics`. The primary `context_graph_summary`
-   projection still needs migration (see below).
-4. **Done (foundation).** Add graph capability metadata (`graph_capabilities`).
-   No rule consumes it yet; wiring rules to declare required graph facts is next.
-5. Migrate the context graph subsystem (`RepoContextGraph` /
-   `context_graph_summary`) to graph v2 so the primary AI context projection and
-   review signals share one model. This is the largest remaining step and should
-   land only behind equivalent deterministic fixtures.
+3. **Done (A1).** Feed graph v2 into AI context hot files and primary context
+   summary metrics. One internal context analysis view supplies degrees,
+   one-hop dependents, and capability state without repeated snapshot builds.
+4. **Done (A2).** Graph capability metadata (`graph_capabilities`) feeds the
+   bounded available/limited/unavailable policy used by graph-backed scan rules.
+   Full and changed scans share one runner and one snapshot for coupling metrics,
+   graph queries, and readiness. Public skip diagnostics remain a later additive
+   projection.
+5. Migrate the persisted `RepoContextGraph` schema/cache and historical bounded
+   cycle projection after differential fixtures cover deferred imports, Rust
+   module-containment edges, changed-scan patching, and cycle ordering.

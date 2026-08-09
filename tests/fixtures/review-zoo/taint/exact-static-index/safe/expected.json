@@ -1,0 +1,4 @@
+{
+  "description": "A clean exact static index override remains safe when used as a SQL bind parameter.",
+  "expect": []
+}

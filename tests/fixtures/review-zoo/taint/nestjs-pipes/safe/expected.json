@@ -1,0 +1,4 @@
+{
+  "description": "A primitive NestJS parsing pipe narrows request input without introducing a sensitive sink.",
+  "expect": []
+}
