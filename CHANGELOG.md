@@ -16,6 +16,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Reuse one internal graph-v2 context analysis for AI-context degree metrics,
   direct dependents, and capability state, preserving the existing bounded
   context summary, JSON, MCP, and readiness contracts.
+- Persist minimal repository context state under cache schema v5 and derive
+  bounded context cycles through graph v2. Full and changed scans now share the
+  same state-to-analysis path; upgrades rebuild the internal cache once without
+  changing public reports or warm changed-scan behavior.
 
 ## [0.21.0] - 2026-08-06
 

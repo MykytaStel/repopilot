@@ -61,12 +61,12 @@ roadmap's rule-capability checks, with no command or report consumer yet. The v1
 all migrated outputs are byte-for-byte unchanged and guarded by parity tests.
 
 The primary `context_graph_summary` now constructs one reusable internal
-graph-v2 analysis view for degree metrics, one-hop dependents, and capability
-state. The persisted `RepoContextGraph` schema and historical bounded cycle
-projection remain compatibility paths: cycle output deliberately excludes
-deferred imports and Rust module-containment edges and is not equivalent to SCC
-membership. Those paths should move only after differential fixtures prove
-equivalent deterministic and bounded behavior.
+graph-v2 analysis view for degree metrics, one-hop dependents, capability state,
+and bounded cycle paths. Cache schema v5 persists minimal repository context
+state rather than derived graph results; full and changed scans share that
+state-to-analysis path. The public `RepoContextGraph` remains a compatibility
+view only. Cycle output continues to exclude deferred imports and Rust
+module-containment edges.
 
 Today, `CouplingGraph`, `RepoContextGraph`, import extraction, language
 resolvers, review signals, and graph summaries provide useful behavior. Graph
@@ -303,6 +303,7 @@ internal.
    Full and changed scans share one runner and one snapshot for coupling metrics,
    graph queries, and readiness. Public skip diagnostics remain a later additive
    projection.
-5. Migrate the persisted `RepoContextGraph` schema/cache and historical bounded
-   cycle projection after differential fixtures cover deferred imports, Rust
-   module-containment edges, changed-scan patching, and cycle ordering.
+5. **Done (A3).** Cache schema v5 persists ordered repository context state,
+   scanners no longer use `RepoContextGraph` as canonical state, and bounded
+   context cycles run through graph v2 while preserving deferred-import, Rust
+   containment, changed-scan patching, ordering, and truncation contracts.
