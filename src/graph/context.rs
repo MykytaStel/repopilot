@@ -1,6 +1,6 @@
 use crate::audits::context::{FileRole, classify_file};
 use crate::findings::types::Finding;
-use crate::graph::{CouplingGraph, detect_cycles_bounded, without_rust_module_containment_edges};
+use crate::graph::CouplingGraph;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::RiskPriority;
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -14,8 +14,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 4;
-pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-graph-v3";
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 5;
+pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-state-v1";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
 pub const MAX_CONTEXT_GRAPH_RISKY_CLUSTERS: usize = 20;
@@ -93,9 +93,15 @@ pub struct RepoContextGraphLoad {
     pub cache_info: ContextGraphCacheInfo,
 }
 
+pub(crate) struct RepositoryContextStateLoad {
+    pub(crate) state: RepositoryContextState,
+    pub(crate) cache_info: ContextGraphCacheInfo,
+}
+
 mod analysis;
 mod cache;
 mod graph_impl;
+mod state;
 mod summary;
 
 use analysis::ContextGraphAnalysis;
@@ -103,7 +109,10 @@ pub use cache::{
     context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
     write_repo_context_graph,
 };
+pub(crate) use cache::{load_repository_context_state, write_repository_context_state};
+pub(crate) use state::RepositoryContextState;
 pub use summary::summarize_context_graph;
+pub(crate) use summary::summarize_repository_context_state;
 
 #[cfg(test)]
 mod tests;

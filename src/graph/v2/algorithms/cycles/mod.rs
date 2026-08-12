@@ -2,6 +2,9 @@ use super::topology;
 use crate::graph::v2::{GraphNodeId, GraphSnapshot};
 use std::collections::{BTreeMap, VecDeque};
 
+mod bounded;
+pub use bounded::{BoundedCyclePaths, bounded_cycle_paths};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphCycle {
     pub node_ids: Vec<GraphNodeId>,

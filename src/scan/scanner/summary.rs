@@ -2,7 +2,8 @@ use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
 use crate::graph::CouplingGraph;
 use crate::graph::context::{
-    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
+    ContextGraphCacheInfo, ContextGraphSummary, RepositoryContextState,
+    summarize_repository_context_state,
 };
 use crate::scan::facts::ScanFacts;
 use crate::scan::types::LanguageSummary;
@@ -64,12 +65,12 @@ pub(super) fn build_scan_summary(
             .context_graph_summary
             .or_else(|| match parts.coupling_graph.as_ref() {
                 Some(coupling_graph) => {
-                    let graph = RepoContextGraph::from_scan_facts(
+                    let state = RepositoryContextState::from_scan_facts(
                         &facts,
                         &facts.root_path,
                         coupling_graph.clone(),
                     );
-                    Some(summarize_context_graph(&graph, &findings, &[]))
+                    Some(summarize_repository_context_state(&state, &findings, &[]))
                 }
                 None => None,
             });

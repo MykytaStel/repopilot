@@ -170,11 +170,15 @@ dependency aggregation, and summaries. All three import-coupling scan rules and
 review blast radius consume graph v2. AI-context fallback metrics and the primary
 context summary use graph-v2 degrees and direct dependents; the primary summary
 reuses one internal analysis view for degrees, dependents, and capability state.
-The persisted `RepoContextGraph` and historical bounded cycle representation
-remain compatibility surfaces pending differential migration.
+Phase A3 replaced scanner ownership of the persisted `RepoContextGraph` with an
+ordered internal `RepositoryContextState`. Cache schema v5 stores source-derived
+context and resolved relationships, while graph-v2 analysis derives degrees,
+dependents, capabilities, and bounded cycle paths once per summary. The public
+`RepoContextGraph` remains compatibility-only.
 
-1. Migrate the persisted context graph and bounded cycle projection only after
-   graph-v2 parity fixtures cover their deferred-edge and path semantics.
+1. **Done in v0.22 A3.** Persist repository context state and migrate bounded
+   cycle paths after deferred-edge, Rust containment, changed-scan, ordering,
+   and truncation parity coverage.
 2. **Done internally in v0.22 A2.** Graph capability metadata now drives an
    available/limited/unavailable policy for graph-backed scan rules. Full and
    changed scans share the same graph analysis bundle; a public skipped-analysis

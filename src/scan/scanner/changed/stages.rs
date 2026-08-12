@@ -1,6 +1,6 @@
 use crate::findings::types::Finding;
 use crate::graph::CouplingGraph;
-use crate::graph::context::{ContextGraphCacheInfo, RepoContextGraph};
+use crate::graph::context::{ContextGraphCacheInfo, RepositoryContextState};
 use crate::review::diff::ChangedFile;
 use crate::scan::cache::ScanCache;
 use crate::scan::facts::{FileFacts, ScanFacts};
@@ -30,7 +30,7 @@ pub(super) struct ChangedFileAnalysisStage {
 pub(super) struct ChangedRepoContextStage {
     pub repo_context: ScanFacts,
     pub coupling_graph: CouplingGraph,
-    pub context_graph: RepoContextGraph,
+    pub context_state: RepositoryContextState,
     pub cache_info: ContextGraphCacheInfo,
     pub diagnostics: Vec<ScanDiagnostic>,
     pub elapsed_us: u64,
