@@ -14,7 +14,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 5;
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 6;
 pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-state-v1";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
@@ -60,6 +60,8 @@ pub struct RepoContextNode {
     pub non_empty_lines: usize,
     #[serde(default)]
     pub imports: Vec<String>,
+    #[serde(default)]
+    pub import_spans: BTreeMap<String, (usize, usize)>,
     #[serde(default)]
     pub deferred_imports: Vec<String>,
     pub is_test: bool,

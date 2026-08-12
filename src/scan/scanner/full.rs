@@ -20,7 +20,7 @@ use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::ScanFacts;
 use crate::scan::session::AnalysisSession;
-use crate::scan::types::{ScanSummary, ScanTimings};
+use crate::scan::types::{ScanDiagnostic, ScanSummary, ScanTimings};
 use std::io;
 use std::path::Path;
 use std::time::Instant;
@@ -77,6 +77,7 @@ pub(super) struct ProjectAnalysisStage {
     pub(super) findings: Vec<Finding>,
     pub(super) coupling_graph: CouplingGraph,
     pub(super) elapsed_us: u64,
+    pub(super) diagnostics: Vec<ScanDiagnostic>,
 }
 
 impl<'a> ScanEngine<'a> {
@@ -142,7 +143,8 @@ impl<'a> ScanEngine<'a> {
         };
 
         let sidecar = build_sidecar(&project_stage.facts);
-        let mut diagnostics = contract_stage.diagnostics;
+        let mut diagnostics = std::mem::take(&mut project_stage.diagnostics);
+        diagnostics.extend(contract_stage.diagnostics);
         diagnostics.extend(rule_config_diagnostics(self.config));
         let summary = self.finalize_report(
             project_stage,
@@ -225,6 +227,10 @@ impl<'a> ScanEngine<'a> {
         );
         let query_findings =
             stamp_findings_analysis_scope(graph_analysis.query_findings, AnalysisScope::Repository);
+        let broken_import_findings = stamp_findings_analysis_scope(
+            graph_analysis.broken_import_findings,
+            AnalysisScope::Repository,
+        );
 
         let coupling_findings = stamp_findings_analysis_scope(
             graph_analysis.coupling_findings,
@@ -234,6 +240,7 @@ impl<'a> ScanEngine<'a> {
         findings.extend(project_findings);
         findings.extend(framework_findings);
         findings.extend(apply_project_decisions(&facts, coupling_findings));
+        findings.extend(apply_project_decisions(&facts, broken_import_findings));
         findings.extend(query_findings);
 
         ProjectAnalysisStage {
@@ -241,6 +248,7 @@ impl<'a> ScanEngine<'a> {
             findings,
             coupling_graph: graph_analysis.graph,
             elapsed_us: start.elapsed().as_micros() as u64,
+            diagnostics: graph_analysis.diagnostics,
         }
     }
 

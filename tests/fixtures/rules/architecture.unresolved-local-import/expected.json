@@ -1,0 +1,24 @@
+{
+  "fixtures": [
+    {
+      "path": "true_positive_ts",
+      "expected_rule_ids": [
+        "architecture.unresolved-local-import"
+      ]
+    },
+    {
+      "path": "true_positive_python",
+      "expected_rule_ids": [
+        "architecture.unresolved-local-import"
+      ]
+    },
+    {
+      "path": "false_positive_existing",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_ambiguous",
+      "expected_rule_ids": []
+    }
+  ]
+}

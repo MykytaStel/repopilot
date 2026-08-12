@@ -242,6 +242,7 @@ mod tests {
             workspace_package: None,
             non_empty_lines: 1,
             imports: Vec::new(),
+            import_spans: Default::default(),
             deferred_imports: Vec::new(),
             is_test: false,
             is_generated: false,

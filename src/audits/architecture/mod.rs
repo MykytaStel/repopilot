@@ -7,3 +7,4 @@ pub mod graph_queries;
 pub mod import_coupling;
 pub mod large_file;
 pub mod too_many_modules;
+pub(crate) mod unresolved_local_imports;

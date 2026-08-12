@@ -10,7 +10,13 @@ impl RepoContextGraph {
             nodes: facts
                 .files
                 .iter()
-                .map(|file| RepoContextNode::from_file(file, root))
+                .map(|file| {
+                    RepoContextNode::from_file(
+                        file,
+                        root,
+                        facts.import_spans_by_file.get(&file.path),
+                    )
+                })
                 .collect(),
             edges: relative_edges(coupling_graph.edges, root),
             deferred_edges: relative_edges(coupling_graph.deferred_edges, root),
@@ -36,6 +42,13 @@ impl RepoContextGraph {
             }
         }
 
+        let import_spans_by_file = self
+            .nodes
+            .iter()
+            .filter(|node| !node.import_spans.is_empty())
+            .map(|node| (node.path.clone(), node.import_spans.clone()))
+            .collect();
+
         ScanFacts {
             root_path: self.root_path.clone(),
             files_discovered: files.len(),
@@ -44,6 +57,7 @@ impl RepoContextGraph {
             non_empty_lines,
             languages: build_language_summary(languages),
             files,
+            import_spans_by_file,
             detected_frameworks: self.detected_frameworks.clone(),
             framework_projects: self.framework_projects.clone(),
             react_native: self.react_native.clone(),
@@ -76,6 +90,21 @@ impl RepoContextGraph {
         changed_files: &[ChangedFile],
         patch_files: &[FileFacts],
     ) {
+        self.apply_changed_facts_with_spans(
+            repo_root,
+            changed_files,
+            patch_files,
+            &BTreeMap::new(),
+        );
+    }
+
+    pub(crate) fn apply_changed_facts_with_spans(
+        &mut self,
+        repo_root: &Path,
+        changed_files: &[ChangedFile],
+        patch_files: &[FileFacts],
+        patch_import_spans: &BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
+    ) {
         let removed = changed_files
             .iter()
             .filter(|file| file.status == ChangeStatus::Deleted)
@@ -85,11 +114,9 @@ impl RepoContextGraph {
         self.nodes.retain(|node| !removed.contains(&node.path));
         self.nodes
             .retain(|node| !patch_files.iter().any(|file| file.path == node.path));
-        self.nodes.extend(
-            patch_files
-                .iter()
-                .map(|file| RepoContextNode::from_file(file, repo_root)),
-        );
+        self.nodes.extend(patch_files.iter().map(|file| {
+            RepoContextNode::from_file(file, repo_root, patch_import_spans.get(&file.path))
+        }));
         self.nodes.sort_by(|left, right| left.path.cmp(&right.path));
 
         let known_file_set_changed = changed_files.iter().any(|file| {
@@ -135,7 +162,11 @@ impl RepoContextGraph {
 }
 
 impl RepoContextNode {
-    fn from_file(file: &FileFacts, root: &Path) -> Self {
+    fn from_file(
+        file: &FileFacts,
+        root: &Path,
+        import_spans: Option<&BTreeMap<String, (usize, usize)>>,
+    ) -> Self {
         let context = classify_file(file);
         let roles = context.role_ids().into_iter().map(str::to_string).collect();
         let frameworks = context
@@ -166,6 +197,7 @@ impl RepoContextNode {
             workspace_package: None,
             non_empty_lines: file.non_empty_lines,
             imports: file.imports.clone(),
+            import_spans: import_spans.cloned().unwrap_or_default(),
             deferred_imports: file.deferred_imports.clone(),
             is_test: context.is_test,
             is_generated,

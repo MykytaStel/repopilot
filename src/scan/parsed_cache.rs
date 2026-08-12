@@ -8,8 +8,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 2;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-v1";
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 3;
+const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-spans-v2";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
@@ -30,6 +30,8 @@ pub struct ParsedFactsEntry {
     pub branch_count: usize,
     pub has_inline_tests: bool,
     pub imports: Vec<String>,
+    #[serde(default)]
+    pub import_spans: BTreeMap<String, (usize, usize)>,
     pub deferred_imports: Vec<String>,
     pub exports: Vec<String>,
     pub syntax: CachedSyntaxSummary,
@@ -205,6 +207,7 @@ impl ParsedFactsEntry {
         content_hash: String,
         file: &FileFacts,
         artifact: &ParsedArtifact,
+        import_spans: BTreeMap<String, (usize, usize)>,
     ) -> Self {
         Self {
             content_hash,
@@ -213,6 +216,7 @@ impl ParsedFactsEntry {
             branch_count: file.branch_count,
             has_inline_tests: file.has_inline_tests,
             imports: file.imports.clone(),
+            import_spans,
             deferred_imports: file.deferred_imports.clone(),
             exports: artifact.exports.clone(),
             syntax: CachedSyntaxSummary::from(&artifact.syntax),
@@ -302,6 +306,7 @@ mod tests {
             "hash".to_string(),
             &file,
             &artifact,
+            BTreeMap::new(),
         ));
         cache.write(temp.path()).expect("write parsed facts cache");
 
@@ -377,6 +382,7 @@ mod tests {
                 branch_count: 0,
                 has_inline_tests: false,
                 imports: Vec::new(),
+                import_spans: Default::default(),
                 deferred_imports: Vec::new(),
                 exports: Vec::new(),
                 syntax: CachedSyntaxSummary::default(),
@@ -418,6 +424,7 @@ mod tests {
             branch_count: 0,
             has_inline_tests: false,
             imports: Vec::new(),
+            import_spans: Default::default(),
             deferred_imports: Vec::new(),
             exports: Vec::new(),
             syntax: CachedSyntaxSummary::default(),

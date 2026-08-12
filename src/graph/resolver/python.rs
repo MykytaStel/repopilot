@@ -19,11 +19,11 @@ pub(super) fn resolve_python(
             dir = dir.parent().unwrap_or(dir);
         }
 
-        return resolve_python_module_from_base(dir, module, known_files);
+        return probe(&python_module_candidates(dir, module), known_files);
     }
 
     for base in [root.to_path_buf(), root.join("src")] {
-        if let Some(path) = resolve_python_module_from_base(&base, raw, known_files) {
+        if let Some(path) = probe(&python_module_candidates(&base, raw), known_files) {
             return Some(path);
         }
     }
@@ -31,13 +31,9 @@ pub(super) fn resolve_python(
     None
 }
 
-fn resolve_python_module_from_base(
-    base_dir: &Path,
-    module: &str,
-    known_files: &HashSet<PathBuf>,
-) -> Option<PathBuf> {
+fn python_module_candidates(base_dir: &Path, module: &str) -> Vec<PathBuf> {
     if module.is_empty() {
-        return probe(&[base_dir.join("__init__.py")], known_files);
+        return vec![base_dir.join("__init__.py")];
     }
 
     let segments = module
@@ -45,17 +41,26 @@ fn resolve_python_module_from_base(
         .filter(|segment| !segment.is_empty())
         .collect::<Vec<_>>();
 
+    let mut candidates = Vec::new();
     for end in (1..=segments.len()).rev() {
         let base = segments[..end]
             .iter()
             .fold(base_dir.to_path_buf(), |path, segment| path.join(segment));
-        if let Some(path) = probe(
-            &[base.with_extension("py"), base.join("__init__.py")],
-            known_files,
-        ) {
-            return Some(path);
-        }
+        candidates.push(base.with_extension("py"));
+        candidates.push(base.join("__init__.py"));
     }
+    candidates
+}
 
-    None
+pub(super) fn definitive_relative_candidates(raw: &str, from_file: &Path) -> Option<Vec<PathBuf>> {
+    let dots = raw.chars().take_while(|value| *value == '.').count();
+    let module = raw.get(dots..)?;
+    if dots == 0 || module.is_empty() {
+        return None;
+    }
+    let mut dir = from_file.parent()?;
+    for _ in 0..dots.saturating_sub(1) {
+        dir = dir.parent()?;
+    }
+    Some(python_module_candidates(dir, module))
 }
