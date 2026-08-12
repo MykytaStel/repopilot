@@ -57,3 +57,6 @@ docs/demos/*.log
 # Real-repo validation zoo: repos are cloned here on demand, never committed.
 # Only tests/zoo/manifest.toml + tests/zoo/snapshots/*.json are tracked.
 /.zoo/
+
+# Isolated feature workspaces created by local development agents.
+/.worktrees/
