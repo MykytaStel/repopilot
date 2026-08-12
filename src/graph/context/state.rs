@@ -4,6 +4,7 @@ use crate::graph::CouplingGraph;
 use crate::review::diff::ChangedFile;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -59,14 +60,15 @@ impl RepositoryContextState {
         self.to_compat().to_scan_facts()
     }
 
-    pub(crate) fn apply_changed_facts(
+    pub(crate) fn apply_changed_facts_with_spans(
         &mut self,
         root: &Path,
         changed_files: &[ChangedFile],
         patch_files: &[FileFacts],
+        patch_import_spans: &BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
     ) {
         let mut graph = self.to_compat();
-        graph.apply_changed_facts(root, changed_files, patch_files);
+        graph.apply_changed_facts_with_spans(root, changed_files, patch_files, patch_import_spans);
         *self = Self::from_compat(graph);
     }
 }

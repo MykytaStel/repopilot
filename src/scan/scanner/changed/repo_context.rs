@@ -34,8 +34,12 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(mut load) = load_repository_context_state(repo_root, &fingerprint) {
-            load.state
-                .apply_changed_facts(repo_root, &discovery.changed_files, graph_patch_files);
+            load.state.apply_changed_facts_with_spans(
+                repo_root,
+                &discovery.changed_files,
+                graph_patch_files,
+                &facts.import_spans_by_file,
+            );
             if let Err(error) = write_repository_context_state(repo_root, &fingerprint, &load.state)
             {
                 diagnostics.push(cache_diagnostic(&error));

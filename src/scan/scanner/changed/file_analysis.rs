@@ -242,6 +242,7 @@ impl<'a> ChangedScanEngine<'a> {
                             content_hash(content),
                             &per_file.file_facts,
                             artifact,
+                            per_file.import_spans.clone(),
                         ));
                     }
                 }
@@ -259,6 +260,12 @@ impl<'a> ChangedScanEngine<'a> {
                 let mut graph_file = per_file.file_facts.clone();
                 graph_file.content = None;
                 graph_patch_files.push(graph_file);
+
+                if !per_file.import_spans.is_empty() {
+                    facts
+                        .import_spans_by_file
+                        .insert(per_file.file_facts.path.clone(), per_file.import_spans);
+                }
 
                 if let Some(artifact) = per_file.artifact {
                     facts.insert_artifact(artifact);
@@ -330,8 +337,12 @@ impl<'a> ChangedScanEngine<'a> {
             paradigms: role_entry.paradigms.clone(),
             is_test: role_entry.is_test,
         };
-        let artifact = parsed_cache
-            .lookup(&role_entry.hash, role_entry.language.as_deref())
+        let cached_parsed = parsed_cache.lookup(&role_entry.hash, role_entry.language.as_deref());
+        let import_spans = cached_parsed
+            .as_ref()
+            .map(|entry| entry.import_spans.clone())
+            .unwrap_or_default();
+        let artifact = cached_parsed
             .map(|entry| {
                 ParsedArtifact::from_parsed_cache_v2(
                     PathBuf::from(&role_entry.path),
@@ -353,6 +364,11 @@ impl<'a> ChangedScanEngine<'a> {
                 )
             });
         let mut graph_file = record_cached_file(facts, languages, &role_entry);
+        if !import_spans.is_empty() {
+            facts
+                .import_spans_by_file
+                .insert(graph_file.path.clone(), import_spans);
+        }
         facts.insert_artifact(artifact);
         graph_file.content = None;
         graph_patch_files.push(graph_file);

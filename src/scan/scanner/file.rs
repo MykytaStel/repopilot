@@ -5,14 +5,16 @@ use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file_with_evidence;
 use crate::audits::pipeline::FileAuditRegistration;
 use crate::findings::types::Finding;
-use crate::graph::imports::{extract_deferred_imports_from, extract_imports_from};
+use crate::graph::imports::{
+    extract_deferred_imports_from, extract_import_spans_from, extract_imports_from,
+};
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::language::detect_language;
 use crate::scan::parsed_cache::{ParsedFactsCache, ParsedFactsEntry, content_hash};
 use crate::scan::path_classification::is_low_signal_audit_path;
 use crate::scan::workspace::{PackageRoot, path_in_executable_package};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -24,6 +26,7 @@ pub(super) struct PerFileResult {
     pub(super) findings: Vec<Finding>,
     pub(super) language: Option<String>,
     pub(super) artifact: Option<ParsedArtifact>,
+    pub(super) import_spans: BTreeMap<String, (usize, usize)>,
     pub(super) skip_reason: SkipReason,
     pub(super) skipped_bytes: u64,
 }
@@ -219,6 +222,7 @@ fn process_file_inner(
     let analysis = analyze_file(&full_facts, file_audits, config);
     let findings = analysis.findings;
     let imports = analysis.imports;
+    let import_spans = analysis.import_spans;
     let deferred_imports = analysis.deferred_imports;
     let exports = analysis.exports;
     let syntax = analysis.syntax;
@@ -243,6 +247,7 @@ fn process_file_inner(
         findings,
         language,
         artifact: Some(artifact),
+        import_spans,
         skip_reason: SkipReason::None,
         skipped_bytes: 0,
     })
@@ -299,12 +304,13 @@ fn collect_file_facts_inner(
     });
 
     let mut from_parsed_cache = false;
-    let (imports, deferred_imports, exports, syntax) = if let Some(entry) = cached {
+    let (imports, import_spans, deferred_imports, exports, syntax) = if let Some(entry) = cached {
         from_parsed_cache = true;
         full_facts.branch_count = entry.branch_count;
         full_facts.has_inline_tests = entry.has_inline_tests;
         (
             entry.imports,
+            entry.import_spans,
             entry.deferred_imports,
             entry.exports,
             (&entry.syntax).into(),
@@ -316,6 +322,7 @@ fn collect_file_facts_inner(
         let lang = full_facts.language.as_deref();
         (
             extract_imports_from(&parsed, lang),
+            extract_import_spans_from(&parsed, lang),
             extract_deferred_imports_from(&parsed, lang),
             extract_exports(parsed.content(), lang),
             parsed.syntax_summary(),
@@ -349,10 +356,14 @@ fn collect_file_facts_inner(
             hash,
             &full_facts,
             &artifact,
+            import_spans.clone(),
         ));
     }
 
     record_analyzed_file(facts, languages, &full_facts);
+    facts
+        .import_spans_by_file
+        .insert(full_facts.path.clone(), import_spans);
     facts.insert_artifact(artifact);
     facts.files.push(full_facts);
 
@@ -427,6 +438,7 @@ fn skipped_result(
         findings: Vec::new(),
         language,
         artifact: None,
+        import_spans: BTreeMap::new(),
         skip_reason,
         skipped_bytes,
     }

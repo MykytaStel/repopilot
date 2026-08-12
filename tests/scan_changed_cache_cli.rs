@@ -73,7 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
-        "tree-sitter-imports-exports-v1"
+        "tree-sitter-imports-exports-spans-v2"
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]

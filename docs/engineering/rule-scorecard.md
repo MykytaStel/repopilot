@@ -19,6 +19,7 @@ Per-rule signal quality derived from the real-repo validation zoo (`tests/zoo/ex
 | `architecture.package-boundary-violation` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.test-leak` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.too-many-modules` | experimental | no zoo evidence | n/a | 0 |
+| `architecture.unresolved-local-import` | preview | no zoo evidence | n/a | 0 |
 | `code-marker.fixme` | experimental | no zoo evidence | n/a | 0 |
 | `code-marker.hack` | experimental | no zoo evidence | n/a | 0 |
 | `code-marker.todo` | experimental | no zoo evidence | n/a | 0 |

@@ -15,12 +15,12 @@ pub(super) fn resolve_ts(
     if raw.starts_with('.') {
         let dir = from_file.parent()?;
         let base = normalize_path(&dir.join(raw));
-        return probe_ts_extensions(&base, known_files);
+        return probe_ts_extensions(&base, raw, known_files);
     }
 
     if raw.starts_with('/') {
         let base = normalize_path(&root.join(raw.trim_start_matches('/')));
-        if let Some(path) = probe_ts_extensions(&base, known_files) {
+        if let Some(path) = probe_ts_extensions(&base, raw, known_files) {
             return Some(path);
         }
     }
@@ -29,16 +29,36 @@ pub(super) fn resolve_ts(
     resolve_ts_alias(raw, &aliases, known_files)
 }
 
-fn probe_ts_extensions(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
+fn probe_ts_extensions(base: &Path, raw: &str, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
+    probe(&ts_candidates(base, raw), known_files)
+}
+
+fn ts_candidates(base: &Path, raw: &str) -> Vec<PathBuf> {
     const EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
     let mut candidates: Vec<PathBuf> = Vec::new();
     for ext in EXTS {
         candidates.push(base.with_extension(ext));
     }
-    for ext in EXTS {
-        candidates.push(base.join(format!("index.{ext}")));
+    if Path::new(raw).extension().is_none() {
+        for ext in EXTS {
+            candidates.push(base.join(format!("index.{ext}")));
+        }
     }
-    probe(&candidates, known_files)
+    candidates
+}
+
+pub(super) fn definitive_relative_candidates(raw: &str, from_file: &Path) -> Option<Vec<PathBuf>> {
+    const SUPPORTED_EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
+    if !raw.starts_with('.')
+        || !Path::new(raw)
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|extension| SUPPORTED_EXTS.contains(&extension))
+    {
+        return None;
+    }
+    let base = normalize_path(&from_file.parent()?.join(raw));
+    Some(ts_candidates(&base, raw))
 }
 
 #[derive(Clone)]
@@ -175,7 +195,7 @@ fn resolve_ts_alias(
     for alias in aliases {
         if alias.prefix.is_empty() {
             let base = normalize_path(&alias.roots[0].join(raw));
-            if let Some(path) = probe_ts_extensions(&base, known_files) {
+            if let Some(path) = probe_ts_extensions(&base, raw, known_files) {
                 return Some(path);
             }
             continue;
@@ -189,13 +209,13 @@ fn resolve_ts_alias(
 
             for root in &alias.roots {
                 let base = normalize_path(&root.join(tail));
-                if let Some(path) = probe_ts_extensions(&base, known_files) {
+                if let Some(path) = probe_ts_extensions(&base, tail, known_files) {
                     return Some(path);
                 }
             }
         } else if raw == alias.prefix {
             for root in &alias.roots {
-                if let Some(path) = probe_ts_extensions(root, known_files) {
+                if let Some(path) = probe_ts_extensions(root, raw, known_files) {
                     return Some(path);
                 }
             }

@@ -72,7 +72,7 @@ fn repository_context_state_patch_removes_deleted_targets() {
         hunks: Vec::new(),
     };
 
-    state.apply_changed_facts(root, &[deleted], &[]);
+    state.apply_changed_facts_with_spans(root, &[deleted], &[], &BTreeMap::new());
 
     let graph = state.coupling_graph();
     assert!(!graph.nodes.contains(Path::new("b.rs")));
@@ -439,6 +439,7 @@ fn node(path: &Path) -> RepoContextNode {
         workspace_package: None,
         non_empty_lines: 1,
         imports: Vec::new(),
+        import_spans: Default::default(),
         deferred_imports: Vec::new(),
         is_test: false,
         is_generated: false,

@@ -6,8 +6,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Add the first v0.22 broken-code detector,
+  `architecture.unresolved-local-import`. It reports only explicit local
+  TypeScript/JavaScript file imports and Python relative modules whose complete,
+  root-confined candidate set is absent. Ambiguous aliases, extensionless
+  imports, workspace packages, Rust module forms, and unsupported semantics stay
+  as bounded informational diagnostics instead of false broken-code claims.
+
 ### Changed
 
+- Preserve import source spans in parsed-facts cache schema v3 and
+  repository-context cache schema v6. Full and warm changed scans now attach the
+  same exact import-line evidence without reading or parsing files a second time.
 - Graph-based scan rules now share one graph-v2 snapshot and an internal
   available/limited/unavailable readiness policy. Absence claims are demoted or
   skipped when unresolved internal imports weaken them, while proven-edge

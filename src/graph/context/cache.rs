@@ -243,6 +243,7 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
                 "workspace_package": &node.workspace_package,
                 "non_empty_lines": node.non_empty_lines,
                 "imports": sorted_strings(&node.imports),
+                "import_spans": &node.import_spans,
                 "deferred_imports": sorted_strings(&node.deferred_imports),
                 "is_test": node.is_test,
                 "is_generated": node.is_generated,

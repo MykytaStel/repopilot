@@ -113,6 +113,28 @@ pub(super) static RULES: &[RuleMetadata] = &[
         ..RuleMetadata::DEFAULT
     },
     RuleMetadata {
+        rule_id: "architecture.unresolved-local-import",
+        title: "Local import target is missing",
+        category: FindingCategory::Architecture,
+        default_severity: Severity::High,
+        default_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Preview,
+        signal_source: SignalSource::ImportGraph,
+
+        requirements: RuleRequirements::repository_graph(RuleLifecycle::Preview),
+        docs_url: Some(
+            "https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture",
+        ),
+        description: "A supported explicit local import does not resolve to any bounded source-file candidate inside the repository.",
+        recommendation: Some(
+            "Restore the imported module, update the import path, or run the project compiler to confirm the intended generated target.",
+        ),
+        false_positive_notes: Some(
+            "Only explicit supported TypeScript/JavaScript file extensions and explicit Python relative modules are reported. Extensionless imports, aliases, workspace packages, Rust module forms, generated targets, and unsupported semantics remain limitations rather than findings.",
+        ),
+        ..RuleMetadata::DEFAULT
+    },
+    RuleMetadata {
         rule_id: "architecture.excessive-fan-out",
         title: "File imports too many project-internal modules",
         category: FindingCategory::Architecture,
