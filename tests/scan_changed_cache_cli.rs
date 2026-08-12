@@ -811,11 +811,21 @@ fn force_context_graph_resolver(path: &Path, resolver_version: &str) {
 
 fn clear_context_graph_deferred_imports(path: &Path) {
     let mut value = read_json(path);
-    value["graph"]["deferred_edges"] = serde_json::json!({});
-    for node in value["graph"]["nodes"]
-        .as_array_mut()
-        .expect("context nodes")
-    {
+    let state = if value.get("state").is_some() {
+        &mut value["state"]
+    } else {
+        &mut value["graph"]
+    };
+    state["coupling"]["deferred_edges"] = serde_json::json!({});
+    if state.get("deferred_edges").is_some() {
+        state["deferred_edges"] = serde_json::json!({});
+    }
+    let files = if state.get("files").is_some() {
+        &mut state["files"]
+    } else {
+        &mut state["nodes"]
+    };
+    for node in files.as_array_mut().expect("context nodes") {
         node["deferred_imports"] = Value::Array(Vec::new());
     }
     write_json(path, &value);

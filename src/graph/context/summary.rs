@@ -37,6 +37,14 @@ pub fn summarize_context_graph(
     }
 }
 
+pub(crate) fn summarize_repository_context_state(
+    state: &RepositoryContextState,
+    findings: &[Finding],
+    changed_files: &[ChangedFile],
+) -> ContextGraphSummary {
+    summarize_context_graph(&state.to_compat(), findings, changed_files)
+}
+
 struct RankedMetrics {
     top_hubs: Vec<ContextGraphFileMetric>,
     top_dependencies: Vec<ContextGraphFileMetric>,

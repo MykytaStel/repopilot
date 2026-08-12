@@ -81,6 +81,30 @@ fn repository_context_state_patch_removes_deleted_targets() {
 }
 
 #[test]
+fn repository_context_state_cache_round_trips_deterministically() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let facts = scan_facts(
+        dir.path(),
+        vec![file_fact("a.ts", &["./b"]), file_fact("b.ts", &[])],
+    );
+    let coupling = build_coupling_graph(&facts, dir.path());
+    let state = RepositoryContextState::from_scan_facts(&facts, dir.path(), coupling);
+
+    write_repository_context_state(dir.path(), "config", &state).expect("first write");
+    let first = fs::read(context_graph_cache_path(dir.path())).expect("first cache");
+    write_repository_context_state(dir.path(), "config", &state).expect("second write");
+    let second = fs::read(context_graph_cache_path(dir.path())).expect("second cache");
+
+    assert_eq!(first, second);
+    assert_eq!(
+        load_repository_context_state(dir.path(), "config")
+            .expect("cache hit")
+            .state,
+        state
+    );
+}
+
+#[test]
 fn summary_caps_cycles_and_marks_truncation() {
     let mut nodes = Vec::new();
     let mut edges = BTreeMap::new();
