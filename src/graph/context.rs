@@ -96,6 +96,7 @@ pub struct RepoContextGraphLoad {
 mod analysis;
 mod cache;
 mod graph_impl;
+mod state;
 mod summary;
 
 use analysis::ContextGraphAnalysis;
@@ -103,6 +104,7 @@ pub use cache::{
     context_graph_cache_miss, context_graph_cache_path, load_repo_context_graph,
     write_repo_context_graph,
 };
+pub(crate) use state::RepositoryContextState;
 pub use summary::summarize_context_graph;
 
 #[cfg(test)]

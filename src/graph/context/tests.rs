@@ -4,6 +4,83 @@ use crate::graph::build_coupling_graph;
 use crate::risk::{RiskAssessment, priority_for_score};
 
 #[test]
+fn repository_context_state_round_trips_the_compatibility_view() {
+    let compat = RepoContextGraph {
+        root_path: PathBuf::from("."),
+        nodes: vec![node(Path::new("a.rs")), node(Path::new("b.rs"))],
+        edges: BTreeMap::from([(
+            PathBuf::from("a.rs"),
+            BTreeSet::from([PathBuf::from("b.rs")]),
+        )]),
+        deferred_edges: BTreeMap::from([(
+            PathBuf::from("a.rs"),
+            BTreeSet::from([PathBuf::from("b.rs")]),
+        )]),
+        detected_frameworks: Vec::new(),
+        framework_projects: Vec::new(),
+        react_native: None,
+    };
+
+    let state = RepositoryContextState::from_compat(compat.clone());
+
+    assert_eq!(state.to_compat(), compat);
+    assert_eq!(state.coupling_graph(), compat.coupling_graph());
+}
+
+#[test]
+fn repository_context_state_sorts_file_records_by_relative_path() {
+    let root = Path::new("/repo");
+    let facts = scan_facts(root, vec![file_fact("b.rs", &[]), file_fact("a.rs", &[])]);
+    let graph = CouplingGraph {
+        nodes: BTreeSet::from([PathBuf::from("b.rs"), PathBuf::from("a.rs")]),
+        ..CouplingGraph::default()
+    };
+
+    let state = RepositoryContextState::from_scan_facts(&facts, root, graph);
+
+    assert_eq!(
+        state
+            .to_compat()
+            .nodes
+            .into_iter()
+            .map(|node| node.path)
+            .collect::<Vec<_>>(),
+        vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")]
+    );
+}
+
+#[test]
+fn repository_context_state_patch_removes_deleted_targets() {
+    let root = Path::new("/repo");
+    let compat = RepoContextGraph {
+        root_path: root.to_path_buf(),
+        nodes: vec![node(Path::new("a.rs")), node(Path::new("b.rs"))],
+        edges: BTreeMap::from([(
+            PathBuf::from("a.rs"),
+            BTreeSet::from([PathBuf::from("b.rs")]),
+        )]),
+        deferred_edges: BTreeMap::new(),
+        detected_frameworks: Vec::new(),
+        framework_projects: Vec::new(),
+        react_native: None,
+    };
+    let mut state = RepositoryContextState::from_compat(compat);
+    let deleted = ChangedFile {
+        path: PathBuf::from("b.rs"),
+        status: ChangeStatus::Deleted,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    };
+
+    state.apply_changed_facts(root, &[deleted], &[]);
+
+    let graph = state.coupling_graph();
+    assert!(!graph.nodes.contains(Path::new("b.rs")));
+    assert!(graph.edges[Path::new("a.rs")].is_empty());
+    assert_eq!(state.to_scan_facts().files.len(), 1);
+}
+
+#[test]
 fn summary_caps_cycles_and_marks_truncation() {
     let mut nodes = Vec::new();
     let mut edges = BTreeMap::new();
