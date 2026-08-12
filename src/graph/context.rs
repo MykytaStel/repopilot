@@ -1,6 +1,6 @@
 use crate::audits::context::{FileRole, classify_file};
 use crate::findings::types::Finding;
-use crate::graph::{CouplingGraph, detect_cycles_bounded, without_rust_module_containment_edges};
+use crate::graph::CouplingGraph;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::risk::RiskPriority;
 use crate::scan::facts::{FileFacts, ScanFacts};

@@ -176,6 +176,10 @@ pub fn clear_cycle_detection_depth_exceeded() {
     CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(false));
 }
 
+pub(crate) fn mark_cycle_detection_depth_exceeded() {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(true));
+}
+
 // ── Cycle detection ───────────────────────────────────────────────────────────
 
 const MAX_DFS_DEPTH: usize = 512;

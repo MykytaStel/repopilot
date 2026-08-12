@@ -1,14 +1,16 @@
 use super::RepoContextGraph;
 use crate::graph::FileMetrics;
 use crate::graph::v2::{
-    GraphCapabilities, GraphDegreeSummary, GraphNodeId, build_coupling_graph_snapshot,
-    compute_degrees, direct_dependents, graph_capabilities,
+    GraphCapabilities, GraphDegreeSummary, GraphNodeId, GraphSnapshot, bounded_cycle_paths,
+    build_coupling_graph_snapshot, compute_degrees, direct_dependents, graph_capabilities,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 pub(super) struct ContextGraphAnalysis {
+    snapshot: GraphSnapshot,
     path_by_id: BTreeMap<GraphNodeId, PathBuf>,
+    excluded_cycle_edges: BTreeSet<(GraphNodeId, GraphNodeId)>,
     degrees: GraphDegreeSummary,
     dependents: BTreeMap<GraphNodeId, BTreeSet<GraphNodeId>>,
     capabilities: GraphCapabilities,
@@ -16,12 +18,16 @@ pub(super) struct ContextGraphAnalysis {
 
 impl ContextGraphAnalysis {
     pub(super) fn from_graph(graph: &RepoContextGraph) -> Self {
-        let (snapshot, path_by_id) = build_coupling_graph_snapshot(&graph.coupling_graph());
+        let coupling = graph.coupling_graph();
+        let excluded_cycle_edges = excluded_cycle_edges(&coupling);
+        let (snapshot, path_by_id) = build_coupling_graph_snapshot(&coupling);
         let degrees = compute_degrees(&snapshot);
         let dependents = direct_dependents(&snapshot);
         let capabilities = graph_capabilities(&snapshot);
         Self {
+            snapshot,
             path_by_id,
+            excluded_cycle_edges,
             degrees,
             dependents,
             capabilities,
@@ -66,6 +72,49 @@ impl ContextGraphAnalysis {
     pub(super) fn capabilities(&self) -> &GraphCapabilities {
         &self.capabilities
     }
+
+    pub(super) fn bounded_cycles(&self, max_cycles: usize) -> BoundedContextCycles {
+        let cycles = bounded_cycle_paths(&self.snapshot, &self.excluded_cycle_edges, max_cycles);
+        BoundedContextCycles {
+            paths: cycles
+                .paths
+                .into_iter()
+                .map(|path| {
+                    path.into_iter()
+                        .filter_map(|id| self.path_by_id.get(&id).cloned())
+                        .collect()
+                })
+                .collect(),
+            truncated: cycles.truncated,
+            depth_exceeded: cycles.depth_exceeded,
+        }
+    }
+}
+
+pub(super) struct BoundedContextCycles {
+    pub(super) paths: Vec<Vec<PathBuf>>,
+    pub(super) truncated: bool,
+    pub(super) depth_exceeded: bool,
+}
+
+fn excluded_cycle_edges(
+    graph: &crate::graph::CouplingGraph,
+) -> BTreeSet<(GraphNodeId, GraphNodeId)> {
+    let filtered = crate::graph::without_rust_module_containment_edges(graph);
+    let node_id = |path: &std::path::Path| GraphNodeId::new(format!("file:{}", path.display()));
+    let mut excluded = BTreeSet::new();
+    for (source, targets) in &graph.edges {
+        let deferred = graph.deferred_edges.get(source);
+        let kept = filtered.edges.get(source);
+        for target in targets {
+            if deferred.is_some_and(|edges| edges.contains(target))
+                || !kept.is_some_and(|edges| edges.contains(target))
+            {
+                excluded.insert((node_id(source), node_id(target)));
+            }
+        }
+    }
+    excluded
 }
 
 #[cfg(test)]
@@ -120,6 +169,26 @@ mod tests {
             second.direct_dependents_by_path()
         );
         assert_eq!(first.capabilities(), second.capabilities());
+    }
+
+    #[test]
+    fn bounded_cycles_exclude_deferred_relationships() {
+        let mut graph = graph_with_edge("a.py", "b.py");
+        graph
+            .edges
+            .entry(PathBuf::from("b.py"))
+            .or_default()
+            .insert(PathBuf::from("a.py"));
+        graph.deferred_edges.insert(
+            PathBuf::from("b.py"),
+            BTreeSet::from([PathBuf::from("a.py")]),
+        );
+
+        let cycles = ContextGraphAnalysis::from_graph(&graph).bounded_cycles(20);
+
+        assert!(cycles.paths.is_empty());
+        assert!(!cycles.truncated);
+        assert!(!cycles.depth_exceeded);
     }
 
     fn metric_keys(analysis: &ContextGraphAnalysis) -> Vec<(PathBuf, usize, usize, u32)> {
