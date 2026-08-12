@@ -38,6 +38,10 @@ updates:
       time: "10:00"
       timezone: Europe/Kiev
     open-pull-requests-limit: 5
+    groups:
+      codeql-actions:
+        patterns:
+          - github/codeql-action/*
     ignore:
       # v5 requires self-hosted Actions Runner 2.327.1 or newer. Keep the
       # public composite action compatible with older supported runners.
