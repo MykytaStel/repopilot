@@ -179,6 +179,22 @@ fingerprints and prefers a fresh scan whenever an input is uncertain.
 Successful scan and review calls always replace `repopilot://last-scan` and
 `repopilot://last-review` with the exact result returned to the client.
 
+In B2.1, `repopilot_review_change` can return the review-only
+`behavioral.removed-export-still-imported` signal. It is High-confidence and
+definitely-sensitive only when a direct named import in a supported local
+`.ts`, `.tsx`, `.js`, or `.jsx` caller has the resolver, using the selected
+review target's file inventory, select a changed module that removed the
+corresponding named export. The signal's `path` is the caller evidence and its
+optional `target_path` is the exporter used for impact lookup. Use the
+existing `repopilot_explain_review_signal` tool with the retained `signal_id`
+to replay its canonical provenance, impact, gate state, verification plan, and
+limitations. This does not add an MCP tool or `scan --changed` parity: path
+aliases, package imports, default/namespace imports, re-exports, CommonJS/dynamic forms,
+and imports whose selected-target resolver selection is not the changed exporter are
+outside the broken-code claim. RepoPilot never
+runs TypeScript, compiler, or build commands; the returned verification plan
+asks the caller to run the repository's declared checks manually.
+
 ## Prompts
 
 - `review-change`: prepare an agent to inspect the current change.

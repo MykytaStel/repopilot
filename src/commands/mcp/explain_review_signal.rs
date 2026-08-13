@@ -43,13 +43,17 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         .get("path")
         .and_then(Value::as_str)
         .unwrap_or_default();
+    let impact_path = signal
+        .get("target_path")
+        .and_then(Value::as_str)
+        .unwrap_or(path);
 
     let result = json!({
         "status": "explained",
         "signal_id": signal_id,
         "signal": signal,
         "why_it_matters": why_it_matters(signal),
-        "impact": impact_for_path(&report, path),
+        "impact": impact_for_path(&report, impact_path),
         "gate": {
             "eligible": signal.get("gate_eligible").and_then(Value::as_bool).unwrap_or(false),
             "suppressed": signal.get("suppressed").and_then(Value::as_bool).unwrap_or(false),
@@ -94,6 +98,11 @@ fn impact_for_path(report: &Value, path: &str) -> Value {
 }
 
 fn why_it_matters(signal: &Value) -> String {
+    if signal.get("kind").and_then(Value::as_str)
+        == Some("behavioral.removed-export-still-imported")
+    {
+        return "removed export is still imported. The caller imports a named symbol that the changed module no longer exports, which can break that import contract. This is static Git-diff evidence; RepoPilot does not execute the compiler or claim full module-resolution parity.".to_string();
+    }
     let family = signal
         .get("family")
         .and_then(Value::as_str)

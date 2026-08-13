@@ -119,6 +119,7 @@ pub fn build_review_report_from_input(
             algorithmic: config.algorithmic.enabled,
             taint: config.taint.enabled,
         },
+        summary.artifacts.coupling_graph.as_ref(),
     );
 
     let baseline_report = match baseline {
@@ -161,11 +162,12 @@ fn classify_findings(
     let boundary_missing_test =
         composites::missing_test_for_code_boundary(&boundary_signals, &changed_files);
 
-    let mut tiered_signals = tiered::build_tiered(
+    let mut tiered_signals = tiered::build_tiered_with_api_contract(
         &boundary_signals,
         &content_signals.behavioral,
         &content_signals.algorithmic,
         &content_signals.taint,
+        &content_signals.api_contract,
         &changed_files,
     );
     tiered::enrich_blast_radius(

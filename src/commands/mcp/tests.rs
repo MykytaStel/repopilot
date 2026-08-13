@@ -109,6 +109,18 @@ fn tools_list_advertises_all_tools_with_schemas() {
         assert!(tool["outputSchema"].is_object());
         assert_eq!(tool["annotations"]["readOnlyHint"], true);
     }
+
+    let review_description = tools
+        .iter()
+        .find(|tool| tool["name"] == "repopilot_review_change")
+        .and_then(|tool| tool["description"].as_str())
+        .expect("review tool description");
+    assert!(
+        review_description.contains(
+            "removed named TypeScript/JavaScript export that a resolved local caller still imports"
+        ),
+        "{review_description}"
+    );
 }
 
 #[test]
@@ -416,30 +428,66 @@ fn scan_paginates_and_handle_is_accepted_by_explain_and_context() {
     );
 }
 
-#[test]
-fn review_signal_tool_explains_the_latest_stored_signal() {
-    let temp = tempfile::tempdir().expect("tempdir");
-    let report = json!({
+fn removed_export_review_report() -> String {
+    json!({
         "tiered_signals": {
             "definitely": [{
                 "signal_id": "signal-1",
+                "kind": "behavioral.removed-export-still-imported",
                 "family": "behavioral",
-                "path": "src/api.rs",
-                "headline": "external call changed",
+                "path": "src/caller.ts",
+                "target_path": "src/api.ts",
+                "headline": "removed export is still imported",
+                "detail": "Removed value export 'loadUser' from src/api.ts remains imported by src/caller.ts.",
                 "gate_eligible": true,
                 "suppressed": false,
-                "verification_plan": { "steps": ["Exercise the changed integration."] }
+                "provenance": {
+                    "detector": "behavioral.removed-export-still-imported",
+                    "signal_source": "ast",
+                    "analysis_scope": "git-diff"
+                },
+                "verification_plan": { "steps": ["Restore the export or update the caller."] }
             }],
             "maybe": [],
             "noise": []
         },
-        "impact_paths": { "files": [{ "path": "src/api.rs" }] }
+        "impact_paths": {
+            "files": [{ "path": "src/api.ts", "direct_dependents": ["src/caller.ts"] }]
+        }
     })
-    .to_string();
+    .to_string()
+}
+
+fn assert_removed_export_explanation(result: &Value) {
+    assert_eq!(result["structuredContent"]["status"], "explained");
+    assert_eq!(result["structuredContent"]["gate"]["eligible"], true);
+    assert_eq!(result["structuredContent"]["impact"]["path"], "src/api.ts");
+    assert_eq!(
+        result["structuredContent"]["impact"]["direct_dependents"][0],
+        "src/caller.ts"
+    );
+    assert_eq!(
+        result["structuredContent"]["why_it_matters"],
+        "removed export is still imported. The caller imports a named symbol that the changed module no longer exports, which can break that import contract. This is static Git-diff evidence; RepoPilot does not execute the compiler or claim full module-resolution parity."
+    );
+    assert_eq!(
+        result["structuredContent"]["signal"]["provenance"]["detector"],
+        "behavioral.removed-export-still-imported"
+    );
+    assert!(
+        result["structuredContent"]["limitations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
+}
+
+#[test]
+fn review_signal_tool_explains_the_latest_stored_signal() {
+    let temp = tempfile::tempdir().expect("tempdir");
     let mut state = ServerState {
         root: temp.path().canonicalize().expect("canonical root"),
         initialized: true,
-        last_review: Some(report),
+        last_review: Some(removed_export_review_report()),
         ..ServerState::default()
     };
 
@@ -453,8 +501,7 @@ fn review_signal_tool_explains_the_latest_stored_signal() {
     );
     let result = response.result.expect("tool result");
     assert_eq!(result["isError"], false, "tool call failed: {result}");
-    assert_eq!(result["structuredContent"]["status"], "explained");
-    assert_eq!(result["structuredContent"]["gate"]["eligible"], true);
+    assert_removed_export_explanation(&result);
 }
 
 #[test]

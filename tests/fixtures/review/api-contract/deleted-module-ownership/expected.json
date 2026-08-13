@@ -1,0 +1,9 @@
+{
+  "description": "A deleted module is owned by deletion review and is not misclassified as a modified export contract.",
+  "label": "expected_true_negative",
+  "delete": ["src/api.ts"],
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}
