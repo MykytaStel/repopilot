@@ -1,0 +1,8 @@
+{
+  "description": "A same-named symbol imported from another resolved module does not belong to the changed exporter.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Namespace-member access is outside the direct named-import contract and remains a static-analysis limitation.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

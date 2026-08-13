@@ -1,0 +1,8 @@
+{
+  "description": "A path alias is not treated as a proven direct relative import without repository alias resolution.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}
