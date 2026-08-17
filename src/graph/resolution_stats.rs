@@ -24,6 +24,10 @@ pub enum UnresolvedImportKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnresolvedImportLimitation {
     AmbiguousTarget,
+    /// A Python `from <package> import name` candidate. `name` may be a
+    /// submodule or a symbol defined in the package, and the two forms are
+    /// indistinguishable from the import text alone.
+    PythonPackageMember,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
