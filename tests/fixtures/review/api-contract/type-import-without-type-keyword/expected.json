@@ -1,0 +1,15 @@
+{
+  "description": "A removed type export stays broken for a caller that imports the name without the `type` keyword.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "behavioral",
+      "kind": "behavioral.removed-export-still-imported",
+      "path": "src/caller.ts",
+      "target_path": "src/api.ts",
+      "headline": "removed export is still imported"
+    }
+  ],
+  "forbid": []
+}

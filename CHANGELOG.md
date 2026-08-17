@@ -22,10 +22,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   Review JSON, console/Markdown output,
   `--fail-on-review definitely`, `repopilot_review_change`, and the existing
   `repopilot_explain_review_signal` replay tool project the same canonical
-  record. Path aliases and package imports, default/namespace imports,
-  re-exports, CommonJS/dynamic forms, file renames, and resolver selections
-  other than the changed exporter are intentionally omitted; `scan --changed`
-  parity is deferred to B2.2.
+  record. A name the post-change module no longer supplies under any symbol
+  kind is matched against every named import form, so a removed type export is
+  still proven broken for a caller that imports it without the `type` keyword.
+  A name that survives under the other kind stays limited to the kind that
+  disappeared. When the post-change module forwards the name through
+  `export { name } from "..."`, or can forward any name through
+  `export * from "..."`, no removal is claimed. Path aliases and package
+  imports, default/namespace imports, re-export sources, CommonJS/dynamic
+  forms, file renames, and resolver selections other than the changed exporter
+  are intentionally omitted; `scan --changed` parity is deferred to B2.2.
   RepoPilot does not run TypeScript, compiler, or build commands—the signal
   supplies a manual verification plan instead.
 - Add the first v0.22 broken-code detector,

@@ -1,0 +1,8 @@
+{
+  "description": "Moving an implementation behind a sourced re-export keeps the named export reachable, so the surviving caller import is not broken.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

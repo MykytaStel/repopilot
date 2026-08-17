@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
 
+mod re_exports;
 mod robustness;
 
 #[test]
@@ -218,8 +219,9 @@ fn unsupported_mjs_or_cjs_exporter_or_importer_is_not_reported() {
     }
 }
 #[test]
-fn removed_exports_require_a_surviving_direct_resolved_value_import() {
-    // Catches graph-only, alias, name-only, or type/value mismatches.
+fn removed_exports_require_a_surviving_direct_resolved_import() {
+    // Catches graph-only, alias, or name-only matches. Symbol-kind handling is
+    // pinned separately in `re_exports`.
     assert_no_removed_export(
         "import { saveUser } from \"./api.ts\";\n",
         &[("src/caller.ts", "src/api.ts")],
@@ -268,30 +270,6 @@ fn removed_exports_require_a_surviving_direct_resolved_value_import() {
             true,
         );
     }
-
-    let temp = TempDir::new().expect("temp dir");
-    let root = temp.path();
-    init_repo(root);
-    write(root, "src/api.ts", "export type User = string;\n");
-    write(
-        root,
-        "src/caller.ts",
-        "import { User } from \"./api.ts\";\n",
-    );
-    let api = changed("src/api.ts", ChangeStatus::Modified);
-    let pre = source("export type User = string;\n");
-    let post = source("export type Other = string;\n");
-    let signals = detect_removed_export_imports(
-        root,
-        DiffTarget::WorkingTree,
-        &[ChangedReviewSources {
-            file: &api,
-            pre: Some(&pre),
-            post: Some(&post),
-        }],
-        Some(&coupling_graph(&[("src/caller.ts", "src/api.ts")])),
-    );
-    assert!(signals.is_empty());
 }
 fn assert_no_removed_export(
     caller_source: &str,

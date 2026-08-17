@@ -21,6 +21,8 @@ pub(super) fn extract_javascript_symbol_facts(
     extract_program(root, source.content(), &mut facts);
     facts.exports.sort();
     facts.exports.dedup();
+    facts.re_exports.sort();
+    facts.re_exports.dedup();
     facts.imports.sort();
     facts.imports.dedup();
     Some(facts)
@@ -38,7 +40,11 @@ fn extract_program(program: Node<'_>, content: &str, facts: &mut JavaScriptSymbo
 }
 
 fn extract_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
-    if node.child_by_field_name("source").is_some() || has_direct_kind(node, "default") {
+    if node.child_by_field_name("source").is_some() {
+        extract_re_export(node, content, facts);
+        return;
+    }
+    if has_direct_kind(node, "default") {
         return;
     }
     let statement_kind = if has_direct_type_modifier(node) {
@@ -60,6 +66,62 @@ fn extract_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFac
                 push_declaration(child, content, SymbolKind::Type, facts)
             }
             _ => {}
+        }
+    }
+}
+
+/// Records what a sourced `export ... from "..."` statement can still supply.
+///
+/// The forwarded symbols live in another module, so their kind is unknown here.
+/// A bare `export * from "..."` can supply any name, which makes every removal
+/// claim about this module unprovable.
+fn extract_re_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
+    let mut cursor = node.walk();
+    let mut forwards_named_symbols = false;
+    for child in node.named_children(&mut cursor) {
+        match child.kind() {
+            "export_clause" => {
+                forwards_named_symbols = true;
+                collect_re_exported_names(child, content, facts);
+            }
+            "namespace_export" => {
+                forwards_named_symbols = true;
+                record_namespace_export(child, content, facts);
+            }
+            _ => {}
+        }
+    }
+    if !forwards_named_symbols {
+        facts.wildcard_re_export = true;
+    }
+}
+
+/// `export * as api from "..."` supplies only the alias it binds.
+fn record_namespace_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
+    match node.named_child(0).and_then(|alias| {
+        alias
+            .utf8_text(content.as_bytes())
+            .ok()
+            .filter(|text| !text.is_empty())
+    }) {
+        Some(alias) => facts.re_exports.push(alias.to_string()),
+        // An unreadable alias is treated as an unbounded forward.
+        None => facts.wildcard_re_export = true,
+    }
+}
+
+fn collect_re_exported_names(clause: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
+    let mut cursor = clause.walk();
+    for specifier in clause.named_children(&mut cursor) {
+        if specifier.kind() != "export_specifier" {
+            continue;
+        }
+        // `export { default as loadUser } from "..."` still supplies `loadUser`,
+        // so only the exported side is checked for the `default` name.
+        let name = semantic_field_text(specifier, "alias", content)
+            .or_else(|| semantic_field_text(specifier, "name", content));
+        if let Some(name) = name.filter(|name| *name != "default") {
+            facts.re_exports.push(name.to_string());
         }
     }
 }
