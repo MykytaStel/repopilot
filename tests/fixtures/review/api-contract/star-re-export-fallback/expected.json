@@ -1,0 +1,8 @@
+{
+  "description": "A star re-export added by the change can still supply the name, so the removed direct export is not proven broken.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}
