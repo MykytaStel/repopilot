@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import zoo_expectations as ze
+import zoo_sample as zsam
 import zoo_scorecard as zs
 import zoo_triage as zt
 from zoo_scanner import (
@@ -447,6 +448,51 @@ def cmd_triage(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sample(args: argparse.Namespace) -> int:
+    if args.limit <= 0:
+        print("--limit must be positive", file=sys.stderr)
+        return 2
+    repos = select(load_manifest(), args.only)
+    try:
+        scanner = prepare_scanner(REPO_ROOT, args.repopilot, args.allow_version_mismatch)
+    except ScannerPreparationError as exc:
+        print(f"SCANNER PREPARATION FAILED\n{exc}", file=sys.stderr)
+        return 2
+    except ScannerProvenanceError as exc:
+        print(f"SCANNER PROVENANCE FAILED\n{exc}", file=sys.stderr)
+        return 3
+
+    print_scanner_provenance(scanner)
+    live_by_repo: dict[str, list[ze.LiveFinding]] = {}
+    labeled_by_repo: dict[str, set[str]] = {}
+    for repo in repos:
+        path = repo_path(repo)
+        if not path.exists():
+            print(f"  {repo['name']}: NOT CLONED (run `zoo.py clone`), skip")
+            continue
+        report = scan_repo(scanner, path, args.profile)
+        live_by_repo[repo["name"]] = ze.parse_live_findings(report, path, args.profile)
+        expectation, _ = ze.parse_expectation_file(expectation_path(repo["name"]), repo["name"])
+        labeled_by_repo[repo["name"]] = (
+            {finding.finding_id for finding in expectation.findings} if expectation else set()
+        )
+
+    sample = zsam.build_sample(args.rule, args.profile, live_by_repo, labeled_by_repo, args.limit)
+    print(f"\n===== sample =====\n\n{zsam.render_frame(sample)}\n")
+    if not sample.selected:
+        return 0
+    # Default-profile entries are exhaustive by contract and carry no evidence
+    # kind; only a strict entry needs to declare that it came from the sampler.
+    evidence_kind = "sample" if args.profile == "strict" else None
+    print(
+        "Paste the skeleton(s) below into the matching "
+        "tests/zoo/expectations/<repo>.toml and label each one.\n"
+    )
+    for candidate in sample.selected:
+        print(zt.render_triage_entry(candidate.repo, candidate.finding, evidence=evidence_kind))
+    return 0
+
+
 def select(repos: list[dict[str, Any]], only: str | None) -> list[dict[str, Any]]:
     if not only:
         return repos
@@ -498,6 +544,26 @@ def main() -> int:
         help="allow --repopilot to use a version that differs from this workspace",
     )
     p_triage.set_defaults(func=cmd_triage)
+
+    p_sample = sub.add_parser(
+        "sample", help="print a deterministic labelable sample of one rule's findings"
+    )
+    p_sample.add_argument("--rule", required=True, help="rule id to sample, e.g. architecture.dead-module")
+    p_sample.add_argument(
+        "--profile",
+        default="strict",
+        choices=("default", "strict"),
+        help="finding visibility profile to sample (default: strict)",
+    )
+    p_sample.add_argument("--limit", type=int, default=20, help="how many findings to select (default: 20)")
+    p_sample.add_argument("--only", help="comma-separated repo names")
+    p_sample.add_argument("--repopilot", help="explicit path to an external repopilot binary")
+    p_sample.add_argument(
+        "--allow-version-mismatch",
+        action="store_true",
+        help="allow --repopilot to use a version that differs from this workspace",
+    )
+    p_sample.set_defaults(func=cmd_sample)
 
     sub.add_parser("report", help="aggregate snapshots into a triage table").set_defaults(func=cmd_report)
 

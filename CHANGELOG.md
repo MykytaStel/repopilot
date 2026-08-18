@@ -46,6 +46,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   the explicit `from <package>.<module> import name` form, which never records
   the parent package, is claimed as a missing module. The rule now carries
   labeled zoo evidence.
+- Measure rules that only fire in the strict profile. `scripts/zoo.py sample
+  --rule <id>` draws a deterministic, evenly spread subset of one rule's zoo
+  findings to label, and the rule scorecard reports that sampled evidence in its
+  own table, separate from the exhaustive default-profile numbers. Strict
+  expectations now declare `evidence = "anchor"` (hand-picked recall pin, the
+  default) or `evidence = "sample"`, and only samples feed a precision estimate,
+  so a pinned known-good finding cannot be read as measurement. The first sample
+  records `architecture.dead-module` at 0.00 across six findings in five
+  repositories: tool configs, build scripts, framework-autoloaded modules,
+  runner-discovered tests, and dynamically imported documentation examples all
+  report zero fan-in without being dead.
 
 ### Changed
 

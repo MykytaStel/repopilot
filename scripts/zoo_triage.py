@@ -14,7 +14,7 @@ from zoo_expectations import SCHEMA_VERSION, LiveFinding
 REVIEW_REQUIRED = "REVIEW_REQUIRED"
 
 
-def triage_skeleton(live: LiveFinding) -> str:
+def triage_skeleton(live: LiveFinding, evidence: str | None = None) -> str:
     lines = [
         "[[finding]]",
         f'profile = "{live.profile}"',
@@ -24,12 +24,16 @@ def triage_skeleton(live: LiveFinding) -> str:
     ]
     if live.line is not None:
         lines.append(f"line = {live.line}")
+    # Only an entry the sampler drew may claim `sample`; a hand-picked strict
+    # anchor keeps the default kind, so aggregates stay free of selection bias.
+    if evidence is not None:
+        lines.append(f'evidence = "{evidence}"')
     lines.append(f'disposition = "{REVIEW_REQUIRED}"  # actionable | valid-but-accepted | false-positive')
     lines.append('reason = ""')
     return "\n".join(lines)
 
 
-def render_triage_entry(repo: str, live: LiveFinding) -> str:
+def render_triage_entry(repo: str, live: LiveFinding, evidence: str | None = None) -> str:
     line = f"{live.line}" if live.line is not None else "?"
     snippet = live.snippet.replace("\n", "\\n")
     if len(snippet) > 160:
@@ -46,7 +50,7 @@ def render_triage_entry(repo: str, live: LiveFinding) -> str:
         f"title:       {live.title}",
         f"evidence:    {snippet}",
     ]
-    return "\n".join(header) + "\n\n" + triage_skeleton(live) + "\n"
+    return "\n".join(header) + "\n\n" + triage_skeleton(live, evidence) + "\n"
 
 
 def skeleton_file_text(repo: str, lives: list[LiveFinding]) -> str:
