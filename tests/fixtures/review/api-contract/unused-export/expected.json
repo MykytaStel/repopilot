@@ -1,0 +1,8 @@
+{
+  "description": "Removing an export that no surviving caller imports is not a stale-import occurrence.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

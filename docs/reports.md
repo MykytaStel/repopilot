@@ -199,6 +199,27 @@ suppression state, and gate eligibility. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.
 
+For `behavioral.removed-export-still-imported`, B2.1 adds the optional
+`target_path` field to the canonical review signal. `path` and its line range
+remain the direct named-import evidence in the surviving caller, while
+`target_path` is the changed exporter whose named export was removed. The
+signal is High-confidence and definitely-sensitive only after RepoPilot's local
+AST and target-matched resolver checks prove the relationship. It is review-only evidence for
+direct named `.ts`, `.tsx`, `.js`, and `.jsx` imports/exports; path aliases,
+package imports, default or namespace forms, re-exports, CommonJS/dynamic forms, and
+imports whose selected-target resolver selection is not the changed exporter are not
+reported as broken code. A changed exporter that still forwards the name through
+`export { name } from "..."`, or that can forward any name through
+`export * from "..."`, is not reported either. Its verification plan
+asks the user to inspect the change and run the repository's declared
+type-check, build, or test command manually—RepoPilot does not execute those
+commands.
+
+This optional field is backward-compatible in serialized review JSON: existing
+signals continue to omit it. It is nevertheless a source compatibility change
+for Rust users that construct the public `ReviewSignal` with a struct literal;
+those literals must now provide `target_path`, normally as `None`.
+
 ## Audit receipt JSON
 
 Use `--receipt` when a CI job, release process, or audit trail needs compact

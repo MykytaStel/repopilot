@@ -9,10 +9,10 @@ mod readiness;
 mod snapshot;
 
 pub use algorithms::{
-    DirectoryDependency, GraphBlastRadius, GraphCycle, GraphDegreeSummary,
+    BoundedCyclePaths, DirectoryDependency, GraphBlastRadius, GraphCycle, GraphDegreeSummary,
     GraphDirectoryDependencies, GraphNeighborhood, GraphV2Summary, NodeDegree, blast_radius,
-    compute_degrees, direct_dependents, directory_dependencies, find_cycles, neighborhood,
-    shortest_cycle, summarize_graph, top_fan_in, top_fan_out,
+    bounded_cycle_paths, compute_degrees, direct_dependents, directory_dependencies, find_cycles,
+    neighborhood, shortest_cycle, summarize_graph, top_fan_in, top_fan_out,
 };
 pub use builder::graph_snapshot_from_scan;
 pub use capabilities::{GraphCapabilities, graph_capabilities};

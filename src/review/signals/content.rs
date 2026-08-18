@@ -84,15 +84,24 @@ pub fn post_change_source(
         return None;
     }
 
+    post_change_source_at_path(repo_root, &file.path, target)
+}
+
+/// Post-change content for a changed or unchanged repository-relative path.
+pub(crate) fn post_change_source_at_path(
+    repo_root: &Path,
+    path: &Path,
+    target: DiffTarget<'_>,
+) -> Option<ReviewSource> {
     let content = match target {
         // Both end at the working tree, so the post-change source is the file on disk.
         DiffTarget::WorkingTree | DiffTarget::SinceRef { .. } => {
-            fs::read_to_string(repo_root.join(&file.path)).ok()?
+            fs::read_to_string(repo_root.join(path)).ok()?
         }
-        DiffTarget::Refs { head, .. } => git_show(repo_root, head, &file.path_string())?,
+        DiffTarget::Refs { head, .. } => git_show(repo_root, head, &path.to_string_lossy())?,
     };
 
-    Some(source_from(content, &file.path))
+    Some(source_from(content, path))
 }
 
 /// The file's content *before* the change.
@@ -216,6 +225,25 @@ mod tests {
     }
 
     #[test]
+    fn working_tree_loads_post_change_source_for_unchanged_caller_path() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        init_repo(root);
+        write(root, "src/api.ts", "export const before = 1;\n");
+        write(
+            root,
+            "src/caller.ts",
+            "import { before } from \"./api.ts\";\n",
+        );
+
+        let caller =
+            post_change_source_at_path(root, Path::new("src/caller.ts"), DiffTarget::WorkingTree)
+                .expect("unchanged caller source");
+
+        assert_eq!(caller.content(), "import { before } from \"./api.ts\";\n");
+    }
+
+    #[test]
     fn ref_range_reads_blobs_at_base_and_head() {
         let temp = TempDir::new().expect("temp dir");
         let root = temp.path();
@@ -236,5 +264,35 @@ mod tests {
         let after = post_change_source(root, &file, target).expect("after");
         assert_eq!(before.content(), "fn v1() {}\n");
         assert_eq!(after.content(), "fn v2() {}\n");
+    }
+
+    #[test]
+    fn ref_head_loads_post_change_source_for_unchanged_caller_path() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        init_repo(root);
+        write(root, "src/api.ts", "export const before = 1;\n");
+        write(
+            root,
+            "src/caller.ts",
+            "import { before } from \"./api.ts\";\n",
+        );
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "v1"]);
+        write(root, "src/api.ts", "export const after = 2;\n");
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "v2"]);
+
+        let caller = post_change_source_at_path(
+            root,
+            Path::new("src/caller.ts"),
+            DiffTarget::Refs {
+                base: "HEAD~1",
+                head: "HEAD",
+            },
+        )
+        .expect("unchanged caller source at ref head");
+
+        assert_eq!(caller.content(), "import { before } from \"./api.ts\";\n");
     }
 }

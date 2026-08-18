@@ -22,6 +22,10 @@ pub struct ScanFacts {
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
     pub artifacts: BTreeMap<PathBuf, ParsedArtifact>,
+    /// 1-indexed source spans keyed first by file path, then import specifier.
+    /// Kept outside `FileFacts` so evidence-only parser metadata does not expand
+    /// the stable per-file facts contract.
+    pub import_spans_by_file: BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
     pub detected_frameworks: Vec<DetectedFramework>,
     pub framework_projects: Vec<FrameworkProject>,
     pub react_native: Option<ReactNativeArchitectureProfile>,

@@ -6,7 +6,8 @@ use crate::frameworks::{
     detect_react_native_architecture,
 };
 use crate::graph::context::{
-    RepoContextGraph, context_graph_cache_miss, load_repo_context_graph, write_repo_context_graph,
+    RepositoryContextState, context_graph_cache_miss, load_repository_context_state,
+    write_repository_context_state,
 };
 use crate::graph::{CouplingGraph, build_coupling_graph};
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
@@ -32,15 +33,20 @@ impl<'a> ChangedScanEngine<'a> {
         let repo_root = &discovery.repo_root;
         let fingerprint = config_fingerprint(self.config);
 
-        if let Some(mut load) = load_repo_context_graph(repo_root, &fingerprint) {
-            load.graph
-                .apply_changed_facts(repo_root, &discovery.changed_files, graph_patch_files);
-            if let Err(error) = write_repo_context_graph(repo_root, &fingerprint, &load.graph) {
+        if let Some(mut load) = load_repository_context_state(repo_root, &fingerprint) {
+            load.state.apply_changed_facts_with_spans(
+                repo_root,
+                &discovery.changed_files,
+                graph_patch_files,
+                &facts.import_spans_by_file,
+            );
+            if let Err(error) = write_repository_context_state(repo_root, &fingerprint, &load.state)
+            {
                 diagnostics.push(cache_diagnostic(&error));
             }
 
-            let repo_context = load.graph.to_scan_facts();
-            let coupling_graph = load.graph.coupling_graph();
+            let repo_context = load.state.to_scan_facts();
+            let coupling_graph = load.state.coupling_graph();
 
             facts.detected_frameworks = repo_context.detected_frameworks.clone();
             facts.framework_projects = repo_context.framework_projects.clone();
@@ -49,7 +55,7 @@ impl<'a> ChangedScanEngine<'a> {
             return Ok(ChangedRepoContextStage {
                 repo_context,
                 coupling_graph,
-                context_graph: load.graph,
+                context_state: load.state,
                 cache_info: load.cache_info,
                 diagnostics,
                 elapsed_us: start.elapsed().as_micros() as u64,
@@ -69,11 +75,14 @@ impl<'a> ChangedScanEngine<'a> {
 
         let coupling_graph =
             relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
-        let context_graph =
-            RepoContextGraph::from_scan_facts(&repo_context, repo_root, coupling_graph.clone());
+        let context_state = RepositoryContextState::from_scan_facts(
+            &repo_context,
+            repo_root,
+            coupling_graph.clone(),
+        );
         let mut cache_info =
             context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
-        match write_repo_context_graph(repo_root, &fingerprint, &context_graph) {
+        match write_repository_context_state(repo_root, &fingerprint, &context_state) {
             Ok(_) => {
                 cache_info.reason.push_str("; cache-updated");
             }
@@ -87,7 +96,7 @@ impl<'a> ChangedScanEngine<'a> {
         Ok(ChangedRepoContextStage {
             repo_context,
             coupling_graph,
-            context_graph,
+            context_state,
             cache_info,
             diagnostics,
             elapsed_us: start.elapsed().as_micros() as u64,

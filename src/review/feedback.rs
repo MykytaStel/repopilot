@@ -122,6 +122,7 @@ mod tests {
             tier: ConfidenceTier::MaybeSensitive,
             confidence: Confidence::Medium,
             path: path.to_string(),
+            target_path: None,
             line: None,
             line_start: None,
             line_end: None,

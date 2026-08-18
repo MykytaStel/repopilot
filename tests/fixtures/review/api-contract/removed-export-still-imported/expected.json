@@ -1,0 +1,16 @@
+{
+  "description": "A named export is removed while a surviving caller still imports that exact symbol from the changed module.",
+  "label": "expected_true_positive",
+  "signal_count": 1,
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "behavioral",
+      "kind": "behavioral.removed-export-still-imported",
+      "path": "src/caller.ts",
+      "target_path": "src/api.ts",
+      "headline": "removed export is still imported"
+    }
+  ],
+  "forbid": []
+}

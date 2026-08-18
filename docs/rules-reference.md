@@ -3,7 +3,7 @@
 <!-- @generated from the rule registry — do not edit by hand. -->
 <!-- Regenerate with `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`. -->
 
-RepoPilot ships 52 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
+RepoPilot ships 53 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
 
 ## Architecture
 
@@ -202,6 +202,25 @@ A production module imports a test or fixture module.
 A directory contains more files than the configured threshold, suggesting it may need to be broken into sub-packages.
 
 **Recommendation:** Group related files into sub-directories. Adjust `max_directory_modules` in repopilot.toml if the current threshold is too strict.
+
+### `architecture.unresolved-local-import` — Local import target is missing
+
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Lifecycle:** preview
+- **Signal source:** import-graph
+- **Execution scope:** repository
+- **Required facts:** imports, exports, file-context, dependency-graph, workspace-metadata
+- **Cache policy:** per-workspace-revision
+- **Produces:** finding
+
+A supported explicit local import does not resolve to any bounded source-file candidate inside the repository.
+
+**Recommendation:** Restore the imported module, update the import path, or run the project compiler to confirm the intended generated target.
+
+**Known false positives:** Only explicit supported TypeScript/JavaScript file extensions and explicit Python relative modules are reported. Extensionless imports, aliases, workspace packages, Rust module forms, generated targets, and unsupported semantics remain limitations rather than findings.
+
+**Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture>
 
 ## Code quality
 

@@ -125,12 +125,21 @@ impl<'a> ChangedScanEngine<'a> {
         );
         let query_findings =
             stamp_findings_analysis_scope(graph_analysis.query_findings, AnalysisScope::Repository);
+        let broken_import_findings = stamp_findings_analysis_scope(
+            graph_analysis.broken_import_findings,
+            AnalysisScope::Repository,
+        );
+        let graph_diagnostics = graph_analysis.diagnostics;
 
         file_stage.findings.extend(project_findings);
         file_stage.findings.extend(framework_findings);
         file_stage.findings.extend(apply_project_decisions(
             &repo_stage.repo_context,
             coupling_findings,
+        ));
+        file_stage.findings.extend(apply_project_decisions(
+            &repo_stage.repo_context,
+            broken_import_findings,
         ));
         file_stage.findings.extend(query_findings);
         let post_scan_audits_us = project_start.elapsed().as_micros() as u64;
@@ -144,7 +153,8 @@ impl<'a> ChangedScanEngine<'a> {
             &file_stage.findings,
             contract_stage.report.violations.len(),
         );
-        let mut diagnostics = contract_stage.diagnostics;
+        let mut diagnostics = graph_diagnostics;
+        diagnostics.extend(contract_stage.diagnostics);
         diagnostics.extend(rule_config_diagnostics(self.config));
         let finding_pipeline = ChangedFindingPipelineStage {
             post_scan_audits_us,

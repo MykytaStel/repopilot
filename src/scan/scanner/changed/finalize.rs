@@ -5,7 +5,7 @@ use super::{
     ChangedRepoContextStage, ChangedScanEngine,
 };
 use crate::findings::quality::SignalQualitySummary;
-use crate::graph::context::summarize_context_graph;
+use crate::graph::context::summarize_repository_context_state;
 use crate::scan::facts::ScanFacts;
 use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
 use std::io;
@@ -23,8 +23,8 @@ impl<'a> ChangedScanEngine<'a> {
         let finalization_start = Instant::now();
 
         summary::sort_findings(&mut file_stage.findings);
-        let context_graph_summary = summarize_context_graph(
-            &repo_stage.context_graph,
+        let context_graph_summary = summarize_repository_context_state(
+            &repo_stage.context_state,
             &file_stage.findings,
             &discovery.changed_files,
         );

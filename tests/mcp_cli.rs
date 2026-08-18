@@ -3,11 +3,11 @@
 //! tool call. The whole exchange runs offline from on-disk files, exercising the
 //! local-first promise (no network, no AI service).
 
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::fs;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 /// Runs `repopilot mcp` over `requests` (one JSON-RPC message each) and returns
 /// the decoded responses in order. Closing stdin ends the server loop.
@@ -43,6 +43,100 @@ fn run_mcp(requests: &[&str], cwd: &Path) -> Vec<Value> {
         .filter(|line| !line.trim().is_empty())
         .map(|line| serde_json::from_str(line).expect("response line is json"))
         .collect()
+}
+
+fn start_mcp(cwd: &Path) -> (Child, ChildStdin, BufReader<ChildStdout>) {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .arg("mcp")
+        .current_dir(cwd)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn `repopilot mcp`");
+    let stdin = child.stdin.take().expect("child stdin");
+    let stdout = BufReader::new(child.stdout.take().expect("child stdout"));
+    (child, stdin, stdout)
+}
+
+fn send_mcp(stdin: &mut ChildStdin, request: &Value) {
+    writeln!(stdin, "{request}").expect("write MCP request");
+    stdin.flush().expect("flush MCP request");
+}
+
+fn receive_mcp(stdout: &mut BufReader<ChildStdout>) -> Value {
+    let mut line = String::new();
+    stdout.read_line(&mut line).expect("read MCP response");
+    assert!(!line.is_empty(), "MCP server closed before responding");
+    serde_json::from_str(&line).expect("MCP response JSON")
+}
+
+fn initialize_mcp(stdin: &mut ChildStdin, stdout: &mut BufReader<ChildStdout>) {
+    send_mcp(
+        stdin,
+        &json!({"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}),
+    );
+    let _initialize = receive_mcp(stdout);
+    send_mcp(
+        stdin,
+        &json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+    );
+}
+
+fn setup_removed_export_change(root: &Path) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "test@example.com"]);
+    git(root, &["config", "user.name", "Test"]);
+    fs::create_dir_all(root.join("src")).expect("src dir");
+    fs::write(root.join("src/api.ts"), "export function loadUser() {}\n").expect("api");
+    fs::write(
+        root.join("src/caller.ts"),
+        "import { loadUser } from \"./api.ts\";\nloadUser();\n",
+    )
+    .expect("caller");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "before"]);
+    fs::write(
+        root.join("src/api.ts"),
+        "export function saveUserAccount() {}\n",
+    )
+    .expect("changed api");
+}
+
+fn removed_export_signal(report: &Value) -> &Value {
+    report["tiered_signals"]["definitely"]
+        .as_array()
+        .expect("definitely signals")
+        .iter()
+        .find(|signal| signal["kind"] == "behavioral.removed-export-still-imported")
+        .expect("removed-export signal")
+}
+
+fn assert_removed_export_explanation(explanation: &Value, signal_id: &str) {
+    assert_eq!(explanation["signal"]["signal_id"], signal_id);
+    assert_eq!(explanation["signal"]["path"], "src/caller.ts");
+    assert_eq!(explanation["signal"]["target_path"], "src/api.ts");
+    assert_eq!(explanation["impact"]["path"], "src/api.ts");
+    assert_eq!(
+        explanation["impact"]["direct_dependents"][0],
+        "src/caller.ts"
+    );
+    assert_eq!(explanation["gate"]["eligible"], true);
+    assert!(
+        explanation["verification_plan"]["steps"]
+            .as_array()
+            .is_some_and(|steps| !steps.is_empty())
+    );
+    assert_eq!(explanation["signal"]["provenance"]["signal_source"], "ast");
+    assert!(
+        explanation["limitations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty())
+    );
+    assert_eq!(
+        explanation["why_it_matters"],
+        "removed export is still imported. The caller imports a named symbol that the changed module no longer exports, which can break that import contract. This is static Git-diff evidence; RepoPilot does not execute the compiler or claim full module-resolution parity."
+    );
 }
 
 #[test]
@@ -153,6 +247,40 @@ fn mcp_review_projects_the_canonical_merge_readiness_record() {
     ));
     assert!(report["merge_readiness"]["impact"].is_object());
     assert!(report["merge_readiness"]["ownership"].is_object());
+}
+
+#[test]
+fn mcp_review_and_explanation_share_the_removed_export_occurrence() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    setup_removed_export_change(root);
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(root);
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"review","method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":".","detail":"full","fail_on_review":"definitely"}}}),
+    );
+    let review = receive_mcp(&mut stdout);
+    let report = &review["result"]["structuredContent"];
+    let signal = removed_export_signal(report);
+    assert_eq!(signal["path"], "src/caller.ts");
+    assert_eq!(signal["target_path"], "src/api.ts");
+    assert_eq!(signal["gate_eligible"], true);
+    assert_eq!(signal["provenance"]["detector"], signal["kind"]);
+    assert_eq!(report["review_gate"]["failed_signals"], 1);
+    let signal_id = signal["signal_id"].as_str().expect("signal id");
+
+    send_mcp(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"explain","method":"tools/call","params":{"name":"repopilot_explain_review_signal","arguments":{"signal_id":signal_id}}}),
+    );
+    let explain = receive_mcp(&mut stdout);
+    let explanation = &explain["result"]["structuredContent"];
+    assert_removed_export_explanation(explanation, signal_id);
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
 }
 
 #[test]

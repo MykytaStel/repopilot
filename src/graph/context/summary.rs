@@ -5,10 +5,14 @@ pub fn summarize_context_graph(
     findings: &[Finding],
     changed_files: &[ChangedFile],
 ) -> ContextGraphSummary {
-    let coupling_graph = graph.coupling_graph();
     let analysis = ContextGraphAnalysis::from_graph(graph);
     let ranked = ranked_metrics(graph, &analysis);
-    let (cycles, cycles_truncated) = bounded_cycles(&coupling_graph);
+    let bounded_cycles = analysis.bounded_cycles(MAX_CONTEXT_GRAPH_CYCLES);
+    if bounded_cycles.depth_exceeded {
+        crate::graph::mark_cycle_detection_depth_exceeded();
+    }
+    let cycles = bounded_cycles.paths;
+    let cycles_truncated = bounded_cycles.truncated;
     let dependents = analysis.direct_dependents_by_path();
     let (changed_blast_radius, blast_radius_truncated) =
         changed_blast_radius(&dependents, changed_files);
@@ -31,6 +35,14 @@ pub fn summarize_context_graph(
         risky_clusters,
         truncated,
     }
+}
+
+pub(crate) fn summarize_repository_context_state(
+    state: &RepositoryContextState,
+    findings: &[Finding],
+    changed_files: &[ChangedFile],
+) -> ContextGraphSummary {
+    summarize_context_graph(&state.to_compat(), findings, changed_files)
 }
 
 struct RankedMetrics {
@@ -81,16 +93,6 @@ fn ranked_metrics(graph: &RepoContextGraph, analysis: &ContextGraphAnalysis) -> 
             .take(MAX_CONTEXT_GRAPH_METRICS)
             .collect(),
     }
-}
-
-fn bounded_cycles(graph: &CouplingGraph) -> (Vec<Vec<PathBuf>>, bool) {
-    // The historical path contract excludes deferred and Rust containment edges;
-    // graph-v2 SCC membership is not an equivalent public representation.
-    let graph = without_rust_module_containment_edges(graph);
-    let mut cycles = detect_cycles_bounded(&graph, MAX_CONTEXT_GRAPH_CYCLES + 1);
-    let truncated = cycles.len() > MAX_CONTEXT_GRAPH_CYCLES;
-    cycles.truncate(MAX_CONTEXT_GRAPH_CYCLES);
-    (cycles, truncated)
 }
 
 fn truncation_labels<const N: usize>(states: [(&str, bool); N]) -> Vec<String> {

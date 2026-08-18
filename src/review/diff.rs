@@ -255,6 +255,54 @@ pub(crate) fn git_show(repo_root: &Path, reference: &str, path: &str) -> Option<
     git_output(repo_root, &["show", spec.as_str()], "git show").ok()
 }
 
+/// Enumerate repository-relative files for the post-change side of `target`.
+///
+/// This is file-name plumbing only: it does not read repository contents. Ref
+/// reviews use the selected head tree, while worktree-backed reviews include
+/// tracked and untracked files that still exist on disk. Callers suppress
+/// resolver-backed claims when Git cannot provide an inventory.
+pub(crate) fn target_file_inventory(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
+) -> Option<std::collections::HashSet<PathBuf>> {
+    let output = match target {
+        DiffTarget::Refs { head, .. } => {
+            validate_git_ref(head).ok()?;
+            git_output(
+                repo_root,
+                &["ls-tree", "-r", "--name-only", "-z", head, "--"],
+                "git ls-tree -r --name-only",
+            )
+            .ok()?
+        }
+        DiffTarget::WorkingTree | DiffTarget::SinceRef { .. } => git_output(
+            repo_root,
+            &[
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "-z",
+                "--",
+            ],
+            "git ls-files --cached --others --exclude-standard",
+        )
+        .ok()?,
+    };
+
+    Some(
+        output
+            .split('\0')
+            .filter(|path| !path.is_empty())
+            .map(PathBuf::from)
+            .filter(|path| !is_repopilot_internal_path(path))
+            .filter(|path| {
+                matches!(target, DiffTarget::Refs { .. }) || repo_root.join(path).is_file()
+            })
+            .collect(),
+    )
+}
+
 pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
     let mut files = Vec::new();
     let mut current: Option<ChangedFile> = None;

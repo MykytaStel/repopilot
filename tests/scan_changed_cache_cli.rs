@@ -73,7 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
-        "tree-sitter-imports-exports-v1"
+        "tree-sitter-imports-exports-spans-v2"
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]
@@ -811,11 +811,21 @@ fn force_context_graph_resolver(path: &Path, resolver_version: &str) {
 
 fn clear_context_graph_deferred_imports(path: &Path) {
     let mut value = read_json(path);
-    value["graph"]["deferred_edges"] = serde_json::json!({});
-    for node in value["graph"]["nodes"]
-        .as_array_mut()
-        .expect("context nodes")
-    {
+    let state = if value.get("state").is_some() {
+        &mut value["state"]
+    } else {
+        &mut value["graph"]
+    };
+    state["coupling"]["deferred_edges"] = serde_json::json!({});
+    if state.get("deferred_edges").is_some() {
+        state["deferred_edges"] = serde_json::json!({});
+    }
+    let files = if state.get("files").is_some() {
+        &mut state["files"]
+    } else {
+        &mut state["nodes"]
+    };
+    for node in files.as_array_mut().expect("context nodes") {
         node["deferred_imports"] = Value::Array(Vec::new());
     }
     write_json(path, &value);

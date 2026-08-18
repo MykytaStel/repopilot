@@ -1,5 +1,6 @@
 use crate::analysis::parse::ParsedFile;
 use crate::languages::imports_for_label;
+use std::collections::BTreeMap;
 
 pub mod lines;
 
@@ -25,6 +26,17 @@ pub(crate) fn extract_imports_from(parsed: &ParsedFile, language: Option<&str>) 
         Some(extractor) => (extractor.eager)(parsed).into_iter().collect(),
         None => Vec::new(),
     }
+}
+
+/// Extracts 1-indexed source spans from the same shared parse view as imports.
+pub(crate) fn extract_import_spans_from(
+    parsed: &ParsedFile,
+    language: Option<&str>,
+) -> BTreeMap<String, (usize, usize)> {
+    language
+        .and_then(imports_for_label)
+        .map(|extractor| (extractor.spans)(parsed))
+        .unwrap_or_default()
 }
 
 /// Imports that are real edges in the coupling graph but must be subtracted by

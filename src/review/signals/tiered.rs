@@ -23,6 +23,7 @@ use crate::review::diff::ChangedFile;
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
+use crate::review::signals::api_contract::{RemovedExportSignal, SymbolKind};
 use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
 use crate::review::signals::composites;
 use crate::review::signals::taint::{SinkKind, TaintSignal};
@@ -82,6 +83,8 @@ pub struct ReviewSignal {
     pub tier: ConfidenceTier,
     pub confidence: Confidence,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_path: Option<String>,
     /// Compatibility alias retained throughout the pre-1.0 schema line.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<usize>,
@@ -138,6 +141,7 @@ impl TieredSignals {
                     .cmp(&right.path)
                     .then(left.line.cmp(&right.line))
                     .then(left.headline.cmp(&right.headline))
+                    .then(left.signal_id.cmp(&right.signal_id))
             });
         }
     }
@@ -173,6 +177,19 @@ pub fn build_tiered(
     behavioral: &[BehavioralSignal],
     algorithmic: &[AlgorithmicSignal],
     taint: &[TaintSignal],
+    changed_files: &[ChangedFile],
+) -> TieredSignals {
+    build_tiered_with_api_contract(boundary, behavioral, algorithmic, taint, &[], changed_files)
+}
+
+/// Fold every review signal family, including API-contract occurrences, into
+/// one canonical tiered view.
+pub(crate) fn build_tiered_with_api_contract(
+    boundary: &[BoundarySignal],
+    behavioral: &[BehavioralSignal],
+    algorithmic: &[AlgorithmicSignal],
+    taint: &[TaintSignal],
+    api_contract: &[RemovedExportSignal],
     changed_files: &[ChangedFile],
 ) -> TieredSignals {
     let mut tiered = TieredSignals::default();
@@ -236,6 +253,9 @@ pub fn build_tiered(
             SignalSource::Ast,
         ));
     }
+    for occurrence in api_contract {
+        tiered.push(from_removed_export(occurrence));
+    }
 
     // Only call out raw volume when nothing else fired — otherwise the flagged
     // signals already point the eye.
@@ -276,10 +296,11 @@ pub fn enrich_blast_radius(
 
     for group in [&mut tiered.definitely, &mut tiered.maybe, &mut tiered.noise] {
         for signal in group.iter_mut() {
-            if signal.blast_radius != 0 || signal.path.is_empty() {
+            let impact_path = signal.target_path.as_deref().unwrap_or(&signal.path);
+            if signal.blast_radius != 0 || impact_path.is_empty() {
                 continue;
             }
-            let normalized = normalized_review_path(Path::new(&signal.path), repo_root);
+            let normalized = normalized_review_path(Path::new(impact_path), repo_root);
             signal.blast_radius = importers.get(&normalized).map_or(0, BTreeSet::len);
         }
     }
@@ -299,6 +320,51 @@ fn from_boundary(signal: &BoundarySignal) -> ReviewSignal {
     );
     review_signal.blast_radius = signal.blast_radius;
     review_signal
+}
+
+fn from_removed_export(occurrence: &RemovedExportSignal) -> ReviewSignal {
+    let kind = "behavioral.removed-export-still-imported";
+    let exporter = occurrence
+        .exporter_path
+        .to_string_lossy()
+        .replace('\\', "/");
+    let importer = occurrence
+        .importer_path
+        .to_string_lossy()
+        .replace('\\', "/");
+    let symbol_kind = match occurrence.symbol_kind {
+        SymbolKind::Value => "value",
+        SymbolKind::Type => "type",
+    };
+    let detail = format!(
+        "Removed {symbol_kind} export '{}' from {exporter} remains imported as local binding '{}' via '{}'.",
+        occurrence.exported_name, occurrence.local_name, occurrence.module_specifier,
+    );
+    let identity = format!(
+        "{kind}\0{exporter}\0{}\0{importer}\0{}\0{}-{}\0{}-{}",
+        occurrence.exported_name,
+        occurrence.module_specifier,
+        occurrence.line_start,
+        occurrence.line_end,
+        occurrence.byte_start,
+        occurrence.byte_end,
+    );
+    let mut signal = build_signal(
+        kind,
+        SignalFamily::Behavioral,
+        ConfidenceTier::DefinitelySensitive,
+        Confidence::High,
+        importer,
+        Some(occurrence.line_start),
+        "removed export is still imported",
+        Some(detail),
+        SignalSource::Ast,
+    );
+    signal.signal_id = stable_hash_hex(identity.as_bytes())[..16].to_string();
+    signal.target_path = Some(exporter);
+    signal.line_end = Some(occurrence.line_end);
+    signal.evidence_lines = (occurrence.line_start..=occurrence.line_end).collect();
+    signal
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -333,6 +399,7 @@ fn build_signal(
         tier,
         confidence,
         path,
+        target_path: None,
         line,
         line_start: line,
         line_end: line,
@@ -414,6 +481,9 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             }
         },
         SignalFamily::Behavioral => match kind {
+            "behavioral.removed-export-still-imported" => {
+                "Inspect the changed exporter and surviving caller import, then restore the export or update the caller before running the repository's type-check, build, or focused tests."
+            }
             "behavioral.network-call-added" => {
                 "Confirm the new network call has the expected timeout, retry, error handling, authorization, and data exposure behavior."
             }
@@ -467,7 +537,12 @@ fn deduplicate(tiered: &mut TieredSignals) {
         .chain(tiered.maybe.drain(..))
         .chain(tiered.noise.drain(..))
     {
-        let key = (signal.kind.clone(), signal.path.clone());
+        let identity = if signal.kind == "behavioral.removed-export-still-imported" {
+            signal.signal_id.clone()
+        } else {
+            signal.path.clone()
+        };
+        let key = (signal.kind.clone(), identity);
         groups
             .entry(key)
             .and_modify(|existing| {

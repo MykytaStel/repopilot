@@ -27,6 +27,7 @@ const SECURITY_RULES_WITH_FIXTURES: &[&str] = &[
 
 const IMPORT_GRAPH_RULES_WITH_FIXTURES: &[&str] = &[
     "architecture.circular-dependency",
+    "architecture.unresolved-local-import",
     "architecture.excessive-fan-out",
     "architecture.high-instability-hub",
     "architecture.dead-module",

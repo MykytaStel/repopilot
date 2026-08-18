@@ -2,8 +2,8 @@ use super::summary::{ScanSummaryParts, build_scan_summary};
 use super::{full::ProjectAnalysisStage, full::ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
-    ContextGraphCacheInfo, ContextGraphSummary, RepoContextGraph, summarize_context_graph,
-    write_repo_context_graph,
+    ContextGraphCacheInfo, ContextGraphSummary, RepositoryContextState,
+    summarize_repository_context_state, write_repository_context_state,
 };
 use crate::scan::cache::config_fingerprint;
 use crate::scan::config::ScanConfig;
@@ -26,7 +26,7 @@ impl<'a> ScanEngine<'a> {
         signal_quality: SignalQualitySummary,
     ) -> ScanSummary {
         let finalization_start = Instant::now();
-        let context_graph = prepare_findings_and_context_graph(&mut project_stage);
+        let context_state = prepare_findings_and_context_state(&mut project_stage);
         let mut diagnostics = diagnostics;
         if crate::graph::was_cycle_detection_depth_exceeded() {
             diagnostics.push(ScanDiagnostic::warning(
@@ -37,7 +37,7 @@ impl<'a> ScanEngine<'a> {
         let context_graph_artifacts = build_context_graph_artifacts(
             &project_stage.facts.root_path,
             self.config,
-            &context_graph,
+            &context_state,
             &project_stage.findings,
             &mut diagnostics,
         );
@@ -56,12 +56,12 @@ impl<'a> ScanEngine<'a> {
     }
 }
 
-fn prepare_findings_and_context_graph(
+fn prepare_findings_and_context_state(
     project_stage: &mut ProjectAnalysisStage,
-) -> RepoContextGraph {
+) -> RepositoryContextState {
     summary::sort_findings(&mut project_stage.findings);
 
-    RepoContextGraph::from_scan_facts(
+    RepositoryContextState::from_scan_facts(
         &project_stage.facts,
         &project_stage.facts.root_path,
         project_stage.coupling_graph.clone(),
@@ -71,13 +71,13 @@ fn prepare_findings_and_context_graph(
 fn build_context_graph_artifacts(
     root_path: &Path,
     config: &ScanConfig,
-    context_graph: &RepoContextGraph,
+    context_state: &RepositoryContextState,
     findings: &[crate::findings::types::Finding],
     diagnostics: &mut Vec<ScanDiagnostic>,
 ) -> ContextGraphArtifacts {
-    let graph_summary = summarize_context_graph(context_graph, findings, &[]);
+    let graph_summary = summarize_repository_context_state(context_state, findings, &[]);
     let fingerprint = config_fingerprint(config);
-    let cache = match write_repo_context_graph(root_path, &fingerprint, context_graph) {
+    let cache = match write_repository_context_state(root_path, &fingerprint, context_state) {
         Ok(cache_info) => Some(cache_info),
         Err(error) => {
             diagnostics.push(cache_diagnostic(&error));
