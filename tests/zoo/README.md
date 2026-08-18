@@ -106,6 +106,12 @@ A strict entry declares *why* it exists through the optional `evidence` field:
 `sample` is strict-only: the default profile is already exhaustive, so a sample
 of it would be a coverage regression rather than new evidence.
 
+The two also fail differently when the finding stops being emitted. A missing
+anchor is `MISSING STRICT RECALL ANCHOR` — a downgraded signal disappeared from
+strict, which is a regression. A missing sample is `RESOLVED STRICT SAMPLE` —
+the sampled finding was fixed, so delete the entry and re-sample the rule to
+measure current behavior.
+
 Sampling is how a rule that never appears in the default profile earns measured
 evidence at all. `zoo.py sample` orders every matching finding by
 `(repo, path, line, id)` and picks `--limit` of them by even stride, so the
