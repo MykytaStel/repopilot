@@ -27,13 +27,3 @@ path = "fastapi/applications.py"
 line = 926
 disposition = "valid-but-accepted"
 reason = "assert in a production path used as an internal precondition; downgraded to Low and retained as a strict recall anchor for the Python assert signal."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:docs_src/query_params_str_validations/tutorial008_an_py310.py:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "docs_src/query_params_str_validations/tutorial008_an_py310.py"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Documentation example imported dynamically by tests/test_tutorial/test_query_params_str_validations/test_tutorial008.py, which names the module in a `pytest.param` string. No static edge exists to find."

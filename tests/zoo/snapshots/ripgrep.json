@@ -20,7 +20,7 @@
   "sha": "82313cf95849bfe425109ad9506a52154879b1b1",
   "strict": {
     "by_rule": {
-      "architecture.dead-module": 5,
+      "architecture.dead-module": 2,
       "architecture.large-file": 33,
       "code-marker.fixme": 4,
       "code-marker.todo": 4,
@@ -30,6 +30,6 @@
       "language.rust.panic-risk": 97,
       "testing.source-without-test": 27
     },
-    "visible_total": 254
+    "visible_total": 251
   }
 }

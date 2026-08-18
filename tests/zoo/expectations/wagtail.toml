@@ -45,23 +45,32 @@ path = "wagtail/project_template/project_name/settings/production.py"
 line = 12
 disposition = "false-positive"
 reason = "Same guarded optional `from .local import *` override as dev.py; the import is wrapped in try/except ImportError."
-
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:wagtail/management/commands/purge_revisions.py:b022a3e6e8b8daf1"
+finding_id = "architecture.dead-module:wagtail/admin/static_src/wagtailadmin/js/vendor/jquery-3.6.0.min.js:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"
-path = "wagtail/management/commands/purge_revisions.py"
+path = "wagtail/admin/static_src/wagtailadmin/js/vendor/jquery-3.6.0.min.js"
 line = 1
 evidence = "sample"
 disposition = "false-positive"
-reason = "Django management command, discovered by convention from `management/commands/` and invoked by name. Commands are entrypoints, so zero fan-in is the expected shape."
+reason = "A vendored, minified third-party bundle under `vendor/`. It is not project source at all, so neither dead-module nor any other maintainability claim applies to it."
 
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:wagtail/users/wagtail_hooks.py:b022a3e6e8b8daf1"
+finding_id = "architecture.dead-module:wagtail/project_template/home/tests.py:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"
-path = "wagtail/users/wagtail_hooks.py"
+path = "wagtail/project_template/home/tests.py"
 line = 1
 evidence = "sample"
 disposition = "false-positive"
-reason = "Autoloaded by convention: wagtail/hooks.py calls `get_app_submodules(\"wagtail_hooks\")`, so every app's wagtail_hooks module is imported dynamically and never appears as a static edge."
+reason = "A test module named `tests.py`, collected by the runner. The test-file classifier recognizes a `tests/` directory and a `tests_` prefix but not the bare `tests.py` file name Django's template generates."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:wagtail/users/views/groups.py:b022a3e6e8b8daf1"
+rule_id = "architecture.dead-module"
+path = "wagtail/users/views/groups.py"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Referenced by dotted string from wagtail/users/apps.py (`group_viewset = \"wagtail.users.views.groups.GroupViewSet\"`), the Django pattern for late-bound references. No static import names the module."

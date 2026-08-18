@@ -17,6 +17,7 @@ use crate::graph::v2::{
 use crate::scan::facts::FileFacts;
 
 mod edge_evidence;
+mod entrypoints;
 mod layers;
 mod packages;
 
@@ -171,6 +172,10 @@ fn dead_module_finding(
         || ctx.is_public_api
         || fan_in.unwrap_or(0) != 0
         || has_inline_tests
+        // A tool config, build script, framework-autoloaded module, routed
+        // file, or documentation example is reached without an import, so its
+        // fan-in is zero in every healthy repository.
+        || entrypoints::reached_without_import(&info.relative).is_some()
     {
         return None;
     }

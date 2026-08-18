@@ -14,3 +14,13 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "A mocha test file under `test/`, discovered by the runner rather than imported. The finding also reports role=Production, so the role classifier missed the test directory."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:test/app.engine.js:5f75afc99cf552b5"
+rule_id = "architecture.dead-module"
+path = "test/app.engine.js"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Another mocha test under the singular `test/` directory classified role=Production. The test-file classifier recognizes `tests/` but not `test/`."

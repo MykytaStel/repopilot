@@ -20,7 +20,7 @@
   "strict": {
     "by_rule": {
       "architecture.circular-dependency": 1,
-      "architecture.dead-module": 27,
+      "architecture.dead-module": 4,
       "architecture.large-file": 4,
       "code-marker.todo": 8,
       "code-quality.complex-file": 2,
@@ -30,6 +30,6 @@
       "language.javascript.runtime-exit-risk": 3,
       "testing.source-without-test": 28
     },
-    "visible_total": 118
+    "visible_total": 95
   }
 }

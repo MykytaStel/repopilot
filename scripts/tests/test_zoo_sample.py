@@ -8,7 +8,8 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-import zoo_sample as zsam  # noqa: E402  (after the sys.path fix above)
+import zoo_expectations as ze  # noqa: E402  (after the sys.path fix above)
+import zoo_sample as zsam  # noqa: E402
 import zoo_triage as zt  # noqa: E402
 from zoo_expectations import LiveFinding  # noqa: E402
 
@@ -140,6 +141,39 @@ class SkeletonEvidenceTest(unittest.TestCase):
     def test_triage_skeletons_stay_unmarked(self):
         skeleton = zt.triage_skeleton(live("architecture.dead-module", "a.py", 3))
         self.assertNotIn("evidence", skeleton)
+
+
+class ResolvedSampleTest(unittest.TestCase):
+    def strict_expectation(self, evidence: str) -> ze.Expectation:
+        return ze.Expectation(
+            repo="repo-a",
+            schema_version=ze.SCHEMA_VERSION,
+            default_coverage="exhaustive",
+            strict_coverage="selective",
+            findings=(
+                ze.ExpectationFinding(
+                    profile="strict",
+                    finding_id="architecture.dead-module:a.py:dead",
+                    rule_id="architecture.dead-module",
+                    path="a.py",
+                    disposition="false-positive",
+                    reason="fixture reason",
+                    evidence=evidence,
+                ),
+            ),
+            source="repo-a.toml",
+        )
+
+    def test_a_fixed_sample_reads_as_resolved_not_as_a_lost_anchor(self):
+        # Catches telling a maintainer their recall anchor vanished when what
+        # actually happened is that the sampled false positive got fixed.
+        diags, _ = ze.match_repo("repo-a", self.strict_expectation("sample"), [], [])
+        self.assertEqual([d.kind for d in diags], [ze.RESOLVED_STRICT_SAMPLE])
+        self.assertIn("delete this entry and re-sample", diags[0].message)
+
+    def test_a_missing_anchor_still_reports_a_recall_regression(self):
+        diags, _ = ze.match_repo("repo-a", self.strict_expectation("anchor"), [], [])
+        self.assertEqual([d.kind for d in diags], [ze.MISSING_STRICT_RECALL_ANCHOR])
 
 
 if __name__ == "__main__":

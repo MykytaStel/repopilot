@@ -55,6 +55,7 @@ DUPLICATE_EXPECTATION = "DUPLICATE EXPECTATION"
 INVALID_EXPECTATION = "INVALID EXPECTATION"
 AMBIGUOUS_EXPECTATION = "AMBIGUOUS EXPECTATION"
 MISSING_STRICT_RECALL_ANCHOR = "MISSING STRICT RECALL ANCHOR"
+RESOLVED_STRICT_SAMPLE = "RESOLVED STRICT SAMPLE"
 MISSING_EXPECTATION_FILE = "MISSING EXPECTATION FILE"
 UNKNOWN_EXPECTATION_FILE = "UNKNOWN EXPECTATION FILE"
 KNOWN_FALSE_POSITIVE = "KNOWN FALSE POSITIVE"
@@ -70,6 +71,7 @@ DIAGNOSTIC_ORDER = (
     MISSING_EXPECTATION_FILE,
     UNKNOWN_EXPECTATION_FILE,
     MISSING_STRICT_RECALL_ANCHOR,
+    RESOLVED_STRICT_SAMPLE,
     KNOWN_FALSE_POSITIVE,
 )
 
@@ -408,8 +410,7 @@ def _match_profile(
     for exp in exps:
         matched = exp_matches[id(exp)]
         if len(matched) == 0:
-            kind = STALE_EXPECTATION if exhaustive else MISSING_STRICT_RECALL_ANCHOR
-            diags.append(Diagnostic(kind, repo, _describe_exp(exp)))
+            diags.append(Diagnostic(*_unmatched(repo, exp, exhaustive)))
         elif len(matched) > 1:
             diags.append(
                 Diagnostic(
@@ -457,6 +458,27 @@ def _count_disposition(
                 f"{exp.profile} {_describe_live(live)} — reviewed false positive: {exp.reason}",
             )
         )
+
+
+def _unmatched(repo: str, exp: ExpectationFinding, exhaustive: bool) -> tuple[str, str, str]:
+    """Classify an expectation whose finding is no longer emitted.
+
+    A recall *anchor* that stops matching is a regression: the downgraded signal
+    it pinned has gone missing from strict. A *sample* that stops matching is the
+    opposite — the sampled finding was fixed, which is the point of measuring it
+    — so it says to delete the entry and re-sample rather than reporting a lost
+    anchor a reader would go hunting for.
+    """
+    if exhaustive:
+        return (STALE_EXPECTATION, repo, _describe_exp(exp))
+    if exp.evidence == "sample":
+        return (
+            RESOLVED_STRICT_SAMPLE,
+            repo,
+            f"sampled finding is no longer emitted — delete this entry and re-sample "
+            f"the rule to measure current behavior: {_describe_exp(exp)}",
+        )
+    return (MISSING_STRICT_RECALL_ANCHOR, repo, _describe_exp(exp))
 
 
 def _describe_exp(exp: ExpectationFinding) -> str:
