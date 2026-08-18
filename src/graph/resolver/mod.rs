@@ -53,8 +53,8 @@ pub fn resolve_import(
         }
         "py" => python::resolve_python(raw_import, from_file, root, known_files),
         "go" => go::resolve_go(raw_import, root, known_files),
-        "java" => jvm::resolve_jvm(raw_import, root, known_files, &["java"]),
-        "kt" | "kts" => jvm::resolve_jvm(raw_import, root, known_files, &["kt", "java"]),
+        "java" => jvm::resolve_jvm(raw_import, known_files, &["java"]),
+        "kt" | "kts" => jvm::resolve_jvm(raw_import, known_files, &["kt", "java"]),
         _ => None,
     }
 }

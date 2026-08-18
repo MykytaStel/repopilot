@@ -60,6 +60,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Resolve Java and Kotlin imports in multi-module builds. A JVM import names a
+  type, not a path, and the resolver used to guess the module prefix from five
+  fixed source roots — which resolves single-module Maven projects and nothing
+  else. It now matches the package path against the tail of each scanned file,
+  so `<module>/src/main/kotlin` and Gradle product-flavor source sets resolve
+  like any other layout, and a member import such as
+  `Detector.Companion.ISSUE` finds its declaring type. Ambiguity is never
+  guessed: a type declared in two production source sets stays unresolved, and
+  a Kotlin top-level declaration in an arbitrarily named file stays unresolved
+  because no path convention can find it. Now in Android drops from 2058 to
+  1666 unresolved internal imports; every graph consumer — cycles, fan-out,
+  coupling, blast radius — reads the larger edge set.
 - `architecture.dead-module` now requires a language whose imports the resolver
   can map to repository files. C#, Swift, PHP, Dart, Scala, and the C family
   reference types through namespaces and headers that never become graph edges,
