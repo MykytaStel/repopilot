@@ -99,6 +99,24 @@ impl ImportResolutionStats {
             .sum()
     }
 
+    /// Unresolved internal imports written by files with this extension.
+    ///
+    /// Resolution quality is per language, not per repository: one project can
+    /// map its TypeScript perfectly while its Kotlin barely resolves, and an
+    /// absence claim about a Kotlin file must be judged on the Kotlin figure.
+    pub fn total_for_extension(&self, extension: &str) -> usize {
+        self.unresolved_internal_by_source
+            .iter()
+            .filter(|(source, _)| {
+                source
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|value| value == extension)
+            })
+            .map(|(_, evidence)| evidence.len())
+            .sum()
+    }
+
     /// True when any unresolved import could plausibly target a file named
     /// `stem`, so "nothing imports it" cannot be claimed for it. Both the last
     /// path segment (`./legacy/Utils.js` → `Utils`) and the last dotted segment

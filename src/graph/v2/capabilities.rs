@@ -8,6 +8,7 @@
 //! and has no command or report consumer yet — it does not add a public surface.
 
 use super::{GraphEdgeConfidence, GraphNodeKind, GraphSnapshot};
+use std::collections::BTreeMap;
 
 /// What dependency facts a snapshot provides. All counts are over dependency
 /// edges only (`Imports`/`ReExports`/`DependsOn`); structural edges such as
@@ -24,6 +25,13 @@ pub struct GraphCapabilities {
     pub external_dependency_edges: usize,
     /// Local imports that looked relative but resolved to nothing (low).
     pub unresolved_local_edges: usize,
+    /// Resolved dependency edges keyed by the importing file's extension.
+    ///
+    /// The graph maps some languages better than others in the same repository:
+    /// a Gradle project's TypeScript tooling can resolve cleanly while its
+    /// Kotlin barely resolves at all. A claim about one file needs to know how
+    /// well *its* language is mapped, not the repository average.
+    pub resolved_dependency_edges_by_extension: BTreeMap<String, usize>,
     /// Bounded diagnostics recorded while building the snapshot.
     pub diagnostics: usize,
 }
@@ -33,6 +41,14 @@ impl GraphCapabilities {
     /// the minimum for cycle, degree, and blast-radius analysis to mean anything.
     pub fn supports_dependency_analysis(&self) -> bool {
         self.resolved_dependency_edges > 0
+    }
+
+    /// Resolved dependency edges written by files with this extension.
+    pub fn resolved_edges_for_extension(&self, extension: &str) -> usize {
+        self.resolved_dependency_edges_by_extension
+            .get(extension)
+            .copied()
+            .unwrap_or(0)
     }
 }
 
@@ -44,11 +60,20 @@ pub fn graph_capabilities(snapshot: &GraphSnapshot) -> GraphCapabilities {
         ..GraphCapabilities::default()
     };
 
+    let mut extension_by_node = BTreeMap::new();
     for node in &snapshot.nodes {
         match node.kind {
             GraphNodeKind::File => capabilities.file_nodes += 1,
             GraphNodeKind::ExternalDependency => capabilities.external_nodes += 1,
             _ => {}
+        }
+        if let Some(extension) = node
+            .path
+            .as_ref()
+            .and_then(|path| path.extension())
+            .and_then(|extension| extension.to_str())
+        {
+            extension_by_node.insert(node.id.clone(), extension.to_string());
         }
     }
 
@@ -57,7 +82,15 @@ pub fn graph_capabilities(snapshot: &GraphSnapshot) -> GraphCapabilities {
             continue;
         }
         match edge.confidence {
-            GraphEdgeConfidence::High => capabilities.resolved_dependency_edges += 1,
+            GraphEdgeConfidence::High => {
+                capabilities.resolved_dependency_edges += 1;
+                if let Some(extension) = extension_by_node.get(&edge.from) {
+                    *capabilities
+                        .resolved_dependency_edges_by_extension
+                        .entry(extension.clone())
+                        .or_insert(0) += 1;
+                }
+            }
             GraphEdgeConfidence::Medium => capabilities.external_dependency_edges += 1,
             GraphEdgeConfidence::Low => capabilities.unresolved_local_edges += 1,
         }
