@@ -20,6 +20,11 @@ pub(crate) fn detect_removed_export_imports(
     let Some(graph) = graph else {
         return Vec::new();
     };
+    if !changed_sources.iter().any(is_supported_modification) {
+        // Nothing can be proven, so the file inventory and the reverse importer
+        // index are not worth building for this review.
+        return Vec::new();
+    }
     let importers = build_importers_by_target(graph, repo_root);
     let Some(known_files) = target_file_inventory(repo_root, target) else {
         return Vec::new();
@@ -56,20 +61,28 @@ fn removed_export_delta(
     sources: &ChangedReviewSources<'_>,
     repo_root: &Path,
     caller_facts: &mut CallerFactCache<'_, '_, '_>,
-) -> Option<(PathBuf, BTreeSet<(String, SymbolKind)>)> {
-    if sources.file.status != ChangeStatus::Modified || !is_supported_path(&sources.file.path) {
+) -> Option<(PathBuf, RemovedExports)> {
+    if !is_supported_modification(sources) {
         return None;
     }
     let pre_facts = extract_javascript_symbol_facts(sources.pre?)?;
     let exporter = normalized_review_path(&sources.file.path, repo_root);
     let post_facts = caller_facts.facts_for(&exporter)?;
-    let removed = removed_symbols(&pre_facts.exports, &post_facts.exports);
+    if post_facts.wildcard_re_export {
+        // A star re-export can still supply every name, so no removal is proven.
+        return None;
+    }
+    let removed = removed_symbols(&pre_facts.exports, &post_facts);
     (!removed.is_empty()).then_some((exporter, removed))
+}
+
+fn is_supported_modification(sources: &ChangedReviewSources<'_>) -> bool {
+    sources.file.status == ChangeStatus::Modified && is_supported_path(&sources.file.path)
 }
 
 fn confirm_callers(
     exporter: &Path,
-    removed: &BTreeSet<(String, SymbolKind)>,
+    removed: &RemovedExports,
     candidates: &BTreeSet<PathBuf>,
     known_files: &HashSet<PathBuf>,
     caller_facts: &mut CallerFactCache<'_, '_, '_>,
@@ -97,12 +110,12 @@ fn confirmed_occurrence(
     import: &ImportedSymbolFact,
     importer: &Path,
     exporter: &Path,
-    removed: &BTreeSet<(String, SymbolKind)>,
+    removed: &RemovedExports,
     repo_root: &Path,
     known_files: &HashSet<PathBuf>,
 ) -> Option<RemovedExportSignal> {
     if !import.module_specifier.starts_with('.')
-        || !removed.contains(&(import.imported_name.clone(), import.kind))
+        || !removed.matches(&import.imported_name, import.kind)
     {
         return None;
     }
@@ -130,18 +143,58 @@ fn confirmed_occurrence(
     })
 }
 
+/// Named exports the change dropped from one module.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct RemovedExports {
+    /// Exact `(name, kind)` pairs the post-change module no longer declares.
+    pairs: BTreeSet<(String, SymbolKind)>,
+    /// Names the post-change module no longer supplies under any kind. Such a
+    /// name breaks every named import of it, however the caller spelled the
+    /// import, so the kind is not part of the match.
+    vanished: BTreeSet<String>,
+}
+
+impl RemovedExports {
+    fn matches(&self, name: &str, kind: SymbolKind) -> bool {
+        self.vanished.contains(name) || self.pairs.contains(&(name.to_string(), kind))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.pairs.is_empty()
+    }
+}
+
 fn removed_symbols(
     pre: &[super::ExportedSymbolFact],
-    post: &[super::ExportedSymbolFact],
-) -> BTreeSet<(String, SymbolKind)> {
-    let after = post
+    post: &JavaScriptSymbolFacts,
+) -> RemovedExports {
+    let after_pairs = post
+        .exports
         .iter()
         .map(|fact| (fact.name.clone(), fact.kind))
         .collect::<BTreeSet<_>>();
-    pre.iter()
+    let after_names = post
+        .exports
+        .iter()
+        .map(|fact| fact.name.as_str())
+        .collect::<HashSet<_>>();
+    let forwarded = post
+        .re_exports
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    let pairs = pre
+        .iter()
         .map(|fact| (fact.name.clone(), fact.kind))
-        .filter(|symbol| !after.contains(symbol))
-        .collect()
+        .filter(|(name, _)| !forwarded.contains(name.as_str()))
+        .filter(|symbol| !after_pairs.contains(symbol))
+        .collect::<BTreeSet<_>>();
+    let vanished = pairs
+        .iter()
+        .map(|(name, _)| name.clone())
+        .filter(|name| !after_names.contains(name.as_str()))
+        .collect();
+    RemovedExports { pairs, vanished }
 }
 
 struct CallerFactCache<'root, 'target, 'source> {

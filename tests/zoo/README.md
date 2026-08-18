@@ -51,6 +51,10 @@ python3 scripts/zoo.py triage --only excalidraw
 
 # 5. Report: per-rule table + reviewed signal-quality summary.
 python3 scripts/zoo.py report
+
+# 6. Sample: measure a rule that only fires in strict, where exhaustive
+#    labeling is impossible. Deterministic, so the same pins give the same picks.
+python3 scripts/zoo.py sample --rule architecture.dead-module --limit 20
 ```
 
 Other helpers: `python3 scripts/zoo.py list` (manifest table),
@@ -87,6 +91,28 @@ share a stable id), plus free-form `issue`, `notes`, `reviewed_by`, `expires`.
   allowed. Anchors pin intentionally downgraded signals (e.g. the public Algolia
   DocSearch key, a test-support panic, a CLI command-handler `process.exit`, a
   Python `assert`) so a downgrade can never silently become a full suppression.
+
+## Anchors vs. samples
+
+A strict entry declares *why* it exists through the optional `evidence` field:
+
+- **`anchor`** (the default) — hand-picked to prove one known finding survives
+  into strict. It is chosen *because* of what it is, so its disposition says
+  nothing about how often the rule is right.
+- **`sample`** — drawn by `zoo.py sample`, which selects by position in a sorted
+  population without looking at the finding. Only these feed the scorecard's
+  strict precision estimate.
+
+`sample` is strict-only: the default profile is already exhaustive, so a sample
+of it would be a coverage regression rather than new evidence.
+
+Sampling is how a rule that never appears in the default profile earns measured
+evidence at all. `zoo.py sample` orders every matching finding by
+`(repo, path, line, id)` and picks `--limit` of them by even stride, so the
+selection spans the whole population, reproduces on any machine, and skips
+entries already labeled — re-running after a labeling pass deepens coverage
+instead of re-offering the same rows. The numbers it produces describe the
+sample, never the rule's full strict population, and the scorecard says so.
 
 ## Common tasks
 

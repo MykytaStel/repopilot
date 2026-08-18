@@ -23,6 +23,12 @@ pub(crate) fn analyze_unresolved_local_imports(
         if is_shadowed_python_submodule(unresolved, context.resolution) {
             continue;
         }
+        if speculation::is_python_package_member(unresolved, source_facts(context, unresolved)) {
+            *limitations
+                .entry(UnresolvedImportLimitation::PythonPackageMember)
+                .or_insert(0usize) += 1;
+            continue;
+        }
         match &unresolved.proof {
             UnresolvedImportProof::DefinitiveLocalCandidates(candidates)
                 if !candidates.iter().any(|candidate| candidate.is_file()) =>
@@ -40,6 +46,16 @@ pub(crate) fn analyze_unresolved_local_imports(
         findings,
         diagnostics: limitation_diagnostics(limitations),
     }
+}
+
+fn source_facts<'a>(
+    context: &'a GraphAuditContext<'_>,
+    unresolved: &crate::graph::UnresolvedImportEvidence,
+) -> Option<&'a FileFacts> {
+    context.facts.files.iter().find(|file| {
+        crate::graph::resolver::normalize_path(&file.path)
+            == crate::graph::resolver::normalize_path(&unresolved.source)
+    })
 }
 
 fn is_shadowed_python_submodule(
@@ -73,10 +89,7 @@ fn missing_import_finding(
     candidates: &[PathBuf],
 ) -> Finding {
     let path = relative_path(&unresolved.source, context.root);
-    let source_facts = context.facts.files.iter().find(|file| {
-        crate::graph::resolver::normalize_path(&file.path)
-            == crate::graph::resolver::normalize_path(&unresolved.source)
-    });
+    let source_facts = source_facts(context, unresolved);
     let stored_spans = context
         .facts
         .import_spans_by_file
@@ -163,6 +176,8 @@ fn relative_path(path: &Path, root: &Path) -> PathBuf {
         .map(Path::to_path_buf)
         .unwrap_or_else(|_| path.to_path_buf())
 }
+
+mod speculation;
 
 #[cfg(test)]
 mod tests;

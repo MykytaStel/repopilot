@@ -5,6 +5,10 @@
 
 Per-rule signal quality derived from the real-repo validation zoo (`tests/zoo/expectations/*.toml`) and each rule's lifecycle (`docs/rules-reference.md`). Precision estimate is `(actionable + valid-but-accepted) / labeled` default-profile zoo findings — a proxy from human-reviewed dispositions, not measured precision. False-positive debt is the count of zoo findings a reviewer explicitly dispositioned `false-positive`; labels never suppress the finding, so debt reflects outstanding calibration work, not detector correctness at large.
 
+## Default-profile evidence
+
+Every default-visible zoo finding is labeled, so these rows are exhaustive for the pinned repositories. `no zoo evidence` means the rule never fired in the default profile on any of them — the rule is unmeasured, which is not the same as clean.
+
 | Rule | Lifecycle | Zoo Evidence | Precision Estimate | False-Positive Debt |
 |---|---|---|---:|---:|
 | `architecture.barrel-file-risk` | experimental | no zoo evidence | n/a | 0 |
@@ -19,7 +23,7 @@ Per-rule signal quality derived from the real-repo validation zoo (`tests/zoo/ex
 | `architecture.package-boundary-violation` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.test-leak` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.too-many-modules` | experimental | no zoo evidence | n/a | 0 |
-| `architecture.unresolved-local-import` | preview | no zoo evidence | n/a | 0 |
+| `architecture.unresolved-local-import` | preview | 2 labeled across 1 repo(s) | 0.00 | 2 |
 | `code-marker.fixme` | experimental | no zoo evidence | n/a | 0 |
 | `code-marker.hack` | experimental | no zoo evidence | n/a | 0 |
 | `code-marker.todo` | experimental | no zoo evidence | n/a | 0 |
@@ -60,3 +64,11 @@ Per-rule signal quality derived from the real-repo validation zoo (`tests/zoo/ex
 | `security.secret-candidate` | preview | 7 labeled across 1 repo(s) | 1.00 | 0 |
 | `testing.missing-test-folder` | experimental | no zoo evidence | n/a | 0 |
 | `testing.source-without-test` | experimental | no zoo evidence | n/a | 0 |
+
+## Strict-profile sampled evidence
+
+Rules that fire only in the strict profile are too numerous to label exhaustively. These rows come from deterministic per-rule samples (`python3 scripts/zoo.py sample --rule <id>`), so the precision estimate describes the sampled findings, not the rule's full strict-profile population. A rule missing from this table has no sampled evidence at all.
+
+| Rule | Lifecycle | Sampled | Precision Estimate | False-Positive Debt |
+|---|---|---|---:|---:|
+| `architecture.dead-module` | experimental | 6 sampled across 5 repo(s) | 0.00 | 6 |

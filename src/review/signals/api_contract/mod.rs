@@ -37,6 +37,11 @@ pub(crate) struct ImportedSymbolFact {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct JavaScriptSymbolFacts {
     pub exports: Vec<ExportedSymbolFact>,
+    /// Names forwarded by a sourced `export ... from "..."`. Their defining
+    /// module is not analyzed, so the symbol kind stays unknown.
+    pub re_exports: Vec<String>,
+    /// `export * from "..."` is present, so any name may still be supplied.
+    pub wildcard_re_export: bool,
     pub imports: Vec<ImportedSymbolFact>,
 }
 

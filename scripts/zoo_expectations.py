@@ -32,8 +32,16 @@ DISPOSITIONS = ("actionable", "valid-but-accepted", "false-positive")
 PROFILES = ("default", "strict")
 COVERAGE = ("exhaustive", "selective")
 
+# Why a strict entry exists. An `anchor` is hand-picked to prove one known
+# finding survives into strict, so its disposition says nothing about the rule's
+# precision. A `sample` is drawn by `zoo.py sample`, which selects without
+# looking at the finding, so those dispositions *can* be aggregated. Default
+# entries are exhaustive and carry the anchor default unused.
+EVIDENCE_KINDS = ("anchor", "sample")
+DEFAULT_EVIDENCE_KIND = "anchor"
+
 # Optional, never-required metadata fields a reviewer may attach to an entry.
-OPTIONAL_FINDING_KEYS = ("line", "line_end", "issue", "notes", "reviewed_by", "expires")
+OPTIONAL_FINDING_KEYS = ("line", "line_end", "issue", "notes", "reviewed_by", "expires", "evidence")
 REQUIRED_FINDING_KEYS = ("profile", "finding_id", "rule_id", "path", "disposition", "reason")
 ALLOWED_FINDING_KEYS = set(REQUIRED_FINDING_KEYS) | set(OPTIONAL_FINDING_KEYS)
 
@@ -88,6 +96,7 @@ class ExpectationFinding:
     notes: str | None = None
     reviewed_by: str | None = None
     expires: str | None = None
+    evidence: str = DEFAULT_EVIDENCE_KIND
     index: int = 0  # 1-based position in file, for diagnostics
 
     def identity(self) -> tuple[str, str, str, str, int | None, int | None]:
@@ -282,6 +291,12 @@ def _parse_finding(
         if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
             return fail(f"has a non-integer {key} {value!r}")
 
+    evidence = raw.get("evidence", DEFAULT_EVIDENCE_KIND)
+    if evidence not in EVIDENCE_KINDS:
+        return fail(f"has unknown evidence {evidence!r} (expected one of {EVIDENCE_KINDS})")
+    if evidence == "sample" and profile != "strict":
+        return fail("marks a default-profile entry as a sample; the default profile is labeled exhaustively")
+
     return (
         ExpectationFinding(
             profile=profile,
@@ -296,6 +311,7 @@ def _parse_finding(
             notes=raw.get("notes"),
             reviewed_by=raw.get("reviewed_by"),
             expires=raw.get("expires"),
+            evidence=evidence,
             index=position,
         ),
         [],

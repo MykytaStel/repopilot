@@ -137,3 +137,78 @@ fn ambiguous_imports_are_aggregated_into_one_info_diagnostic() {
     assert_eq!(result.diagnostics[0].severity, DiagnosticSeverity::Info);
     assert!(result.diagnostics[0].message.contains('2'));
 }
+
+#[test]
+fn python_package_member_import_is_a_limitation_not_a_missing_module() {
+    // Catches claiming `from . import name` is broken code: `name` may be a
+    // function defined in the package's `__init__.py`.
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("pkg")).unwrap();
+    fs::write(
+        root.join("pkg/__init__.py"),
+        "def get_model():\n    return 1\n",
+    )
+    .unwrap();
+    let source = root.join("pkg/app.py");
+    let facts = facts(
+        source.clone(),
+        "Python",
+        "from . import get_model\n\nget_model()\n",
+        &[".", ".get_model"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, ".get_model", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert!(result.findings.is_empty(), "{:#?}", result.findings);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(
+        result.diagnostics[0].code,
+        "analysis.unresolved-local-import-limited"
+    );
+}
+
+#[test]
+fn an_explicit_submodule_import_keeps_its_missing_module_finding() {
+    // Catches widening the package-member guard into every dotted import: only
+    // a candidate whose parent the same file also imports is speculative.
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("pkg/app.py");
+    let facts = facts(
+        source.clone(),
+        "Python",
+        "from .get_model import build\n\nbuild()\n",
+        &[".get_model"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, ".get_model", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+    assert!(result.findings[0].description.contains(".get_model"));
+}
+
+#[test]
+fn the_package_member_guard_is_python_only() {
+    // Catches applying Python package semantics to path-based imports, where
+    // `./a/b` is never derived from `./a`.
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("src/app.ts");
+    let facts = facts(
+        source.clone(),
+        "TypeScript",
+        "import a from \"./lib\";\nimport b from \"./lib/missing.ts\";\n",
+        &["./lib", "./lib/missing.ts"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "./lib/missing.ts", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+}

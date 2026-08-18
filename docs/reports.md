@@ -208,7 +208,9 @@ AST and target-matched resolver checks prove the relationship. It is review-only
 direct named `.ts`, `.tsx`, `.js`, and `.jsx` imports/exports; path aliases,
 package imports, default or namespace forms, re-exports, CommonJS/dynamic forms, and
 imports whose selected-target resolver selection is not the changed exporter are not
-reported as broken code. Its verification plan
+reported as broken code. A changed exporter that still forwards the name through
+`export { name } from "..."`, or that can forward any name through
+`export * from "..."`, is not reported either. Its verification plan
 asks the user to inspect the change and run the repository's declared
 type-check, build, or test command manually—RepoPilot does not execute those
 commands.
