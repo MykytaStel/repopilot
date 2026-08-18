@@ -10,13 +10,3 @@ rule_id = "language.managed.fatal-exception-risk"
 path = "feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt"
 disposition = "actionable"
 reason = "TODO() placeholder on the TopicUiState.Error branch will throw NotImplementedError at runtime if the error state is ever rendered; the rule correctly surfaces an unimplemented production path."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:settings.gradle.kts:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "settings.gradle.kts"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Gradle settings script, executed by the build tool and never imported. The same scan reports 2058 unresolved internal imports in this repository, so absence of an edge proves nothing here."

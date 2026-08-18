@@ -60,6 +60,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `architecture.dead-module` no longer treats a file as dead when nothing
+  imports it *by design*. Executable tool configuration (`eslint.config.mjs`,
+  `.prettierrc.cjs`), build scripts (`settings.gradle.kts`, `gulpfile.js`),
+  framework-autoloaded Python modules (`management/commands/*`, `migrations/*`,
+  `conftest.py`, `wagtail_hooks.py`, Django app plumbing), file-system routes
+  (Next.js and Expo Router reserved names inside `app/`/`pages/`), documentation
+  and example sources, and standalone `scripts/` are all reached without an
+  import, so zero fan-in is their healthy state. Each recognizer names the
+  loader that reads the file, and reserved names apply only inside the directory
+  that reserves them, so an ordinary `page.tsx` or a CQRS `commands/` handler
+  stays eligible. Across the eleven zoo repositories this removes 1103 of 1762
+  strict findings (63%) with no change to any other rule and no change to the
+  default profile, which the rule never reached.
+
 - Preserve import source spans in parsed-facts cache schema v3 and
   repository-context cache schema v6. Full and warm changed scans now attach the
   same exact import-line evidence without reading or parsing files a second time.

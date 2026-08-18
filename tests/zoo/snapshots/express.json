@@ -11,12 +11,12 @@
   "sha": "18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
   "strict": {
     "by_rule": {
-      "architecture.dead-module": 105,
+      "architecture.dead-module": 91,
       "architecture.large-file": 3,
       "code-quality.complex-function": 1,
       "code-quality.long-function": 6,
       "testing.source-without-test": 6
     },
-    "visible_total": 121
+    "visible_total": 107
   }
 }

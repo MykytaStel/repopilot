@@ -18,13 +18,12 @@ rule_id = "architecture.circular-dependency"
 path = "packages/cli/src/commands/publish/npm-utils.ts"
 disposition = "actionable"
 reason = "Real two-node eager import cycle between npm-utils.ts and publishPackages.ts inside the publish command."
-
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:eslint.config.mjs:b022a3e6e8b8daf1"
+finding_id = "architecture.dead-module:packages/apply-release-plan/src/test-utils/failing-functions.ts:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"
-path = "eslint.config.mjs"
+path = "packages/apply-release-plan/src/test-utils/failing-functions.ts"
 line = 1
 evidence = "sample"
 disposition = "false-positive"
-reason = "ESLint flat config, loaded by the `eslint` binary declared in package.json — a tool entrypoint is never imported by project code, so zero fan-in is expected rather than dead."
+reason = "Imported by packages/apply-release-plan/src/index.test.ts through an extensionless specifier the resolver does not map to this file, so the edge exists in source but not in the graph."

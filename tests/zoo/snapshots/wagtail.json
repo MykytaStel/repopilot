@@ -25,7 +25,7 @@
   "strict": {
     "by_rule": {
       "architecture.circular-dependency": 11,
-      "architecture.dead-module": 657,
+      "architecture.dead-module": 255,
       "architecture.deep-directory-nesting": 1019,
       "architecture.deep-relative-imports": 33,
       "architecture.excessive-fan-out": 17,
@@ -47,6 +47,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 668
     },
-    "visible_total": 3042
+    "visible_total": 2640
   }
 }

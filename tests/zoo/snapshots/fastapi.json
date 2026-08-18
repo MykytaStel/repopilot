@@ -19,7 +19,7 @@
   "strict": {
     "by_rule": {
       "architecture.circular-dependency": 2,
-      "architecture.dead-module": 449,
+      "architecture.dead-module": 4,
       "architecture.large-file": 17,
       "architecture.too-many-modules": 3,
       "code-marker.todo": 17,
@@ -31,6 +31,6 @@
       "security.secret-candidate": 2,
       "testing.source-without-test": 36
     },
-    "visible_total": 765
+    "visible_total": 320
   }
 }
