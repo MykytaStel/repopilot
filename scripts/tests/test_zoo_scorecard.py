@@ -157,3 +157,88 @@ class RenderScorecardMarkdownTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def strict_toml(repo: str, entries: list[tuple[str, str, str, str]]) -> str:
+    """Expectation TOML for strict entries: (rule_id, disposition, path, evidence)."""
+    lines = [
+        "schema_version = 1",
+        f'repo = "{repo}"',
+        'default_coverage = "exhaustive"',
+        'strict_coverage = "selective"',
+        "",
+    ]
+    for rule_id, disposition, path, evidence in entries:
+        lines += [
+            "[[finding]]",
+            'profile = "strict"',
+            f'finding_id = "{rule_id}:{path}:deadbeef"',
+            f'rule_id = "{rule_id}"',
+            f'path = "{path}"',
+            f'evidence = "{evidence}"',
+            f'disposition = "{disposition}"',
+            'reason = "fixture reason"',
+            "",
+        ]
+    return "\n".join(lines)
+
+
+class StrictEvidenceKindTests(unittest.TestCase):
+    def test_hand_picked_anchors_are_excluded_from_sampled_precision(self) -> None:
+        # Catches counting recall anchors as measurement: an anchor is chosen
+        # *because* it is a known true positive, so aggregating it would report
+        # selection bias as a precision estimate.
+        with tempfile.TemporaryDirectory() as tmp:
+            expectation_dir = Path(tmp)
+            (expectation_dir / "repo-a.toml").write_text(
+                strict_toml(
+                    "repo-a",
+                    [
+                        ("architecture.dead-module", "actionable", "a.py", "anchor"),
+                        ("architecture.dead-module", "false-positive", "b.py", "sample"),
+                        ("architecture.dead-module", "actionable", "c.py", "sample"),
+                    ],
+                ),
+                encoding="utf-8",
+            )
+            manifest = [{"name": "repo-a"}]
+            sampled = zs.aggregate_rule_scores(manifest, expectation_dir, "strict", evidence="sample")
+            every_strict = zs.aggregate_rule_scores(manifest, expectation_dir, "strict")
+
+        self.assertEqual(sampled["architecture.dead-module"].labeled, 2)
+        self.assertAlmostEqual(sampled["architecture.dead-module"].precision_estimate, 0.5)
+        self.assertEqual(every_strict["architecture.dead-module"].labeled, 3)
+
+    def test_entries_default_to_anchor_when_evidence_is_omitted(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            expectation_dir = Path(tmp)
+            (expectation_dir / "repo-a.toml").write_text(
+                expectation_toml("repo-a", [("strict", "architecture.dead-module", "actionable", "a.py")]),
+                encoding="utf-8",
+            )
+            manifest = [{"name": "repo-a"}]
+            sampled = zs.aggregate_rule_scores(manifest, expectation_dir, "strict", evidence="sample")
+        self.assertEqual(sampled, {}, "an unmarked strict entry is an anchor, not a sample")
+
+
+class StrictSampleSectionTests(unittest.TestCase):
+    def test_section_names_itself_a_sample_and_lists_only_sampled_rules(self) -> None:
+        scores = {
+            "architecture.dead-module": zs.RuleScore(
+                rule_id="architecture.dead-module",
+                labeled=20,
+                actionable=4,
+                valid_but_accepted=1,
+                false_positive=15,
+                repos={"repo-a", "repo-b"},
+            )
+        }
+        markdown = "\n".join(zs.render_strict_sample_section(scores, {"architecture.dead-module": "experimental"}))
+        self.assertIn("20 sampled across 2 repo(s)", markdown)
+        self.assertIn("0.25", markdown)
+        self.assertIn("not the rule's full", markdown)
+
+    def test_empty_section_says_so_instead_of_rendering_an_empty_table(self) -> None:
+        markdown = "\n".join(zs.render_strict_sample_section({}, {}))
+        self.assertIn("No rule has strict-profile sampled evidence yet.", markdown)
+        self.assertNotIn("|---|", markdown)

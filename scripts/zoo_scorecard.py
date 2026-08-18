@@ -66,8 +66,21 @@ def load_rule_lifecycles(rules_reference_path: Path) -> dict[str, str]:
     return lifecycles
 
 
-def aggregate_rule_scores(manifest: list[dict[str, Any]], expectation_dir: Path) -> dict[str, RuleScore]:
-    """Aggregate every committed expectation file's default-profile findings by rule_id."""
+def aggregate_rule_scores(
+    manifest: list[dict[str, Any]],
+    expectation_dir: Path,
+    profile: str = "default",
+    evidence: str | None = None,
+) -> dict[str, RuleScore]:
+    """Aggregate every committed expectation file's findings for one profile.
+
+    The two profiles are never mixed into one number: `default` labels are
+    exhaustive per repo, while `strict` labels cover only what a reviewer chose
+    to record, and averaging the two would present partial coverage as measured
+    coverage. Passing `evidence` narrows a strict aggregate to one kind — only
+    `sample` entries are drawn without looking at the finding, so only they can
+    support a precision estimate.
+    """
     scores: dict[str, RuleScore] = {}
     for repo in manifest:
         name = repo["name"]
@@ -75,7 +88,9 @@ def aggregate_rule_scores(manifest: list[dict[str, Any]], expectation_dir: Path)
         if expectation is None:
             continue
         for finding in expectation.findings:
-            if finding.profile != "default":
+            if finding.profile != profile:
+                continue
+            if evidence is not None and finding.evidence != evidence:
                 continue
             score = scores.setdefault(finding.rule_id, RuleScore(rule_id=finding.rule_id))
             score.labeled += 1
@@ -89,12 +104,56 @@ def aggregate_rule_scores(manifest: list[dict[str, Any]], expectation_dir: Path)
     return scores
 
 
-def render_scorecard_markdown(scores: dict[str, RuleScore], lifecycles: dict[str, str]) -> str:
+def render_strict_sample_section(scores: dict[str, RuleScore], lifecycles: dict[str, str]) -> list[str]:
+    """The strict-profile table: sampled evidence, listed apart from the default one.
+
+    Only rules a maintainer actually sampled appear here. A rule that fires
+    thousands of times in strict is unmeasurable by exhaustive labeling, so a
+    reproducible subset (`zoo.py sample --rule <id>`) is the only evidence it can
+    earn — and it must never be read as coverage of the whole population.
+    """
+    lines = [
+        "",
+        "## Strict-profile sampled evidence",
+        "",
+        "Rules that fire only in the strict profile are too numerous to label "
+        "exhaustively. These rows come from deterministic per-rule samples "
+        "(`python3 scripts/zoo.py sample --rule <id>`), so the precision "
+        "estimate describes the sampled findings, not the rule's full "
+        "strict-profile population. A rule missing from this table has no "
+        "sampled evidence at all.",
+        "",
+    ]
+    sampled = {rule_id: score for rule_id, score in scores.items() if score.labeled > 0}
+    if not sampled:
+        lines.append("No rule has strict-profile sampled evidence yet.")
+        lines.append("")
+        return lines
+    lines.append("| Rule | Lifecycle | Sampled | Precision Estimate | False-Positive Debt |")
+    lines.append("|---|---|---|---:|---:|")
+    for rule_id in sorted(sampled):
+        score = sampled[rule_id]
+        lifecycle = lifecycles.get(rule_id, "unknown")
+        sample = f"{score.labeled} sampled across {len(score.repos)} repo(s)"
+        lines.append(
+            f"| `{rule_id}` | {lifecycle} | {sample} | "
+            f"{score.precision_estimate:.2f} | {score.false_positive} |"
+        )
+    lines.append("")
+    return lines
+
+
+def render_scorecard_markdown(
+    scores: dict[str, RuleScore],
+    lifecycles: dict[str, str],
+    strict_scores: dict[str, RuleScore] | None = None,
+) -> str:
     """Render the deterministic committed rule scorecard.
 
     One row per rule known to either source, so a rule with zero zoo evidence
     still appears (a coverage gap is itself useful signal) and a stale
     expectation referencing a since-renamed rule doesn't silently vanish.
+    `strict_scores` adds the separate sampled-evidence table.
     """
     lines = [
         "# RepoPilot Rule Scorecard",
@@ -111,6 +170,13 @@ def render_scorecard_markdown(scores: dict[str, RuleScore], lifecycles: dict[str
         "suppress the finding, so debt reflects outstanding calibration work, "
         "not detector correctness at large.",
         "",
+        "## Default-profile evidence",
+        "",
+        "Every default-visible zoo finding is labeled, so these rows are "
+        "exhaustive for the pinned repositories. `no zoo evidence` means the "
+        "rule never fired in the default profile on any of them — the rule is "
+        "unmeasured, which is not the same as clean.",
+        "",
         "| Rule | Lifecycle | Zoo Evidence | Precision Estimate | False-Positive Debt |",
         "|---|---|---|---:|---:|",
     ]
@@ -124,12 +190,13 @@ def render_scorecard_markdown(scores: dict[str, RuleScore], lifecycles: dict[str
             precision = f"{score.precision_estimate:.2f}"
             debt = str(score.false_positive)
         lines.append(f"| `{rule_id}` | {lifecycle} | {evidence} | {precision} | {debt} |")
-    lines.append("")
+    lines += render_strict_sample_section(strict_scores or {}, lifecycles)
     return "\n".join(lines)
 
 
 def generate_scorecard(manifest: list[dict[str, Any]], expectation_dir: Path, rules_reference_path: Path) -> str:
     """Convenience wrapper: aggregate + parse lifecycles + render, in one call."""
-    scores = aggregate_rule_scores(manifest, expectation_dir)
+    scores = aggregate_rule_scores(manifest, expectation_dir, "default")
+    strict_scores = aggregate_rule_scores(manifest, expectation_dir, "strict", evidence="sample")
     lifecycles = load_rule_lifecycles(rules_reference_path)
-    return render_scorecard_markdown(scores, lifecycles)
+    return render_scorecard_markdown(scores, lifecycles, strict_scores)

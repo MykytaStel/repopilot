@@ -4,3 +4,13 @@ default_coverage = "exhaustive"
 strict_coverage = "selective"
 
 # express emits no default-visible findings at the pinned SHA.
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:test/app.render.js:5f75afc99cf552b5"
+rule_id = "architecture.dead-module"
+path = "test/app.render.js"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "A mocha test file under `test/`, discovered by the runner rather than imported. The finding also reports role=Production, so the role classifier missed the test directory."
