@@ -124,7 +124,10 @@ mod tests {
             graph_readiness(
                 &capabilities,
                 &resolution,
-                GraphClaim::TargetAbsence("orphan")
+                GraphClaim::TargetAbsence {
+                    stem: "orphan",
+                    extension: None,
+                }
             ),
             GraphReadiness::Unavailable {
                 unresolved_internal: 1,

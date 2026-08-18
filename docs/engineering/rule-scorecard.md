@@ -71,4 +71,4 @@ Rules that fire only in the strict profile are too numerous to label exhaustivel
 
 | Rule | Lifecycle | Sampled | Precision Estimate | False-Positive Debt |
 |---|---|---|---:|---:|
-| `architecture.dead-module` | experimental | 15 sampled across 5 repo(s) | 0.00 | 15 |
+| `architecture.dead-module` | experimental | 13 sampled across 4 repo(s) | 0.00 | 13 |

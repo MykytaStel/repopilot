@@ -224,7 +224,15 @@ fn target_absence_readiness(
         .file_stem()
         .and_then(|stem| stem.to_str())
         .unwrap_or_default();
-    graph_readiness(capabilities, resolution, GraphClaim::TargetAbsence(stem))
+    let extension = info
+        .relative
+        .extension()
+        .and_then(|extension| extension.to_str());
+    graph_readiness(
+        capabilities,
+        resolution,
+        GraphClaim::TargetAbsence { stem, extension },
+    )
 }
 
 /// A production file importing a test or fixture file leaks test-only code into

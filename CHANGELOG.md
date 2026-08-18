@@ -60,6 +60,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Absence-based graph claims are now judged per language rather than per
+  repository. "Nothing imports this file" only carries information when the
+  graph found most of the edges that exist, and resolution quality varies by
+  language inside one repository. When a language's unresolved internal imports
+  outnumber its resolved edges, the graph is not a usable map of it and the
+  claim is withdrawn under the new `graph.language-unmapped` reason code
+  instead of being reported at reduced confidence. Presence claims are never
+  gated: a resolved edge is proof on its own. `architecture.dead-module` drops
+  to zero findings on Now in Android and Spring PetClinic, whose JVM imports
+  largely do not resolve, and is unchanged everywhere else.
 - Resolve Java and Kotlin imports in multi-module builds. A JVM import names a
   type, not a path, and the resolver used to guess the module prefix from five
   fixed source roots — which resolves single-module Maven projects and nothing
