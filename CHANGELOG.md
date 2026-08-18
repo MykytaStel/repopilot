@@ -60,6 +60,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Classify a singular `test/` directory as tests. The classifier recognized
+  `tests/` but not `test/`, `src/test/java`, `src/androidTest`, or a bare
+  `tests.py`, so Node, Maven, Gradle, and Django test trees carried
+  `role=Production` and every rule treated them as shipped code. Each name must
+  match a whole path component, so `src/testing/` and `src/latest/` stay
+  production. Across the zoo this removes 147 `architecture.dead-module` and 131
+  `architecture.deep-directory-nesting` strict findings, and surfaces one more
+  `architecture.test-leak` where a root script imports test settings. No
+  default-profile output changed.
 - Absence-based graph claims are now judged per language rather than per
   repository. "Nothing imports this file" only carries information when the
   graph found most of the edges that exist, and resolution quality varies by

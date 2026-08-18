@@ -57,16 +57,6 @@ reason = "A vendored, minified third-party bundle under `vendor/`. It is not pro
 
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:wagtail/project_template/home/tests.py:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "wagtail/project_template/home/tests.py"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "A test module named `tests.py`, collected by the runner. The test-file classifier recognizes a `tests/` directory and a `tests_` prefix but not the bare `tests.py` file name Django's template generates."
-
-[[finding]]
-profile = "strict"
 finding_id = "architecture.dead-module:wagtail/users/views/groups.py:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"
 path = "wagtail/users/views/groups.py"
@@ -94,13 +84,3 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "A browser asset loaded by a Django template tag: templates/wagtailimages/multiple/add.html has `<script src=\"{% versioned_static 'wagtailimages/js/add-multiple.js' %}\">`. Script-tag references are not imports."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:wagtail/test/utils/wagtail_tests.py:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "wagtail/test/utils/wagtail_tests.py"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Test utilities under a singular `test/` directory, classified role=Production for the same reason as express's `test/` tree."

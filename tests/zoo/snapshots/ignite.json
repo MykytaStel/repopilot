@@ -12,7 +12,7 @@
   "strict": {
     "by_rule": {
       "architecture.barrel-file-risk": 1,
-      "architecture.dead-module": 26,
+      "architecture.dead-module": 23,
       "architecture.large-file": 13,
       "code-marker.todo": 4,
       "code-quality.complex-file": 1,
@@ -23,6 +23,6 @@
       "language.javascript.runtime-exit-risk": 12,
       "testing.source-without-test": 100
     },
-    "visible_total": 193
+    "visible_total": 190
   }
 }
