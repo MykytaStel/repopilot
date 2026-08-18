@@ -59,6 +59,45 @@ fn dead_module_ignores_non_code_files() {
 }
 
 #[test]
+fn dead_module_is_silent_for_languages_the_resolver_cannot_wire_up() {
+    // C#, Swift, PHP, and the C family reference types through namespaces and
+    // headers no resolver maps to a file, so every one of their files has
+    // fan_in=0 even when heavily used. Zero fan-in there means "unmodeled", and
+    // an absence claim built on it is unsound rather than merely noisy.
+    for relative in [
+        "src/Web/Services/CatalogItemViewModelService.cs",
+        "Sources/App/Model.swift",
+        "src/Controller/HomeController.php",
+        "src/engine/renderer.cpp",
+    ] {
+        assert!(
+            dead_module_finding(&prod(relative), Some(0), GraphReadiness::Available).is_none(),
+            "{relative}"
+        );
+    }
+}
+
+#[test]
+fn dead_module_still_covers_every_language_the_resolver_wires_up() {
+    // The false-negative guard for the language gate.
+    for relative in [
+        "src/orphan.ts",
+        "src/orphan.tsx",
+        "src/orphan.js",
+        "pkg/orphan.py",
+        "internal/orphan.go",
+        "src/orphan.rs",
+        "src/main/java/com/example/Orphan.java",
+        "core/src/main/kotlin/com/example/Orphan.kt",
+    ] {
+        assert!(
+            dead_module_finding(&prod(relative), Some(0), GraphReadiness::Available).is_some(),
+            "{relative}"
+        );
+    }
+}
+
+#[test]
 fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
     let readiness = GraphReadiness::Available;
     assert!(

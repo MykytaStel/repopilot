@@ -24,7 +24,7 @@
   "sha": "4da8212117e87d808d4bbc7da6286fd2147ce606",
   "strict": {
     "by_rule": {
-      "architecture.dead-module": 208,
+      "architecture.dead-module": 2,
       "architecture.deep-directory-nesting": 30,
       "architecture.large-file": 1,
       "code-marker.todo": 9,
@@ -33,6 +33,6 @@
       "security.secret-candidate": 7,
       "testing.source-without-test": 2
     },
-    "visible_total": 268
+    "visible_total": 62
   }
 }

@@ -27,3 +27,13 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "Imported by packages/apply-release-plan/src/index.test.ts through an extensionless specifier the resolver does not map to this file, so the edge exists in source but not in the graph."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:packages/assemble-release-plan/src/test-utils.ts:b022a3e6e8b8daf1"
+rule_id = "architecture.dead-module"
+path = "packages/assemble-release-plan/src/test-utils.ts"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Test helper imported by sibling test files through an extensionless specifier the resolver does not map, so the edge exists in source but not in the graph."

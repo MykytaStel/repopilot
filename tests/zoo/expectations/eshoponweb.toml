@@ -69,23 +69,3 @@ path = "src/Web/appsettings.Docker.json"
 line = 4
 disposition = "valid-but-accepted"
 reason = "IdentityConnection string with an embedded demo password for the Docker SQL container (Web)."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:src/BlazorShared/Models/LookupData.cs:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "src/BlazorShared/Models/LookupData.cs"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "C# references types through namespaces, not file paths, so the import graph has no file-to-file edge to count. Zero fan-in here means the language is unmodeled, not that nothing uses the type."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:src/Web/Pages/Basket/BasketItemViewModel.cs:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "src/Web/Pages/Basket/BasketItemViewModel.cs"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Same namespace-versus-path gap as LookupData.cs; the view model is used from Razor pages in the same namespace with no file import anywhere."

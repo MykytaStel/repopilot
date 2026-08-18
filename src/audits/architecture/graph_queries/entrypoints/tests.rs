@@ -84,6 +84,17 @@ fn django_command_loader_needs_both_path_components_in_order() {
 }
 
 #[test]
+fn django_template_tag_libraries_are_loaded_by_name() {
+    // `{% load wagtailusers_tags %}` names the library, not a module path, so
+    // no Python file imports it.
+    assert_eq!(
+        reason("wagtail/users/templatetags/wagtailusers_tags.py"),
+        Some(ReachedWithoutImport::FrameworkAutoload)
+    );
+    assert_eq!(reason("wagtail/users/views/groups.py"), None);
+}
+
+#[test]
 fn file_system_routes_are_only_reserved_inside_a_router_tree() {
     // Catches treating every `page.tsx` as routed: outside `app/` or `pages/`
     // the name carries no framework meaning.
@@ -114,6 +125,57 @@ fn expo_and_next_router_names_are_recognized() {
             Some(ReachedWithoutImport::FileSystemRoute),
             "{path}"
         );
+    }
+}
+
+#[test]
+fn a_python_package_marker_is_never_dead() {
+    // Importing `pkg.sub` executes `pkg/__init__.py` without any edge pointing
+    // at it, so zero fan-in there proves nothing.
+    assert_eq!(
+        reason("wagtail/users/views/__init__.py"),
+        Some(ReachedWithoutImport::PackageMarker)
+    );
+    assert_eq!(reason("wagtail/users/views/groups.py"), None);
+}
+
+#[test]
+fn storybook_stories_are_collected_by_glob() {
+    for path in [
+        "wagtail/admin/templates/shared/status_tag.stories.tsx",
+        "src/components/Button.stories.ts",
+        "src/components/Button.story.jsx",
+    ] {
+        assert_eq!(
+            reason(path),
+            Some(ReachedWithoutImport::FrameworkAutoload),
+            "{path}"
+        );
+    }
+    assert_eq!(reason("src/components/Button.tsx"), None);
+}
+
+#[test]
+fn example_trees_are_recognized_only_near_a_root() {
+    // Catches matching `examples`/`samples` at any depth: those words are
+    // ordinary namespace segments inside a package path, and suppressing there
+    // hides an entire application's source.
+    for path in [
+        "docs_src/tutorial.py",
+        "examples/basic.rs",
+        "packages/core/examples/usage.ts",
+    ] {
+        assert_eq!(
+            reason(path),
+            Some(ReachedWithoutImport::DocumentationExample),
+            "{path}"
+        );
+    }
+    for path in [
+        "src/main/java/org/springframework/samples/petclinic/owner/Owner.java",
+        "src/main/java/com/example/app/Service.java",
+    ] {
+        assert_eq!(reason(path), None, "{path}");
     }
 }
 

@@ -27,9 +27,13 @@ pub(super) enum ReachedWithoutImport {
     ToolConfiguration,
     /// Executed by a build system (`settings.gradle.kts`, `gulpfile.js`).
     BuildScript,
-    /// Discovered by a framework convention (`management/commands/*.py`,
-    /// `wagtail_hooks.py`, `conftest.py`).
+    /// Discovered by a framework or tool convention — a directory scan, a glob,
+    /// or a fixed module name (`management/commands/*.py`, `wagtail_hooks.py`,
+    /// `conftest.py`, `*.stories.tsx`).
     FrameworkAutoload,
+    /// A Python package's `__init__.py`, executed whenever any module inside the
+    /// package is imported, with no edge pointing at it.
+    PackageMarker,
     /// Mapped from its path by a file-system router (Next.js `app/page.tsx`).
     FileSystemRoute,
     /// Example or documentation source, compiled or imported by name from docs
@@ -41,6 +45,9 @@ pub(super) enum ReachedWithoutImport {
 
 pub(super) fn reached_without_import(path: &Path) -> Option<ReachedWithoutImport> {
     let name = file_name(path);
+    if name == "__init__.py" {
+        return Some(ReachedWithoutImport::PackageMarker);
+    }
     if is_documentation_example(path) {
         return Some(ReachedWithoutImport::DocumentationExample);
     }
@@ -89,17 +96,25 @@ fn is_build_script(name: &str) -> bool {
     matches!(script_stem(name).as_deref(), Some("gulpfile" | "gruntfile"))
 }
 
-/// Conventions where a framework imports the module for you, by scanning a
-/// directory or by a fixed module name, so no source file names it.
+/// Conventions where a framework or tool imports the module for you — a
+/// directory scan, a glob, or a fixed module name — so no source file names it.
 fn is_framework_autoload(path: &Path, name: &str) -> bool {
+    // Storybook and its ecosystem collect `*.stories.*` by glob from a
+    // configured directory; nothing in the application imports a story.
+    if let Some(stem) = script_stem(name)
+        && (stem.ends_with(".stories") || stem.ends_with(".story"))
+    {
+        return true;
+    }
     if !name.ends_with(".py") {
         return false;
     }
     // Django loads every module under `<app>/management/commands/` and invokes
-    // it by command name; Django's migration runner does the same for
+    // it by command name; the template engine loads `<app>/templatetags/` by
+    // library name from `{% load %}`; the migration runner does the same for
     // `<app>/migrations/`.
     if has_directory_pair(path, "management", "commands")
-        || path_contains_component(path, &["migrations"])
+        || path_contains_component(path, &["migrations", "templatetags"])
     {
         return true;
     }
@@ -152,13 +167,21 @@ fn is_file_system_route(path: &Path, name: &str) -> bool {
 /// Example and documentation source trees. Their files are compiled by docs
 /// tooling, run as standalone examples, or imported by name from a test
 /// parameter — never through a static import another module makes.
+///
+/// Such a tree sits near the repository or package root. Deeper down, the same
+/// words are ordinary namespace segments — `com/example/...` is the canonical
+/// Java package placeholder and Spring's PetClinic lives under
+/// `org/springframework/samples/petclinic/` — so matching at any depth would
+/// silence a whole application's worth of real source.
+const EXAMPLE_TREE_MAX_DEPTH: usize = 2;
+
 fn is_documentation_example(path: &Path) -> bool {
-    path_contains_component(
-        path,
-        &[
-            "docs_src", "doc_src", "docs-src", "example", "examples", "sample", "samples",
-        ],
-    )
+    const EXAMPLE_DIRECTORIES: &[&str] =
+        &["docs_src", "doc_src", "docs-src", "examples", "samples"];
+    path.to_string_lossy()
+        .split(['/', '\\'])
+        .take(EXAMPLE_TREE_MAX_DEPTH + 1)
+        .any(|component| EXAMPLE_DIRECTORIES.contains(&component.to_lowercase().as_str()))
 }
 
 /// Two path components that must be adjacent, so an unrelated `commands/`

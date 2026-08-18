@@ -24,3 +24,23 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "Another mocha test under the singular `test/` directory classified role=Production. The test-file classifier recognizes `tests/` but not `test/`."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:test/acceptance/route-map.js:5f75afc99cf552b5"
+rule_id = "architecture.dead-module"
+path = "test/acceptance/route-map.js"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Acceptance test under the singular `test/` directory, classified role=Production because the test-file classifier only recognizes `tests/`."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:test/support/tmpl.js:5f75afc99cf552b5"
+rule_id = "architecture.dead-module"
+path = "test/support/tmpl.js"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Test support helper under the singular `test/` directory; same classifier gap as test/acceptance/route-map.js."

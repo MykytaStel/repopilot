@@ -14,6 +14,28 @@ mod ts;
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 
+/// Extensions [`resolve_import`] dispatches on. Every other language extracts
+/// imports but has no way to turn one into a repository path, so its files hold
+/// no outgoing edges at all.
+const FILE_RESOLVED_EXTENSIONS: &[&str] = &[
+    "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "java", "kt", "kts",
+];
+
+/// Whether this file's imports can become graph edges.
+///
+/// A claim built on the *absence* of edges — nothing imports this file, nothing
+/// reaches this code — is only meaningful when edges could have existed. C#,
+/// Swift, PHP, Dart, Scala, and the C family reference types through namespaces
+/// or headers that [`resolve_import`] never maps to a file, so every one of
+/// their files has zero fan-in in a healthy repository. Callers that reason from
+/// absence must consult this first; callers that reason from a present edge do
+/// not need to, because a resolved edge is proof on its own.
+pub fn resolves_file_imports(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| FILE_RESOLVED_EXTENSIONS.contains(&extension))
+}
+
 /// Resolves a raw import string extracted from `from_file` to a concrete path
 /// under `root`. Returns a path only when it exists in `known_files`.
 pub fn resolve_import(
@@ -183,5 +205,55 @@ mod definitive_candidates_tests {
             ),
             None
         );
+    }
+}
+
+#[cfg(test)]
+mod file_resolution_support_tests {
+    use super::*;
+
+    #[test]
+    fn every_declared_extension_reaches_a_language_resolver() {
+        // Catches the predicate drifting from `resolve_import`'s dispatch: an
+        // extension listed here but missing from the match would claim edges
+        // are possible when none can ever be produced.
+        let root = Path::new("/repo");
+        for extension in FILE_RESOLVED_EXTENSIONS {
+            let source = PathBuf::from(format!("/repo/src/app.{extension}"));
+            assert!(resolves_file_imports(&source), "{extension}");
+            // A resolver ran if it probed at all; the empty file set makes every
+            // probe miss, so the observable contract is "did not panic and
+            // returned None" — the dispatch arm exists.
+            assert_eq!(
+                resolve_import("./sibling", &source, root, &HashSet::new()),
+                None,
+                "{extension}"
+            );
+        }
+    }
+
+    #[test]
+    fn namespace_and_header_languages_have_no_file_resolution() {
+        // These are the languages whose zero fan-in means "unmodeled", not
+        // "unreferenced" — the distinction absence-based rules depend on.
+        for extension in ["cs", "swift", "php", "dart", "scala", "cpp", "h", "rb"] {
+            let source = PathBuf::from(format!("/repo/src/app.{extension}"));
+            assert!(!resolves_file_imports(&source), "{extension}");
+            assert_eq!(
+                resolve_import(
+                    "Some.Namespace.Type",
+                    &source,
+                    Path::new("/repo"),
+                    &HashSet::new()
+                ),
+                None,
+                "{extension}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_file_without_an_extension_resolves_nothing() {
+        assert!(!resolves_file_imports(Path::new("/repo/Makefile")));
     }
 }
