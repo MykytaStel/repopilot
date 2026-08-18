@@ -31,6 +31,7 @@ adoption or CI policy.
 
 - [v0.22 repository intelligence design](engineering/v0.22-repository-intelligence-design.md)
 - [v0.22 Phase A1 context graph specification](engineering/v0.22-phase-a1-context-graph-v2.md)
+- [v0.22 Phase A3 graph state convergence specification](engineering/v0.22-phase-a3-graph-state-convergence.md)
 - [Analysis platform state](engineering/analysis-platform-state.md)
 - [Dependency Graph v2 design](engineering/dependency-graph-v2.md)
 - [Signal contract](engineering/signal-contract.md)

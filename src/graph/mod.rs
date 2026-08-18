@@ -9,7 +9,10 @@ mod resolution_stats;
 pub use coupling_metrics::coupling_file_metrics;
 pub(crate) use coupling_metrics::coupling_file_metrics_from_snapshot;
 pub use imports::extract_imports;
-pub use resolution_stats::ImportResolutionStats;
+pub use resolution_stats::{
+    ImportResolutionStats, UnresolvedImportEvidence, UnresolvedImportKind,
+    UnresolvedImportLimitation, UnresolvedImportProof,
+};
 pub use resolver::resolve_import;
 
 use crate::scan::facts::ScanFacts;
@@ -84,7 +87,7 @@ pub fn build_coupling_graph_with_resolution(
                 None => {
                     let raw = raw.trim();
                     if resolution_stats::is_unresolved_internal_import(raw, &repo_dirs) {
-                        resolution.record(&source, raw);
+                        resolution.record_classified(&source, raw, root);
                     }
                 }
             }
@@ -174,6 +177,10 @@ pub fn was_cycle_detection_depth_exceeded() -> bool {
 
 pub fn clear_cycle_detection_depth_exceeded() {
     CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(false));
+}
+
+pub(crate) fn mark_cycle_detection_depth_exceeded() {
+    CYCLE_DETECTION_DEPTH_EXCEEDED.with(|c| c.set(true));
 }
 
 // ── Cycle detection ───────────────────────────────────────────────────────────

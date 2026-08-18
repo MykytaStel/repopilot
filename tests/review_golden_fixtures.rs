@@ -15,13 +15,14 @@
 //!     constraints over the tiered signals, plus an optional `"delete": [..]` of
 //!     repo-relative paths removed from the working tree *after* the overlay (so
 //!     review sees them as deletions). A rename is `delete` of the old path plus
-//!     the new path in `after/`. Every `expect` entry must match at least one
-//!     emitted signal; every `forbid` entry must match none.
+//!     the new path in `after/`. An optional `signal_count` asserts the exact
+//!     number of emitted tiered signals. Every `expect` entry must match at least
+//!     one emitted signal; every `forbid` entry must match none.
 //!
 //! Matching is on stable fields only (`bucket`, `family`, `kind`, `path`,
-//! `headline`) — never timing, ids, or blast radius — so fixtures stay robust
-//! across unrelated output changes. Add a fixture by dropping a directory in;
-//! the harness discovers it, no registration needed.
+//! `target_path`, `headline`) — never timing, ids, or blast radius — so fixtures
+//! stay robust across unrelated output changes. Add a fixture by dropping a
+//! directory in; the harness discovers it, no registration needed.
 
 use serde_json::Value;
 use std::fs;
@@ -95,6 +96,15 @@ fn run_fixture(scenario: &Path) {
         .unwrap_or_else(|err| panic!("[{name}] review did not emit JSON: {err}"));
 
     let signals = flatten_signals(&json);
+
+    if let Some(expected_count) = expected["signal_count"].as_u64() {
+        assert_eq!(
+            signals.len() as u64,
+            expected_count,
+            "[{name}] expected exactly {expected_count} signal(s)\nobserved:\n{}",
+            describe(&signals)
+        );
+    }
 
     for constraint in expected["expect"].as_array().into_iter().flatten() {
         assert!(

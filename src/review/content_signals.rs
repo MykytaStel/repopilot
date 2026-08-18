@@ -1,4 +1,5 @@
 use crate::review::signals::algorithmic::AlgorithmicSignal;
+use crate::review::signals::api_contract::RemovedExportSignal;
 use crate::review::signals::behavioral::BehavioralSignal;
 use crate::review::signals::taint::TaintSignal;
 
@@ -7,10 +8,12 @@ use crate::review::signals::taint::TaintSignal;
 /// Produced by [`super::signal_pass::detect_review_signals`], which runs the
 /// behavioral, algorithmic, and taint-lite detectors alongside boundary
 /// detection in one shared pass over each changed file.
+#[derive(Default)]
 pub(super) struct ContentSignals {
     pub behavioral: Vec<BehavioralSignal>,
     pub algorithmic: Vec<AlgorithmicSignal>,
     pub taint: Vec<TaintSignal>,
+    pub api_contract: Vec<RemovedExportSignal>,
 }
 
 /// Which content-based detectors to run; each maps to a config toggle.

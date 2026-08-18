@@ -2,20 +2,44 @@ use super::*;
 use sha2::{Digest, Sha256};
 use std::process::Command;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+struct CachedRepositoryContextState {
+    schema_version: u32,
+    repopilot_version: String,
+    config_fingerprint: String,
+    resolver_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    repository_fingerprint: Option<RepositoryFingerprint>,
+    input_fingerprint: String,
+    relationship_fingerprint: String,
+    state: RepositoryContextState,
+}
+
 pub fn load_repo_context_graph(
     root: &Path,
     config_fingerprint: &str,
 ) -> Option<RepoContextGraphLoad> {
+    let load = load_repository_context_state(root, config_fingerprint)?;
+    Some(RepoContextGraphLoad {
+        graph: load.state.to_compat(),
+        cache_info: load.cache_info,
+    })
+}
+
+pub(crate) fn load_repository_context_state(
+    root: &Path,
+    config_fingerprint: &str,
+) -> Option<RepositoryContextStateLoad> {
     let cache_path = context_graph_cache_path(root);
-    let cached = read_cached_repo_context_graph(&cache_path)?;
-    if !valid_cached_graph(&cached, root, config_fingerprint) {
+    let cached = read_cached_repository_context_state(&cache_path)?;
+    if !valid_cached_state(&cached, root, config_fingerprint) {
         return None;
     }
 
     // This cache stores graph/context metadata only. Changed scans must still
     // analyze changed file contents and patch this graph before scoring.
-    Some(RepoContextGraphLoad {
-        graph: cached.graph,
+    Some(RepositoryContextStateLoad {
+        state: cached.state,
         cache_info: ContextGraphCacheInfo {
             status: "hit".to_string(),
             reason: "valid-context-graph-cache".to_string(),
@@ -29,21 +53,33 @@ pub fn write_repo_context_graph(
     config_fingerprint: &str,
     graph: &RepoContextGraph,
 ) -> io::Result<ContextGraphCacheInfo> {
+    write_repository_context_state(
+        root,
+        config_fingerprint,
+        &RepositoryContextState::from_compat(graph.clone()),
+    )
+}
+
+pub(crate) fn write_repository_context_state(
+    root: &Path,
+    config_fingerprint: &str,
+    state: &RepositoryContextState,
+) -> io::Result<ContextGraphCacheInfo> {
     let cache_path = context_graph_cache_path(root);
     if let Some(parent) = cache_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let (input_fingerprint, graph_fingerprint) = context_graph_fingerprints(graph);
+    let (input_fingerprint, relationship_fingerprint) = state_fingerprints(state);
     let repository_fingerprint = repository_fingerprint(root);
 
-    if let Some(cached) = read_cached_repo_context_graph(&cache_path)
-        && valid_cached_graph_metadata_for_repository(
+    if let Some(cached) = read_cached_repository_context_state(&cache_path)
+        && valid_cached_state_metadata_for_repository(
             &cached,
             config_fingerprint,
             &repository_fingerprint,
         )
         && cached.input_fingerprint == input_fingerprint
-        && cached.graph_fingerprint == graph_fingerprint
+        && cached.relationship_fingerprint == relationship_fingerprint
     {
         return Ok(ContextGraphCacheInfo {
             status: "hit".to_string(),
@@ -52,15 +88,15 @@ pub fn write_repo_context_graph(
         });
     }
 
-    let cached = CachedRepoContextGraph {
+    let cached = CachedRepositoryContextState {
         schema_version: CONTEXT_GRAPH_SCHEMA_VERSION,
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
         config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
         repository_fingerprint,
         input_fingerprint,
-        graph_fingerprint,
-        graph: graph.clone(),
+        relationship_fingerprint,
+        state: state.clone(),
     };
     let rendered = serde_json::to_vec(&cached).map_err(io::Error::other)?;
     fs::write(&cache_path, rendered)?;
@@ -80,30 +116,31 @@ pub fn context_graph_cache_miss(root: &Path, reason: &str) -> ContextGraphCacheI
     }
 }
 
-fn valid_cached_graph(
-    cached: &CachedRepoContextGraph,
+fn valid_cached_state(
+    cached: &CachedRepositoryContextState,
     root: &Path,
     config_fingerprint: &str,
 ) -> bool {
-    if !valid_cached_graph_metadata(cached, root, config_fingerprint) {
+    if !valid_cached_state_metadata(cached, root, config_fingerprint) {
         return false;
     }
 
-    let (input_fingerprint, graph_fingerprint) = context_graph_fingerprints(&cached.graph);
-    cached.input_fingerprint == input_fingerprint && cached.graph_fingerprint == graph_fingerprint
+    let (input_fingerprint, relationship_fingerprint) = state_fingerprints(&cached.state);
+    cached.input_fingerprint == input_fingerprint
+        && cached.relationship_fingerprint == relationship_fingerprint
 }
 
-fn valid_cached_graph_metadata(
-    cached: &CachedRepoContextGraph,
+fn valid_cached_state_metadata(
+    cached: &CachedRepositoryContextState,
     root: &Path,
     config_fingerprint: &str,
 ) -> bool {
     let repository_fingerprint = repository_fingerprint(root);
-    valid_cached_graph_metadata_for_repository(cached, config_fingerprint, &repository_fingerprint)
+    valid_cached_state_metadata_for_repository(cached, config_fingerprint, &repository_fingerprint)
 }
 
-fn valid_cached_graph_metadata_for_repository(
-    cached: &CachedRepoContextGraph,
+fn valid_cached_state_metadata_for_repository(
+    cached: &CachedRepositoryContextState,
     config_fingerprint: &str,
     repository_fingerprint: &Option<RepositoryFingerprint>,
 ) -> bool {
@@ -156,9 +193,13 @@ fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {
     )
 }
 
-fn read_cached_repo_context_graph(path: &Path) -> Option<CachedRepoContextGraph> {
+fn state_fingerprints(state: &RepositoryContextState) -> (String, String) {
+    context_graph_fingerprints(&state.to_compat())
+}
+
+fn read_cached_repository_context_state(path: &Path) -> Option<CachedRepositoryContextState> {
     let content = fs::read_to_string(path).ok()?;
-    serde_json::from_str::<CachedRepoContextGraph>(&content).ok()
+    serde_json::from_str::<CachedRepositoryContextState>(&content).ok()
 }
 
 fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
@@ -202,6 +243,7 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
                 "workspace_package": &node.workspace_package,
                 "non_empty_lines": node.non_empty_lines,
                 "imports": sorted_strings(&node.imports),
+                "import_spans": &node.import_spans,
                 "deferred_imports": sorted_strings(&node.deferred_imports),
                 "is_test": node.is_test,
                 "is_generated": node.is_generated,

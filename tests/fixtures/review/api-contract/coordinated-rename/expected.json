@@ -1,0 +1,8 @@
+{
+  "description": "The exporter and caller rename the same symbol together, so no stale named import remains.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

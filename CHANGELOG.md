@@ -6,8 +6,52 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **Review-first removed-export evidence.** `repopilot review` now emits the
+  High-confidence, definitely-sensitive
+  `behavioral.removed-export-still-imported` signal when a direct named import
+  in a local TypeScript/JavaScript caller still references a named export
+  removed from a changed `.ts`, `.tsx`, `.js`, or `.jsx` module and the resolver,
+  using the selected review target's file inventory, selects that module. The
+  signal keeps caller import evidence in `path` and adds optional exporter
+  `target_path` for impact lookup. JSON remains compatible because existing
+  signals omit this optional field. Rust consumers that construct the public
+  `ReviewSignal` with struct literals must add `target_path` (normally `None`),
+  so the additive Rust field is source-incompatible even though JSON is not.
+  Review JSON, console/Markdown output,
+  `--fail-on-review definitely`, `repopilot_review_change`, and the existing
+  `repopilot_explain_review_signal` replay tool project the same canonical
+  record. A name the post-change module no longer supplies under any symbol
+  kind is matched against every named import form, so a removed type export is
+  still proven broken for a caller that imports it without the `type` keyword.
+  A name that survives under the other kind stays limited to the kind that
+  disappeared. When the post-change module forwards the name through
+  `export { name } from "..."`, or can forward any name through
+  `export * from "..."`, no removal is claimed. Path aliases and package
+  imports, default/namespace imports, re-export sources, CommonJS/dynamic
+  forms, file renames, and resolver selections other than the changed exporter
+  are intentionally omitted; `scan --changed` parity is deferred to B2.2.
+  RepoPilot does not run TypeScript, compiler, or build commands—the signal
+  supplies a manual verification plan instead.
+- Add the first v0.22 broken-code detector,
+  `architecture.unresolved-local-import`. It reports only explicit local
+  TypeScript/JavaScript file imports and Python relative modules whose complete,
+  root-confined candidate set is absent. Ambiguous aliases, extensionless
+  imports, workspace packages, Rust module forms, and unsupported semantics stay
+  as bounded informational diagnostics instead of false broken-code claims.
+  A Python `from <package> import name` candidate is one of those bounded
+  limitations: `name` may be a submodule or a member defined in the package's
+  `__init__.py`, and the two are indistinguishable from the import alone. Only
+  the explicit `from <package>.<module> import name` form, which never records
+  the parent package, is claimed as a missing module. The rule now carries
+  labeled zoo evidence.
+
 ### Changed
 
+- Preserve import source spans in parsed-facts cache schema v3 and
+  repository-context cache schema v6. Full and warm changed scans now attach the
+  same exact import-line evidence without reading or parsing files a second time.
 - Graph-based scan rules now share one graph-v2 snapshot and an internal
   available/limited/unavailable readiness policy. Absence claims are demoted or
   skipped when unresolved internal imports weaken them, while proven-edge
@@ -16,6 +60,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Reuse one internal graph-v2 context analysis for AI-context degree metrics,
   direct dependents, and capability state, preserving the existing bounded
   context summary, JSON, MCP, and readiness contracts.
+- Persist minimal repository context state under cache schema v5 and derive
+  bounded context cycles through graph v2. Full and changed scans now share the
+  same state-to-analysis path; upgrades rebuild the internal cache once without
+  changing public reports or warm changed-scan behavior.
 
 ## [0.21.0] - 2026-08-06
 

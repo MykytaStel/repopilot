@@ -1,0 +1,8 @@
+{
+  "description": "Sourced re-exports are not claimed as locally owned named exports by this first static contract slice.",
+  "label": "expected_true_negative",
+  "expect": [],
+  "forbid": [
+    { "kind": "behavioral.removed-export-still-imported" }
+  ]
+}

@@ -99,6 +99,11 @@ pub(super) fn analyze_discovered_files(
         if let Some(artifact) = per_file.artifact {
             facts.insert_artifact(artifact);
         }
+        if !per_file.import_spans.is_empty() {
+            facts
+                .import_spans_by_file
+                .insert(per_file.file_facts.path.clone(), per_file.import_spans);
+        }
         facts.files.push(per_file.file_facts);
         findings.extend(per_file.findings);
     }

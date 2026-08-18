@@ -1,9 +1,13 @@
 use super::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
+use super::api_contract::{RemovedExportSignal, SymbolKind};
 use super::behavioral::{BehavioralKind, BehavioralSignal, BehavioralSignalSource};
 use super::taint::{SinkKind, SourceKind, TaintSignal};
-use super::tiered::{ConfidenceTier, build_tiered};
+use super::tiered::{ConfidenceTier, SignalFamily, build_tiered, build_tiered_with_api_contract};
 use super::{BoundaryCategory, BoundarySignal};
+use crate::findings::types::Confidence;
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
+use crate::scan::types::CouplingGraph;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn boundary(category: BoundaryCategory, path: &str) -> BoundarySignal {
@@ -41,6 +45,28 @@ fn taint(sink: SinkKind, path: &str) -> TaintSignal {
         path: path.to_string(),
         line: 1,
         detail: "detail".to_string(),
+    }
+}
+
+fn removed_export(
+    exporter: &str,
+    importer: &str,
+    exported_name: &str,
+    local_name: &str,
+    line_start: usize,
+    line_end: usize,
+) -> RemovedExportSignal {
+    RemovedExportSignal {
+        exporter_path: PathBuf::from(exporter),
+        importer_path: PathBuf::from(importer),
+        exported_name: exported_name.to_string(),
+        local_name: local_name.to_string(),
+        symbol_kind: SymbolKind::Value,
+        module_specifier: "./api.ts".to_string(),
+        line_start,
+        line_end,
+        byte_start: line_start * 100,
+        byte_end: line_end * 100 + 10,
     }
 }
 
@@ -318,4 +344,160 @@ fn maybe_signal_omits_verification_plan_in_json_contract() {
         serde_json::to_value(&tiered.maybe[0]).expect("review signals should serialize to JSON");
 
     assert!(value.get("verification_plan").is_none());
+    assert!(value.get("target_path").is_none());
+}
+
+#[test]
+fn removed_export_occurrences_keep_distinct_stable_ids() {
+    // Catches collapsing two removed symbols in one caller or making identity
+    // depend on detector input order instead of the full import occurrence.
+    let occurrences = vec![
+        removed_export("src/api.ts", "src/caller.ts", "loadUser", "load", 10, 10),
+        removed_export("src/api.ts", "src/caller.ts", "saveUser", "save", 12, 12),
+    ];
+    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[]);
+    let reversed = build_tiered_with_api_contract(
+        &[],
+        &[],
+        &[],
+        &[],
+        &occurrences.iter().cloned().rev().collect::<Vec<_>>(),
+        &[],
+    );
+
+    assert_eq!(forward.definitely.len(), 2);
+    assert!(forward.maybe.is_empty());
+    assert!(forward.noise.is_empty());
+    assert_eq!(forward.definitely, reversed.definitely);
+    assert_eq!(
+        forward
+            .definitely
+            .iter()
+            .map(|signal| signal.signal_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["1a407d181dc61405", "85f5db2e7b995998"]
+    );
+
+    let signal = &forward.definitely[0];
+    assert_eq!(signal.kind, "behavioral.removed-export-still-imported");
+    assert_eq!(signal.family, SignalFamily::Behavioral);
+    assert_eq!(signal.tier, ConfidenceTier::DefinitelySensitive);
+    assert_eq!(signal.confidence, Confidence::High);
+    assert_eq!(signal.path, "src/caller.ts");
+    assert_eq!(signal.target_path.as_deref(), Some("src/api.ts"));
+    assert_eq!((signal.line_start, signal.line_end), (Some(10), Some(10)));
+    assert_eq!(signal.evidence_lines, vec![10]);
+    assert_eq!(signal.headline, "removed export is still imported");
+    assert_eq!(
+        signal.detail.as_deref(),
+        Some(
+            "Removed value export 'loadUser' from src/api.ts remains imported as local binding 'load' via './api.ts'."
+        )
+    );
+    assert!(signal.gate_eligible);
+    assert!(signal.verification_plan.is_some());
+    assert_eq!(
+        serde_json::to_value(signal)
+            .expect("removed-export signal should serialize")
+            .get("target_path")
+            .and_then(serde_json::Value::as_str),
+        Some("src/api.ts")
+    );
+}
+
+#[test]
+fn same_symbol_same_line_occurrences_use_exact_spans_for_identity() {
+    let mut first = removed_export("src/api.ts", "src/caller.ts", "loadUser", "first", 1, 1);
+    first.byte_start = 9;
+    first.byte_end = 26;
+    let mut second = removed_export("src/api.ts", "src/caller.ts", "loadUser", "second", 1, 1);
+    second.byte_start = 28;
+    second.byte_end = 46;
+
+    let tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[first, second], &[]);
+    assert_eq!(tiered.definitely.len(), 2);
+    assert_ne!(
+        tiered.definitely[0].signal_id,
+        tiered.definitely[1].signal_id
+    );
+    assert_eq!(tiered.definitely[0].line_start, Some(1));
+    assert_eq!(tiered.definitely[1].line_start, Some(1));
+}
+
+#[test]
+fn removed_export_impact_uses_exporter_target() {
+    // Catches impact enrichment looking up the caller evidence path instead of
+    // the changed exporter whose public contract lost the symbol.
+    let occurrence = removed_export(
+        "src/api.ts",
+        "src/caller.ts",
+        "loadUser",
+        "loadUser",
+        10,
+        10,
+    );
+    let mut tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[occurrence], &[]);
+    let mut graph = CouplingGraph::default();
+    graph
+        .edges
+        .entry(PathBuf::from("src/caller.ts"))
+        .or_default()
+        .insert(PathBuf::from("src/api.ts"));
+    graph
+        .edges
+        .entry(PathBuf::from("src/other.ts"))
+        .or_default()
+        .insert(PathBuf::from("src/api.ts"));
+
+    super::tiered::enrich_blast_radius(&mut tiered, Some(&graph), Path::new(""));
+
+    assert_eq!(tiered.definitely[0].blast_radius, 2);
+}
+
+#[test]
+fn removed_export_callers_keep_distinct_stable_ids() {
+    // Catches collapsing the same removed symbol when two callers retain their
+    // own import occurrences, including a multi-line import span.
+    let occurrences = vec![
+        removed_export(
+            "src/api.ts",
+            "src/caller.ts",
+            "loadUser",
+            "loadUser",
+            10,
+            10,
+        ),
+        removed_export("src/api.ts", "src/other.ts", "loadUser", "load", 4, 5),
+    ];
+    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[]);
+    let reversed = build_tiered_with_api_contract(
+        &[],
+        &[],
+        &[],
+        &[],
+        &occurrences.iter().cloned().rev().collect::<Vec<_>>(),
+        &[],
+    );
+
+    assert_eq!(forward.definitely, reversed.definitely);
+    assert_eq!(forward.definitely.len(), 2);
+    assert_eq!(
+        forward
+            .definitely
+            .iter()
+            .map(|signal| signal.signal_id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["1a407d181dc61405", "d1218d934e09bf27"]
+    );
+    assert_eq!(
+        forward.definitely[1].path, "src/other.ts",
+        "caller evidence must remain occurrence-specific"
+    );
+    assert_eq!(
+        (
+            forward.definitely[1].line_start,
+            forward.definitely[1].line_end
+        ),
+        (Some(4), Some(5))
+    );
 }

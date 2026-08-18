@@ -14,18 +14,78 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UnresolvedImportKind {
+    RelativePath,
+    LocalAlias,
+    WorkspacePackage,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UnresolvedImportLimitation {
+    AmbiguousTarget,
+    /// A Python `from <package> import name` candidate. `name` may be a
+    /// submodule or a symbol defined in the package, and the two forms are
+    /// indistinguishable from the import text alone.
+    PythonPackageMember,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum UnresolvedImportProof {
+    DefinitiveLocalCandidates(Vec<PathBuf>),
+    Limited(UnresolvedImportLimitation),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UnresolvedImportEvidence {
+    pub source: PathBuf,
+    pub raw_import: String,
+    pub kind: UnresolvedImportKind,
+    pub proof: UnresolvedImportProof,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ImportResolutionStats {
     /// Unresolved internal imports keyed by the importing file.
-    pub unresolved_internal_by_source: BTreeMap<PathBuf, Vec<String>>,
+    pub unresolved_internal_by_source: BTreeMap<PathBuf, Vec<UnresolvedImportEvidence>>,
 }
 
 impl ImportResolutionStats {
     pub fn record(&mut self, source: &Path, raw_import: &str) {
-        self.unresolved_internal_by_source
-            .entry(source.to_path_buf())
-            .or_default()
-            .push(raw_import.to_string());
+        self.insert(UnresolvedImportEvidence {
+            source: source.to_path_buf(),
+            raw_import: raw_import.to_string(),
+            kind: unresolved_import_kind(raw_import),
+            proof: UnresolvedImportProof::Limited(UnresolvedImportLimitation::AmbiguousTarget),
+        });
+    }
+
+    pub fn record_classified(&mut self, source: &Path, raw_import: &str, root: &Path) {
+        let proof = crate::graph::resolver::definitive_local_candidates(raw_import, source, root)
+            .map(UnresolvedImportProof::DefinitiveLocalCandidates)
+            .unwrap_or(UnresolvedImportProof::Limited(
+                UnresolvedImportLimitation::AmbiguousTarget,
+            ));
+        self.insert(UnresolvedImportEvidence {
+            source: source.to_path_buf(),
+            raw_import: raw_import.to_string(),
+            kind: unresolved_import_kind(raw_import),
+            proof,
+        });
+    }
+
+    fn insert(&mut self, evidence: UnresolvedImportEvidence) {
+        let entries = self
+            .unresolved_internal_by_source
+            .entry(evidence.source.clone())
+            .or_default();
+        entries.push(evidence);
+        entries.sort();
+        entries.dedup();
+    }
+
+    pub fn evidence(&self) -> impl Iterator<Item = &UnresolvedImportEvidence> {
+        self.unresolved_internal_by_source.values().flatten()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -51,13 +111,26 @@ impl ImportResolutionStats {
         self.unresolved_internal_by_source
             .values()
             .flatten()
-            .any(|import| {
-                import_target_stems(import)
+            .any(|evidence| {
+                import_target_stems(&evidence.raw_import)
                     .iter()
                     .any(|candidate| candidate.eq_ignore_ascii_case(stem))
             })
     }
 }
+
+fn unresolved_import_kind(raw_import: &str) -> UnresolvedImportKind {
+    if raw_import.starts_with('.') {
+        UnresolvedImportKind::RelativePath
+    } else if raw_import.starts_with("@/") || raw_import.starts_with("~/") || raw_import == "~" {
+        UnresolvedImportKind::LocalAlias
+    } else {
+        UnresolvedImportKind::WorkspacePackage
+    }
+}
+
+#[cfg(test)]
+mod tests;
 
 /// Candidate file stems an import could be referring to. A path import's target
 /// is its last `/`-segment with the extension stripped; a dotted module import's
@@ -87,7 +160,7 @@ fn import_target_stems(raw_import: &str) -> Vec<String> {
 }
 
 pub(crate) fn is_relative_import(import: &str) -> bool {
-    import.starts_with("./") || import.starts_with("../")
+    import.starts_with('.')
 }
 
 /// Whether an unresolved import should weaken absence claims (dead module,
@@ -138,100 +211,4 @@ where
         }
     }
     dirs
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn records_and_counts_unresolved_imports_per_source() {
-        let mut stats = ImportResolutionStats::default();
-        assert!(stats.is_empty());
-
-        stats.record(Path::new("src/a.ts"), "./missing");
-        stats.record(Path::new("src/a.ts"), "../gone/helper");
-        stats.record(Path::new("src/b.ts"), "./missing");
-
-        assert!(!stats.is_empty());
-        assert_eq!(stats.total(), 3);
-        assert_eq!(stats.unresolved_internal_by_source.len(), 2);
-    }
-
-    #[test]
-    fn could_target_stem_matches_final_segment_without_extension() {
-        let mut stats = ImportResolutionStats::default();
-        stats.record(Path::new("src/a.ts"), "../legacy/Utils.js");
-
-        assert!(stats.could_target_stem("utils"));
-        assert!(stats.could_target_stem("Utils"));
-        assert!(!stats.could_target_stem("legacy"));
-        assert!(!stats.could_target_stem(""));
-    }
-
-    #[test]
-    fn could_target_stem_matches_last_dotted_module_segment() {
-        let mut stats = ImportResolutionStats::default();
-        stats.record(Path::new("apps/web/main.py"), "app.services.foo");
-
-        assert!(stats.could_target_stem("foo"));
-        assert!(stats.could_target_stem("app"));
-        assert!(!stats.could_target_stem("services"));
-    }
-
-    #[test]
-    fn relative_import_detection_matches_dot_prefixes_only() {
-        assert!(is_relative_import("./a"));
-        assert!(is_relative_import("../a"));
-        assert!(!is_relative_import("react"));
-        assert!(!is_relative_import("@scope/pkg"));
-    }
-
-    #[test]
-    fn internal_import_classifier_separates_workspace_from_third_party() {
-        let repo_dirs: HashSet<String> = ["app", "components", "ml"]
-            .into_iter()
-            .map(String::from)
-            .collect();
-
-        // Relative and aliased imports are always internal.
-        assert!(is_unresolved_internal_import("./helper", &repo_dirs));
-        assert!(is_unresolved_internal_import(
-            "@/components/Button",
-            &repo_dirs
-        ));
-        assert!(is_unresolved_internal_import("~/lib/util", &repo_dirs));
-        // Bare imports whose leading segment is a repo directory are internal.
-        assert!(is_unresolved_internal_import("app.ml.train", &repo_dirs));
-        assert!(is_unresolved_internal_import(
-            "components/Button",
-            &repo_dirs
-        ));
-        // Genuine third-party packages stay out.
-        assert!(!is_unresolved_internal_import("react", &repo_dirs));
-        assert!(!is_unresolved_internal_import("@angular/core", &repo_dirs));
-        assert!(!is_unresolved_internal_import("numpy", &repo_dirs));
-        assert!(!is_unresolved_internal_import(
-            "django.db.models",
-            &repo_dirs
-        ));
-    }
-
-    #[test]
-    fn repo_directory_names_collects_parent_segments_only() {
-        let paths = [
-            Path::new("apps/ml/app/train.py"),
-            Path::new("apps/web/src/index.ts"),
-        ];
-        let dirs = repo_directory_names(paths);
-
-        assert!(dirs.contains("apps"));
-        assert!(dirs.contains("ml"));
-        assert!(dirs.contains("app"));
-        assert!(dirs.contains("web"));
-        assert!(dirs.contains("src"));
-        // File names are not directories.
-        assert!(!dirs.contains("train"));
-        assert!(!dirs.contains("index"));
-    }
 }
