@@ -40,6 +40,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   root-confined candidate set is absent. Ambiguous aliases, extensionless
   imports, workspace packages, Rust module forms, and unsupported semantics stay
   as bounded informational diagnostics instead of false broken-code claims.
+  A Python `from <package> import name` candidate is one of those bounded
+  limitations: `name` may be a submodule or a member defined in the package's
+  `__init__.py`, and the two are indistinguishable from the import alone. Only
+  the explicit `from <package>.<module> import name` form, which never records
+  the parent package, is claimed as a missing module. The rule now carries
+  labeled zoo evidence.
 
 ### Changed
 

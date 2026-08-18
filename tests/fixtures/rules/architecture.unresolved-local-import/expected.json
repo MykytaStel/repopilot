@@ -19,6 +19,10 @@
     {
       "path": "false_positive_ambiguous",
       "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_package_member",
+      "expected_rule_ids": []
     }
   ]
 }
