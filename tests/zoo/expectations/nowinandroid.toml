@@ -10,3 +10,22 @@ rule_id = "language.managed.fatal-exception-risk"
 path = "feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt"
 disposition = "actionable"
 reason = "TODO() placeholder on the TopicUiState.Error branch will throw NotImplementedError at runtime if the error state is ever rendered; the rule correctly surfaces an unimplemented production path."
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:core/analytics/src/demo/kotlin/com/google/samples/apps/nowinandroid/core/analytics/AnalyticsModule.kt:b022a3e6e8b8daf1"
+rule_id = "architecture.dead-module"
+path = "core/analytics/src/demo/kotlin/com/google/samples/apps/nowinandroid/core/analytics/AnalyticsModule.kt"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "A Hilt module in the Gradle `demo` product-flavor source set (`src/demo/kotlin`), wired by annotation processing. The JVM resolver only knows the five fixed source roots, so no import in this multi-module build resolves to it."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.dead-module:feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt:b022a3e6e8b8daf1"
+rule_id = "architecture.dead-module"
+path = "feature/foryou/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/foryou/impl/ForYouViewModel.kt"
+line = 1
+evidence = "sample"
+disposition = "false-positive"
+reason = "Kotlin in a multi-module Gradle project: the JVM resolver probes only `src/main/kotlin` and four other fixed roots relative to the repository root, never a per-module `<module>/src/main/kotlin`, so this repository resolves almost no internal imports."

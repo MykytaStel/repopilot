@@ -60,6 +60,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `architecture.dead-module` now requires a language whose imports the resolver
+  can map to repository files. C#, Swift, PHP, Dart, Scala, and the C family
+  reference types through namespaces and headers that never become graph edges,
+  so every one of their files carries zero fan-in in a perfectly healthy
+  repository and the rule reported all of them. The check asks the resolver
+  itself which extensions it dispatches on, so it cannot drift from what the
+  graph can represent. eShopOnWeb drops from 208 to 2 findings.
+- Correct an over-broad example-tree recognizer shipped in the previous entry:
+  `examples`/`samples` were matched at any path depth, which silenced every
+  file under a package namespace containing those words — Spring PetClinic
+  (`org/springframework/samples/petclinic`) and Now in Android
+  (`com/google/samples/apps/nowinandroid`) lost their entire source trees. The
+  recognizer now only matches near a repository or package root, restoring 144
+  findings. Singular `example`/`sample` are no longer matched at all, since
+  `com/example` is the canonical Java package placeholder.
+- `architecture.dead-module` also stops reporting Python package markers
+  (`__init__.py`, executed whenever any module in the package is imported),
+  Storybook stories collected by glob, and Django template-tag libraries loaded
+  by `{% load %}` name.
+
 - `architecture.dead-module` no longer treats a file as dead when nothing
   imports it *by design*. Executable tool configuration (`eslint.config.mjs`,
   `.prettierrc.cjs`), build scripts (`settings.gradle.kts`, `gulpfile.js`),

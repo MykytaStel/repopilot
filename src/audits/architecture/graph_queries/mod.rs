@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole, LanguageFamily};
+use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::graph::ImportResolutionStats;
 use crate::graph::v2::{
@@ -150,16 +150,14 @@ fn dead_module_finding(
     readiness: GraphReadiness,
 ) -> Option<Finding> {
     let ctx = &info.context;
-    // "Dead module" only means something for files that participate in the
-    // import graph. Docs, config, stylesheets, lockfiles, images, and shell
-    // scripts (Markup / Shell / Unknown families) are never "imported", so they
-    // always have fan_in=0 and would otherwise all be flagged — e.g. every
-    // `.claude/*.md`, `*.css`, `*.json`, or lockfile in a repo. Restrict to
-    // languages the resolver actually wires up.
-    let is_importable_code = matches!(
-        ctx.language_family,
-        LanguageFamily::CurlyBrace | LanguageFamily::Python | LanguageFamily::Go
-    );
+    // "Nothing imports this" is only evidence when an import could have become
+    // an edge. Docs, stylesheets, and lockfiles are never imported, and neither
+    // are C#, Swift, PHP, or C++ sources as far as this graph is concerned:
+    // they reference types through namespaces and headers the resolver does not
+    // map to files, so every one of their files carries fan_in=0 in a perfectly
+    // healthy repository. Ask the resolver itself which languages it wires up,
+    // so this cannot drift from what the graph can actually represent.
+    let is_importable_code = crate::graph::resolver::resolves_file_imports(&info.relative);
     // A file that carries its own tests is exercised by the suite, and its only
     // importer is often a `#[cfg(test)] mod ...;` declaration, whose edge is
     // intentionally excluded from the production import graph. Treating such a
