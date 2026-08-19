@@ -24,7 +24,7 @@
     "by_rule": {
       "architecture.barrel-file-risk": 5,
       "architecture.circular-dependency": 6,
-      "architecture.dead-module": 36,
+      "architecture.dead-module": 22,
       "architecture.deep-relative-imports": 9,
       "architecture.excessive-fan-out": 23,
       "architecture.large-file": 83,
@@ -44,6 +44,6 @@
       "security.secret-candidate": 2,
       "testing.source-without-test": 374
     },
-    "visible_total": 1187
+    "visible_total": 1173
   }
 }

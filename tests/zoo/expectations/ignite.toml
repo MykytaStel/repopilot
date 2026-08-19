@@ -15,13 +15,3 @@ path = "src/commands/new.ts"
 line = 185
 disposition = "valid-but-accepted"
 reason = "CLI command handler that deliberately exits the process; downgraded to Low for cli-executable role and retained as a strict recall anchor."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:src/commands/issue.ts:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "src/commands/issue.ts"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "A gluegun CLI command module: the framework loads every file under its command directory by name and dispatches on the file name, so no source file imports it."

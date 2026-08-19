@@ -47,16 +47,6 @@ disposition = "false-positive"
 reason = "Same guarded optional `from .local import *` override as dev.py; the import is wrapped in try/except ImportError."
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:wagtail/admin/static_src/wagtailadmin/js/vendor/jquery-3.6.0.min.js:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "wagtail/admin/static_src/wagtailadmin/js/vendor/jquery-3.6.0.min.js"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "A vendored, minified third-party bundle under `vendor/`. It is not project source at all, so neither dead-module nor any other maintainability claim applies to it."
-
-[[finding]]
-profile = "strict"
 finding_id = "architecture.dead-module:wagtail/users/views/groups.py:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"
 path = "wagtail/users/views/groups.py"
@@ -64,23 +54,3 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "Referenced by dotted string from wagtail/users/apps.py (`group_viewset = \"wagtail.users.views.groups.GroupViewSet\"`), the Django pattern for late-bound references. No static import names the module."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:client/src/entrypoints/admin/page-chooser.js:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "client/src/entrypoints/admin/page-chooser.js"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "A webpack entry module: client/webpack.config.js builds its entry map from `./client/src/entrypoints/${appName}/${moduleName}.js`, so the bundler names it and no source file imports it."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:wagtail/images/static_src/wagtailimages/js/add-multiple.js:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "wagtail/images/static_src/wagtailimages/js/add-multiple.js"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "A browser asset loaded by a Django template tag: templates/wagtailimages/multiple/add.html has `<script src=\"{% versioned_static 'wagtailimages/js/add-multiple.js' %}\">`. Script-tag references are not imports."
