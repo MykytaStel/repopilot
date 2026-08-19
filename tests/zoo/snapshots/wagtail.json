@@ -25,12 +25,12 @@
   "strict": {
     "by_rule": {
       "architecture.circular-dependency": 11,
-      "architecture.dead-module": 159,
-      "architecture.deep-directory-nesting": 1019,
+      "architecture.dead-module": 106,
+      "architecture.deep-directory-nesting": 1018,
       "architecture.deep-relative-imports": 33,
       "architecture.excessive-fan-out": 17,
       "architecture.large-file": 85,
-      "architecture.test-leak": 1,
+      "architecture.test-leak": 2,
       "architecture.too-many-modules": 8,
       "architecture.unresolved-local-import": 2,
       "code-marker.fixme": 3,
@@ -47,6 +47,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 668
     },
-    "visible_total": 2544
+    "visible_total": 2491
   }
 }

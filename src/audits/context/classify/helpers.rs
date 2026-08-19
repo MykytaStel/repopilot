@@ -52,19 +52,21 @@ pub fn is_test_file(path: &Path) -> bool {
         .map(|name| name.to_lowercase())
         .unwrap_or_default();
 
-    if path_text.starts_with("tests/")
-        || path_text.starts_with("tests\\")
-        || path_text.contains("/tests/")
-        || path_text.contains("\\tests\\")
-        || path_text.starts_with("fixtures/")
-        || path_text.starts_with("fixtures\\")
-        || path_text.contains("/fixtures/")
-        || path_text.contains("\\fixtures\\")
-        || path_text.contains("/__tests__/")
-        || path_text.contains("\\__tests__\\")
+    // Directories that hold tests. The singular `test` is as common as the
+    // plural — Node and Express use `test/`, Maven and Gradle use
+    // `src/test/java`, Android adds `src/androidTest` — so recognizing only
+    // `tests/` classified those whole trees as production code. Each name must
+    // match a full path component, or `src/latest/` and `src/testing/` would be
+    // swept in with them.
+    const TEST_DIRECTORIES: &[&str] = &["tests", "test", "androidtest", "fixtures", "__tests__"];
+    if has_test_directory(&path_text, TEST_DIRECTORIES)
         // Sibling test modules pulled in without a path component
         // (`tests_render.rs` and friends) — a cross-language prefix form.
         || file_name.starts_with("tests_")
+        // A module whose entire name is `test`/`tests` is the file the runner
+        // collects, not one production code imports — Django's generated app
+        // puts its tests in a bare `tests.py`.
+        || matches!(file_name.rsplit_once('.'), Some(("test" | "tests", _)))
     {
         return true;
     }
@@ -77,6 +79,13 @@ pub fn is_test_file(path: &Path) -> bool {
     let conventions = crate::languages::conventions::conventions_for_path(path);
     (conventions.test_file_name)(&file_name)
         || (file_name.starts_with("test_") && conventions.test_prefix_marks_test)
+}
+
+/// Whether any of `names` appears as a whole directory component of the path.
+fn has_test_directory(path_text: &str, names: &[&str]) -> bool {
+    let mut components = path_text.split(['/', '\\']).collect::<Vec<_>>();
+    components.pop(); // the file name itself is not a directory
+    components.iter().any(|component| names.contains(component))
 }
 
 /// True for Rust *test-support* modules — `testutil.rs`, `test_utils.rs`,
@@ -289,5 +298,57 @@ mod tests {
             "src/audits/code_quality/complexity.rs"
         )));
         assert!(!is_test_file(Path::new("src/scan/cache.rs")));
+    }
+}
+
+#[cfg(test)]
+mod test_directory_tests {
+    use super::is_test_file;
+    use std::path::Path;
+
+    #[test]
+    fn singular_test_directories_are_recognized() {
+        // Catches recognizing only `tests/`: Node, Maven, and Gradle all use
+        // the singular form, so those trees classified as production code.
+        for path in [
+            "test/app.render.js",
+            "test/acceptance/route-map.js",
+            "src/test/java/org/example/EntityUtils.java",
+            "core/ui/src/androidTest/kotlin/Foo.kt",
+            "wagtail/test/utils/wagtail_tests.py",
+        ] {
+            assert!(is_test_file(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    fn a_module_named_only_test_or_tests_is_a_test() {
+        // Django's generated app puts its tests in a bare `tests.py`.
+        assert!(is_test_file(Path::new("home/tests.py")));
+        assert!(is_test_file(Path::new("home/test.py")));
+        assert!(is_test_file(Path::new("pkg/tests.rs")));
+    }
+
+    #[test]
+    fn a_directory_name_must_match_a_whole_component() {
+        // The false-negative guard: production trees whose names merely
+        // contain `test` must stay production.
+        for path in [
+            "src/testing/harness.ts",
+            "src/latest/api.ts",
+            "src/contest/rules.py",
+            "src/test_helpers/build.ts",
+            "protest/views.py",
+        ] {
+            assert!(!is_test_file(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    fn a_file_whose_name_merely_starts_with_test_is_unchanged() {
+        // `test_edges.rs` is production code in this repository; only the
+        // frontend conventions decide whether a `test_` prefix marks a test.
+        assert!(!is_test_file(Path::new("src/graph/test_edges.rs")));
+        assert!(!is_test_file(Path::new("src/testament.ts")));
     }
 }
