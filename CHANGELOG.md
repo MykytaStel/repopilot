@@ -60,6 +60,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `architecture.dead-module` recognizes five more ways a file is reached
+  without an import: TypeScript declaration files, which carry no runtime code
+  at all; vendored third-party trees (`vendor/`, `node_modules/`,
+  `third_party/`); browser entries named by a bundler entry map, a `<script>`
+  tag, or a worker constructor (`entrypoints/`, `static_src/`, `*.worker.ts`);
+  a package's `bin` executable; and command modules in a package that declares
+  an executable, which the CLI dispatches by file name. The command case reuses
+  the existing `bin`-manifest evidence, so a CQRS `commands/` directory in a
+  library stays eligible. Across the zoo this takes the rule from 187 to 100
+  strict findings, with no other rule affected and no default-profile change.
 - Classify a singular `test/` directory as tests. The classifier recognized
   `tests/` but not `test/`, `src/test/java`, `src/androidTest`, or a bare
   `tests.py`, so Node, Maven, Gradle, and Django test trees carried

@@ -41,15 +41,45 @@ pub(super) enum ReachedWithoutImport {
     DocumentationExample,
     /// A standalone script under `scripts/`, run by a person or a CI job.
     StandaloneScript,
+    /// A TypeScript declaration file. It carries no runtime code at all, so it
+    /// is never imported as a module and can never be dead.
+    TypeDeclaration,
+    /// Third-party code checked into the repository. Not project source.
+    VendoredCode,
+    /// Named by a bundler entry map, a `<script>` tag, or a worker constructor
+    /// rather than by an import in project code.
+    BrowserEntry,
+    /// A package's executable, named by `package.json`'s `bin` field.
+    PackageBinary,
+    /// A command module in a CLI package, dispatched by file name.
+    CommandModule,
 }
 
-pub(super) fn reached_without_import(path: &Path) -> Option<ReachedWithoutImport> {
+pub(super) fn reached_without_import(
+    path: &Path,
+    in_executable_package: bool,
+) -> Option<ReachedWithoutImport> {
     let name = file_name(path);
+    if name.ends_with(".d.ts") || name.ends_with(".d.mts") || name.ends_with(".d.cts") {
+        return Some(ReachedWithoutImport::TypeDeclaration);
+    }
+    if path_contains_component(path, &["vendor", "vendors", "node_modules", "third_party"]) {
+        return Some(ReachedWithoutImport::VendoredCode);
+    }
     if name == "__init__.py" {
         return Some(ReachedWithoutImport::PackageMarker);
     }
     if is_documentation_example(path) {
         return Some(ReachedWithoutImport::DocumentationExample);
+    }
+    if is_browser_entry(path, &name) {
+        return Some(ReachedWithoutImport::BrowserEntry);
+    }
+    if is_package_binary(path, &name) {
+        return Some(ReachedWithoutImport::PackageBinary);
+    }
+    if in_executable_package && path_contains_component(path, &["commands"]) {
+        return Some(ReachedWithoutImport::CommandModule);
     }
     if is_build_script(&name) {
         return Some(ReachedWithoutImport::BuildScript);
@@ -162,6 +192,27 @@ fn is_file_system_route(path: &Path, name: &str) -> bool {
     // These names are reserved only inside a router tree, so an unrelated
     // `page.tsx` in `src/components/` still counts as importable.
     routed && path_contains_component(path, &["app", "pages"])
+}
+
+/// Code the browser loads without any module importing it: a bundler names it
+/// in an entry map, a template names it in a `<script>` tag, or a worker
+/// constructor names it by URL.
+fn is_browser_entry(path: &Path, name: &str) -> bool {
+    if path_contains_component(path, &["entrypoints", "static_src", "static"]) {
+        return true;
+    }
+    // `subset-worker.chunk.ts`, `search.worker.ts` — a worker entry is loaded
+    // through `new Worker(url)`, never through an import.
+    script_stem(name).is_some_and(|stem| {
+        stem.split(['.', '-'])
+            .any(|token| token == "worker" || token == "sw")
+    })
+}
+
+/// A package's `bin` entry, run by npm rather than imported.
+fn is_package_binary(path: &Path, name: &str) -> bool {
+    path_contains_component(path, &["bin"])
+        || script_stem(name).is_some_and(|stem| stem == "bin" || stem == "cli")
 }
 
 /// Example and documentation source trees. Their files are compiled by docs

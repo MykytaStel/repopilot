@@ -171,9 +171,13 @@ fn dead_module_finding(
         || fan_in.unwrap_or(0) != 0
         || has_inline_tests
         // A tool config, build script, framework-autoloaded module, routed
-        // file, or documentation example is reached without an import, so its
-        // fan-in is zero in every healthy repository.
-        || entrypoints::reached_without_import(&info.relative).is_some()
+        // file, browser entry, or documentation example is reached without an
+        // import, so its fan-in is zero in every healthy repository.
+        || entrypoints::reached_without_import(
+            &info.relative,
+            info.facts.is_some_and(|facts| facts.in_executable_package),
+        )
+        .is_some()
     {
         return None;
     }

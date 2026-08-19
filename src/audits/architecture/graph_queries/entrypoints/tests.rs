@@ -2,7 +2,11 @@ use super::{ReachedWithoutImport, reached_without_import};
 use std::path::Path;
 
 fn reason(path: &str) -> Option<ReachedWithoutImport> {
-    reached_without_import(Path::new(path))
+    reached_without_import(Path::new(path), false)
+}
+
+fn reason_in_cli(path: &str) -> Option<ReachedWithoutImport> {
+    reached_without_import(Path::new(path), true)
 }
 
 #[test]
@@ -219,4 +223,92 @@ fn python_autoload_names_do_not_leak_into_other_languages() {
         reason("project/urls.py"),
         Some(ReachedWithoutImport::FrameworkAutoload)
     );
+}
+
+#[test]
+fn type_declarations_carry_no_runtime_code() {
+    // A `.d.ts` declares ambient types and compiles to nothing, so "no module
+    // imports it" says nothing about dead code.
+    for path in [
+        "client/src/custom.d.ts",
+        "client/storybook/stories.d.ts",
+        "types/global.d.mts",
+    ] {
+        assert_eq!(
+            reason(path),
+            Some(ReachedWithoutImport::TypeDeclaration),
+            "{path}"
+        );
+    }
+    assert_eq!(reason("client/src/custom.ts"), None);
+}
+
+#[test]
+fn vendored_third_party_code_is_not_project_source() {
+    for path in [
+        "wagtail/admin/static_src/js/vendor/bootstrap-modal.js",
+        "third_party/lib/parser.py",
+    ] {
+        assert_eq!(
+            reason(path),
+            Some(ReachedWithoutImport::VendoredCode),
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn browser_entries_are_named_by_a_bundler_template_or_worker() {
+    // wagtail's webpack config builds its entry map from
+    // `./client/src/entrypoints/${app}/${module}.js`, and its templates load
+    // `static_src` assets through a `{% versioned_static %}` script tag.
+    assert_eq!(
+        reason("client/src/entrypoints/admin/page-chooser.js"),
+        Some(ReachedWithoutImport::BrowserEntry)
+    );
+    assert_eq!(
+        reason("wagtail/images/static_src/wagtailimages/js/add-multiple.js"),
+        Some(ReachedWithoutImport::BrowserEntry)
+    );
+    assert_eq!(
+        reason("packages/excalidraw/subset/subset-worker.chunk.ts"),
+        Some(ReachedWithoutImport::BrowserEntry)
+    );
+    assert_eq!(
+        reason("src/search.worker.ts"),
+        Some(ReachedWithoutImport::BrowserEntry)
+    );
+    // A module that merely mentions the word is ordinary code.
+    assert_eq!(reason("src/workerPool.ts"), None);
+    assert_eq!(reason("src/staticData.ts"), None);
+}
+
+#[test]
+fn package_binaries_are_run_by_the_package_manager() {
+    assert_eq!(
+        reason("packages/cli/bin.js"),
+        Some(ReachedWithoutImport::PackageBinary)
+    );
+    assert_eq!(
+        reason("packages/cli/bin/run.js"),
+        Some(ReachedWithoutImport::PackageBinary)
+    );
+    assert_eq!(reason("src/binary_search.ts"), None);
+}
+
+#[test]
+fn command_modules_need_the_package_to_declare_an_executable() {
+    // The CQRS guard: a `commands/` directory in an ordinary library is
+    // importable code, and only a package that declares a `bin` dispatches its
+    // command modules by file name.
+    assert_eq!(
+        reason_in_cli("src/commands/cache.ts"),
+        Some(ReachedWithoutImport::CommandModule)
+    );
+    assert_eq!(
+        reason("src/commands/cache.ts"),
+        None,
+        "the same path in a library package stays eligible"
+    );
+    assert_eq!(reason_in_cli("src/domain/order.ts"), None);
 }
