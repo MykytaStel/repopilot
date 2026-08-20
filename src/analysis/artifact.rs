@@ -1,3 +1,4 @@
+use crate::analysis::symbols::JavaScriptSymbolFacts;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -46,13 +47,14 @@ pub struct ParsedArtifact {
     pub imports: Vec<String>,
     pub deferred_imports: Vec<String>,
     pub exports: Vec<String>,
+    pub(crate) javascript_symbols: Option<JavaScriptSymbolFacts>,
     pub context: FileContextFacts,
     pub syntax: SyntaxSummary,
     pub origin: ArtifactOrigin,
 }
 
 impl ParsedArtifact {
-    pub fn from_source(
+    pub(crate) fn from_source(
         path: PathBuf,
         language: Option<String>,
         imports: Vec<String>,
@@ -67,13 +69,14 @@ impl ParsedArtifact {
             imports,
             deferred_imports,
             exports,
+            javascript_symbols: None,
             context,
             syntax,
             origin: ArtifactOrigin::Source,
         }
     }
 
-    pub fn from_legacy_cache(
+    pub(crate) fn from_legacy_cache(
         path: PathBuf,
         language: Option<String>,
         imports: Vec<String>,
@@ -86,13 +89,14 @@ impl ParsedArtifact {
             imports,
             deferred_imports,
             exports: Vec::new(),
+            javascript_symbols: None,
             context,
             syntax: SyntaxSummary::unavailable(),
             origin: ArtifactOrigin::LegacyCache,
         }
     }
 
-    pub fn from_parsed_cache_v2(
+    pub(crate) fn from_parsed_cache_v2(
         path: PathBuf,
         language: Option<String>,
         imports: Vec<String>,
@@ -107,10 +111,19 @@ impl ParsedArtifact {
             imports,
             deferred_imports,
             exports,
+            javascript_symbols: None,
             context,
             syntax,
             origin: ArtifactOrigin::ParsedCacheV2,
         }
+    }
+
+    pub(crate) fn with_javascript_symbols(
+        mut self,
+        javascript_symbols: Option<JavaScriptSymbolFacts>,
+    ) -> Self {
+        self.javascript_symbols = javascript_symbols;
+        self
     }
 
     pub fn rebase_path(&mut self, path: PathBuf) {

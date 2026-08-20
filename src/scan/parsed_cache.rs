@@ -1,3 +1,4 @@
+use crate::analysis::symbols::JavaScriptSymbolFacts;
 use crate::analysis::{ParsedArtifact, SyntaxSummary};
 use crate::scan::cache::{cache_dir, stable_hash_hex};
 use crate::scan::facts::FileFacts;
@@ -8,8 +9,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 3;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-spans-v2";
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 4;
+const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-symbols-spans-v3";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
@@ -34,6 +35,8 @@ pub struct ParsedFactsEntry {
     pub import_spans: BTreeMap<String, (usize, usize)>,
     pub deferred_imports: Vec<String>,
     pub exports: Vec<String>,
+    #[serde(default)]
+    pub(crate) javascript_symbols: Option<JavaScriptSymbolFacts>,
     pub syntax: CachedSyntaxSummary,
 }
 
@@ -219,6 +222,7 @@ impl ParsedFactsEntry {
             import_spans,
             deferred_imports: file.deferred_imports.clone(),
             exports: artifact.exports.clone(),
+            javascript_symbols: artifact.javascript_symbols.clone(),
             syntax: CachedSyntaxSummary::from(&artifact.syntax),
         }
     }
@@ -269,6 +273,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::analysis::artifact::ArtifactOrigin;
+    use crate::analysis::symbols::{
+        ExportedSymbolFact, ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind,
+    };
     use crate::analysis::{FileContextFacts, ParsedArtifact, SyntaxSummary};
     use std::path::PathBuf;
     use tempfile::tempdir;
@@ -317,6 +325,69 @@ mod tests {
         assert_eq!(entry.exports, vec!["run"]);
         assert_eq!(entry.syntax.root_kind.as_deref(), Some("source_file"));
         assert_eq!(loaded.telemetry().entries_loaded, 1);
+    }
+
+    #[test]
+    fn typed_symbol_facts_survive_cache_round_trip() {
+        let file = FileFacts {
+            path: PathBuf::from("src/api.ts"),
+            language: Some("TypeScript".to_string()),
+            imports: vec!["./caller.ts".to_string()],
+            ..FileFacts::default()
+        };
+        let source = ParsedArtifact::from_source(
+            file.path.clone(),
+            file.language.clone(),
+            file.imports.clone(),
+            Vec::new(),
+            vec!["loadUser".to_string()],
+            FileContextFacts::default(),
+            SyntaxSummary::default(),
+        )
+        .with_javascript_symbols(Some(JavaScriptSymbolFacts {
+            exports: vec![ExportedSymbolFact {
+                name: "loadUser".to_string(),
+                kind: SymbolKind::Value,
+                line_start: 1,
+                line_end: 1,
+            }],
+            imports: vec![ImportedSymbolFact {
+                imported_name: "loadUser".to_string(),
+                local_name: "load".to_string(),
+                kind: SymbolKind::Value,
+                module_specifier: "./api.ts".to_string(),
+                line_start: 2,
+                line_end: 2,
+                byte_start: 42,
+                byte_end: 58,
+            }],
+            ..JavaScriptSymbolFacts::default()
+        }));
+        let entry =
+            ParsedFactsEntry::from_artifact("hash".to_string(), &file, &source, BTreeMap::new());
+        let encoded = serde_json::to_string(&entry).expect("serialize cache entry");
+        let decoded: ParsedFactsEntry =
+            serde_json::from_str(&encoded).expect("deserialize cache entry");
+        let restored = ParsedArtifact::from_parsed_cache_v2(
+            file.path.clone(),
+            decoded.language.clone(),
+            decoded.imports.clone(),
+            decoded.deferred_imports.clone(),
+            decoded.exports.clone(),
+            FileContextFacts::default(),
+            (&decoded.syntax).into(),
+        )
+        .with_javascript_symbols(decoded.javascript_symbols.clone());
+
+        assert_eq!(restored.javascript_symbols, source.javascript_symbols);
+        let import = &restored
+            .javascript_symbols
+            .as_ref()
+            .expect("cached symbol facts")
+            .imports[0];
+        assert_eq!((import.byte_start, import.byte_end), (42, 58));
+        assert_eq!(restored.origin, ArtifactOrigin::ParsedCacheV2);
+        assert!(restored.has_complete_parsed_facts());
     }
 
     #[test]
@@ -385,6 +456,7 @@ mod tests {
                 import_spans: Default::default(),
                 deferred_imports: Vec::new(),
                 exports: Vec::new(),
+                javascript_symbols: None,
                 syntax: CachedSyntaxSummary::default(),
             }],
         };
@@ -427,6 +499,7 @@ mod tests {
             import_spans: Default::default(),
             deferred_imports: Vec::new(),
             exports: Vec::new(),
+            javascript_symbols: None,
             syntax: CachedSyntaxSummary::default(),
         }
     }

@@ -73,7 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
-        "tree-sitter-imports-exports-spans-v2"
+        "tree-sitter-imports-exports-symbols-spans-v3"
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]
@@ -127,6 +127,49 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
         first_finding_title(&invalidated),
         "Possible secret detected"
     );
+}
+
+#[test]
+fn typed_symbol_facts_are_persisted_and_reused_by_changed_scan() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        temp.path().join("src/api.ts"),
+        "export function loadUser() {}\n",
+    );
+    write(temp.path().join("src/caller.ts"), "export {};\n");
+    commit_all(temp.path(), "initial");
+    write(
+        temp.path().join("src/caller.ts"),
+        "import { loadUser as load } from './api.ts';\nload();\n",
+    );
+
+    scan_changed_json(temp.path(), &["--changed"]);
+    let cache_path = temp.path().join(".repopilot/cache/parsed_facts_v2.json");
+    let cache = read_json(&cache_path);
+    assert_eq!(cache["schema_version"], 4);
+    assert_eq!(
+        cache["analysis_version"],
+        "tree-sitter-imports-exports-symbols-spans-v3"
+    );
+    let named_import = cache["entries"]
+        .as_array()
+        .expect("parsed cache entries")
+        .iter()
+        .filter_map(|entry| entry["javascript_symbols"]["imports"].as_array())
+        .flatten()
+        .find(|import| import["local_name"] == "load")
+        .expect("cached aliased import");
+    assert_eq!(named_import["imported_name"], "loadUser");
+    assert_eq!(named_import["module_specifier"], "./api.ts");
+
+    let cached = scan_changed_json(temp.path(), &["--changed"]);
+    assert!(
+        cached["cache_telemetry"]["parsed_cache_hits"]
+            .as_u64()
+            .is_some_and(|hits| hits > 0)
+    );
+    assert_eq!(cached["cache_telemetry"]["parsed_cache_misses"], 0);
 }
 
 #[test]
@@ -243,24 +286,50 @@ fn changed_scan_invalidates_cache_when_config_changes() {
 fn changed_scan_invalidates_old_cache_schema() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
-    write(temp.path().join("src/lib.rs"), "pub fn live() {}\n");
+    write(
+        temp.path().join("src/api.ts"),
+        "export function loadUser() {}\n",
+    );
+    write(temp.path().join("src/caller.ts"), "export {};\n");
     commit_all(temp.path(), "initial");
     write(
-        temp.path().join("src/lib.rs"),
-        "pub fn live() {}\nconst API_KEY: &str = \"abc123xyz987\";\n",
+        temp.path().join("src/caller.ts"),
+        "import { loadUser as load } from './api.ts';\nload();\n",
     );
 
     scan_changed_json(temp.path(), &["--changed"]);
+    let cache_dir = temp.path().join(".repopilot/cache");
     for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
         force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 5);
     }
+    force_cache_schema(&cache_dir.join("parsed_facts_v2.json"), 3);
     let json = scan_changed_json(temp.path(), &["--changed"]);
 
     assert_eq!(json["cache_telemetry"]["hits"], 0);
     assert_eq!(json["cache_telemetry"]["misses"], 1);
+    assert!(
+        json["cache_telemetry"]["parsed_cache_invalidations"]
+            .as_u64()
+            .is_some_and(|count| count > 0)
+    );
     assert_eq!(
         json["cache_telemetry"]["changed_files"][0]["cache_reason"],
         "missing-cache-entry"
+    );
+    let rebuilt = read_json(&cache_dir.join("parsed_facts_v2.json"));
+    assert_eq!(rebuilt["schema_version"], 4);
+    assert!(
+        rebuilt["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .any(|entry| {
+                entry["javascript_symbols"]["imports"]
+                    .as_array()
+                    .is_some_and(|imports| {
+                        imports.iter().any(|import| import["local_name"] == "load")
+                    })
+            })
     );
 }
 

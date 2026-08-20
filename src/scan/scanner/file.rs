@@ -1,5 +1,6 @@
 use crate::analysis::exports::extract_exports;
 use crate::analysis::parse::ParsedFile;
+use crate::analysis::symbols::javascript::extract_javascript_symbol_facts;
 use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
 use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file_with_evidence;
@@ -225,6 +226,7 @@ fn process_file_inner(
     let import_spans = analysis.import_spans;
     let deferred_imports = analysis.deferred_imports;
     let exports = analysis.exports;
+    let javascript_symbols = analysis.javascript_symbols;
     let syntax = analysis.syntax;
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
@@ -236,7 +238,8 @@ fn process_file_inner(
         exports,
         context,
         syntax,
-    );
+    )
+    .with_javascript_symbols(javascript_symbols);
 
     Ok(PerFileResult {
         file_facts: if retain_content {
@@ -304,30 +307,36 @@ fn collect_file_facts_inner(
     });
 
     let mut from_parsed_cache = false;
-    let (imports, import_spans, deferred_imports, exports, syntax) = if let Some(entry) = cached {
-        from_parsed_cache = true;
-        full_facts.branch_count = entry.branch_count;
-        full_facts.has_inline_tests = entry.has_inline_tests;
-        (
-            entry.imports,
-            entry.import_spans,
-            entry.deferred_imports,
-            entry.exports,
-            (&entry.syntax).into(),
-        )
-    } else {
-        // No audits run on this path, so the parse view is built solely to
-        // extract imports and syntax facts.
-        let parsed = ParsedFile::for_facts(&full_facts);
-        let lang = full_facts.language.as_deref();
-        (
-            extract_imports_from(&parsed, lang),
-            extract_import_spans_from(&parsed, lang),
-            extract_deferred_imports_from(&parsed, lang),
-            extract_exports(parsed.content(), lang),
-            parsed.syntax_summary(),
-        )
-    };
+    let (imports, import_spans, deferred_imports, exports, javascript_symbols, syntax) =
+        if let Some(entry) = cached {
+            from_parsed_cache = true;
+            full_facts.branch_count = entry.branch_count;
+            full_facts.has_inline_tests = entry.has_inline_tests;
+            (
+                entry.imports,
+                entry.import_spans,
+                entry.deferred_imports,
+                entry.exports,
+                entry.javascript_symbols,
+                (&entry.syntax).into(),
+            )
+        } else {
+            // No audits run on this path, so the parse view is built solely to
+            // extract imports and syntax facts.
+            let parsed = ParsedFile::for_facts(&full_facts);
+            let lang = full_facts.language.as_deref();
+            let javascript_symbols = parsed
+                .tree()
+                .and_then(|tree| extract_javascript_symbol_facts(parsed.content(), lang, tree));
+            (
+                extract_imports_from(&parsed, lang),
+                extract_import_spans_from(&parsed, lang),
+                extract_deferred_imports_from(&parsed, lang),
+                extract_exports(parsed.content(), lang),
+                javascript_symbols,
+                parsed.syntax_summary(),
+            )
+        };
     full_facts.imports = imports;
     full_facts.deferred_imports = deferred_imports;
     let artifact = if from_parsed_cache {
@@ -340,6 +349,7 @@ fn collect_file_facts_inner(
             context,
             syntax,
         )
+        .with_javascript_symbols(javascript_symbols)
     } else {
         ParsedArtifact::from_source(
             full_facts.path.clone(),
@@ -350,6 +360,7 @@ fn collect_file_facts_inner(
             context,
             syntax,
         )
+        .with_javascript_symbols(javascript_symbols)
     };
     if let (Some(cache), Some(hash)) = (parsed_cache.as_mut(), content_hash) {
         cache.insert(ParsedFactsEntry::from_artifact(

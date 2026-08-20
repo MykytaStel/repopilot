@@ -60,6 +60,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Move the existing conservative TypeScript/JavaScript export and named-import
+  facts into the shared analysis core and persist the complete typed payload,
+  including exact import spans, in parsed-facts cache schema v4. Older derived
+  cache entries are invalidated and rebuilt automatically from source; warm
+  changed scans restore the payload without reparsing unchanged files. Review
+  removed-export behavior and identity remain unchanged, and this internal
+  B2.2a foundation adds no public output field or new finding; `scan --changed`
+  removed-export parity remains the focused B2.2b follow-up.
 - Make JVM graph confidence path-aware without turning missing imports into
   false dead-code claims. An unresolved Java/Kotlin import now counts as
   repository-internal only when its package matches a scanned JVM package,
