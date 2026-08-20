@@ -154,10 +154,10 @@ fn dead_module_finding(
     // an edge. Docs, stylesheets, and lockfiles are never imported, and neither
     // are C#, Swift, PHP, or C++ sources as far as this graph is concerned:
     // they reference types through namespaces and headers the resolver does not
-    // map to files, so every one of their files carries fan_in=0 in a perfectly
-    // healthy repository. Ask the resolver itself which languages it wires up,
-    // so this cannot drift from what the graph can actually represent.
-    let is_importable_code = crate::graph::resolver::resolves_file_imports(&info.relative);
+    // map to files. Java and Kotlin do produce import edges, but same-package
+    // references need no import and are invisible here. Ask the resolver which
+    // languages support absence claims so this cannot drift from graph semantics.
+    let supports_absence = crate::graph::resolver::supports_file_absence_claims(&info.relative);
     // A file that carries its own tests is exercised by the suite, and its only
     // importer is often a `#[cfg(test)] mod ...;` declaration, whose edge is
     // intentionally excluded from the production import graph. Treating such a
@@ -165,7 +165,7 @@ fn dead_module_finding(
     // only under `cfg(test)`), so exempt files with inline tests.
     let has_inline_tests = info.facts.is_some_and(|facts| facts.has_inline_tests);
     if ctx.file_role != FileRole::Production
-        || !is_importable_code
+        || !supports_absence
         || ctx.is_entrypoint
         || ctx.is_public_api
         || fan_in.unwrap_or(0) != 0

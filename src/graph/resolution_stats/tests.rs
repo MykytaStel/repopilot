@@ -70,25 +70,20 @@ fn internal_import_classifier_separates_workspace_from_third_party() {
         .into_iter()
         .map(String::from)
         .collect();
+    let source = Path::new("src/app.py");
+    let repo_jvm_packages = HashSet::new();
+    let classify =
+        |import| is_unresolved_internal_import(import, source, &repo_jvm_packages, &repo_dirs);
 
-    assert!(is_unresolved_internal_import("./helper", &repo_dirs));
-    assert!(is_unresolved_internal_import(
-        "@/components/Button",
-        &repo_dirs
-    ));
-    assert!(is_unresolved_internal_import("~/lib/util", &repo_dirs));
-    assert!(is_unresolved_internal_import("app.ml.train", &repo_dirs));
-    assert!(is_unresolved_internal_import(
-        "components/Button",
-        &repo_dirs
-    ));
-    assert!(!is_unresolved_internal_import("react", &repo_dirs));
-    assert!(!is_unresolved_internal_import("@angular/core", &repo_dirs));
-    assert!(!is_unresolved_internal_import("numpy", &repo_dirs));
-    assert!(!is_unresolved_internal_import(
-        "django.db.models",
-        &repo_dirs
-    ));
+    assert!(classify("./helper"));
+    assert!(classify("@/components/Button"));
+    assert!(classify("~/lib/util"));
+    assert!(classify("app.ml.train"));
+    assert!(classify("components/Button"));
+    assert!(!classify("react"));
+    assert!(!classify("@angular/core"));
+    assert!(!classify("numpy"));
+    assert!(!classify("django.db.models"));
 }
 
 #[test]

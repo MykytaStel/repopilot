@@ -201,7 +201,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
             "Remove the file if it is no longer used, or ensure it is exported in the package's public API.",
         ),
         false_positive_notes: Some(
-            "Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. When the repository contains unresolved internal imports (relative paths, aliases, or workspace-package imports the resolver cannot wire up — common in monorepos) the finding is reported at Low confidence, and it is suppressed when an unresolved import matches the candidate file's name.",
+            "Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. Java and Kotlin are excluded because same-package type references need no import and are invisible to the import graph. When the repository contains unresolved internal imports (relative paths, aliases, or workspace-package imports the resolver cannot wire up — common in monorepos) the finding is reported at Low confidence, and it is suppressed when an unresolved import matches the candidate file's name.",
         ),
         ..RuleMetadata::DEFAULT
     },
