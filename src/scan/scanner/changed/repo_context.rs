@@ -39,6 +39,7 @@ impl<'a> ChangedScanEngine<'a> {
                 &discovery.changed_files,
                 graph_patch_files,
                 &facts.import_spans_by_file,
+                &facts.parsed_content_hashes,
             );
             if let Err(error) = write_repository_context_state(repo_root, &fingerprint, &load.state)
             {

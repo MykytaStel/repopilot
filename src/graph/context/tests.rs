@@ -72,7 +72,7 @@ fn repository_context_state_patch_removes_deleted_targets() {
         hunks: Vec::new(),
     };
 
-    state.apply_changed_facts_with_spans(root, &[deleted], &[], &BTreeMap::new());
+    state.apply_changed_facts_with_spans(root, &[deleted], &[], &BTreeMap::new(), &BTreeMap::new());
 
     let graph = state.coupling_graph();
     assert!(!graph.nodes.contains(Path::new("b.rs")));
@@ -431,6 +431,7 @@ fn file_fact(path: &str, imports: &[&str]) -> FileFacts {
 fn node(path: &Path) -> RepoContextNode {
     RepoContextNode {
         path: path.to_path_buf(),
+        content_hash: None,
         language: Some("Rust".to_string()),
         roles: Vec::new(),
         frameworks: Vec::new(),

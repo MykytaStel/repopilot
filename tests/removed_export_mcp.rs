@@ -8,6 +8,57 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 const B21_KIND: &str = "behavioral.removed-export-still-imported";
 
 #[test]
+fn changed_scan_finding_replays_through_mcp() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    init_repo(root);
+    write(root, "src/api.ts", "export function loadUser() {}\n");
+    write(
+        root,
+        "src/caller.ts",
+        "import { loadUser } from './api.ts';\nloadUser();\n",
+    );
+    commit_all(root, "before");
+    write(root, "src/api.ts", "export function saveUserAccount() {}\n");
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(root);
+    initialize_mcp(&mut stdin, &mut stdout);
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"scan","method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":".","scope":"changed","filters":{"rules":[B21_KIND]}}}}),
+    );
+    let scan = receive(&mut stdout);
+    let finding = &scan["result"]["structuredContent"]["findings"][0];
+    assert_eq!(finding["rule_id"], B21_KIND, "{scan:#?}");
+    assert_eq!(finding["evidence"][0]["path"], "src/caller.ts");
+    let finding_id = finding["id"].as_str().expect("finding id");
+    let handle = scan["result"]["analysisHandle"]
+        .as_str()
+        .expect("analysis handle");
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"explain","method":"tools/call","params":{"name":"repopilot_explain_finding","arguments":{"analysis_handle":handle,"finding_id":finding_id,"evidence_path":"src/caller.ts","line_start":1}}}),
+    );
+    let explanation = receive(&mut stdout);
+    assert_eq!(explanation["result"]["isError"], false, "{explanation:#?}");
+    assert_eq!(
+        explanation["result"]["structuredContent"]["status"], "stored-only",
+        "{explanation:#?}",
+    );
+    assert_eq!(
+        explanation["result"]["structuredContent"]["finding"]["rule_id"],
+        B21_KIND,
+    );
+    assert_eq!(
+        explanation["result"]["structuredContent"]["finding"]["evidence"][0]["path"],
+        "src/caller.ts",
+    );
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+}
+
+#[test]
 fn same_line_alias_occurrences_each_replay_through_mcp() {
     let temp = tempfile::tempdir().expect("temp dir");
     let root = temp.path();

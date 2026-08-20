@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Changed-scan removed-export parity.** `scan --changed` now projects the
+  existing `behavioral.removed-export-still-imported` detector as a
+  High-confidence, High-severity finding at each surviving caller import. It
+  shares the review detector and resolver proof, works through ordinary rule
+  disable/severity configuration, risk/CI gates, JSON and MCP scan output, and
+  keeps full scans silent without an authoritative comparison revision. Cold
+  and warm changed scans reuse the B2.2a symbol payload without rereading or
+  reparsing current callers; repository-context cache schema v7 adds only the
+  missing path-to-content-hash lookup key and invalidates older context entries.
+  `repopilot_explain_finding` preserves these Git-diff findings through its
+  existing stored-only fallback rather than claiming a file-scoped live replay.
 - **Review-first removed-export evidence.** `repopilot review` now emits the
   High-confidence, definitely-sensitive
   `behavioral.removed-export-still-imported` signal when a direct named import
@@ -31,7 +42,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `export * from "..."`, no removal is claimed. Path aliases and package
   imports, default/namespace imports, re-export sources, CommonJS/dynamic
   forms, file renames, and resolver selections other than the changed exporter
-  are intentionally omitted; `scan --changed` parity is deferred to B2.2.
+  are intentionally omitted.
   RepoPilot does not run TypeScript, compiler, or build commands—the signal
   supplies a manual verification plan instead.
 - Add the first v0.22 broken-code detector,
@@ -66,8 +77,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   cache entries are invalidated and rebuilt automatically from source; warm
   changed scans restore the payload without reparsing unchanged files. Review
   removed-export behavior and identity remain unchanged, and this internal
-  B2.2a foundation adds no public output field or new finding; `scan --changed`
-  removed-export parity remains the focused B2.2b follow-up.
+  B2.2a foundation adds no public output field or new finding; B2.2b now consumes
+  the payload through the shared detector in `scan --changed`.
 - Make JVM graph confidence path-aware without turning missing imports into
   false dead-code claims. An unresolved Java/Kotlin import now counts as
   repository-internal only when its package matches a scanned JVM package,

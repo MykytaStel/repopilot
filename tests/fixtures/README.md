@@ -7,6 +7,7 @@ needs a code change.
 | Family | What it holds | Harness |
 |--------|---------------|---------|
 | [`rules/`](rules/) | Per-rule true-/false-positive projects (`<rule_id>/{true_positive,false_positive}/` + `expected.json`) | [`rule_eval_fixture_coverage.rs`](../rule_eval_fixture_coverage.rs) |
+| [`changed_rules/`](changed_rules/) | Git-backed before/after true-/false-positive projects for change-set-only rules | [`changed_rule_fixtures.rs`](../changed_rule_fixtures.rs) |
 | [`review/`](review/) | `review` change-signal before/after scenarios (see [`review/README.md`](review/README.md)) | [`review_golden_fixtures.rs`](../review_golden_fixtures.rs) |
 | [`golden/`](golden/) | Rendered-output snapshots (`scan-*`, `ai-context-*`) | [`output_golden_fixtures.rs`](../output_golden_fixtures.rs), [`ai_context_golden.rs`](../ai_context_golden.rs) |
 | [`projects/`](projects/) | Small committed sample repos scanned by tests (e.g. `ai-context-sample`) | [`ai_context_golden.rs`](../ai_context_golden.rs) |
@@ -47,6 +48,15 @@ See [`review/README.md`](review/README.md): drop a
 and an `expected.json` of `expect`/`forbid` constraints (plus an optional
 `delete` list for deletions and renames).
 
+## Adding a changed-rule fixture
+
+Use `changed_rules/<rule_id>/` for rules that require an authoritative Git
+comparison and therefore cannot run in the full-scan `rules/` harness. Each
+case contains `before/` and `after/` trees plus the same `expected.json` shape
+as ordinary rule fixtures. The harness commits `before`, overlays `after`, runs
+cold and warm `scan --changed`, rejects unknown rule IDs, and requires stable,
+contract-clean findings.
+
 ## Updating goldens
 
 Goldens are regenerated, never hand-edited. Two separate bless switches:
@@ -76,5 +86,6 @@ Review the diff before committing — a golden change is a behavior change.
 
 ```sh
 cargo test --test rule_eval_fixture_coverage --test review_golden_fixtures \
-           --test ai_context_golden --test output_golden_fixtures
+           --test changed_rule_fixtures --test ai_context_golden \
+           --test output_golden_fixtures
 ```

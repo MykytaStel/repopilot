@@ -300,6 +300,11 @@ fn collect_file_facts_inner(
 
     let context = file_context_facts(&full_facts);
     let content_hash = full_facts.content.as_deref().map(content_hash);
+    if let Some(hash) = &content_hash {
+        facts
+            .parsed_content_hashes
+            .insert(full_facts.path.clone(), hash.clone());
+    }
     let cached = content_hash.as_deref().and_then(|hash| {
         parsed_cache
             .as_deref_mut()

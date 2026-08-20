@@ -130,6 +130,15 @@ impl ParsedFactsCache {
         entry
     }
 
+    pub(crate) fn lookup_javascript_symbols(
+        &mut self,
+        content_hash: &str,
+        language: Option<&str>,
+    ) -> Option<JavaScriptSymbolFacts> {
+        self.lookup(content_hash, language)
+            .and_then(|entry| entry.javascript_symbols)
+    }
+
     pub fn insert(&mut self, entry: ParsedFactsEntry) {
         self.referenced_hashes.insert(entry.content_hash.clone());
         self.entries.insert(entry.cache_key(), entry);

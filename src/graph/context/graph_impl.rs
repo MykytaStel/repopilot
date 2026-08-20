@@ -15,6 +15,7 @@ impl RepoContextGraph {
                         file,
                         root,
                         facts.import_spans_by_file.get(&file.path),
+                        facts.parsed_content_hashes.get(&file.path),
                     )
                 })
                 .collect(),
@@ -48,6 +49,11 @@ impl RepoContextGraph {
             .filter(|node| !node.import_spans.is_empty())
             .map(|node| (node.path.clone(), node.import_spans.clone()))
             .collect();
+        let parsed_content_hashes = self
+            .nodes
+            .iter()
+            .filter_map(|node| Some((node.path.clone(), node.content_hash.as_ref()?.clone())))
+            .collect();
 
         ScanFacts {
             root_path: self.root_path.clone(),
@@ -57,6 +63,7 @@ impl RepoContextGraph {
             non_empty_lines,
             languages: build_language_summary(languages),
             files,
+            parsed_content_hashes,
             import_spans_by_file,
             detected_frameworks: self.detected_frameworks.clone(),
             framework_projects: self.framework_projects.clone(),
@@ -95,6 +102,7 @@ impl RepoContextGraph {
             changed_files,
             patch_files,
             &BTreeMap::new(),
+            &BTreeMap::new(),
         );
     }
 
@@ -104,6 +112,7 @@ impl RepoContextGraph {
         changed_files: &[ChangedFile],
         patch_files: &[FileFacts],
         patch_import_spans: &BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
+        patch_content_hashes: &BTreeMap<PathBuf, String>,
     ) {
         let removed = changed_files
             .iter()
@@ -115,7 +124,12 @@ impl RepoContextGraph {
         self.nodes
             .retain(|node| !patch_files.iter().any(|file| file.path == node.path));
         self.nodes.extend(patch_files.iter().map(|file| {
-            RepoContextNode::from_file(file, repo_root, patch_import_spans.get(&file.path))
+            RepoContextNode::from_file(
+                file,
+                repo_root,
+                patch_import_spans.get(&file.path),
+                patch_content_hashes.get(&file.path),
+            )
         }));
         self.nodes.sort_by(|left, right| left.path.cmp(&right.path));
 
@@ -166,6 +180,7 @@ impl RepoContextNode {
         file: &FileFacts,
         root: &Path,
         import_spans: Option<&BTreeMap<String, (usize, usize)>>,
+        content_hash: Option<&String>,
     ) -> Self {
         let context = classify_file(file);
         let roles = context.role_ids().into_iter().map(str::to_string).collect();
@@ -189,6 +204,7 @@ impl RepoContextNode {
 
         Self {
             path: relative_graph_path(root, &file.path),
+            content_hash: content_hash.cloned(),
             language: file.language.clone(),
             roles,
             frameworks,

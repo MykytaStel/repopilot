@@ -1,3 +1,4 @@
+pub(crate) mod api_contract;
 pub(crate) mod artifact;
 pub(crate) mod exports;
 mod model;

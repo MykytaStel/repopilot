@@ -1,4 +1,5 @@
 mod architecture;
+mod behavioral;
 mod code_quality;
 mod framework;
 mod language;
@@ -13,6 +14,7 @@ const RULE_GROUPS: &[&[RuleMetadata]] = &[
     framework::REACT_NATIVE_RULES,
     framework::WEB_RULES,
     architecture::RULES,
+    behavioral::RULES,
     code_quality::RULES,
     language::RULES,
     security::RULES,
@@ -40,7 +42,39 @@ fn rule_index() -> &'static HashMap<&'static str, &'static RuleMetadata> {
 mod tests {
     use super::*;
     use crate::findings::types::{FindingCategory, Severity};
-    use crate::rules::{RuleCachePolicy, RuleOutputKind};
+    use crate::rules::{FactKind, RuleCachePolicy, RuleOutputKind, RuleScope, SignalSource};
+
+    #[test]
+    fn removed_export_rule_declares_change_set_symbol_graph_contract() {
+        let meta = lookup_rule_metadata("behavioral.removed-export-still-imported")
+            .expect("removed-export rule must be registered");
+
+        assert_eq!(meta.category, FindingCategory::CodeQuality);
+        assert_eq!(meta.default_severity, Severity::High);
+        assert_eq!(
+            meta.default_confidence,
+            crate::findings::types::Confidence::High
+        );
+        assert_eq!(meta.signal_source, SignalSource::Ast);
+        assert_eq!(meta.requirements.scope, RuleScope::ChangeSet);
+        assert_eq!(
+            meta.requirements.cache_policy,
+            RuleCachePolicy::PerChangeSet
+        );
+        for fact in [
+            FactKind::GitDiff,
+            FactKind::SymbolFacts,
+            FactKind::Imports,
+            FactKind::Exports,
+            FactKind::DependencyGraph,
+            FactKind::WorkspaceMetadata,
+        ] {
+            assert!(
+                meta.requirements.fact_kinds.contains(&fact),
+                "missing {fact:?}"
+            );
+        }
+    }
 
     #[test]
     fn known_rn_rule_returns_metadata() {
