@@ -1,24 +1,24 @@
 use super::{ExportedSymbolFact, ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind};
 use crate::languages::import_support::extract_string_literal;
-use crate::review::signals::content::ReviewSource;
 use tree_sitter::Node;
 
-pub(super) fn extract_javascript_symbol_facts(
-    source: &ReviewSource,
+pub(crate) fn extract_javascript_symbol_facts(
+    content: &str,
+    language_label: Option<&str>,
+    tree: &tree_sitter::Tree,
 ) -> Option<JavaScriptSymbolFacts> {
     if !matches!(
-        source.language_label(),
+        language_label,
         Some("TypeScript" | "TypeScript React" | "JavaScript" | "JavaScript React")
     ) {
         return None;
     }
-    let tree = source.tree()?;
     let root = tree.root_node();
     if root.has_error() {
         return None;
     }
     let mut facts = JavaScriptSymbolFacts::default();
-    extract_program(root, source.content(), &mut facts);
+    extract_program(root, content, &mut facts);
     facts.exports.sort();
     facts.exports.dedup();
     facts.re_exports.sort();
@@ -291,3 +291,6 @@ fn semantic_field_text<'a>(node: Node<'_>, field: &str, content: &'a str) -> Opt
 fn span(node: Node<'_>) -> (usize, usize) {
     (node.start_position().row + 1, node.end_position().row + 1)
 }
+
+#[cfg(test)]
+mod tests;

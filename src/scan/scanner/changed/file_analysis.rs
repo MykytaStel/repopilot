@@ -353,6 +353,7 @@ impl<'a> ChangedScanEngine<'a> {
                     context.clone(),
                     (&entry.syntax).into(),
                 )
+                .with_javascript_symbols(entry.javascript_symbols.clone())
             })
             .unwrap_or_else(|| {
                 ParsedArtifact::from_legacy_cache(

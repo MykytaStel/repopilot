@@ -1,49 +1,14 @@
 mod detector;
-mod javascript;
 
 use crate::review::diff::ChangedFile;
 use crate::review::diff::DiffTarget;
 use crate::scan::types::CouplingGraph;
 use std::path::PathBuf;
 
+pub(crate) use crate::analysis::symbols::{
+    ExportedSymbolFact, ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind,
+};
 use crate::review::signals::content::ReviewSource;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum SymbolKind {
-    Value,
-    Type,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct ExportedSymbolFact {
-    pub name: String,
-    pub kind: SymbolKind,
-    pub line_start: usize,
-    pub line_end: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct ImportedSymbolFact {
-    pub imported_name: String,
-    pub local_name: String,
-    pub kind: SymbolKind,
-    pub module_specifier: String,
-    pub line_start: usize,
-    pub line_end: usize,
-    pub byte_start: usize,
-    pub byte_end: usize,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct JavaScriptSymbolFacts {
-    pub exports: Vec<ExportedSymbolFact>,
-    /// Names forwarded by a sourced `export ... from "..."`. Their defining
-    /// module is not analyzed, so the symbol kind stays unknown.
-    pub re_exports: Vec<String>,
-    /// `export * from "..."` is present, so any name may still be supplied.
-    pub wildcard_re_export: bool,
-    pub imports: Vec<ImportedSymbolFact>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct RemovedExportSignal {
@@ -77,7 +42,11 @@ pub(crate) fn detect_removed_export_imports(
 pub(crate) fn extract_javascript_symbol_facts(
     source: &ReviewSource,
 ) -> Option<JavaScriptSymbolFacts> {
-    javascript::extract_javascript_symbol_facts(source)
+    crate::analysis::symbols::javascript::extract_javascript_symbol_facts(
+        source.content(),
+        source.language_label(),
+        source.tree()?,
+    )
 }
 
 #[cfg(test)]
