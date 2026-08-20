@@ -87,11 +87,25 @@ fn dead_module_still_covers_every_language_the_resolver_wires_up() {
         "pkg/orphan.py",
         "internal/orphan.go",
         "src/orphan.rs",
-        "src/main/java/com/example/Orphan.java",
-        "core/src/main/kotlin/com/example/Orphan.kt",
     ] {
         assert!(
             dead_module_finding(&prod(relative), Some(0), GraphReadiness::Available).is_some(),
+            "{relative}"
+        );
+    }
+}
+
+#[test]
+fn dead_module_is_silent_when_jvm_same_package_references_are_unmodeled() {
+    // Java and Kotlin can reference types from the same package without an
+    // import. The import graph cannot see those uses, so zero fan-in is not
+    // evidence that the target file is dead.
+    for relative in [
+        "src/main/java/com/example/UsedWithoutImport.java",
+        "core/src/main/kotlin/com/example/UsedWithoutImport.kt",
+    ] {
+        assert!(
+            dead_module_finding(&prod(relative), Some(0), GraphReadiness::Available).is_none(),
             "{relative}"
         );
     }

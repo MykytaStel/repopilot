@@ -36,6 +36,20 @@ pub fn resolves_file_imports(path: &Path) -> bool {
         .is_some_and(|extension| FILE_RESOLVED_EXTENSIONS.contains(&extension))
 }
 
+/// Whether an import-only graph can support claims based on a file having no
+/// incoming edges.
+///
+/// Java and Kotlin imports resolve to files, but types in the same package can
+/// be referenced without an import. Their present edges remain useful while a
+/// missing edge cannot prove that a file is unused.
+pub fn supports_file_absence_claims(path: &Path) -> bool {
+    resolves_file_imports(path)
+        && !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| matches!(extension, "java" | "kt" | "kts"))
+}
+
 /// Resolves a raw import string extracted from `from_file` to a concrete path
 /// under `root`. Returns a path only when it exists in `known_files`.
 pub fn resolve_import(

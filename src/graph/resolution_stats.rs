@@ -183,10 +183,14 @@ pub(crate) fn is_relative_import(import: &str) -> bool {
 
 /// Whether an unresolved import should weaken absence claims (dead module,
 /// instability). Relative imports and recognizable local path aliases always
-/// count; a bare import counts only when its leading segment names a directory
-/// that exists in `repo_dirs` — i.e. an internal monorepo/workspace package the
-/// resolver did not wire up — which keeps genuine third-party packages out.
-pub(crate) fn is_unresolved_internal_import(import: &str, repo_dirs: &HashSet<String>) -> bool {
+/// count. JVM imports require a matching local package; other bare imports count
+/// when their leading segment names a repository directory.
+pub(crate) fn is_unresolved_internal_import(
+    import: &str,
+    source: &Path,
+    repo_jvm_packages: &HashSet<PathBuf>,
+    repo_dirs: &HashSet<String>,
+) -> bool {
     let import = import.trim();
     if import.is_empty() {
         return false;
@@ -198,7 +202,61 @@ pub(crate) fn is_unresolved_internal_import(import: &str, repo_dirs: &HashSet<St
     if import.starts_with("@/") || import.starts_with("~/") || import == "~" {
         return true;
     }
+    if source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| matches!(extension, "java" | "kt" | "kts"))
+    {
+        return jvm_import_has_local_package(import, repo_jvm_packages);
+    }
     leading_segment(import).is_some_and(|segment| repo_dirs.contains(segment))
+}
+
+fn jvm_import_has_local_package(import: &str, repo_jvm_packages: &HashSet<PathBuf>) -> bool {
+    let segments = import
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+
+    (1..=3).any(|trailing_segments| {
+        let Some(package_segments) =
+            segments.get(..segments.len().saturating_sub(trailing_segments))
+        else {
+            return false;
+        };
+        if package_segments.len() < 2 {
+            return false;
+        }
+        let package = package_segments.iter().collect::<PathBuf>();
+        repo_jvm_packages.contains(&package)
+    })
+}
+
+/// Every two-or-more-component directory suffix that contains a JVM source
+/// file. Built once per scan so unresolved imports can test local package
+/// evidence without walking every known file.
+pub(crate) fn repo_jvm_package_suffixes<'a, I>(paths: I) -> HashSet<PathBuf>
+where
+    I: IntoIterator<Item = &'a Path>,
+{
+    let mut packages = HashSet::new();
+    for path in paths {
+        if !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| matches!(extension, "java" | "kt" | "kts"))
+        {
+            continue;
+        }
+        let Some(parent) = path.parent() else {
+            continue;
+        };
+        let components = parent.components().collect::<Vec<_>>();
+        for start in 0..components.len().saturating_sub(1) {
+            packages.insert(components[start..].iter().collect());
+        }
+    }
+    packages
 }
 
 /// The first non-empty segment of an import, splitting on every path/module

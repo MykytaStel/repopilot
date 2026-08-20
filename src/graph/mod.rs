@@ -53,6 +53,9 @@ pub fn build_coupling_graph_with_resolution(
     let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
     let repo_dirs =
         resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
+    let repo_jvm_packages = resolution_stats::repo_jvm_package_suffixes(
+        facts.files.iter().map(|file| file.path.as_path()),
+    );
 
     let mut edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
     let mut deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>> = BTreeMap::new();
@@ -86,7 +89,12 @@ pub fn build_coupling_graph_with_resolution(
                 Some(_) => {}
                 None => {
                     let raw = raw.trim();
-                    if resolution_stats::is_unresolved_internal_import(raw, &repo_dirs) {
+                    if resolution_stats::is_unresolved_internal_import(
+                        raw,
+                        &source,
+                        &repo_jvm_packages,
+                        &repo_dirs,
+                    ) {
                         resolution.record_classified(&source, raw, root);
                     }
                 }
@@ -402,10 +410,10 @@ mod tests {
     use super::*;
     use crate::scan::facts::{FileFacts, ScanFacts};
 
-    fn py(path: &str, imports: &[&str]) -> FileFacts {
+    fn file(path: &str, language: &str, imports: &[&str]) -> FileFacts {
         FileFacts {
             path: PathBuf::from(path),
-            language: Some("Python".to_string()),
+            language: Some(language.to_string()),
             non_empty_lines: 0,
             branch_count: 0,
             imports: imports.iter().map(|value| (*value).to_string()).collect(),
@@ -416,6 +424,10 @@ mod tests {
         }
     }
 
+    fn py(path: &str, imports: &[&str]) -> FileFacts {
+        file(path, "Python", imports)
+    }
+
     #[test]
     fn records_unresolved_workspace_import_but_not_third_party() {
         // A monorepo package import (`app.*` where `app/` is a real directory)
@@ -423,8 +435,9 @@ mod tests {
         // absence claim is demoted; a genuine third-party import must not be.
         let facts = ScanFacts {
             root_path: PathBuf::from("/repo"),
-            files: vec![py(
+            files: vec![file(
                 "apps/ml/app/api.py",
+                "Python",
                 &["app.enrichment.contract", "numpy", "fastapi"],
             )],
             ..ScanFacts::default()
@@ -438,6 +451,36 @@ mod tests {
             "only the internal workspace import should be recorded"
         );
         assert!(resolution.could_target_stem("contract"));
+    }
+
+    #[test]
+    fn jvm_unresolved_imports_require_a_matching_local_package() {
+        let facts = ScanFacts {
+            root_path: PathBuf::from("/repo"),
+            files: vec![
+                file(
+                    "app/src/main/java/com/acme/App.java",
+                    "Java",
+                    &["com.google.gson.Gson", "com.acme.service.Missing"],
+                ),
+                file(
+                    "app/src/main/java/com/acme/service/Existing.java",
+                    "Java",
+                    &[],
+                ),
+            ],
+            ..ScanFacts::default()
+        };
+
+        let (_graph, resolution) = build_coupling_graph_with_resolution(&facts, Path::new("/repo"));
+
+        assert_eq!(
+            resolution.total(),
+            1,
+            "only the import whose package exists in this repository is internal"
+        );
+        assert!(resolution.could_target_stem("Missing"));
+        assert!(!resolution.could_target_stem("Gson"));
     }
 
     fn graph_from_edges(edges: &[(&str, &str)]) -> CouplingGraph {

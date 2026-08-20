@@ -60,6 +60,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Make JVM graph confidence path-aware without turning missing imports into
+  false dead-code claims. An unresolved Java/Kotlin import now counts as
+  repository-internal only when its package matches a scanned JVM package,
+  rather than whenever a generic directory such as `com` or `org` exists. The
+  package suffix index is built once per scan and queried in constant time.
+  Java and Kotlin import edges remain available to coupling, cycles, fan-out,
+  and blast-radius analysis, but `architecture.dead-module` is withheld for
+  those languages: same-package types can be referenced without an import, so
+  an import-only graph cannot prove that zero fan-in means unused code.
 - `architecture.dead-module` recognizes five more ways a file is reached
   without an import: TypeScript declaration files, which carry no runtime code
   at all; vendored third-party trees (`vendor/`, `node_modules/`,
@@ -107,7 +116,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   so every one of their files carries zero fan-in in a perfectly healthy
   repository and the rule reported all of them. The check asks the resolver
   itself which extensions it dispatches on, so it cannot drift from what the
-  graph can represent. eShopOnWeb drops from 208 to 2 findings.
+  graph can represent. Java and Kotlin are also withheld from this absence
+  claim because same-package references do not create import edges, while their
+  present edges remain available to every presence-based graph consumer.
+  eShopOnWeb drops from 208 to 2 findings.
 - Correct an over-broad example-tree recognizer shipped in the previous entry:
   `examples`/`samples` were matched at any path depth, which silenced every
   file under a package namespace containing those words — Spring PetClinic
