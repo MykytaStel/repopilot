@@ -142,6 +142,9 @@ impl<'a> ChangedScanEngine<'a> {
 
         let hash_start = Instant::now();
         let hash_entry = file_hash_entry(repo_root, &absolute_path)?;
+        facts
+            .parsed_content_hashes
+            .insert(changed_file.path.clone(), hash_entry.hash.clone());
         cache_telemetry.timings.file_hash_us = cache_telemetry
             .timings
             .file_hash_us

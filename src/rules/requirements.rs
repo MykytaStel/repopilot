@@ -27,6 +27,7 @@ pub enum FactKind {
     FileMetadata,
     FileContent,
     ParsedSyntax,
+    SymbolFacts,
     Imports,
     Exports,
     FileContext,
@@ -44,6 +45,7 @@ impl FactKind {
             Self::FileMetadata => "file-metadata",
             Self::FileContent => "file-content",
             Self::ParsedSyntax => "parsed-syntax",
+            Self::SymbolFacts => "symbol-facts",
             Self::Imports => "imports",
             Self::Exports => "exports",
             Self::FileContext => "file-context",
@@ -150,6 +152,14 @@ const FRAMEWORK_TEXT_FACTS: &[FactKind] = &[
     FactKind::FrameworkContext,
 ];
 const CHANGE_SET_FACTS: &[FactKind] = &[FactKind::GitDiff, FactKind::WorkspaceMetadata];
+const CHANGE_SET_SYMBOL_GRAPH_FACTS: &[FactKind] = &[
+    FactKind::GitDiff,
+    FactKind::SymbolFacts,
+    FactKind::Imports,
+    FactKind::Exports,
+    FactKind::DependencyGraph,
+    FactKind::WorkspaceMetadata,
+];
 
 impl RuleRequirements {
     pub const UNDECLARED: Self = Self {
@@ -278,6 +288,15 @@ impl RuleRequirements {
         Self::declared(
             RuleScope::ChangeSet,
             CHANGE_SET_FACTS,
+            lifecycle,
+            RuleCachePolicy::PerChangeSet,
+        )
+    }
+
+    pub const fn change_set_symbol_graph(lifecycle: RuleLifecycle) -> Self {
+        Self::declared(
+            RuleScope::ChangeSet,
+            CHANGE_SET_SYMBOL_GRAPH_FACTS,
             lifecycle,
             RuleCachePolicy::PerChangeSet,
         )

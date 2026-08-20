@@ -66,9 +66,16 @@ impl RepositoryContextState {
         changed_files: &[ChangedFile],
         patch_files: &[FileFacts],
         patch_import_spans: &BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
+        patch_content_hashes: &BTreeMap<PathBuf, String>,
     ) {
         let mut graph = self.to_compat();
-        graph.apply_changed_facts_with_spans(root, changed_files, patch_files, patch_import_spans);
+        graph.apply_changed_facts_with_spans(
+            root,
+            changed_files,
+            patch_files,
+            patch_import_spans,
+            patch_content_hashes,
+        );
         *self = Self::from_compat(graph);
     }
 }

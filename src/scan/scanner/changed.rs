@@ -109,6 +109,7 @@ impl<'a> ChangedScanEngine<'a> {
             &file_stage.graph_patch_files,
             &mut file_stage.parsed_cache,
         )?;
+        self.run_api_contract_analysis(&discovery, &mut file_stage, &repo_stage);
         let project_start = Instant::now();
         let ((project_findings, framework_findings), graph_analysis) = rayon::join(
             || {
@@ -179,6 +180,7 @@ impl<'a> ChangedScanEngine<'a> {
     }
 }
 
+mod api_contract;
 mod file_analysis;
 mod finalize;
 mod repo_context;

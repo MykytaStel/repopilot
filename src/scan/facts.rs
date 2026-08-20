@@ -22,6 +22,9 @@ pub struct ScanFacts {
     pub languages: Vec<LanguageSummary>,
     pub files: Vec<FileFacts>,
     pub artifacts: BTreeMap<PathBuf, ParsedArtifact>,
+    /// Current content hashes keyed by file path. Repository context persists
+    /// this path-to-hash link while the parsed cache owns the fact payload.
+    pub parsed_content_hashes: BTreeMap<PathBuf, String>,
     /// 1-indexed source spans keyed first by file path, then import specifier.
     /// Kept outside `FileFacts` so evidence-only parser metadata does not expand
     /// the stable per-file facts contract.

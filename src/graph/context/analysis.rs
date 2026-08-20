@@ -234,6 +234,7 @@ mod tests {
     fn node(path: &str) -> RepoContextNode {
         RepoContextNode {
             path: PathBuf::from(path),
+            content_hash: None,
             language: Some("Rust".to_string()),
             roles: Vec::new(),
             frameworks: Vec::new(),

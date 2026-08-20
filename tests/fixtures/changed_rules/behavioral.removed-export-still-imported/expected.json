@@ -1,0 +1,12 @@
+{
+  "fixtures": [
+    {
+      "path": "true_positive",
+      "expected_rule_ids": ["behavioral.removed-export-still-imported"]
+    },
+    {
+      "path": "false_positive",
+      "expected_rule_ids": []
+    }
+  ]
+}
