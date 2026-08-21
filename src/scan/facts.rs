@@ -29,6 +29,10 @@ pub struct ScanFacts {
     /// Kept outside `FileFacts` so evidence-only parser metadata does not expand
     /// the stable per-file facts contract.
     pub import_spans_by_file: BTreeMap<PathBuf, BTreeMap<String, (usize, usize)>>,
+    /// Missing imports whose absence is explicitly absorbed by language-level
+    /// error handling. Repository graph audits consume this bounded projection
+    /// without reparsing source.
+    pub guarded_optional_imports_by_file: BTreeMap<PathBuf, Vec<String>>,
     pub detected_frameworks: Vec<DetectedFramework>,
     pub framework_projects: Vec<FrameworkProject>,
     pub react_native: Option<ReactNativeArchitectureProfile>,
@@ -41,6 +45,14 @@ pub type FactStore = ScanFacts;
 
 impl ScanFacts {
     pub fn insert_artifact(&mut self, artifact: ParsedArtifact) {
+        if artifact.guarded_optional_imports.is_empty() {
+            self.guarded_optional_imports_by_file.remove(&artifact.path);
+        } else {
+            self.guarded_optional_imports_by_file.insert(
+                artifact.path.clone(),
+                artifact.guarded_optional_imports.clone(),
+            );
+        }
         self.artifacts.insert(artifact.path.clone(), artifact);
     }
 

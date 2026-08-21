@@ -20,6 +20,9 @@ pub(crate) fn analyze_unresolved_local_imports(
     let mut findings = Vec::new();
     let mut limitations = BTreeMap::new();
     for unresolved in context.resolution.evidence() {
+        if is_guarded_optional_import(unresolved, context) {
+            continue;
+        }
         if is_shadowed_python_submodule(unresolved, context.resolution) {
             continue;
         }
@@ -46,6 +49,39 @@ pub(crate) fn analyze_unresolved_local_imports(
         findings,
         diagnostics: limitation_diagnostics(limitations),
     }
+}
+
+fn is_guarded_optional_import(
+    unresolved: &crate::graph::UnresolvedImportEvidence,
+    context: &GraphAuditContext<'_>,
+) -> bool {
+    if unresolved
+        .source
+        .extension()
+        .and_then(|value| value.to_str())
+        != Some("py")
+    {
+        return false;
+    }
+    path_keyed_value(
+        &context.facts.guarded_optional_imports_by_file,
+        &unresolved.source,
+    )
+    .is_some_and(|imports| {
+        imports
+            .binary_search_by(|candidate| candidate.as_str().cmp(&unresolved.raw_import))
+            .is_ok()
+    })
+}
+
+fn path_keyed_value<'a, T>(values: &'a BTreeMap<PathBuf, T>, path: &Path) -> Option<&'a T> {
+    values.get(path).or_else(|| {
+        let normalized = crate::graph::resolver::normalize_path(path);
+        values
+            .iter()
+            .find(|(candidate, _)| crate::graph::resolver::normalize_path(candidate) == normalized)
+            .map(|(_, value)| value)
+    })
 }
 
 fn source_facts<'a>(
@@ -90,15 +126,7 @@ fn missing_import_finding(
 ) -> Finding {
     let path = relative_path(&unresolved.source, context.root);
     let source_facts = source_facts(context, unresolved);
-    let stored_spans = context
-        .facts
-        .import_spans_by_file
-        .iter()
-        .find(|(path, _)| {
-            crate::graph::resolver::normalize_path(path)
-                == crate::graph::resolver::normalize_path(&unresolved.source)
-        })
-        .map(|(_, spans)| spans);
+    let stored_spans = path_keyed_value(&context.facts.import_spans_by_file, &unresolved.source);
     let (line_start, line_end) = import_span(source_facts, stored_spans, &unresolved.raw_import);
     Finding {
         id: String::new(),

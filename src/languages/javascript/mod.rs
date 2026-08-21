@@ -15,6 +15,7 @@ use super::ImportExtractor;
 static JS_FAMILY_IMPORTS: ImportExtractor = ImportExtractor {
     eager: imports::eager,
     deferred: Some(imports::deferred),
+    guarded_optional: None,
     spans: imports::spans,
 };
 

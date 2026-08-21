@@ -245,6 +245,7 @@ mod tests {
             imports: Vec::new(),
             import_spans: Default::default(),
             deferred_imports: Vec::new(),
+            guarded_optional_imports: Vec::new(),
             is_test: false,
             is_generated: false,
             is_config: false,

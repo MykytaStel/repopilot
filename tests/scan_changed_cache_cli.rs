@@ -73,7 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
-        "tree-sitter-imports-exports-symbols-spans-v3"
+        "tree-sitter-imports-exports-symbols-spans-guarded-v4"
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]
@@ -147,10 +147,10 @@ fn typed_symbol_facts_are_persisted_and_reused_by_changed_scan() {
     scan_changed_json(temp.path(), &["--changed"]);
     let cache_path = temp.path().join(".repopilot/cache/parsed_facts_v2.json");
     let cache = read_json(&cache_path);
-    assert_eq!(cache["schema_version"], 4);
+    assert_eq!(cache["schema_version"], 5);
     assert_eq!(
         cache["analysis_version"],
-        "tree-sitter-imports-exports-symbols-spans-v3"
+        "tree-sitter-imports-exports-symbols-spans-guarded-v4"
     );
     let named_import = cache["entries"]
         .as_array()
@@ -302,7 +302,7 @@ fn changed_scan_invalidates_old_cache_schema() {
     for name in ["file_hashes.json", "file_roles.json", "findings.json"] {
         force_cache_schema(temp.path().join(".repopilot/cache").join(name).as_path(), 5);
     }
-    force_cache_schema(&cache_dir.join("parsed_facts_v2.json"), 3);
+    force_cache_schema(&cache_dir.join("parsed_facts_v2.json"), 4);
     let json = scan_changed_json(temp.path(), &["--changed"]);
 
     assert_eq!(json["cache_telemetry"]["hits"], 0);
@@ -317,7 +317,7 @@ fn changed_scan_invalidates_old_cache_schema() {
         "missing-cache-entry"
     );
     let rebuilt = read_json(&cache_dir.join("parsed_facts_v2.json"));
-    assert_eq!(rebuilt["schema_version"], 4);
+    assert_eq!(rebuilt["schema_version"], 5);
     assert!(
         rebuilt["entries"]
             .as_array()

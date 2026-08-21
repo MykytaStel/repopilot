@@ -13,6 +13,7 @@ use crate::review::signals::tables::{
 static CSHARP_IMPORTS: ImportExtractor = ImportExtractor {
     eager: imports::eager,
     deferred: None,
+    guarded_optional: None,
     spans: imports::spans,
 };
 

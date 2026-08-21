@@ -1,22 +1,19 @@
 {
   "default": {
     "by_priority": {
-      "P0": 4,
+      "P0": 2,
       "P1": 1
     },
     "by_rule": {
       "architecture.circular-dependency": 2,
-      "architecture.unresolved-local-import": 2,
       "language.python.exception-risk": 1
     },
     "fingerprints": [
       "architecture.circular-dependency:wagtail/actions/publish_revision.py:0da7c5453404677e",
       "architecture.circular-dependency:wagtail/admin/views/bulk_action/__init__.py:a2ca81903a3ef0d5",
-      "architecture.unresolved-local-import:wagtail/project_template/project_name/settings/dev.py:11ea2da70fd5eb9f",
-      "architecture.unresolved-local-import:wagtail/project_template/project_name/settings/production.py:11ea2da70fd5eb9f",
       "language.python.exception-risk:wagtail/images/models.py:b3686c8d8679d8e4"
     ],
-    "visible_total": 5
+    "visible_total": 3
   },
   "framework": "django",
   "language": "python",
@@ -32,7 +29,6 @@
       "architecture.large-file": 85,
       "architecture.test-leak": 2,
       "architecture.too-many-modules": 8,
-      "architecture.unresolved-local-import": 2,
       "code-marker.fixme": 3,
       "code-marker.hack": 3,
       "code-marker.todo": 19,
@@ -47,6 +43,6 @@
       "language.python.exception-risk": 45,
       "testing.source-without-test": 668
     },
-    "visible_total": 2433
+    "visible_total": 2431
   }
 }

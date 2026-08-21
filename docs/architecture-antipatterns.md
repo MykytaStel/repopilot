@@ -54,6 +54,13 @@ only:
 - Python relative modules such as `.payments` when neither the module file nor
   package initializer exists.
 
+Python imports inside a `try` body are not reported when an explicit
+`ImportError` or `ModuleNotFoundError` handler absorbs the failure. A handler
+that is broad or unrelated, or performs a bare re-raise, does not qualify and
+keeps the import required. This evidence comes from the same parsed syntax tree
+as the import graph and survives cold and warm changed scans; the audit does not
+reparse source text.
+
 RepoPilot checks every bounded candidate on disk before reporting, so a valid
 target omitted by ignore or scan-size policy remains quiet. Extensionless
 imports, path aliases, workspace packages, generated targets, Rust module forms,

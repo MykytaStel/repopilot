@@ -12,6 +12,7 @@ use super::ImportExtractor;
 static KOTLIN_IMPORTS: ImportExtractor = ImportExtractor {
     eager: imports::eager,
     deferred: None,
+    guarded_optional: None,
     spans: imports::spans,
 };
 

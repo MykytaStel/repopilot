@@ -6,7 +6,8 @@ use crate::analysis::symbols::javascript::extract_javascript_symbol_facts;
 use crate::audits::pipeline::FileAuditRegistration;
 use crate::findings::types::Finding;
 use crate::graph::imports::{
-    extract_deferred_imports_from, extract_import_spans_from, extract_imports_from,
+    extract_deferred_imports_from, extract_guarded_optional_imports_from,
+    extract_import_spans_from, extract_imports_from,
 };
 use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
@@ -17,6 +18,7 @@ pub(super) struct FileAnalysisResult {
     pub(super) imports: Vec<String>,
     pub(super) import_spans: std::collections::BTreeMap<String, (usize, usize)>,
     pub(super) deferred_imports: Vec<String>,
+    pub(super) guarded_optional_imports: Vec<String>,
     pub(super) exports: Vec<String>,
     pub(super) javascript_symbols: Option<JavaScriptSymbolFacts>,
     pub(super) syntax: SyntaxSummary,
@@ -26,6 +28,7 @@ struct ParsedFileFacts {
     imports: Vec<String>,
     import_spans: std::collections::BTreeMap<String, (usize, usize)>,
     deferred_imports: Vec<String>,
+    guarded_optional_imports: Vec<String>,
     exports: Vec<String>,
     javascript_symbols: Option<JavaScriptSymbolFacts>,
     syntax: SyntaxSummary,
@@ -61,6 +64,7 @@ pub(super) fn analyze_file(
         imports: parsed_facts.imports,
         import_spans: parsed_facts.import_spans,
         deferred_imports: parsed_facts.deferred_imports,
+        guarded_optional_imports: parsed_facts.guarded_optional_imports,
         exports: parsed_facts.exports,
         javascript_symbols: parsed_facts.javascript_symbols,
         syntax: parsed_facts.syntax,
@@ -100,6 +104,7 @@ fn extract_parsed_artifacts(parsed: &ParsedFile, language: Option<&str>) -> Pars
     let imports = extract_imports_from(parsed, language);
     let import_spans = extract_import_spans_from(parsed, language);
     let deferred_imports = extract_deferred_imports_from(parsed, language);
+    let guarded_optional_imports = extract_guarded_optional_imports_from(parsed, language);
     let exports = extract_exports(parsed.content(), language);
     let javascript_symbols = parsed
         .tree()
@@ -109,6 +114,7 @@ fn extract_parsed_artifacts(parsed: &ParsedFile, language: Option<&str>) -> Pars
         imports,
         import_spans,
         deferred_imports,
+        guarded_optional_imports,
         exports,
         javascript_symbols,
         syntax,

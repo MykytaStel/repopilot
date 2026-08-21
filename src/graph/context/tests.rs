@@ -28,6 +28,25 @@ fn repository_context_state_round_trips_the_compatibility_view() {
 }
 
 #[test]
+fn repository_context_state_round_trips_guarded_optional_imports() {
+    let root = Path::new("/repo");
+    let mut facts = scan_facts(root, vec![file_fact("plugin.py", &[".adapter"])]);
+    facts
+        .guarded_optional_imports_by_file
+        .insert(PathBuf::from("plugin.py"), vec![".adapter".to_string()]);
+    let coupling = build_coupling_graph(&facts, root);
+
+    let restored = RepositoryContextState::from_scan_facts(&facts, root, coupling).to_scan_facts();
+
+    assert_eq!(
+        restored
+            .guarded_optional_imports_by_file
+            .get(Path::new("plugin.py")),
+        Some(&vec![".adapter".to_string()])
+    );
+}
+
+#[test]
 fn repository_context_state_sorts_file_records_by_relative_path() {
     let root = Path::new("/repo");
     let facts = scan_facts(root, vec![file_fact("b.rs", &[]), file_fact("a.rs", &[])]);
@@ -72,7 +91,14 @@ fn repository_context_state_patch_removes_deleted_targets() {
         hunks: Vec::new(),
     };
 
-    state.apply_changed_facts_with_spans(root, &[deleted], &[], &BTreeMap::new(), &BTreeMap::new());
+    state.apply_changed_facts_with_spans(
+        root,
+        &[deleted],
+        &[],
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+    );
 
     let graph = state.coupling_graph();
     assert!(!graph.nodes.contains(Path::new("b.rs")));
@@ -442,6 +468,7 @@ fn node(path: &Path) -> RepoContextNode {
         imports: Vec::new(),
         import_spans: Default::default(),
         deferred_imports: Vec::new(),
+        guarded_optional_imports: Vec::new(),
         is_test: false,
         is_generated: false,
         is_config: false,

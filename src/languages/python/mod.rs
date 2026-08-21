@@ -12,6 +12,7 @@ use super::ImportExtractor;
 static PYTHON_IMPORTS: ImportExtractor = ImportExtractor {
     eager: imports::eager,
     deferred: Some(imports::deferred),
+    guarded_optional: Some(imports::guarded_optional),
     spans: imports::spans,
 };
 
