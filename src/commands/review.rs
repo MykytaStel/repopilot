@@ -19,6 +19,7 @@ use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input, load_review_input_since, review_report_for_ci,
 };
+use repopilot::verification::VerificationStatus;
 use std::time::{Duration, Instant};
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
@@ -132,6 +133,14 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         review_report.apply_filter(&priority_filter);
     }
 
+    crate::commands::review_verification::run_selected(
+        &options.verify,
+        &configured,
+        &scan_result.session,
+        &history_target,
+        &mut review_report,
+    )?;
+
     let gating_started = Instant::now();
     let ci_report = review_report_for_ci(&review_report);
     let ci_gate = options
@@ -215,6 +224,21 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
                 "RepoPilot review gate failed: {} definitely-sensitive signal(s)",
                 review_gate.failed_signals
             ),
+        }));
+    }
+    if review_report.verification.iter().any(|outcome| {
+        !outcome.revision_compatible
+            || matches!(
+                outcome.status,
+                VerificationStatus::Failed
+                    | VerificationStatus::TimedOut
+                    | VerificationStatus::Unavailable
+                    | VerificationStatus::Cancelled
+            )
+    }) {
+        return Err(Box::new(CliExit {
+            code: EXIT_FINDINGS,
+            message: "RepoPilot verification blocked merge readiness".to_string(),
         }));
     }
 

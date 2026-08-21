@@ -115,6 +115,7 @@ pub fn render_markdown_with_gates(
     render_markdown_blast_radius(&mut output, report);
     render_markdown_impact_paths(&mut output, report);
     render_markdown_tiered_signals(&mut output, report);
+    render_markdown_verification(&mut output, report);
     render_markdown_findings_group(
         &mut output,
         "In-Diff Findings",
@@ -137,6 +138,26 @@ pub fn render_markdown_with_gates(
     );
 
     output
+}
+
+fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
+    if report.verification.is_empty() {
+        return;
+    }
+    output.push_str("## Verification\n\n");
+    output.push_str("| Check | Status | Duration | Exit |\n| --- | --- | ---: | ---: |\n");
+    for outcome in &report.verification {
+        output.push_str(&format!(
+            "| `{}` | `{:?}` | {} ms | {} |\n",
+            outcome.check_id,
+            outcome.status,
+            outcome.duration_ms,
+            outcome
+                .exit_code
+                .map_or_else(|| "-".to_string(), |code| code.to_string())
+        ));
+    }
+    output.push('\n');
 }
 
 fn render_markdown_blast_radius(output: &mut String, report: &ReviewReport) {

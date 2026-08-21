@@ -24,6 +24,10 @@ pub struct ReviewOptions {
     #[arg(long, conflicts_with_all = ["base", "head"])]
     pub since_snapshot: bool,
 
+    /// Run an allowlisted verification check configured in repopilot.toml (repeatable)
+    #[arg(long, value_name = "ID", action = clap::ArgAction::Append)]
+    pub verify: Vec<String>,
+
     /// Review only changed files (default) or include full-repository findings
     #[arg(long, value_enum)]
     pub scope: Option<ReviewScopeArg>,

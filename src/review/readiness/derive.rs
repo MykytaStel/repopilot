@@ -6,6 +6,7 @@ use crate::history::RiskDelta;
 use crate::review::gate::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
 use crate::risk::RiskPriority;
+use crate::verification::VerificationStatus;
 use std::collections::BTreeSet;
 
 pub fn derive_readiness(
@@ -101,6 +102,49 @@ pub fn derive_readiness(
         ReadinessReasonCode::UnownedSurface,
         "Changed or impacted path(s) have no named owner.",
     );
+    for (status, code, message) in [
+        (
+            VerificationStatus::Failed,
+            ReadinessReasonCode::VerificationFailed,
+            "Selected verification check(s) failed.",
+        ),
+        (
+            VerificationStatus::TimedOut,
+            ReadinessReasonCode::VerificationTimedOut,
+            "Selected verification check(s) timed out.",
+        ),
+        (
+            VerificationStatus::Unavailable,
+            ReadinessReasonCode::VerificationUnavailable,
+            "Selected verification check(s) could not start.",
+        ),
+        (
+            VerificationStatus::Cancelled,
+            ReadinessReasonCode::VerificationCancelled,
+            "Selected verification check(s) were cancelled.",
+        ),
+    ] {
+        push_count(
+            &mut reasons,
+            report
+                .verification
+                .iter()
+                .filter(|outcome| outcome.status == status)
+                .count(),
+            code,
+            message,
+        );
+    }
+    push_count(
+        &mut reasons,
+        report
+            .verification
+            .iter()
+            .filter(|outcome| !outcome.revision_compatible)
+            .count(),
+        ReadinessReasonCode::VerificationRevisionChanged,
+        "Workspace revision changed during verification.",
+    );
     reasons.sort_by_key(|reason| reason.code);
 
     MergeReadinessRecord {
@@ -109,6 +153,7 @@ pub fn derive_readiness(
         impact: report.impact_paths.clone(),
         ownership: report.ownership.clone(),
         verification_steps: verification_steps(report),
+        verification: report.verification.clone(),
         limitations: limitations(report),
         risk_delta: risk_delta.cloned(),
     }
@@ -122,6 +167,11 @@ fn verdict(reasons: &[ReadinessReason]) -> ReadinessVerdict {
                 | ReadinessReasonCode::FindingGateFailed
                 | ReadinessReasonCode::ReviewSignalGateFailed
                 | ReadinessReasonCode::PriorityP0
+                | ReadinessReasonCode::VerificationFailed
+                | ReadinessReasonCode::VerificationTimedOut
+                | ReadinessReasonCode::VerificationUnavailable
+                | ReadinessReasonCode::VerificationCancelled
+                | ReadinessReasonCode::VerificationRevisionChanged
         )
     }) {
         ReadinessVerdict::Blocked
@@ -146,10 +196,15 @@ fn verification_steps(report: &ReviewReport) -> Vec<String> {
 }
 
 fn limitations(report: &ReviewReport) -> Vec<String> {
-    let mut limitations = vec![
-        "Readiness is derived from static local evidence; RepoPilot does not execute tests."
-            .to_string(),
-    ];
+    let mut limitations = if report.verification.is_empty() {
+        vec![
+            "Readiness is derived from static local evidence; RepoPilot does not execute tests."
+                .to_string(),
+        ]
+    } else {
+        vec!["Selected local checks do not resolve or suppress static evidence; unselected checks remain unverified."
+            .to_string()]
+    };
     if !report.ownership.unowned_paths.is_empty() {
         limitations.push(
             "Unowned paths use package or directory boundaries, not inferred people.".to_string(),

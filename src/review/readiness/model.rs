@@ -1,6 +1,7 @@
 use crate::history::RiskDelta;
 use crate::review::ImpactPaths;
 use crate::review::ownership::OwnershipSummary;
+use crate::verification::VerificationOutcome;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -34,6 +35,11 @@ pub enum ReadinessReasonCode {
     BoundaryMissingTest,
     VisibleFinding,
     UnownedSurface,
+    VerificationFailed,
+    VerificationTimedOut,
+    VerificationUnavailable,
+    VerificationCancelled,
+    VerificationRevisionChanged,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -50,6 +56,8 @@ pub struct MergeReadinessRecord {
     pub impact: ImpactPaths,
     pub ownership: OwnershipSummary,
     pub verification_steps: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub verification: Vec<VerificationOutcome>,
     pub limitations: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub risk_delta: Option<RiskDelta>,

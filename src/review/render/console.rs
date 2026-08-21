@@ -7,6 +7,7 @@ use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::render::ReviewRenderOptions;
 use crate::review::signals::tiered::ReviewSignal;
+use crate::verification::VerificationStatus;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
 
@@ -134,9 +135,52 @@ pub fn render_console_with_options(
         );
     }
 
+    render_verification(&mut output, report);
+
     inventory::render_next_action(&mut output, report, options.detail);
 
     output
+}
+
+fn render_verification(output: &mut String, report: &ReviewReport) {
+    if report.verification.is_empty() {
+        return;
+    }
+    output.push_str("\nVerification:\n");
+    for outcome in &report.verification {
+        output.push_str(&format!(
+            "  - {}: {} ({} ms)\n",
+            outcome.check_id,
+            verification_status_label(outcome.status),
+            outcome.duration_ms
+        ));
+        if !outcome.stdout_excerpt.is_empty() {
+            output.push_str(&format!(
+                "    stdout: {}\n",
+                outcome.stdout_excerpt.trim_end()
+            ));
+        }
+        if !outcome.stderr_excerpt.is_empty() {
+            output.push_str(&format!(
+                "    stderr: {}\n",
+                outcome.stderr_excerpt.trim_end()
+            ));
+        }
+        if !outcome.revision_compatible {
+            output.push_str("    workspace revision changed; evidence is incompatible\n");
+        }
+    }
+}
+
+fn verification_status_label(status: VerificationStatus) -> &'static str {
+    match status {
+        VerificationStatus::Passed => "PASSED",
+        VerificationStatus::Failed => "FAILED",
+        VerificationStatus::TimedOut => "TIMED OUT",
+        VerificationStatus::Unavailable => "UNAVAILABLE",
+        VerificationStatus::Cancelled => "CANCELLED",
+        VerificationStatus::Skipped => "SKIPPED",
+    }
 }
 
 fn render_blast_radius(output: &mut String, report: &ReviewReport) {

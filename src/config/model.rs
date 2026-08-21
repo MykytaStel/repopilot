@@ -8,7 +8,9 @@ use crate::config::defaults::{
 };
 use crate::output::OutputFormat;
 use crate::scan::config::ScanConfig;
+use crate::verification::VerificationRole;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
@@ -26,6 +28,7 @@ pub struct RepoPilotConfig {
     pub taint: TaintSection,
     pub output: OutputSection,
     pub history: HistorySection,
+    pub verification: VerificationSection,
 }
 
 /// Per-rule configuration: turn individual rules off or pin their severity.
@@ -82,6 +85,42 @@ impl Default for ReviewSection {
             impact_path_depth: DEFAULT_IMPACT_PATH_DEPTH,
         }
     }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct VerificationSection {
+    pub checks: Vec<VerificationCheckConfig>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VerificationCheckConfig {
+    pub id: String,
+    pub role: VerificationRole,
+    pub program: PathBuf,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default = "default_verification_working_directory")]
+    pub working_directory: PathBuf,
+    #[serde(default = "default_verification_timeout_seconds")]
+    pub timeout_seconds: u64,
+    #[serde(default = "default_verification_max_output_bytes")]
+    pub max_output_bytes: usize,
+    #[serde(default)]
+    pub paths: Vec<String>,
+}
+
+fn default_verification_working_directory() -> PathBuf {
+    PathBuf::from(".")
+}
+
+fn default_verification_timeout_seconds() -> u64 {
+    300
+}
+
+fn default_verification_max_output_bytes() -> usize {
+    65_536
 }
 
 impl RepoPilotConfig {

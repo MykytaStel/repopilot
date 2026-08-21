@@ -58,3 +58,5 @@ pub mod risk;
 pub mod rules;
 #[doc(hidden)]
 pub mod scan;
+#[doc(hidden)]
+pub mod verification;

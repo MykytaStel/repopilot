@@ -874,6 +874,7 @@ dependencies = [
  "globset",
  "ignore",
  "indicatif",
+ "libc",
  "proptest",
  "rayon",
  "serde",
@@ -892,6 +893,7 @@ dependencies = [
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
+ "windows-sys",
 ]
 
 [[package]]

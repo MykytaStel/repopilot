@@ -99,6 +99,7 @@ fn report_with_changed_files() -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification: Vec::new(),
         findings: Vec::new(),
     }
 }

@@ -215,6 +215,7 @@ fn classify_findings(
         boundary_missing_test,
         tiered_signals,
         timings: Default::default(),
+        verification: Vec::new(),
         findings,
     }
 }

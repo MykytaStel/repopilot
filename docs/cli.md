@@ -256,6 +256,7 @@ repopilot r [PATH] [OPTIONS]
 | `--base` | git ref | — | Base ref for the diff; without this, compares working tree to `HEAD` |
 | `--head` | git ref | `HEAD` | Head ref; requires `--base` |
 | `--since-snapshot` | flag | — | Review committed and uncommitted work since the last `repopilot snapshot` |
+| `--verify` | check ID | — | Run one configured local verification check; repeat to select more |
 | `--scope` | `changed\|full` | `changed` | Analyze changed files or retain full-repository findings |
 | `--profile` | `default\|strict` | scope-dependent | Finding visibility; changed defaults to default, full defaults to strict |
 | `--format` | `console\|json\|markdown` | `console` | Output format |
@@ -283,7 +284,7 @@ repopilot r [PATH] [OPTIONS]
 | Code | Meaning |
 |------|---------|
 | `0` | Success (no threshold breach) |
-| `1` | A finding gate or explicit review-signal gate failed |
+| `1` | A finding/review gate failed, or selected verification blocked readiness |
 | `2` | Invalid CLI/config/user input |
 | `3` | Runtime or environment failure |
 
@@ -320,7 +321,39 @@ repopilot review . --format json --output review.json
 
 # Focus on high-risk findings only
 repopilot review . --min-severity high
+
+# Run only explicitly selected repository checks
+repopilot review . --verify unit --verify lint
 ```
+
+### Explicit local verification
+
+Verification commands are repository policy, never call-time shell strings:
+
+```toml
+[[verification.checks]]
+id = "unit"
+role = "test"
+program = "cargo"
+args = ["test", "--all"]
+working_directory = "."
+timeout_seconds = 120
+max_output_bytes = 65536
+paths = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock"]
+```
+
+Supported roles are `test`, `build`, `type-check`, and `lint`. A check runs only
+when its ID is selected. RepoPilot executes `program` directly with the exact
+configured argument vector, clears the child environment except for portability
+variables, applies an independent timeout and per-stream output bound, and
+redacts captured output before reporting it. This is not an operating-system
+sandbox: repository-controlled checks can access the same files as the user.
+
+For `--base/--head` review, verification requires `--head` to resolve to the
+current checkout and the checkout to be clean. This prevents a passing command
+from being attached to static evidence for different content. A failed,
+unavailable, timed-out, cancelled, or revision-changing check is reported first
+and then exits with code `1`.
 
 ---
 
