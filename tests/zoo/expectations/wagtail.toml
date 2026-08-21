@@ -29,23 +29,6 @@ disposition = "valid-but-accepted"
 reason = "Bare `except:` carrying an explicit `# noqa:B901,E722`; upstream has knowingly accepted the broad handler."
 
 [[finding]]
-profile = "default"
-finding_id = "architecture.unresolved-local-import:wagtail/project_template/project_name/settings/dev.py:11ea2da70fd5eb9f"
-rule_id = "architecture.unresolved-local-import"
-path = "wagtail/project_template/project_name/settings/dev.py"
-line = 16
-disposition = "false-positive"
-reason = "`try: from .local import * except ImportError: pass` — the Django settings idiom for an optional, git-ignored local override. The absence is deliberate and handled, so it is not broken code. Guarded optional imports are not modeled yet."
-
-[[finding]]
-profile = "default"
-finding_id = "architecture.unresolved-local-import:wagtail/project_template/project_name/settings/production.py:11ea2da70fd5eb9f"
-rule_id = "architecture.unresolved-local-import"
-path = "wagtail/project_template/project_name/settings/production.py"
-line = 12
-disposition = "false-positive"
-reason = "Same guarded optional `from .local import *` override as dev.py; the import is wrapped in try/except ImportError."
-[[finding]]
 profile = "strict"
 finding_id = "architecture.dead-module:wagtail/users/views/groups.py:b022a3e6e8b8daf1"
 rule_id = "architecture.dead-module"

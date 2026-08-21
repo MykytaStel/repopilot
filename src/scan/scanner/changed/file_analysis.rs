@@ -356,6 +356,7 @@ impl<'a> ChangedScanEngine<'a> {
                     context.clone(),
                     (&entry.syntax).into(),
                 )
+                .with_guarded_optional_imports(entry.guarded_optional_imports.clone())
                 .with_javascript_symbols(entry.javascript_symbols.clone())
             })
             .unwrap_or_else(|| {

@@ -62,6 +62,23 @@ pub(crate) fn extract_deferred_imports_from(
     }
 }
 
+/// Imports whose absence is explicitly handled by the language construct that
+/// contains them. These remain dependency edges when the target exists.
+pub(crate) fn extract_guarded_optional_imports_from(
+    parsed: &ParsedFile,
+    language: Option<&str>,
+) -> Vec<String> {
+    let mut imports = match language
+        .and_then(imports_for_label)
+        .and_then(|extractor| extractor.guarded_optional)
+    {
+        Some(guarded) => guarded(parsed).into_iter().collect(),
+        None => Vec::new(),
+    };
+    imports.sort();
+    imports
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

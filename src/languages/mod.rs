@@ -75,6 +75,10 @@ pub struct ImportExtractor {
     /// dependency (Python function-body imports, TS type-only imports);
     /// cycle detection subtracts them. `None` when the language has none.
     pub(crate) deferred: Option<fn(&ParsedFile) -> HashSet<String>>,
+    /// Imports whose absence is explicitly absorbed by language-level error
+    /// handling. They remain graph edges when present, but absence-based
+    /// broken-import rules must not claim they are required.
+    pub(crate) guarded_optional: Option<fn(&ParsedFile) -> HashSet<String>>,
     /// 1-indexed line spans per imported specifier, for edge evidence.
     pub(crate) spans: fn(&ParsedFile) -> BTreeMap<String, (usize, usize)>,
 }

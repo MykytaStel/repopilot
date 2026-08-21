@@ -24,8 +24,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   disable/severity configuration, risk/CI gates, JSON and MCP scan output, and
   keeps full scans silent without an authoritative comparison revision. Cold
   and warm changed scans reuse the B2.2a symbol payload without rereading or
-  reparsing current callers; repository-context cache schema v7 adds only the
-  missing path-to-content-hash lookup key and invalidates older context entries.
+  reparsing current callers; repository-context cache schema v8 adds the
+  missing path-to-content-hash lookup key and guarded optional-import evidence,
+  and invalidates older context entries.
   `repopilot_explain_finding` preserves these Git-diff findings through its
   existing stored-only fallback rather than claiming a file-scoped live replay.
 - **Review-first removed-export evidence.** `repopilot review` now emits the
@@ -77,6 +78,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   repositories: tool configs, build scripts, framework-autoloaded modules,
   runner-discovered tests, and dynamically imported documentation examples all
   report zero fan-in without being dead.
+
+### Fixed
+
+- Stop `architecture.unresolved-local-import` from treating handled optional
+  Python dependencies as broken code. Imports in a `try` body guarded by an
+  absorbing `ImportError` or `ModuleNotFoundError` handler are excluded, while
+  unrelated handlers and bare re-raises retain the finding. The Python frontend
+  derives this internal fact from its existing syntax tree; parsed-facts cache
+  schema v5 and repository-context schema v8 preserve it across cold and warm
+  full/changed scans without rereading or reparsing source. The two historical
+  Wagtail false positives are removed, taking the reviewed default-visible zoo
+  false-positive debt from 2 to 0.
 
 ### Changed
 

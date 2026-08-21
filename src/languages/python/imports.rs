@@ -2,6 +2,9 @@ use crate::analysis::parse::ParsedFile;
 use std::collections::{BTreeMap, HashSet};
 use tree_sitter::{Node, Tree};
 
+mod guarded;
+pub(super) use guarded::guarded_optional;
+
 pub(super) fn eager(parsed: &ParsedFile) -> HashSet<String> {
     parsed
         .tree()

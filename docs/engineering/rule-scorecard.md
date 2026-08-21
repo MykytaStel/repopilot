@@ -23,7 +23,7 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 | `architecture.package-boundary-violation` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.test-leak` | experimental | no zoo evidence | n/a | 0 |
 | `architecture.too-many-modules` | experimental | no zoo evidence | n/a | 0 |
-| `architecture.unresolved-local-import` | preview | 2 labeled across 1 repo(s) | 0.00 | 2 |
+| `architecture.unresolved-local-import` | preview | no zoo evidence | n/a | 0 |
 | `behavioral.removed-export-still-imported` | preview | no zoo evidence | n/a | 0 |
 | `code-marker.fixme` | experimental | no zoo evidence | n/a | 0 |
 | `code-marker.hack` | experimental | no zoo evidence | n/a | 0 |

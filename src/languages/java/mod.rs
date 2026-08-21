@@ -12,6 +12,7 @@ use super::ImportExtractor;
 static JAVA_IMPORTS: ImportExtractor = ImportExtractor {
     eager: imports::eager,
     deferred: None,
+    guarded_optional: None,
     spans: imports::spans,
 };
 

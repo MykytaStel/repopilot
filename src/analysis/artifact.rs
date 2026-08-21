@@ -46,6 +46,7 @@ pub struct ParsedArtifact {
     pub language: Option<String>,
     pub imports: Vec<String>,
     pub deferred_imports: Vec<String>,
+    pub(crate) guarded_optional_imports: Vec<String>,
     pub exports: Vec<String>,
     pub(crate) javascript_symbols: Option<JavaScriptSymbolFacts>,
     pub context: FileContextFacts,
@@ -68,6 +69,7 @@ impl ParsedArtifact {
             language,
             imports,
             deferred_imports,
+            guarded_optional_imports: Vec::new(),
             exports,
             javascript_symbols: None,
             context,
@@ -88,6 +90,7 @@ impl ParsedArtifact {
             language,
             imports,
             deferred_imports,
+            guarded_optional_imports: Vec::new(),
             exports: Vec::new(),
             javascript_symbols: None,
             context,
@@ -110,6 +113,7 @@ impl ParsedArtifact {
             language,
             imports,
             deferred_imports,
+            guarded_optional_imports: Vec::new(),
             exports,
             javascript_symbols: None,
             context,
@@ -123,6 +127,13 @@ impl ParsedArtifact {
         javascript_symbols: Option<JavaScriptSymbolFacts>,
     ) -> Self {
         self.javascript_symbols = javascript_symbols;
+        self
+    }
+
+    pub(crate) fn with_guarded_optional_imports(mut self, mut imports: Vec<String>) -> Self {
+        imports.sort();
+        imports.dedup();
+        self.guarded_optional_imports = imports;
         self
     }
 
@@ -218,5 +229,28 @@ mod tests {
         assert!(artifact.is_source_origin());
         assert!(artifact.is_complete_source_artifact());
         assert!(artifact.has_complete_parsed_facts());
+    }
+
+    #[test]
+    fn guarded_optional_imports_are_normalized_and_queryable() {
+        let artifact = ParsedArtifact::from_source(
+            PathBuf::from("pkg/settings.py"),
+            Some("Python".to_string()),
+            vec![".local".to_string(), ".plugin".to_string()],
+            Vec::new(),
+            Vec::new(),
+            FileContextFacts::default(),
+            SyntaxSummary::default(),
+        )
+        .with_guarded_optional_imports(vec![
+            ".plugin".to_string(),
+            ".local".to_string(),
+            ".local".to_string(),
+        ]);
+
+        assert_eq!(
+            artifact.guarded_optional_imports,
+            vec![".local".to_string(), ".plugin".to_string()]
+        );
     }
 }

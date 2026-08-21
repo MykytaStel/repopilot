@@ -9,8 +9,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 4;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-symbols-spans-v3";
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 5;
+const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-symbols-spans-guarded-v4";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
@@ -34,6 +34,8 @@ pub struct ParsedFactsEntry {
     #[serde(default)]
     pub import_spans: BTreeMap<String, (usize, usize)>,
     pub deferred_imports: Vec<String>,
+    #[serde(default)]
+    pub(crate) guarded_optional_imports: Vec<String>,
     pub exports: Vec<String>,
     #[serde(default)]
     pub(crate) javascript_symbols: Option<JavaScriptSymbolFacts>,
@@ -230,6 +232,7 @@ impl ParsedFactsEntry {
             imports: file.imports.clone(),
             import_spans,
             deferred_imports: file.deferred_imports.clone(),
+            guarded_optional_imports: artifact.guarded_optional_imports.clone(),
             exports: artifact.exports.clone(),
             javascript_symbols: artifact.javascript_symbols.clone(),
             syntax: CachedSyntaxSummary::from(&artifact.syntax),
@@ -400,6 +403,46 @@ mod tests {
     }
 
     #[test]
+    fn guarded_optional_imports_survive_cache_round_trip() {
+        let file = FileFacts {
+            path: PathBuf::from("pkg/settings.py"),
+            language: Some("Python".to_string()),
+            imports: vec![".local".to_string()],
+            ..FileFacts::default()
+        };
+        let source = ParsedArtifact::from_source(
+            file.path.clone(),
+            file.language.clone(),
+            file.imports.clone(),
+            Vec::new(),
+            Vec::new(),
+            FileContextFacts::default(),
+            SyntaxSummary::default(),
+        )
+        .with_guarded_optional_imports(vec![".local".to_string()]);
+
+        let entry =
+            ParsedFactsEntry::from_artifact("hash".to_string(), &file, &source, BTreeMap::new());
+        let encoded = serde_json::to_string(&entry).expect("serialize cache entry");
+        let decoded: ParsedFactsEntry =
+            serde_json::from_str(&encoded).expect("deserialize cache entry");
+        let restored = ParsedArtifact::from_parsed_cache_v2(
+            file.path.clone(),
+            decoded.language.clone(),
+            decoded.imports.clone(),
+            decoded.deferred_imports.clone(),
+            decoded.exports.clone(),
+            FileContextFacts::default(),
+            (&decoded.syntax).into(),
+        )
+        .with_guarded_optional_imports(decoded.guarded_optional_imports.clone());
+
+        assert_eq!(decoded.guarded_optional_imports, vec![".local"]);
+        assert_eq!(restored.guarded_optional_imports, vec![".local"]);
+        assert_eq!(restored.origin, ArtifactOrigin::ParsedCacheV2);
+    }
+
+    #[test]
     fn corrupt_parsed_facts_cache_is_discarded() {
         let temp = tempdir().expect("temp dir");
         let cache_root = cache_dir(temp.path());
@@ -464,6 +507,7 @@ mod tests {
                 imports: Vec::new(),
                 import_spans: Default::default(),
                 deferred_imports: Vec::new(),
+                guarded_optional_imports: Vec::new(),
                 exports: Vec::new(),
                 javascript_symbols: None,
                 syntax: CachedSyntaxSummary::default(),
@@ -507,6 +551,7 @@ mod tests {
             imports: Vec::new(),
             import_spans: Default::default(),
             deferred_imports: Vec::new(),
+            guarded_optional_imports: Vec::new(),
             exports: Vec::new(),
             javascript_symbols: None,
             syntax: CachedSyntaxSummary::default(),

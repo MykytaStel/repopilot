@@ -1,4 +1,5 @@
 use super::*;
+use crate::analysis::{FileContextFacts, ParsedArtifact, SyntaxSummary};
 use crate::audits::architecture::graph_context::GraphAuditContext;
 use crate::findings::types::{Confidence, Severity};
 use crate::graph::v2::build_coupling_graph_snapshot;
@@ -88,6 +89,34 @@ fn missing_explicit_python_relative_module_emits_finding() {
     assert_eq!(result.findings.len(), 1);
     assert_eq!(result.findings[0].evidence[0].line_start, 1);
     assert!(result.findings[0].description.contains(".missing"));
+}
+
+#[test]
+fn guarded_optional_python_import_is_not_reported_as_broken() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("pkg/settings.py");
+    let content = "try:\n    from .local import *\nexcept ImportError:\n    pass\n";
+    let mut facts = facts(source.clone(), "Python", content, &[".local"]);
+    facts.insert_artifact(
+        ParsedArtifact::from_source(
+            source.clone(),
+            Some("Python".to_string()),
+            vec![".local".to_string()],
+            Vec::new(),
+            Vec::new(),
+            FileContextFacts::default(),
+            SyntaxSummary::default(),
+        )
+        .with_guarded_optional_imports(vec![".local".to_string()]),
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, ".local", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert!(result.findings.is_empty(), "{:#?}", result.findings);
+    assert!(result.diagnostics.is_empty());
 }
 
 #[test]
