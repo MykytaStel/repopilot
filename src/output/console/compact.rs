@@ -77,7 +77,13 @@ fn render_summary_header(output: &mut String, summary: &ScanSummary, stats: &Rep
     output.push_str("RepoPilot Scan\n\n");
     render_decision_summary(output, &scan_decision_summary(summary));
     writeln!(output, "Risk: {}", color::risk_label(risk)).unwrap();
-    writeln!(output, "Health: {}/100", stats.health_score).unwrap();
+    writeln!(output, "Visible health: {}/100", stats.health_score).unwrap();
+    writeln!(
+        output,
+        "Maintainability: {}/100",
+        stats.maintainability_score
+    )
+    .unwrap();
     writeln!(output, "Profile: {}", profile_label(summary)).unwrap();
     writeln!(
         output,

@@ -151,7 +151,8 @@ fn given_clean_repo_when_scan_runs_default_then_compact_clean_summary_is_printed
     assert!(stdout.contains("Decision: PASS"));
     assert!(stdout.contains("Why: No visible findings require action in the selected profile."));
     assert!(stdout.contains("Risk: Low"));
-    assert!(stdout.contains("Health: 100/100"));
+    assert!(stdout.contains("Visible health: 100/100"));
+    assert!(stdout.contains("Maintainability:"));
     assert!(stdout.contains("Profile: default"));
     assert!(stdout.contains("Path: ."));
     assert!(stdout.contains("Findings: 0 visible"));

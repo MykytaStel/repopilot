@@ -11,15 +11,15 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.23:
+JSON scan reports include explicit schema metadata. The current schema is 0.24:
 
 ```json
 {
-  "schema_version": "0.23",
+  "schema_version": "0.24",
   "repopilot_version": "0.21.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.23",
+    "schema_version": "0.24",
     "repopilot_version": "0.21.0"
   },
   "root_path": ".",
@@ -35,6 +35,8 @@ JSON scan reports include explicit schema metadata. The current schema is 0.23:
   "raw_findings_count": 12,
   "visible_findings_count": 3,
   "hidden_suggestions_count": 9,
+  "health_score": 91,
+  "maintainability_score": 84,
   "raw_signal_quality": {
     "findings_total": 12,
     "evidence_coverage_percent": 100,
@@ -78,6 +80,8 @@ JSON scan reports include explicit schema metadata. The current schema is 0.23:
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
+| `health_score` | number | Visible health after the selected profile and explicit filters; retained for compatibility. |
+| `maintainability_score` | number | Stable score for findings hidden by the default visibility policy, computed before explicit filters. |
 | `raw_findings_count` | number | Findings before the default visibility profile hides strict-only suggestions. |
 | `visible_findings_count` | number | Findings rendered in the current report after visibility, feedback, and explicit filters. |
 | `hidden_suggestions_count` | number | Findings hidden by the default profile but available through `--profile strict`. |
@@ -99,7 +103,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.21.x` emits schema `0.23`.
+Binary `0.21.x` emits schema `0.24`.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -131,7 +135,8 @@ single source of truth for finding severity/confidence and adds the optional
 `rule_false_positive_notes` map. Schema `0.20` adds optional replayable Knowledge Engine decision provenance to
 findings. Schema `0.21` adds occurrence identity and canonical decision records;
 schema `0.22` adds bounded dependency impact paths; schema `0.23` adds
-deterministic verification plans for review signals.
+deterministic verification plans for review signals; schema `0.24` adds the
+stable `maintainability_score` alongside the compatible visible `health_score`.
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -142,7 +147,7 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `skipped_files_count` | `large_files_skipped` |
 
 The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`, `0.21`,
-`0.22`, and `0.23` scan reports during the transition. Baseline files follow their separate baseline
+`0.22`, `0.23`, and current `0.24` scan reports during the transition. Baseline files follow their separate baseline
 schema policy.
 
 ## Baseline JSON reports
@@ -161,11 +166,11 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.23",
+  "schema_version": "0.24",
   "repopilot_version": "0.21.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.23",
+    "schema_version": "0.24",
     "repopilot_version": "0.21.0"
   },
   "root_path": ".",
@@ -236,10 +241,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
 
 ```json
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "report": {
     "kind": "receipt",
-    "schema_version": "5",
+    "schema_version": "6",
     "repopilot_version": "0.21.0"
   },
   "tool": "repopilot",
@@ -269,7 +274,8 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "languages": [],
   "diagnostics": [],
   "local_feedback": null,
-  "health_score": 91
+  "health_score": 91,
+  "maintainability_score": 84
 }
 ```
 

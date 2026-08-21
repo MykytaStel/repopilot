@@ -42,4 +42,8 @@ fn library_workspace_scan_merges_packages_without_duplicate_findings() {
         "workspace package source finding must only be emitted once"
     );
     assert_eq!(source_findings[0].workspace_package.as_deref(), Some("app"));
+    assert!(
+        summary.metrics.maintainability_score < 100,
+        "package-level maintainability findings must contribute to the workspace score"
+    );
 }

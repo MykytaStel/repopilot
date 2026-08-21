@@ -19,6 +19,8 @@ fn renders_valid_json_scan_summary() {
         metrics: ScanMetrics {
             files_analyzed: 1,
             non_empty_lines: 3,
+            health_score: 91,
+            maintainability_score: 73,
             languages: vec![LanguageSummary {
                 name: "Rust".to_string(),
                 files_analyzed: 1,
@@ -38,6 +40,8 @@ fn renders_valid_json_scan_summary() {
     assert_eq!(parsed["files_analyzed"], 1);
     assert_eq!(parsed["directories_count"], 0);
     assert_eq!(parsed["non_empty_lines"], 3);
+    assert_eq!(parsed["health_score"], 91);
+    assert_eq!(parsed["maintainability_score"], 73);
     assert_eq!(parsed["languages"][0]["name"], "Rust");
     assert_eq!(parsed["risk_summary"]["total"], 0);
     assert_eq!(parsed["risk_summary"]["average_score"], 0);

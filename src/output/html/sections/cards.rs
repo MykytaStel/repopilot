@@ -1,7 +1,11 @@
 pub(super) fn render_summary_cards(summary: &ScanSummary, stats: &ReportStats) -> String {
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
-        summary_card(format!("{}/100", stats.health_score), "Health"),
+        summary_card(format!("{}/100", stats.health_score), "Visible health"),
+        summary_card(
+            format!("{}/100", stats.maintainability_score),
+            "Maintainability",
+        ),
         summary_card(stats.total_findings, "Visible Findings"),
         summary_card(summary.metrics.files_analyzed, "Files"),
         summary_card(summary.metrics.non_empty_lines, "Non-empty Lines"),
@@ -28,7 +32,11 @@ pub(super) fn render_baseline_summary_cards(
 ) -> String {
     let mut cards = vec![
         summary_card(stats.risk_label, "Risk"),
-        summary_card(format!("{}/100", stats.health_score), "Health"),
+        summary_card(format!("{}/100", stats.health_score), "Visible health"),
+        summary_card(
+            format!("{}/100", stats.maintainability_score),
+            "Maintainability",
+        ),
         summary_card(report.summary.artifacts.findings.len(), "Visible Findings"),
         summary_card(report.new_count(), "New"),
         summary_card(report.existing_count(), "Existing"),

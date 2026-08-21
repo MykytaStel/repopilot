@@ -1,5 +1,6 @@
 use crate::findings::quality::SignalQualitySummary;
 use crate::findings::types::Finding;
+use crate::findings::visibility::compute_maintainability_score;
 use crate::graph::CouplingGraph;
 use crate::graph::context::{
     ContextGraphCacheInfo, ContextGraphSummary, RepositoryContextState,
@@ -57,6 +58,7 @@ pub(super) fn build_scan_summary(
     parts: ScanSummaryParts,
 ) -> ScanSummary {
     let health_score = ScanSummary::compute_health_score(&findings, facts.non_empty_lines);
+    let maintainability_score = compute_maintainability_score(&findings, facts.non_empty_lines);
     let raw_findings_count = findings.len();
     let visible_findings_count = findings.len();
     let signal_quality = parts.signal_quality;
@@ -101,6 +103,7 @@ pub(super) fn build_scan_summary(
             files_skipped_repopilotignore: facts.files_skipped_repopilotignore,
             changed_files_count: parts.changed_files_count,
             health_score,
+            maintainability_score,
             raw_findings_count,
             visible_findings_count,
             hidden_suggestions_count: 0,

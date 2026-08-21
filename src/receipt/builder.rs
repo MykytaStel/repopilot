@@ -23,6 +23,7 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
         languages: build_languages(summary),
         diagnostics: build_diagnostics(summary),
         health_score: summary.metrics.health_score,
+        maintainability_score: summary.metrics.maintainability_score,
     }
 }
 

@@ -65,6 +65,8 @@ mod tests {
             metrics: ScanMetrics {
                 hidden_suggestions_count: 5,
                 files_analyzed: 2,
+                health_score: 94,
+                maintainability_score: 82,
                 ..Default::default()
             },
             artifacts: ScanArtifacts {
@@ -92,6 +94,8 @@ mod tests {
         assert_eq!(value["repopilot_version"], REPOPILOT_VERSION);
         assert_eq!(value["report"]["kind"], "baseline-scan");
         assert_eq!(value["files_analyzed"], 2);
+        assert_eq!(value["health_score"], 94);
+        assert_eq!(value["maintainability_score"], 82);
         assert_eq!(value["hidden_suggestions_count"], 5);
         assert_eq!(
             value["hidden_suggestions"][0]["rule_id"],

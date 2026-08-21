@@ -19,6 +19,7 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
             directories_count: 1,
             non_empty_lines: 100,
             health_score: 95,
+            maintainability_score: 77,
             ..Default::default()
         },
         artifacts: ScanArtifacts {
@@ -50,6 +51,8 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
         .expect("failed to render console report");
 
     assert!(output.contains("RepoPilot Scan"));
+    assert!(output.contains("Visible health: 95/100"));
+    assert!(output.contains("Maintainability: 77/100"));
     assert!(output.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))));
     assert!(output.contains("Risk Summary:"));
     assert!(output.contains("Top Risk Clusters:"));
@@ -148,6 +151,9 @@ fn console_baseline_status_stays_aligned_for_duplicate_findings() {
     let output = render_baseline_scan_report(&report, OutputFormat::Console, None)
         .expect("failed to render baseline console");
 
+    assert!(output.contains("Visible health: 92/100"));
+    assert!(output.contains("Maintainability: 81/100"));
+
     let existing = output
         .find("Baseline: existing")
         .expect("existing status should render");
@@ -193,6 +199,11 @@ fn duplicate_status_report() -> BaselineScanReport {
                 root_path: PathBuf::from("demo"),
                 ..Default::default()
             },
+            metrics: ScanMetrics {
+                health_score: 92,
+                maintainability_score: 81,
+                ..Default::default()
+            },
             artifacts: ScanArtifacts {
                 findings: vec![
                     duplicate_finding("existing", 7),
@@ -200,7 +211,6 @@ fn duplicate_status_report() -> BaselineScanReport {
                 ],
                 ..Default::default()
             },
-            ..Default::default()
         },
         baseline_path: None,
         findings: vec![

@@ -19,6 +19,8 @@ fn html_output_redacts_sensitive_snippets_and_renders_summary() {
             non_empty_lines: 3,
             raw_findings_count: 1,
             visible_findings_count: 1,
+            health_score: 95,
+            maintainability_score: 77,
             ..Default::default()
         },
         artifacts: ScanArtifacts {
@@ -54,6 +56,8 @@ fn html_output_redacts_sensitive_snippets_and_renders_summary() {
         env!("CARGO_PKG_VERSION")
     )));
     assert!(html.contains("<div class=\"label\">Risk</div>"));
+    assert!(html.contains("<div class=\"label\">Visible health</div>"));
+    assert!(html.contains("<div class=\"label\">Maintainability</div>"));
     assert!(html.contains("<h2>Risk Summary</h2>"));
     assert!(html.contains("<h2>Top Rules</h2>"));
     assert!(html.contains("data-filter-type=\"severity\""));
@@ -108,6 +112,9 @@ fn html_baseline_status_stays_aligned_for_duplicate_findings() {
     let html = render_baseline_scan_report(&report, OutputFormat::Html, None)
         .expect("failed to render baseline html");
 
+    assert!(html.contains("<div class=\"label\">Visible health</div>"));
+    assert!(html.contains("<div class=\"label\">Maintainability</div>"));
+
     let existing = html
         .find("baseline: existing")
         .expect("existing status should render");
@@ -124,6 +131,11 @@ fn duplicate_status_report() -> BaselineScanReport {
                 root_path: PathBuf::from("demo"),
                 ..Default::default()
             },
+            metrics: ScanMetrics {
+                health_score: 92,
+                maintainability_score: 81,
+                ..Default::default()
+            },
             artifacts: ScanArtifacts {
                 findings: vec![
                     duplicate_finding("existing", 7),
@@ -131,7 +143,6 @@ fn duplicate_status_report() -> BaselineScanReport {
                 ],
                 ..Default::default()
             },
-            ..Default::default()
         },
         baseline_path: None,
         findings: vec![

@@ -6,10 +6,11 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::render::ReviewRenderOptions;
-use crate::review::render::helpers::render_ranges_suffix;
 use crate::review::signals::tiered::ReviewSignal;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
+
+mod inventory;
 
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
     render_console_with_options(report, ci_gate, None, ReviewRenderOptions::full())
@@ -109,19 +110,7 @@ pub fn render_console_with_options(
         return output;
     }
 
-    output.push_str("\nChanged files:\n");
-    if report.changed_files.is_empty() {
-        output.push_str("  No changed files found\n");
-    } else {
-        for file in &report.changed_files {
-            output.push_str(&format!(
-                "  {:?} {}{}\n",
-                file.status,
-                file.path.display(),
-                render_ranges_suffix(file)
-            ));
-        }
-    }
+    inventory::render_changed_files(&mut output, report, options.detail);
 
     if options.detail == DetailLevel::Full {
         render_blast_radius(&mut output, report);
@@ -144,6 +133,8 @@ pub fn render_console_with_options(
             options.findings_limit,
         );
     }
+
+    inventory::render_next_action(&mut output, report, options.detail);
 
     output
 }

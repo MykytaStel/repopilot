@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Honest decision scores and progressive review disclosure.** Scan, baseline,
+  workspace, receipt, JSON, MCP, console, Markdown, and HTML output now preserve
+  the existing visible-profile `health_score` as `Visible health` and add a
+  stable `Maintainability` score derived from strict-only findings before user
+  filters. Default review output groups changed files by top-level area, shows
+  at most 12 file rows, and ends with a concrete `Next:` action; `--detail full`,
+  JSON, Markdown, analysis, gates, ownership, and impact inventories remain
+  complete. Scan report schema advances to `0.24` with `0.23` still accepted,
+  and the additive audit receipt schema advances to `6`.
 - **Changed-scan removed-export parity.** `scan --changed` now projects the
   existing `behavioral.removed-export-still-imported` detector as a
   High-confidence, High-severity finding at each surviving caller import. It

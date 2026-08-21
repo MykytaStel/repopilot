@@ -49,6 +49,65 @@ fn hidden_suggestion_summary_groups_by_intent_rule_and_reason() {
 }
 
 #[test]
+fn maintainability_score_uses_only_findings_hidden_by_default() {
+    let visible = finding(
+        "security.secret-candidate",
+        FindingCategory::Security,
+        Severity::High,
+    );
+    let hidden = finding(
+        "architecture.large-file",
+        FindingCategory::Architecture,
+        Severity::High,
+    );
+
+    assert_eq!(compute_maintainability_score(&[visible], 1_000), 100);
+    assert!(compute_maintainability_score(&[hidden], 1_000) < 100);
+    assert_eq!(compute_maintainability_score(&[], 1_000), 100);
+}
+
+#[test]
+fn visibility_profiles_preserve_the_same_maintainability_score() {
+    let findings = vec![
+        finding(
+            "security.secret-candidate",
+            FindingCategory::Security,
+            Severity::High,
+        ),
+        finding(
+            "architecture.large-file",
+            FindingCategory::Architecture,
+            Severity::High,
+        ),
+    ];
+    let maintainability_score = compute_maintainability_score(&findings, 1_000);
+    let make_summary = || ScanSummary {
+        metrics: ScanMetrics {
+            non_empty_lines: 1_000,
+            maintainability_score,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: findings.clone(),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut default_summary = make_summary();
+    let mut strict_summary = make_summary();
+
+    apply_visibility_profile(&mut default_summary, FindingVisibilityProfile::Default);
+    apply_visibility_profile(&mut strict_summary, FindingVisibilityProfile::Strict);
+
+    assert_eq!(
+        default_summary.metrics.maintainability_score,
+        strict_summary.metrics.maintainability_score
+    );
+    assert_eq!(default_summary.metrics.health_score, 95);
+    assert_eq!(strict_summary.metrics.health_score, 90);
+}
+
+#[test]
 fn apply_default_profile_recomputes_visible_counts_and_hidden_breakdown() {
     let visible = finding(
         "security.secret-candidate",

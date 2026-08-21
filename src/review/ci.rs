@@ -49,6 +49,7 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
             files_skipped_repopilotignore: report.summary.metrics.files_skipped_repopilotignore,
             changed_files_count: report.summary.metrics.changed_files_count,
             health_score: 0,
+            maintainability_score: report.summary.metrics.maintainability_score,
             raw_findings_count: in_diff_findings_count,
             visible_findings_count: 0,
             hidden_suggestions_count: report.summary.metrics.hidden_suggestions_count,

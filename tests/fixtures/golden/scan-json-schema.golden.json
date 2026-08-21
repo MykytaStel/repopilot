@@ -1,9 +1,9 @@
 {
-  "schema_version": "0.23",
+  "schema_version": "0.24",
   "repopilot_version": "{{VERSION}}",
   "report": {
     "kind": "scan",
-    "schema_version": "0.23",
+    "schema_version": "0.24",
     "repopilot_version": "{{VERSION}}"
   },
   "root_path": "demo-project",
@@ -109,6 +109,7 @@
   "coupling_graph": null,
   "scan_duration_us": 0,
   "health_score": 90,
+  "maintainability_score": 80,
   "raw_findings_count": 1,
   "visible_findings_count": 1,
   "hidden_suggestions_count": 2,
