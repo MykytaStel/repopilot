@@ -29,6 +29,17 @@ scope = "changed"
 # Review signals are advisory unless explicitly enabled as a gate.
 fail_on = "none"
 
+# Explicit local checks run only when selected with `repopilot review --verify <id>`.
+# [[verification.checks]]
+# id = "unit"
+# role = "test"
+# program = "cargo"
+# args = ["test", "--all"]
+# working_directory = "."
+# timeout_seconds = 120
+# max_output_bytes = 65536
+# paths = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock"]
+
 [architecture]
 max_file_lines = {DEFAULT_MAX_FILE_LINES}
 huge_file_lines = {DEFAULT_HUGE_FILE_LINES}

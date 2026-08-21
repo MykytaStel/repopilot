@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Explicit local verification for review.** Repositories can define bounded
+  test, build, type-check, and lint checks under `[[verification.checks]]` and
+  run only the allowlisted IDs selected with repeatable `review --verify`.
+  RepoPilot invokes programs directly without a shell, clears inherited
+  environment variables except a fixed portability set, bounds and redacts
+  both output streams, terminates managed process trees on timeout or
+  cancellation, and blocks merge readiness for failed or revision-incompatible
+  evidence. Review report schema advances to `0.25` with `0.24` retained.
 - **Honest decision scores and progressive review disclosure.** Scan, baseline,
   workspace, receipt, JSON, MCP, console, Markdown, and HTML output now preserve
   the existing visible-profile `health_score` as `Visible health` and add a

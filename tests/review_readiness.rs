@@ -6,6 +6,7 @@ use repopilot::review::{
     MergeReadinessRecord, OwnershipSummary, ReadinessReasonCode, ReadinessVerdict, derive_readiness,
 };
 use repopilot::scan::types::ScanSummary;
+use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::path::PathBuf;
 
 #[test]
@@ -97,6 +98,58 @@ fn human_reports_project_readiness_and_owners() {
     assert!(markdown.contains("**Suggested owners:** `@team`"));
 }
 
+#[test]
+fn failed_verification_blocks_canonical_readiness() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
+
+    let readiness = derive_readiness(&report, None, None, None);
+
+    assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+    assert!(readiness.reasons.iter().any(|reason| {
+        reason.code == ReadinessReasonCode::VerificationFailed && reason.count == 1
+    }));
+    assert_eq!(readiness.verification, report.verification);
+}
+
+#[test]
+fn revision_incompatible_pass_blocks_readiness() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, false)];
+
+    let readiness = derive_readiness(&report, None, None, None);
+
+    assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+    assert!(
+        readiness
+            .reasons
+            .iter()
+            .any(|reason| { reason.code == ReadinessReasonCode::VerificationRevisionChanged })
+    );
+}
+
+fn verification_outcome(
+    status: VerificationStatus,
+    revision_compatible: bool,
+) -> VerificationOutcome {
+    VerificationOutcome {
+        check_id: "unit".to_string(),
+        role: VerificationRole::Test,
+        status,
+        duration_ms: 10,
+        exit_code: Some(1),
+        working_directory: ".".to_string(),
+        stdout_excerpt: String::new(),
+        stderr_excerpt: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        revision_before: "before".to_string(),
+        revision_after: "after".to_string(),
+        revision_compatible,
+        limitations: Vec::new(),
+    }
+}
+
 fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
     ReviewReport {
         summary: ScanSummary::default(),
@@ -116,6 +169,7 @@ fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification: Vec::new(),
         findings: Vec::new(),
     }
 }

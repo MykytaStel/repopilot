@@ -18,7 +18,7 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.24";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.25";
 const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.16",
     "0.17",
@@ -28,6 +28,7 @@ const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.21",
     "0.22",
     "0.23",
+    "0.24",
     SCAN_REPORT_SCHEMA_VERSION,
 ];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -287,7 +288,7 @@ mod tests {
 
     #[test]
     fn schema_version_tracks_review_signal_verification_contract() {
-        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.24");
+        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.25");
     }
 
     #[test]

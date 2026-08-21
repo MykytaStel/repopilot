@@ -7,6 +7,7 @@ use crate::review::ownership::{OwnershipDiagnostic, OwnershipSummary};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 use crate::scan::types::ScanSummary;
+use crate::verification::VerificationOutcome;
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -16,6 +17,7 @@ pub struct ReviewTimings {
     pub review_signals_us: u64,
     pub gating_us: u64,
     pub rendering_us: u64,
+    pub verification_us: u64,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -34,6 +36,7 @@ pub struct ReviewReport {
     /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     pub tiered_signals: TieredSignals,
     pub timings: ReviewTimings,
+    pub verification: Vec<VerificationOutcome>,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

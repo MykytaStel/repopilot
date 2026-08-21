@@ -5,11 +5,11 @@ use serde_json::Value;
 
 #[test]
 fn current_schema_fixture_documents_scan_report_contract() {
-    let current_text = include_str!("fixtures/reports/scan-v024.json");
+    let current_text = include_str!("fixtures/reports/scan-v025.json");
     let current: Value =
         serde_json::from_str(current_text).expect("current report fixture should be valid JSON");
 
-    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.24");
+    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.25");
     assert_eq!(current["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
     assert_eq!(current["report"]["kind"], "scan");
     assert_eq!(
@@ -36,7 +36,7 @@ fn current_schema_fixture_documents_scan_report_contract() {
 
 #[test]
 fn strict_reader_accepts_current_scan_report_shape() {
-    let current_text = include_str!("fixtures/reports/scan-v024.json");
+    let current_text = include_str!("fixtures/reports/scan-v025.json");
     let current = parse_scan_summary_json(current_text)
         .expect("current report should parse into ScanSummary");
 
@@ -69,8 +69,10 @@ fn strict_reader_accepts_current_scan_report_shape() {
 
 #[test]
 fn strict_reader_accepts_previous_scan_report_shapes() {
+    let previous_v024 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v024.json"))
+        .expect("0.24 report should parse during 0.25 transition");
     let previous_v023 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v023.json"))
-        .expect("0.23 report should parse during 0.24 transition");
+        .expect("0.23 report should parse during 0.25 transition");
     let previous_v022 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v022.json"))
         .expect("0.22 report should parse during 0.24 transition");
     let previous_v021 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v021.json"))
@@ -86,6 +88,7 @@ fn strict_reader_accepts_previous_scan_report_shapes() {
     let previous_v016 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v016.json"))
         .expect("0.16 report should parse during 0.24 transition");
 
+    assert_eq!(previous_v024.metrics.files_discovered, 2);
     assert_eq!(previous_v023.metrics.files_discovered, 2);
     assert_eq!(previous_v023.metrics.maintainability_score, 100);
     assert_eq!(previous_v022.metrics.files_discovered, 2);

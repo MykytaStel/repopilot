@@ -10,6 +10,7 @@ pub mod mcp;
 pub(crate) mod product_scan;
 mod progress;
 pub mod review;
+mod review_verification;
 pub mod scan;
 pub(crate) mod scan_config;
 pub mod snapshot;

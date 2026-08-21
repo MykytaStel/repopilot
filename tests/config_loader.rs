@@ -1,10 +1,226 @@
 use repopilot::config::loader::{discover_config_path, load_optional_config, parse_config};
 use repopilot::config::model::RepoPilotConfig;
 use repopilot::output::OutputFormat;
+use repopilot::verification::select_checks;
 use std::fs;
 use tempfile::tempdir;
 
 const CONFIG_FILE_NAME: &str = "repopilot.toml";
+
+#[test]
+fn verification_checks_parse_with_bounded_defaults() {
+    let config = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "test"
+        program = "cargo"
+        args = ["test", "--all"]
+        paths = ["src/**", "tests/**"]
+        "#,
+        None,
+    )
+    .expect("verification config should parse");
+
+    let check = &config.verification.checks[0];
+    assert_eq!(check.id, "unit");
+    assert_eq!(check.program, std::path::PathBuf::from("cargo"));
+    assert_eq!(check.args, ["test", "--all"]);
+    assert_eq!(check.working_directory, std::path::PathBuf::from("."));
+    assert_eq!(check.timeout_seconds, 300);
+    assert_eq!(check.max_output_bytes, 65_536);
+    assert_eq!(check.paths, ["src/**", "tests/**"]);
+}
+
+#[test]
+fn verification_check_rejects_unknown_fields() {
+    let error = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "test"
+        program = "cargo"
+        shell = true
+        "#,
+        None,
+    )
+    .expect_err("unknown verification fields must fail closed");
+
+    assert!(error.to_string().contains("unknown field `shell`"));
+}
+
+#[test]
+fn verification_check_rejects_unsupported_role() {
+    let error = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "deploy"
+        program = "cargo"
+        "#,
+        None,
+    )
+    .expect_err("unsupported verification roles must fail closed");
+
+    assert!(error.to_string().contains("unknown variant `deploy`"));
+}
+
+#[test]
+fn verification_selection_is_deduplicated_and_sorted() {
+    let temp = tempdir().expect("temp dir");
+    let config = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "test"
+        program = "cargo"
+
+        [[verification.checks]]
+        id = "lint"
+        role = "lint"
+        program = "cargo"
+        "#,
+        None,
+    )
+    .expect("valid config");
+
+    let selected = select_checks(
+        temp.path(),
+        &config.verification.checks,
+        &["unit".into(), "lint".into(), "unit".into()],
+    )
+    .expect("selection should be valid");
+
+    assert_eq!(
+        selected.iter().map(|check| check.id()).collect::<Vec<_>>(),
+        ["lint", "unit"]
+    );
+}
+
+#[test]
+fn verification_selection_rejects_invalid_policy_before_execution() {
+    let temp = tempdir().expect("temp dir");
+    for (body, expected) in [
+        (
+            "id = \"Upper\"\nrole = \"test\"\nprogram = \"cargo\"",
+            "invalid verification check id `Upper`",
+        ),
+        (
+            "id = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\ntimeout_seconds = 0",
+            "timeout_seconds must be between 1 and 1800",
+        ),
+        (
+            "id = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\nmax_output_bytes = 1048577",
+            "max_output_bytes must be between 1 and 1048576",
+        ),
+    ] {
+        let config = parse_config(&format!("[[verification.checks]]\n{body}\n"), None)
+            .expect("syntax should parse before semantic validation");
+        let error = select_checks(temp.path(), &config.verification.checks, &["unit".into()])
+            .expect_err("invalid verification policy must fail closed");
+        assert!(error.to_string().contains(expected), "{error}");
+    }
+}
+
+#[test]
+fn verification_selection_rejects_duplicate_ids_and_unknown_selection() {
+    let temp = tempdir().expect("temp dir");
+    let duplicate = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "test"
+        program = "cargo"
+        [[verification.checks]]
+        id = "unit"
+        role = "lint"
+        program = "cargo"
+        "#,
+        None,
+    )
+    .expect("valid TOML");
+    let error = select_checks(
+        temp.path(),
+        &duplicate.verification.checks,
+        &["unit".into()],
+    )
+    .expect_err("duplicate IDs must fail closed");
+    assert!(
+        error
+            .to_string()
+            .contains("duplicate verification check id `unit`")
+    );
+
+    let valid = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n",
+        None,
+    )
+    .expect("valid TOML");
+    let error = select_checks(temp.path(), &valid.verification.checks, &["missing".into()])
+        .expect_err("unknown selected IDs must fail closed");
+    assert!(
+        error
+            .to_string()
+            .contains("unknown verification check id `missing`")
+    );
+}
+
+#[test]
+fn verification_paths_match_changed_or_impacted_files() {
+    let temp = tempdir().expect("temp dir");
+    let config = parse_config(
+        r#"
+        [[verification.checks]]
+        id = "unit"
+        role = "test"
+        program = "cargo"
+        paths = ["src/**", "Cargo.toml"]
+        "#,
+        None,
+    )
+    .expect("valid config");
+    let checks = select_checks(temp.path(), &config.verification.checks, &["unit".into()])
+        .expect("valid selection");
+
+    assert!(checks[0].is_applicable([std::path::Path::new("src/deleted.rs")]));
+    assert!(checks[0].is_applicable([std::path::Path::new("Cargo.toml")]));
+    assert!(!checks[0].is_applicable([std::path::Path::new("docs/guide.md")]));
+}
+
+#[test]
+fn verification_without_paths_is_always_applicable() {
+    let temp = tempdir().expect("temp dir");
+    let config = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n",
+        None,
+    )
+    .expect("valid config");
+    let checks = select_checks(temp.path(), &config.verification.checks, &["unit".into()])
+        .expect("valid selection");
+
+    assert!(checks[0].is_applicable(std::iter::empty::<&std::path::Path>()));
+}
+
+#[test]
+fn verification_paths_reject_repository_escape() {
+    let temp = tempdir().expect("temp dir");
+    let outside = tempdir().expect("outside dir");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(outside.path(), temp.path().join("escape")).expect("create symlink");
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(outside.path(), temp.path().join("escape"))
+        .expect("create symlink");
+
+    let config = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\nworking_directory = \"escape\"\n",
+        None,
+    )
+    .expect("valid TOML");
+    let error = select_checks(temp.path(), &config.verification.checks, &["unit".into()])
+        .expect_err("symlink escape must fail closed");
+
+    assert!(error.to_string().contains("inside the repository"));
+}
 
 #[test]
 fn missing_config_returns_defaults() {
