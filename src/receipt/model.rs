@@ -3,7 +3,7 @@ use crate::report::schema::ReportEnvelope;
 use crate::scan::types::DiagnosticSeverity;
 use serde::Serialize;
 
-pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 5;
+pub const AUDIT_RECEIPT_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct AuditReceipt {
@@ -20,6 +20,7 @@ pub struct AuditReceipt {
     pub languages: Vec<ReceiptLanguage>,
     pub diagnostics: Vec<ReceiptDiagnostic>,
     pub health_score: u8,
+    pub maintainability_score: u8,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]

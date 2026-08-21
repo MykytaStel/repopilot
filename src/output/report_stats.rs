@@ -21,6 +21,7 @@ pub(crate) struct ReportStats {
     pub top_packages: Vec<NamedCount>,
     pub finding_density: f64,
     pub health_score: u8,
+    pub maintainability_score: u8,
     pub risk_label: &'static str,
 }
 
@@ -96,6 +97,7 @@ pub(crate) fn build_report_stats(summary: &ScanSummary) -> ReportStats {
         top_packages: top_counts_from_map(package_counts, 10),
         finding_density,
         health_score: summary.metrics.health_score,
+        maintainability_score: summary.metrics.maintainability_score,
         risk_label: risk_label_for_counts(&severity_counts, total_findings),
     }
 }

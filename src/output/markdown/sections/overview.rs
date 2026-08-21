@@ -7,7 +7,13 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
     }
     render_scope(output, summary);
     writeln!(output, "- **Risk:** {}", stats.risk_label).unwrap();
-    writeln!(output, "- **Health score:** {}/100", stats.health_score).unwrap();
+    writeln!(output, "- **Visible health:** {}/100", stats.health_score).unwrap();
+    writeln!(
+        output,
+        "- **Maintainability:** {}/100",
+        stats.maintainability_score
+    )
+    .unwrap();
     if summary.metrics.raw_findings_count > summary.metrics.visible_findings_count {
         writeln!(
             output,

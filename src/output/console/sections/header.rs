@@ -9,10 +9,17 @@ pub(crate) fn render_header(output: &mut String, summary: &ScanSummary, stats: &
     render_scope(output, summary);
     writeln!(
         output,
-        "Risk: {} | Health score: {}/100 {}",
+        "Risk: {} | Visible health: {}/100 {}",
         stats.risk_label,
         stats.health_score,
         health_score_bar(stats.health_score)
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Maintainability: {}/100 {}",
+        stats.maintainability_score,
+        health_score_bar(stats.maintainability_score)
     )
     .unwrap();
     if summary.metrics.raw_findings_count > summary.metrics.visible_findings_count {

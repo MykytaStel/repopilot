@@ -198,6 +198,8 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
         report["schema_version"].is_string(),
         "scan report carries schema metadata"
     );
+    assert!(report["health_score"].is_u64());
+    assert!(report["maintainability_score"].is_u64());
     assert!(report["report"].is_object(), "scan report carries findings");
     let findings = report["findings"].as_array().expect("findings");
     assert!(!findings.is_empty());

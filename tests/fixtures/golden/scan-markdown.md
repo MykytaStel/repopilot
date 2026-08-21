@@ -7,7 +7,8 @@
 - **Profile:** `default`
 - **Scope:** full scan; repo-level rules included
 - **Risk:** Moderate
-- **Health score:** 90/100
+- **Visible health:** 90/100
+- **Maintainability:** 80/100
 - **Findings:** 1 visible (23.8/kloc)
 - **Hidden suggestions:** 2 strict-only suggestions
 - **Note:** 2 strict-only suggestions hidden. Run with `--profile strict` or `--include-maintainability` to view.

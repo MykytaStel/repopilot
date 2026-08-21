@@ -231,6 +231,7 @@ mod tests {
             },
             metrics: ScanMetrics {
                 non_empty_lines: 1_000,
+                maintainability_score: 83,
                 ..Default::default()
             },
             artifacts: ScanArtifacts {
@@ -257,5 +258,6 @@ mod tests {
         assert_eq!(summary.artifacts.findings.len(), 1);
         assert_eq!(summary.metrics.visible_findings_count, 1);
         assert_eq!(summary.metrics.health_score, 95);
+        assert_eq!(summary.metrics.maintainability_score, 83);
     }
 }

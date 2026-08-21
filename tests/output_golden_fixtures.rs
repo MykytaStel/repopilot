@@ -97,6 +97,7 @@ fn golden_summary() -> ScanSummary {
             directories_count: 2,
             non_empty_lines: 42,
             health_score: 90,
+            maintainability_score: 80,
             raw_findings_count: 1,
             visible_findings_count: 1,
             hidden_suggestions_count: 2,

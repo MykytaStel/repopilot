@@ -18,7 +18,7 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.23";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.24";
 const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.16",
     "0.17",
@@ -27,6 +27,7 @@ const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.20",
     "0.21",
     "0.22",
+    "0.23",
     SCAN_REPORT_SCHEMA_VERSION,
 ];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -100,6 +101,7 @@ pub struct ScanJsonReport<'a> {
     pub context_graph_cache: Option<&'a ContextGraphCacheInfo>,
     pub scan_duration_us: u64,
     pub health_score: u8,
+    pub maintainability_score: u8,
     pub raw_findings_count: usize,
     pub visible_findings_count: usize,
     pub hidden_suggestions_count: usize,
@@ -165,6 +167,7 @@ impl<'a> ScanJsonReport<'a> {
             context_graph_cache: summary.artifacts.context_graph_cache.as_ref(),
             scan_duration_us: summary.scan_duration_us,
             health_score: summary.metrics.health_score,
+            maintainability_score: summary.metrics.maintainability_score,
             raw_findings_count: summary.metrics.raw_findings_count,
             visible_findings_count: summary.metrics.visible_findings_count,
             hidden_suggestions_count: summary.metrics.hidden_suggestions_count,
@@ -284,16 +287,16 @@ mod tests {
 
     #[test]
     fn schema_version_tracks_review_signal_verification_contract() {
-        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.23");
+        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.24");
     }
 
     #[test]
-    fn accepts_previous_scan_schema_after_review_contract_bump() {
+    fn accepts_previous_scan_schema_after_decision_ux_contract_bump() {
         let value = json!({
-            "schema_version": "0.22",
+            "schema_version": "0.23",
             "report": {
                 "kind": "scan",
-                "schema_version": "0.22"
+                "schema_version": "0.23"
             }
         });
 

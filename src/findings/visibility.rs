@@ -119,6 +119,19 @@ pub fn is_visible_by_default(finding: &Finding) -> bool {
     classify_visibility(finding).visible_by_default
 }
 
+/// Compute the size-normalized score for findings hidden by the default policy.
+///
+/// Call this before user filters or visibility profiles remove findings. Later
+/// presentation filters must preserve the resulting score.
+pub fn compute_maintainability_score(findings: &[Finding], non_empty_lines: usize) -> u8 {
+    ScanSummary::compute_health_score_for(
+        findings
+            .iter()
+            .filter(|finding| !is_visible_by_default(finding)),
+        non_empty_lines,
+    )
+}
+
 /// Build a stable, report-friendly breakdown for findings hidden by default.
 ///
 /// This powers console/Markdown output and also appears in JSON reports through

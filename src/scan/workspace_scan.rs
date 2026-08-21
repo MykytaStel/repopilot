@@ -1,5 +1,6 @@
 use crate::findings::filter::recompute_summary_metrics;
 use crate::findings::types::Finding;
+use crate::findings::visibility::compute_maintainability_score;
 use crate::risk::{apply_cluster_overlay, apply_workspace_hotspot_overlay, sort_findings};
 use crate::scan::config::ScanConfig;
 use crate::scan::scanner::scan_path_with_config;
@@ -108,6 +109,8 @@ fn finalize_workspace_summary(merged: &mut ScanSummary, wall_start: Instant) {
     apply_workspace_hotspot_overlay(&mut merged.artifacts.findings);
     apply_cluster_overlay(&mut merged.artifacts.findings);
     sort_findings(&mut merged.artifacts.findings);
+    merged.metrics.maintainability_score =
+        compute_maintainability_score(&merged.artifacts.findings, merged.metrics.non_empty_lines);
     recompute_summary_metrics(merged);
     merged.scan_duration_us = wall_start.elapsed().as_micros() as u64;
 }

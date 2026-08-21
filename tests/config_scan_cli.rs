@@ -141,6 +141,11 @@ fn min_severity_recomputes_health_score_for_json_output() {
     let json: Value = serde_json::from_slice(&output.stdout).expect("expected JSON output");
     assert_eq!(json["findings"].as_array().map(Vec::len), Some(0));
     assert_eq!(json["health_score"], 100);
+    assert!(
+        json["maintainability_score"]
+            .as_u64()
+            .is_some_and(|score| score < 100)
+    );
 }
 
 #[test]
@@ -170,7 +175,8 @@ fn min_severity_recomputes_health_score_for_markdown_output() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be UTF-8");
     assert!(stdout.contains("- **Risk:** Clean"));
-    assert!(stdout.contains("- **Health score:** 100/100"));
+    assert!(stdout.contains("- **Visible health:** 100/100"));
+    assert!(stdout.contains("- **Maintainability:**"));
     assert!(stdout.contains("- **Findings:** 0 visible (0.0/kloc)"));
 }
 

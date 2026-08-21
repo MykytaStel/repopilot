@@ -58,6 +58,8 @@ pub struct ScanMetrics {
     pub changed_files_count: usize,
     #[serde(default)]
     pub health_score: u8,
+    #[serde(default = "default_score")]
+    pub maintainability_score: u8,
     #[serde(default)]
     pub raw_findings_count: usize,
     #[serde(default)]
@@ -65,6 +67,10 @@ pub struct ScanMetrics {
     #[serde(default)]
     pub hidden_suggestions_count: usize,
     pub languages: Vec<LanguageSummary>,
+}
+
+fn default_score() -> u8 {
+    100
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -146,6 +152,13 @@ impl ScanSummary {
     /// Penalty per finding type is normalized by project size (kloc) so large repos
     /// aren't unfairly penalized for having proportionally the same issue density.
     pub fn compute_health_score(findings: &[Finding], non_empty_lines: usize) -> u8 {
+        Self::compute_health_score_for(findings, non_empty_lines)
+    }
+
+    pub(crate) fn compute_health_score_for<'a>(
+        findings: impl IntoIterator<Item = &'a Finding>,
+        non_empty_lines: usize,
+    ) -> u8 {
         use crate::findings::types::Severity;
         let mut penalty = 0.0f64;
         for f in findings {
