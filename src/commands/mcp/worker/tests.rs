@@ -45,12 +45,15 @@ fn writer_failure_still_cleans_request_registry() {
         run_tool_worker(receiver, &state, &registry, &writer).expect_err("closed writer must fail");
 
     assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
-    let reused = CancellationToken::new();
     let mut registry = registry.lock().expect("registry");
-    registry.cancel("41");
+    assert!(
+        !registry.cancel("41"),
+        "completed request remained active after writer failure"
+    );
+    let reused = CancellationToken::new();
     registry.register("41".to_string(), reused.clone());
     assert!(
-        reused.is_cancelled(),
-        "completed request remained active after writer failure"
+        !reused.is_cancelled(),
+        "completed request ID should be reusable"
     );
 }

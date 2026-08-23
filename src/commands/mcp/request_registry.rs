@@ -1,32 +1,30 @@
 use repopilot::verification::CancellationToken;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub(super) struct RequestRegistry {
-    pending: HashSet<String>,
     active: HashMap<String, CancellationToken>,
 }
 
 impl RequestRegistry {
-    pub(super) fn register(&mut self, key: String, token: CancellationToken) {
-        if self.pending.remove(&key) {
-            token.cancel();
+    pub(super) fn register(&mut self, key: String, token: CancellationToken) -> bool {
+        if self.active.contains_key(&key) {
+            return false;
         }
-        if let Some(replaced) = self.active.insert(key, token) {
-            replaced.cancel();
-        }
+        self.active.insert(key, token);
+        true
     }
 
-    pub(super) fn cancel(&mut self, key: &str) {
+    pub(super) fn cancel(&mut self, key: &str) -> bool {
         if let Some(token) = self.active.get(key) {
             token.cancel();
+            true
         } else {
-            self.pending.insert(key.to_string());
+            false
         }
     }
 
     pub(super) fn finish(&mut self, key: &str) {
-        self.pending.remove(key);
         self.active.remove(key);
     }
 }
