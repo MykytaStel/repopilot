@@ -4,7 +4,7 @@
     "kind": "repopilot-analysis",
     "version": 1,
     "source": "ai-context",
-    "report_schema_version": "0.25",
+    "report_schema_version": "0.26",
     "repopilot_version": "{{VERSION}}"
   },
   "project": "ai-context-sample",

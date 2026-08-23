@@ -6,6 +6,7 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::render::ReviewRenderOptions;
+use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
 
@@ -95,16 +96,20 @@ pub fn render_console_with_options(
         output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
     }
     if let Some(review_gate) = review_gate {
-        let status = if review_gate.passed() {
-            "passed"
+        if review_gate.enabled() {
+            let status = if review_gate.passed() {
+                "passed"
+            } else {
+                "failed"
+            };
+            output.push_str(&format!(
+                "Review gate: {status} ({}, {} signal(s))\n",
+                review_gate.label(),
+                review_gate.failed_signals
+            ));
         } else {
-            "failed"
-        };
-        output.push_str(&format!(
-            "Review gate: {status} ({}, {} signal(s))\n",
-            review_gate.label(),
-            review_gate.failed_signals
-        ));
+            output.push_str("Review gate: disabled\n");
+        }
     }
 
     if options.detail == DetailLevel::Summary {
@@ -148,13 +153,17 @@ fn render_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("\nVerification:\n");
     for outcome in &report.verification {
-        let source = if outcome.reused { ", cached" } else { "" };
+        let duration = verification_duration_evidence(outcome);
+        let timing = if outcome.reused {
+            format!("cached; {duration}")
+        } else {
+            duration
+        };
         output.push_str(&format!(
-            "  - {}: {} ({} ms{})\n",
+            "  - {}: {} ({})\n",
             outcome.check_id,
             verification_status_label(outcome.status),
-            outcome.duration_ms,
-            source
+            timing
         ));
         if !outcome.stdout_excerpt.is_empty() {
             output.push_str(&format!(

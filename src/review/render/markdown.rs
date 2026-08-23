@@ -5,6 +5,7 @@ use crate::output::render_helpers::escape_table_cell;
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
+use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::signals::tiered::ReviewSignal;
 
@@ -83,16 +84,20 @@ pub fn render_markdown_with_gates(
         ));
     }
     if let Some(review_gate) = review_gate {
-        let status = if review_gate.passed() {
-            "passed"
+        if review_gate.enabled() {
+            let status = if review_gate.passed() {
+                "passed"
+            } else {
+                "failed"
+            };
+            output.push_str(&format!(
+                "- **Review gate:** {status} (`{}`, {} signal(s))\n",
+                review_gate.label(),
+                review_gate.failed_signals
+            ));
         } else {
-            "failed"
-        };
-        output.push_str(&format!(
-            "- **Review gate:** {status} (`{}`, {} signal(s))\n",
-            review_gate.label(),
-            review_gate.failed_signals
-        ));
+            output.push_str("- **Review gate:** disabled\n");
+        }
     }
 
     output.push_str("\n## Changed Files\n\n");
@@ -146,16 +151,17 @@ fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("## Verification\n\n");
     output.push_str(
-        "| Check | Status | Source | Duration | Exit |\n| --- | --- | --- | ---: | ---: |\n",
+        "| Check | Status | Source | Duration evidence | Exit |\n| --- | --- | --- | --- | ---: |\n",
     );
     for outcome in &report.verification {
         let source = if outcome.reused { "cached" } else { "executed" };
+        let duration = verification_duration_evidence(outcome);
         output.push_str(&format!(
-            "| `{}` | `{:?}` | {} | {} ms | {} |\n",
+            "| `{}` | `{:?}` | {} | {} | {} |\n",
             outcome.check_id,
             outcome.status,
             source,
-            outcome.duration_ms,
+            duration,
             outcome
                 .exit_code
                 .map_or_else(|| "-".to_string(), |code| code.to_string())

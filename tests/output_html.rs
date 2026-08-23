@@ -7,6 +7,31 @@ use repopilot::scan::types::{
 use std::path::PathBuf;
 
 #[test]
+fn html_does_not_render_health_scores_without_an_assessment() {
+    let summary = ScanSummary {
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("empty"),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let html =
+        render_scan_summary(&summary, OutputFormat::Html).expect("failed to render HTML report");
+
+    assert!(html.contains(
+        "<div class=\"num\">not assessed</div><div class=\"label\">Visible health</div>"
+    ));
+    assert!(html.contains(
+        "<div class=\"num\">not assessed</div><div class=\"label\">Maintainability</div>"
+    ));
+    assert!(
+        !html
+            .contains("<div class=\"num\">100/100</div><div class=\"label\">Maintainability</div>")
+    );
+}
+
+#[test]
 fn html_output_redacts_sensitive_snippets_and_renders_summary() {
     let summary = ScanSummary {
         metadata: ScanMetadata {
@@ -132,6 +157,7 @@ fn duplicate_status_report() -> BaselineScanReport {
                 ..Default::default()
             },
             metrics: ScanMetrics {
+                files_analyzed: 1,
                 health_score: 92,
                 maintainability_score: 81,
                 ..Default::default()

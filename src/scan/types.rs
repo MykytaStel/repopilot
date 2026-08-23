@@ -134,6 +134,14 @@ impl Default for ScanMetadata {
 }
 
 impl ScanSummary {
+    pub fn assessment_status(&self) -> AssessmentStatus {
+        if self.metrics.files_analyzed == 0 {
+            AssessmentStatus::NotAssessed
+        } else {
+            AssessmentStatus::Assessed
+        }
+    }
+
     pub fn has_error_diagnostics(&self) -> bool {
         self.artifacts
             .diagnostics

@@ -14,9 +14,9 @@ pub struct InitOptions {
     #[arg(long)]
     pub force: bool,
 
-    /// Config file path to write
-    #[arg(long, default_value = "repopilot.toml")]
-    pub path: PathBuf,
+    /// Config path; defaults to repopilot.toml at the Git root or current directory
+    #[arg(long)]
+    pub path: Option<PathBuf>,
 
     /// Generate a review-first GitHub Actions workflow
     #[arg(long)]

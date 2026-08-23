@@ -105,6 +105,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Make CLI assessment and guidance truthful at edge cases. Scans with zero
+  analyzed files now report `NOT ASSESSED` without numeric health claims, and
+  scan/baseline JSON schema `0.26` adds `assessment_status` while retaining
+  `0.25`; stale MCP scan-cache entries are invalidated. Missing review paths no
+  longer masquerade as a missing Git executable;
+  strict Markdown follow-ups preserve visibility; disabled review gates are
+  labeled disabled; cached verification duration is labeled as the original
+  run; and `init` roots default owned files at the Git top level while preserving
+  explicit path behavior.
 - Harden the local stdio MCP transport against invalid and excessive client
   input. RepoPilot now rejects non-2.0 or structurally invalid JSON-RPC
   envelopes with `-32600`, preserves `-32700` for malformed JSON, and bounds

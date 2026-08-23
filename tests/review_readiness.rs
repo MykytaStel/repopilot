@@ -116,9 +116,10 @@ fn human_reports_show_when_verification_was_reused() {
     let console = repopilot::review::render::render_console(&report, None);
     let markdown = repopilot::review::render::render_markdown(&report, None);
 
-    assert!(console.contains("unit: PASSED (10 ms, cached)"));
-    assert!(markdown.contains("| Check | Status | Source | Duration | Exit |"));
-    assert!(markdown.contains("| `unit` | `Passed` | cached | 10 ms | 1 |"));
+    assert!(console.contains("unit: PASSED (cached; original run 10 ms)"));
+    assert!(!console.contains("unit: PASSED (10 ms, cached)"));
+    assert!(markdown.contains("| Check | Status | Source | Duration evidence | Exit |"));
+    assert!(markdown.contains("| `unit` | `Passed` | cached | original run 10 ms | 1 |"));
 }
 
 #[test]

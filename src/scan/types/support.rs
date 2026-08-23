@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AssessmentStatus {
+    Assessed,
+    NotAssessed,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum MarkerKind {
     Todo,

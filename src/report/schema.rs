@@ -10,15 +10,15 @@ use crate::review::diff::ChangedFile;
 use crate::review::model::{ReviewReport, SeverityCounts};
 use crate::risk::RiskSummary;
 use crate::scan::types::{
-    HiddenSuggestionSummary, LanguageSummary, ScanCacheTelemetry, ScanDiagnostic, ScanMode,
-    ScanSummary, ScanTimings,
+    AssessmentStatus, HiddenSuggestionSummary, LanguageSummary, ScanCacheTelemetry, ScanDiagnostic,
+    ScanMode, ScanSummary, ScanTimings,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.25";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.26";
 const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.16",
     "0.17",
@@ -29,6 +29,7 @@ const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.22",
     "0.23",
     "0.24",
+    "0.25",
     SCAN_REPORT_SCHEMA_VERSION,
 ];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -83,6 +84,7 @@ pub struct ScanJsonReport<'a> {
     pub repo_level_rules_included: bool,
     pub files_discovered: usize,
     pub files_analyzed: usize,
+    pub assessment_status: AssessmentStatus,
     pub directories_count: usize,
     pub non_empty_lines: usize,
     pub large_files_skipped: usize,
@@ -147,6 +149,7 @@ impl<'a> ScanJsonReport<'a> {
             repo_level_rules_included: summary.repo_level_rules_included,
             files_discovered: summary.metrics.files_discovered,
             files_analyzed: summary.metrics.files_analyzed,
+            assessment_status: summary.assessment_status(),
             directories_count: summary.metrics.directories_count,
             non_empty_lines: summary.metrics.non_empty_lines,
             large_files_skipped: summary.metrics.large_files_skipped,
@@ -287,8 +290,8 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn schema_version_tracks_review_signal_verification_contract() {
-        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.25");
+    fn schema_version_tracks_assessment_status_contract() {
+        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.26");
     }
 
     #[test]
