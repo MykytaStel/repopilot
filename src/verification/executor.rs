@@ -1,5 +1,7 @@
 use crate::scan::session::WorkspaceRevision;
-use crate::verification::model::{CancellationToken, VerificationOutcome, VerificationStatus};
+use crate::verification::model::{
+    CancellationToken, VerificationExecutionEvent, VerificationOutcome, VerificationStatus,
+};
 use crate::verification::policy::{ValidatedCheck, ValidatedProgram};
 use crate::verification::redaction::{CapturedStream, capture_and_redact};
 use std::io::Read;
@@ -27,27 +29,51 @@ pub fn run_checks(
     revision: &WorkspaceRevision,
     cancellation: &CancellationToken,
 ) -> Vec<VerificationOutcome> {
+    run_checks_observed(checks, evidence_paths, revision, cancellation, &mut |_| {})
+}
+
+pub fn run_checks_observed(
+    checks: &[ValidatedCheck],
+    evidence_paths: &[std::path::PathBuf],
+    revision: &WorkspaceRevision,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(VerificationExecutionEvent),
+) -> Vec<VerificationOutcome> {
     let mut outcomes = Vec::with_capacity(checks.len());
     let mut revision_changed = false;
-    for check in checks {
-        if revision_changed {
-            outcomes.push(skipped_outcome(
+    let total = checks.len();
+    for (offset, check) in checks.iter().enumerate() {
+        if cancellation.is_cancelled() {
+            break;
+        }
+        let index = offset + 1;
+        observer(VerificationExecutionEvent::Started {
+            check_id: check.id().to_string(),
+            index,
+            total,
+        });
+        let outcome = if revision_changed {
+            skipped_outcome(
                 check,
                 revision,
                 "workspace revision changed before this check could run",
-            ));
-            continue;
-        }
-        if !check.is_applicable(evidence_paths.iter().map(std::path::PathBuf::as_path)) {
-            outcomes.push(skipped_outcome(
+            )
+        } else if !check.is_applicable(evidence_paths.iter().map(std::path::PathBuf::as_path)) {
+            skipped_outcome(
                 check,
                 revision,
                 "no changed or impacted path matched this check",
-            ));
-            continue;
-        }
-        let outcome = execute_check(check, revision, cancellation);
+            )
+        } else {
+            execute_check(check, revision, cancellation)
+        };
         revision_changed = !outcome.revision_compatible;
+        observer(VerificationExecutionEvent::Completed {
+            check_id: check.id().to_string(),
+            index,
+            total,
+            status: outcome.status,
+        });
         outcomes.push(outcome);
     }
     outcomes
@@ -59,6 +85,9 @@ pub fn execute_check(
     cancellation: &CancellationToken,
 ) -> VerificationOutcome {
     let started = Instant::now();
+    if cancellation.is_cancelled() {
+        return cancelled_outcome(check, revision_before, started);
+    }
     let mut command = command_for(check);
     let mut child = match command.spawn() {
         Ok(child) => child,
@@ -203,6 +232,29 @@ fn unavailable_outcome(
         revision_after: revision.id().to_string(),
         revision_compatible: true,
         limitations: vec!["configured program could not be started".to_string()],
+    }
+}
+
+fn cancelled_outcome(
+    check: &ValidatedCheck,
+    revision: &WorkspaceRevision,
+    started: Instant,
+) -> VerificationOutcome {
+    VerificationOutcome {
+        check_id: check.id().to_string(),
+        role: check.role,
+        status: VerificationStatus::Cancelled,
+        duration_ms: duration_ms(started.elapsed()),
+        exit_code: None,
+        working_directory: check.working_directory_label.clone(),
+        stdout_excerpt: String::new(),
+        stderr_excerpt: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        revision_before: revision.id().to_string(),
+        revision_after: revision.id().to_string(),
+        revision_compatible: true,
+        limitations: vec!["verification was cancelled before the check started".to_string()],
     }
 }
 

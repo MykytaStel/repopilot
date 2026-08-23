@@ -35,13 +35,22 @@ pub struct AnalysisStore {
 }
 
 impl AnalysisStore {
-    pub fn insert(
+    pub fn prospective_handle(
+        &self,
+        kind: AnalysisKind,
+        report: &str,
+        workspace_revision: &str,
+    ) -> String {
+        analysis_handle(kind, report, workspace_revision)
+    }
+
+    pub fn publish(
         &mut self,
         kind: AnalysisKind,
         report: String,
         workspace_revision: &str,
     ) -> String {
-        let handle = analysis_handle(kind, &report, workspace_revision);
+        let handle = self.prospective_handle(kind, &report, workspace_revision);
         if !self.records.contains_key(&handle) {
             self.order.push_back(handle.clone());
         }
@@ -109,12 +118,12 @@ mod summary_tests {
     #[test]
     fn summaries_are_newest_first_and_count_analysis_contents() {
         let mut store = AnalysisStore::default();
-        let scan = store.insert(
+        let scan = store.publish(
             AnalysisKind::Scan,
             json!({ "findings": [{ "id": "one" }] }).to_string(),
             "revision-1",
         );
-        let review = store.insert(
+        let review = store.publish(
             AnalysisKind::Review,
             json!({
                 "findings": [],
@@ -129,6 +138,19 @@ mod summary_tests {
         assert_eq!(summaries[0]["review_signals"], 2);
         assert_eq!(summaries[1]["analysis_handle"], scan);
         assert_eq!(summaries[1]["findings"], 1);
+    }
+
+    #[test]
+    fn prospective_handle_does_not_publish_until_commit() {
+        let mut store = AnalysisStore::default();
+        let report = json!({ "findings": [] }).to_string();
+
+        let prospective = store.prospective_handle(AnalysisKind::Review, &report, "revision-1");
+
+        assert!(store.get(&prospective).is_none());
+        let published = store.publish(AnalysisKind::Review, report, "revision-1");
+        assert_eq!(published, prospective);
+        assert!(store.get(&published).is_some());
     }
 }
 
@@ -227,9 +249,9 @@ mod tests {
     #[test]
     fn store_evicts_old_handles() {
         let mut store = AnalysisStore::default();
-        let first = store.insert(AnalysisKind::Scan, "first".into(), "r1");
+        let first = store.publish(AnalysisKind::Scan, "first".into(), "r1");
         for index in 0..MAX_STORED_ANALYSES {
-            store.insert(AnalysisKind::Scan, format!("report-{index}"), "r1");
+            store.publish(AnalysisKind::Scan, format!("report-{index}"), "r1");
         }
         assert!(store.get(&first).is_none());
     }

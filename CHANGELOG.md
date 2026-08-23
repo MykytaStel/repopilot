@@ -16,6 +16,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   both output streams, terminates managed process trees on timeout or
   cancellation, and blocks merge readiness for failed or revision-incompatible
   evidence. Review report schema advances to `0.25` with `0.24` retained.
+- **MCP parity for explicit review verification.** The existing
+  `repopilot_review_change` tool accepts an optional `verify` list of configured
+  check IDs and reuses the CLI verification policy, executor, redaction, and
+  readiness evidence. Its static annotations advertise potential local and
+  external effects; request cancellation terminates the managed process tree;
+  progress reports bounded analysis/check lifecycle events; and cancelled,
+  oversized, or revision-incompatible reviews cannot replace session state or
+  create replayable analysis handles. Calls without selected checks still spawn
+  no verification process, and no seventh MCP tool is added.
 - **Honest decision scores and progressive review disclosure.** Scan, baseline,
   workspace, receipt, JSON, MCP, console, Markdown, and HTML output now preserve
   the existing visible-profile `health_score` as `Visible health` and add a

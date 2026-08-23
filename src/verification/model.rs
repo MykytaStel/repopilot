@@ -22,6 +22,21 @@ pub enum VerificationStatus {
     Skipped,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VerificationExecutionEvent {
+    Started {
+        check_id: String,
+        index: usize,
+        total: usize,
+    },
+    Completed {
+        check_id: String,
+        index: usize,
+        total: usize,
+        status: VerificationStatus,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VerificationOutcome {
     pub check_id: String,

@@ -395,6 +395,83 @@ fn mcp_server_emits_progress_for_tool_calls() {
     assert!(responses.iter().any(|message| message["id"] == 7));
 }
 
+#[cfg(unix)]
+#[test]
+fn mcp_review_emits_check_aware_redaction_safe_progress() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    git(temp.path(), &["init", "-q"]);
+    git(temp.path(), &["config", "user.email", "test@example.com"]);
+    git(temp.path(), &["config", "user.name", "Test"]);
+    fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 1 }\n",
+    )
+    .expect("source");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        r#"[[verification.checks]]
+id = "lint"
+role = "lint"
+program = "sh"
+args = ["-c", "printf 'token=progress-secret'; exit 0"]
+[[verification.checks]]
+id = "unit"
+role = "test"
+program = "sh"
+args = ["-c", "printf 'token=progress-secret' >&2; exit 7"]
+"#,
+    )
+    .expect("config");
+    git(temp.path(), &["add", "."]);
+    git(temp.path(), &["commit", "-qm", "initial"]);
+    fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 2 }\n",
+    )
+    .expect("change");
+
+    let responses = run_mcp(
+        &[
+            r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
+            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+            r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":".","verify":["unit","lint"]},"_meta":{"progressToken":"review-8"}}}"#,
+        ],
+        temp.path(),
+    );
+    let progress = responses
+        .iter()
+        .filter(|message| message["method"] == "notifications/progress")
+        .collect::<Vec<_>>();
+    let sequence = progress
+        .iter()
+        .map(|message| {
+            (
+                message["params"]["progress"].as_u64().expect("progress"),
+                message["params"]["total"].as_u64().expect("total"),
+                message["params"]["message"]
+                    .as_str()
+                    .expect("message")
+                    .to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        sequence,
+        vec![
+            (0, 4, "analysis started".to_string()),
+            (1, 4, "analysis complete".to_string()),
+            (1, 4, "verification lint started".to_string()),
+            (2, 4, "verification lint passed".to_string()),
+            (2, 4, "verification unit started".to_string()),
+            (3, 4, "verification unit failed".to_string()),
+            (4, 4, "review complete".to_string()),
+        ]
+    );
+    let encoded = serde_json::to_string(&responses).expect("responses");
+    assert!(!encoded.contains("progress-secret"));
+}
+
 #[test]
 fn mcp_server_cancels_background_tool_calls() {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -422,6 +499,81 @@ fn mcp_server_cancels_background_tool_calls() {
         .find(|message| message["id"] == 9)
         .expect("cancelled response");
     assert_eq!(cancelled["error"]["code"], -32800);
+}
+
+#[cfg(unix)]
+#[test]
+fn mcp_cancellation_stops_active_verification() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    git(temp.path(), &["init", "-q"]);
+    git(temp.path(), &["config", "user.email", "test@example.com"]);
+    git(temp.path(), &["config", "user.name", "Test"]);
+    fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 1 }\n",
+    )
+    .expect("source");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        r#"[[verification.checks]]
+id = "slow"
+role = "test"
+program = "sh"
+args = ["-c", "printf started > verification-started; sleep 30"]
+timeout_seconds = 2
+"#,
+    )
+    .expect("config");
+    git(temp.path(), &["add", "."]);
+    git(temp.path(), &["commit", "-qm", "initial"]);
+    fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 2 }\n",
+    )
+    .expect("change");
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 17,
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "verify": ["slow"] }
+            }
+        }),
+    );
+    let marker = temp.path().join("verification-started");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !marker.exists() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(marker.exists(), "verification process did not start");
+
+    let cancelled_at = std::time::Instant::now();
+    send_mcp(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/cancelled",
+            "params": { "requestId": 17, "reason": "test active cancellation" }
+        }),
+    );
+    let response = receive_mcp(&mut stdout);
+    let cancellation_latency = cancelled_at.elapsed();
+    drop(stdin);
+    let status = child.wait().expect("MCP server exits");
+
+    assert!(status.success());
+    assert_eq!(response["id"], 17);
+    assert_eq!(response["error"]["code"], -32800);
+    assert!(
+        cancellation_latency < std::time::Duration::from_secs(1),
+        "active cancellation took {cancellation_latency:?}"
+    );
 }
 
 fn git(root: &Path, args: &[&str]) {

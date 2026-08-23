@@ -135,7 +135,6 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
 
     crate::commands::review_verification::run_selected(
         &options.verify,
-        &configured,
         &scan_result.session,
         &history_target,
         &mut review_report,
