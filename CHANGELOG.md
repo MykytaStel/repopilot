@@ -105,6 +105,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Harden the local stdio MCP transport against invalid and excessive client
+  input. RepoPilot now rejects non-2.0 or structurally invalid JSON-RPC
+  envelopes with `-32600`, preserves `-32700` for malformed JSON, and bounds
+  the serial worker to eight waiting tool calls. Further calls receive the
+  retryable `-32000` overload response without being retained in the request
+  registry. Unknown or late cancellation IDs are ignored rather than buffered;
+  admission and cancellation remain responsive during active analysis; and a
+  duplicate active ID cannot replace the original cancellation token. Request
+  validation also preserves null IDs while rejecting non-scalar IDs and
+  non-structured explicit `params`. Accepted calls keep their existing
+  cancellation and progress flow.
 - Stop `architecture.unresolved-local-import` from treating handled optional
   Python dependencies as broken code. Imports in a `try` body guarded by an
   absorbing `ImportError` or `ModuleNotFoundError` handler are excluded, while

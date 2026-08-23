@@ -1,6 +1,8 @@
-use super::{ServerState, handle_tools_call, scan, serve};
+use super::{ServerState, ToolJob, enqueue_tool_job, handle_tools_call, scan, serve};
+use repopilot::verification::CancellationToken;
 use serde_json::{Value, json};
 use std::io::Cursor;
+use std::sync::{Arc, Mutex, mpsc};
 
 /// Runs the server over newline-delimited request lines and returns the decoded
 /// JSON responses in order.
@@ -195,6 +197,127 @@ fn malformed_line_returns_parse_error_and_server_continues() {
     assert_eq!(responses[0]["error"]["code"], -32700);
     assert_eq!(responses[1]["id"], 9);
     assert!(responses[1]["result"].is_object());
+}
+
+#[test]
+fn unsupported_jsonrpc_version_returns_invalid_request() {
+    let responses = exchange(&[json!({
+        "jsonrpc": "1.0",
+        "id": 10,
+        "method": "ping"
+    })]);
+
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0]["id"], Value::Null);
+    assert_eq!(responses[0]["error"]["code"], -32600);
+}
+
+#[test]
+fn null_request_id_is_not_treated_as_a_notification() {
+    let responses = exchange(&[json!({
+        "jsonrpc": "2.0",
+        "id": null,
+        "method": "ping"
+    })]);
+
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0]["id"], Value::Null);
+    assert!(responses[0]["result"].is_object());
+}
+
+#[test]
+fn structurally_invalid_request_returns_invalid_request_and_server_continues() {
+    let input = concat!(
+        "{\"id\":11,\"method\":\"ping\"}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":12,\"method\":7}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":{},\"method\":\"ping\"}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"ping\",\"params\":\"bad\"}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"ping\",\"params\":null}\n",
+        "{\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"ping\"}"
+    );
+    let mut output = Vec::new();
+    serve(Cursor::new(input), &mut output).expect("serve");
+
+    let responses = decode(output);
+    assert_eq!(responses.len(), 6);
+    assert_eq!(responses[0]["id"], Value::Null);
+    assert_eq!(responses[0]["error"]["code"], -32600);
+    assert_eq!(responses[1]["id"], Value::Null);
+    assert_eq!(responses[1]["error"]["code"], -32600);
+    assert_eq!(responses[2]["id"], Value::Null);
+    assert_eq!(responses[2]["error"]["code"], -32600);
+    assert_eq!(responses[3]["id"], Value::Null);
+    assert_eq!(responses[3]["error"]["code"], -32600);
+    assert_eq!(responses[4]["id"], Value::Null);
+    assert_eq!(responses[4]["error"]["code"], -32600);
+    assert_eq!(responses[5]["id"], 15);
+    assert!(responses[5]["result"].is_object());
+}
+
+#[test]
+fn full_tool_queue_returns_busy_without_retaining_the_request() {
+    let (sender, _receiver) = mpsc::sync_channel(1);
+    sender
+        .try_send(tool_job(20))
+        .expect("first job fills the queue");
+    let registry = Arc::new(Mutex::new(super::RequestRegistry::default()));
+    let mut output = Vec::new();
+    {
+        let writer = Arc::new(Mutex::new(&mut output));
+        enqueue_tool_job(&sender, tool_job(21), &registry, &writer)
+            .expect("overload is a protocol response");
+    }
+
+    let responses = decode(output);
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0]["id"], 21);
+    assert_eq!(responses[0]["error"]["code"], -32000);
+    assert_eq!(
+        responses[0]["error"]["message"],
+        "MCP tool queue is full; retry later"
+    );
+
+    let mut registry = registry.lock().expect("registry");
+    assert!(
+        !registry.cancel("21"),
+        "overloaded request remained active in the registry"
+    );
+}
+
+#[test]
+fn duplicate_tool_id_is_rejected_without_replacing_the_active_request() {
+    let (sender, receiver) = mpsc::sync_channel(2);
+    let registry = Arc::new(Mutex::new(super::RequestRegistry::default()));
+    let first = tool_job(30);
+    let first_cancellation = first.cancellation.clone();
+    let second = tool_job(30);
+    let second_cancellation = second.cancellation.clone();
+    let mut output = Vec::new();
+    {
+        let writer = Arc::new(Mutex::new(&mut output));
+        enqueue_tool_job(&sender, first, &registry, &writer).expect("first job accepted");
+        enqueue_tool_job(&sender, second, &registry, &writer)
+            .expect("duplicate rejection is a protocol response");
+    }
+
+    let responses = decode(output);
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0]["id"], 30);
+    assert_eq!(responses[0]["error"]["code"], -32600);
+    assert_eq!(receiver.try_recv().expect("original job").id, json!(30));
+    assert!(receiver.try_recv().is_err(), "duplicate job was queued");
+    assert!(registry.lock().expect("registry").cancel("30"));
+    assert!(first_cancellation.is_cancelled());
+    assert!(!second_cancellation.is_cancelled());
+}
+
+fn tool_job(id: i64) -> ToolJob {
+    ToolJob {
+        id: json!(id),
+        params: json!({}),
+        progress_token: None,
+        cancellation: CancellationToken::new(),
+    }
 }
 
 #[test]

@@ -123,8 +123,13 @@ suggestions still exist. Changed-scope tools are optimized for edited files and
 cache reuse; run a full scan when repository-wide architecture/framework findings
 or aggregate counts must be authoritative.
 
-Tool failures use MCP `isError: true`. Malformed input produces JSON-RPC error
-`-32700` instead of being skipped.
+Tool failures use MCP `isError: true`. Malformed JSON produces JSON-RPC error
+`-32700`; a valid JSON value that is not a JSON-RPC 2.0 request produces
+`-32600`. RepoPilot does not dispatch envelopes whose `jsonrpc` field is
+missing or differs from `"2.0"`, whose ID is neither null, a string, nor a
+number, or whose explicit `params` is not an object or array. A null ID is
+still a request and receives a response. A duplicate active request ID is
+rejected with `-32600` without replacing the original request.
 
 ## `repopilot_scan` Persistent Cache
 
@@ -216,7 +221,13 @@ Clients must call `initialize`, send `notifications/initialized`, then use
 worker built with standard-library channels, so the stdio loop can receive
 `notifications/cancelled` while analysis is running. Calls that include
 `_meta.progressToken` receive start/completion `notifications/progress`.
-No async runtime is used.
+Cancellation for an unknown or already completed request ID is ignored and is
+not retained as state for a future request.
+The worker executes one tool call at a time and retains at most eight waiting
+calls. When that queue is full, an additional call receives JSON-RPC error
+`-32000` with `MCP tool queue is full; retry later`; the server does not retry
+the call automatically. Queue admission and cancellation remain responsive
+while the active tool owns analysis state. No async runtime is used.
 
 HTTP transport, hosted MCP, sampling, and source upload are outside the current
 local stdio MCP scope.

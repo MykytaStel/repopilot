@@ -1,4 +1,4 @@
-use super::jsonrpc::Response;
+use super::jsonrpc::{INVALID_REQUEST, Response};
 use super::progress::{ProgressReporter, mode_for_tool_call};
 use super::request_registry::RequestRegistry;
 use super::{ServerState, lock_error, request_key};
@@ -8,6 +8,8 @@ use serde::Serialize;
 use serde_json::Value;
 use std::io::Write;
 use std::sync::{Arc, Mutex, mpsc};
+
+const SERVER_BUSY: i32 = -32000;
 
 pub(super) struct ToolJob {
     pub id: Value,
@@ -25,6 +27,43 @@ pub(super) fn write_message<W: Write, T: Serialize>(
     writer.write_all(encoded.as_bytes())?;
     writer.write_all(b"\n")?;
     writer.flush()
+}
+
+pub(super) fn enqueue_tool_job<W: Write>(
+    jobs_tx: &mpsc::SyncSender<ToolJob>,
+    job: ToolJob,
+    registry: &Arc<Mutex<RequestRegistry>>,
+    writer: &Arc<Mutex<&mut W>>,
+) -> std::io::Result<()> {
+    let key = request_key(&job.id);
+    let registered = registry
+        .lock()
+        .map_err(lock_error)?
+        .register(key.clone(), job.cancellation.clone());
+    if !registered {
+        return write_message(
+            writer,
+            &Response::error(job.id, INVALID_REQUEST, "request id is already active"),
+        );
+    }
+
+    match jobs_tx.try_send(job) {
+        Ok(()) => Ok(()),
+        Err(mpsc::TrySendError::Full(job)) => {
+            registry.lock().map_err(lock_error)?.finish(&key);
+            write_message(
+                writer,
+                &Response::error(job.id, SERVER_BUSY, "MCP tool queue is full; retry later"),
+            )
+        }
+        Err(mpsc::TrySendError::Disconnected(_)) => {
+            registry.lock().map_err(lock_error)?.finish(&key);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "MCP tool worker stopped",
+            ))
+        }
+    }
 }
 
 pub(super) fn run_tool_worker<W: Write>(

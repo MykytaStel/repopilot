@@ -34,7 +34,10 @@ use catalog::{
     handle_prompt_get, handle_resource_read, prompts_list_result, resources_list_result,
     tools_list_result,
 };
-use jsonrpc::{METHOD_NOT_FOUND, Request, Response};
+use jsonrpc::{
+    INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR, Request, RequestParseError, Response,
+    parse_request,
+};
 #[cfg(test)]
 use publication::tool_result;
 use request_registry::RequestRegistry;
@@ -43,14 +46,14 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, mpsc};
 use tool_call::handle_tools_call;
-use worker::{ToolJob, run_tool_worker, write_message};
+use worker::{ToolJob, enqueue_tool_job, run_tool_worker, write_message};
 
 const SERVER_NAME: &str = "repopilot";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LATEST_PROTOCOL_VERSION: &str = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[LATEST_PROTOCOL_VERSION, "2024-11-05"];
-const PARSE_ERROR: i32 = -32700;
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 1_048_576;
+const TOOL_QUEUE_CAPACITY: usize = 8;
 
 struct ServerState {
     root: PathBuf,
@@ -114,9 +117,10 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
     }));
     let registry = Arc::new(Mutex::new(RequestRegistry::default()));
     let writer = Arc::new(Mutex::new(&mut writer));
-    let (jobs_tx, jobs_rx) = mpsc::channel::<ToolJob>();
+    let (jobs_tx, jobs_rx) = mpsc::sync_channel::<ToolJob>(TOOL_QUEUE_CAPACITY);
 
     std::thread::scope(|scope| -> std::io::Result<()> {
+        let mut initialized = false;
         let worker_state = Arc::clone(&state);
         let worker_registry = Arc::clone(&registry);
         let worker_writer = Arc::clone(&writer);
@@ -130,12 +134,22 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                 continue;
             }
 
-            let Ok(request) = serde_json::from_str::<Request>(&line) else {
-                write_message(
-                    &writer,
-                    &Response::error(Value::Null, PARSE_ERROR, "parse error"),
-                )?;
-                continue;
+            let request = match parse_request(&line) {
+                Ok(request) => request,
+                Err(RequestParseError::Parse) => {
+                    write_message(
+                        &writer,
+                        &Response::error(Value::Null, PARSE_ERROR, "parse error"),
+                    )?;
+                    continue;
+                }
+                Err(RequestParseError::InvalidRequest) => {
+                    write_message(
+                        &writer,
+                        &Response::error(Value::Null, INVALID_REQUEST, "invalid request"),
+                    )?;
+                    continue;
+                }
             };
 
             if request.method == "notifications/cancelled" {
@@ -151,7 +165,6 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
             if request.method == "tools/call"
                 && let Some(id) = request.id.clone()
             {
-                let initialized = state.lock().map_err(lock_error)?.initialized;
                 if !initialized {
                     write_message(
                         &writer,
@@ -164,33 +177,26 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                     .get("_meta")
                     .and_then(|meta| meta.get("progressToken"))
                     .cloned();
-                let key = request_key(&id);
                 let cancellation = repopilot::verification::CancellationToken::new();
-                registry
-                    .lock()
-                    .map_err(lock_error)?
-                    .register(key.clone(), cancellation.clone());
-                if jobs_tx
-                    .send(ToolJob {
+                enqueue_tool_job(
+                    &jobs_tx,
+                    ToolJob {
                         id,
                         params: request.params,
                         progress_token,
                         cancellation,
-                    })
-                    .is_err()
-                {
-                    registry.lock().map_err(lock_error)?.finish(&key);
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::BrokenPipe,
-                        "MCP tool worker stopped",
-                    ));
-                }
+                    },
+                    &registry,
+                    &writer,
+                )?;
                 continue;
             }
 
             let response = {
                 let mut state = state.lock().map_err(lock_error)?;
-                handle(&request, &mut state)
+                let response = handle(&request, &mut state);
+                initialized = state.initialized;
+                response
             };
             if let Some(response) = response {
                 write_message(&writer, &response)?;

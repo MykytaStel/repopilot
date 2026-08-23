@@ -83,6 +83,19 @@ fn initialize_mcp(stdin: &mut ChildStdin, stdout: &mut BufReader<ChildStdout>) {
     );
 }
 
+#[test]
+fn mcp_server_rejects_non_2_jsonrpc_envelopes() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let responses = run_mcp(
+        &[r#"{"jsonrpc":"1.0","id":1,"method":"ping"}"#],
+        temp.path(),
+    );
+
+    assert_eq!(responses.len(), 1);
+    assert_eq!(responses[0]["id"], Value::Null);
+    assert_eq!(responses[0]["error"]["code"], -32600);
+}
+
 fn setup_removed_export_change(root: &Path) {
     git(root, &["init", "-q"]);
     git(root, &["config", "user.email", "test@example.com"]);
@@ -502,19 +515,13 @@ fn mcp_server_cancels_background_tool_calls() {
 }
 
 #[cfg(unix)]
-#[test]
-fn mcp_cancellation_stops_active_verification() {
-    let temp = tempfile::tempdir().expect("temp dir");
-    git(temp.path(), &["init", "-q"]);
-    git(temp.path(), &["config", "user.email", "test@example.com"]);
-    git(temp.path(), &["config", "user.name", "Test"]);
+fn setup_slow_verification_repo(root: &Path) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "test@example.com"]);
+    git(root, &["config", "user.name", "Test"]);
+    fs::write(root.join("lib.rs"), "pub fn value() -> usize { 1 }\n").expect("source");
     fs::write(
-        temp.path().join("lib.rs"),
-        "pub fn value() -> usize { 1 }\n",
-    )
-    .expect("source");
-    fs::write(
-        temp.path().join("repopilot.toml"),
+        root.join("repopilot.toml"),
         r#"[[verification.checks]]
 id = "slow"
 role = "test"
@@ -524,13 +531,25 @@ timeout_seconds = 2
 "#,
     )
     .expect("config");
-    git(temp.path(), &["add", "."]);
-    git(temp.path(), &["commit", "-qm", "initial"]);
-    fs::write(
-        temp.path().join("lib.rs"),
-        "pub fn value() -> usize { 2 }\n",
-    )
-    .expect("change");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "initial"]);
+    fs::write(root.join("lib.rs"), "pub fn value() -> usize { 2 }\n").expect("change");
+}
+
+#[cfg(unix)]
+fn slow_verification_guard() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    LOCK.get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .expect("slow verification test lock")
+}
+
+#[cfg(unix)]
+#[test]
+fn mcp_cancellation_stops_active_verification() {
+    let _guard = slow_verification_guard();
+    let temp = tempfile::tempdir().expect("temp dir");
+    setup_slow_verification_repo(temp.path());
 
     let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
     initialize_mcp(&mut stdin, &mut stdout);
@@ -574,6 +593,74 @@ timeout_seconds = 2
         cancellation_latency < std::time::Duration::from_secs(1),
         "active cancellation took {cancellation_latency:?}"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn mcp_queue_overload_stays_responsive_during_an_active_tool() {
+    let _guard = slow_verification_guard();
+    let temp = tempfile::tempdir().expect("temp dir");
+    setup_slow_verification_repo(temp.path());
+    let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 40,
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "verify": ["slow"] }
+            }
+        }),
+    );
+    let marker = temp.path().join("verification-started");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !marker.exists() && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(marker.exists(), "verification process did not start");
+
+    let overloaded_at = std::time::Instant::now();
+    for id in 100..=108 {
+        send_mcp(
+            &mut stdin,
+            &json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "method": "tools/call",
+                "params": { "name": "repopilot_nope", "arguments": {} }
+            }),
+        );
+    }
+    let overloaded = receive_mcp(&mut stdout);
+    assert_eq!(overloaded["id"], 108);
+    assert_eq!(overloaded["error"]["code"], -32000);
+    assert!(
+        overloaded_at.elapsed() < std::time::Duration::from_secs(1),
+        "overload response was blocked behind active analysis"
+    );
+
+    let cancelled_at = std::time::Instant::now();
+    send_mcp(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/cancelled",
+            "params": { "requestId": 40, "reason": "test overload cancellation" }
+        }),
+    );
+    let cancelled = receive_mcp(&mut stdout);
+    assert_eq!(cancelled["id"], 40);
+    assert_eq!(cancelled["error"]["code"], -32800);
+    assert!(
+        cancelled_at.elapsed() < std::time::Duration::from_secs(1),
+        "cancellation was blocked behind queued work"
+    );
+
+    drop(stdin);
+    assert!(child.wait().expect("MCP server exits").success());
 }
 
 fn git(root: &Path, args: &[&str]) {
