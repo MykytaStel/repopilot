@@ -125,6 +125,75 @@ fn init_generates_opt_in_bootstraps_and_preserves_owned_files() {
 }
 
 #[test]
+fn init_from_a_nested_git_directory_owns_default_files_at_the_repository_root() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let git = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(temp.path())
+        .output()
+        .expect("initialize git repository");
+    assert!(git.status.success());
+    let nested = temp.path().join("crates/demo");
+    fs::create_dir_all(&nested).expect("nested directory");
+
+    run_ok(&["init", "--all"], &nested);
+
+    assert!(temp.path().join("repopilot.toml").is_file());
+    assert!(
+        temp.path()
+            .join(".github/workflows/repopilot-review.yml")
+            .is_file()
+    );
+    assert!(
+        temp.path()
+            .join(".repopilot/bootstrap/generic.json")
+            .is_file()
+    );
+    assert!(!nested.join("repopilot.toml").exists());
+    assert!(!nested.join(".github").exists());
+    assert!(!nested.join(".repopilot").exists());
+}
+
+#[test]
+fn init_keeps_an_explicit_relative_config_path_at_the_invocation_directory() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let git = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(temp.path())
+        .output()
+        .expect("initialize git repository");
+    assert!(git.status.success());
+    let nested = temp.path().join("crates/demo");
+    fs::create_dir_all(&nested).expect("nested directory");
+
+    run_ok(&["init", "--path", "local/repopilot.toml"], &nested);
+
+    assert!(nested.join("local/repopilot.toml").is_file());
+    assert!(!temp.path().join("local/repopilot.toml").exists());
+}
+
+#[test]
+fn init_uses_an_explicit_absolute_config_path_as_is() {
+    let repository = tempfile::tempdir().expect("repository dir");
+    let destination = tempfile::tempdir().expect("destination dir");
+    let config = destination.path().join("custom-repopilot.toml");
+    let git = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(repository.path())
+        .output()
+        .expect("initialize git repository");
+    assert!(git.status.success());
+
+    run_ok(
+        &["init", "--path", config.to_str().expect("UTF-8 path")],
+        repository.path(),
+    );
+
+    assert!(config.is_file());
+    assert!(!repository.path().join("custom-repopilot.toml").exists());
+}
+
+#[test]
 fn scan_and_review_help_have_flag_descriptions() {
     let temp = tempfile::tempdir().expect("temp dir");
     let scan_help = stdout(&run_ok(&["scan", "--help"], temp.path()));

@@ -18,7 +18,9 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const SCHEMA: &str = "mcp-scan-cache-v1";
+// Bump whenever the cached scan report contract changes. Schema 0.26 adds
+// assessment_status, so older entries must not bypass the shared renderer.
+const SCHEMA: &str = "mcp-scan-cache-v2";
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
 const OVERLAY_PATH: &str = ".repopilot/overlay.toml";
 const REPOPILOT_IGNORE_FILENAME: &str = ".repopilotignore";

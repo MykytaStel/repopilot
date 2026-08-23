@@ -3,7 +3,7 @@ use crate::baseline::diff::BaselineScanReport;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Severity;
 use crate::output::report_stats::{ReportStats, severity_order};
-use crate::scan::types::ScanSummary;
+use crate::scan::types::{AssessmentStatus, ScanSummary};
 
 mod frameworks;
 

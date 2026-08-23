@@ -167,6 +167,53 @@ fn given_clean_repo_when_scan_runs_default_then_compact_clean_summary_is_printed
 }
 
 #[test]
+fn given_no_analyzable_files_when_scan_runs_then_assessment_is_not_claimed() {
+    // A regression to PASS/100 would falsely describe an empty analysis surface
+    // as a healthy repository.
+    let project = tempfile::tempdir().expect("create empty project");
+
+    let output = repopilot()
+        .args(["scan", ".", "--no-progress", "--no-color"])
+        .current_dir(project.path())
+        .output()
+        .expect("run repopilot");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Decision: NOT ASSESSED"),
+        "stdout:\n{stdout}"
+    );
+    assert!(!stdout.contains("Decision: PASS"), "stdout:\n{stdout}");
+    assert!(
+        !stdout.contains("Visible health: 100/100"),
+        "stdout:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("No visible risks found."),
+        "stdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn given_no_analyzable_files_when_json_scan_runs_then_status_is_not_assessed() {
+    // Removing the additive field would leave machine consumers unable to
+    // distinguish an empty scan from a genuinely clean assessment.
+    let project = tempfile::tempdir().expect("create empty project");
+
+    let output = repopilot()
+        .args(["scan", ".", "--format", "json", "--no-progress"])
+        .current_dir(project.path())
+        .output()
+        .expect("run repopilot");
+
+    assert!(output.status.success());
+    let report: Value = serde_json::from_slice(&output.stdout).expect("valid scan JSON");
+    assert_eq!(report["files_analyzed"], 0);
+    assert_eq!(report["assessment_status"], "not-assessed");
+}
+
+#[test]
 fn given_quiet_when_scan_runs_then_next_steps_are_omitted() {
     // Given
     let project = fixture_project();
@@ -190,6 +237,32 @@ fn given_quiet_when_scan_runs_then_next_steps_are_omitted() {
     assert!(stdout.contains("Decision: PASS"));
     assert!(stdout.contains("Findings: 0 visible"));
     assert!(!stdout.contains("Next:"));
+}
+
+#[test]
+fn given_strict_visibility_when_scan_runs_then_markdown_next_step_preserves_it() {
+    let project = fixture_project();
+
+    for visibility in [
+        ["--profile", "strict"].as_slice(),
+        ["--include-maintainability"].as_slice(),
+    ] {
+        let mut command = repopilot();
+        command.args(["scan", ".", "--no-progress", "--no-color"]);
+        command.args(visibility);
+        let output = command
+            .current_dir(project.path())
+            .output()
+            .expect("run scan");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout
+                .contains("repopilot scan . --profile strict --format markdown --output report.md"),
+            "stdout for {visibility:?}:\n{stdout}"
+        );
+    }
 }
 
 #[test]

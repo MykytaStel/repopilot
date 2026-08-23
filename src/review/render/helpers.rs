@@ -2,6 +2,15 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
+use crate::verification::VerificationOutcome;
+
+pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
+    if outcome.reused {
+        format!("original run {} ms", outcome.duration_ms)
+    } else {
+        format!("{} ms", outcome.duration_ms)
+    }
+}
 
 pub(super) fn status_for_finding(
     report: &ReviewReport,

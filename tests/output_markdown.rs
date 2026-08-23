@@ -9,6 +9,26 @@ use repopilot::scan::types::{
 use std::path::PathBuf;
 
 #[test]
+fn markdown_does_not_render_health_scores_without_an_assessment() {
+    let summary = ScanSummary {
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("empty"),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render markdown report");
+
+    assert!(output.contains("- **Assessment:** not assessed"));
+    assert!(output.contains("- **Visible health:** not assessed"));
+    assert!(output.contains("- **Maintainability:** not assessed"));
+    assert!(!output.contains("- **Visible health:** 0/100"));
+    assert!(!output.contains("- **Maintainability:** 100/100"));
+}
+
+#[test]
 fn renders_markdown_scan_summary() {
     let summary = ScanSummary {
         metadata: ScanMetadata {
@@ -280,6 +300,7 @@ fn duplicate_status_report() -> BaselineScanReport {
                 ..Default::default()
             },
             metrics: ScanMetrics {
+                files_analyzed: 1,
                 health_score: 92,
                 maintainability_score: 81,
                 ..Default::default()

@@ -12,6 +12,7 @@ pub enum DecisionVerdict {
     Pass,
     Review,
     Block,
+    NotAssessed,
 }
 
 impl DecisionVerdict {
@@ -20,6 +21,7 @@ impl DecisionVerdict {
             Self::Pass => "PASS",
             Self::Review => "REVIEW",
             Self::Block => "BLOCK",
+            Self::NotAssessed => "NOT ASSESSED",
         }
     }
 }
@@ -45,6 +47,8 @@ pub fn scan_decision_summary(summary: &ScanSummary) -> DecisionSummary {
 
     let verdict = if has_errors || stats.p0 > 0 {
         DecisionVerdict::Block
+    } else if summary.metrics.files_analyzed == 0 {
+        DecisionVerdict::NotAssessed
     } else if findings.is_empty() {
         DecisionVerdict::Pass
     } else {
@@ -60,6 +64,9 @@ pub fn scan_decision_summary(summary: &ScanSummary) -> DecisionSummary {
         }
         DecisionVerdict::Block => {
             "Resolve scan errors or P0 evidence before shipping this repository.".to_string()
+        }
+        DecisionVerdict::NotAssessed => {
+            "No analyzable files were found, so repository health was not assessed.".to_string()
         }
     };
 
@@ -132,6 +139,9 @@ pub fn review_decision_summary(
         }
         DecisionVerdict::Block => {
             "An enabled finding or review-signal gate failed; do not merge yet.".to_string()
+        }
+        DecisionVerdict::NotAssessed => {
+            "No analyzable files were found, so repository health was not assessed.".to_string()
         }
     };
 
@@ -222,9 +232,9 @@ mod tests {
     use crate::risk::RiskAssessment;
 
     #[test]
-    fn empty_scan_passes() {
+    fn empty_scan_is_not_assessed() {
         let decision = scan_decision_summary(&ScanSummary::default());
-        assert_eq!(decision.verdict, DecisionVerdict::Pass);
+        assert_eq!(decision.verdict, DecisionVerdict::NotAssessed);
     }
 
     #[test]

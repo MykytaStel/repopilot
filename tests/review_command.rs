@@ -10,6 +10,28 @@ fn repopilot() -> Command {
 }
 
 #[test]
+fn review_reports_a_missing_target_instead_of_claiming_git_is_unavailable() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    let missing = temp.path().join("does-not-exist");
+
+    let output = repopilot()
+        .args(["review", missing.to_string_lossy().as_ref()])
+        .current_dir(temp.path())
+        .output()
+        .expect("run review");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("path does not exist"), "stderr:\n{stderr}");
+    assert!(stderr.contains("does-not-exist"), "stderr:\n{stderr}");
+    assert!(
+        !stderr.contains("git executable was not found"),
+        "stderr:\n{stderr}"
+    );
+}
+
+#[test]
 fn review_reports_working_tree_findings_on_changed_lines() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());

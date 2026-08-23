@@ -120,6 +120,15 @@ repopilot s <PATH> [OPTIONS]
 
 `files_discovered` in JSON output means files found after gitignore, `.repopilotignore`, built-in ignores, and `--exclude` filters. `files_analyzed` means analyzed text files; skipped large files, low-signal paths, binary/unreadable files, and files beyond `--max-files` are not included. JSON also includes `files_skipped_low_signal` and `binary_files_skipped`.
 
+Scan and baseline JSON include `assessment_status`: `assessed` when at least one
+file was analyzed and `not-assessed` when none were. A not-assessed scan exits
+successfully unless an existing diagnostic or gate fails, but human output does
+not claim numeric repository health. Score fields remain present for backward
+compatibility and must be interpreted together with `assessment_status`.
+
+Suggested Markdown commands preserve strict visibility as `--profile strict`,
+including scans started with the equivalent `--include-maintainability` flag.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -235,6 +244,8 @@ Review has two independent gate axes (see [Gates](#gates)): the **finding gate**
 findings) and the **review-signal gate** (`--fail-on-review definitely`, an
 opt-in gate for unsuppressed, gate-eligible definitely-sensitive review signals).
 They compose: either one failing exits non-zero.
+When the review-signal policy is `none`, human output says
+`Review gate: disabled`; passed/failed is reserved for an enabled policy.
 
 ### Synopsis
 
@@ -354,6 +365,8 @@ current checkout and the checkout to be clean. This prevents a passing command
 from being attached to static evidence for different content. A failed,
 unavailable, timed-out, cancelled, or revision-changing check is reported first
 and then exits with code `1`.
+For reused evidence, human output labels the stored duration as
+`cached; original run N ms`; it is not the cache lookup duration.
 
 ---
 
@@ -493,7 +506,7 @@ repopilot init [OPTIONS]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--force` | flag | — | Overwrite an existing config file |
-| `--path` | path | `repopilot.toml` | Path where the config file should be written |
+| `--path` | path | Git root `repopilot.toml` | Explicit config path; relative paths stay relative to the invocation directory |
 
 ### Examples
 
@@ -510,6 +523,9 @@ repopilot init --all
 Bootstrap flags generate RepoPilot-owned files only. Existing files are preserved
 unless `--force` is passed. MCP bootstrap output is written under
 `.repopilot/bootstrap/`; RepoPilot does not modify external client settings automatically.
+When invoked below a Git worktree root, the default config, Action workflow, and
+MCP bootstrap are created at that root. Outside Git they remain rooted at the
+current directory.
 
 ---
 

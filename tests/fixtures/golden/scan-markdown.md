@@ -6,6 +6,7 @@
 - **Path:** `demo-project`
 - **Profile:** `default`
 - **Scope:** full scan; repo-level rules included
+- **Assessment:** assessed
 - **Risk:** Moderate
 - **Visible health:** 90/100
 - **Maintainability:** 80/100

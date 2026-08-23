@@ -32,6 +32,10 @@ impl ReviewSignalGateResult {
         self.failed_signals == 0
     }
 
+    pub fn enabled(&self) -> bool {
+        self.policy != ReviewSignalGatePolicy::None
+    }
+
     pub fn label(&self) -> &'static str {
         match self.policy {
             ReviewSignalGatePolicy::None => "none",

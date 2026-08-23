@@ -38,6 +38,7 @@ fn renders_valid_json_scan_summary() {
 
     assert_eq!(parsed["root_path"], "demo");
     assert_eq!(parsed["files_analyzed"], 1);
+    assert_eq!(parsed["assessment_status"], "assessed");
     assert_eq!(parsed["directories_count"], 0);
     assert_eq!(parsed["non_empty_lines"], 3);
     assert_eq!(parsed["health_score"], 91);

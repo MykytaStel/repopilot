@@ -6,14 +6,22 @@ pub(crate) fn render_overview(output: &mut String, summary: &ScanSummary, stats:
         writeln!(output, "- **Profile:** `{profile}`").unwrap();
     }
     render_scope(output, summary);
-    writeln!(output, "- **Risk:** {}", stats.risk_label).unwrap();
-    writeln!(output, "- **Visible health:** {}/100", stats.health_score).unwrap();
-    writeln!(
-        output,
-        "- **Maintainability:** {}/100",
-        stats.maintainability_score
-    )
-    .unwrap();
+    if summary.assessment_status() == AssessmentStatus::NotAssessed {
+        output.push_str("- **Assessment:** not assessed\n");
+        output.push_str("- **Risk:** not assessed\n");
+        output.push_str("- **Visible health:** not assessed\n");
+        output.push_str("- **Maintainability:** not assessed\n");
+    } else {
+        output.push_str("- **Assessment:** assessed\n");
+        writeln!(output, "- **Risk:** {}", stats.risk_label).unwrap();
+        writeln!(output, "- **Visible health:** {}/100", stats.health_score).unwrap();
+        writeln!(
+            output,
+            "- **Maintainability:** {}/100",
+            stats.maintainability_score
+        )
+        .unwrap();
+    }
     if summary.metrics.raw_findings_count > summary.metrics.visible_findings_count {
         writeln!(
             output,

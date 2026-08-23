@@ -4,7 +4,7 @@ use crate::output::finding_helpers::{clusters_by_rule_scope, example_locations};
 use crate::output::render_helpers::escape_table_cell;
 use crate::output::report_stats::{ReportStats, TOOL_VERSION};
 use crate::output::report_text::{markdown_severity_counts_text, named_counts_text};
-use crate::scan::types::{DiagnosticSeverity, ScanSummary};
+use crate::scan::types::{AssessmentStatus, DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
 
 include!("sections/overview.rs");

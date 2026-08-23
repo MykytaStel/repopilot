@@ -109,6 +109,25 @@ fn review_gate_is_opt_in_and_blocks_definitely_sensitive_signals() {
         .output()
         .expect("run advisory review");
     assert!(advisory.status.success());
+    let advisory_stdout = String::from_utf8_lossy(&advisory.stdout);
+    assert!(
+        advisory_stdout.contains("Review gate: disabled"),
+        "stdout:\n{advisory_stdout}"
+    );
+    assert!(!advisory_stdout.contains("Review gate: passed (none"));
+
+    let markdown = repopilot()
+        .args(["review", ".", "--format", "markdown"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run advisory Markdown review");
+    assert!(markdown.status.success());
+    let markdown_stdout = String::from_utf8_lossy(&markdown.stdout);
+    assert!(
+        markdown_stdout.contains("- **Review gate:** disabled"),
+        "stdout:\n{markdown_stdout}"
+    );
+    assert!(!markdown_stdout.contains("**Review gate:** passed (`none`"));
 
     let blocking = repopilot()
         .args(["review", ".", "--fail-on-review", "definitely"])

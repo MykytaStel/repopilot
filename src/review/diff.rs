@@ -102,6 +102,7 @@ pub struct ChangedRange {
 
 #[derive(Debug)]
 pub enum GitDiffError {
+    PathNotFound(PathBuf),
     GitNotFound,
     GitCommandFailed { command: String, stderr: String },
     Io(io::Error),
@@ -134,6 +135,9 @@ impl ChangedFile {
 impl fmt::Display for GitDiffError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            GitDiffError::PathNotFound(path) => {
+                write!(formatter, "path does not exist: {}", path.display())
+            }
             GitDiffError::GitNotFound => write!(
                 formatter,
                 "git executable was not found; `repopilot review` requires git"
@@ -164,6 +168,9 @@ impl From<io::Error> for GitDiffError {
 }
 
 pub fn resolve_git_root(path: &Path) -> Result<PathBuf, GitDiffError> {
+    if !path.exists() {
+        return Err(GitDiffError::PathNotFound(path.to_path_buf()));
+    }
     let cwd = if path.is_file() {
         path.parent().unwrap_or_else(|| Path::new("."))
     } else {

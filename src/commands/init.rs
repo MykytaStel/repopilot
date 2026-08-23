@@ -1,5 +1,6 @@
 use crate::cli::{InitOptions, McpClientArg};
 use repopilot::config::template::default_config_toml;
+use repopilot::review::diff::resolve_git_root;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -7,18 +8,21 @@ const ACTION_PATH: &str = ".github/workflows/repopilot-review.yml";
 const MCP_DIR: &str = ".repopilot/bootstrap";
 
 pub fn run(options: InitOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let root = std::env::current_dir()?;
-    run_at(options, &root)
+    let invocation_dir = std::env::current_dir()?;
+    run_at(options, &invocation_dir)
 }
 
-fn run_at(options: InitOptions, root: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let root = resolve_git_root(invocation_dir).unwrap_or_else(|_| invocation_dir.to_path_buf());
     let generate_action = options.github_action || options.all;
     let mcp_client = options
         .mcp_client
         .or(options.all.then_some(McpClientArg::Generic));
 
+    let config_path =
+        explicit_or_default_config_path(options.path.as_deref(), invocation_dir, &root);
     let config = default_config_toml();
-    write_owned_file(&options.path, &config, options.force, "RepoPilot config")?;
+    write_owned_file(&config_path, &config, options.force, "RepoPilot config")?;
 
     if generate_action {
         write_owned_file(
@@ -39,8 +43,26 @@ fn run_at(options: InitOptions, root: &Path) -> Result<(), Box<dyn std::error::E
         )?;
     }
 
-    print_next_steps(&options.path, generate_action, mcp_client);
+    print_next_steps(
+        &config_path,
+        &root,
+        invocation_dir,
+        generate_action,
+        mcp_client,
+    );
     Ok(())
+}
+
+fn explicit_or_default_config_path(
+    explicit: Option<&Path>,
+    invocation_dir: &Path,
+    root: &Path,
+) -> PathBuf {
+    match explicit {
+        Some(path) if path.is_absolute() => path.to_path_buf(),
+        Some(path) => invocation_dir.join(path),
+        None => root.join("repopilot.toml"),
+    }
 }
 
 fn write_owned_file(
@@ -132,9 +154,18 @@ fn mcp_bootstrap(client: McpClientArg) -> String {
     }
 }
 
-fn print_next_steps(config: &Path, action: bool, mcp: Option<McpClientArg>) {
+fn print_next_steps(
+    config: &Path,
+    root: &Path,
+    invocation_dir: &Path,
+    action: bool,
+    mcp: Option<McpClientArg>,
+) {
     println!();
     println!("Next:");
+    if invocation_dir != root {
+        println!("  cd {}", root.display());
+    }
     println!("  repopilot review .");
     println!("  repopilot scan . --config {}", config.display());
 
@@ -156,7 +187,7 @@ mod tests {
     fn options(root: &Path) -> InitOptions {
         InitOptions {
             force: false,
-            path: root.join("repopilot.toml"),
+            path: Some(root.join("repopilot.toml")),
             github_action: false,
             mcp_client: None,
             all: false,

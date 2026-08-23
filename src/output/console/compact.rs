@@ -7,6 +7,7 @@ use crate::output::report_stats::{
     ReportStats, build_report_stats, first_location, indexed_sorted_findings,
 };
 use crate::output::{FindingRenderLimit, RenderOptions};
+use crate::scan::types::AssessmentStatus;
 use crate::scan::types::ScanSummary;
 use std::fmt::Write;
 use std::path::Path;
@@ -76,14 +77,20 @@ fn render_summary_header(output: &mut String, summary: &ScanSummary, stats: &Rep
 
     output.push_str("RepoPilot Scan\n\n");
     render_decision_summary(output, &scan_decision_summary(summary));
-    writeln!(output, "Risk: {}", color::risk_label(risk)).unwrap();
-    writeln!(output, "Visible health: {}/100", stats.health_score).unwrap();
-    writeln!(
-        output,
-        "Maintainability: {}/100",
-        stats.maintainability_score
-    )
-    .unwrap();
+    if summary.assessment_status() == AssessmentStatus::NotAssessed {
+        output.push_str("Risk: not assessed\n");
+        output.push_str("Visible health: not assessed\n");
+        output.push_str("Maintainability: not assessed\n");
+    } else {
+        writeln!(output, "Risk: {}", color::risk_label(risk)).unwrap();
+        writeln!(output, "Visible health: {}/100", stats.health_score).unwrap();
+        writeln!(
+            output,
+            "Maintainability: {}/100",
+            stats.maintainability_score
+        )
+        .unwrap();
+    }
     writeln!(output, "Profile: {}", profile_label(summary)).unwrap();
     writeln!(
         output,
@@ -114,7 +121,11 @@ fn render_findings_block(
     output.push('\n');
 
     if summary.artifacts.findings.is_empty() {
-        output.push_str("No visible risks found.\n\n");
+        if summary.assessment_status() == AssessmentStatus::NotAssessed {
+            output.push_str("No analyzable files found.\n\n");
+        } else {
+            output.push_str("No visible risks found.\n\n");
+        }
         return;
     }
 
@@ -170,13 +181,18 @@ fn render_baseline_block(
 
 fn render_next_steps(output: &mut String, summary: &ScanSummary) {
     let path = command_path(summary.root_path.as_path());
+    let visibility = if summary.visibility_profile.as_deref() == Some("strict") {
+        " --profile strict"
+    } else {
+        ""
+    };
     output.push_str("Next:\n");
     if summary.metrics.hidden_suggestions_count > 0 {
         writeln!(output, "  repopilot scan {path} --profile strict").unwrap();
     }
     writeln!(
         output,
-        "  repopilot scan {path} --format markdown --output report.md"
+        "  repopilot scan {path}{visibility} --format markdown --output report.md"
     )
     .unwrap();
 }
