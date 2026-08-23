@@ -93,6 +93,12 @@ pub struct VerificationSection {
     pub checks: Vec<VerificationCheckConfig>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct VerificationCacheConfig {
+    pub enabled: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VerificationCheckConfig {
@@ -109,6 +115,8 @@ pub struct VerificationCheckConfig {
     pub max_output_bytes: usize,
     #[serde(default)]
     pub paths: Vec<String>,
+    #[serde(default)]
+    pub cache: VerificationCacheConfig,
 }
 
 fn default_verification_working_directory() -> PathBuf {

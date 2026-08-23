@@ -9,11 +9,13 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+mod cache_runner;
 mod platform;
+pub use cache_runner::run_checks_observed_cached;
 use platform::{ProcessTree, configure_process_tree};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
-const PORTABLE_ENV_KEYS: &[&str] = &[
+pub(crate) const INHERITED_ENV_KEYS: &[&str] = &[
     "PATH",
     "HOME",
     "USERPROFILE",
@@ -39,44 +41,14 @@ pub fn run_checks_observed(
     cancellation: &CancellationToken,
     observer: &mut dyn FnMut(VerificationExecutionEvent),
 ) -> Vec<VerificationOutcome> {
-    let mut outcomes = Vec::with_capacity(checks.len());
-    let mut revision_changed = false;
-    let total = checks.len();
-    for (offset, check) in checks.iter().enumerate() {
-        if cancellation.is_cancelled() {
-            break;
-        }
-        let index = offset + 1;
-        observer(VerificationExecutionEvent::Started {
-            check_id: check.id().to_string(),
-            index,
-            total,
-        });
-        let outcome = if revision_changed {
-            skipped_outcome(
-                check,
-                revision,
-                "workspace revision changed before this check could run",
-            )
-        } else if !check.is_applicable(evidence_paths.iter().map(std::path::PathBuf::as_path)) {
-            skipped_outcome(
-                check,
-                revision,
-                "no changed or impacted path matched this check",
-            )
-        } else {
-            execute_check(check, revision, cancellation)
-        };
-        revision_changed = !outcome.revision_compatible;
-        observer(VerificationExecutionEvent::Completed {
-            check_id: check.id().to_string(),
-            index,
-            total,
-            status: outcome.status,
-        });
-        outcomes.push(outcome);
-    }
-    outcomes
+    run_checks_observed_cached(
+        checks,
+        evidence_paths,
+        revision,
+        cancellation,
+        None,
+        observer,
+    )
 }
 
 pub fn execute_check(
@@ -154,6 +126,7 @@ pub fn execute_check(
         revision_after: revision_after.id().to_string(),
         revision_compatible: revision_before == &revision_after,
         limitations: Vec::new(),
+        reused: false,
     }
 }
 
@@ -169,7 +142,7 @@ fn command_for(check: &ValidatedCheck) -> Command {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    for key in PORTABLE_ENV_KEYS {
+    for key in INHERITED_ENV_KEYS {
         if let Some(value) = std::env::var_os(key) {
             command.env(key, value);
         }
@@ -232,6 +205,7 @@ fn unavailable_outcome(
         revision_after: revision.id().to_string(),
         revision_compatible: true,
         limitations: vec!["configured program could not be started".to_string()],
+        reused: false,
     }
 }
 
@@ -255,6 +229,7 @@ fn cancelled_outcome(
         revision_after: revision.id().to_string(),
         revision_compatible: true,
         limitations: vec!["verification was cancelled before the check started".to_string()],
+        reused: false,
     }
 }
 
@@ -278,6 +253,7 @@ fn skipped_outcome(
         revision_after: revision.id().to_string(),
         revision_compatible: true,
         limitations: vec![limitation.to_string()],
+        reused: false,
     }
 }
 

@@ -89,6 +89,62 @@ fn empty_selection_does_not_touch_report_or_observer() {
     assert!(events.is_empty());
 }
 
+#[cfg(unix)]
+#[test]
+fn shared_adapter_reuses_enabled_cache_for_cli_and_mcp_callers() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = tempdir().expect("root");
+    let external = tempdir().expect("external marker root");
+    let marker = external.path().join("runs.txt");
+    let executable = root.path().join("tool.sh");
+    std::fs::write(&executable, "#!/bin/sh\nprintf x >> \"$1\"\n").expect("tool");
+    let mut permissions = std::fs::metadata(&executable)
+        .expect("metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&executable, permissions).expect("permissions");
+    let config = parse_config(
+        &format!(
+            "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"./tool.sh\"\nargs = [\"{}\"]\ncache = {{ enabled = true }}\n",
+            marker.display()
+        ),
+        None,
+    )
+    .expect("valid config");
+    let session = AnalysisSession::new(
+        root.path().to_path_buf(),
+        config,
+        ScanConfig::default(),
+        FindingVisibilityProfile::Default,
+    );
+
+    let mut first = empty_report(root.path());
+    run_selected_with_context(
+        &["unit".into()],
+        &session,
+        &OwnedDiffTarget::WorkingTree,
+        &mut first,
+        &CancellationToken::new(),
+        &mut |_| {},
+    )
+    .expect("first execution");
+    let mut second = empty_report(root.path());
+    run_selected_with_context(
+        &["unit".into()],
+        &session,
+        &OwnedDiffTarget::WorkingTree,
+        &mut second,
+        &CancellationToken::new(),
+        &mut |_| {},
+    )
+    .expect("cache reuse");
+
+    assert_eq!(std::fs::read_to_string(marker).expect("marker"), "x");
+    assert!(!first.verification[0].reused);
+    assert!(second.verification[0].reused);
+}
+
 fn empty_report(root: &std::path::Path) -> ReviewReport {
     ReviewReport {
         summary: ScanSummary::default(),

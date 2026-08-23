@@ -148,11 +148,13 @@ fn render_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("\nVerification:\n");
     for outcome in &report.verification {
+        let source = if outcome.reused { ", cached" } else { "" };
         output.push_str(&format!(
-            "  - {}: {} ({} ms)\n",
+            "  - {}: {} ({} ms{})\n",
             outcome.check_id,
             verification_status_label(outcome.status),
-            outcome.duration_ms
+            outcome.duration_ms,
+            source
         ));
         if !outcome.stdout_excerpt.is_empty() {
             output.push_str(&format!(

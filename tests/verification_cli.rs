@@ -228,6 +228,60 @@ fn failed_check_writes_report_before_exit_one() {
     assert_eq!(json["merge_readiness"]["verification"][0]["exit_code"], 7);
 }
 
+#[cfg(unix)]
+#[test]
+fn opted_in_cache_reuses_across_cli_processes_and_invalidates_on_edit() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    fs::write(temp.path().join("README.md"), "before\n").expect("source");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"sh\"\nargs = [\"-c\", \"mkdir -p .repopilot/cache; printf x >> .repopilot/cache/verification-runs\"]\ncache = { enabled = true }\n",
+    )
+    .expect("config");
+    commit_all(temp.path(), "initial");
+    fs::write(temp.path().join("README.md"), "after\n").expect("change");
+
+    let first = review_json(temp.path(), "unit");
+    let second = review_json(temp.path(), "unit");
+    assert!(
+        first["merge_readiness"]["verification"][0]
+            .get("reused")
+            .is_none()
+    );
+    assert_eq!(second["merge_readiness"]["verification"][0]["reused"], true);
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".repopilot/cache/verification-runs")).expect("marker"),
+        "x"
+    );
+
+    fs::write(temp.path().join("README.md"), "changed again\n").expect("second edit");
+    let invalidated = review_json(temp.path(), "unit");
+    assert!(
+        invalidated["merge_readiness"]["verification"][0]
+            .get("reused")
+            .is_none()
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".repopilot/cache/verification-runs")).expect("marker"),
+        "xx"
+    );
+}
+
+fn review_json(root: &Path, check_id: &str) -> Value {
+    let output = repopilot()
+        .args(["review", ".", "--format", "json", "--verify", check_id])
+        .current_dir(root)
+        .output()
+        .expect("review");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).expect("JSON report")
+}
+
 fn init_repo(root: &Path) {
     git(root, &["init"]);
     git(root, &["config", "user.email", "repopilot@example.invalid"]);

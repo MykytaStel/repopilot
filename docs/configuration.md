@@ -91,6 +91,37 @@ repopilot review . --fail-on-review definitely
 See [CLI reference → Gates](cli.md#gates) for the full two-axis gate model
 (finding gate vs review-signal gate).
 
+## Explicit local verification
+
+Repository maintainers can declare bounded checks and developers can select
+them explicitly with `repopilot review --verify <id>`:
+
+```toml
+[[verification.checks]]
+id = "unit"
+role = "test"
+program = "cargo"
+args = ["test", "--all"]
+working_directory = "."
+timeout_seconds = 120
+max_output_bytes = 65536
+paths = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock"]
+cache = { enabled = true }
+```
+
+Caching is off by default and must be enabled per check. RepoPilot reuses only
+passing, revision-compatible evidence. The key covers the workspace revision,
+complete check policy, resolved executable bytes, inherited portability
+environment, platform, RepoPilot version, and cache schema. Failed, skipped,
+cancelled, timed-out, or incompatible results are never reused. Cache problems
+fall back to executing the check and never fail the review.
+
+Cached evidence is stored under `.repopilot/cache/verification/v1`, retained
+best-effort up to 64 entries, and may be deleted safely. Human reports label it
+`cached`; structured output adds `reused: true`. Do not enable caching for checks
+that depend on network services, external state, wall-clock time, ignored files,
+or relevant inputs outside the declared workspace revision.
+
 ## Local History
 
 Risk history is opt-in. Enable it for every `scan` and `review` in a repository:

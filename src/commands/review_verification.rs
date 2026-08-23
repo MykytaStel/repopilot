@@ -3,7 +3,7 @@ use repopilot::review::diff::OwnedDiffTarget;
 use repopilot::review::model::ReviewReport;
 use repopilot::scan::session::AnalysisSession;
 use repopilot::verification::{
-    CancellationToken, VerificationExecutionEvent, VerificationStatus, run_checks_observed,
+    CancellationToken, VerificationExecutionEvent, VerificationStatus, run_checks_observed_cached,
     select_checks, validate_review_target,
 };
 use std::time::Instant;
@@ -73,11 +73,12 @@ pub(super) fn run_selected_with_context(
     evidence_paths.dedup();
 
     let started = Instant::now();
-    report.verification = run_checks_observed(
+    report.verification = run_checks_observed_cached(
         &checks,
         &evidence_paths,
         session.revision(),
         cancellation,
+        Some(session.workspace_root()),
         &mut |event| observer(map_event(event)),
     );
     report.timings.verification_us = started.elapsed().as_micros().min(u128::from(u64::MAX)) as u64;

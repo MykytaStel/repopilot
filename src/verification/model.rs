@@ -11,7 +11,7 @@ pub enum VerificationRole {
     Lint,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VerificationStatus {
     Passed,
@@ -37,7 +37,7 @@ pub enum VerificationExecutionEvent {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VerificationOutcome {
     pub check_id: String,
     pub role: VerificationRole,
@@ -53,8 +53,14 @@ pub struct VerificationOutcome {
     pub revision_before: String,
     pub revision_after: String,
     pub revision_compatible: bool,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub limitations: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reused: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Debug, Clone, Default)]
