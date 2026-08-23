@@ -7,15 +7,21 @@
 //! service is called).
 
 mod analysis_store;
+mod catalog;
 mod context;
 mod explain_file;
 mod explain_finding;
 mod explain_review_signal;
 mod jsonrpc;
+mod progress;
+mod publication;
+mod request_registry;
 mod review_change;
+mod review_projection;
 mod scan;
 mod scan_cache;
 mod tool_call;
+mod worker;
 
 #[cfg(test)]
 mod tests;
@@ -24,16 +30,20 @@ mod workspace_freshness_tests;
 
 use crate::cli::McpOptions;
 use analysis_store::AnalysisStore;
+use catalog::{
+    handle_prompt_get, handle_resource_read, prompts_list_result, resources_list_result,
+    tools_list_result,
+};
 use jsonrpc::{METHOD_NOT_FOUND, Request, Response};
-use serde::Serialize;
+#[cfg(test)]
+use publication::tool_result;
+use request_registry::RequestRegistry;
 use serde_json::{Value, json};
-use std::collections::HashSet;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, mpsc};
 use tool_call::handle_tools_call;
-#[cfg(test)]
-use tool_call::tool_result;
+use worker::{ToolJob, run_tool_worker, write_message};
 
 const SERVER_NAME: &str = "repopilot";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -102,16 +112,16 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
         max_response_bytes,
         ..ServerState::default()
     }));
-    let cancelled = Arc::new(Mutex::new(HashSet::<String>::new()));
+    let registry = Arc::new(Mutex::new(RequestRegistry::default()));
     let writer = Arc::new(Mutex::new(&mut writer));
     let (jobs_tx, jobs_rx) = mpsc::channel::<ToolJob>();
 
     std::thread::scope(|scope| -> std::io::Result<()> {
         let worker_state = Arc::clone(&state);
-        let worker_cancelled = Arc::clone(&cancelled);
+        let worker_registry = Arc::clone(&registry);
         let worker_writer = Arc::clone(&writer);
         let worker = scope.spawn(move || {
-            run_tool_worker(jobs_rx, &worker_state, &worker_cancelled, &worker_writer)
+            run_tool_worker(jobs_rx, &worker_state, &worker_registry, &worker_writer)
         });
 
         for line in reader.lines() {
@@ -130,10 +140,10 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
 
             if request.method == "notifications/cancelled" {
                 if let Some(request_id) = cancellation_request_id(&request.params) {
-                    cancelled
+                    registry
                         .lock()
                         .map_err(lock_error)?
-                        .insert(request_key(&request_id));
+                        .cancel(&request_key(&request_id));
                 }
                 continue;
             }
@@ -154,18 +164,27 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                     .get("_meta")
                     .and_then(|meta| meta.get("progressToken"))
                     .cloned();
-                jobs_tx
+                let key = request_key(&id);
+                let cancellation = repopilot::verification::CancellationToken::new();
+                registry
+                    .lock()
+                    .map_err(lock_error)?
+                    .register(key.clone(), cancellation.clone());
+                if jobs_tx
                     .send(ToolJob {
                         id,
                         params: request.params,
                         progress_token,
+                        cancellation,
                     })
-                    .map_err(|_| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::BrokenPipe,
-                            "MCP tool worker stopped",
-                        )
-                    })?;
+                    .is_err()
+                {
+                    registry.lock().map_err(lock_error)?.finish(&key);
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::BrokenPipe,
+                        "MCP tool worker stopped",
+                    ));
+                }
                 continue;
             }
 
@@ -183,74 +202,6 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
             .join()
             .map_err(|_| std::io::Error::other("MCP tool worker panicked"))??;
         Ok(())
-    })
-}
-
-struct ToolJob {
-    id: Value,
-    params: Value,
-    progress_token: Option<Value>,
-}
-
-fn write_message<W: Write, T: Serialize>(
-    writer: &Arc<Mutex<&mut W>>,
-    message: &T,
-) -> std::io::Result<()> {
-    let encoded = serde_json::to_string(message)?;
-    let mut writer = writer.lock().map_err(lock_error)?;
-    writer.write_all(encoded.as_bytes())?;
-    writer.write_all(b"\n")?;
-    writer.flush()
-}
-
-fn run_tool_worker<W: Write>(
-    jobs: mpsc::Receiver<ToolJob>,
-    state: &Arc<Mutex<ServerState>>,
-    cancelled: &Arc<Mutex<HashSet<String>>>,
-    writer: &Arc<Mutex<&mut W>>,
-) -> std::io::Result<()> {
-    for job in jobs {
-        let key = request_key(&job.id);
-        if cancelled.lock().map_err(lock_error)?.contains(&key) {
-            write_message(
-                writer,
-                &Response::error(job.id, -32800, "request cancelled"),
-            )?;
-            continue;
-        }
-
-        if let Some(token) = &job.progress_token {
-            write_message(writer, &progress_notification(token, 0, "analysis started"))?;
-        }
-
-        let mut response = {
-            let mut state = state.lock().map_err(lock_error)?;
-            handle_tools_call(job.id.clone(), &job.params, &mut state)
-        };
-
-        if cancelled.lock().map_err(lock_error)?.remove(&key) {
-            response = Response::error(job.id, -32800, "request cancelled");
-        } else if let Some(token) = &job.progress_token {
-            write_message(
-                writer,
-                &progress_notification(token, 1, "analysis complete"),
-            )?;
-        }
-        write_message(writer, &response)?;
-    }
-    Ok(())
-}
-
-fn progress_notification(token: &Value, progress: u8, message: &str) -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "method": "notifications/progress",
-        "params": {
-            "progressToken": token,
-            "progress": progress,
-            "total": 1,
-            "message": message
-        }
     })
 }
 
@@ -323,142 +274,4 @@ fn initialize_result(params: &Value) -> Value {
         },
         "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
     })
-}
-
-fn tools_list_result() -> Value {
-    json!({
-        "tools": [
-            review_change::definition(),
-            scan::definition(),
-            context::definition(),
-            explain_file::definition(),
-            explain_finding::definition(),
-            explain_review_signal::definition(),
-        ]
-    })
-}
-
-fn resources_list_result(state: &ServerState) -> Value {
-    let mut resources = vec![
-        json!({
-            "uri": "repopilot://rules",
-            "name": "RepoPilot rule catalog",
-            "mimeType": "application/json"
-        }),
-        json!({
-            "uri": "repopilot://repository-summary",
-            "name": "RepoPilot repository summary",
-            "mimeType": "application/json"
-        }),
-        json!({
-            "uri": "repopilot://analyses",
-            "name": "Available RepoPilot analysis handles",
-            "mimeType": "application/json"
-        }),
-    ];
-    if state.last_scan.is_some() {
-        resources.push(json!({
-            "uri": "repopilot://last-scan",
-            "name": "Last RepoPilot scan",
-            "mimeType": "application/json"
-        }));
-    }
-    if state.last_review.is_some() {
-        resources.push(json!({
-            "uri": "repopilot://last-review",
-            "name": "Last RepoPilot review",
-            "mimeType": "application/json"
-        }));
-    }
-    json!({ "resources": resources })
-}
-
-fn handle_resource_read(id: Value, params: &Value, state: &ServerState) -> Response {
-    let uri = params
-        .get("uri")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let text = match uri {
-        "repopilot://analyses" => serde_json::to_string_pretty(&state.analyses.summaries())
-            .unwrap_or_else(|_| "[]".to_string()),
-        "repopilot://rules" => {
-            let rules = repopilot::rules::all_rule_metadata()
-                .map(|rule| {
-                    json!({
-                        "rule_id": rule.rule_id,
-                        "title": rule.title,
-                        "category": rule.category.label(),
-                        "severity": rule.default_severity.label(),
-                        "max_severity": rule.severity_ceiling().label(),
-                        "confidence": rule.default_confidence.label(),
-                        "max_confidence": rule.confidence_ceiling().label(),
-                        "lifecycle": rule.lifecycle.label(),
-                        "signal_source": rule.signal_source.label(),
-                        "docs_url": rule.docs_url
-                    })
-                })
-                .collect::<Vec<_>>();
-            serde_json::to_string_pretty(&rules).unwrap_or_else(|_| "[]".to_string())
-        }
-        "repopilot://last-scan" => state.last_scan.clone().unwrap_or_default(),
-        "repopilot://last-review" => state.last_review.clone().unwrap_or_default(),
-        "repopilot://repository-summary" => serde_json::to_string_pretty(&json!({
-            "root": state.root.to_string_lossy(),
-            "git_repository": state.root.join(".git").exists(),
-            "config_present": state.root.join("repopilot.toml").is_file(),
-            "baseline_present": state.root.join(".repopilot/baseline.json").is_file(),
-            "feedback_present": state.root.join(".repopilot/feedback.yml").is_file(),
-            "last_scan_available": state.last_scan.is_some(),
-            "last_review_available": state.last_review.is_some()
-        }))
-        .unwrap_or_else(|_| "{}".to_string()),
-        _ => {
-            return Response::error(id, -32002, format!("resource not found: {uri}"));
-        }
-    };
-    Response::success(
-        id,
-        json!({ "contents": [{ "uri": uri, "mimeType": "application/json", "text": text }] }),
-    )
-}
-
-fn prompts_list_result() -> Value {
-    json!({
-        "prompts": [
-            {
-                "name": "review-change",
-                "description": "Review the current change with RepoPilot evidence."
-            },
-            {
-                "name": "fix-top-risk",
-                "description": "Plan the smallest fix for the highest-priority RepoPilot risk."
-            }
-        ]
-    })
-}
-
-fn handle_prompt_get(id: Value, params: &Value) -> Response {
-    let name = params
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let text = match name {
-        "review-change" => {
-            "Call repopilot_review_change, inspect definitely-sensitive signals first, and report evidence without claiming the change is safe."
-        }
-        "fix-top-risk" => {
-            "Call repopilot_scan, select the highest-priority evidence-backed finding, and propose the smallest verified remediation."
-        }
-        _ => return Response::error(id, -32602, format!("unknown prompt: {name}")),
-    };
-    Response::success(
-        id,
-        json!({
-            "description": text,
-            "messages": [{
-                "role": "user",
-                "content": { "type": "text", "text": text }
-            }]
-        }),
-    )
 }

@@ -1,4 +1,7 @@
 use super::{ServerState, context, explain_file, handle_tools_call, review_change, scan};
+use crate::commands::mcp::tool_call::handle_tools_call_with_context;
+use crate::commands::review_verification::ReviewVerificationEvent;
+use repopilot::verification::CancellationToken;
 use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
@@ -193,4 +196,122 @@ fn explain_file_observes_manifest_changes_after_the_first_call() {
             .as_array()
             .is_some_and(|roles| roles.iter().any(|role| role == "cli-executable"))
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn revision_incompatible_review_is_returned_but_not_published() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    setup_verification_review_repo(temp.path(), "printf changed > verification-mutated.txt");
+    let mut state = state(temp.path());
+    state.last_review = Some("previous review".to_string());
+
+    let response = handle_tools_call(
+        json!(20),
+        &json!({
+            "name": review_change::TOOL_NAME,
+            "arguments": {
+                "path": ".",
+                "config": "repopilot.toml",
+                "detail": "full",
+                "verify": ["unit"]
+            }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("review result");
+
+    assert_eq!(result["isError"], false, "review failed: {result}");
+    assert_eq!(
+        result["structuredContent"]["merge_readiness"]["verification"][0]["revision_compatible"],
+        false
+    );
+    assert!(result.get("analysisHandle").is_none());
+    assert!(state.analyses.summaries().is_empty());
+    assert_eq!(state.last_review.as_deref(), Some("previous review"));
+}
+
+#[cfg(unix)]
+#[test]
+fn revision_compatible_failed_review_is_published() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    setup_verification_review_repo(temp.path(), "exit 7");
+    let mut state = state(temp.path());
+
+    let response = handle_tools_call(
+        json!(21),
+        &json!({
+            "name": review_change::TOOL_NAME,
+            "arguments": {
+                "path": ".",
+                "config": "repopilot.toml",
+                "detail": "full",
+                "verify": ["unit"]
+            }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("review result");
+
+    assert_eq!(result["isError"], false, "review failed: {result}");
+    assert_eq!(
+        result["structuredContent"]["merge_readiness"]["verification"][0]["status"],
+        "failed"
+    );
+    assert!(result["analysisHandle"].is_string());
+    assert_eq!(state.analyses.summaries().len(), 1);
+    assert!(state.last_review.is_some());
+}
+
+#[cfg(unix)]
+#[test]
+fn cancellation_after_verification_leaves_previous_review_unchanged() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    setup_verification_review_repo(temp.path(), "exit 7");
+    let mut state = state(temp.path());
+    state.last_review = Some("previous review".to_string());
+    let cancellation = CancellationToken::new();
+    let observer_token = cancellation.clone();
+
+    let response = handle_tools_call_with_context(
+        json!(22),
+        &json!({
+            "name": review_change::TOOL_NAME,
+            "arguments": {
+                "path": ".",
+                "config": "repopilot.toml",
+                "detail": "full",
+                "verify": ["unit"]
+            }
+        }),
+        &mut state,
+        &cancellation,
+        &mut |event| {
+            if matches!(event, ReviewVerificationEvent::Completed { .. }) {
+                observer_token.cancel();
+            }
+        },
+    );
+
+    assert_eq!(response.error.expect("cancelled response").code, -32800);
+    assert!(state.analyses.summaries().is_empty());
+    assert_eq!(state.last_review.as_deref(), Some("previous review"));
+}
+
+#[cfg(unix)]
+fn setup_verification_review_repo(root: &Path, shell_command: &str) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "t@example.com"]);
+    git(root, &["config", "user.name", "Test"]);
+    fs::write(root.join("lib.rs"), "pub fn live() -> i32 { 1 }\n").expect("source");
+    fs::write(
+        root.join("repopilot.toml"),
+        format!(
+            "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"sh\"\nargs = [\"-c\", {shell_command:?}]\n"
+        ),
+    )
+    .expect("config");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "initial"]);
+    fs::write(root.join("lib.rs"), "pub fn live() -> i32 { 2 }\n").expect("change");
 }

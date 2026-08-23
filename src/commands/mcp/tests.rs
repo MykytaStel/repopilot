@@ -99,7 +99,8 @@ fn tools_list_advertises_all_tools_with_schemas() {
         ]
     );
 
-    // Every advertised tool exposes an object input schema.
+    // Every advertised tool exposes an object input schema. Static tools stay
+    // read-only; review advertises the worst-case effects of explicit checks.
     for tool in tools {
         assert_eq!(
             tool["inputSchema"]["type"], "object",
@@ -107,13 +108,29 @@ fn tools_list_advertises_all_tools_with_schemas() {
             tool["name"]
         );
         assert!(tool["outputSchema"].is_object());
-        assert_eq!(tool["annotations"]["readOnlyHint"], true);
+        if tool["name"] != "repopilot_review_change" {
+            assert_eq!(tool["annotations"]["readOnlyHint"], true);
+        }
     }
 
-    let review_description = tools
+    let review = tools
         .iter()
         .find(|tool| tool["name"] == "repopilot_review_change")
-        .and_then(|tool| tool["description"].as_str())
+        .expect("review tool");
+    assert_eq!(
+        review["inputSchema"]["properties"]["verify"]["type"],
+        "array"
+    );
+    assert_eq!(
+        review["inputSchema"]["properties"]["verify"]["uniqueItems"],
+        true
+    );
+    assert_eq!(review["annotations"]["readOnlyHint"], false);
+    assert_eq!(review["annotations"]["destructiveHint"], true);
+    assert_eq!(review["annotations"]["idempotentHint"], false);
+    assert_eq!(review["annotations"]["openWorldHint"], true);
+    let review_description = review["description"]
+        .as_str()
         .expect("review tool description");
     assert!(
         review_description.contains(
@@ -121,6 +138,8 @@ fn tools_list_advertises_all_tools_with_schemas() {
         ),
         "{review_description}"
     );
+    assert!(review_description.contains("configured local checks"));
+    assert!(review_description.contains("bounded and redacted"));
 }
 
 #[test]
@@ -553,4 +572,66 @@ fn oversized_tool_result_is_replaced_by_a_bounded_error() {
     assert_eq!(result["isError"], true);
     assert_eq!(result["responseTruncated"], true);
     assert!(serde_json::to_vec(&result).expect("serialize").len() <= 1024);
+}
+
+#[test]
+fn oversized_analysis_is_not_published() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    std::fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 1 }\n",
+    )
+    .expect("source");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        max_response_bytes: 1024,
+        ..ServerState::default()
+    };
+
+    let response = handle_tools_call(
+        json!(30),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": { "path": ".", "detail": "full" }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("tool result");
+
+    assert_eq!(result["isError"], true);
+    assert_eq!(result["responseTruncated"], true);
+    assert!(result.get("analysisHandle").is_none());
+    assert!(state.analyses.summaries().is_empty());
+    assert!(state.last_scan.is_none());
+}
+
+#[test]
+fn pagination_error_does_not_publish_analysis() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    std::fs::write(
+        temp.path().join("lib.rs"),
+        "pub fn value() -> usize { 1 }\n",
+    )
+    .expect("source");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        ..ServerState::default()
+    };
+
+    let response = handle_tools_call(
+        json!(31),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": { "path": ".", "limit": 0 }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("tool result");
+
+    assert_eq!(result["isError"], true);
+    assert!(result.get("analysisHandle").is_none());
+    assert!(state.analyses.summaries().is_empty());
+    assert!(state.last_scan.is_none());
 }

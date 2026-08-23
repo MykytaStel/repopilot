@@ -1,4 +1,4 @@
-use super::{execute_check, run_checks};
+use super::{VerificationExecutionEvent, execute_check, run_checks, run_checks_observed};
 use crate::config::loader::parse_config;
 use crate::scan::session::WorkspaceRevision;
 use crate::verification::{CancellationToken, VerificationStatus, select_checks};
@@ -9,6 +9,116 @@ fn check(root: &std::path::Path, toml: &str, id: &str) -> crate::verification::V
     select_checks(root, &config.verification.checks, &[id.into()])
         .expect("valid selection")
         .remove(0)
+}
+
+#[test]
+fn observed_checks_emit_ordered_lifecycle() {
+    let temp = tempdir().expect("temp dir");
+    let config = parse_config(
+        r#"[[verification.checks]]
+id = "unit"
+role = "test"
+program = "repopilot-missing-unit-program"
+[[verification.checks]]
+id = "lint"
+role = "lint"
+program = "repopilot-missing-lint-program"
+"#,
+        None,
+    )
+    .expect("valid config");
+    let checks = select_checks(
+        temp.path(),
+        &config.verification.checks,
+        &["unit".into(), "lint".into()],
+    )
+    .expect("valid selection");
+    let mut events = Vec::new();
+
+    let outcomes = run_checks_observed(
+        &checks,
+        &[],
+        &WorkspaceRevision::capture(temp.path()),
+        &CancellationToken::new(),
+        &mut |event| events.push(event),
+    );
+
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(
+        events,
+        vec![
+            VerificationExecutionEvent::Started {
+                check_id: "lint".into(),
+                index: 1,
+                total: 2,
+            },
+            VerificationExecutionEvent::Completed {
+                check_id: "lint".into(),
+                index: 1,
+                total: 2,
+                status: VerificationStatus::Unavailable,
+            },
+            VerificationExecutionEvent::Started {
+                check_id: "unit".into(),
+                index: 2,
+                total: 2,
+            },
+            VerificationExecutionEvent::Completed {
+                check_id: "unit".into(),
+                index: 2,
+                total: 2,
+                status: VerificationStatus::Unavailable,
+            },
+        ]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn observer_cancellation_prevents_next_spawn() {
+    let temp = tempdir().expect("temp dir");
+    let config = parse_config(
+        r#"[[verification.checks]]
+id = "first"
+role = "test"
+program = "sh"
+args = ["-c", "true"]
+[[verification.checks]]
+id = "second"
+role = "lint"
+program = "sh"
+args = ["-c", "printf spawned > second.txt"]
+"#,
+        None,
+    )
+    .expect("valid config");
+    let checks = select_checks(
+        temp.path(),
+        &config.verification.checks,
+        &["first".into(), "second".into()],
+    )
+    .expect("valid selection");
+    let cancellation = CancellationToken::new();
+    let observer_token = cancellation.clone();
+
+    let outcomes = run_checks_observed(
+        &checks,
+        &[],
+        &WorkspaceRevision::capture(temp.path()),
+        &cancellation,
+        &mut |event| {
+            if matches!(
+                event,
+                VerificationExecutionEvent::Completed { ref check_id, .. }
+                    if check_id == "first"
+            ) {
+                observer_token.cancel();
+            }
+        },
+    );
+
+    assert_eq!(outcomes.len(), 1);
+    assert!(!temp.path().join("second.txt").exists());
 }
 
 #[cfg(unix)]
