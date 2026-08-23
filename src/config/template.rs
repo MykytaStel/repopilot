@@ -39,6 +39,7 @@ fail_on = "none"
 # timeout_seconds = 120
 # max_output_bytes = 65536
 # paths = ["src/**", "tests/**", "Cargo.toml", "Cargo.lock"]
+# cache = {{ enabled = true }} # Optional; reuses only trusted passing evidence.
 
 [architecture]
 max_file_lines = {DEFAULT_MAX_FILE_LINES}

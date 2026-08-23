@@ -33,6 +33,34 @@ fn verification_checks_parse_with_bounded_defaults() {
 }
 
 #[test]
+fn verification_cache_is_disabled_by_default_and_requires_explicit_opt_in() {
+    let default = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n",
+        None,
+    )
+    .expect("default check");
+    assert!(!default.verification.checks[0].cache.enabled);
+
+    let enabled = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n[verification.checks.cache]\nenabled = true\n",
+        None,
+    )
+    .expect("cached check");
+    assert!(enabled.verification.checks[0].cache.enabled);
+}
+
+#[test]
+fn verification_cache_rejects_unknown_fields() {
+    let error = parse_config(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n[verification.checks.cache]\nunknown = true\n",
+        None,
+    )
+    .expect_err("unknown cache policy fields must fail closed");
+
+    assert!(error.to_string().contains("unknown field `unknown`"));
+}
+
+#[test]
 fn verification_check_rejects_unknown_fields() {
     let error = parse_config(
         r#"

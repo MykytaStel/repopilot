@@ -736,6 +736,9 @@ fn cache_clear_removes_cache_and_is_idempotent() {
 
     let cache_dir = temp.path().join(".repopilot/cache");
     assert!(cache_dir.is_dir());
+    let verification_entry = cache_dir.join("verification/v1/entry.json");
+    write(verification_entry.clone(), "{}");
+    assert!(verification_entry.is_file());
 
     clear_cache(temp.path());
     assert!(!cache_dir.exists());

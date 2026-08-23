@@ -145,12 +145,16 @@ fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
         return;
     }
     output.push_str("## Verification\n\n");
-    output.push_str("| Check | Status | Duration | Exit |\n| --- | --- | ---: | ---: |\n");
+    output.push_str(
+        "| Check | Status | Source | Duration | Exit |\n| --- | --- | --- | ---: | ---: |\n",
+    );
     for outcome in &report.verification {
+        let source = if outcome.reused { "cached" } else { "executed" };
         output.push_str(&format!(
-            "| `{}` | `{:?}` | {} ms | {} |\n",
+            "| `{}` | `{:?}` | {} | {} ms | {} |\n",
             outcome.check_id,
             outcome.status,
+            source,
             outcome.duration_ms,
             outcome
                 .exit_code

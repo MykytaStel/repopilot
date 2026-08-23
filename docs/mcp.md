@@ -179,6 +179,15 @@ fingerprints and prefers a fresh scan whenever an input is uncertain.
 Successful scan and review calls always replace `repopilot://last-scan` and
 `repopilot://last-review` with the exact result returned to the client.
 
+When `repopilot_review_change` selects a configured check through `verify`, it
+uses the same verification cache policy as the CLI. A check opts in with
+`cache = { enabled = true }`; only passing, revision-compatible evidence is
+reused, and the structured outcome carries `reused: true`. Cache lookup does
+not weaken cancellation or transactional publication: a cancelled request does
+not publish a cached or newly executed result. See
+[Configuration](configuration.md#explicit-local-verification) for key inputs,
+storage, and unsafe opt-in cases.
+
 In B2.1, `repopilot_review_change` can return the review-only
 `behavioral.removed-export-still-imported` signal. It is High-confidence and
 definitely-sensitive only when a direct named import in a supported local
@@ -191,9 +200,9 @@ to replay its canonical provenance, impact, gate state, verification plan, and
 limitations. This does not add an MCP tool or `scan --changed` parity: path
 aliases, package imports, default/namespace imports, re-exports, CommonJS/dynamic forms,
 and imports whose selected-target resolver selection is not the changed exporter are
-outside the broken-code claim. RepoPilot never
-runs TypeScript, compiler, or build commands; the returned verification plan
-asks the caller to run the repository's declared checks manually.
+outside the broken-code claim. RepoPilot never runs arbitrary commands supplied
+by an MCP caller; the returned verification plan is guidance unless the caller
+explicitly selects an allowlisted repository check through `verify`.
 
 ## Prompts
 

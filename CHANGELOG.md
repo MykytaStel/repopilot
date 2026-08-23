@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Trusted verification reuse across CLI and MCP.** Individual configured
+  checks can opt into a persistent local cache with `cache = { enabled = true }`.
+  RepoPilot reuses only passing, revision-compatible evidence keyed by the full
+  check policy, executable bytes, inherited portability environment, platform,
+  workspace revision, version, and schema. Storage is atomic, bounded, and
+  best-effort; unsafe or corrupt entries become misses. JSON/MCP mark reused
+  outcomes with `reused: true`, while console and Markdown label cached evidence.
 - **Explicit local verification for review.** Repositories can define bounded
   test, build, type-check, and lint checks under `[[verification.checks]]` and
   run only the allowlisted IDs selected with repeatable `review --verify`.

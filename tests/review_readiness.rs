@@ -99,6 +99,29 @@ fn human_reports_project_readiness_and_owners() {
 }
 
 #[test]
+fn human_reports_show_when_verification_was_reused() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
+
+    let executed_console = repopilot::review::render::render_console(&report, None);
+    let executed_markdown = repopilot::review::render::render_markdown(&report, None);
+    assert!(executed_console.contains("unit: PASSED (10 ms)"));
+    assert!(!executed_console.contains("cached"));
+    assert!(executed_markdown.contains("| `unit` | `Passed` | executed | 10 ms | 1 |"));
+
+    let mut outcome = report.verification.remove(0);
+    outcome.reused = true;
+    report.verification = vec![outcome];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    assert!(console.contains("unit: PASSED (10 ms, cached)"));
+    assert!(markdown.contains("| Check | Status | Source | Duration | Exit |"));
+    assert!(markdown.contains("| `unit` | `Passed` | cached | 10 ms | 1 |"));
+}
+
+#[test]
 fn failed_verification_blocks_canonical_readiness() {
     let mut report = report_with_ownership(OwnershipSummary::default());
     report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
@@ -147,6 +170,7 @@ fn verification_outcome(
         revision_after: "after".to_string(),
         revision_compatible,
         limitations: Vec::new(),
+        reused: false,
     }
 }
 

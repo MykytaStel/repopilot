@@ -121,6 +121,51 @@ args = ["-c", "printf failure >&2; exit 7"]
     assert!(result["analysisHandle"].is_string());
 }
 
+#[test]
+fn opted_in_cache_is_shared_by_mcp_calls_and_remains_publishable() {
+    let temp = verification_repo(
+        r#"[[verification.checks]]
+id = "unit"
+role = "test"
+program = "sh"
+args = ["-c", "mkdir -p .repopilot/cache; printf x >> .repopilot/cache/mcp-verification-runs"]
+cache = { enabled = true }
+"#,
+    );
+    let responses = run_mcp(
+        temp.path(),
+        vec![
+            tool_call(
+                7,
+                json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+            ),
+            tool_call(
+                8,
+                json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+            ),
+        ],
+    );
+
+    let first = result_for(&responses, 7);
+    let second = result_for(&responses, 8);
+    assert!(
+        first["structuredContent"]["merge_readiness"]["verification"][0]
+            .get("reused")
+            .is_none()
+    );
+    assert_eq!(
+        second["structuredContent"]["merge_readiness"]["verification"][0]["reused"],
+        true
+    );
+    assert!(first["analysisHandle"].is_string());
+    assert!(second["analysisHandle"].is_string());
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".repopilot/cache/mcp-verification-runs"))
+            .expect("marker"),
+        "x"
+    );
+}
+
 fn verification_repo(config: &str) -> tempfile::TempDir {
     let temp = tempfile::tempdir().expect("temp dir");
     git(temp.path(), &["init", "-q"]);

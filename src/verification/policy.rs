@@ -21,6 +21,8 @@ pub struct ValidatedCheck {
     pub(crate) timeout_seconds: u64,
     pub(crate) max_output_bytes: usize,
     pub(crate) paths: Option<GlobSet>,
+    pub(crate) path_patterns: Vec<String>,
+    cache_enabled: bool,
 }
 
 impl ValidatedCheck {
@@ -36,6 +38,10 @@ impl ValidatedCheck {
             let normalized = path.to_string_lossy().replace('\\', "/");
             patterns.is_match(normalized)
         })
+    }
+
+    pub fn cache_enabled(&self) -> bool {
+        self.cache_enabled
     }
 }
 
@@ -182,6 +188,14 @@ fn validate_check(
         )));
     }
 
+    let mut path_patterns = config
+        .paths
+        .iter()
+        .map(|path| path.replace('\\', "/"))
+        .collect::<Vec<_>>();
+    path_patterns.sort();
+    path_patterns.dedup();
+
     Ok(ValidatedCheck {
         id: config.id.clone(),
         role: config.role,
@@ -192,6 +206,8 @@ fn validate_check(
         timeout_seconds: config.timeout_seconds,
         max_output_bytes: config.max_output_bytes,
         paths: compile_paths(&config.id, &config.paths)?,
+        path_patterns,
+        cache_enabled: config.cache.enabled,
     })
 }
 
