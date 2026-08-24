@@ -62,3 +62,13 @@ path = "dev-docs/docusaurus.config.js"
 line = 139
 disposition = "valid-but-accepted"
 reason = "Public, search-only Algolia DocSearch apiKey in the docs site config; safe to publish and intentionally retained as a strict recall anchor (#246)."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-function:packages/excalidraw/eraser/index.ts:35992ca802eaeb66"
+rule_id = "code-quality.complex-function"
+path = "packages/excalidraw/eraser/index.ts"
+line = 196
+evidence = "sample"
+disposition = "actionable"
+reason = "Complexity 21 against a threshold of 15 in hit-testing logic, where branch density is exactly where erasing bugs hide."

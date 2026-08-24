@@ -6,6 +6,8 @@ use crate::scan::config::ScanConfig;
 use crate::scan::facts::FileFacts;
 use std::path::Path;
 
+mod code_lines;
+
 pub struct LargeFileAudit;
 
 impl FileAudit for LargeFileAudit {
@@ -15,7 +17,16 @@ impl FileAudit for LargeFileAudit {
             return vec![];
         }
 
-        detect_large_file_finding(&file.path, file.non_empty_lines, config)
+        // Comments are documentation, not the size problem this rule reports.
+        // The count falls back to every non-empty line when the language's
+        // comment syntax is unknown or the content was not retained.
+        let lines = file
+            .content
+            .as_deref()
+            .and_then(|content| code_lines::count_code_lines(content, file.language.as_deref()))
+            .unwrap_or(file.non_empty_lines);
+
+        detect_large_file_finding(&file.path, lines, config)
             .and_then(|finding| apply_file_decision("architecture.large-file", file, finding, None))
             .into_iter()
             .collect()

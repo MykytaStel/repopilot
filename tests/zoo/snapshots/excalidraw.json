@@ -27,7 +27,7 @@
       "architecture.dead-module": 22,
       "architecture.deep-relative-imports": 9,
       "architecture.excessive-fan-out": 23,
-      "architecture.large-file": 83,
+      "architecture.large-file": 73,
       "architecture.test-leak": 3,
       "architecture.too-many-modules": 5,
       "code-marker.fixme": 12,
@@ -44,6 +44,6 @@
       "security.secret-candidate": 2,
       "testing.source-without-test": 374
     },
-    "visible_total": 1173
+    "visible_total": 1163
   }
 }

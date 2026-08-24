@@ -21,7 +21,7 @@
   "strict": {
     "by_rule": {
       "architecture.dead-module": 2,
-      "architecture.large-file": 33,
+      "architecture.large-file": 29,
       "code-marker.fixme": 4,
       "code-marker.todo": 4,
       "code-quality.complex-function": 22,
@@ -30,6 +30,6 @@
       "language.rust.panic-risk": 97,
       "testing.source-without-test": 27
     },
-    "visible_total": 251
+    "visible_total": 247
   }
 }

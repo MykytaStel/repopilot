@@ -11,11 +11,11 @@
   "sha": "18e5985b8a9d5e8423db0a9121f22bdaecd5b120",
   "strict": {
     "by_rule": {
-      "architecture.large-file": 3,
+      "architecture.large-file": 1,
       "code-quality.complex-function": 1,
       "code-quality.long-function": 6,
       "testing.source-without-test": 6
     },
-    "visible_total": 16
+    "visible_total": 14
   }
 }

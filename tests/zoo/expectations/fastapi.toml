@@ -27,3 +27,13 @@ path = "fastapi/applications.py"
 line = 926
 disposition = "valid-but-accepted"
 reason = "assert in a production path used as an internal precondition; downgraded to Low and retained as a strict recall anchor for the Python assert signal."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.long-function:fastapi/applications.py:b433b7d963968d3b"
+rule_id = "code-quality.long-function"
+path = "fastapi/applications.py"
+line = 1221
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "A 59-line route-registration signature, nine lines over the threshold. Almost all of it is the documented FastAPI parameter list, not logic."

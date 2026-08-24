@@ -37,3 +37,33 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "Test helper imported by sibling test files through an extensionless specifier the resolver does not map, so the edge exists in source but not in the graph."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.large-file:packages/assemble-release-plan/src/index.ts:a3d04d5868a74ae9"
+rule_id = "architecture.large-file"
+path = "packages/assemble-release-plan/src/index.ts"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "306 code lines against a 300 threshold — a six-line overshoot on a cohesive release-planning module. Correctly measured, but six lines is not a design problem."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.long-function:packages/apply-release-plan/src/get-changelog-entry.ts:16b888a79d41019e"
+rule_id = "code-quality.long-function"
+path = "packages/apply-release-plan/src/get-changelog-entry.ts"
+line = 27
+evidence = "sample"
+disposition = "actionable"
+reason = "A 98-line function, nearly twice the threshold, assembling a changelog entry through several distinct stages. A real candidate for splitting."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-function:packages/apply-release-plan/src/version-package.ts:89ffb0db3f8cca5c"
+rule_id = "code-quality.complex-function"
+path = "packages/apply-release-plan/src/version-package.ts"
+line = 23
+evidence = "sample"
+disposition = "actionable"
+reason = "Complexity 41 against a threshold of 15 — nearly three times over. Branch density this high is what the rule exists to surface."

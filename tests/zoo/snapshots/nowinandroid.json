@@ -17,13 +17,13 @@
   "sha": "7d45eae4f8720a0c77f507712ba2437ff974b6ed",
   "strict": {
     "by_rule": {
-      "architecture.large-file": 9,
+      "architecture.large-file": 5,
       "code-marker.todo": 30,
       "code-quality.complex-function": 2,
       "code-quality.long-function": 32,
       "language.managed.fatal-exception-risk": 6,
       "testing.source-without-test": 197
     },
-    "visible_total": 276
+    "visible_total": 272
   }
 }

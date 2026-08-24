@@ -137,6 +137,21 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Size and complexity metrics stop measuring machine output. Vendored trees
+  (`vendor/`, `third_party/`) and minified artifacts (`*.min.js`) now classify
+  as generated, so the ~30 rules that already skip generated code no longer
+  report them — a minified jQuery bundle's cyclomatic complexity measures the
+  minifier, not an author. Across the zoo this moves ten rules, notably
+  `code-quality.complex-function` 389 to 282 and `framework.js.var-declaration`
+  31 to 16.
+- `architecture.large-file` counts code lines rather than every non-empty line.
+  Its own message says "non-empty lines of code" while counting comments:
+  ripgrep's matcher trait reported 1269 lines, 480 of which are `///` and `//!`
+  documentation. Splitting that file would remove documentation, not
+  responsibilities. Comment syntax is taken from the language, since `#` opens a
+  comment in Python and a preprocessor directive in C, and an unknown language
+  keeps the previous count rather than guessing. The rule goes from 251 to 210
+  zoo findings.
 - `architecture.deep-directory-nesting` only judges depth someone chose. It
   reported every file whose path exceeded the threshold, including compiled
   gettext catalogs under `locale/<lang>/LC_MESSAGES/`, vendored minified
