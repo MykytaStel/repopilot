@@ -137,6 +137,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `architecture.deep-directory-nesting` only judges depth someone chose. It
+  reported every file whose path exceeded the threshold, including compiled
+  gettext catalogs under `locale/<lang>/LC_MESSAGES/`, vendored minified
+  stylesheets, Django templates, and every JVM source — Java, Kotlin, and Scala
+  require the directory path to mirror the declared package, so
+  `com/google/samples/apps/nowinandroid/core/` is a package name rendered as
+  folders rather than nesting anyone picked. The rule now applies to source
+  files whose layout is a decision, taking the zoo from 1336 to 32 strict
+  findings with no other rule affected and no default-profile change. A nested
+  component tree such as `client/src/components/CommentApp/components/Comment/`
+  is still reported.
 - `testing.source-without-test` stops claiming no test exists when one does. It
   matched a test only beside the module or inside a `tests/` directory named
   exactly like it, which misses the two dominant conventions: pytest and Django

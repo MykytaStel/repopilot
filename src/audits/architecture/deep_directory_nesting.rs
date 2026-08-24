@@ -15,7 +15,8 @@ impl ProjectAudit for DeepDirectoryNestingAudit {
             .iter()
             .filter_map(|file| {
                 let context = classifier.classify(file);
-                if context.file_role == FileRole::Production {
+                if context.file_role == FileRole::Production && depth_is_a_layout_choice(&file.path)
+                {
                     // Measure nesting relative to the scan root so the depth is
                     // about the repository's own layout, not how deep the repo
                     // happens to sit on disk (an absolute scan path would
@@ -40,6 +41,29 @@ impl ProjectAudit for DeepDirectoryNestingAudit {
             })
             .collect()
     }
+}
+
+/// Whether this file's depth reflects a decision someone made about layout.
+///
+/// The rule's claim is that a tree is hard to navigate, which only holds where
+/// the tree could have been shallower. Two large classes of file fail that:
+///
+/// * **Non-source files.** A compiled gettext catalog under
+///   `locale/<lang>/LC_MESSAGES/`, a vendored minified stylesheet, a Django
+///   template — their location is fixed by the tool that reads them, and nobody
+///   navigates them by directory anyway.
+/// * **JVM sources.** Java, Kotlin, and Scala require the directory path to
+///   mirror the declared package, so `com/google/samples/apps/nowinandroid/core/`
+///   is a package name rendered as folders, not nesting anyone chose. Reporting
+///   it flags every file in the repository.
+fn depth_is_a_layout_choice(path: &Path) -> bool {
+    const SOURCE_EXTENSIONS: &[&str] = &[
+        "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "rb", "php", "cs", "swift", "c",
+        "cpp", "h", "hpp",
+    ];
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| SOURCE_EXTENSIONS.contains(&extension))
 }
 
 fn compute_directory_nesting(path: &Path) -> usize {
@@ -200,6 +224,54 @@ mod tests {
             has_inline_tests: false,
             in_executable_package: false,
             deferred_imports: Vec::new(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod layout_choice_tests {
+    use super::depth_is_a_layout_choice;
+    use std::path::Path;
+
+    #[test]
+    fn files_a_tool_places_are_not_a_layout_choice() {
+        // A gettext catalog's path is fixed by gettext, a vendored stylesheet's
+        // by its bundle, a Django template's by the loader. Nobody navigates
+        // these by directory, and nobody chose their depth.
+        for path in [
+            "wagtail/contrib/forms/locale/zh_Hans/LC_MESSAGES/django.mo",
+            "wagtail/contrib/simple_translation/locale/be/LC_MESSAGES/django.po",
+            "src/BlazorAdmin/wwwroot/css/open-iconic/font/css/open-iconic-bootstrap.min.css",
+            "wagtail/admin/templates/wagtailadmin/pages/action_menu/page_locked.html",
+        ] {
+            assert!(!depth_is_a_layout_choice(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    fn jvm_package_directories_are_a_package_name_not_nesting() {
+        // Java, Kotlin, and Scala require the path to mirror the declared
+        // package, so every file in the repository would be reported.
+        for path in [
+            "core/testing/src/main/kotlin/com/google/samples/apps/nowinandroid/core/testing/data/Fixtures.kt",
+            "src/main/java/org/springframework/samples/petclinic/owner/Owner.java",
+        ] {
+            assert!(!depth_is_a_layout_choice(Path::new(path)), "{path}");
+        }
+    }
+
+    #[test]
+    fn ordinary_sources_remain_judged() {
+        // The false-negative guard: a genuinely nested component tree is what
+        // this rule is for.
+        for path in [
+            "client/src/components/CommentApp/components/Comment/index.tsx",
+            "src/Web/Areas/Identity/Pages/Account/Login.cshtml.cs",
+            "wagtail/admin/views/pages/edit.py",
+            "internal/server/handler.go",
+            "src/graph/resolver/jvm.rs",
+        ] {
+            assert!(depth_is_a_layout_choice(Path::new(path)), "{path}");
         }
     }
 }

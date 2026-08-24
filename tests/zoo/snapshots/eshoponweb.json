@@ -25,7 +25,7 @@
   "strict": {
     "by_rule": {
       "architecture.dead-module": 2,
-      "architecture.deep-directory-nesting": 30,
+      "architecture.deep-directory-nesting": 5,
       "architecture.large-file": 1,
       "code-marker.todo": 9,
       "code-quality.complex-file": 3,
@@ -33,6 +33,6 @@
       "security.secret-candidate": 7,
       "testing.source-without-test": 2
     },
-    "visible_total": 62
+    "visible_total": 37
   }
 }
