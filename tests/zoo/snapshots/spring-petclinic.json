@@ -13,8 +13,8 @@
     "by_rule": {
       "architecture.deep-directory-nesting": 44,
       "language.managed.fatal-exception-risk": 1,
-      "testing.source-without-test": 30
+      "testing.source-without-test": 22
     },
-    "visible_total": 75
+    "visible_total": 67
   }
 }

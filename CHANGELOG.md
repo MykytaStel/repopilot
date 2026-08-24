@@ -137,6 +137,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- `testing.source-without-test` stops claiming no test exists when one does. It
+  matched a test only beside the module or inside a `tests/` directory named
+  exactly like it, which misses the two dominant conventions: pytest and Django
+  name the test (`tests/test_workflows.py` covers `workflows.py`), and JUnit
+  names the class (`VetTests.java`, never beside the source). Both are now
+  recognized, and the camel form stays out of non-JVM languages. Across the zoo
+  this removes 229 of 1507 strict findings with no other rule affected and no
+  default-profile change.
+
 - Move the existing conservative TypeScript/JavaScript export and named-import
   facts into the shared analysis core and persist the complete typed payload,
   including exact import spans, in parsed-facts cache schema v4. Older derived

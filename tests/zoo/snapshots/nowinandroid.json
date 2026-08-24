@@ -23,8 +23,8 @@
       "code-quality.complex-function": 2,
       "code-quality.long-function": 32,
       "language.managed.fatal-exception-risk": 6,
-      "testing.source-without-test": 232
+      "testing.source-without-test": 197
     },
-    "visible_total": 555
+    "visible_total": 520
   }
 }
