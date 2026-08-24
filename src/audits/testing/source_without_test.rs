@@ -17,9 +17,15 @@ impl ProjectAudit for SourceWithoutTestAudit {
         // Single pass: collect all paths + extract tests/ suffix set simultaneously
         let mut all_paths: HashSet<PathBuf> = HashSet::with_capacity(facts.files.len());
         let mut tests_suffixes: HashSet<String> = HashSet::new();
+        let mut test_stems: HashSet<String> = HashSet::new();
         for f in &facts.files {
             if let Some(suffix) = tests_dir_suffix(&f.path) {
                 tests_suffixes.insert(suffix);
+            }
+            if is_test_file(&f.path)
+                && let Some(stem) = f.path.file_stem().and_then(|stem| stem.to_str())
+            {
+                test_stems.insert(stem.to_string());
             }
             all_paths.insert(f.path.clone());
         }
@@ -31,7 +37,7 @@ impl ProjectAudit for SourceWithoutTestAudit {
             .filter(|file| !is_test_file(&file.path))
             .filter(|file| !is_low_signal_wrapper(&file.path))
             .filter(|file| !file.has_inline_tests)
-            .filter(|file| !has_nearby_test(&file.path, &all_paths, &tests_suffixes))
+            .filter(|file| !has_nearby_test(&file.path, &all_paths, &tests_suffixes, &test_stems))
             .map(|file| build_finding(&file.path))
             .collect()
     }

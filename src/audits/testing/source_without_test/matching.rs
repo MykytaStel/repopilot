@@ -18,6 +18,7 @@ pub(super) fn has_nearby_test(
     source: &Path,
     all_paths: &HashSet<PathBuf>,
     tests_suffixes: &HashSet<String>,
+    test_stems: &HashSet<String>,
 ) -> bool {
     let stem = source
         .file_stem()
@@ -37,7 +38,35 @@ pub(super) fn has_nearby_test(
 
     has_sibling_test(parent, stem, ext, all_paths)
         || has_tests_directory_match(stem, ext, tests_suffixes)
+        || has_named_test(stem, ext, test_stems)
         || has_rust_integration_test(source, ext, tests_suffixes)
+}
+
+/// A test file named after this module, wherever the suite keeps it.
+///
+/// Path-shaped matching only finds a test that sits beside the module or in a
+/// `tests/` directory named exactly like it. Two dominant conventions do
+/// neither: pytest and Django name the *test* (`tests/test_workflows.py` for
+/// `workflows.py`, in any app's test package), and JUnit names the *class*
+/// (`VetTests.java` under `src/test/java/<package>/`, never beside the source).
+/// Claiming "no test found" for those is simply false.
+///
+/// Matching on the name alone rather than the location is deliberate: the
+/// rule's claim is that no test exists, and a file named for this module is a
+/// test that exists. Locality would be a refinement of a claim this rule does
+/// not make.
+fn has_named_test(stem: &str, ext: &str, test_stems: &HashSet<String>) -> bool {
+    if stem.is_empty() {
+        return false;
+    }
+    let mut candidates = vec![format!("test_{stem}")];
+    if matches!(ext, "java" | "kt") {
+        candidates.push(format!("{stem}Test"));
+        candidates.push(format!("{stem}Tests"));
+    }
+    candidates
+        .iter()
+        .any(|candidate| test_stems.contains(candidate))
 }
 
 fn has_sibling_test(parent: &Path, stem: &str, ext: &str, all_paths: &HashSet<PathBuf>) -> bool {
@@ -138,4 +167,59 @@ fn rust_module_parts(source: &Path) -> Vec<String> {
             (!matches!(value, "mod" | "lib" | "main")).then(|| value.to_string())
         })
         .collect()
+}
+
+#[cfg(test)]
+mod named_test_tests {
+    use super::has_named_test;
+    use std::collections::HashSet;
+
+    fn stems(values: &[&str]) -> HashSet<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn pytest_and_django_name_the_test_not_the_module() {
+        // `wagtail/admin/tests/test_workflows.py` covers `wagtail/workflows.py`;
+        // claiming no test exists for it is simply false.
+        assert!(has_named_test(
+            "workflows",
+            "py",
+            &stems(&["test_workflows"])
+        ));
+        assert!(!has_named_test("workflows", "py", &stems(&["test_pages"])));
+    }
+
+    #[test]
+    fn junit_names_the_class_and_never_sits_beside_the_source() {
+        // Spring PetClinic keeps `VetTests.java` under `src/test/java/...`.
+        assert!(has_named_test("Vet", "java", &stems(&["VetTests"])));
+        assert!(has_named_test(
+            "VetController",
+            "java",
+            &stems(&["VetControllerTest"])
+        ));
+        assert!(!has_named_test("Vets", "java", &stems(&["VetTests"])));
+    }
+
+    #[test]
+    fn the_camel_form_stays_out_of_non_jvm_languages() {
+        // `WorkflowsTest.py` is not a Python convention, so matching it would
+        // invent coverage.
+        assert!(!has_named_test(
+            "Workflows",
+            "py",
+            &stems(&["WorkflowsTest"])
+        ));
+        assert!(!has_named_test(
+            "workflows",
+            "ts",
+            &stems(&["workflowsTests"])
+        ));
+    }
+
+    #[test]
+    fn an_empty_stem_matches_nothing() {
+        assert!(!has_named_test("", "py", &stems(&["test_"])));
+    }
 }

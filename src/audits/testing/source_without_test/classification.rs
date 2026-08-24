@@ -53,6 +53,17 @@ pub(super) fn is_test_file(path: &Path) -> bool {
         || stem.ends_with("_test")
         || stem.ends_with(".test")
         || stem.ends_with(".spec")
+        // pytest and Django name the test, not the module: `test_workflows.py`.
+        || stem.starts_with("test_")
+        // JUnit names the class: `VetTests.java`, `VetControllerTests.java`.
+        || (is_jvm(path) && (stem.ends_with("Test") || stem.ends_with("Tests")))
+}
+
+fn is_jvm(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|value| value.to_str()),
+        Some("java" | "kt")
+    )
 }
 
 pub(super) fn is_low_signal_wrapper(path: &Path) -> bool {
