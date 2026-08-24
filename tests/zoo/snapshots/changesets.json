@@ -21,7 +21,7 @@
     "by_rule": {
       "architecture.circular-dependency": 1,
       "architecture.dead-module": 3,
-      "architecture.large-file": 4,
+      "architecture.large-file": 1,
       "code-marker.todo": 8,
       "code-quality.complex-file": 2,
       "code-quality.complex-function": 11,
@@ -30,6 +30,6 @@
       "language.javascript.runtime-exit-risk": 3,
       "testing.source-without-test": 28
     },
-    "visible_total": 94
+    "visible_total": 91
   }
 }

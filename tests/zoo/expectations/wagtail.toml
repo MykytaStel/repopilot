@@ -37,3 +37,33 @@ line = 1
 evidence = "sample"
 disposition = "false-positive"
 reason = "Referenced by dotted string from wagtail/users/apps.py (`group_viewset = \"wagtail.users.views.groups.GroupViewSet\"`), the Django pattern for late-bound references. No static import names the module."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.large-file:wagtail/wagtail_hooks.py:a3d04d5868a74ae9"
+rule_id = "architecture.large-file"
+path = "wagtail/wagtail_hooks.py"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "505 code lines of hook registrations. The file is a registry rather than a unit of logic, and splitting it would scatter the registrations without reducing anything."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.long-function:wagtail/wagtail_hooks.py:139adf830bfd2dce"
+rule_id = "code-quality.long-function"
+path = "wagtail/wagtail_hooks.py"
+line = 504
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "A 73-line hook registration function: a flat sequence of registrations, not nested logic. Over the line threshold, but the length carries no branching cost."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-function:wagtail/snippets/action_menu.py:7e89a2accf17a4fe"
+rule_id = "code-quality.complex-function"
+path = "wagtail/snippets/action_menu.py"
+line = 275
+evidence = "sample"
+disposition = "actionable"
+reason = "Complexity 25 in an __init__, well over the threshold of 15. Constructor-time branching this dense is worth extracting."

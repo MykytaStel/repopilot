@@ -15,3 +15,13 @@ path = "src/commands/new.ts"
 line = 185
 disposition = "valid-but-accepted"
 reason = "CLI command handler that deliberately exits the process; downgraded to Low for cli-executable role and retained as a strict recall anchor."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.large-file:boilerplate/app/screens/DemoShowroomScreen/demos/DemoToggle.tsx:a3d04d5868a74ae9"
+rule_id = "architecture.large-file"
+path = "boilerplate/app/screens/DemoShowroomScreen/demos/DemoToggle.tsx"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "A demo showroom screen in a project template: one long file of illustrative variants is the point of the file. Correctly measured, deliberately kept."

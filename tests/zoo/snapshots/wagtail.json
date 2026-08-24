@@ -23,26 +23,25 @@
     "by_rule": {
       "architecture.circular-dependency": 11,
       "architecture.dead-module": 48,
-      "architecture.deep-directory-nesting": 27,
+      "architecture.deep-directory-nesting": 12,
       "architecture.deep-relative-imports": 33,
       "architecture.excessive-fan-out": 17,
-      "architecture.large-file": 85,
+      "architecture.large-file": 68,
       "architecture.test-leak": 2,
       "architecture.too-many-modules": 8,
       "code-marker.fixme": 3,
       "code-marker.hack": 3,
       "code-marker.todo": 19,
-      "code-quality.complex-file": 28,
-      "code-quality.complex-function": 174,
-      "code-quality.deep-control-flow": 22,
-      "code-quality.long-function": 203,
-      "framework.js.console-log": 1,
-      "framework.js.var-declaration": 27,
+      "code-quality.complex-file": 24,
+      "code-quality.complex-function": 67,
+      "code-quality.deep-control-flow": 16,
+      "code-quality.long-function": 180,
+      "framework.js.var-declaration": 12,
       "framework.react.class-component": 4,
       "framework.react.prop-types": 12,
       "language.python.exception-risk": 45,
       "testing.source-without-test": 485
     },
-    "visible_total": 1257
+    "visible_total": 1069
   }
 }
