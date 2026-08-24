@@ -11,10 +11,9 @@
   "sha": "a2c2ef994340d3970eb6db51247456a51bb161f8",
   "strict": {
     "by_rule": {
-      "architecture.deep-directory-nesting": 44,
       "language.managed.fatal-exception-risk": 1,
       "testing.source-without-test": 22
     },
-    "visible_total": 67
+    "visible_total": 23
   }
 }
