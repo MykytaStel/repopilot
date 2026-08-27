@@ -2,7 +2,7 @@ use crate::findings::provenance::FindingProvenance;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::output::sarif::findings_to_sarif;
 use crate::review::model::ReviewReport;
-use crate::review::signals::tiered::SignalFamily;
+use crate::review::signals::tiered::{ConfidenceTier, SignalFamily};
 use std::path::PathBuf;
 
 pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::Error> {
@@ -34,11 +34,13 @@ pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::
                 "Validate the input boundary and use a safe, parameterized or allowlisted sink API."
                     .to_string(),
             category: FindingCategory::Security,
-            severity: if signal.kind == "taint.sql" || signal.kind == "taint.exec" {
-                Severity::High
-            } else {
-                Severity::Medium
-            },
+            // Read off `signal.tier`, the canonical field `taint_tier(SinkKind)`
+            // already set when the signal was built — not re-derived from
+            // `signal.kind`. A second string match here (`"taint.sql" | "taint.exec"
+            // => High`) let this silently default a new SinkKind variant to Medium
+            // even if `taint_tier` tiered it DefinitelySensitive, since nothing
+            // forced the two matches to agree.
+            severity: severity_for_tier(signal.tier),
             confidence: signal.confidence,
             evidence: vec![Evidence {
                 path: PathBuf::from(&signal.path),
@@ -64,3 +66,18 @@ pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::
 
     serde_json::to_string_pretty(&findings_to_sarif(&findings, &report.repo_root))
 }
+
+/// Exhaustive so a new `ConfidenceTier` variant fails to compile here instead
+/// of silently landing on a default.
+fn severity_for_tier(tier: ConfidenceTier) -> Severity {
+    match tier {
+        ConfidenceTier::DefinitelySensitive => Severity::High,
+        ConfidenceTier::MaybeSensitive => Severity::Medium,
+        // Taint signals are only ever bucketed into definitely/maybe; this arm
+        // exists so the match stays exhaustive if that ever changes.
+        ConfidenceTier::LargeDiffOrNoise => Severity::Low,
+    }
+}
+
+#[cfg(test)]
+mod tests;
