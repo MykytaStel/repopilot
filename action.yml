@@ -118,7 +118,7 @@ outputs:
     description: "Path to the generated review SARIF file."
     value: ${{ steps.run.outputs.review_sarif_file }}
   delta-json-file:
-    description: "Path to the deterministic base/head finding delta JSON file."
+    description: "Path to the head revision's baseline-aware scan JSON: the base revision snapshotted via `repopilot baseline create`, the head revision scanned with `--baseline` against it. Each finding carries baseline_status (new/existing); resolved findings absent from the head scan are listed separately under `resolved`."
     value: ${{ steps.run.outputs.delta_json_file }}
   conclusion:
     description: "RepoPilot conclusion: passed or failed."
@@ -130,7 +130,7 @@ outputs:
     description: "Number of findings introduced relative to the base revision."
     value: ${{ steps.run.outputs.new_findings_count }}
   changed-findings-count:
-    description: "Number of finding occurrences changed relative to the base revision."
+    description: "Always 0. The baseline model does not track a separate 'changed' bucket: a finding whose title and snippet survive a line shift counts as existing, by design, so a finding can only ever be new, existing, or resolved. Kept for output-name compatibility."
     value: ${{ steps.run.outputs.changed_findings_count }}
   resolved-findings-count:
     description: "Number of findings resolved relative to the base revision."

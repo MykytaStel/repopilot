@@ -22,7 +22,14 @@ fn git(root: &Path, args: &[&str]) -> String {
 }
 
 #[test]
-fn review_action_builds_stable_base_head_delta_artifact() {
+fn review_action_builds_delta_through_the_baseline_engine() {
+    // Proves the Action's shell glue reads the canonical baseline-engine
+    // output correctly, not that the engine itself diffs correctly (that is
+    // covered by src/baseline/diff/tests.rs). The fake `repopilot` here
+    // stands in for `baseline create` on the base revision and
+    // `scan --baseline` on the head revision, returning hand-crafted
+    // BaselineJsonReport-shaped JSON so this test exercises exactly the jq
+    // queries `repopilot-action-review.sh` runs against real output.
     let temp = tempdir().expect("tempdir");
     let root = temp.path();
     git(root, &["init", "-q"]);
@@ -45,6 +52,11 @@ fn review_action_builds_stable_base_head_delta_artifact() {
 set -euo pipefail
 command="$1"
 shift
+subcommand=""
+if [[ "$command" == "baseline" ]]; then
+  subcommand="$1"
+  shift
+fi
 output=""
 sarif=""
 while (($#)); do
@@ -61,14 +73,19 @@ JSON
   printf '{"version":"2.1.0","runs":[]}\n' > "$sarif"
   exit 0
 fi
-if [[ "$(git rev-parse HEAD)" == "$FAKE_BASE_REVISION" ]]; then
+if [[ "$command" == "baseline" && "$subcommand" == "create" ]]; then
+  # Stands in for the base revision's stored snapshot; its own content is
+  # never read by the shell script, only the head scan's report is.
   cat > "$output" <<'JSON'
-{"findings":[{"id":"changed","occurrence_key":"before","title":"Changed before","risk":{"priority":"P2"},"evidence":[{"path":"./source.rs","line_start":1}]},{"id":"resolved","occurrence_key":"resolved","title":"Resolved","risk":{"priority":"P2"},"evidence":[{"path":"./old.rs","line_start":1}]}]}
+{"schema_version":1,"tool":"repopilot","created_at":"2024-01-01T00:00:00Z","root":".","findings":[]}
 JSON
-else
+  exit 0
+fi
+if [[ "$command" == "scan" ]]; then
   cat > "$output" <<'JSON'
-{"findings":[{"id":"changed","occurrence_key":"after","title":"Changed after","risk":{"priority":"P2"},"evidence":[{"path":"./source.rs","line_start":1}]},{"id":"new","occurrence_key":"new","title":"New","risk":{"priority":"P1"},"evidence":[{"path":"./new.rs","line_start":1}]}]}
+{"baseline":{"path":"base-baseline.json","new_findings":1,"existing_findings":1,"resolved_findings":1},"resolved":[{"key":"rule.gone:old.rs:deadbeef","rule_id":"rule.gone","severity":"medium","path":"old.rs","message":"Old finding"}],"findings":[{"id":"survives-a-line-move","rule_id":"rule.survives","title":"Survives a line move","risk":{"priority":"P2"},"evidence":[{"path":"./source.rs","line_start":1}],"baseline_status":"existing"},{"id":"new","rule_id":"rule.new","title":"New finding","risk":{"priority":"P1"},"evidence":[{"path":"./new.rs","line_start":1}],"baseline_status":"new"}]}
 JSON
+  exit 0
 fi
 "#,
     )
@@ -86,7 +103,6 @@ fi
         .env("PATH", format!("{}:{}", fake_bin.display(), env!("PATH")))
         .env("GITHUB_ACTION_PATH", manifest)
         .env("GITHUB_OUTPUT", &github_output)
-        .env("FAKE_BASE_REVISION", &base)
         .env("INPUT_COMMAND", "review")
         .env("INPUT_FORMAT", "auto")
         .env("INPUT_BASE", &base)
@@ -104,22 +120,37 @@ fi
         &fs::read(root.join("repopilot-review-delta.json")).expect("read delta"),
     )
     .expect("parse delta");
-    assert_eq!(delta["summary"]["new_findings"], 1);
-    assert_eq!(delta["summary"]["changed_findings"], 1);
-    assert_eq!(delta["summary"]["resolved_findings"], 1);
-    assert_eq!(delta["new_findings"][0]["id"], "new");
-    assert_eq!(delta["changed_findings"][0]["id"], "changed");
-    assert_eq!(delta["resolved_findings"][0]["id"], "resolved");
+    assert_eq!(delta["baseline"]["new_findings"], 1);
+    assert_eq!(delta["baseline"]["resolved_findings"], 1);
+    assert_eq!(
+        delta["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|finding| finding["baseline_status"] == "new")
+            .count(),
+        1,
+    );
+    assert_eq!(delta["resolved"][0]["key"], "rule.gone:old.rs:deadbeef");
 
     let outputs = fs::read_to_string(github_output).expect("read action outputs");
     assert!(outputs.contains("delta_json_file=repopilot-review-delta.json"));
     assert!(outputs.contains("new_findings_count=1"));
-    assert!(outputs.contains("changed_findings_count=1"));
+    // No "changed" bucket exists in the baseline model; the output is kept
+    // for compatibility and always reports 0.
+    assert!(outputs.contains("changed_findings_count=0"));
     assert!(outputs.contains("resolved_findings_count=1"));
     let summary =
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**New findings:** 1"));
-    assert!(summary.contains("**Changed findings:** 1"));
     assert!(summary.contains("**Resolved findings:** 1"));
     assert!(summary.contains("**Merge readiness:** ready"));
+    assert!(
+        summary.contains("New finding"),
+        "the new finding's title should appear in the summary:\n{summary}"
+    );
+    assert!(
+        !summary.contains("Survives a line move"),
+        "an existing (unmoved-key) finding must not be listed as new:\n{summary}"
+    );
 }

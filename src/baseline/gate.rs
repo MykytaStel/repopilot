@@ -144,6 +144,7 @@ mod tests {
             },
             baseline_path: Some(PathBuf::from(".repopilot/baseline.json")),
             findings: finding_statuses,
+            resolved: Vec::new(),
         }
     }
 

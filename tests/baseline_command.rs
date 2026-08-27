@@ -139,6 +139,104 @@ fn baseline_create_stores_stable_keys_and_repo_relative_paths() {
     );
 }
 
+#[test]
+fn baseline_create_profile_and_severity_scope_which_findings_are_stored() {
+    // The Action's own delta computation runs `baseline create` on the base
+    // revision and `scan --baseline` on the head revision with the same
+    // profile/severity flags. If `baseline create` silently ignored them, a
+    // finding hidden by the head scan's filter but present in an unfiltered
+    // baseline would misreport as "resolved" without actually being fixed.
+    let temp = tempdir().expect("failed to create temp dir");
+    write_project_with_mixed_severity_findings(temp.path());
+
+    let default_count = stored_finding_count(
+        temp.path(),
+        &[
+            "baseline",
+            "create",
+            ".",
+            "--output",
+            "default.json",
+            "--force",
+        ],
+    );
+    let strict_count = stored_finding_count(
+        temp.path(),
+        &[
+            "baseline",
+            "create",
+            ".",
+            "--output",
+            "strict.json",
+            "--profile",
+            "strict",
+            "--force",
+        ],
+    );
+    let strict_high_count = stored_finding_count(
+        temp.path(),
+        &[
+            "baseline",
+            "create",
+            ".",
+            "--output",
+            "strict-high.json",
+            "--profile",
+            "strict",
+            "--min-severity",
+            "high",
+            "--force",
+        ],
+    );
+
+    assert!(
+        strict_count > default_count,
+        "strict profile ({strict_count}) should store more findings than default ({default_count})"
+    );
+    assert!(
+        strict_high_count < strict_count,
+        "--min-severity high ({strict_high_count}) should exclude the Low TODO marker strict stores ({strict_count})"
+    );
+}
+
+fn stored_finding_count(root: &std::path::Path, args: &[&str]) -> usize {
+    let output = repopilot()
+        .args(args)
+        .current_dir(root)
+        .output()
+        .expect("failed to run baseline create");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let baseline_file = args
+        .iter()
+        .position(|arg| *arg == "--output")
+        .and_then(|index| args.get(index + 1))
+        .expect("test args always pass --output");
+    let baseline: Value = serde_json::from_str(
+        &fs::read_to_string(root.join(baseline_file)).expect("failed to read baseline"),
+    )
+    .expect("baseline should be JSON");
+    baseline["findings"]
+        .as_array()
+        .expect("findings should be an array")
+        .len()
+}
+
+fn write_project_with_mixed_severity_findings(root: &std::path::Path) {
+    fs::create_dir_all(root.join("src")).expect("failed to create src dir");
+    // A High-severity secret (default-visible) alongside a Low-severity,
+    // experimental-lifecycle TODO marker (strict-only) gives two findings at
+    // different severities and default-profile visibility.
+    fs::write(
+        root.join("src/app.rs"),
+        "// TODO: refactor this later\nconst API_KEY: &str = \"abc12345\";\n",
+    )
+    .expect("failed to write source file");
+}
+
 fn write_project_with_secret(root: &std::path::Path, module: &str) {
     fs::create_dir_all(root.join("src")).expect("failed to create src dir");
     fs::create_dir_all(root.join("tests")).expect("failed to create tests dir");

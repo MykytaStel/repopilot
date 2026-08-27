@@ -35,6 +35,9 @@ pub struct BaselineScanReport {
     pub summary: ScanSummary,
     pub baseline_path: Option<PathBuf>,
     pub findings: Vec<FindingBaselineStatus>,
+    /// Baseline findings absent from this scan: present when the baseline was
+    /// created, gone now. Empty when there is no baseline (`all_findings_new`).
+    pub resolved: Vec<BaselineFinding>,
 }
 
 impl BaselineScanReport {
@@ -50,6 +53,10 @@ impl BaselineScanReport {
             .iter()
             .filter(|finding| finding.status == BaselineStatus::Existing)
             .count()
+    }
+
+    pub fn resolved_count(&self) -> usize {
+        self.resolved.len()
     }
 
     pub fn finding_status(&self, index: usize) -> BaselineStatus {
@@ -107,6 +114,7 @@ pub fn diff_summary_against_baseline(
 
     let mut findings = status_findings(&summary, &baseline_index);
     let root_path = summary.root_path.clone();
+    let resolved = resolved_findings(baseline, &summary, &findings, root_path.as_path());
     apply_baseline_overlay(
         &mut summary.artifacts.findings,
         &findings,
@@ -118,6 +126,7 @@ pub fn diff_summary_against_baseline(
         summary,
         baseline_path: Some(baseline_path),
         findings,
+        resolved,
     }
 }
 
@@ -143,6 +152,7 @@ pub fn all_findings_new(mut summary: ScanSummary) -> BaselineScanReport {
         summary,
         baseline_path: None,
         findings,
+        resolved: Vec::new(),
     }
 }
 
@@ -166,6 +176,42 @@ fn status_findings(
 
             FindingBaselineStatus { key, status }
         })
+        .collect()
+}
+
+/// Baseline findings that no longer match any finding in this scan — the
+/// inverse of `status_findings`, using the same key-or-legacy-descriptor
+/// matching so a finding counts as resolved by exactly the same rule it would
+/// have counted as `Existing` had it survived.
+fn resolved_findings(
+    baseline: &Baseline,
+    summary: &ScanSummary,
+    current: &[FindingBaselineStatus],
+    root: &Path,
+) -> Vec<BaselineFinding> {
+    let current_keys = current
+        .iter()
+        .map(|finding| finding.key.as_str())
+        .collect::<HashSet<_>>();
+    let current_descriptors = summary
+        .artifacts
+        .findings
+        .iter()
+        .map(|finding| BaselineDescriptor::from_finding(finding, root))
+        .collect::<HashSet<_>>();
+
+    let matches_current = |finding: &BaselineFinding| {
+        current_keys.contains(finding.key.as_str())
+            || (is_legacy_line_key(&finding.key)
+                && current_descriptors
+                    .contains(&BaselineDescriptor::from_baseline_finding(finding)))
+    };
+
+    baseline
+        .findings
+        .iter()
+        .filter(|finding| !matches_current(finding))
+        .cloned()
         .collect()
 }
 

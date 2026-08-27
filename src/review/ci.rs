@@ -77,5 +77,9 @@ pub fn review_report_for_ci(report: &ReviewReport) -> BaselineScanReport {
         summary,
         baseline_path: report.baseline_path.clone(),
         findings,
+        // Review's own baseline gate only marks in-diff findings New/Existing
+        // (`report.findings[].baseline_status`); it carries no resolved-finding
+        // concept of its own to project here.
+        resolved: Vec::new(),
     }
 }

@@ -44,6 +44,12 @@ pub struct BaselineJsonReport<'a> {
     pub baseline: BaselineJsonMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ci_gate: Option<CiGateJsonMetadata>,
+    /// Baseline findings absent from this scan: gone since the baseline was
+    /// created. Only the fields the baseline snapshot itself retained (no full
+    /// `Finding` — the source location may no longer exist to re-derive one
+    /// from).
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    pub resolved: &'a [crate::baseline::model::BaselineFinding],
     pub findings: Vec<FindingWithBaselineStatus<'a>>,
 }
 
@@ -88,8 +94,10 @@ impl<'a> BaselineJsonReport<'a> {
                     .map(|path| path.to_string_lossy().to_string()),
                 new_findings: report.new_count(),
                 existing_findings: report.existing_count(),
+                resolved_findings: report.resolved_count(),
             },
             ci_gate: ci_gate.map(CiGateJsonMetadata::from),
+            resolved: &report.resolved,
             findings: report
                 .summary
                 .artifacts
@@ -110,6 +118,7 @@ pub struct BaselineJsonMetadata {
     pub path: Option<String>,
     pub new_findings: usize,
     pub existing_findings: usize,
+    pub resolved_findings: usize,
 }
 
 #[derive(Debug, Serialize)]

@@ -181,6 +181,7 @@ fn duplicate_status_report() -> BaselineScanReport {
                 status: BaselineStatus::New,
             },
         ],
+        resolved: Vec::new(),
     }
 }
 

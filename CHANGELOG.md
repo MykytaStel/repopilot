@@ -8,6 +8,32 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Resolved-finding tracking in the baseline engine.** `scan --baseline` and
+  `review --baseline` now report a `resolved` count and list alongside the
+  existing `new`/`existing` split: baseline findings absent from the current
+  scan, using the same stable-key (and legacy-descriptor) matching that already
+  decided `new` vs `existing`. Surfaced in JSON (`baseline.resolved_findings`,
+  a top-level `resolved` array of the baseline's stored `key`/`rule_id`/
+  `severity`/`path`/`message` — resolved findings carry no full evidence, since
+  their source location may no longer exist to derive one from) and in
+  console/markdown/HTML output. `baseline create` gained
+  `--profile`/`--min-severity`/`--min-priority` so a stored baseline can be
+  scoped identically to the scans that will later compare against it; a
+  finding one side's filter hides and the other's does not previously read as
+  spuriously new or resolved rather than unchanged.
+- **The GitHub Action's PR-comment delta now runs through the same baseline
+  engine**, not a separate Python implementation. It snapshots the base
+  revision with `repopilot baseline create` and scans the head revision with
+  `--baseline` against it, both under the same profile/severity/priority
+  filters the Action was configured with — `scripts/review_delta.py` is
+  retired. The delta artifact (`repopilot-review-delta.json`, the
+  `delta-json-file` output) is now the head scan's own baseline-aware JSON
+  report rather than a separate delta-only shape; `new-findings-count` and
+  `resolved-findings-count` are unchanged. `changed-findings-count` stays
+  declared for output compatibility and always reports 0 — the canonical model
+  has no separate "changed" bucket, since a finding whose line moved but whose
+  title and snippet survived already counted as `existing` by the stable key's
+  design.
 - **Trusted verification reuse across CLI and MCP.** Individual configured
   checks can opt into a persistent local cache with `cache = { enabled = true }`.
   RepoPilot reuses only passing, revision-compatible evidence keyed by the full

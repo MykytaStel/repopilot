@@ -128,3 +128,74 @@ fn mixed_new_and_existing_findings() {
     assert_eq!(report.new_count(), 1);
     assert_eq!(report.existing_count(), 1);
 }
+
+#[test]
+fn baseline_finding_absent_from_the_scan_is_resolved() {
+    // The case the Action's own PR delta needs and the CLI baseline model
+    // never reported: a finding that existed when the baseline was created
+    // and is simply gone now — fixed, or its file deleted.
+    let surviving_finding = make_finding("rule.survives", "src/keep.rs", 1);
+    let root = PathBuf::from("/project");
+    let surviving_key = stable_finding_key(&surviving_finding, &root);
+    let summary = make_summary(vec![surviving_finding]);
+    let baseline = baseline_with_keys(vec![surviving_key, "rule.gone:src/gone.rs".to_string()]);
+
+    let report = diff_summary_against_baseline(
+        summary,
+        &baseline,
+        PathBuf::from(".repopilot/baseline.json"),
+    );
+
+    assert_eq!(report.resolved_count(), 1);
+    assert_eq!(report.resolved[0].key, "rule.gone:src/gone.rs");
+    assert_eq!(report.new_count(), 0);
+    assert_eq!(report.existing_count(), 1);
+}
+
+#[test]
+fn a_finding_present_in_both_is_never_reported_resolved() {
+    // The false-positive guard: an unchanged finding must not show up as both
+    // Existing and Resolved.
+    let finding = make_finding("test.rule", "src/main.rs", 10);
+    let root = PathBuf::from("/project");
+    let key = stable_finding_key(&finding, &root);
+    let summary = make_summary(vec![finding]);
+    let baseline = baseline_with_keys(vec![key]);
+
+    let report = diff_summary_against_baseline(
+        summary,
+        &baseline,
+        PathBuf::from(".repopilot/baseline.json"),
+    );
+
+    assert_eq!(report.resolved_count(), 0);
+}
+
+#[test]
+fn a_legacy_line_keyed_baseline_finding_that_moved_is_not_resolved() {
+    // Symmetric with `legacy_line_based_baseline_key_matches_after_line_shift`:
+    // resolved detection must honor the same legacy-descriptor fallback, or
+    // every pre-existing baseline written before the current key scheme would
+    // report its whole contents as resolved the moment any line shifted.
+    let finding = make_finding("test.rule", "src/main.rs", 12);
+    let summary = make_summary(vec![finding]);
+    let baseline = baseline_with_keys(vec!["test.rule:src/main.rs:10".to_string()]);
+
+    let report = diff_summary_against_baseline(
+        summary,
+        &baseline,
+        PathBuf::from(".repopilot/baseline.json"),
+    );
+
+    assert_eq!(report.resolved_count(), 0);
+}
+
+#[test]
+fn all_findings_new_reports_nothing_resolved() {
+    // There is no baseline to have resolved anything against.
+    let summary = make_summary(vec![make_finding("rule.one", "src/a.rs", 1)]);
+
+    let report = all_findings_new(summary);
+
+    assert_eq!(report.resolved_count(), 0);
+}

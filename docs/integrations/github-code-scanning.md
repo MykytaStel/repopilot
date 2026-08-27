@@ -65,9 +65,18 @@ version/OS/architecture. It exposes:
 
 The stable review artifact set is `repopilot-review.json`,
 `repopilot-review-delta.json`, `repopilot-review.sarif`, and
-`repopilot-review-summary.md`. The delta artifact uses exact
-`occurrence_key` identity and falls back to stable finding ID plus exact evidence
-when comparing reports from an older compatible release.
+`repopilot-review-summary.md`. The delta artifact is the head revision's own
+`scan --format json` output produced against a baseline snapshotted from the
+base revision (`repopilot baseline create`) — the same engine `scan
+--baseline`/`review --baseline` use locally, keyed on the stable finding ID
+(`rule_id:path:hash(title, snippet)`, insensitive to line-number churn so an
+unrelated edit above a finding does not read as a new+resolved pair). Each
+finding carries `baseline_status` (`new`/`existing`); findings present in the
+base baseline but absent from the head scan are listed under a top-level
+`resolved` array. `changed-findings-count` stays declared on the Action's
+outputs for compatibility and always reports 0 — the baseline model has no
+separate "changed" bucket, since a finding whose line moved but title and
+snippet survived is `existing` by design.
 
 ## SARIF Upload
 

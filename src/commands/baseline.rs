@@ -1,4 +1,5 @@
-use crate::cli::BaselineCommands;
+use crate::cli::{BaselineCommands, ScanProfileArg};
+use crate::commands::filters::{priority_arg_into, severity_arg_into};
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
 use crate::commands::scan_config::ScanConfigOverrides;
 use chrono::{SecondsFormat, Utc};
@@ -20,6 +21,15 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
             let config = options.config;
             let ignore_feedback = options.ignore_feedback;
             let output_path = output.unwrap_or_else(|| default_baseline_path(&path));
+            let visibility_profile = baseline_visibility_profile(options.profile);
+            let pre_visibility_filter = FindingFilter {
+                min_severity: options.min_severity.map(severity_arg_into),
+                ..FindingFilter::default()
+            };
+            let priority_filter = FindingFilter {
+                min_priority: options.min_priority.map(priority_arg_into),
+                ..FindingFilter::default()
+            };
 
             let scan_result = run_product_scan(ProductScanRequest {
                 path: path.clone(),
@@ -29,10 +39,15 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
                 mode: ProductScanMode::Full,
                 no_progress: false,
                 ignore_feedback,
-                visibility_profile: FindingVisibilityProfile::Default,
-                pre_visibility_filter: FindingFilter::default(),
+                visibility_profile,
+                pre_visibility_filter,
             })?;
-            let summary = scan_result.summary;
+            let mut summary = scan_result.summary;
+            // Priority is derived from the scan result, so — like `scan`
+            // itself — it filters after the scan runs rather than as a
+            // pre-visibility filter. Applied before the baseline is built, so
+            // a finding this filter would hide is never stored as accepted.
+            priority_filter.apply_to_summary(&mut summary);
             let baseline = Baseline::from_scan_summary(
                 &summary,
                 &summary.root_path,
@@ -54,6 +69,13 @@ pub fn run(command: BaselineCommands) -> Result<(), Box<dyn std::error::Error>> 
                 Err(error) => Err(Box::new(error)),
             }
         }
+    }
+}
+
+fn baseline_visibility_profile(profile: Option<ScanProfileArg>) -> FindingVisibilityProfile {
+    match profile {
+        Some(ScanProfileArg::Strict) => FindingVisibilityProfile::Strict,
+        Some(ScanProfileArg::Default) | None => FindingVisibilityProfile::Default,
     }
 }
 
