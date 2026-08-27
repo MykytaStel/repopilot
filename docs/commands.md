@@ -84,7 +84,10 @@ repopilot review . --record-history
 Receipts live under `.repopilot/history/` and are never uploaded. RepoPilot
 compares only runs with the same target, scope, revisions, profile, filters,
 configuration, overlay, and report schema; it never treats an incompatible
-changed-only run as proof that full-scan findings were resolved.
+changed-only run as proof that full-scan findings were resolved. For the full
+workflow — reading the delta, pairing it with baseline resolved-tracking, and
+wiring a periodic health scan — see
+[Track repository health over time](repository-health.md).
 
 ## Review An Agent Run
 
