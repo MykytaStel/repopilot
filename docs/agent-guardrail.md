@@ -126,12 +126,56 @@ debt, `repopilot baseline create .` pins the current state so only new
 findings count. See
 [GitHub pull request integration](integrations/github-code-scanning.md).
 
+## Catch broken imports and exports, not just risky patterns
+
+Two review-first checks look for provably broken code rather than risky
+patterns, so an agent's own edits get caught before a human does:
+
+- **`architecture.unresolved-local-import`** — an explicit local TypeScript/
+  JavaScript or Python relative import whose complete candidate set is absent.
+  Ambiguous forms (aliases, extensionless imports, workspace packages) stay
+  bounded diagnostics, never a false broken-code claim.
+- **`behavioral.removed-export-still-imported`** — a named export an agent
+  deleted or renamed while a local caller still imports the old name. Fires
+  only when the resolver proves the caller targets the changed module; a
+  coordinated rename across both sides produces no signal.
+
+Neither runs a compiler; both are AST-plus-resolver proofs, so they hold even
+when nothing else in the diff looks risky — exactly the failure mode an agent
+introduces by editing one side of an import and forgetting the other.
+
+## Let RepoPilot run your own checks
+
+`--verify <ID>` executes one repository-declared check (test, build,
+type-check, or lint) and folds a timeout, non-zero exit, or spawn error into
+the review record as evidence — never as a silent pass. Off by default;
+RepoPilot never runs anything you have not explicitly allowlisted:
+
+```toml
+# repopilot.toml
+[[verification.checks]]
+id = "typecheck"
+role = "type-check"
+program = "npm"
+args = ["run", "typecheck"]
+timeout_seconds = 120
+```
+
+```bash
+repopilot review --since-snapshot --verify typecheck
+```
+
+Static findings are never suppressed by a passing check — verification adds
+evidence, it does not gate what static analysis already proved. Full contract,
+including opt-in result caching: [Configuration](configuration.md#explicit-local-verification).
+
 ## What the review actually checks
 
 Security boundaries (access control, request trust, deploy surface, supply
 chain, secrets), behavioral changes (network, subprocess, filesystem, SQL,
 removed error handling or auth checks), algorithmic shifts, taint-lite flows
 (changed request/process input reaching SQL, exec, filesystem-write, or
-network sinks), and blast radius through the import graph. Signals are
-structural evidence with file:line provenance — flags to verify, not
-verdicts. Details: [Reports and schemas](reports.md).
+network sinks), broken local imports/exports (above), and blast radius
+through the import graph. Signals are structural evidence with file:line
+provenance — flags to verify, not verdicts. Details:
+[Reports and schemas](reports.md).

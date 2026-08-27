@@ -8,6 +8,7 @@ adoption or CI policy.
 
 - [Installation](install.md)
 - [Guard your agent runs](agent-guardrail.md)
+- [Track repository health over time](repository-health.md)
 - [Common workflows](commands.md)
 - [CLI reference](cli.md)
 - [Configuration and local feedback](configuration.md)
