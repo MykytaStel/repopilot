@@ -184,12 +184,28 @@ Example shape:
   "baseline": {
     "path": ".repopilot/baseline.json",
     "new_findings": 2,
-    "existing_findings": 10
+    "existing_findings": 10,
+    "resolved_findings": 1
   },
+  "resolved": [
+    {
+      "key": "security.secret-candidate:src/old.py:9c1a2b3d4e5f6789",
+      "rule_id": "security.secret-candidate",
+      "severity": "high",
+      "path": "src/old.py",
+      "message": "Possible secret detected"
+    }
+  ],
   "diagnostics": [],
   "findings": []
 }
 ```
+
+`resolved` lists baseline findings absent from this scan and is omitted entirely
+when empty. Each entry carries only what the baseline snapshot itself stored —
+`key`, `rule_id`, `severity`, `path`, `message` — not a full `Finding`, since
+the source location that produced it may no longer exist to re-derive one
+from.
 
 ## Review JSON reports
 

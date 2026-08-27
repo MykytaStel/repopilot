@@ -1,3 +1,4 @@
+use crate::cli::{PriorityArg, ScanProfileArg, SeverityArg};
 use clap::{Args, Subcommand};
 use std::path::PathBuf;
 
@@ -19,13 +20,18 @@ failing on pre-existing issues.\n\n\
 By default writes to .repopilot/baseline.json and creates the directory if needed.\n\
 Existing baseline files are not overwritten unless you pass `--force`.\n\n\
 Refresh the baseline only when the team explicitly accepts the current findings\n\
-as technical debt — not as a way to silence CI.",
+as technical debt — not as a way to silence CI.\n\n\
+Pass --profile/--min-severity/--min-priority to scope the stored baseline the\n\
+same way a later `scan --baseline`/`review --baseline` will be scoped. A\n\
+finding hidden from one side by a filter the other side does not share reads\n\
+as a false new or resolved finding, not as unchanged.",
         after_help = "EXAMPLES:\n  \
 repopilot baseline create .\n  \
 repopilot baseline create . --output ./baseline.json\n  \
 repopilot baseline create . --config repopilot.toml\n  \
 repopilot baseline create . --ignore-feedback\n  \
-repopilot baseline create . --force"
+repopilot baseline create . --force\n  \
+repopilot baseline create . --profile strict --min-severity high"
     )]
     Create(BaselineCreateOptions),
 }
@@ -50,4 +56,19 @@ pub struct BaselineCreateOptions {
     /// Overwrite an existing baseline file
     #[arg(long)]
     pub force: bool,
+
+    /// Report visibility profile the stored baseline is scoped to: default
+    /// hides low-signal suggestions; strict stores all findings. Must match
+    /// the profile later scans compare against, or findings hidden by one
+    /// side's filter but not the other's read as spurious new/resolved.
+    #[arg(long, value_enum)]
+    pub profile: Option<ScanProfileArg>,
+
+    /// Only store findings at or above this severity
+    #[arg(long, value_enum)]
+    pub min_severity: Option<SeverityArg>,
+
+    /// Only store findings at or above this risk priority
+    #[arg(long, value_enum)]
+    pub min_priority: Option<PriorityArg>,
 }

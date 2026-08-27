@@ -468,7 +468,14 @@ repopilot baseline create <PATH> [OPTIONS]
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `-o, --output` | path | `.repopilot/baseline.json` | Write baseline to a custom path |
+| `--config` | path | — | Path to `repopilot.toml` |
+| `--ignore-feedback` | flag | — | Do not apply local `.repopilot/feedback.yml` suppressions |
 | `--force` | flag | — | Overwrite an existing baseline file |
+| `--profile` | `default`\|`strict` | `default` | Visibility profile the stored baseline is scoped to |
+| `--min-severity` | severity | — | Only store findings at or above this severity |
+| `--min-priority` | priority | — | Only store findings at or above this risk priority |
+
+Scope `--profile`/`--min-severity`/`--min-priority` to match whatever a later `scan --baseline`/`review --baseline` will pass — a finding one side's filter hides and the other's does not is invisible to the comparison, which is not the same as unchanged.
 
 ### Examples
 
@@ -481,6 +488,9 @@ repopilot baseline create . --output ./baseline.json
 
 # Overwrite existing baseline
 repopilot baseline create . --output .repopilot/baseline.json --force
+
+# Scope the baseline to the same strict/high-severity view later scans use
+repopilot baseline create . --profile strict --min-severity high
 ```
 
 Treat `.repopilot/baseline.json` as accepted existing debt. Commit or update it

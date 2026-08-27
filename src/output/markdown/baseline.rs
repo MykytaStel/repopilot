@@ -19,6 +19,14 @@ pub(crate) fn render_baseline_section(
         report.existing_count()
     )
     .unwrap();
+    if report.baseline_path.is_some() {
+        writeln!(
+            output,
+            "- **Resolved findings:** {}",
+            report.resolved_count()
+        )
+        .unwrap();
+    }
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
         writeln!(output, "- **CI gate:** {status} (`{}`)", ci_gate.label()).unwrap();

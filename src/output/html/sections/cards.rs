@@ -39,6 +39,10 @@ pub(super) fn render_baseline_summary_cards(
         summary_card(report.summary.metrics.files_analyzed, "Files"),
     ];
 
+    if report.baseline_path.is_some() {
+        cards.push(summary_card(report.resolved_count(), "Resolved"));
+    }
+
     if report.summary.metrics.hidden_suggestions_count > 0 {
         cards.push(summary_card(
             report.summary.metrics.hidden_suggestions_count,

@@ -84,6 +84,7 @@ mod tests {
             summary,
             baseline_path: Some(PathBuf::from(".repopilot/baseline.json")),
             findings: Vec::<FindingBaselineStatus>::new(),
+            resolved: Vec::new(),
         };
 
         let rendered =

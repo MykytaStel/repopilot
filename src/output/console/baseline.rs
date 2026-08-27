@@ -13,6 +13,9 @@ pub(crate) fn render_baseline_block(
     }
     writeln!(output, "New findings: {}", report.new_count()).unwrap();
     writeln!(output, "Existing findings: {}", report.existing_count()).unwrap();
+    if report.baseline_path.is_some() {
+        writeln!(output, "Resolved findings: {}", report.resolved_count()).unwrap();
+    }
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
         writeln!(output, "CI gate: {status} ({})", ci_gate.label()).unwrap();

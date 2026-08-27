@@ -5,7 +5,6 @@ REVIEW_DELTA_FILE="repopilot-review-delta.json"
 DELTA_TEMP_DIR=""
 TMP_BASE_WORKTREE=""
 TMP_HEAD_WORKTREE=""
-DELTA_SCAN_ARGS=()
 
 cleanup_review_temp() {
   if [[ -n "$TMP_BASE_WORKTREE" && -d "$TMP_BASE_WORKTREE" ]]; then
@@ -19,61 +18,61 @@ cleanup_review_temp() {
   fi
 }
 
-delta_scan_args() {
-  local output="$1"
-  DELTA_SCAN_ARGS=(scan "$PATH_INPUT" --format json --output "$output" --no-progress)
-  if [[ -n "$CONFIG" ]]; then DELTA_SCAN_ARGS+=(--config "$CONFIG"); fi
-  if [[ -n "$PROFILE" ]]; then DELTA_SCAN_ARGS+=(--profile "$PROFILE"); fi
-  if [[ -n "$MIN_SEVERITY" ]]; then DELTA_SCAN_ARGS+=(--min-severity "$MIN_SEVERITY"); fi
-  if [[ -n "$MIN_PRIORITY" ]]; then DELTA_SCAN_ARGS+=(--min-priority "$MIN_PRIORITY"); fi
-}
-
+# Builds the base/head finding delta through RepoPilot's own baseline engine:
+# `baseline create` snapshots the base revision, then `scan --baseline`
+# against that snapshot on the head revision reports new/existing/resolved
+# directly. Both calls share the same visibility filter (see
+# `baseline create --help`) so a finding a filter hides on one side never
+# misreports as spuriously new or resolved on the other.
 build_review_delta() {
   if [[ -z "$BASE" ]]; then
     return 1
   fi
 
-  local workspace base_scan head_scan base_status head_status head_revision
+  local workspace base_baseline head_scan base_status head_status head_revision
   workspace="$PWD"
   DELTA_TEMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/repopilot-delta.XXXXXX")"
   TMP_BASE_WORKTREE="$DELTA_TEMP_DIR/base-worktree"
   TMP_HEAD_WORKTREE="$DELTA_TEMP_DIR/head-worktree"
-  base_scan="$DELTA_TEMP_DIR/base.json"
+  base_baseline="$DELTA_TEMP_DIR/base-baseline.json"
   head_scan="$DELTA_TEMP_DIR/head.json"
   head_revision="${HEAD:-$(git rev-parse HEAD)}"
 
+  local filter_args=()
+  if [[ -n "$PROFILE" ]]; then filter_args+=(--profile "$PROFILE"); fi
+  if [[ -n "$MIN_SEVERITY" ]]; then filter_args+=(--min-severity "$MIN_SEVERITY"); fi
+  if [[ -n "$MIN_PRIORITY" ]]; then filter_args+=(--min-priority "$MIN_PRIORITY"); fi
+
   git worktree add --detach --quiet "$TMP_BASE_WORKTREE" "$BASE"
-  delta_scan_args "$base_scan"
   set +e
-  (cd "$TMP_BASE_WORKTREE" && repopilot "${DELTA_SCAN_ARGS[@]}")
+  # bash 3.2 (macOS's system default) treats "${arr[@]}" on an empty array as
+  # an unbound-variable error under `set -u`; the `+` form only expands when
+  # the array is set, which an empty array still satisfies.
+  (cd "$TMP_BASE_WORKTREE" && repopilot baseline create "$PATH_INPUT" \
+    --output "$base_baseline" --force "${filter_args[@]+"${filter_args[@]}"}")
   base_status=$?
   set -e
   git worktree remove --force "$TMP_BASE_WORKTREE" >/dev/null
   TMP_BASE_WORKTREE=""
   if [[ "$base_status" -ne 0 ]]; then
-    echo "::warning::RepoPilot could not scan base revision $BASE; delta artifact was not produced."
+    echo "::warning::RepoPilot could not baseline base revision $BASE; delta artifact was not produced."
     return 1
   fi
 
   git worktree add --detach --quiet "$TMP_HEAD_WORKTREE" "$head_revision"
-  delta_scan_args "$head_scan"
   set +e
-  (cd "$TMP_HEAD_WORKTREE" && repopilot "${DELTA_SCAN_ARGS[@]}")
+  (cd "$TMP_HEAD_WORKTREE" && repopilot scan "$PATH_INPUT" --baseline "$base_baseline" \
+    --format json --output "$head_scan" --no-progress "${filter_args[@]+"${filter_args[@]}"}")
   head_status=$?
   set -e
   git worktree remove --force "$TMP_HEAD_WORKTREE" >/dev/null
   TMP_HEAD_WORKTREE=""
   if [[ "$head_status" -ne 0 ]]; then
-    echo "::warning::RepoPilot could not scan head revision $head_revision; delta artifact was not produced."
+    echo "::warning::RepoPilot could not scan head revision $head_revision against the base baseline; delta artifact was not produced."
     return 1
   fi
 
-  python3 "$ACTION_ROOT/scripts/review_delta.py" \
-    --base "$base_scan" \
-    --head "$head_scan" \
-    --output "$workspace/$REVIEW_DELTA_FILE" \
-    --base-revision "$BASE" \
-    --head-revision "$head_revision"
+  cp "$head_scan" "$workspace/$REVIEW_DELTA_FILE"
 }
 
 write_review_summary() {
@@ -83,9 +82,8 @@ write_review_summary() {
     echo "## RepoPilot Review"
     echo
     if [[ -f "$REVIEW_DELTA_FILE" ]]; then
-      echo "- **New findings:** $(jq -r '.summary.new_findings' "$REVIEW_DELTA_FILE")"
-      echo "- **Changed findings:** $(jq -r '.summary.changed_findings' "$REVIEW_DELTA_FILE")"
-      echo "- **Resolved findings:** $(jq -r '.summary.resolved_findings' "$REVIEW_DELTA_FILE")"
+      echo "- **New findings:** $(jq -r '.baseline.new_findings' "$REVIEW_DELTA_FILE")"
+      echo "- **Resolved findings:** $(jq -r '.baseline.resolved_findings' "$REVIEW_DELTA_FILE")"
     else
       echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$review_json")"
     fi
@@ -101,7 +99,7 @@ write_review_summary() {
     ' "$review_json"
     if [[ -f "$REVIEW_DELTA_FILE" ]]; then
       jq -r '
-        [.new_findings[], .changed_findings[]][0:20][]
+        [.findings[] | select(.baseline_status == "new")][0:20][]
         | "- **\(.title)** — `\(.evidence[0].path // "."):\(.evidence[0].line_start // 1)`"
       ' "$REVIEW_DELTA_FILE"
     fi
@@ -114,7 +112,7 @@ annotation_rows() {
     jq -r --slurpfile delta "$REVIEW_DELTA_FILE" '
       ([.tiered_signals.definitely[] | select(.suppressed == false) | ["warning", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
        + [.tiered_signals.maybe[] | select(.suppressed == false) | ["notice", .path, (.line_start // 1), (.headline + (if .detail then ": " + .detail else "" end))]]
-       + [$delta[0].new_findings[], $delta[0].changed_findings[] | ["warning", (.evidence[0].path // ""), (.evidence[0].line_start // 1), .title]])[0:20][]
+       + [$delta[0].findings[] | select(.baseline_status == "new") | ["warning", (.evidence[0].path // ""), (.evidence[0].line_start // 1), .title]])[0:20][]
       | @tsv
     ' "$review_json"
   else
@@ -148,9 +146,13 @@ write_review_outputs() {
     echo "summary_file=$REVIEW_SUMMARY_FILE"
     if [[ -f "$REVIEW_DELTA_FILE" ]]; then
       echo "delta_json_file=$REVIEW_DELTA_FILE"
-      echo "new_findings_count=$(jq -r '.summary.new_findings' "$REVIEW_DELTA_FILE")"
-      echo "changed_findings_count=$(jq -r '.summary.changed_findings' "$REVIEW_DELTA_FILE")"
-      echo "resolved_findings_count=$(jq -r '.summary.resolved_findings' "$REVIEW_DELTA_FILE")"
+      echo "new_findings_count=$(jq -r '.baseline.new_findings' "$REVIEW_DELTA_FILE")"
+      # No "changed" bucket exists in the baseline model: a finding whose
+      # snippet/title survive a line shift reads as Existing there, by
+      # design, so there is nothing left this count would ever report.
+      # Declared for output-name compatibility only.
+      echo "changed_findings_count=0"
+      echo "resolved_findings_count=$(jq -r '.baseline.resolved_findings' "$REVIEW_DELTA_FILE")"
     fi
     echo "findings_count=$(jq -r '.review.in_diff_findings' "$review_json")"
     echo "signals_count=$(jq -r '.review.tiered_signals.total' "$review_json")"
