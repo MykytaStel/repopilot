@@ -67,3 +67,13 @@ line = 275
 evidence = "sample"
 disposition = "actionable"
 reason = "Complexity 25 in an __init__, well over the threshold of 15. Constructor-time branching this dense is worth extracting."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.excessive-fan-out:wagtail/users/views/users.py:e4cd4dadcbd33b60"
+rule_id = "architecture.excessive-fan-out"
+path = "wagtail/users/views/users.py"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "fan_out=17 against threshold=15 in a Django admin ModelViewSet module: it legitimately wires together many admin widgets, forms, and filters. A coordinator file doing its job, not tangled logic worth refactoring."
