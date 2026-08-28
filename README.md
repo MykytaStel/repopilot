@@ -54,6 +54,20 @@ checkout) is caught the same way.
 > flow is a path to verify, not a confirmed vulnerability. Use it beside
 > tests, linters, and dedicated security tools.
 
+## Catch broken code, not just risky code
+
+A tidy-looking rename and file move — nothing a diff review would flag on its
+own — quietly breaks two callers that still expect the old names. No compiler
+runs; both are AST-plus-resolver proofs.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MykytaStel/repopilot/main/docs/demos/05-broken-code.gif" alt="repopilot review catching a removed export still imported and an unresolved local import in a tidy-looking rename" width="800">
+</p>
+
+```bash
+scripts/demo-broken-code-review.sh
+```
+
 ## Why not an LLM reviewer?
 
 - **Deterministic.** Same diff in, same signals out. You can gate a pipeline
@@ -90,8 +104,10 @@ Review groups evidence into tiers: security boundaries (access control,
 request trust, deploy surface, supply chain, secrets), behavioral changes
 (network, subprocess, filesystem, SQL, removed error handling or auth),
 algorithmic shifts, taint-lite flows (changed request/process input reaching
-SQL, exec, filesystem-write, or network sinks), and blast radius (files that
-import what changed).
+SQL, exec, filesystem-write, or network sinks), broken local imports and
+exports (a deleted or renamed file still imported, a removed export still
+called under its old name — no compiler required), and blast radius (files
+that import what changed).
 
 Signals are advisory by default. Gate CI on the high-confidence tier:
 
