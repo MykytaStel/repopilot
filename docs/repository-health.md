@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: MykytaStel/repopilot@v0.21.0
+      - uses: MykytaStel/repopilot@v0.22.0
         with:
           command: scan
           format: json

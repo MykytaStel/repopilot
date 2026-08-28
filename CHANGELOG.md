@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-08-28
+
+RepoPilot 0.22 unifies the graph core behind every projection, adds
+broken-code evidence for imports and exports that quietly stop resolving,
+and brings explicit local verification (tests/build/type-check/lint) into
+review and MCP with trusted, revision-safe result caching. Baseline scans
+now track resolved findings end to end, including through the GitHub
+Action's PR-comment delta, which runs through the same baseline engine
+instead of a separate Python implementation.
+
 ### Added
 
 - **Resolved-finding tracking in the baseline engine.** `scan --baseline` and
@@ -1906,7 +1916,8 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/MykytaStel/repopilot/compare/v0.18.0...v0.19.0
