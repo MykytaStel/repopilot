@@ -72,3 +72,13 @@ line = 196
 evidence = "sample"
 disposition = "actionable"
 reason = "Complexity 21 against a threshold of 15 in hit-testing logic, where branch density is exactly where erasing bugs hide."
+
+[[finding]]
+profile = "strict"
+finding_id = "security.env-file-committed:.env.production:2c69a58fcc634ff5"
+rule_id = "security.env-file-committed"
+path = ".env.production"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "Committed Vite build-time config (VITE_* vars, a Firebase apiKey, and an RSA *public* export key). All VITE_* vars ship into the client bundle regardless of .gitignore, so there is nothing secret to protect; excalidraw commits .env.production/.env.development/.env.test deliberately."
