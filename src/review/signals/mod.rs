@@ -19,7 +19,6 @@
 pub mod algorithmic;
 #[cfg(test)]
 mod algorithmic_tests;
-#[allow(dead_code)] // Facts are consumed by the following removed-export detector slice.
 pub(crate) mod api_contract;
 pub mod behavioral;
 #[cfg(test)]

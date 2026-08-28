@@ -70,7 +70,7 @@ reason = "Complexity 25 in an __init__, well over the threshold of 15. Construct
 
 [[finding]]
 profile = "strict"
-finding_id = "architecture.excessive-fan-out:wagtail/users/views/users.py:e4cd4dadcbd33b60"
+finding_id = "architecture.excessive-fan-out:wagtail/users/views/users.py:0ac1098ae33ccb43"
 rule_id = "architecture.excessive-fan-out"
 path = "wagtail/users/views/users.py"
 line = 1
