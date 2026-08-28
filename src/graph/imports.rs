@@ -21,9 +21,19 @@ pub fn extract_imports(content: &str, language: Option<&str>) -> Vec<String> {
 /// label. The scan pipeline calls it with the same [`ParsedFile`] the
 /// per-file audits receive, so a file's syntax tree is produced once and
 /// shared between import extraction and the AST audits.
+///
+/// Sorted before returning: the per-language extractors return a `HashSet`,
+/// whose iteration order is randomized per process. Left unsorted, every
+/// consumer of this list -- fan-out/instability-hub evidence text, and any
+/// finding-ID hash derived from it -- would vary run to run for identical
+/// source, breaking finding-ID stability and zoo/baseline matching.
 pub(crate) fn extract_imports_from(parsed: &ParsedFile, language: Option<&str>) -> Vec<String> {
     match language.and_then(imports_for_label) {
-        Some(extractor) => (extractor.eager)(parsed).into_iter().collect(),
+        Some(extractor) => {
+            let mut imports: Vec<String> = (extractor.eager)(parsed).into_iter().collect();
+            imports.sort_unstable();
+            imports
+        }
         None => Vec::new(),
     }
 }
@@ -53,13 +63,15 @@ pub(crate) fn extract_deferred_imports_from(
     parsed: &ParsedFile,
     language: Option<&str>,
 ) -> Vec<String> {
-    match language
+    let mut imports: Vec<String> = match language
         .and_then(imports_for_label)
         .and_then(|e| e.deferred)
     {
         Some(deferred) => deferred(parsed).into_iter().collect(),
         None => Vec::new(),
-    }
+    };
+    imports.sort_unstable();
+    imports
 }
 
 /// Imports whose absence is explicitly handled by the language construct that
