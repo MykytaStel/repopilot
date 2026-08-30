@@ -4,24 +4,32 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.22 — repository intelligence and local verification
+## Now: 0.23 — Change Proof
 
-RepoPilot 0.22 turns the existing `review` and `scan` workflows into two
-projections of one evidence-driven repository intelligence core:
+RepoPilot 0.23 turns the evidence-driven review core into one bounded proof of
+the change:
 
-- **fast change review** for developers and coding agents, using the Git diff
-  plus only the repository context needed to explain risk and blast radius;
-- **incremental repository health** for maintainers, covering architecture
-  drift, broken-code evidence, antipatterns, hotspots, and risk trends;
-- **explicit local verification** through repository-configured, allowlisted
-  checks whose results participate in the same canonical readiness decision;
-- **measured signal quality and performance**, with zoo-backed rule evidence,
-  deterministic cache behavior, and separate review/scan budgets.
+- **typed contract changes** explain what changed across public symbols,
+  dependencies, delivery workflows, runtime configuration, security boundaries,
+  and tests;
+- **consumer proof chains** connect each contract delta to resolved direct and
+  bounded transitive impact;
+- **one canonical ChangeProof** combines evidence, coverage, ownership,
+  verification, intent drift, limitations, gate behavior, and the next action;
+- **truth and release confidence** close known compatibility, quality,
+  documentation, performance, and publication gaps before release claims ship.
 
-The release deepens the existing commands and MCP tools. It does not restore
-removed diagnostic commands, add a hosted service, upload source, introduce
-telemetry, or put an implicit LLM inside RepoPilot. Details:
-[v0.22 roadmap and release contract](roadmap/v0.22.md).
+The release deepens the existing commands and MCP tools. It does not add a new
+top-level command, hosted service, source upload, telemetry, implicit LLM,
+autofix, or automatic repository command execution. Details:
+[v0.23 roadmap and release contract](roadmap/v0.23.md).
+
+## Shipped: 0.22
+
+Unified graph-backed repository intelligence, conservative broken import/export
+evidence, explicit allowlisted local verification, resolved baseline findings,
+truthful assessment output, and measured real-repository rule quality. Details:
+[v0.22 release contract](roadmap/v0.22.md).
 
 ## Shipped: 0.21
 
