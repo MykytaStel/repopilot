@@ -30,6 +30,10 @@ adoption or CI policy.
 
 ## Maintainer Guides
 
+- [v0.23 roadmap and release contract](roadmap/v0.23.md)
+- [v0.23 Phase 0 truth foundation specification](engineering/v0.23-phase-0-spec.md)
+- [v0.23 Phase 0A evidence-baseline plan](engineering/v0.23-phase-0a-plan.md)
+- [v0.23 release evidence ledger](engineering/v0.23-evidence-ledger.md)
 - [v0.22 repository intelligence design](engineering/v0.22-repository-intelligence-design.md)
 - [v0.22 Phase A1 context graph specification](engineering/v0.22-phase-a1-context-graph-v2.md)
 - [v0.22 Phase A3 graph state convergence specification](engineering/v0.22-phase-a3-graph-state-convergence.md)
@@ -44,7 +48,7 @@ adoption or CI policy.
 - [Release process](release.md)
 - [Distribution](distribution.md)
 - [Roadmap](roadmap.md)
-- [v0.22 roadmap and release contract](roadmap/v0.22.md)
+- [v0.22 release contract](roadmap/v0.22.md)
 - [v0.21 roadmap and release contract](roadmap/v0.21.md)
 - [v0.20 roadmap and release contract](roadmap/v0.20.md)
 - [v0.20 release scorecard](engineering/v0.20-release-scorecard.md)
