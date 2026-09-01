@@ -11,19 +11,22 @@ repopilot scan . --format json --output repopilot-report.json
 
 ## JSON report schema
 
-JSON scan reports include explicit schema metadata. The current schema is 0.24:
+JSON scan, baseline-scan, and review reports share schema `0.26`. This is
+independent of the RepoPilot package version. The examples below are partial
+output excerpts, not complete input fixtures for a report reader.
 
 ```json
 {
-  "schema_version": "0.24",
+  "schema_version": "0.26",
   "repopilot_version": "0.22.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.24",
+    "schema_version": "0.26",
     "repopilot_version": "0.22.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
+  "assessment_status": "assessed",
   "directories_count": 12,
   "non_empty_lines": 3200,
   "languages": [],
@@ -79,6 +82,7 @@ JSON scan reports include explicit schema metadata. The current schema is 0.24:
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
+| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its assessment in `merge_readiness`. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `health_score` | number | Visible health after the selected profile and explicit filters; retained for compatibility. |
 | `maintainability_score` | number | Stable score for findings hidden by the default visibility policy, computed before explicit filters. |
@@ -103,7 +107,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.21.x` emits schema `0.24`.
+Binary `0.22.0` emits schema `0.26` for scan, baseline-scan, and review.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -137,6 +141,10 @@ findings. Schema `0.21` adds occurrence identity and canonical decision records;
 schema `0.22` adds bounded dependency impact paths; schema `0.23` adds
 deterministic verification plans for review signals; schema `0.24` adds the
 stable `maintainability_score` alongside the compatible visible `health_score`.
+Schema `0.25` adds explicit local verification outcomes to review. Schema `0.26`
+adds `assessment_status` to scan and baseline-scan. Review also uses `0.26`
+because all three DTOs share the schema version; it does not gain that top-level
+field.
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -146,9 +154,14 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `lines_of_code` | `non_empty_lines` |
 | `skipped_files_count` | `large_files_skipped` |
 
-The current reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`, `0.21`,
-`0.22`, `0.23`, and current `0.24` scan reports during the transition. Baseline files follow their separate baseline
-schema policy.
+The current scan-report reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`,
+`0.21`, `0.22`, `0.23`, `0.24`, `0.25`, and current `0.26` scan reports. Older
+versions (including `0.15`) and unknown schema versions are rejected.
+This is current-reader ingestion of older scan output, not evidence that older
+released readers accept new output or that review reports are scan-reader input.
+Consumers that reject unknown schema versions may need an update even for
+additive fields. Baseline snapshot files follow their separate baseline schema
+policy; they are not baseline-scan output reports.
 
 ## Baseline JSON reports
 
@@ -166,15 +179,16 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.24",
+  "schema_version": "0.26",
   "repopilot_version": "0.22.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.24",
+    "schema_version": "0.26",
     "repopilot_version": "0.22.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
+  "assessment_status": "assessed",
   "risk_summary": {
     "total": 12,
     "counts": { "p0": 0, "p1": 2, "p2": 5, "p3": 5 },
@@ -208,6 +222,20 @@ the source location that produced it may no longer exist to re-derive one
 from.
 
 ## Review JSON reports
+
+Envelope excerpt (the remaining review fields are omitted here):
+
+```json
+{
+  "schema_version": "0.26",
+  "repopilot_version": "0.22.0",
+  "report": {
+    "kind": "review",
+    "schema_version": "0.26",
+    "repopilot_version": "0.22.0"
+  }
+}
+```
 
 `repopilot review --format json` uses the same envelope policy with
 `report.kind = "review"`. Review reports include scan scope, changed files,

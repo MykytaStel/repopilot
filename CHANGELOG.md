@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the reports guide and v0.22 release notes to match the emitted
+  scan, baseline-scan, and review schema `0.26`. Added CLI-backed checks for
+  documented JSON envelopes, clarified the current scan-reader schema range,
+  and separated it from unverified old-reader compatibility. No runtime format
+  or package version changed.
+
 ## [0.22.0] - 2026-08-28
 
 RepoPilot 0.22 unifies the graph core behind every projection, adds
