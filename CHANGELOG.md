@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Reconciled v0.23 planning and reports documentation with the current Phase 0
+  lifecycle. The release contract now checks the v0.23 docs index, evidence
+  links, status markers, and assessed-scope boundaries; `PASS` and health
+  scores are explicitly limited to analyzed scope.
+
 - Started recoverable release publication: exact version and package identity
   checks now skip only matching immutable npm/crates artifacts, fail closed on
   mismatches, distinguish authentication/network/rate-limit/service failures,
