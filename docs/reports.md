@@ -163,6 +163,17 @@ Consumers that reject unknown schema versions may need an update even for
 additive fields. Baseline snapshot files follow their separate baseline schema
 policy; they are not baseline-scan output reports.
 
+The [version-provenanced compatibility matrix](engineering/v0.23-compatibility-matrix.md)
+separates released-producer support, old-reader rejection, synthetic transition
+fixtures, and surfaces that do not ingest scan JSON. In particular, released
+0.20.0 and 0.21.0 Rust readers reject schema 0.26 by design; 0.22.0 accepts it.
+
+When a stored history receipt cannot be compared with the current run,
+RepoPilot emits warning `history.comparison-unavailable` with a stable mismatch
+reason. It omits the risk delta and does not classify any prior finding as
+resolved. Console, Markdown, and JSON output all expose the reason; the warning
+does not change the scan or review exit code.
+
 ## Baseline JSON reports
 
 When a scan is rendered with a baseline, the JSON report also includes the same

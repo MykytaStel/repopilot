@@ -1,3 +1,4 @@
+use super::diagnostics;
 use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
@@ -75,6 +76,7 @@ pub fn render_markdown_with_gates(
             feedback.suppressed_review_signals_count,
         ));
     }
+    diagnostics::render_markdown(&mut output, &report.summary);
 
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };

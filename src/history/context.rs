@@ -47,6 +47,9 @@ pub fn record_session(
     let prior = compatible.or_else(|| loaded.receipts.last());
     let comparison = prior.map(|prior| crate::history::delta::compare(&receipt, prior));
     let mut diagnostics = loaded.diagnostics;
+    if let Some(ComparisonResult::Unavailable(reason)) = comparison.as_ref() {
+        diagnostics.push(HistoryDiagnostic::comparison_unavailable(reason.code()));
+    }
     let recorded = match store.record(&receipt) {
         Ok(()) => true,
         Err(error) => {

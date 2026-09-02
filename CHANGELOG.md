@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Added released producer/reader compatibility evidence for schemas 0.18–0.26,
+  including exact asset/crate provenance and a line-movement baseline guard.
+  Incompatible history now emits `history.comparison-unavailable` instead of
+  silently omitting Risk Delta; it still produces no new/resolved comparison
+  and does not change the exit code or report schema. Scan and review surface
+  the reason in console, Markdown, and JSON output.
+
 - Corrected the reports guide and v0.22 release notes to match the emitted
   scan, baseline-scan, and review schema `0.26`. Added CLI-backed checks for
   documented JSON envelopes, clarified the current scan-reader schema range,

@@ -114,6 +114,23 @@ pub enum ComparisonUnavailable {
     AnalysisSchemaMismatch,
 }
 
+impl ComparisonUnavailable {
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::SchemaMismatch => "schema-mismatch",
+            Self::WorkspaceMismatch => "workspace-mismatch",
+            Self::TargetMismatch => "target-mismatch",
+            Self::ScopeMismatch => "scope-mismatch",
+            Self::RevisionRangeMismatch => "revision-range-mismatch",
+            Self::ProfileMismatch => "profile-mismatch",
+            Self::ConfigMismatch => "config-mismatch",
+            Self::SelectionMismatch => "selection-mismatch",
+            Self::OverlayMismatch => "overlay-mismatch",
+            Self::AnalysisSchemaMismatch => "analysis-schema-mismatch",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", content = "value", rename_all = "kebab-case")]
 pub enum ComparisonResult {
@@ -150,5 +167,41 @@ impl RiskDelta {
         !self.new_findings.is_empty()
             || !self.resolved_findings.is_empty()
             || !self.severity_shifts.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ComparisonUnavailable;
+
+    #[test]
+    fn comparison_unavailable_reasons_have_stable_diagnostic_codes() {
+        let cases = [
+            (ComparisonUnavailable::SchemaMismatch, "schema-mismatch"),
+            (
+                ComparisonUnavailable::WorkspaceMismatch,
+                "workspace-mismatch",
+            ),
+            (ComparisonUnavailable::TargetMismatch, "target-mismatch"),
+            (ComparisonUnavailable::ScopeMismatch, "scope-mismatch"),
+            (
+                ComparisonUnavailable::RevisionRangeMismatch,
+                "revision-range-mismatch",
+            ),
+            (ComparisonUnavailable::ProfileMismatch, "profile-mismatch"),
+            (ComparisonUnavailable::ConfigMismatch, "config-mismatch"),
+            (
+                ComparisonUnavailable::SelectionMismatch,
+                "selection-mismatch",
+            ),
+            (ComparisonUnavailable::OverlayMismatch, "overlay-mismatch"),
+            (
+                ComparisonUnavailable::AnalysisSchemaMismatch,
+                "analysis-schema-mismatch",
+            ),
+        ];
+        for (reason, expected) in cases {
+            assert_eq!(reason.code(), expected);
+        }
     }
 }

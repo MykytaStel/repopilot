@@ -1,4 +1,5 @@
 mod console;
+mod diagnostics;
 mod helpers;
 mod json;
 mod markdown;

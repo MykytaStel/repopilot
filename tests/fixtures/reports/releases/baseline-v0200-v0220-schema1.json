@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "tool": "repopilot",
+  "created_at": "2026-09-01T22:23:36Z",
+  "root": ".",
+  "findings": [
+    {
+      "key": "security.secret-candidate:src/config.py:32de077f97726ce9",
+      "rule_id": "security.secret-candidate",
+      "severity": "high",
+      "path": "src/config.py",
+      "message": "Possible secret detected"
+    }
+  ]
+}

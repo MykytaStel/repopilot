@@ -1,3 +1,4 @@
+use super::diagnostics;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::decision_summary::{render_decision_summary, review_decision_summary};
@@ -74,6 +75,7 @@ pub fn render_console_with_options(
             feedback.suppressed_review_signals_count,
         ));
     }
+    diagnostics::render_console(&mut output, &report.summary);
     output.push('\n');
 
     output.push_str(&format!("Changed files: {}\n", report.changed_files.len()));
