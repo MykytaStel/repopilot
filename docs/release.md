@@ -54,6 +54,8 @@ It verifies:
 - the curated GitHub Release note exists, has the required structure, and can
   produce the release title and body;
 - local Markdown links resolve;
+- current MCP tool names and report version/schema claims match source-owned
+  registries;
 - stale npm installer claims are absent;
 - third-party GitHub Actions are pinned to commit SHAs;
 - the tag workflow directly calls reusable npm publishing;

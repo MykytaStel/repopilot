@@ -325,6 +325,95 @@ class ReleaseContractTests(unittest.TestCase):
 
         release_contract.check_roadmap_docs()
 
+    def test_v023_docs_require_index_links_and_evidence_files(self) -> None:
+        self.write("docs/README.md", "- [roadmap](roadmap/v0.23.md)\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "v0.23 documentation"
+        ):
+            release_contract.check_v023_docs()
+
+    def test_v023_docs_require_current_lifecycle_and_scope_boundaries(self) -> None:
+        self.write(
+            "docs/README.md",
+            "\n".join(
+                [
+                    "roadmap/v0.23.md",
+                    "engineering/v0.23-phase-0-spec.md",
+                    "engineering/v0.23-evidence-ledger.md",
+                ]
+            ),
+        )
+        self.write(
+            "docs/roadmap/v0.23.md",
+            "Status: Phase 0 implementation in progress; ChangeProof runtime implementation has not started.\n"
+            "## Phase 0 — Truth Foundation and Bug Burn-down\n"
+            "## Phase A — Canonical ChangeProof\n",
+        )
+        self.write(
+            "docs/engineering/v0.23-phase-0-spec.md",
+            "Status: in-progress; release direction approved.\n"
+            "Progress source: release evidence ledger\n"
+            "Statuses: `open`, `in-progress`, `verified`, and `accepted`.\n"
+            "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;\n"
+            "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;\n"
+            "### 0C — Recoverable Publication\n\nStatus: in-progress;\n"
+            "### 0D — Documentation and Current UX Truth\n\nStatus: in-progress;\n",
+        )
+        self.write(
+            "docs/engineering/v0.23-evidence-ledger.md",
+            "Status: open; initial evidence baseline, not a completed Phase 0 scorecard.\n"
+            "## Tracked Items\n"
+            "Each closure criterion remains explicit.\n",
+        )
+        self.write(
+            "docs/reports.md",
+            "`assessment_status` is not a safety verdict. Unsupported scope and excluded files remain disclosed.\n",
+        )
+
+        release_contract.check_v023_docs()
+        self.write(
+            "docs/roadmap/v0.23.md",
+            "Status: approved product direction; implementation has not started.\n"
+            "## Phase 0 — Truth Foundation and Bug Burn-down\n"
+            "## Phase A — Canonical ChangeProof\n",
+        )
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "documentation contract"
+        ):
+            release_contract.check_v023_docs()
+
+    def test_docs_parity_requires_registry_tools_in_both_guides(self) -> None:
+        self.write(
+            "src/commands/mcp/review.rs",
+            'pub const TOOL_NAME: &str = "repopilot_review_change";\n',
+        )
+        self.write(
+            "src/commands/mcp/scan.rs",
+            'pub const TOOL_NAME: &str = "repopilot_scan";\n',
+        )
+        self.write("docs/mcp.md", "`repopilot_review_change`\n")
+        self.write("docs/cli.md", "`repopilot_review_change`\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "docs parity"):
+            release_contract.check_docs_parity()
+
+    def test_docs_parity_requires_current_schema_and_binary_version(self) -> None:
+        self.write(
+            "Cargo.toml",
+            '[package]\nname = "repopilot"\nversion = "9.9.9"\n',
+        )
+        self.write(
+            "src/report/schema.rs",
+            'pub const SCAN_REPORT_SCHEMA_VERSION: &str = "9.99";\n',
+        )
+        self.write("docs/mcp.md", "")
+        self.write("docs/cli.md", "")
+        self.write("docs/reports.md", "Binary `0.22.0` emits schema `0.26`.\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "docs parity"):
+            release_contract.check_docs_parity()
+
     def _write_zoo_scorecard_fixture(self) -> None:
         self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
         self.write("docs/rules-reference.md", "### `a.rule` — Title\n\n- **Lifecycle:** stable\n")

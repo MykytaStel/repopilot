@@ -111,6 +111,15 @@ Binary `0.22.0` emits schema `0.26` for scan, baseline-scan, and review.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
+### Assessment boundaries
+
+`assessment_status` applies to scan and baseline-scan scope: `assessed` means
+that at least one file was analyzed, while `not_assessed` means that the
+requested scope produced no analyzed files. This is not a safety verdict.
+`PASS` and health scores describe the analyzed scope only; unsupported scope
+and excluded files remain outside that claim and must not be read as silently
+verified.
+
 ### Compatibility
 
 RepoPilot renders JSON through explicit report DTOs instead of serializing the

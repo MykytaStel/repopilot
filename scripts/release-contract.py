@@ -453,6 +453,124 @@ def check_roadmap_docs() -> None:
         raise ContractError("docs/README.md does not link to v0.20 release scorecard")
 
 
+def _v023_doc_files() -> dict[str, Path]:
+    return {
+        "roadmap": ROOT / "docs/roadmap/v0.23.md",
+        "phase specification": ROOT / "docs/engineering/v0.23-phase-0-spec.md",
+        "evidence ledger": ROOT / "docs/engineering/v0.23-evidence-ledger.md",
+        "reports guide": ROOT / "docs/reports.md",
+    }
+
+
+def _check_v023_doc_links(docs_index: str) -> None:
+    required_links = (
+        "roadmap/v0.23.md",
+        "engineering/v0.23-phase-0-spec.md",
+        "engineering/v0.23-evidence-ledger.md",
+    )
+    missing_links = [link for link in required_links if link not in docs_index]
+    if missing_links:
+        raise ContractError(
+            "docs/README.md is missing v0.23 links:\n  " + "\n  ".join(missing_links)
+        )
+
+
+def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]]:
+    return {
+        files["roadmap"]: (
+            "Status: Phase 0 implementation in progress",
+            "## Phase 0 — Truth Foundation and Bug Burn-down",
+            "## Phase A — Canonical ChangeProof",
+        ),
+        files["phase specification"]: (
+            "Status: in-progress",
+            "Progress source:",
+            "Statuses: `open`, `in-progress`, `verified`, and `accepted`.",
+            "#### 0B1 — Schema Truth (PR 1)",
+            "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;",
+            "#### 0B2 — Released Compatibility Evidence (PR 2)",
+            "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;",
+            "### 0C — Recoverable Publication",
+            "### 0C — Recoverable Publication\n\nStatus: in-progress;",
+            "### 0D — Documentation and Current UX Truth",
+            "### 0D — Documentation and Current UX Truth\n\nStatus: in-progress;",
+        ),
+        files["evidence ledger"]: (
+            "Status: open;",
+            "## Tracked Items",
+            "closure criterion",
+        ),
+        files["reports guide"]: (
+            "`assessment_status`",
+            "not a safety verdict",
+            "Unsupported scope",
+            "excluded files",
+        ),
+    }
+
+
+def _check_v023_markers(files: dict[str, Path]) -> None:
+    missing_markers = [
+        f"{path.relative_to(ROOT)}: {marker}"
+        for path, markers in _v023_required_markers(files).items()
+        for marker in markers
+        if marker.casefold() not in read_text(path).casefold()
+    ]
+    if missing_markers:
+        raise ContractError(
+            "v0.23 documentation contract is incomplete:\n  "
+            + "\n  ".join(missing_markers)
+        )
+
+
+def check_v023_docs() -> None:
+    """Keep current v0.23 planning and scope claims discoverable and bounded."""
+    files = _v023_doc_files()
+    missing = [name for name, path in files.items() if not path.exists()]
+    if missing:
+        raise ContractError("Missing v0.23 documentation:\n  " + "\n  ".join(missing))
+
+    _check_v023_doc_links(read_text(ROOT / "docs/README.md"))
+    _check_v023_markers(files)
+
+
+def mcp_tool_names() -> tuple[str, ...]:
+    names = {
+        name
+        for path in (ROOT / "src/commands/mcp").glob("*.rs")
+        for name in re.findall(r'pub const TOOL_NAME: &str = "([^"]+)"', read_text(path))
+    }
+    if not names:
+        raise ContractError("docs parity could not find MCP tool registry entries")
+    return tuple(sorted(names))
+
+
+def check_docs_parity() -> None:
+    """Compare stable docs claims with source-owned registry and schema values."""
+    mcp_docs = read_text(ROOT / "docs/mcp.md")
+    cli_docs = read_text(ROOT / "docs/cli.md")
+    missing_tools = [
+        f"{tool} missing from {path}"
+        for path, content in (("docs/mcp.md", mcp_docs), ("docs/cli.md", cli_docs))
+        for tool in mcp_tool_names()
+        if tool not in content
+    ]
+    if missing_tools:
+        raise ContractError("docs parity is incomplete:\n  " + "\n  ".join(missing_tools))
+
+    schema_text = read_text(ROOT / "src/report/schema.rs")
+    schema_match = re.search(
+        r'pub const SCAN_REPORT_SCHEMA_VERSION: &str = "([^"]+)"', schema_text
+    )
+    if not schema_match:
+        raise ContractError("docs parity could not find report schema registry value")
+    version = cargo_version()
+    schema = schema_match.group(1)
+    expected = f"Binary `{version}` emits schema `{schema}`"
+    if expected not in read_text(ROOT / "docs/reports.md"):
+        raise ContractError(f"docs parity is incomplete: missing `{expected}`")
+
+
 def check_rule_scorecard() -> None:
     """The committed per-rule scorecard must be fresh and linked from the docs index.
 
@@ -532,6 +650,8 @@ def check_contract(tag: str | None) -> None:
     check_publication_recovery_contract()
     check_removed_vscode_surface()
     check_roadmap_docs()
+    check_v023_docs()
+    check_docs_parity()
     check_rule_scorecard()
     check_zoo_gate()
     print(f"Release contract passed for {version}")
