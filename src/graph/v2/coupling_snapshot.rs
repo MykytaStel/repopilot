@@ -13,10 +13,8 @@ use std::path::{Path, PathBuf};
 /// node even if the graph's `nodes` set omits it, so no edge is silently dropped
 /// by snapshot validation (a well-formed `CouplingGraph` already lists them).
 ///
-/// This is the shared bridge between the v1 coupling graph and graph v2. It is
-/// deliberately free of audit concepts (no severities, rule ids, findings, or
-/// evidence), so any future graph v2 consumer can reuse it without depending on
-/// a particular rule.
+/// This bridge is free of audit concepts (no severities, rule ids, findings, or
+/// evidence), so graph consumers can reuse it without depending on a rule.
 pub fn build_coupling_graph_snapshot(
     graph: &CouplingGraph,
 ) -> (GraphSnapshot, BTreeMap<GraphNodeId, PathBuf>) {

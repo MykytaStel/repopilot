@@ -32,8 +32,6 @@ impl LayerIndex {
         Self { layers }
     }
 
-    /// Position of the file in the declared layer order (0 = highest-level), or
-    /// `None` when the file matches no declared layer.
     fn layer_of(&self, info: &NodeInfo) -> Option<usize> {
         self.layers
             .iter()

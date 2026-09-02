@@ -226,8 +226,8 @@ pub(super) static RULES: &[RuleMetadata] = &[
         rule_id: "architecture.test-leak",
         title: "Test code leaked into production",
         category: FindingCategory::Architecture,
-        // Medium while Experimental and undocumented; a High default would
-        // require a `docs_url` per the finding contract (rules reference: PR-J).
+        // Keep Medium while Experimental and undocumented; a High default would
+        // require a `docs_url` per the finding contract.
         default_severity: Severity::Medium,
         default_confidence: Confidence::High,
         lifecycle: RuleLifecycle::Experimental,

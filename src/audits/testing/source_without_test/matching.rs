@@ -42,19 +42,8 @@ pub(super) fn has_nearby_test(
         || has_rust_integration_test(source, ext, tests_suffixes)
 }
 
-/// A test file named after this module, wherever the suite keeps it.
-///
-/// Path-shaped matching only finds a test that sits beside the module or in a
-/// `tests/` directory named exactly like it. Two dominant conventions do
-/// neither: pytest and Django name the *test* (`tests/test_workflows.py` for
-/// `workflows.py`, in any app's test package), and JUnit names the *class*
-/// (`VetTests.java` under `src/test/java/<package>/`, never beside the source).
-/// Claiming "no test found" for those is simply false.
-///
-/// Matching on the name alone rather than the location is deliberate: the
-/// rule's claim is that no test exists, and a file named for this module is a
-/// test that exists. Locality would be a refinement of a claim this rule does
-/// not make.
+// Match the naming conventions used by pytest/Django (`test_<module>`) and
+// JUnit (`<Class>Test[s]`); test locality is intentionally not inferred.
 fn has_named_test(stem: &str, ext: &str, test_stems: &HashSet<String>) -> bool {
     if stem.is_empty() {
         return false;

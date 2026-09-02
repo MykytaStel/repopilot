@@ -113,11 +113,7 @@ fn is_type_erasing_language(path: &Path) -> bool {
     )
 }
 
-/// `component` is the full strongly-connected component (all mutually dependent
-/// files); `shortest` is the minimal cycle within it, as a closed path
-/// (`a -> b -> a`). The finding leads with the actionable minimal cycle and
-/// carries the component size as context, instead of repeating the whole
-/// component into every evidence snippet.
+// Lead with the shortest cycle and retain the full component size as context.
 fn circular_dependency_finding(
     component: &[PathBuf],
     shortest: &[PathBuf],

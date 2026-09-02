@@ -21,9 +21,9 @@ pub struct ReviewJsonReport<'a> {
     pub impact_paths: &'a ImpactPaths,
     pub merge_readiness: MergeReadinessRecord,
     pub boundary_signals: &'a [BoundarySignal],
-    /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
-    /// Additive to `boundary_signals` (which feeds the `definitely` tier); the
-    /// two are expected to collapse into this field in a future schema.
+    /// Boundary, behavioral, algorithmic, and taint signals grouped by tier.
+    /// `boundary_signals` remains as a compatibility view and feeds the
+    /// `definitely` tier.
     pub tiered_signals: &'a TieredSignals,
     pub review_timings: crate::review::model::ReviewTimings,
     #[serde(skip_serializing_if = "Option::is_none")]

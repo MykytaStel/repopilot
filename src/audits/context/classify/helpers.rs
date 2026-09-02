@@ -81,7 +81,6 @@ pub fn is_test_file(path: &Path) -> bool {
         || (file_name.starts_with("test_") && conventions.test_prefix_marks_test)
 }
 
-/// Whether any of `names` appears as a whole directory component of the path.
 fn has_test_directory(path_text: &str, names: &[&str]) -> bool {
     let mut components = path_text.split(['/', '\\']).collect::<Vec<_>>();
     components.pop(); // the file name itself is not a directory
@@ -181,12 +180,8 @@ fn is_minified(path: &Path) -> bool {
         })
 }
 
-/// Vendored or generated JS/TS bundles — Emscripten/WASM glue, codegen output —
-/// are not hand-maintained source, so their runtime constructs (e.g. an
-/// Emscripten `process.exit` shim) are noise rather than the hazard a rule
-/// targets. They announce themselves with an Emscripten runtime marker or a
-/// bare, whole-file lint opt-out as the very first line (no rule list — a
-/// signature hand-written code does not use).
+// Ignore generated JS/TS bundles identified by Emscripten markers or a bare
+// whole-file lint opt-out; their runtime shims are not authored application code.
 fn looks_like_vendored_bundle(content: &str) -> bool {
     if content.contains("Emscripten Module") || content.contains("EMSCRIPTEN_") {
         return true;

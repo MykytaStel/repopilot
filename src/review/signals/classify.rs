@@ -299,11 +299,8 @@ const ACCESS_STRONG: &[&str] = &[
 /// Request-trust terms (CORS / security headers), matched as whole tokens.
 const REQUEST_TRUST_TOKENS: &[&str] = &["cors", "csp", "helmet"];
 
-/// Whether `text` (already lowercased) names a boundary concept: any
-/// high-specificity `strong` substring, or any vague `tokens` term as a whole
-/// token. The token path is what keeps `author`/`sessionStorage`/`security_logger`
-/// from being misread as boundaries — the same fix applied to the coarse
-/// behavioral fallback.
+// Match specific boundary substrings or vague terms as whole tokens, avoiding
+// lookalikes such as `author` and `security_logger`.
 fn text_names_boundary(text: &str, strong: &[&str], tokens: &[&str]) -> bool {
     if strong.iter().any(|needle| text.contains(needle)) {
         return true;

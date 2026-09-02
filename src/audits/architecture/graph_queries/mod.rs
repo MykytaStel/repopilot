@@ -134,16 +134,8 @@ impl GraphQueriesAudit {
     }
 }
 
-/// A production file that nothing imports and that is not an entrypoint or a
-/// package's public API surface is likely dead code.
-///
-/// "Nothing imports this file" is an absence claim, so it is only as good as
-/// the import graph: an unresolved internal import whose final segment matches
-/// this file's name could well be the missing importer (skip entirely), and
-/// any other unresolved internal import still means the graph is incomplete
-/// (report at `Medium` instead of the registry's `High`). Internal imports
-/// include relative paths, recognized aliases, and bare imports that target a
-/// repository directory — the monorepo/workspace shapes the resolver misses.
+// Emit dead-module evidence only when the import graph is ready for an absence
+// claim; unresolved internal imports lower confidence or suppress the claim.
 fn dead_module_finding(
     info: &NodeInfo,
     fan_in: Option<usize>,

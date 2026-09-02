@@ -30,11 +30,8 @@ pub(super) fn is_python_package_member(
     source_facts.is_some_and(|facts| facts.imports.iter().any(|import| import == parent))
 }
 
-/// The module a derived candidate would have been derived from: everything
-/// before the last dotted segment, keeping the leading relative dots.
-///
-/// `.a` → `.`, `..a` → `..`, `.a.b` → `.a`, `pkg.a` → `pkg`. A bare `.` or `..`
-/// has no parent to check.
+// Return the parent module while preserving leading relative dots. Bare `.` and
+// `..` have no parent candidate.
 fn parent_module(raw_import: &str) -> Option<&str> {
     let leading_dots = raw_import.len() - raw_import.trim_start_matches('.').len();
     let (dots, rest) = raw_import.split_at(leading_dots);

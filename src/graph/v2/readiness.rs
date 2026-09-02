@@ -57,16 +57,8 @@ impl GraphReadiness {
     }
 }
 
-/// Whether the graph maps this language well enough to reason from an absence.
-///
-/// An absence claim says "no edge points here". That is only information when
-/// the graph found most of the edges that exist. Comparing a language's
-/// resolved edges against its unresolved internal imports gives that directly:
-/// when more of its imports failed than succeeded, the map has more holes than
-/// roads, and a missing edge says nothing about the code.
-///
-/// No unresolved imports means nothing failed, so a language with few edges is
-/// still fully mapped — sparse is not the same as unmapped.
+// Absence claims are meaningful only when resolved edges cover at least the
+// unresolved internal imports. No unresolved imports means the graph is mapped.
 fn language_is_mapped(
     capabilities: &GraphCapabilities,
     resolution: &ImportResolutionStats,

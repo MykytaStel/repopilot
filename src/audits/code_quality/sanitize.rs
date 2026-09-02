@@ -7,8 +7,7 @@
 /// state and pass a mutable reference for each line in the file.
 ///
 /// Handles mid-line block comments correctly (e.g. `foo(); /* comment */ bar()`).
-/// Does not handle Rust raw strings or nested block comments — a future
-/// parser-level pass is the right place for those.
+/// Rust raw strings and nested block comments are not handled.
 pub fn sanitize_c_style(line: &str, in_block_comment: &mut bool) -> String {
     let mut output = String::with_capacity(line.len());
     let mut chars = line.chars().peekable();

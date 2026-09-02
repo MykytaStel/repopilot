@@ -97,11 +97,8 @@ fn file_name_declares(path: &Path, type_name: &str, extensions: &[&str]) -> bool
         .is_some_and(|extension| extensions.contains(&extension))
 }
 
-/// Whether `path` is the file declaring `type_path`: its tail is exactly the
-/// package path plus a source extension, starting at a directory boundary.
-///
-/// `known_files` only ever holds scanned repository files, so matching the tail
-/// cannot reach outside the repository.
+// Match the package/type tail at a directory boundary; callers provide scanned
+// paths, so this cannot resolve outside the repository.
 fn declares_type(path: &Path, type_path: &str, extensions: &[&str]) -> bool {
     let text = path.to_string_lossy().replace('\\', "/");
     let Some(without_extension) = extensions

@@ -36,14 +36,8 @@ fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
-/// Module paths imported *type-only* — `import type { … }`, `export type { … }`,
-/// or named imports/exports whose every specifier is inline type-only
-/// (`import { type A, type B }`) — and never imported as a value. The TypeScript
-/// compiler erases these, so they create no runtime edge and must be subtracted
-/// from cycle detection (they stay real edges for coupling/fan-out, like Python
-/// deferred imports). A module that is *also* imported as a value anywhere —
-/// including a mixed `import { type A, B }`, a default/namespace import, or a
-/// dynamic `import("…")` — is a runtime edge and is excluded here.
+// Type-only imports are erased at runtime and excluded from cycle detection,
+// unless the same module is imported as a value anywhere in the file.
 fn extract_type_only(tree: &Tree, content: &str) -> HashSet<String> {
     let mut type_only: HashSet<String> = HashSet::new();
     let mut value: HashSet<String> = HashSet::new();

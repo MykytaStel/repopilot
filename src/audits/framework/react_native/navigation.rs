@@ -128,7 +128,7 @@ impl ProjectAudit for DirectStateMutationAudit {
     }
 }
 
-/// Returns true if the line looks like `this.state.someKey = value` (not `==` or `===`).
+// Match assignment to `this.state.someKey`, excluding equality operators.
 fn is_direct_state_mutation(trimmed: &str) -> bool {
     let Some(pos) = trimmed.find("this.state.") else {
         return false;

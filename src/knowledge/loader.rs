@@ -20,11 +20,7 @@ impl<'a> KnowledgePackSource<'a> {
     }
 }
 
-/// Returns the runtime Knowledge Engine source for this release line.
-///
-/// RepoPilot 0.12 keeps the bundled pack as the only runtime source. The
-/// indirection keeps rule decisions independent from how future local overlays
-/// are loaded and validated.
+/// Returns the bundled Knowledge Engine source used by this process.
 pub fn active_knowledge() -> &'static KnowledgeBase {
     bundled_knowledge()
 }

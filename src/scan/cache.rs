@@ -346,10 +346,8 @@ impl CachePath for FindingsEntry {
     }
 }
 
-/// File-hash and file-role caches store only file metadata (path, hash, LOC,
-/// language). They do not depend on which rules are active, so they only need
-/// to be invalidated when the binary schema changes — not on every version
-/// bump. This lets incremental rescans stay warm across patch releases.
+// File metadata caches are independent of active rules; invalidate them only
+// when their schema changes so patch releases retain warm rescans.
 fn valid_file_hashes_cache(cache: &FileHashesCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
 }
@@ -359,12 +357,8 @@ fn valid_file_roles_cache(cache: &FileRolesCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
 }
 
-/// The findings cache header is also validated by schema version only.
-/// Per-entry invalidation is handled by `FindingsEntry::config_fingerprint`,
-/// which is a hash of every active rule + config setting computed by
-/// `config_fingerprint()` in `cache/fingerprint.rs`. When rules change,
-/// the fingerprint changes and that entry is skipped; unaffected entries
-/// remain valid across version bumps.
+// Per-entry findings invalidation uses `FindingsEntry::config_fingerprint`;
+// unchanged entries survive rule/config changes and version bumps.
 fn valid_findings_cache(cache: &FindingsCache) -> bool {
     cache.schema_version == CACHE_SCHEMA_VERSION
 }
