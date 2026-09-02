@@ -112,14 +112,9 @@ fn discover_overlay(start: &Path) -> Option<std::path::PathBuf> {
 /// process, so a single `OnceLock` (mirroring `active_knowledge()`) is safe.
 ///
 /// This ordering is not enforced at runtime: if [`active_overlay`] is ever
-/// called first, `OnceLock::get_or_init` permanently pins the process to an
-/// empty ruleset, and every subsequent `init_active_overlay(root)` call
-/// silently becomes a no-op — no error, no diagnostic. Today that hazard is
-/// controlled entirely by there being exactly one, early production call
-/// site (`src/commands/product_scan.rs`, wired in PR-2's Task 2.3), which
-/// calls this before any scan mode runs and therefore before `decide()` is
-/// reachable. If a second call site is ever added, whoever adds it is
-/// responsible for preserving that "init before any decide()" ordering.
+/// called first, `OnceLock` permanently pins the process to an empty ruleset.
+/// Keep initialization before the first `decide()` call; the scan startup path
+/// does this once for both CLI and MCP invocations.
 pub fn init_active_overlay(root: &Path) -> &'static OverlayRules {
     OVERLAY.get_or_init(|| {
         OverlayRules::load(root).unwrap_or_else(|_| OverlayRules {

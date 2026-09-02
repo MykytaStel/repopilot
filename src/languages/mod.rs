@@ -1,23 +1,11 @@
-//! Language frontend registry — the single place that answers "what does
-//! RepoPilot know about language X".
+//! Language frontend registry: the compile-time map of language support.
 //!
-//! Today language knowledge is spread across detection profiles
-//! (`knowledge/packs/core.toml`), grammar wiring (`analysis/parse.rs`),
-//! import extractors (`graph/imports/*`), review signal tables, runtime-risk
-//! patterns, and path conventions. Each frontend in this registry will own
-//! its language's slice of those concerns; consumers look the frontend up by
-//! [`LanguageKind`] or knowledge-pack id instead of matching on label
-//! strings.
+//! Each frontend groups the language-specific grammar, imports, review signals,
+//! runtime-risk tables, conventions, and framework probes. Detection profiles
+//! remain in `knowledge/packs/core.toml`; consumers resolve a frontend by
+//! [`LanguageKind`] or knowledge-pack id instead of matching label strings.
 //!
-//! This module is the 0.21 skeleton (PR-1): descriptors and guard tests
-//! only, wired to nothing. Follow-up PRs migrate dispatch here one concern
-//! at a time (detection/parse, imports, review tables, risk, conventions),
-//! each behavior-frozen against the zoo snapshots. Per-language files grow
-//! into directories when they gain their first extractor.
-//!
-//! Frontends are static data assembled at compile time — this is not a
-//! plugin system, and per the Knowledge Engine runtime boundaries it must
-//! not become one.
+//! Frontends are static data assembled at compile time, not a plugin system.
 
 pub mod capability;
 pub(crate) mod conventions;
@@ -42,10 +30,8 @@ use crate::analysis::parse::{ParseLanguage, ParsedFile};
 use crate::audits::context::LanguageKind;
 use std::collections::{BTreeMap, HashSet};
 
-/// Binds one detection label (as stored on `FileFacts.language`) to the
-/// tree-sitter grammar that parses it. Mirrors `ParseLanguage::from_label`
-/// until parse dispatch is rewired through the registry; the guard tests
-/// keep the two in lockstep in the meantime.
+/// Binds one detection label (as stored on `FileFacts.language`) to its
+/// tree-sitter grammar.
 pub struct GrammarBinding {
     pub label: &'static str,
     pub(crate) grammar: ParseLanguage,
@@ -235,9 +221,7 @@ pub(crate) fn review_for_label(
     frontend_for_label(label).and_then(|frontend| frontend.review)
 }
 
-/// The removed-behavior recognizers claiming a file extension, if any. This
-/// dispatch predates label-based detection; the extension lists live on the
-/// tables verbatim and the guard tests keep them from drifting or colliding.
+/// The removed-behavior recognizers claiming a file extension, if any.
 pub(crate) fn removed_for_extension(
     ext: &str,
 ) -> Option<&'static crate::review::signals::tables::RemovedTables> {

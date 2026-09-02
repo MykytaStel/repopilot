@@ -11,9 +11,8 @@ use crate::audits::context::model::{
 };
 use std::path::Path;
 
-// This is the single orchestration boundary for role classification. Keeping
-// all classifier inputs explicit makes path/content/framework decisions visible
-// and avoids hiding them inside mutable global state.
+// Keep classifier inputs explicit so path/content/framework decisions stay
+// visible and do not depend on mutable global state.
 #[allow(clippy::too_many_arguments)]
 pub fn classify_roles(
     roles: &mut Vec<FileRole>,

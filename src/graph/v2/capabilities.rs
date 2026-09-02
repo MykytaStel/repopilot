@@ -2,10 +2,9 @@
 //!
 //! [`graph_capabilities`] reports, for one `GraphSnapshot`, which dependency
 //! facts the graph actually carries — counts of file vs external nodes and of
-//! dependency edges by confidence tier. The roadmap calls for rules to declare
-//! whether the graph evidence they need is available for a repository or scope;
-//! this is the bounded, deterministic foundation for that check. It is internal
-//! and has no command or report consumer yet — it does not add a public surface.
+//! dependency edges by confidence tier. Architecture audits and context
+//! analysis use these capabilities to decide whether graph-backed claims are
+//! ready to emit. The calculation is bounded and deterministic.
 
 use super::{GraphEdgeConfidence, GraphNodeKind, GraphSnapshot};
 use std::collections::BTreeMap;

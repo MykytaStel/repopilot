@@ -34,9 +34,8 @@ pub struct AlgorithmicKinds {
 /// Recognizers for the "removed behavioral signal" detectors (deleted tests,
 /// removed error handling, removed auth checks).
 pub struct RemovedTables {
-    /// Extensions this table answers for. This dispatch predates label-based
-    /// detection and is kept verbatim — including `cts`, which detection
-    /// never labels today, preserved as-is rather than silently dropped.
+    /// Extensions this table answers for, including `cts`, which detection does
+    /// not currently label.
     pub(crate) extensions: &'static [&'static str],
     /// Whether a node declares one test case (`it(...)`, `def test_…`, …).
     pub(crate) is_test_case: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
