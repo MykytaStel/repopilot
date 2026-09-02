@@ -1,0 +1,30 @@
+{
+  "expected_version": "0.23.0",
+  "channels": [
+    {
+      "channel": "github",
+      "observed_version": "0.23.0",
+      "state": "published-matching",
+      "action": "skip"
+    },
+    {
+      "channel": "npm-root",
+      "state": "absent",
+      "action": "publish"
+    },
+    {
+      "channel": "npm-linux-x64",
+      "observed_version": "0.23.0",
+      "expected_digest": "sha512-local",
+      "observed_digest": "sha512-other",
+      "state": "published-mismatch",
+      "action": "fail"
+    },
+    {
+      "channel": "crates",
+      "error_kind": "network",
+      "state": "network-failure",
+      "action": "retry"
+    }
+  ]
+}

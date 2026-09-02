@@ -31,6 +31,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
@@ -47,7 +49,9 @@ jobs:
           if [[ -z "$TAG" ]]; then
             TAG="v$(node -p 'require("./package.json").version')"
           fi
+          VERSION_NUMBER="${TAG#v}"
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION_NUMBER=$VERSION_NUMBER" >> "$GITHUB_ENV"
 
       - name: Verify package version matches release tag
         run: |
@@ -97,10 +101,96 @@ jobs:
       - name: Publish platform packages to npm
         run: |
           set -euo pipefail
+          ROOT_DIR="$GITHUB_WORKSPACE"
+          publish_if_needed() {
+            local package_dir="$1"
+            local package_name local_integrity metadata error_file state_json state
+            package_name="$(node -p 'require(process.argv[1]).name' "$package_dir/package.json")"
+            local_integrity="$(cd "$package_dir" && npm pack --dry-run --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk).on("end", () => process.stdout.write(JSON.parse(data)[0].integrity || ""))')"
+            error_file="$(mktemp)"
+            if metadata="$(npm view "${package_name}@${VERSION_NUMBER}" version dist.integrity --json 2>"$error_file")"; then
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --observed-version "$(jq -r 'if type == "string" then . else .version end' <<<"$metadata")" --expected-digest "$local_integrity" --observed-digest "$(jq -r 'if type == "string" then "" else .["dist.integrity"] // "" end' <<<"$metadata")")"
+            elif grep -Eq 'E401|E403|401 Unauthorized|403 Forbidden' "$error_file"; then
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind auth)"
+            elif grep -Eq 'E404|404 Not Found|code E404' "$error_file"; then
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER")"
+            elif grep -Eiq 'E429|429 Too Many Requests|rate limit' "$error_file"; then
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind rate-limit)"
+            elif grep -Eq 'E5[0-9]{2}|5[0-9]{2} (Internal|Bad|Service|Gateway)' "$error_file"; then
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind service)"
+            else
+              state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind network)"
+            fi
+            rm -f "$error_file"
+            state="$(jq -r '.state' <<<"$state_json")"
+            echo "$state_json"
+            case "$state" in
+              published-matching)
+                echo "Skipping $package_name@$VERSION_NUMBER: immutable identity matches."
+                ;;
+              absent)
+                echo "Publishing $package_name@$VERSION_NUMBER: package is absent."
+                npm publish "$package_dir" --access public
+                ;;
+              published-mismatch)
+                echo "::error::published-mismatch for $package_name@$VERSION_NUMBER; refusing to overwrite an immutable package"
+                return 1
+                ;;
+              auth-failure|network-failure|rate-limit-failure|service-failure)
+                echo "::error::$state while checking $package_name@$VERSION_NUMBER; rerun recovery after the service recovers"
+                return 1
+                ;;
+              *)
+                echo "::error::unknown publication state $state for $package_name"
+                return 1
+                ;;
+            esac
+          }
           node -e 'const fs=require("node:fs"); const packages=JSON.parse(fs.readFileSync("dist/npm-platform-packages.json","utf8")); for (const pkg of packages) console.log(pkg.directory);' |
           while IFS= read -r package_dir; do
-            npm publish "$package_dir" --access public
+            publish_if_needed "$package_dir"
           done
 
       - name: Publish root package to npm
-        run: npm publish
+        run: |
+          set -euo pipefail
+          ROOT_DIR="$GITHUB_WORKSPACE"
+          package_name="$(node -p 'require("./package.json").name')"
+          local_integrity="$(npm pack --dry-run --json | node -e 'let data=""; process.stdin.on("data", chunk => data += chunk).on("end", () => process.stdout.write(JSON.parse(data)[0].integrity || ""))')"
+          error_file="$(mktemp)"
+          if metadata="$(npm view "${package_name}@${VERSION_NUMBER}" version dist.integrity --json 2>"$error_file")"; then
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --observed-version "$(jq -r 'if type == "string" then . else .version end' <<<"$metadata")" --expected-digest "$local_integrity" --observed-digest "$(jq -r 'if type == "string" then "" else .["dist.integrity"] // "" end' <<<"$metadata")")"
+          elif grep -Eq 'E401|E403|401 Unauthorized|403 Forbidden' "$error_file"; then
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind auth)"
+          elif grep -Eq 'E404|404 Not Found|code E404' "$error_file"; then
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER")"
+          elif grep -Eiq 'E429|429 Too Many Requests|rate limit' "$error_file"; then
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind rate-limit)"
+          elif grep -Eq 'E5[0-9]{2}|5[0-9]{2} (Internal|Bad|Service|Gateway)' "$error_file"; then
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind service)"
+          else
+            state_json="$(python3 "$ROOT_DIR/scripts/publication_state.py" classify --channel "$package_name" --expected-version "$VERSION_NUMBER" --error-kind network)"
+          fi
+          rm -f "$error_file"
+          state="$(jq -r '.state' <<<"$state_json")"
+          echo "$state_json"
+          case "$state" in
+            published-matching)
+              echo "Skipping $package_name@$VERSION_NUMBER: immutable identity matches."
+              ;;
+            absent)
+              npm publish --access public
+              ;;
+            published-mismatch)
+              echo "::error::published-mismatch for $package_name@$VERSION_NUMBER; refusing to overwrite an immutable package"
+              exit 1
+              ;;
+            auth-failure|network-failure|rate-limit-failure|service-failure)
+              echo "::error::$state while checking $package_name@$VERSION_NUMBER; rerun recovery after the service recovers"
+              exit 1
+              ;;
+            *)
+              echo "::error::unknown publication state $state for $package_name"
+              exit 1
+              ;;
+          esac

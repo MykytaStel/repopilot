@@ -357,6 +357,46 @@ def check_release_orchestration() -> None:
         raise ContractError("Release workflow still contains a VS Code/VSIX surface")
 
 
+def check_publication_recovery_contract() -> None:
+    release = read_text(ROOT / ".github/workflows/release.yml")
+    npm = read_text(ROOT / ".github/workflows/publish-npm.yml")
+    mutable_query = re.compile(r'npm view\s+"?(?:repopilot|\$package)"?\s+version')
+    if mutable_query.search(release) or mutable_query.search(npm):
+        raise ContractError("publication recovery contains a mutable npm query")
+    if re.search(r'\.dist\.integrity\b', release) or re.search(r'\.dist\.integrity\b', npm):
+        raise ContractError("publication recovery must read the literal dist.integrity key")
+
+    required_release = (
+        'VERSION_NUMBER="${VERSION#v}"',
+        "scripts/publication_state.py classify",
+        'npm view "${package}@${VERSION_NUMBER}" version dist.integrity --json',
+        "cargo package --allow-dirty --no-verify",
+        "version.checksum",
+        "404",
+        "rate-limit-failure",
+        "published-mismatch",
+    )
+    required_npm = (
+        'ref: ${{ inputs.tag || github.ref }}',
+        'npm view "${package_name}@${VERSION_NUMBER}" version dist.integrity --json',
+        "published-mismatch",
+        'npm publish "$package_dir"',
+        "npm publish",
+        "rate-limit-failure",
+    )
+    missing = [marker for marker in required_release if marker not in release]
+    missing.extend(marker for marker in required_npm if marker not in npm)
+    if missing:
+        raise ContractError(
+            "publication recovery contract is incomplete: " + ", ".join(missing)
+        )
+
+    platform_publish = npm.find('npm publish "$package_dir"')
+    root_publish = npm.find("npm publish", platform_publish + 1)
+    if platform_publish == -1 or root_publish == -1 or platform_publish > root_publish:
+        raise ContractError("npm platform packages must publish before the root package")
+
+
 def check_removed_vscode_surface() -> None:
     stale_paths = [
         ROOT / "editors/vscode/package.json",
@@ -489,6 +529,7 @@ def check_contract(tag: str | None) -> None:
     check_cargo_package()
     check_action_pins()
     check_release_orchestration()
+    check_publication_recovery_contract()
     check_removed_vscode_surface()
     check_roadmap_docs()
     check_rule_scorecard()

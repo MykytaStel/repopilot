@@ -178,6 +178,50 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaisesRegex(release_contract.ContractError, "does not call"):
             release_contract.check_release_orchestration()
 
+    def test_publication_recovery_requires_exact_identity_checks(self) -> None:
+        self.write(".github/workflows/release.yml", "jobs: {}\n")
+        self.write(".github/workflows/publish-npm.yml", "jobs: {}\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "publication recovery"
+        ):
+            release_contract.check_publication_recovery_contract()
+
+    def test_publication_recovery_rejects_mutable_latest_queries(self) -> None:
+        self.write(
+            ".github/workflows/release.yml",
+            """
+            VERSION_NUMBER="${VERSION#v}"
+            python3 scripts/publication_state.py classify
+            npm view "${package}@${VERSION_NUMBER}" version dist.integrity --json
+            npm view repopilot version
+            """,
+        )
+        self.write(
+            ".github/workflows/publish-npm.yml",
+            """
+            npm view "${package_name}@${VERSION_NUMBER}" version dist.integrity --json
+            published-mismatch
+            """,
+        )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "mutable npm query"
+        ):
+            release_contract.check_publication_recovery_contract()
+
+    def test_publication_recovery_rejects_nested_integrity_lookup(self) -> None:
+        self.write(
+            ".github/workflows/release.yml",
+            'jq -r \'if type == "string" then "" else (.dist.integrity // "") end\'\n',
+        )
+        self.write(".github/workflows/publish-npm.yml", "")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "literal dist.integrity"
+        ):
+            release_contract.check_publication_recovery_contract()
+
     def test_cargo_package_rejects_files_outside_allowlist(self) -> None:
         result = subprocess.CompletedProcess(
             args=["cargo", "package"],

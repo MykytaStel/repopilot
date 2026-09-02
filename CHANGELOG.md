@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Started recoverable release publication: exact version and package identity
+  checks now skip only matching immutable npm/crates artifacts, fail closed on
+  mismatches, distinguish authentication/network/rate-limit/service failures,
+  and keep post-release npm integrity and crates checksum verification exact.
+
 - Added released producer/reader compatibility evidence for schemas 0.18–0.26,
   including exact asset/crate provenance and a line-movement baseline guard.
   Incompatible history now emits `history.comparison-unavailable` instead of

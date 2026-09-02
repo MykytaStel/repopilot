@@ -35,6 +35,7 @@ adoption or CI policy.
 - [v0.23 Phase 0A evidence-baseline plan](engineering/v0.23-phase-0a-plan.md)
 - [v0.23 report compatibility matrix](engineering/v0.23-compatibility-matrix.md)
 - [v0.23 Phase 0B2 compatibility implementation plan](engineering/v0.23-phase-0b-compatibility-plan.md)
+- [v0.23 Phase 0C recoverable publication plan](engineering/v0.23-0c-publication-recovery-plan.md)
 - [v0.23 release evidence ledger](engineering/v0.23-evidence-ledger.md)
 - [v0.22 repository intelligence design](engineering/v0.22-repository-intelligence-design.md)
 - [v0.22 Phase A1 context graph specification](engineering/v0.22-phase-a1-context-graph-v2.md)
