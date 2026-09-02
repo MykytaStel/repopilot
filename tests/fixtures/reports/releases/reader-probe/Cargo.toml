@@ -1,0 +1,9 @@
+[package]
+name = "repopilot-released-reader-probe"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+repopilot020 = { package = "repopilot", version = "=0.20.0" }
+repopilot021 = { package = "repopilot", version = "=0.21.0" }
+repopilot022 = { package = "repopilot", version = "=0.22.0" }

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-02",
+  "platform": "aarch64-apple-darwin",
+  "fixture_input": {
+    "files": [
+      "src/main.py",
+      "src/config.py",
+      "tests/test_main.py"
+    ],
+    "finding": "security.secret-candidate",
+    "expected_files_analyzed": 2,
+    "expected_findings": 1
+  },
+  "capture": {
+    "asset_command": "gh release download v<VERSION> --pattern repopilot-v<VERSION>-aarch64-apple-darwin.tar.gz*",
+    "producer_command": "repopilot scan . --format json --output <FIXTURE> --no-progress",
+    "reader_command": "cargo run --locked --manifest-path reader-probe/Cargo.toml -- scan-v0220-schema026.json",
+    "reader_probe_lock_sha256": "8acacb7ed842260248b209ca740b25d2350dd62be800d254a8948e0751830610"
+  },
+  "producers": [
+    {
+      "package_version": "0.16.0",
+      "tag": "v0.16.0",
+      "tag_commit": "a6aa1b70806c766727e6877554c20331e8e19fbc",
+      "asset": "repopilot-v0.16.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "b73987f763cd94db9deb0893d8718c350d254bc64697ea69b4df622a79ce48e4",
+      "report_schema": "0.18",
+      "fixture": "scan-v0160-schema018.json",
+      "report_sha256": "9cca11957febbe3edad07538e1ff3ce91cb32a3c93a23992b552e8ca88e7de7c"
+    },
+    {
+      "package_version": "0.17.0",
+      "tag": "v0.17.0",
+      "tag_commit": "2680f298544916107c0a22b63a92fe45c3263014",
+      "asset": "repopilot-v0.17.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "576961f17923048ec5def0145a137119d7a3590413b2b9256b6acb36ae6689f7",
+      "report_schema": "0.19",
+      "fixture": "scan-v0170-schema019.json",
+      "report_sha256": "c0b23bc9d227829efeba2ff1a310a54d9fd03d5e46b6e9a5c686b049c5456eda"
+    },
+    {
+      "package_version": "0.19.0",
+      "tag": "v0.19.0",
+      "tag_commit": "b8d4617bf8e8fce956d575458370151e49badaf1",
+      "asset": "repopilot-v0.19.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "a2024a407a1c97e948882e32692e7969d5dab060f7387f369c702b58d0ba3d8f",
+      "report_schema": "0.20",
+      "fixture": "scan-v0190-schema020.json",
+      "report_sha256": "d5e508ccfe8eba7538e0a002ba63b451ab2e3ac6aa25df99d4960fd894efb093"
+    },
+    {
+      "package_version": "0.20.0",
+      "tag": "v0.20.0",
+      "tag_commit": "97cc6beba797ab8c24f89865bfa8540cb1fe2976",
+      "asset": "repopilot-v0.20.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "d930a6f4282fc5c168bc4de9a73b4280271ebb617e049948a3789c4f5185cb6b",
+      "report_schema": "0.23",
+      "fixture": "scan-v0200-schema023.json",
+      "report_sha256": "db16ead5ee1f8ac2e5b99d4ec9f97c610113ee0d2d5e2e721663dca073895221"
+    },
+    {
+      "package_version": "0.21.0",
+      "tag": "v0.21.0",
+      "tag_commit": "f23f36a2d6e7830298d03bb9af0f5faa924f77f7",
+      "asset": "repopilot-v0.21.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "8e49ad23078576aa58fbee20729bc22a1cc3eb3581d676abd0ac3242985e80bc",
+      "report_schema": "0.23",
+      "fixture": "scan-v0210-schema023.json",
+      "report_sha256": "6e81190d48167ef97f55920d7e797fe5abcdfebdec50b94813ac87d9435b53f7"
+    },
+    {
+      "package_version": "0.22.0",
+      "tag": "v0.22.0",
+      "tag_commit": "a000dc7cf189798b814672673076cf9179b1a267",
+      "asset": "repopilot-v0.22.0-aarch64-apple-darwin.tar.gz",
+      "asset_sha256": "14e6b20e4f37ef1e6700656a55642891435ad3b00562f9b4ea6f5d0a4ab4bc9c",
+      "report_schema": "0.26",
+      "fixture": "scan-v0220-schema026.json",
+      "report_sha256": "5c25c394e1316c0b93f79580c7f128206ee03bdc66e9b7717f3fcf6e12c6d67b"
+    }
+  ],
+  "readers": [
+    {
+      "package_version": "0.20.0",
+      "crate_sha256": "dd4c34f54391f99b7b696b9a2a95de0944b44d1db95a9b7c78fb00d9ae153782",
+      "input_schema": "0.26",
+      "outcome": "rejected-unsupported-schema"
+    },
+    {
+      "package_version": "0.21.0",
+      "crate_sha256": "f56054b602524e10bd0f33834ae1a94994fa63c0fce86bae1f475c248c885093",
+      "input_schema": "0.26",
+      "outcome": "rejected-unsupported-schema"
+    },
+    {
+      "package_version": "0.22.0",
+      "crate_sha256": "6975b2f4673cd771345d0e1ab7da5a4d09b4b94660a4f0e71cbcaef004025a28",
+      "input_schema": "0.26",
+      "outcome": "accepted"
+    }
+  ],
+  "baseline": {
+    "schema_version": 1,
+    "fixture": "baseline-v0200-v0220-schema1.json",
+    "fixture_sha256": "7339b73b38b15601f345a329e98a2cf779a9b8cb92465ece581804789e8a5a1e",
+    "emitted_by": ["0.20.0", "0.22.0"]
+  },
+  "limitations": [
+    "Release tags do not uniquely produce every transition schema accepted by the current reader.",
+    "Producer fixtures prove macOS ARM64 output; platform archive parity is covered separately by release metadata and smoke tests.",
+    "Reader probes exercise the public Rust API, because the CLI does not ingest stored scan JSON.",
+    "SARIF, Action, and MCP are not scan-report readers and are outside this directional matrix."
+  ]
+}

@@ -81,6 +81,25 @@ pub(super) fn render_diagnostics_line(output: &mut String, summary: &ScanSummary
     } else if warnings > 0 {
         writeln!(output, "Diagnostics: {warnings} warning(s)").unwrap();
     }
+
+    for diagnostic in &summary.artifacts.diagnostics {
+        writeln!(
+            output,
+            "  [{}] {}: {}",
+            diagnostic_severity_label(diagnostic.severity),
+            diagnostic.code,
+            diagnostic.message
+        )
+        .unwrap();
+    }
+}
+
+fn diagnostic_severity_label(severity: DiagnosticSeverity) -> &'static str {
+    match severity {
+        DiagnosticSeverity::Info => "info",
+        DiagnosticSeverity::Warning => "warning",
+        DiagnosticSeverity::Error => "error",
+    }
 }
 
 pub(super) fn render_local_feedback_line(output: &mut String, summary: &ScanSummary) {

@@ -1,0 +1,298 @@
+{
+  "schema_version": "0.26",
+  "repopilot_version": "0.22.0",
+  "report": {
+    "kind": "scan",
+    "schema_version": "0.26",
+    "repopilot_version": "0.22.0"
+  },
+  "root_path": ".",
+  "mode": "full",
+  "changed_files_count": 0,
+  "repo_level_rules_included": true,
+  "files_discovered": 3,
+  "files_analyzed": 2,
+  "assessment_status": "assessed",
+  "directories_count": 2,
+  "non_empty_lines": 3,
+  "large_files_skipped": 0,
+  "files_skipped_low_signal": 1,
+  "binary_files_skipped": 0,
+  "skipped_bytes": 0,
+  "languages": [
+    {
+      "name": "Python",
+      "files_analyzed": 2
+    }
+  ],
+  "findings": [
+    {
+      "id": "security.secret-candidate:src/config.py:32de077f97726ce9",
+      "rule_id": "security.secret-candidate",
+      "title": "Possible secret detected",
+      "description": "Line 1 in `./src/config.py` looks like it may contain a hardcoded secret (matched key: `token`). Move real credentials to environment variables or a secrets manager, and rotate the credential if it was committed.",
+      "recommendation": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "path": "./src/config.py",
+          "line_start": 1,
+          "line_end": null,
+          "snippet": "API_TOKEN = \"sk_...***\""
+        }
+      ],
+      "docs_url": "https://github.com/MykytaStel/repopilot/blob/main/docs/security.md#secret-handling",
+      "provenance": {
+        "detector": "security.secret-candidate",
+        "signal_source": "text-heuristic",
+        "rule_lifecycle": "preview",
+        "analysis_scope": "file",
+        "knowledge_decision": {
+          "base_severity": "HIGH",
+          "action": "apply",
+          "decided_severity": "HIGH",
+          "overlay_applied": false
+        }
+      },
+      "risk": {
+        "score": 100,
+        "priority": "P0",
+        "signals": [
+          {
+            "id": "severity.high",
+            "label": "severity",
+            "weight": 75,
+            "reason": "high severity finding",
+            "source": "severity"
+          },
+          {
+            "id": "confidence.high",
+            "label": "confidence",
+            "weight": 8,
+            "reason": "high confidence signal",
+            "source": "confidence"
+          },
+          {
+            "id": "category.security",
+            "label": "security",
+            "weight": 12,
+            "reason": "security findings are prioritized",
+            "source": "category"
+          },
+          {
+            "id": "role.production",
+            "label": "visibility",
+            "weight": 10,
+            "reason": "production code findings are more likely to affect runtime behavior",
+            "source": "visibility"
+          }
+        ],
+        "formula_version": "risk-v3"
+      },
+      "occurrence_key": "c89812f271675357",
+      "decision": {
+        "severity": "HIGH",
+        "confidence": "HIGH",
+        "evidence": [
+          {
+            "path": "./src/config.py",
+            "line_start": 1,
+            "line_end": null,
+            "snippet": "API_TOKEN = \"sk_...***\""
+          }
+        ],
+        "recommendation": "Move the value to an environment variable or secrets manager. If this is a real credential that was committed, rotate it and consider the old value compromised. Use explicit placeholders such as `<OPENAI_API_KEY>` or `${OPENAI_API_KEY}` in examples.",
+        "verification_plan": {
+          "steps": [
+            "Open ./src/config.py:1 and confirm the flagged code shown is still present: `API_TOKEN = \"sk_...***\"`.",
+            "Confirm the flagged input reaches this code without validation or sanitization, and check for an existing test covering this path.",
+            "This plan is generated from static evidence only — it does not execute code, run tests, or observe runtime behavior. Treat it as a starting point for manual or test-based confirmation, not proof the finding is a true or false positive."
+          ]
+        }
+      }
+    }
+  ],
+  "detected_frameworks": [],
+  "framework_projects": [],
+  "coupling_graph": {
+    "edges": {
+      "./src/config.py": [],
+      "./src/main.py": [],
+      "./tests/test_main.py": []
+    },
+    "nodes": [
+      "./src/config.py",
+      "./src/main.py",
+      "./tests/test_main.py"
+    ]
+  },
+  "context_graph_summary": {
+    "files": 3,
+    "import_edges": 0,
+    "risky_clusters": [
+      {
+        "rule_id": "security.secret-candidate",
+        "scope": "src",
+        "count": 1,
+        "max_score": 100,
+        "priority": "P0"
+      },
+      {
+        "rule_id": "architecture.dead-module",
+        "scope": "src",
+        "count": 1,
+        "max_score": 34,
+        "priority": "P3"
+      },
+      {
+        "rule_id": "testing.source-without-test",
+        "scope": "src",
+        "count": 1,
+        "max_score": 10,
+        "priority": "P3"
+      }
+    ]
+  },
+  "context_graph_cache": {
+    "status": "write",
+    "reason": "context-graph-cache-updated",
+    "cache_path": "./.repopilot/cache/repo_context.json"
+  },
+  "scan_duration_us": 7691,
+  "health_score": 90,
+  "maintainability_score": 98,
+  "raw_findings_count": 3,
+  "visible_findings_count": 1,
+  "hidden_suggestions_count": 2,
+  "hidden_suggestions": [
+    {
+      "intent": "informational",
+      "rule_id": "architecture.dead-module",
+      "category": "architecture",
+      "reason": "low-severity findings are strict-mode suggestions by default",
+      "count": 1
+    },
+    {
+      "intent": "testing-gap",
+      "rule_id": "testing.source-without-test",
+      "category": "testing",
+      "reason": "low-confidence findings are strict-mode suggestions by default",
+      "count": 1
+    }
+  ],
+  "visibility_profile": "default",
+  "files_skipped_by_limit": 0,
+  "files_skipped_repopilotignore": 0,
+  "scan_timings": {
+    "discovery_us": 1043,
+    "file_analysis_us": 5077,
+    "parse_us": 2622,
+    "file_scan_us": 6120,
+    "framework_detection_us": 48,
+    "post_scan_audits_us": 1253,
+    "enrichment_us": 31,
+    "risk_scoring_us": 207,
+    "contract_validation_us": 0,
+    "report_finalization_us": 17650
+  },
+  "risk_summary": {
+    "total": 1,
+    "counts": {
+      "p0": 1,
+      "p1": 0,
+      "p2": 0,
+      "p3": 0
+    },
+    "highest_priority": "P0",
+    "average_score": 100
+  },
+  "raw_signal_quality": {
+    "findings_total": 3,
+    "by_confidence": {
+      "low": 1,
+      "medium": 0,
+      "high": 2
+    },
+    "by_lifecycle": {
+      "experimental": 2,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 2,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 1,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "visible_signal_quality": {
+    "findings_total": 1,
+    "by_confidence": {
+      "low": 0,
+      "medium": 0,
+      "high": 1
+    },
+    "by_lifecycle": {
+      "experimental": 0,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 1,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "signal_quality": {
+    "findings_total": 1,
+    "by_confidence": {
+      "low": 0,
+      "medium": 0,
+      "high": 1
+    },
+    "by_lifecycle": {
+      "experimental": 0,
+      "preview": 1,
+      "stable": 0,
+      "deprecated": 0
+    },
+    "by_signal_source": {
+      "text_heuristic": 1,
+      "ast": 0,
+      "config_file": 0,
+      "dependency_manifest": 0,
+      "import_graph": 0,
+      "framework_detector": 0,
+      "git_diff": 0,
+      "mixed": 0
+    },
+    "evidence_coverage_percent": 100,
+    "recommendation_coverage_percent": 100,
+    "docs_coverage_for_high_risk_percent": 100,
+    "contract_violations": 0
+  },
+  "rule_false_positive_notes": {
+    "security.secret-candidate": "Public labels, documented variable names, environment-variable references, and placeholders such as `your-openai-api-key`, `replace-with-*`, `example-*`, `<OPENAI_API_KEY>`, and `${OPENAI_API_KEY}` should not trigger; entropy and provider-looking token formats are both considered. High-entropy tokens that appear inside a URL value (e.g. Firebase Storage download URLs with `?token=` query parameters) are also skipped — they are URL parameters, not hardcoded secrets. Files under paths containing `tutorial` are treated as example/docs code and skipped. Environment-variable name strings such as `envvar=\"GITHUB_TOKEN\"` (all-caps identifiers referencing an env var) are not flagged."
+  }
+}

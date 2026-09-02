@@ -6,6 +6,7 @@ pub enum HistoryDiagnosticKind {
     InvalidRecord,
     TruncatedRecord,
     UnsupportedSchema,
+    ComparisonUnavailable,
     ReadFailed,
     WriteFailed,
 }
@@ -16,6 +17,7 @@ impl HistoryDiagnosticKind {
             Self::InvalidRecord => "invalid-record",
             Self::TruncatedRecord => "truncated-record",
             Self::UnsupportedSchema => "unsupported-schema",
+            Self::ComparisonUnavailable => "comparison-unavailable",
             Self::ReadFailed => "read-failed",
             Self::WriteFailed => "write-failed",
         }
@@ -47,6 +49,16 @@ impl HistoryDiagnostic {
         Self {
             kind: HistoryDiagnosticKind::ReadFailed,
             message: message.into(),
+            line: None,
+        }
+    }
+
+    pub(super) fn comparison_unavailable(reason: &str) -> Self {
+        Self {
+            kind: HistoryDiagnosticKind::ComparisonUnavailable,
+            message: format!(
+                "History comparison unavailable ({reason}); no risk delta was produced and no findings were classified as resolved."
+            ),
             line: None,
         }
     }
