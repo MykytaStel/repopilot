@@ -306,7 +306,8 @@ class ReleaseContractTests(unittest.TestCase):
             "## Release Gates\n## Definition of Done\n",
         )
         self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
-        self.write("docs/README.md", "- no links here\n")
+        self.write("docs/engineering/README.md", "- [r](../roadmap/v0.20.md)\n")
+        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
 
         with self.assertRaisesRegex(
             release_contract.ContractError, "does not link"
@@ -321,7 +322,11 @@ class ReleaseContractTests(unittest.TestCase):
             "## Release Gates\n## Definition of Done\n",
         )
         self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
-        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
+        self.write(
+            "docs/engineering/README.md",
+            "- [r](../roadmap/v0.20.md)\n- [s](v0.20-release-scorecard.md)\n",
+        )
+        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
 
         release_contract.check_roadmap_docs()
 
@@ -338,11 +343,15 @@ class ReleaseContractTests(unittest.TestCase):
             "docs/README.md",
             "\n".join(
                 [
-                    "roadmap/v0.23.md",
-                    "engineering/v0.23-phase-0-spec.md",
-                    "engineering/v0.23-evidence-ledger.md",
+                    "engineering/README.md",
                 ]
             ),
+        )
+        self.write(
+            "docs/engineering/README.md",
+            "../roadmap/v0.23.md\n"
+            "v0.23-phase-0-spec.md\n"
+            "v0.23-evidence-ledger.md\n",
         )
         self.write(
             "docs/roadmap/v0.23.md",
@@ -382,6 +391,49 @@ class ReleaseContractTests(unittest.TestCase):
             release_contract.ContractError, "documentation contract"
         ):
             release_contract.check_v023_docs()
+
+    def test_docs_navigation_rejects_direct_internal_public_link(self) -> None:
+        self.write("docs/engineering/foo.md", "# Foo\n")
+        self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
+        self.write(
+            "docs/README.md",
+            "- [Engineering](engineering/README.md)\n"
+            "- [Foo](engineering/foo.md)\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "public docs index"):
+            release_contract.check_docs_navigation()
+
+    def test_docs_navigation_rejects_versioned_roadmap_public_link(self) -> None:
+        self.write("docs/engineering/foo.md", "# Foo\n")
+        self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
+        self.write(
+            "docs/README.md",
+            "- [Engineering](engineering/README.md)\n"
+            "- [v0.22](roadmap/v0.22.md)\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "internal/history"):
+            release_contract.check_docs_navigation()
+
+    def test_docs_navigation_rejects_orphan_engineering_file(self) -> None:
+        self.write("docs/engineering/foo.md", "# Foo\n")
+        self.write("docs/engineering/bar.md", "# Bar\n")
+        self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
+        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "engineering index"):
+            release_contract.check_docs_navigation()
+
+    def test_docs_navigation_passes_with_single_public_engineering_link(self) -> None:
+        self.write("docs/engineering/foo.md", "# Foo\n")
+        self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
+        self.write(
+            "docs/README.md",
+            "- [Engineering](engineering/README.md)\n- [Roadmap](roadmap.md)\n",
+        )
+
+        release_contract.check_docs_navigation()
 
     def test_docs_parity_requires_registry_tools_in_both_guides(self) -> None:
         self.write(
@@ -444,7 +496,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_rule_scorecard_fails_when_stale(self) -> None:
         self._write_zoo_scorecard_fixture()
         self.write("docs/engineering/rule-scorecard.md", "stale content\n")
-        self.write("docs/README.md", "- [x](engineering/rule-scorecard.md)\n")
+        self.write("docs/engineering/README.md", "- [x](rule-scorecard.md)\n")
 
         with self.assertRaisesRegex(release_contract.ContractError, "stale"):
             release_contract.check_rule_scorecard()
@@ -452,7 +504,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_rule_scorecard_requires_docs_index_link(self) -> None:
         self._write_zoo_scorecard_fixture()
         self.write("docs/engineering/rule-scorecard.md", self._fresh_rule_scorecard())
-        self.write("docs/README.md", "- no links here\n")
+        self.write("docs/engineering/README.md", "- no scorecard link\n")
 
         with self.assertRaisesRegex(release_contract.ContractError, "does not link"):
             release_contract.check_rule_scorecard()
@@ -460,7 +512,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_rule_scorecard_passes_when_fresh(self) -> None:
         self._write_zoo_scorecard_fixture()
         self.write("docs/engineering/rule-scorecard.md", self._fresh_rule_scorecard())
-        self.write("docs/README.md", "- [x](engineering/rule-scorecard.md)\n")
+        self.write("docs/engineering/README.md", "- [x](rule-scorecard.md)\n")
 
         release_contract.check_rule_scorecard()
 
