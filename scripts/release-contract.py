@@ -534,6 +534,43 @@ def check_v023_docs() -> None:
     _check_v023_markers(files)
 
 
+def mcp_tool_names() -> tuple[str, ...]:
+    names = {
+        name
+        for path in (ROOT / "src/commands/mcp").glob("*.rs")
+        for name in re.findall(r'pub const TOOL_NAME: &str = "([^"]+)"', read_text(path))
+    }
+    if not names:
+        raise ContractError("docs parity could not find MCP tool registry entries")
+    return tuple(sorted(names))
+
+
+def check_docs_parity() -> None:
+    """Compare stable docs claims with source-owned registry and schema values."""
+    mcp_docs = read_text(ROOT / "docs/mcp.md")
+    cli_docs = read_text(ROOT / "docs/cli.md")
+    missing_tools = [
+        f"{tool} missing from {path}"
+        for path, content in (("docs/mcp.md", mcp_docs), ("docs/cli.md", cli_docs))
+        for tool in mcp_tool_names()
+        if tool not in content
+    ]
+    if missing_tools:
+        raise ContractError("docs parity is incomplete:\n  " + "\n  ".join(missing_tools))
+
+    schema_text = read_text(ROOT / "src/report/schema.rs")
+    schema_match = re.search(
+        r'pub const SCAN_REPORT_SCHEMA_VERSION: &str = "([^"]+)"', schema_text
+    )
+    if not schema_match:
+        raise ContractError("docs parity could not find report schema registry value")
+    version = cargo_version()
+    schema = schema_match.group(1)
+    expected = f"Binary `{version}` emits schema `{schema}`"
+    if expected not in read_text(ROOT / "docs/reports.md"):
+        raise ContractError(f"docs parity is incomplete: missing `{expected}`")
+
+
 def check_rule_scorecard() -> None:
     """The committed per-rule scorecard must be fresh and linked from the docs index.
 
@@ -614,6 +651,7 @@ def check_contract(tag: str | None) -> None:
     check_removed_vscode_surface()
     check_roadmap_docs()
     check_v023_docs()
+    check_docs_parity()
     check_rule_scorecard()
     check_zoo_gate()
     print(f"Release contract passed for {version}")

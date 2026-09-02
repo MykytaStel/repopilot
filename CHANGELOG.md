@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Added source-driven documentation parity checks: MCP tool names now come
+  from the Rust registry, and the reports guide is checked against the current
+  package and report-schema versions. The existing release-contract job runs
+  this automatically in CI.
+
 - Reconciled v0.23 planning and reports documentation with the current Phase 0
   lifecycle. The release contract now checks the v0.23 docs index, evidence
   links, status markers, and assessed-scope boundaries; `PASS` and health
