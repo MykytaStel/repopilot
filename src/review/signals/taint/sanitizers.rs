@@ -12,7 +12,7 @@
 //! Context-specific sanitizers (shell quoting like `shlex.quote`, URL encoding
 //! like `encodeURIComponent`, HTML escaping like `escape`) only neutralize for
 //! *their* sink and would cause false negatives if applied to SQL/exec/fs
-//! universally — recognizing them per-sink is a documented follow-up.
+//! universally. Per-sink sanitizer semantics are not modeled here.
 
 use super::tables::TaintTables;
 use tree_sitter::Node;
