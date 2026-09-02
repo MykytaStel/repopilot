@@ -9,11 +9,8 @@ pub(super) fn spans(parsed: &ParsedFile) -> BTreeMap<String, (usize, usize)> {
     extract_spans(parsed.content())
 }
 
-/// Line-based `using` directive extraction, mirroring the Java/Kotlin
-/// extractors. Handles `using N;`, `global using N;`, `using static T;`,
-/// and the alias form `using A = N.T;` (the aliased path is the edge).
-/// `using (resource)` statements and `using var x = …` declarations are
-/// resource management, not imports, and are skipped.
+// Extract C# `using` directives, including aliases; resource-management
+// statements (`using (...)`, `using var`) are not imports.
 fn extract_spans(content: &str) -> BTreeMap<String, (usize, usize)> {
     let mut result = BTreeMap::new();
     for (i, line) in content.lines().enumerate() {

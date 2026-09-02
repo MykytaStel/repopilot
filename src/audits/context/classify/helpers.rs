@@ -180,12 +180,8 @@ fn is_minified(path: &Path) -> bool {
         })
 }
 
-/// Vendored or generated JS/TS bundles — Emscripten/WASM glue, codegen output —
-/// are not hand-maintained source, so their runtime constructs (e.g. an
-/// Emscripten `process.exit` shim) are noise rather than the hazard a rule
-/// targets. They announce themselves with an Emscripten runtime marker or a
-/// bare, whole-file lint opt-out as the very first line (no rule list — a
-/// signature hand-written code does not use).
+// Ignore generated JS/TS bundles identified by Emscripten markers or a bare
+// whole-file lint opt-out; their runtime shims are not authored application code.
 fn looks_like_vendored_bundle(content: &str) -> bool {
     if content.contains("Emscripten Module") || content.contains("EMSCRIPTEN_") {
         return true;

@@ -13,17 +13,8 @@ pub(super) fn is_source_file(path: &Path) -> bool {
         && !is_documentation_path(path)
 }
 
-/// Documentation / example source that does not warrant a unit test.
-///
-/// A `docs_src/` tree is an unambiguous documentation name and is skipped wherever
-/// it appears. A bare `docs/` directory is trickier: at a package root (repo root
-/// or a monorepo package such as `packages/<pkg>/docs/`) it holds rendered
-/// examples, but *inside* a source tree (`src/docs/`, `src/features/docs/`,
-/// `lib/domain/docs/`, …) it is an ordinary `docs` domain module — common in a
-/// document-management app — and must stay visible. We therefore treat `docs/` as
-/// documentation only when no source root (`src`/`lib`/`app`) appears anywhere
-/// above it, not merely as its immediate parent. This is position-independent, so
-/// it holds regardless of any scan-root prefix on the path.
+// Skip documentation trees at the package root, but keep `docs/` modules that
+// live below a source root (`src`, `lib`, or `app`).
 fn is_documentation_path(path: &Path) -> bool {
     const SOURCE_ROOTS: &[&str] = &["src", "lib", "app"];
     let components: Vec<String> = path

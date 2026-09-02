@@ -106,11 +106,8 @@ pub fn compute_impact_paths(
     }
 }
 
-/// BFS over the importer relation from `seed`, returning every dependent
-/// found within `depth` hops mapped to its minimum hop distance. Excludes
-/// `seed` itself and every other changed file (mirroring `compute_blast_radius`'s
-/// exclusion of changed-from-changed importers). Sorted iteration throughout
-/// (`BTreeMap`/`BTreeSet`) keeps the result deterministic.
+// BFS over importers up to `depth`, excluding the seed and changed files. The
+// ordered maps keep the result deterministic.
 fn bounded_hops(
     seed: &Path,
     importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,

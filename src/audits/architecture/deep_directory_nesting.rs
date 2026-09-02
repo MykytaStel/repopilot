@@ -43,19 +43,8 @@ impl ProjectAudit for DeepDirectoryNestingAudit {
     }
 }
 
-/// Whether this file's depth reflects a decision someone made about layout.
-///
-/// The rule's claim is that a tree is hard to navigate, which only holds where
-/// the tree could have been shallower. Two large classes of file fail that:
-///
-/// * **Non-source files.** A compiled gettext catalog under
-///   `locale/<lang>/LC_MESSAGES/`, a vendored minified stylesheet, a Django
-///   template — their location is fixed by the tool that reads them, and nobody
-///   navigates them by directory anyway.
-/// * **JVM sources.** Java, Kotlin, and Scala require the directory path to
-///   mirror the declared package, so `com/google/samples/apps/nowinandroid/core/`
-///   is a package name rendered as folders, not nesting anyone chose. Reporting
-///   it flags every file in the repository.
+// Only count source files whose directory depth is a layout choice. Generated
+// assets and JVM package paths are fixed by their tooling.
 fn depth_is_a_layout_choice(path: &Path) -> bool {
     const SOURCE_EXTENSIONS: &[&str] = &[
         "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "rb", "php", "cs", "swift", "c",

@@ -70,11 +70,8 @@ fn extract_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFac
     }
 }
 
-/// Records what a sourced `export ... from "..."` statement can still supply.
-///
-/// The forwarded symbols live in another module, so their kind is unknown here.
-/// A bare `export * from "..."` can supply any name, which makes every removal
-/// claim about this module unprovable.
+// Forwarded symbols are owned by another module. A wildcard re-export therefore
+// makes removal claims about this module unprovable.
 fn extract_re_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
     let mut cursor = node.walk();
     let mut forwards_named_symbols = false;
@@ -96,7 +93,7 @@ fn extract_re_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbol
     }
 }
 
-/// `export * as api from "..."` supplies only the alias it binds.
+// A namespace re-export supplies only its declared alias.
 fn record_namespace_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFacts) {
     match node.named_child(0).and_then(|alias| {
         alias

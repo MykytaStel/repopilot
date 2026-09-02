@@ -76,9 +76,7 @@ pub(super) fn store(path: &Path, key: &str, output: &str) {
     storage::store(path, key, output);
 }
 
-/// Config content folded into the key so a config change invalidates the cache:
-/// the explicit `config` argument, or the same path-discovered default config the
-/// MCP scan call uses when `config` is omitted.
+// Include the explicit or path-discovered config so edits invalidate the cache.
 fn config_blob(path: &Path, arguments: &Value) -> String {
     let config_path = arguments
         .get("config")

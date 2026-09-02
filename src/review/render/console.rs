@@ -253,10 +253,6 @@ fn render_impact_paths(output: &mut String, report: &ReviewReport) {
     }
 }
 
-/// Render the unified, confidence-tiered "Review signals" block. Boundary,
-/// behavioral, algorithmic, and taint signals are grouped into three tiers so
-/// the eye goes to the riskiest part of the diff first. The old standalone
-/// boundary block is folded into the `definitely` tier.
 fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
     let tiered = &report.tiered_signals;
     if tiered.is_empty() {

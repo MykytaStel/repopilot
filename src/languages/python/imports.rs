@@ -39,15 +39,9 @@ fn extract(tree: &Tree, content: &str) -> HashSet<String> {
     extract_spans(tree, content).into_keys().collect()
 }
 
-/// Imports that appear *only* inside a `def`/method body. A function body runs
-/// only when called, so such an import is a *deferred* import — the idiomatic
-/// way Python breaks an import cycle, and not part of the module-load dependency
-/// graph. The coupling graph still records these as edges (they are a real, if
-/// lazy, dependency, which `dead-module`/`excessive-fan-out` must see), but
-/// cycle detection subtracts them so a deferral does not resurrect the very
-/// cycle it broke. A module imported *both* eagerly and lazily keeps its eager
-/// edge, so it is excluded here. Module-scope imports inside `if`/`try` blocks
-/// run at import time and are never deferred.
+// Imports found only inside function bodies are deferred: they remain coupling
+// edges but are excluded from module-load cycle detection. Module-scope imports
+// and modules imported eagerly as well are not deferred.
 fn extract_deferred(tree: &Tree, content: &str) -> HashSet<String> {
     let mut scan = ImportScan::default();
     visit(tree.root_node(), content, false, &mut scan);

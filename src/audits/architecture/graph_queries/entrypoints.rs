@@ -165,11 +165,8 @@ fn is_framework_autoload(path: &Path, name: &str) -> bool {
     )
 }
 
-/// File-system routing: the framework derives the route from the path, so the
-/// module is never imported by name.
-///
-/// Next.js App Router, Next.js Pages Router, and Expo Router all reserve a
-/// small set of file names inside a routing directory.
+// Framework routing derives the route from a reserved path, so these modules
+// need not be imported by name.
 fn is_file_system_route(path: &Path, name: &str) -> bool {
     let Some(stem) = script_stem(name) else {
         return false;

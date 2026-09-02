@@ -87,17 +87,8 @@ fn is_algolia_public_key(matched_key: &str) -> bool {
     matches!(matched_key, "apikey" | "api_key")
 }
 
-/// The 1-based line numbers that fall inside a `#[cfg(test)]`/`#[test]`-gated
-/// item in a Rust source file.
-///
-/// Secret candidates in an inline `#[cfg(test)] mod tests` block are almost
-/// always fixtures (`password: "short"`, a fake-but-high-entropy token), yet
-/// the file-path test skip only catches whole *test files* — an inline test
-/// module living in a production `.rs` file slips through. Returns an empty set
-/// for non-Rust files. Brace depth is tracked over comment-sanitized lines; the
-/// common `#[cfg(test)]\nmod tests { … }` idiom is matched precisely, and a
-/// gated *declaration* without a body (`#[cfg(test)] mod helpers;`) does not
-/// open a region.
+// Collect lines inside inline Rust test modules so fixture credentials are
+// skipped without excluding production code in the same source file.
 fn rust_cfg_test_lines(file: &FileFacts) -> HashSet<usize> {
     let mut gated = HashSet::new();
     if file.path.extension().and_then(|ext| ext.to_str()) != Some("rs") {
