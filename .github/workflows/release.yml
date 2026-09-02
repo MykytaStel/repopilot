@@ -216,8 +216,45 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
 
-      - name: Publish
-        run: cargo publish
+      - name: Publish or verify crates.io package
+        run: |
+          set -euo pipefail
+          VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          CRATE_PATH="target/package/repopilot-${VERSION}.crate"
+          cargo package --allow-dirty --no-verify
+          LOCAL_CHECKSUM="$(sha256sum "$CRATE_PATH" | awk '{print $1}')"
+          metadata_file="$(mktemp)"
+          if ! status="$(curl -sS -o "$metadata_file" -w '%{http_code}' "https://crates.io/api/v1/crates/repopilot/${VERSION}")"; then
+            echo "::error::network-failure while checking crates.io repopilot@${VERSION}"
+            exit 1
+          fi
+          case "$status" in
+            200)
+              REMOTE_CHECKSUM="$(jq -r '.version.checksum // empty' "$metadata_file")"
+              if [[ -z "$REMOTE_CHECKSUM" || "$REMOTE_CHECKSUM" != "$LOCAL_CHECKSUM" ]]; then
+                echo "::error::published-mismatch for crates.io repopilot@${VERSION}; refusing to overwrite an immutable package"
+                exit 1
+              fi
+              echo "Skipping crates.io repopilot@${VERSION}: version.checksum matches."
+              ;;
+            404)
+              echo "Publishing crates.io repopilot@${VERSION}: package is absent."
+              cargo publish
+              ;;
+            401|403)
+              echo "::error::auth-failure while checking crates.io repopilot@${VERSION}"
+              exit 1
+              ;;
+            429)
+              echo "::error::rate-limit-failure while checking crates.io repopilot@${VERSION}"
+              exit 1
+              ;;
+            *)
+              echo "::error::service-failure while checking crates.io repopilot@${VERSION} (HTTP ${status})"
+              exit 1
+              ;;
+          esac
+          rm -f "$metadata_file"
 
   publish-npm:
     name: Publish npm packages
@@ -295,9 +332,20 @@ jobs:
       - publish-crates
       - publish-npm
       - update-homebrew-tap
+    if: ${{ always() }}
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+
       - name: Verify GitHub, crates.io, npm, and Homebrew
         env:
           GH_TOKEN: ${{ github.token }}
@@ -305,37 +353,131 @@ jobs:
         run: |
           set -euo pipefail
           VERSION_NUMBER="${VERSION#v}"
+          echo "Upstream results: crates=${{ needs.publish-crates.result }}, npm=${{ needs.publish-npm.result }}, homebrew=${{ needs.update-homebrew-tap.result }}"
+          verify_tmp="$(mktemp -d)"
+          trap 'rm -rf "$verify_tmp"' EXIT
 
-          assets="$(gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          gh release download "$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$verify_tmp" \
+            --pattern "repopilot-${VERSION}-*" \
+            --clobber
           for target in \
             x86_64-unknown-linux-gnu \
             aarch64-unknown-linux-gnu \
             x86_64-apple-darwin \
             aarch64-apple-darwin \
             x86_64-pc-windows-msvc; do
-            grep -q "repopilot-${VERSION}-${target}" <<<"$assets"
+            if [[ "$target" == x86_64-pc-windows-msvc ]]; then
+              archive="repopilot-${VERSION}-${target}.zip"
+            else
+              archive="repopilot-${VERSION}-${target}.tar.gz"
+            fi
+            test -f "$verify_tmp/$archive"
+            test -f "$verify_tmp/$archive.sha256"
+            (cd "$verify_tmp" && sha256sum -c "$archive.sha256")
           done
+
+          cargo package --allow-dirty --no-verify >/dev/null
+          crate_checksum="$(sha256sum "target/package/repopilot-${VERSION_NUMBER}.crate" | awk '{print $1}')"
+          node scripts/build-npm-platform-packages.js \
+            --dist "$verify_tmp" \
+            --out "$verify_tmp/npm-platform-packages" \
+            --version "$VERSION_NUMBER" \
+            > "$verify_tmp/npm-platform-packages.json"
+          root_integrity="$(npm pack --dry-run --json | jq -r '.[0].integrity')"
+
+          retry_needed=false
+          record_state() {
+            local result state
+            result="$(python3 scripts/publication_state.py classify "$@")"
+            echo "$result"
+            state="$(jq -r '.state' <<<"$result")"
+            case "$state" in
+              published-matching) ;;
+              published-mismatch)
+                echo "::error::published-mismatch; refusing to report a release as converged"
+                exit 1
+                ;;
+              *) retry_needed=true ;;
+            esac
+          }
+
+          check_npm() {
+            local package="$1" expected_digest="$2" metadata error_file
+            error_file="$(mktemp)"
+            if metadata="$(npm view "${package}@${VERSION_NUMBER}" version dist.integrity --json 2>"$error_file")"; then
+              record_state \
+                --channel "$package" \
+                --expected-version "$VERSION_NUMBER" \
+                --expected-digest "$expected_digest" \
+                --observed-version "$(jq -r 'if type == "string" then . else .version end' <<<"$metadata")" \
+                --observed-digest "$(jq -r 'if type == "string" then "" else .["dist.integrity"] // "" end' <<<"$metadata")"
+            elif grep -Eq 'E401|E403|401 Unauthorized|403 Forbidden' "$error_file"; then
+              record_state --channel "$package" --expected-version "$VERSION_NUMBER" --error-kind auth
+            elif grep -Eq 'E404|404 Not Found|code E404' "$error_file"; then
+              record_state --channel "$package" --expected-version "$VERSION_NUMBER"
+            elif grep -Eiq 'E429|429 Too Many Requests|rate limit' "$error_file"; then
+              record_state --channel "$package" --expected-version "$VERSION_NUMBER" --error-kind rate-limit
+            elif grep -Eq 'E5[0-9]{2}|5[0-9]{2} (Internal|Bad|Service|Gateway)' "$error_file"; then
+              record_state --channel "$package" --expected-version "$VERSION_NUMBER" --error-kind service
+            else
+              record_state --channel "$package" --expected-version "$VERSION_NUMBER" --error-kind network
+            fi
+            rm -f "$error_file"
+          }
 
           for attempt in {1..20}; do
             echo "Publication verification attempt ${attempt}/20"
-            crate_version="$(curl -fsSL "https://crates.io/api/v1/crates/repopilot/${VERSION_NUMBER}" | jq -r '.version.num' || true)"
-            npm_version="$(npm view repopilot version 2>/dev/null || true)"
-            formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" || true)"
-            npm_platforms_ready=true
-            for package in \
-              @repopilot/darwin-arm64 \
-              @repopilot/darwin-x64 \
-              @repopilot/linux-arm64-gnu \
-              @repopilot/linux-x64-gnu \
-              @repopilot/win32-x64-msvc; do
-              if [[ "$(npm view "$package" version 2>/dev/null || true)" != "$VERSION_NUMBER" ]]; then
-                npm_platforms_ready=false
+            retry_needed=false
+            if crate_metadata="$(curl -fsSL "https://crates.io/api/v1/crates/repopilot/${VERSION_NUMBER}" 2>"$verify_tmp/crates.err")"; then
+              record_state \
+                --channel crates \
+                --expected-version "$VERSION_NUMBER" \
+                --observed-version "$(jq -r '.version.num' <<<"$crate_metadata")" \
+                --expected-digest "$crate_checksum" \
+                --observed-digest "$(jq -r '.version.checksum // empty' <<<"$crate_metadata")"
+            elif grep -Eq '401|403|unauthorized|forbidden' "$verify_tmp/crates.err"; then
+              record_state --channel crates --expected-version "$VERSION_NUMBER" --error-kind auth
+            elif grep -Eq '429|too many requests|rate limit' "$verify_tmp/crates.err"; then
+              record_state --channel crates --expected-version "$VERSION_NUMBER" --error-kind rate-limit
+            elif grep -Eq '5[0-9]{2}|service unavailable|bad gateway' "$verify_tmp/crates.err"; then
+              record_state --channel crates --expected-version "$VERSION_NUMBER" --error-kind service
+            elif grep -Eq '404|not found' "$verify_tmp/crates.err"; then
+              record_state --channel crates --expected-version "$VERSION_NUMBER"
+            else
+              record_state --channel crates --expected-version "$VERSION_NUMBER" --error-kind network
+            fi
+
+            check_npm "repopilot" "$root_integrity"
+            # shellcheck disable=SC2016
+            while IFS=$'\t' read -r package package_dir; do
+              package_integrity="$(cd "$package_dir" && npm pack --dry-run --json | jq -r '.[0].integrity')"
+              check_npm "$package" "$package_integrity"
+            done < <(node -e 'const fs=require("node:fs"); for (const pkg of JSON.parse(fs.readFileSync(process.argv[1], "utf8"))) console.log(`${pkg.packageName}\t${pkg.directory}`)' "$verify_tmp/npm-platform-packages.json")
+
+            if formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" 2>"$verify_tmp/formula.err")"; then
+              formula_version="$(sed -nE 's/^version "([^"]+)".*/\1/p' <<<"$formula" | head -n 1)"
+              if [[ "$formula_version" == "$VERSION_NUMBER" ]]; then
+                record_state --channel homebrew --expected-version "$VERSION_NUMBER" --observed-version "$formula_version"
+              elif [[ -z "$formula_version" ]]; then
+                record_state --channel homebrew --expected-version "$VERSION_NUMBER"
+              else
+                record_state --channel homebrew --expected-version "$VERSION_NUMBER" --observed-version "$formula_version"
               fi
-            done
-            if [[ "$crate_version" == "$VERSION_NUMBER" \
-              && "$npm_version" == "$VERSION_NUMBER" \
-              && "$formula" == *"repopilot-${VERSION}-"* \
-              && "$npm_platforms_ready" == true ]]; then
+            elif grep -Eq '401|403|unauthorized|forbidden' "$verify_tmp/formula.err"; then
+              record_state --channel homebrew --expected-version "$VERSION_NUMBER" --error-kind auth
+            elif grep -Eq '404|not found' "$verify_tmp/formula.err"; then
+              record_state --channel homebrew --expected-version "$VERSION_NUMBER"
+            elif grep -Eq '429|too many requests|rate limit' "$verify_tmp/formula.err"; then
+              record_state --channel homebrew --expected-version "$VERSION_NUMBER" --error-kind rate-limit
+            elif grep -Eq '5[0-9]{2}|service unavailable|bad gateway' "$verify_tmp/formula.err"; then
+              record_state --channel homebrew --expected-version "$VERSION_NUMBER" --error-kind service
+            else
+              record_state --channel homebrew --expected-version "$VERSION_NUMBER" --error-kind network
+            fi
+
+            if [[ "$retry_needed" == false ]]; then
               exit 0
             fi
             sleep 15
