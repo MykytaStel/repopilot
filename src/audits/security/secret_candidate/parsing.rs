@@ -4,12 +4,8 @@
 // `include!`d into `secret_candidate.rs`, so it uses plain comments, not a `//!`
 // module doc.
 
-/// Returns the content of the first `"..."`/`'...'` segment in `value`, falling
-/// back to trimming surrounding quotes. This survives a trailing token after the
-/// closing quote — `"$PGPASSWORD" \` (a shell line continuation) becomes
-/// `$PGPASSWORD`, and `"short".to_string()` becomes `short` — so placeholder and
-/// shell-expansion detection see the real value instead of a fragment that
-/// looks high-entropy.
+// Extract the first quoted segment so trailing syntax cannot fool placeholder
+// and shell-expansion checks.
 fn unwrap_first_quoted(value: &str) -> &str {
     for quote in ['"', '\''] {
         if let Some(rest) = value.strip_prefix(quote)
@@ -21,16 +17,14 @@ fn unwrap_first_quoted(value: &str) -> &str {
     value.trim_matches('"').trim_matches('\'')
 }
 
-/// True when the value is a shell command substitution (`$(...)`, backticks) or
-/// begins one. A captured command output or expansion is not a literal secret.
+// A captured command output or expansion is not a literal secret.
 fn is_shell_expansion(value: &str) -> bool {
     let value = value.trim();
     value.starts_with("$(") || value.starts_with('`') || value.contains("$(")
 }
 
-/// Lines carrying the public search-only `apiKey` inside an Algolia DocSearch
-/// config block. The signature trio keeps the downgrade scoped to that widget,
-/// so unrelated `apiKey` credentials elsewhere in the file stay High.
+// Find public search-only `apiKey` lines in an Algolia DocSearch block. The
+// signature trio keeps unrelated credentials in the same file at High.
 fn algolia_public_api_key_lines(content: &str) -> HashSet<usize> {
     let lines: Vec<_> = content.lines().collect();
     let mut public_key_lines = HashSet::new();
@@ -88,9 +82,7 @@ fn algolia_config_block_end(lines: &[&str], start: usize) -> usize {
     start
 }
 
-/// True when `matched_key` is the public-facing Algolia search key field. Only
-/// the `apiKey` family is the published search-only key; other secret keys in the
-/// same file are unaffected.
+// Only the `apiKey` family is public; other secret keys in the file are not.
 fn is_algolia_public_key(matched_key: &str) -> bool {
     matches!(matched_key, "apikey" | "api_key")
 }

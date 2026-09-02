@@ -81,7 +81,6 @@ pub fn is_test_file(path: &Path) -> bool {
         || (file_name.starts_with("test_") && conventions.test_prefix_marks_test)
 }
 
-/// Whether any of `names` appears as a whole directory component of the path.
 fn has_test_directory(path_text: &str, names: &[&str]) -> bool {
     let mut components = path_text.split(['/', '\\']).collect::<Vec<_>>();
     components.pop(); // the file name itself is not a directory

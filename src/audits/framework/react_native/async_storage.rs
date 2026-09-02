@@ -61,8 +61,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
     }
 }
 
-/// Returns the 1-based line number of the import start if AsyncStorage is imported from
-/// react-native. Handles both single-line and multi-line imports.
+// Return the import's 1-based start line; imports may span multiple lines.
 fn find_async_storage_from_core(content: &str) -> Option<usize> {
     let lines: Vec<&str> = content.lines().collect();
     let mut i = 0;

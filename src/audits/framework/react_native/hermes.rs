@@ -78,8 +78,7 @@ impl ProjectAudit for ReactNativeCodegenMissingAudit {
     }
 }
 
-/// Returns true when gradle.properties explicitly disables Hermes.
-/// Tolerates spaces around `=` and ignores inline comments.
+// Tolerate spaces around `=` and ignore inline comments.
 fn gradle_properties_hermes_disabled(content: &str) -> bool {
     for line in content.lines() {
         let line = line.trim();

@@ -241,8 +241,7 @@ fn read_all_deps(root: &std::path::Path) -> Option<serde_json::Map<String, serde
     }
 }
 
-/// Parse a semver-like version string into (major, minor, patch).
-/// Strips leading `^`, `~`, `>=`, `>`, `=`.
+// Accept the common semver prefixes used in dependency manifests.
 fn parse_version(s: &str) -> Option<(u64, u64, u64)> {
     let s = s
         .trim()
