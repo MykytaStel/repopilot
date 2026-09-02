@@ -23,6 +23,62 @@ fn secret_candidate_masks_secret_values_and_skips_placeholders() {
 }
 
 #[test]
+fn secret_candidate_redaction_handles_unicode_without_panicking() {
+    let file = file("src/config.rs", "PASSWORD = \"pa😊ssword-with-unicode\"\n");
+
+    let findings = SecretCandidateAudit.audit(&file, &ScanConfig::default());
+
+    assert_eq!(findings.len(), 1);
+    let snippet = &findings[0].evidence[0].snippet;
+    assert!(
+        snippet.contains("pa😊...***"),
+        "unexpected redaction: {snippet}"
+    );
+    assert!(!snippet.contains("pa😊ssword-with-unicode"));
+}
+
+#[test]
+fn secret_candidate_keeps_demo_docker_credentials_visible_and_masked() {
+    let compose = file(
+        "docker-compose.yml",
+        "environment:\n  SA_PASSWORD=@someThingComplicated1234\n",
+    );
+    let appsettings = file(
+        "src/PublicApi/appsettings.Docker.json",
+        "    \"CatalogConnection\": \"Server=sqlserver,1433;User Id=sa;Password=@someThingComplicated1234;Trusted_Connection=false;TrustServerCertificate=true;\",\n",
+    );
+
+    let compose_findings = SecretCandidateAudit.audit(&compose, &ScanConfig::default());
+    assert_eq!(
+        compose_findings.len(),
+        1,
+        "demo credential must remain a finding"
+    );
+    assert_eq!(compose_findings[0].confidence, Confidence::High);
+    let compose_snippet = &compose_findings[0].evidence[0].snippet;
+    assert!(
+        compose_snippet.contains("@so...***"),
+        "unexpected redaction: {compose_snippet}"
+    );
+    assert!(!compose_snippet.contains("@someThingComplicated1234"));
+
+    let appsettings_findings = SecretCandidateAudit.audit(&appsettings, &ScanConfig::default());
+    assert_eq!(
+        appsettings_findings.len(),
+        1,
+        "demo credential must remain a finding"
+    );
+    assert_eq!(appsettings_findings[0].confidence, Confidence::High);
+    let appsettings_snippet = &appsettings_findings[0].evidence[0].snippet;
+    assert!(
+        appsettings_snippet.contains("Server=sqlserver")
+            && appsettings_snippet.contains("Password=@so...***"),
+        "the matched password segment should be masked in place: {appsettings_snippet}"
+    );
+    assert!(!appsettings_snippet.contains("@someThingComplicated1234"));
+}
+
+#[test]
 fn secret_candidate_skips_test_and_fixture_paths() {
     let file = file("tests/fixture.rs", "API_KEY = \"abc123xyz987\"\n");
 
