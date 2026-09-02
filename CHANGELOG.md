@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Hardened `security.secret-candidate` evidence redaction: connection strings
+  now mask the matched credential segment instead of the first assignment, and
+  Unicode secrets no longer risk a byte-boundary panic. Real demo/Docker
+  credentials remain visible as findings while their values stay masked.
+
 - Added source-driven documentation parity checks: MCP tool names now come
   from the Rust registry, and the reports guide is checked against the current
   package and report-schema versions. The existing release-contract job runs

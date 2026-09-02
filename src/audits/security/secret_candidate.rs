@@ -160,7 +160,7 @@ fn detect_secret_line(
             line_number,
             path,
             matched_key,
-            mask_secret_value(line.trim()),
+            mask_secret_value(line.trim(), matched_key),
             confidence,
         ));
     }

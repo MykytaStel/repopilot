@@ -61,14 +61,64 @@ fn mask_token_in_line(line: &str, token: &str) -> String {
     line.replace(token, &format!("{visible_prefix}...***"))
 }
 
-fn mask_secret_value(line: &str) -> String {
-    // Find the first = or : assignment and mask everything after the first 3 chars of value
-    if let Some(pos) = line.find('=').or_else(|| line.find(':')) {
-        let (key_part, value_part) = line.split_at(pos + 1);
-        let value = value_part.trim().trim_matches('"').trim_matches('\'');
-        if value.len() > 3 {
-            return format!("{key_part} \"{}...***\"", &value[..3]);
+fn mask_secret_value(line: &str, matched_key: &str) -> String {
+    let lower_line = line.to_ascii_lowercase();
+    let lower_key = matched_key.to_ascii_lowercase();
+    let Some(key_start) = lower_line.find(&lower_key) else {
+        return format!("{line} [value masked]");
+    };
+
+    let key_end = key_start + matched_key.len();
+    let after_key = &line[key_end..];
+    let whitespace = after_key.len() - after_key.trim_start().len();
+    let mut value_start = key_end + whitespace;
+    let assignment = &line[value_start..];
+    if assignment.starts_with('=') {
+        value_start += 1;
+    } else if assignment.starts_with(':') {
+        value_start += 1;
+        let after_colon = &line[value_start..];
+        value_start += after_colon.len() - after_colon.trim_start().len();
+        if line[value_start..].starts_with('=') {
+            value_start += 1;
         }
+    } else {
+        return format!("{line} [value masked]");
     }
-    format!("{line} [value masked]")
+
+    let value = line[value_start..].trim_start();
+    value_start += line[value_start..].len() - value.len();
+    let (value_end, quote) = match value.chars().next() {
+        Some(quote @ ('"' | '\'')) => {
+            let end = value[quote.len_utf8()..]
+                .find(quote)
+                .map(|offset| quote.len_utf8() + offset + quote.len_utf8())
+                .unwrap_or(value.len());
+            (value_start + end, Some(quote))
+        }
+        Some(_) => {
+            let end = value
+                .find(|character: char| {
+                    character.is_whitespace() || matches!(character, ';' | ',' | '}')
+                })
+                .unwrap_or(value.len());
+            (value_start + end, None)
+        }
+        None => return format!("{line} [value masked]"),
+    };
+
+    let raw_value = &line[value_start..value_end];
+    let unquoted = quote
+        .map(|quote| raw_value.trim_start_matches(quote).trim_end_matches(quote))
+        .unwrap_or(raw_value);
+    if unquoted.chars().count() <= 3 {
+        return format!("{line} [value masked]");
+    }
+
+    let prefix = unquoted.chars().take(3).collect::<String>();
+    let replacement = match quote {
+        Some(quote) => format!("{quote}{prefix}...***{quote}"),
+        None => format!("{prefix}...***"),
+    };
+    format!("{}{}{}", &line[..value_start], replacement, &line[value_end..])
 }
