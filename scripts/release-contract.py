@@ -276,6 +276,59 @@ def check_markdown_links() -> None:
         raise ContractError("Broken Markdown links:\n  " + "\n  ".join(failures))
 
 
+def _local_markdown_targets(document: Path) -> set[Path]:
+    targets: set[Path] = set()
+    for raw_target in MARKDOWN_LINK.findall(read_text(document)):
+        target = raw_target.strip().split(maxsplit=1)[0].strip("<>")
+        if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+            continue
+        path_text = unquote(target.split("#", 1)[0].split("?", 1)[0])
+        if path_text:
+            targets.add((document.parent / path_text).resolve())
+    return targets
+
+
+def check_docs_navigation() -> None:
+    """Keep public docs concise while making engineering docs discoverable."""
+    public_index = ROOT / "docs" / "README.md"
+    engineering_index = ROOT / "docs" / "engineering" / "README.md"
+    if not engineering_index.exists():
+        raise ContractError("Missing docs/engineering/README.md engineering index")
+
+    public_targets = _local_markdown_targets(public_index)
+    expected_index = engineering_index.resolve()
+    if expected_index not in public_targets:
+        raise ContractError("docs/README.md must link to engineering/README.md")
+
+    public_text = read_text(public_index)
+    leaked = [
+        target
+        for target in MARKDOWN_LINK.findall(public_text)
+        if target.strip().split(maxsplit=1)[0].strip("<>").startswith("engineering/")
+        and target.strip().split(maxsplit=1)[0].strip("<>") != "engineering/README.md"
+    ]
+    historical = [
+        target
+        for target in MARKDOWN_LINK.findall(public_text)
+        if re.match(r"roadmap/v0\.(?:20|21|22|23)\.md(?:#|$)", target.strip())
+    ]
+    if leaked or historical:
+        details = ", ".join(leaked + historical)
+        raise ContractError(f"public docs index links internal/history docs: {details}")
+
+    indexed = _local_markdown_targets(engineering_index)
+    missing = [
+        path.relative_to(ROOT)
+        for path in sorted((ROOT / "docs" / "engineering").glob("*.md"))
+        if path.name != "README.md" and path.resolve() not in indexed
+    ]
+    if missing:
+        raise ContractError(
+            "engineering index is missing links:\n  "
+            + "\n  ".join(map(str, missing))
+        )
+
+
 def check_npm_claims() -> None:
     stale_patterns = [
         re.compile(r"REPOPILOT_SKIP_DOWNLOAD"),
@@ -446,11 +499,11 @@ def check_roadmap_docs() -> None:
             + "\n  ".join(missing_headings)
         )
 
-    docs_index = read_text(ROOT / "docs" / "README.md")
-    if "roadmap/v0.20.md" not in docs_index:
-        raise ContractError("docs/README.md does not link to v0.20 roadmap")
-    if "v0.20-release-scorecard.md" not in docs_index:
-        raise ContractError("docs/README.md does not link to v0.20 release scorecard")
+    engineering_index = read_text(ROOT / "docs" / "engineering" / "README.md")
+    if "../roadmap/v0.20.md" not in engineering_index:
+        raise ContractError("engineering index does not link to v0.20 roadmap")
+    if "v0.20-release-scorecard.md" not in engineering_index:
+        raise ContractError("engineering index does not link to v0.20 release scorecard")
 
 
 def _v023_doc_files() -> dict[str, Path]:
@@ -462,17 +515,15 @@ def _v023_doc_files() -> dict[str, Path]:
     }
 
 
-def _check_v023_doc_links(docs_index: str) -> None:
+def _check_v023_doc_links(engineering_index: str) -> None:
     required_links = (
-        "roadmap/v0.23.md",
-        "engineering/v0.23-phase-0-spec.md",
-        "engineering/v0.23-evidence-ledger.md",
+        "../roadmap/v0.23.md",
+        "v0.23-phase-0-spec.md",
+        "v0.23-evidence-ledger.md",
     )
-    missing_links = [link for link in required_links if link not in docs_index]
+    missing_links = [link for link in required_links if link not in engineering_index]
     if missing_links:
-        raise ContractError(
-            "docs/README.md is missing v0.23 links:\n  " + "\n  ".join(missing_links)
-        )
+        raise ContractError("engineering index is missing v0.23 links:\n  " + "\n  ".join(missing_links))
 
 
 def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]]:
@@ -530,7 +581,7 @@ def check_v023_docs() -> None:
     if missing:
         raise ContractError("Missing v0.23 documentation:\n  " + "\n  ".join(missing))
 
-    _check_v023_doc_links(read_text(ROOT / "docs/README.md"))
+    _check_v023_doc_links(read_text(ROOT / "docs/engineering" / "README.md"))
     _check_v023_markers(files)
 
 
@@ -598,9 +649,9 @@ def check_rule_scorecard() -> None:
             "regenerate with `python3 scripts/zoo.py scorecard --write`"
         )
 
-    docs_index = read_text(ROOT / "docs" / "README.md")
-    if "rule-scorecard.md" not in docs_index:
-        raise ContractError("docs/README.md does not link to the rule scorecard")
+    engineering_index = read_text(ROOT / "docs" / "engineering" / "README.md")
+    if "rule-scorecard.md" not in engineering_index:
+        raise ContractError("engineering index does not link to the rule scorecard")
 
 
 def check_zoo_gate() -> None:
@@ -644,6 +695,7 @@ def check_contract(tag: str | None) -> None:
     release_notes(version)
     check_markdown_links()
     check_npm_claims()
+    check_docs_navigation()
     check_cargo_package()
     check_action_pins()
     check_release_orchestration()
