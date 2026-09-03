@@ -63,88 +63,7 @@ impl RustPanicRiskAudit {
         };
 
         match parsed.tree() {
-            Some(tree) => {
-                let candidates = ast::collect_candidates(tree.root_node(), content);
-
-                let mut findings = Vec::new();
-                let mut sorted_lines: Vec<usize> = candidates.keys().copied().collect();
-                sorted_lines.sort_unstable();
-
-                for line_number in sorted_lines {
-                    let (node, pattern) = candidates.get(&line_number).unwrap();
-                    let trimmed_line = content.lines().nth(line_number - 1).unwrap_or("").trim();
-
-                    // Apply infallible write unwrap structural check
-                    if is_report_renderer_path(&file.path)
-                        && is_structural_infallible_render_write_unwrap(*node, content)
-                    {
-                        continue;
-                    }
-
-                    // A literal `Regex::new("…")`/`Selector::parse("…")` only fails
-                    // on a malformed compile-time pattern — a deterministic bug, not
-                    // a runtime panic risk — so skip it structurally (handles the
-                    // multi-line form the text heuristic below cannot).
-                    if is_infallible_literal_construction_unwrap(*node, content) {
-                        continue;
-                    }
-
-                    // Apply contextual ignore patterns
-                    if should_ignore_contextual_panic_pattern(*pattern, trimmed_line) {
-                        continue;
-                    }
-
-                    let decision = decide_for_audit_context(
-                        RULE_ID,
-                        &context,
-                        pattern.base_severity(),
-                        Some(pattern.signal()),
-                    );
-
-                    if decision.is_suppressed() {
-                        continue;
-                    }
-
-                    // Sanitize line for external failure checks
-                    let mut in_block_comment = false;
-                    let sanitized = sanitize_c_style(trimmed_line, &mut in_block_comment);
-                    let sanitized = sanitized.trim();
-
-                    // A `"literal".parse().unwrap()` parses authored input: it can
-                    // still panic (`"999".parse::<u8>()`), but as a deterministic bug
-                    // caught on the first run, not external-input risk. Downgrade it
-                    // to Low (hidden in default, kept in strict) rather than escalate.
-                    // The text fallback handles the macro form (`vec![…parse()…]`)
-                    // whose body is an unparsed token tree the AST check cannot see.
-                    let severity = if is_literal_parse_unwrap(*node, content)
-                        || is_literal_parse_unwrap_line(trimmed_line)
-                    {
-                        Severity::Low
-                    } else if is_external_failure_path(*pattern, sanitized) && !context.is_test {
-                        decision.severity.max(Severity::High)
-                    } else {
-                        decision.severity
-                    };
-
-                    let mut finding = build_finding(
-                        file,
-                        line_number,
-                        trimmed_line,
-                        *pattern,
-                        &context,
-                        severity,
-                    );
-                    record_decision_provenance(
-                        &mut finding,
-                        pattern.base_severity(),
-                        Some(pattern.signal()),
-                        &decision,
-                    );
-                    findings.push(finding);
-                }
-
-                findings
-            }
+            Some(tree) => self.analyze_ast_candidates(file, content, &context, tree.root_node()),
             None => {
                 let mut findings = self.line_scan(file, content, &context);
                 mark_text_heuristic(&mut findings);
@@ -153,84 +72,193 @@ impl RustPanicRiskAudit {
         }
     }
 
+    fn analyze_ast_candidates(
+        &self,
+        file: &FileFacts,
+        content: &str,
+        context: &crate::audits::context::AuditContext,
+        root: tree_sitter::Node<'_>,
+    ) -> Vec<Finding> {
+        let candidates = ast::collect_candidates(root, content);
+        let mut sorted_lines: Vec<usize> = candidates.keys().copied().collect();
+        sorted_lines.sort_unstable();
+        sorted_lines
+            .into_iter()
+            .filter_map(|line_number| {
+                let (node, pattern) = candidates.get(&line_number)?;
+                self.analyze_candidate(file, content, context, line_number, *node, *pattern)
+            })
+            .collect()
+    }
+
+    fn analyze_candidate(
+        &self,
+        file: &FileFacts,
+        content: &str,
+        context: &crate::audits::context::AuditContext,
+        line_number: usize,
+        node: tree_sitter::Node<'_>,
+        pattern: pattern::RustPanicPattern,
+    ) -> Option<Finding> {
+        let trimmed_line = content.lines().nth(line_number - 1).unwrap_or("").trim();
+        if should_skip_ast_candidate(file, content, node, pattern, trimmed_line) {
+            return None;
+        }
+
+        let decision = decide_for_audit_context(
+            RULE_ID,
+            context,
+            pattern.base_severity(),
+            Some(pattern.signal()),
+        );
+        if decision.is_suppressed() {
+            return None;
+        }
+
+        let mut in_block_comment = false;
+        let sanitized = sanitize_c_style(trimmed_line, &mut in_block_comment);
+        let severity = candidate_severity(
+            node,
+            content,
+            trimmed_line,
+            pattern,
+            sanitized.trim(),
+            context,
+            decision.severity,
+        );
+        let mut finding =
+            build_finding(file, line_number, trimmed_line, pattern, context, severity);
+        record_decision_provenance(
+            &mut finding,
+            pattern.base_severity(),
+            Some(pattern.signal()),
+            &decision,
+        );
+        Some(finding)
+    }
+
     fn line_scan(
         &self,
         file: &FileFacts,
         content: &str,
         context: &crate::audits::context::AuditContext,
     ) -> Vec<Finding> {
-        let mut findings = Vec::new();
-        let mut in_block_comment = false;
-        let mut pending_render_write = false;
+        let mut state = LineScanState::default();
+        content
+            .lines()
+            .enumerate()
+            .filter_map(|(index, line)| scan_line(file, line, index + 1, context, &mut state))
+            .collect()
+    }
+}
 
-        for (index, line) in content.lines().enumerate() {
-            let line_number = index + 1;
-            let trimmed = line.trim();
+#[derive(Default)]
+struct LineScanState {
+    in_block_comment: bool,
+    pending_render_write: bool,
+}
 
-            if trimmed.is_empty() {
-                continue;
-            }
+fn should_skip_ast_candidate(
+    file: &FileFacts,
+    content: &str,
+    node: tree_sitter::Node<'_>,
+    pattern: pattern::RustPanicPattern,
+    trimmed_line: &str,
+) -> bool {
+    (is_report_renderer_path(&file.path)
+        && is_structural_infallible_render_write_unwrap(node, content))
+        || is_infallible_literal_construction_unwrap(node, content)
+        || should_ignore_contextual_panic_pattern(pattern, trimmed_line)
+}
 
-            let sanitized = sanitize_c_style(line, &mut in_block_comment);
-            let sanitized = sanitized.trim();
-            if is_infallible_render_write_start(&file.path, sanitized) {
-                pending_render_write = true;
-            }
+fn candidate_severity(
+    node: tree_sitter::Node<'_>,
+    content: &str,
+    trimmed_line: &str,
+    pattern: pattern::RustPanicPattern,
+    sanitized: &str,
+    context: &crate::audits::context::AuditContext,
+    decision_severity: Severity,
+) -> Severity {
+    if is_literal_parse_unwrap(node, content) || is_literal_parse_unwrap_line(trimmed_line) {
+        Severity::Low
+    } else if is_external_failure_path(pattern, sanitized) && !context.is_test {
+        decision_severity.max(Severity::High)
+    } else {
+        decision_severity
+    }
+}
 
-            let Some(pattern) = detect_pattern(sanitized) else {
-                if sanitized.ends_with(';') {
-                    pending_render_write = false;
-                }
-                continue;
-            };
+fn scan_line(
+    file: &FileFacts,
+    line: &str,
+    line_number: usize,
+    context: &crate::audits::context::AuditContext,
+    state: &mut LineScanState,
+) -> Option<Finding> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
 
-            if pending_render_write && is_infallible_render_write_result_unwrap(pattern, sanitized)
-            {
-                if sanitized.ends_with(';') {
-                    pending_render_write = false;
-                }
-                continue;
-            }
+    let sanitized = sanitize_c_style(line, &mut state.in_block_comment);
+    let sanitized = sanitized.trim();
+    if is_infallible_render_write_start(&file.path, sanitized) {
+        state.pending_render_write = true;
+    }
 
-            if should_ignore_contextual_panic_pattern(pattern, trimmed) {
-                if sanitized.ends_with(';') {
-                    pending_render_write = false;
-                }
-                continue;
-            }
+    let Some(pattern) = detect_pattern(sanitized) else {
+        clear_pending_render_write(sanitized, state);
+        return None;
+    };
+    if skip_line_pattern(pattern, sanitized, trimmed, state) {
+        return None;
+    }
 
-            let decision = decide_for_audit_context(
-                RULE_ID,
-                context,
-                pattern.base_severity(),
-                Some(pattern.signal()),
-            );
+    let decision = decide_for_audit_context(
+        RULE_ID,
+        context,
+        pattern.base_severity(),
+        Some(pattern.signal()),
+    );
+    if decision.is_suppressed() {
+        return None;
+    }
 
-            if decision.is_suppressed() {
-                continue;
-            }
+    let severity = if is_external_failure_path(pattern, sanitized) && !context.is_test {
+        decision.severity.max(Severity::High)
+    } else {
+        decision.severity
+    };
+    let mut finding = build_finding(file, line_number, trimmed, pattern, context, severity);
+    record_decision_provenance(
+        &mut finding,
+        pattern.base_severity(),
+        Some(pattern.signal()),
+        &decision,
+    );
+    clear_pending_render_write(sanitized, state);
+    Some(finding)
+}
 
-            let severity = if is_external_failure_path(pattern, sanitized) && !context.is_test {
-                decision.severity.max(Severity::High)
-            } else {
-                decision.severity
-            };
+fn skip_line_pattern(
+    pattern: pattern::RustPanicPattern,
+    sanitized: &str,
+    trimmed: &str,
+    state: &mut LineScanState,
+) -> bool {
+    let skip = (state.pending_render_write
+        && is_infallible_render_write_result_unwrap(pattern, sanitized))
+        || should_ignore_contextual_panic_pattern(pattern, trimmed);
+    if skip {
+        clear_pending_render_write(sanitized, state);
+    }
+    skip
+}
 
-            let mut finding = build_finding(file, line_number, trimmed, pattern, context, severity);
-            record_decision_provenance(
-                &mut finding,
-                pattern.base_severity(),
-                Some(pattern.signal()),
-                &decision,
-            );
-            findings.push(finding);
-
-            if sanitized.ends_with(';') {
-                pending_render_write = false;
-            }
-        }
-
-        findings
+fn clear_pending_render_write(sanitized: &str, state: &mut LineScanState) {
+    if sanitized.ends_with(';') {
+        state.pending_render_write = false;
     }
 }
 
