@@ -1,5 +1,10 @@
 use serde::Serialize;
 
+use crate::review::model::ReviewReport;
+use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
+use crate::scan::types::ScanMode;
+use crate::verification::VerificationStatus;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ChangeProofVerdict {
@@ -17,8 +22,19 @@ pub enum ChangeProofReasonCode {
     RequiredVerificationFailed,
     RequiredVerificationUnavailable,
     RequiredVerificationUnselected,
+    RequiredVerificationStale,
     RequiredVerificationCoverageIncomplete,
     InsufficientPolicy,
+    AnalysisError,
+    FindingGateFailed,
+    ReviewSignalGateFailed,
+    PriorityP0,
+    PriorityP1,
+    DefinitelySensitive,
+    MaybeSensitive,
+    BoundaryMissingTest,
+    VisibleFinding,
+    UnownedSurface,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -67,6 +83,7 @@ pub struct ProofObligations {
     pub failed: usize,
     pub unavailable: usize,
     pub unselected: usize,
+    pub stale: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -145,6 +162,95 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
     }
 }
 
+/// Build the canonical proof from the current review and readiness records.
+/// This adapter is intentionally additive: callers can compare the result with
+/// legacy readiness before any output or exit-code projection changes.
+pub fn derive_change_proof_from_review(
+    report: &ReviewReport,
+    readiness: &MergeReadinessRecord,
+) -> ChangeProof {
+    let requested_files = match report.summary.mode {
+        ScanMode::Changed => report.changed_files.len(),
+        ScanMode::Full => report.summary.metrics.files_discovered,
+    };
+    let analyzed_files = report.summary.metrics.files_analyzed;
+    let (satisfied, failed, unavailable, unselected, stale) = verification_counts(report);
+    let reasons = readiness
+        .reasons
+        .iter()
+        .filter_map(map_readiness_reason)
+        .collect();
+
+    derive_change_proof(ChangeProofInput {
+        coverage: ProofCoverage {
+            scope: match report.summary.mode {
+                ScanMode::Changed => ProofScope::Changed,
+                ScanMode::Full => ProofScope::Full,
+            },
+            requested_files,
+            analyzed_files,
+            excluded_files: requested_files.saturating_sub(analyzed_files),
+            unsupported_files: 0,
+        },
+        obligations: ProofObligations {
+            applicable: report.verification.len(),
+            satisfied,
+            failed,
+            unavailable,
+            unselected,
+            stale,
+        },
+        sufficient_policy: !report.verification.is_empty(),
+        broken_contracts: 0,
+        reasons,
+    })
+}
+
+fn verification_counts(report: &ReviewReport) -> (usize, usize, usize, usize, usize) {
+    let mut counts = (0, 0, 0, 0, 0);
+    for outcome in &report.verification {
+        match outcome.status {
+            VerificationStatus::Passed if outcome.revision_compatible => counts.0 += 1,
+            VerificationStatus::Passed => counts.4 += 1,
+            VerificationStatus::Failed => counts.1 += 1,
+            VerificationStatus::TimedOut
+            | VerificationStatus::Unavailable
+            | VerificationStatus::Cancelled => counts.2 += 1,
+            VerificationStatus::Skipped => counts.3 += 1,
+        }
+    }
+    counts
+}
+
+fn map_readiness_reason(
+    reason: &crate::review::readiness::ReadinessReason,
+) -> Option<ChangeProofReason> {
+    let code = match reason.code {
+        ReadinessReasonCode::AnalysisError => ChangeProofReasonCode::AnalysisError,
+        ReadinessReasonCode::FindingGateFailed => ChangeProofReasonCode::FindingGateFailed,
+        ReadinessReasonCode::ReviewSignalGateFailed => {
+            ChangeProofReasonCode::ReviewSignalGateFailed
+        }
+        ReadinessReasonCode::PriorityP0 => ChangeProofReasonCode::PriorityP0,
+        ReadinessReasonCode::PriorityP1 => ChangeProofReasonCode::PriorityP1,
+        ReadinessReasonCode::DefinitelySensitive => ChangeProofReasonCode::DefinitelySensitive,
+        ReadinessReasonCode::MaybeSensitive => ChangeProofReasonCode::MaybeSensitive,
+        ReadinessReasonCode::BoundaryMissingTest => ChangeProofReasonCode::BoundaryMissingTest,
+        ReadinessReasonCode::VisibleFinding => ChangeProofReasonCode::VisibleFinding,
+        ReadinessReasonCode::UnownedSurface => ChangeProofReasonCode::UnownedSurface,
+        ReadinessReasonCode::VerificationFailed
+        | ReadinessReasonCode::VerificationTimedOut
+        | ReadinessReasonCode::VerificationUnavailable
+        | ReadinessReasonCode::VerificationCancelled
+        | ReadinessReasonCode::VerificationRevisionChanged => return None,
+    };
+    Some(ChangeProofReason::new(
+        code,
+        reason.count,
+        reason.message.clone(),
+    ))
+}
+
 fn add_obligation_reasons(reasons: &mut Vec<ChangeProofReason>, obligations: ProofObligations) {
     if obligations.failed > 0 {
         add_reason(
@@ -176,11 +282,22 @@ fn add_obligation_reasons(reasons: &mut Vec<ChangeProofReason>, obligations: Pro
             ),
         );
     }
+    if obligations.stale > 0 {
+        add_reason(
+            reasons,
+            ChangeProofReason::new(
+                ChangeProofReasonCode::RequiredVerificationStale,
+                obligations.stale,
+                "A required verification check passed on a different workspace revision.",
+            ),
+        );
+    }
 }
 
 impl ProofObligations {
     fn accounted_for(self) -> bool {
-        self.satisfied + self.failed + self.unavailable + self.unselected == self.applicable
+        self.satisfied + self.failed + self.unavailable + self.unselected + self.stale
+            == self.applicable
     }
 }
 

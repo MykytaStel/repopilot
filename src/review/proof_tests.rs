@@ -17,6 +17,7 @@ fn obligations() -> ProofObligations {
         failed: 0,
         unavailable: 0,
         unselected: 0,
+        stale: 0,
     }
 }
 
@@ -131,4 +132,27 @@ fn incomplete_obligation_accounting_cannot_verify() {
     assert!(proof.reasons.iter().any(|reason| {
         reason.code == ChangeProofReasonCode::RequiredVerificationCoverageIncomplete
     }));
+}
+
+#[test]
+fn stale_obligation_cannot_claim_verified() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            stale: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::RequiredVerificationStale)
+    );
 }
