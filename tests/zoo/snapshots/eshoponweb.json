@@ -8,13 +8,13 @@
       "security.secret-candidate": 7
     },
     "fingerprints": [
-      "security.secret-candidate:docker-compose.yml:51c0493bf3025959",
-      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:5a72f55e73b3db87",
-      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:a9ec5b53067db7ff",
-      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598",
-      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598",
-      "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598",
-      "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+      "security.secret-candidate:docker-compose.yml:1831fc89486577ba",
+      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:251c0c616980f575",
+      "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:f6c3d2fad604e951",
+      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:456a29ec69193872",
+      "security.secret-candidate:src/PublicApi/appsettings.Docker.json:d4e88c63d02b9c65",
+      "security.secret-candidate:src/Web/appsettings.Docker.json:456a29ec69193872",
+      "security.secret-candidate:src/Web/appsettings.Docker.json:d4e88c63d02b9c65"
     ],
     "visible_total": 7
   },
