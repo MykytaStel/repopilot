@@ -2,12 +2,39 @@ use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureContext, FileRole, LanguageFamily, ModuleKind};
 use crate::findings::types::Confidence;
-use crate::graph::v2::GraphReadiness;
+use crate::graph::v2::{
+    GraphEdge, GraphEdgeConfidence, GraphEdgeKind, GraphEdgeProvenance, GraphNodeId, GraphReadiness,
+};
 use crate::scan::config::{LayerSpec, ScanConfig};
 
 use super::layers::LayerIndex;
 use super::packages::PackageIndex;
-use super::{NodeInfo, dead_module_finding, test_leak_finding};
+use super::{NodeInfo, dead_module_finding, fan_in_by_target, test_leak_finding};
+
+#[test]
+fn fan_in_index_counts_edges_by_target() {
+    let source_a = GraphNodeId::new("file:src/a.rs");
+    let source_b = GraphNodeId::new("file:src/b.rs");
+    let target = GraphNodeId::new("file:src/target.rs");
+    let edges = vec![
+        GraphEdge {
+            from: source_a,
+            to: target.clone(),
+            kind: GraphEdgeKind::DependsOn,
+            provenance: GraphEdgeProvenance::Import,
+            confidence: GraphEdgeConfidence::High,
+        },
+        GraphEdge {
+            from: source_b,
+            to: target.clone(),
+            kind: GraphEdgeKind::DependsOn,
+            provenance: GraphEdgeProvenance::Import,
+            confidence: GraphEdgeConfidence::High,
+        },
+    ];
+
+    assert_eq!(fan_in_by_target(&edges).get(&target), Some(&2));
+}
 
 fn node(
     relative: &str,
