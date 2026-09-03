@@ -78,48 +78,76 @@ impl FileAudit for ComplexityAudit {
 /// Counts branching constructs and logical operators as a heuristic complexity metric.
 /// Skips comment-only lines. Word-boundary check prevents matching inside identifiers.
 pub fn count_branches(content: &str) -> usize {
-    const KEYWORDS: &[&str] = &[
-        "if ", "else ", "elif ", "for ", "while ", "match ", "switch ", "case ", "catch ",
-    ];
-    const OPERATORS: &[&str] = &["&&", "||"];
+    content.lines().map(count_line_branches).sum()
+}
 
-    let mut count = 0usize;
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("//")
-            || trimmed.starts_with('#')
-            || trimmed.starts_with('*')
-            || trimmed.starts_with("/*")
-        {
-            continue;
-        }
-
-        for op in OPERATORS {
-            let mut rest = trimmed;
-            while let Some(pos) = rest.find(op) {
-                count += 1;
-                rest = &rest[pos + op.len()..];
-            }
-        }
-
-        for kw in KEYWORDS {
-            let mut rest = trimmed;
-            let mut offset = 0usize;
-            while let Some(pos) = rest.find(kw) {
-                let abs = offset + pos;
-                let prev_char = trimmed.as_bytes().get(abs.wrapping_sub(1));
-                let good_boundary =
-                    abs == 0 || prev_char.is_none_or(|b| !b.is_ascii_alphanumeric() && *b != b'_');
-                if good_boundary {
-                    count += 1;
-                }
-                let step = pos + 1;
-                rest = &rest[step..];
-                offset += step;
-            }
-        }
+fn count_line_branches(line: &str) -> usize {
+    let trimmed = line.trim();
+    if is_comment_line(trimmed) {
+        return 0;
     }
 
+    count_operator_matches(trimmed) + count_keyword_matches(trimmed)
+}
+
+fn is_comment_line(line: &str) -> bool {
+    line.starts_with("//")
+        || line.starts_with('#')
+        || line.starts_with('*')
+        || line.starts_with("/*")
+}
+
+fn count_operator_matches(line: &str) -> usize {
+    ["&&", "||"]
+        .iter()
+        .map(|operator| count_substrings(line, operator))
+        .sum()
+}
+
+fn count_keyword_matches(line: &str) -> usize {
+    [
+        "if ", "else ", "elif ", "for ", "while ", "match ", "switch ", "case ", "catch ",
+    ]
+    .iter()
+    .map(|keyword| count_bounded_keyword(line, keyword))
+    .sum()
+}
+
+fn count_substrings(line: &str, needle: &str) -> usize {
+    let mut count = 0;
+    let mut rest = line;
+    while let Some(pos) = rest.find(needle) {
+        count += 1;
+        rest = &rest[pos + needle.len()..];
+    }
     count
+}
+
+fn count_bounded_keyword(line: &str, keyword: &str) -> usize {
+    let mut count = 0;
+    let mut rest = line;
+    let mut offset = 0usize;
+    while let Some(pos) = rest.find(keyword) {
+        let absolute = offset + pos;
+        let previous = line.as_bytes().get(absolute.wrapping_sub(1));
+        if absolute == 0
+            || previous.is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+        {
+            count += 1;
+        }
+        let step = pos + 1;
+        rest = &rest[step..];
+        offset += step;
+    }
+    count
+}
+
+#[cfg(test)]
+mod tests {
+    use super::count_line_branches;
+
+    #[test]
+    fn line_branch_counter_counts_keyword_and_logical_operator() {
+        assert_eq!(count_line_branches("if ready && valid {"), 2);
+    }
 }

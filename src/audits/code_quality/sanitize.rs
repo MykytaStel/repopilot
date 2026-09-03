@@ -9,77 +9,106 @@
 /// Handles mid-line block comments correctly (e.g. `foo(); /* comment */ bar()`).
 /// Rust raw strings and nested block comments are not handled.
 pub fn sanitize_c_style(line: &str, in_block_comment: &mut bool) -> String {
-    let mut output = String::with_capacity(line.len());
-    let mut chars = line.chars().peekable();
-    let mut in_string = false;
-    let mut in_char = false;
-    let mut escaped = false;
+    CStyleSanitizer::new(line, in_block_comment).run()
+}
 
-    while let Some(ch) = chars.next() {
-        if *in_block_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                chars.next();
-                *in_block_comment = false;
-                output.push(' ');
-                output.push(' ');
-            } else {
-                output.push(' ');
-            }
-            continue;
+struct CStyleSanitizer<'a> {
+    chars: std::iter::Peekable<std::str::Chars<'a>>,
+    output: String,
+    in_block_comment: &'a mut bool,
+    in_string: bool,
+    in_char: bool,
+    escaped: bool,
+}
+
+impl<'a> CStyleSanitizer<'a> {
+    fn new(line: &'a str, in_block_comment: &'a mut bool) -> Self {
+        Self {
+            chars: line.chars().peekable(),
+            output: String::with_capacity(line.len()),
+            in_block_comment,
+            in_string: false,
+            in_char: false,
+            escaped: false,
         }
-
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            output.push(' ');
-            continue;
-        }
-
-        if in_char {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '\'' {
-                in_char = false;
-            }
-            output.push(' ');
-            continue;
-        }
-
-        if ch == '/' && chars.peek() == Some(&'/') {
-            break;
-        }
-
-        if ch == '/' && chars.peek() == Some(&'*') {
-            chars.next();
-            *in_block_comment = true;
-            output.push(' ');
-            output.push(' ');
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = true;
-            output.push(' ');
-            continue;
-        }
-
-        if ch == '\'' {
-            in_char = true;
-            output.push(' ');
-            continue;
-        }
-
-        output.push(ch);
     }
 
-    output
+    fn run(mut self) -> String {
+        while let Some(ch) = self.chars.next() {
+            if self.consume_block_comment(ch) || self.consume_literal(ch) {
+                continue;
+            }
+            if self.is_line_comment_start(ch) {
+                break;
+            }
+            if self.consume_literal_start(ch) {
+                continue;
+            }
+            self.output.push(ch);
+        }
+        self.output
+    }
+
+    fn consume_block_comment(&mut self, ch: char) -> bool {
+        if !*self.in_block_comment {
+            return false;
+        }
+        if ch == '*' && self.chars.peek() == Some(&'/') {
+            self.chars.next();
+            *self.in_block_comment = false;
+            self.output.push_str("  ");
+        } else {
+            self.output.push(' ');
+        }
+        true
+    }
+
+    fn consume_literal(&mut self, ch: char) -> bool {
+        let delimiter = if self.in_string {
+            Some('"')
+        } else if self.in_char {
+            Some('\'')
+        } else {
+            None
+        };
+        let Some(delimiter) = delimiter else {
+            return false;
+        };
+        if self.escaped {
+            self.escaped = false;
+        } else if ch == '\\' {
+            self.escaped = true;
+        } else if ch == delimiter {
+            self.in_string = false;
+            self.in_char = false;
+        }
+        self.output.push(' ');
+        true
+    }
+
+    fn is_line_comment_start(&mut self, ch: char) -> bool {
+        ch == '/' && self.chars.peek() == Some(&'/')
+    }
+
+    fn consume_literal_start(&mut self, ch: char) -> bool {
+        if ch == '/' && self.chars.peek() == Some(&'*') {
+            self.chars.next();
+            *self.in_block_comment = true;
+            self.output.push_str("  ");
+            return true;
+        }
+        if ch == '"' {
+            self.in_string = true;
+            self.output.push(' ');
+            return true;
+        }
+        if ch == '\'' {
+            self.in_char = true;
+            self.output.push(' ');
+            return true;
+        }
+        false
+    }
 }
 
 /// Returns `Some(sanitized)` for Python code lines, or `None` if the line
@@ -99,42 +128,48 @@ pub fn sanitize_python_line(line: &str) -> Option<String> {
 }
 
 fn strip_python_string_literals(line: &str) -> String {
-    let mut result = String::with_capacity(line.len());
-    let mut string_delimiter: Option<char> = None;
-    let mut escaped = false;
-
+    let mut state = PythonStringState::default();
     for ch in line.chars() {
-        if let Some(delim) = string_delimiter {
-            if escaped {
-                escaped = false;
-                result.push(' ');
-                continue;
-            }
-            if ch == '\\' {
-                escaped = true;
-                result.push(' ');
-                continue;
-            }
-            if ch == delim {
-                string_delimiter = None;
-                result.push(ch);
-            } else {
-                result.push(' ');
-            }
+        if state.consume_string(ch) {
             continue;
         }
-
         if ch == '#' {
             break;
         }
+        state.start_or_copy(ch);
+    }
+    state.result
+}
 
-        if matches!(ch, '"' | '\'') {
-            string_delimiter = Some(ch);
-            result.push(ch);
-        } else {
-            result.push(ch);
+#[derive(Default)]
+struct PythonStringState {
+    result: String,
+    delimiter: Option<char>,
+    escaped: bool,
+}
+
+impl PythonStringState {
+    fn consume_string(&mut self, ch: char) -> bool {
+        let Some(delimiter) = self.delimiter else {
+            return false;
+        };
+        if self.escaped {
+            self.escaped = false;
+        } else if ch == '\\' {
+            self.escaped = true;
+        } else if ch == delimiter {
+            self.delimiter = None;
+            self.result.push(ch);
+            return true;
         }
+        self.result.push(' ');
+        true
     }
 
-    result
+    fn start_or_copy(&mut self, ch: char) {
+        if matches!(ch, '"' | '\'') {
+            self.delimiter = Some(ch);
+        }
+        self.result.push(ch);
+    }
 }
