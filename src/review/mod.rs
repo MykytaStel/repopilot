@@ -8,6 +8,7 @@ mod impact;
 pub mod model;
 mod ownership;
 pub(crate) mod paths;
+pub mod proof;
 mod readiness;
 pub mod render;
 mod report;
