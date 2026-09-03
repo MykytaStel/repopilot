@@ -138,25 +138,36 @@ fn is_control_flow_node(kind: &str, language: &str) -> bool {
 }
 
 fn is_else_if(node: Node<'_>, language: &str) -> bool {
-    let kind = node.kind();
-    let is_if = match language {
-        "Rust" | "Kotlin" => kind == "if_expression",
-        _ => kind == "if_statement",
+    if !is_if_node(node, language) {
+        return false;
+    }
+    let Some(parent) = node.parent() else {
+        return false;
     };
-    if is_if && let Some(parent) = node.parent() {
-        if parent.kind() == "else_clause" || parent.kind() == "else" {
-            return true;
-        }
-        if language == "Kotlin" && parent.kind() == "if_expression" {
-            let mut cursor = parent.walk();
-            let mut saw_else = false;
-            for child in parent.children(&mut cursor) {
-                if child.kind() == "else" {
-                    saw_else = true;
-                } else if child.id() == node.id() {
-                    return saw_else;
-                }
-            }
+    if matches!(parent.kind(), "else_clause" | "else") {
+        return true;
+    }
+    language == "Kotlin" && kotlin_else_if_child(parent, node)
+}
+
+fn is_if_node(node: Node<'_>, language: &str) -> bool {
+    match language {
+        "Rust" | "Kotlin" => node.kind() == "if_expression",
+        _ => node.kind() == "if_statement",
+    }
+}
+
+fn kotlin_else_if_child(parent: Node<'_>, node: Node<'_>) -> bool {
+    if parent.kind() != "if_expression" {
+        return false;
+    }
+    let mut cursor = parent.walk();
+    let mut saw_else = false;
+    for child in parent.children(&mut cursor) {
+        if child.kind() == "else" {
+            saw_else = true;
+        } else if child.id() == node.id() {
+            return saw_else;
         }
     }
     false

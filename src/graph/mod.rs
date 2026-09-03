@@ -62,64 +62,17 @@ pub fn build_coupling_graph_with_resolution(
     let mut resolution = ImportResolutionStats::default();
 
     for file in &facts.files {
-        let source = file.path.clone();
-        let normalized_source = resolver::normalize_path(&source);
-        let deferred_raws = file
-            .deferred_imports
-            .iter()
-            .map(|raw| raw.trim())
-            .collect::<HashSet<_>>();
-        let mut eager_targets = BTreeSet::new();
-        // Insert into edges (one clone); nodes is derived from edges keys afterwards.
-        let outgoing = edges.entry(source.clone()).or_default();
-
-        for raw in &file.imports {
-            match resolve_import(raw, &normalized_source, root, &known_files) {
-                Some(target) if target != normalized_source => {
-                    let resolved = known_file_by_normalized
-                        .get(&target)
-                        .cloned()
-                        .unwrap_or(target);
-                    if !deferred_raws.contains(raw.trim()) {
-                        eager_targets.insert(resolved.clone());
-                    }
-                    outgoing.insert(resolved);
-                }
-                // A file importing itself carries no dependency information.
-                Some(_) => {}
-                None => {
-                    let raw = raw.trim();
-                    if resolution_stats::is_unresolved_internal_import(
-                        raw,
-                        &source,
-                        &repo_jvm_packages,
-                        &repo_dirs,
-                    ) {
-                        resolution.record_classified(&source, raw, root);
-                    }
-                }
-            }
-        }
-
-        // Record the non-runtime subset against the same source so cycle detection
-        // can subtract these edges. `deferred_imports ⊆ imports`, so every resolved
-        // target is already present in `edges` above.
-        for raw in &file.deferred_imports {
-            if let Some(target) = resolve_import(raw, &normalized_source, root, &known_files)
-                && target != normalized_source
-            {
-                let resolved = known_file_by_normalized
-                    .get(&target)
-                    .cloned()
-                    .unwrap_or(target);
-                if !eager_targets.contains(&resolved) {
-                    deferred_edges
-                        .entry(source.clone())
-                        .or_default()
-                        .insert(resolved);
-                }
-            }
-        }
+        process_graph_file(
+            file,
+            root,
+            &known_file_by_normalized,
+            &known_files,
+            &repo_dirs,
+            &repo_jvm_packages,
+            &mut edges,
+            &mut deferred_edges,
+            &mut resolution,
+        );
     }
 
     // Build nodes from all sources (edge origins + edge targets).
@@ -136,6 +89,103 @@ pub fn build_coupling_graph_with_resolution(
         },
         resolution,
     )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_graph_file(
+    file: &crate::scan::facts::FileFacts,
+    root: &Path,
+    known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
+    known_files: &HashSet<PathBuf>,
+    repo_dirs: &HashSet<String>,
+    repo_jvm_packages: &HashSet<PathBuf>,
+    edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    deferred_edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    resolution: &mut ImportResolutionStats,
+) {
+    let source = file.path.clone();
+    let normalized_source = resolver::normalize_path(&source);
+    let deferred_raws = file
+        .deferred_imports
+        .iter()
+        .map(|raw| raw.trim())
+        .collect::<HashSet<_>>();
+    let mut eager_targets = BTreeSet::new();
+    let outgoing = edges.entry(source.clone()).or_default();
+
+    for raw in &file.imports {
+        process_import(
+            raw,
+            &source,
+            &normalized_source,
+            &deferred_raws,
+            root,
+            known_file_by_normalized,
+            known_files,
+            repo_dirs,
+            repo_jvm_packages,
+            outgoing,
+            &mut eager_targets,
+            resolution,
+        );
+    }
+
+    for raw in &file.deferred_imports {
+        if let Some(target) = resolve_import(raw, &normalized_source, root, known_files)
+            && target != normalized_source
+        {
+            let resolved = known_file_by_normalized
+                .get(&target)
+                .cloned()
+                .unwrap_or(target);
+            if !eager_targets.contains(&resolved) {
+                deferred_edges
+                    .entry(source.clone())
+                    .or_default()
+                    .insert(resolved);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn process_import(
+    raw: &str,
+    source: &Path,
+    normalized_source: &Path,
+    deferred_raws: &HashSet<&str>,
+    root: &Path,
+    known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
+    known_files: &HashSet<PathBuf>,
+    repo_dirs: &HashSet<String>,
+    repo_jvm_packages: &HashSet<PathBuf>,
+    outgoing: &mut BTreeSet<PathBuf>,
+    eager_targets: &mut BTreeSet<PathBuf>,
+    resolution: &mut ImportResolutionStats,
+) {
+    match resolve_import(raw, normalized_source, root, known_files) {
+        Some(target) if target != normalized_source => {
+            let resolved = known_file_by_normalized
+                .get(&target)
+                .cloned()
+                .unwrap_or(target);
+            if !deferred_raws.contains(raw.trim()) {
+                eager_targets.insert(resolved.clone());
+            }
+            outgoing.insert(resolved);
+        }
+        Some(_) => {}
+        None if resolution_stats::is_unresolved_internal_import(
+            raw.trim(),
+            source,
+            repo_jvm_packages,
+            repo_dirs,
+        ) =>
+        {
+            resolution.record_classified(source, raw.trim(), root)
+        }
+        None => {}
+    }
 }
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
