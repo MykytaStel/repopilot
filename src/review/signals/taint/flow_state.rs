@@ -98,52 +98,51 @@ pub(super) fn normalize_access_path(text: &str) -> Option<String> {
         return None;
     }
 
-    let bytes = normalized.as_bytes();
     let mut index = 0;
-    let mut segments = Vec::new();
-
-    let first_start = index;
-    while index < bytes.len() && is_identifier_char(bytes[index] as char) {
-        index += 1;
-    }
-    if first_start == index || !is_identifier(&normalized[first_start..index]) {
-        return None;
-    }
-    segments.push(normalized[first_start..index].to_string());
-
-    while index < bytes.len() {
-        match bytes[index] as char {
-            '.' => {
-                index += 1;
-                let start = index;
-                while index < bytes.len() && is_identifier_char(bytes[index] as char) {
-                    index += 1;
-                }
-                if start == index || !is_identifier(&normalized[start..index]) {
-                    return None;
-                }
-                segments.push(normalized[start..index].to_string());
-            }
-            '[' => {
-                index += 1;
-                let start = index;
-                while index < bytes.len() && (bytes[index] as char).is_ascii_digit() {
-                    index += 1;
-                }
-                if start == index || index >= bytes.len() || bytes[index] as char != ']' {
-                    return None;
-                }
-                segments.push(normalized[start..index].to_string());
-                index += 1;
-            }
-            _ => return None,
-        }
-    }
+    let mut segments = vec![parse_identifier_segment(&normalized, &mut index)?];
+    parse_access_suffixes(&normalized, &mut index, &mut segments)?;
 
     if segments.len() < 2 {
         return None;
     }
     Some(segments.join("."))
+}
+
+fn parse_access_suffixes(text: &str, index: &mut usize, segments: &mut Vec<String>) -> Option<()> {
+    while *index < text.len() {
+        match text.as_bytes()[*index] as char {
+            '.' => {
+                *index += 1;
+                segments.push(parse_identifier_segment(text, index)?);
+            }
+            '[' => segments.push(parse_index_segment(text, index)?),
+            _ => return None,
+        }
+    }
+    Some(())
+}
+
+fn parse_identifier_segment(text: &str, index: &mut usize) -> Option<String> {
+    let start = *index;
+    while *index < text.len() && is_identifier_char(text.as_bytes()[*index] as char) {
+        *index += 1;
+    }
+    (start != *index && is_identifier(&text[start..*index]))
+        .then(|| text[start..*index].to_string())
+}
+
+fn parse_index_segment(text: &str, index: &mut usize) -> Option<String> {
+    *index += 1;
+    let start = *index;
+    while *index < text.len() && (text.as_bytes()[*index] as char).is_ascii_digit() {
+        *index += 1;
+    }
+    if start == *index || *index >= text.len() || text.as_bytes()[*index] as char != ']' {
+        return None;
+    }
+    let segment = text[start..*index].to_string();
+    *index += 1;
+    Some(segment)
 }
 
 fn path_is_same_or_descendant(path: &str, parent: &str) -> bool {

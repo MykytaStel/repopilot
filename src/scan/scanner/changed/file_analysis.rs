@@ -111,28 +111,16 @@ impl<'a> ChangedScanEngine<'a> {
             .entry(change_reason.clone())
             .or_insert(0) += 1;
 
-        if changed_file.status == ChangeStatus::Deleted {
-            remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
-            record_skipped_cache_file(
-                cache_telemetry,
-                &changed_file.path,
-                &change_reason,
-                "deleted",
-            );
+        let Some(absolute_path) = prepare_changed_file(
+            changed_file,
+            repo_root,
+            &change_reason,
+            cache,
+            parsed_cache,
+            cache_telemetry,
+        ) else {
             return Ok(());
-        }
-
-        let absolute_path = repo_root.join(&changed_file.path);
-        if !absolute_path.is_file() {
-            let reason = if absolute_path.exists() {
-                "not-regular-file"
-            } else {
-                "missing-file"
-            };
-            remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
-            record_skipped_cache_file(cache_telemetry, &changed_file.path, &change_reason, reason);
-            return Ok(());
-        }
+        };
 
         if let Some(parent) = changed_file.path.parent()
             && !parent.as_os_str().is_empty()
@@ -392,6 +380,38 @@ impl<'a> ChangedScanEngine<'a> {
                 cache_reason: "unchanged-content-and-config".to_string(),
             });
     }
+}
+
+fn prepare_changed_file(
+    changed_file: &ChangedFile,
+    repo_root: &Path,
+    change_reason: &str,
+    cache: &mut ScanCache,
+    parsed_cache: &mut ParsedFactsCache,
+    cache_telemetry: &mut ScanCacheTelemetry,
+) -> Option<PathBuf> {
+    if changed_file.status == ChangeStatus::Deleted {
+        remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
+        record_skipped_cache_file(
+            cache_telemetry,
+            &changed_file.path,
+            change_reason,
+            "deleted",
+        );
+        return None;
+    }
+    let path = repo_root.join(&changed_file.path);
+    if path.is_file() {
+        return Some(path);
+    }
+    let reason = if path.exists() {
+        "not-regular-file"
+    } else {
+        "missing-file"
+    };
+    remove_changed_cache_entries(cache, parsed_cache, &changed_file.path);
+    record_skipped_cache_file(cache_telemetry, &changed_file.path, change_reason, reason);
+    None
 }
 
 fn remove_changed_cache_entries(

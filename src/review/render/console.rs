@@ -26,10 +26,25 @@ pub fn render_console_with_options(
     options: ReviewRenderOptions,
 ) -> String {
     let mut output = String::new();
+    render_console_header(&mut output, report, ci_gate, review_gate);
 
+    if options.detail == DetailLevel::Summary {
+        return output;
+    }
+
+    render_console_details(&mut output, report, options);
+    output
+}
+
+fn render_console_header(
+    output: &mut String,
+    report: &ReviewReport,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) {
     output.push_str("RepoPilot Review\n\n");
     render_decision_summary(
-        &mut output,
+        output,
         &review_decision_summary(report, ci_gate, review_gate),
     );
     let readiness = derive_readiness(
@@ -75,7 +90,7 @@ pub fn render_console_with_options(
             feedback.suppressed_review_signals_count,
         ));
     }
-    diagnostics::render_console(&mut output, &report.summary);
+    diagnostics::render_console(output, &report.summary);
     output.push('\n');
 
     output.push_str(&format!("Changed files: {}\n", report.changed_files.len()));
@@ -113,20 +128,22 @@ pub fn render_console_with_options(
             output.push_str("Review gate: disabled\n");
         }
     }
+}
 
-    if options.detail == DetailLevel::Summary {
-        return output;
-    }
-
-    inventory::render_changed_files(&mut output, report, options.detail);
+fn render_console_details(
+    output: &mut String,
+    report: &ReviewReport,
+    options: ReviewRenderOptions,
+) {
+    inventory::render_changed_files(output, report, options.detail);
 
     if options.detail == DetailLevel::Full {
-        render_blast_radius(&mut output, report);
-        render_impact_paths(&mut output, report);
+        render_blast_radius(output, report);
+        render_impact_paths(output, report);
     }
-    render_tiered_signals(&mut output, report);
+    render_tiered_signals(output, report);
     render_findings_group(
-        &mut output,
+        output,
         "In-diff findings",
         &report.in_diff_findings(),
         options.detail,
@@ -134,7 +151,7 @@ pub fn render_console_with_options(
     );
     if options.detail == DetailLevel::Full {
         render_findings_group(
-            &mut output,
+            output,
             "Out-of-diff findings",
             &report.out_of_diff_findings(),
             options.detail,
@@ -142,11 +159,9 @@ pub fn render_console_with_options(
         );
     }
 
-    render_verification(&mut output, report);
+    render_verification(output, report);
 
-    inventory::render_next_action(&mut output, report, options.detail);
-
-    output
+    inventory::render_next_action(output, report, options.detail);
 }
 
 fn render_verification(output: &mut String, report: &ReviewReport) {

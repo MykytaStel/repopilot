@@ -316,78 +316,7 @@ pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
     let mut hunk: Option<DiffHunk> = None;
 
     for line in diff.lines() {
-        if let Some((_, new_path)) = parse_diff_git_line(line) {
-            if let Some(file) = current.take() {
-                files.push(finalize_file(file, hunk.take()));
-            }
-
-            current = Some(ChangedFile {
-                path: PathBuf::from(new_path),
-                status: ChangeStatus::Modified,
-                ranges: Vec::new(),
-                hunks: Vec::new(),
-            });
-
-            continue;
-        }
-
-        let Some(file) = current.as_mut() else {
-            continue;
-        };
-
-        if line.starts_with("new file mode ") {
-            file.status = ChangeStatus::Added;
-            continue;
-        }
-
-        if line.starts_with("deleted file mode ") {
-            file.status = ChangeStatus::Deleted;
-            continue;
-        }
-
-        if line.starts_with("rename from ") {
-            file.status = ChangeStatus::Renamed;
-            continue;
-        }
-
-        if let Some(path) = line.strip_prefix("+++ ") {
-            if let Some(path) = normalize_diff_path(path)
-                && file.status != ChangeStatus::Deleted
-            {
-                file.path = PathBuf::from(path);
-            }
-            continue;
-        }
-
-        if let Some(path) = line.strip_prefix("--- ") {
-            if let Some(path) = normalize_diff_path(path)
-                && file.status == ChangeStatus::Deleted
-            {
-                file.path = PathBuf::from(path);
-            }
-            continue;
-        }
-
-        if line.starts_with("@@") {
-            if let Some(done) = hunk.take() {
-                file.hunks.push(done);
-            }
-            hunk = Some(DiffHunk {
-                new_range: parse_hunk_added_range(line),
-                old_range: parse_hunk_removed_range(line),
-                added_lines: Vec::new(),
-                removed_lines: Vec::new(),
-            });
-            continue;
-        }
-
-        if let Some(active) = hunk.as_mut() {
-            if let Some(added) = line.strip_prefix('+') {
-                active.added_lines.push(added.to_string());
-            } else if let Some(removed) = line.strip_prefix('-') {
-                active.removed_lines.push(removed.to_string());
-            }
-        }
+        consume_diff_line(line, &mut files, &mut current, &mut hunk);
     }
 
     if let Some(file) = current {
@@ -395,6 +324,110 @@ pub fn parse_diff(diff: &str) -> Vec<ChangedFile> {
     }
 
     files
+}
+
+fn consume_diff_line(
+    line: &str,
+    files: &mut Vec<ChangedFile>,
+    current: &mut Option<ChangedFile>,
+    hunk: &mut Option<DiffHunk>,
+) {
+    if let Some((_, new_path)) = parse_diff_git_line(line) {
+        finish_current_file(files, current, hunk.take());
+        *current = Some(ChangedFile {
+            path: PathBuf::from(new_path),
+            status: ChangeStatus::Modified,
+            ranges: Vec::new(),
+            hunks: Vec::new(),
+        });
+        return;
+    }
+
+    let Some(file) = current.as_mut() else {
+        return;
+    };
+    if update_file_status(line, file) {
+        return;
+    }
+    if update_file_path(line, file) {
+        return;
+    }
+    if line.starts_with("@@") {
+        finish_hunk(file, hunk);
+        *hunk = Some(DiffHunk {
+            new_range: parse_hunk_added_range(line),
+            old_range: parse_hunk_removed_range(line),
+            added_lines: Vec::new(),
+            removed_lines: Vec::new(),
+        });
+        return;
+    }
+    append_hunk_line(line, hunk);
+}
+
+fn finish_current_file(
+    files: &mut Vec<ChangedFile>,
+    current: &mut Option<ChangedFile>,
+    trailing: Option<DiffHunk>,
+) {
+    if let Some(file) = current.take() {
+        files.push(finalize_file(file, trailing));
+    }
+}
+
+fn update_file_status(line: &str, file: &mut ChangedFile) -> bool {
+    let status = if line.starts_with("new file mode ") {
+        Some(ChangeStatus::Added)
+    } else if line.starts_with("deleted file mode ") {
+        Some(ChangeStatus::Deleted)
+    } else if line.starts_with("rename from ") {
+        Some(ChangeStatus::Renamed)
+    } else {
+        None
+    };
+    if let Some(status) = status {
+        file.status = status;
+        true
+    } else {
+        false
+    }
+}
+
+fn update_file_path(line: &str, file: &mut ChangedFile) -> bool {
+    if let Some(path) = line.strip_prefix("+++ ") {
+        if let Some(path) = normalize_diff_path(path)
+            && file.status != ChangeStatus::Deleted
+        {
+            file.path = PathBuf::from(path);
+        }
+        return true;
+    }
+    if let Some(path) = line.strip_prefix("--- ") {
+        if let Some(path) = normalize_diff_path(path)
+            && file.status == ChangeStatus::Deleted
+        {
+            file.path = PathBuf::from(path);
+        }
+        return true;
+    }
+    false
+}
+
+fn finish_hunk(file: &mut ChangedFile, hunk: &mut Option<DiffHunk>) {
+    if let Some(done) = hunk.take() {
+        file.hunks.push(done);
+    }
+}
+
+fn append_hunk_line(line: &str, hunk: &mut Option<DiffHunk>) {
+    let Some(active) = hunk.as_mut() else {
+        return;
+    };
+    if let Some(added) = line.strip_prefix('+') {
+        active.added_lines.push(added.to_string());
+    } else if let Some(removed) = line.strip_prefix('-') {
+        active.removed_lines.push(removed.to_string());
+    }
 }
 
 /// Push the trailing hunk (if any) and derive the public `ranges` view from the
