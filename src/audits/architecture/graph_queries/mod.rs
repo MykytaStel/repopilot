@@ -5,17 +5,16 @@
 //! workspace and can also be driven explicitly by `[architecture] package_roots`;
 //! with neither a workspace nor config the rule is silent.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::analysis::{ArchitectureClassifier, ArchitectureContext, FileRole};
 use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use crate::graph::ImportResolutionStats;
-use crate::graph::v2::{
-    GraphClaim, GraphNodeId, GraphReadiness, graph_capabilities, graph_readiness,
-};
+use crate::graph::v2::{GraphClaim, GraphReadiness, graph_capabilities, graph_readiness};
 use crate::scan::facts::FileFacts;
 
+mod audit_helpers;
 mod edge_evidence;
 mod entrypoints;
 mod layers;
@@ -25,6 +24,9 @@ mod packages;
 mod tests;
 
 use super::graph_context::GraphAuditContext;
+use audit_helpers::{
+    build_file_indexes, build_node_info, dead_module_findings, edge_findings, fan_in_by_target,
+};
 use edge_evidence::edge_evidence;
 use layers::LayerIndex;
 use packages::PackageIndex;
@@ -39,97 +41,37 @@ pub(crate) struct NodeInfo<'a> {
 
 impl GraphQueriesAudit {
     pub(crate) fn audit(&self, analysis: &GraphAuditContext<'_>) -> Vec<Finding> {
-        let facts = analysis.facts;
-        let config = analysis.config;
-        let snapshot = analysis.snapshot;
-        let path_by_id = analysis.path_by_id;
-        let resolution = analysis.resolution;
-        let root = analysis.root;
-        let classifier = ArchitectureClassifier::new(&config.module_mappings);
+        let classifier = ArchitectureClassifier::new(&analysis.config.module_mappings);
+        let (file_context, facts_by_path, known_files) =
+            build_file_indexes(analysis.facts, analysis.root, &classifier);
+        let node_info = build_node_info(
+            analysis.snapshot,
+            analysis.path_by_id,
+            analysis.root,
+            &file_context,
+            &facts_by_path,
+        );
+        let fan_in = fan_in_by_target(&analysis.snapshot.edges);
+        let capabilities = graph_capabilities(analysis.snapshot);
+        let mut findings = dead_module_findings(
+            analysis.snapshot,
+            &node_info,
+            &fan_in,
+            &capabilities,
+            analysis.resolution,
+        );
 
-        let mut file_context = HashMap::new();
-        let mut facts_by_path = HashMap::new();
-        for file in &facts.files {
-            let context = classifier.classify(file);
-            let abs_path = root.join(&file.path);
-            file_context.insert(abs_path.clone(), context.clone());
-            file_context.insert(file.path.clone(), context);
-            facts_by_path.insert(abs_path, file);
-            facts_by_path.insert(file.path.clone(), file);
-        }
-
-        let known_files: HashSet<PathBuf> = facts
-            .files
-            .iter()
-            .map(|f| crate::graph::resolver::normalize_path(&f.path))
-            .collect();
-
-        let capabilities = graph_capabilities(snapshot);
-
-        let mut node_info: HashMap<GraphNodeId, NodeInfo> = HashMap::new();
-        for node in &snapshot.nodes {
-            if let Some(path) = path_by_id.get(&node.id)
-                && let Some(context) = file_context.get(path)
-                && let Some(file_facts) = facts_by_path.get(path)
-            {
-                node_info.insert(
-                    node.id.clone(),
-                    NodeInfo {
-                        relative: relative_path(path, root),
-                        context: context.clone(),
-                        facts: Some(file_facts),
-                    },
-                );
-            }
-        }
-
-        let mut fan_in: HashMap<GraphNodeId, usize> = HashMap::new();
-        for edge in &snapshot.edges {
-            *fan_in.entry(edge.to.clone()).or_insert(0) += 1;
-        }
-
-        let mut findings = Vec::new();
-
-        for node in &snapshot.nodes {
-            if let Some(info) = node_info.get(&node.id)
-                && let Some(finding) = dead_module_finding(
-                    info,
-                    fan_in.get(&node.id).copied(),
-                    target_absence_readiness(info, &capabilities, resolution),
-                )
-            {
-                findings.push(finding);
-            }
-        }
-
-        let layer_index = LayerIndex::from_config(config);
-        let detected_packages = crate::scan::workspace::detect_workspace_packages(root);
-        let package_index = PackageIndex::new(config, &detected_packages, root);
-
-        let mut reported_edges = HashSet::new();
-        for edge in &snapshot.edges {
-            if !reported_edges.insert((edge.from.clone(), edge.to.clone())) {
-                continue;
-            }
-            let (Some(source), Some(target)) = (node_info.get(&edge.from), node_info.get(&edge.to))
-            else {
-                continue;
-            };
-
-            if let Some(finding) = test_leak_finding(source, target, root, &known_files) {
-                findings.push(finding);
-            }
-            if let Some(finding) = layer_index.violation_finding(source, target, root, &known_files)
-            {
-                findings.push(finding);
-            }
-            if let Some(finding) =
-                package_index.violation_finding(source, target, root, &known_files)
-            {
-                findings.push(finding);
-            }
-        }
-
+        let layer_index = LayerIndex::from_config(analysis.config);
+        let detected_packages = crate::scan::workspace::detect_workspace_packages(analysis.root);
+        let package_index = PackageIndex::new(analysis.config, &detected_packages, analysis.root);
+        findings.extend(edge_findings(
+            analysis.snapshot,
+            &node_info,
+            analysis.root,
+            &known_files,
+            &layer_index,
+            &package_index,
+        ));
         findings
     }
 }
