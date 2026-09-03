@@ -10,7 +10,7 @@ strict_coverage = "selective"
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:docker-compose.yml:51c0493bf3025959"
+finding_id = "security.secret-candidate:docker-compose.yml:1831fc89486577ba"
 rule_id = "security.secret-candidate"
 path = "docker-compose.yml"
 disposition = "valid-but-accepted"
@@ -18,7 +18,7 @@ reason = "Hardcoded SA_PASSWORD in docker-compose; intentional demo credential f
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:a9ec5b53067db7ff"
+finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:f6c3d2fad604e951"
 rule_id = "security.secret-candidate"
 path = "src/ApplicationCore/Constants/AuthorizationConstants.cs"
 disposition = "valid-but-accepted"
@@ -26,7 +26,7 @@ reason = "Hardcoded JWT_SECRET_KEY constant; demo signing key shipped by the ref
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:5a72f55e73b3db87"
+finding_id = "security.secret-candidate:src/ApplicationCore/Constants/AuthorizationConstants.cs:251c0c616980f575"
 rule_id = "security.secret-candidate"
 path = "src/ApplicationCore/Constants/AuthorizationConstants.cs"
 disposition = "valid-but-accepted"
@@ -36,7 +36,7 @@ reason = "Hardcoded DEFAULT_PASSWORD constant used to seed sample accounts; inte
 # connection strings) -> both occurrences are disambiguated by line.
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598"
+finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:456a29ec69193872"
 rule_id = "security.secret-candidate"
 path = "src/PublicApi/appsettings.Docker.json"
 line = 3
@@ -45,7 +45,7 @@ reason = "CatalogConnection string with an embedded demo password for the Docker
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:01d78fc0be373598"
+finding_id = "security.secret-candidate:src/PublicApi/appsettings.Docker.json:d4e88c63d02b9c65"
 rule_id = "security.secret-candidate"
 path = "src/PublicApi/appsettings.Docker.json"
 line = 4
@@ -54,7 +54,7 @@ reason = "IdentityConnection string with an embedded demo password for the Docke
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:456a29ec69193872"
 rule_id = "security.secret-candidate"
 path = "src/Web/appsettings.Docker.json"
 line = 3
@@ -63,7 +63,7 @@ reason = "CatalogConnection string with an embedded demo password for the Docker
 
 [[finding]]
 profile = "default"
-finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:01d78fc0be373598"
+finding_id = "security.secret-candidate:src/Web/appsettings.Docker.json:d4e88c63d02b9c65"
 rule_id = "security.secret-candidate"
 path = "src/Web/appsettings.Docker.json"
 line = 4

@@ -51,17 +51,16 @@ path = "packages/excalidraw/data/blob.ts"
 disposition = "actionable"
 reason = "Mutual dependency between data/blob.ts and data/filesystem.ts; two sibling modules that import each other directly."
 
-# Strict recall anchor: the public Algolia DocSearch key was downgraded to a
-# strict-only Low in #246. Keep it pinned so the downgrade can't silently become
-# a full suppression.
+# Strict recall anchor: the public Algolia DocSearch key is intentionally
+# strict-only Low. Keep it pinned so the downgrade cannot become a suppression.
 [[finding]]
 profile = "strict"
-finding_id = "security.secret-candidate:dev-docs/docusaurus.config.js:9fe21045a4599527"
+finding_id = "security.secret-candidate:dev-docs/docusaurus.config.js:dad96017f07ffb4c"
 rule_id = "security.secret-candidate"
 path = "dev-docs/docusaurus.config.js"
 line = 139
 disposition = "valid-but-accepted"
-reason = "Public, search-only Algolia DocSearch apiKey in the docs site config; safe to publish and intentionally retained as a strict recall anchor (#246)."
+reason = "Public, search-only Algolia DocSearch apiKey in the docs site config; safe to publish and intentionally retained as a strict recall anchor."
 
 [[finding]]
 profile = "strict"
