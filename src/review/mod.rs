@@ -9,6 +9,9 @@ pub mod model;
 mod ownership;
 pub(crate) mod paths;
 pub mod proof;
+#[cfg(test)]
+#[path = "proof_adapter_tests.rs"]
+mod proof_adapter_tests;
 mod readiness;
 pub mod render;
 mod report;
