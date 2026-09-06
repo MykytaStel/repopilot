@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Projected the canonical `ChangeProof` into review JSON, MCP review results,
+  and the console Proof Card while preserving legacy readiness, gates, and exit
+  behavior. The additive projection reports verdict, analyzed scope, and proof
+  obligation counts from the same review evidence.
+
 ### Fixed
 
 - Hardened `security.secret-candidate` evidence redaction: connection strings

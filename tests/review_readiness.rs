@@ -5,7 +5,7 @@ use repopilot::review::model::ReviewReport;
 use repopilot::review::{
     MergeReadinessRecord, OwnershipSummary, ReadinessReasonCode, ReadinessVerdict, derive_readiness,
 };
-use repopilot::scan::types::ScanSummary;
+use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
 use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::path::PathBuf;
 
@@ -70,6 +70,10 @@ fn review_json_projects_the_canonical_readiness_record() {
     let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
 
     assert_eq!(json["merge_readiness"]["verdict"], "ready");
+    assert_eq!(json["change_proof"]["verdict"], "REVIEW");
+    assert_eq!(json["change_proof"]["coverage"]["scope"], "changed");
+    assert_eq!(json["change_proof"]["coverage"]["analyzed_files"], 1);
+    assert_eq!(json["change_proof"]["obligations"]["applicable"], 0);
     assert_eq!(json["merge_readiness"]["impact"]["depth"], 0);
     assert_eq!(
         json["merge_readiness"]["ownership"]["suggested_owners"][0]["value"],
@@ -93,6 +97,8 @@ fn human_reports_project_readiness_and_owners() {
     let console = repopilot::review::render::render_console(&report, None);
     let markdown = repopilot::review::render::render_markdown(&report, None);
     assert!(console.contains("Merge readiness: READY"));
+    assert!(console.contains("Change Proof: REVIEW"));
+    assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
     assert!(console.contains("Suggested owners: @team"));
     assert!(markdown.contains("**Merge readiness:** `ready`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
@@ -177,7 +183,18 @@ fn verification_outcome(
 
 fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
     ReviewReport {
-        summary: ScanSummary::default(),
+        summary: ScanSummary {
+            metadata: ScanMetadata {
+                mode: ScanMode::Changed,
+                ..Default::default()
+            },
+            metrics: ScanMetrics {
+                files_discovered: 1,
+                files_analyzed: 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
         repo_root: PathBuf::from("/repo"),
         baseline_path: None,
         changed_files: vec![ChangedFile {

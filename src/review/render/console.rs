@@ -6,6 +6,7 @@ use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
+use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::signals::tiered::ReviewSignal;
@@ -53,6 +54,15 @@ fn render_console_header(
         review_gate,
         report.summary.artifacts.risk_delta.as_ref(),
     );
+    let proof = derive_change_proof_from_review(report, &readiness);
+    output.push_str(&format!("Change Proof: {}\n", proof.verdict.label()));
+    output.push_str(&format!(
+        "Proof scope: {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
+        proof.coverage.analyzed_files,
+        proof.coverage.requested_files,
+        proof.obligations.satisfied,
+        proof.obligations.applicable,
+    ));
     output.push_str(&format!(
         "Merge readiness: {}\n",
         readiness.verdict.label().to_uppercase()
