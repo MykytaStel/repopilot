@@ -96,6 +96,16 @@ fn complete_sufficient_policy_is_verified() {
 
     assert_eq!(proof.verdict, ChangeProofVerdict::Verified);
     assert!(proof.reasons.is_empty());
+    assert!(proof.capability_coverage.iter().any(|item| {
+        item.id == "scope.analyzed-files"
+            && item.status == ProofCapabilityStatus::Assessed
+            && item.count == 1
+    }));
+    assert!(proof.capability_coverage.iter().any(|item| {
+        item.id == "verification"
+            && item.status == ProofCapabilityStatus::Assessed
+            && item.count == 1
+    }));
 }
 
 #[test]
@@ -117,6 +127,11 @@ fn incomplete_scope_coverage_keeps_proof_at_review() {
     assert_eq!(proof.verdict, ChangeProofVerdict::Review);
     assert!(proof.reasons.iter().any(|reason| {
         reason.code == ChangeProofReasonCode::ScopeCoverageIncomplete && reason.count == 1
+    }));
+    assert!(proof.capability_coverage.iter().any(|item| {
+        item.id == "scope.excluded-files"
+            && item.status == ProofCapabilityStatus::Limited
+            && item.count == 1
     }));
 }
 
