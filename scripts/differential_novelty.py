@@ -27,7 +27,8 @@ def _finding_key(finding: dict[str, Any]) -> str:
         )
     if not locations:
         return rule_id
-    return json.dumps([rule_id, sorted(locations)], ensure_ascii=False, separators=(",", ":"))
+    locations.sort(key=lambda item: json.dumps(item, ensure_ascii=False, separators=(",", ":")))
+    return json.dumps([rule_id, locations], ensure_ascii=False, separators=(",", ":"))
 
 
 def evidence_keys(findings: Iterable[dict[str, Any]]) -> set[str]:
@@ -46,3 +47,19 @@ def novel_evidence_keys(findings: Iterable[dict[str, Any]], base_keys: set[str])
     """Return review evidence identities absent from the base scan."""
 
     return sorted(evidence_keys(findings) - base_keys)
+
+
+def evidence_rule_ids(keys: Iterable[str]) -> set[str]:
+    """Extract rule IDs from exact evidence identities."""
+
+    rule_ids: set[str] = set()
+    for key in keys:
+        try:
+            identity = json.loads(key)
+        except json.JSONDecodeError:
+            identity = None
+        if isinstance(identity, list) and identity and isinstance(identity[0], str):
+            rule_ids.add(identity[0])
+        elif key:
+            rule_ids.add(key)
+    return rule_ids

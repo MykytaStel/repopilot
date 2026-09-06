@@ -10,13 +10,20 @@ from pathlib import Path
 
 from differential_artifact import validate_artifact, validate_data
 from differential_contract import DifferentialManifestError, validate_differential
+from differential_pilot import render_pilot_template, validate_pilot
+from differential_pilot_metrics import write_pilot_metrics
 from differential_runner import collect_differential
 from real_history_contract import HoldoutManifestError
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("check", "collect", "validate-result"), default="check")
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=("check", "collect", "validate-result", "pilot-template", "pilot-validate", "pilot-score"),
+        default="check",
+    )
     parser.add_argument("--manifest", type=Path, default=Path("tests/benchmarks/differential.toml"))
     parser.add_argument("--holdout-manifest", type=Path, default=Path("tests/benchmarks/manifest.toml"))
     parser.add_argument("--rules-reference", type=Path, default=Path("docs/rules-reference.md"))
@@ -28,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--output", type=Path, help="write a differential artifact")
     parser.add_argument("--artifact", type=Path, help="differential artifact to validate")
+    parser.add_argument("--pilot", type=Path, help="single-expert pilot worksheet")
+    parser.add_argument("--reviewer", help="single-expert pilot reviewer name")
     args = parser.parse_args(argv)
     try:
         result = validate_differential(args.manifest, args.holdout_manifest, args.rules_reference, args.zoo_manifest)
@@ -85,6 +94,69 @@ def main(argv: list[str] | None = None) -> int:
             print(f"differential collection failed: {error}", file=sys.stderr)
             return 2
         print(f"Differential collection: {args.output} ({len(artifact['cases'])} cases)")
+        return 0
+    if args.command == "pilot-template":
+        if args.artifact is None or args.reviewer is None or args.output is None:
+            print("pilot-template requires --artifact, --reviewer, and --output", file=sys.stderr)
+            return 2
+        try:
+            rendered = render_pilot_template(
+                args.artifact,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+                args.reviewer,
+            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(rendered, encoding="utf-8")
+        except (DifferentialManifestError, HoldoutManifestError, OSError) as error:
+            print(f"pilot template failed: {error}", file=sys.stderr)
+            return 1
+        print(f"Pilot worksheet: {args.output}")
+        return 0
+    if args.command == "pilot-validate":
+        if args.artifact is None or args.pilot is None:
+            print("pilot-validate requires --artifact and --pilot", file=sys.stderr)
+            return 2
+        try:
+            pilot_result = validate_pilot(
+                args.pilot,
+                args.artifact,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+        except (DifferentialManifestError, HoldoutManifestError, OSError) as error:
+            print(f"pilot worksheet invalid: {error}", file=sys.stderr)
+            return 1
+        if args.format == "json":
+            print(json.dumps(pilot_result, indent=2, sort_keys=True))
+        else:
+            print(f"Pilot worksheet: {pilot_result['status']} ({pilot_result['cases']} cases)")
+        return 0
+    if args.command == "pilot-score":
+        if args.artifact is None or args.pilot is None or args.output is None:
+            print("pilot-score requires --artifact, --pilot, and --output", file=sys.stderr)
+            return 2
+        try:
+            pilot_result = write_pilot_metrics(
+                args.output,
+                args.artifact,
+                args.pilot,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+        except (DifferentialManifestError, HoldoutManifestError, OSError) as error:
+            print(f"pilot scoring failed: {error}", file=sys.stderr)
+            return 1
+        if args.format == "json":
+            print(json.dumps(pilot_result, indent=2, sort_keys=True))
+        else:
+            print(f"Pilot metrics: {pilot_result['scope']} ({len(pilot_result['cases'])} cases)")
         return 0
     if args.format == "json":
         print(json.dumps(result, indent=2, sort_keys=True))
