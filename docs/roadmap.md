@@ -18,6 +18,9 @@ the change:
   verification, intent drift, limitations, gate behavior, and the next action;
 - **truth and release confidence** close known compatibility, quality,
   documentation, performance, and publication gaps before release claims ship.
+- **scientific product evidence** measures detector precision, held-out recall,
+  and decision value against existing checks instead of treating unmeasured
+  rules or extra findings as proof of quality;
 
 The release deepens the existing commands and MCP tools. It does not add a new
 top-level command, hosted service, source upload, telemetry, implicit LLM,
