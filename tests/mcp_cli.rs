@@ -262,6 +262,11 @@ fn mcp_review_projects_the_canonical_merge_readiness_record() {
     ));
     assert!(report["merge_readiness"]["impact"].is_object());
     assert!(report["merge_readiness"]["ownership"].is_object());
+    assert!(report["change_proof"].is_object());
+    assert!(matches!(
+        report["change_proof"]["verdict"].as_str(),
+        Some("BROKEN" | "REVIEW" | "VERIFIED" | "NOT_ASSESSED")
+    ));
 }
 
 #[test]

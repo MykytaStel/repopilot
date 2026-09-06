@@ -14,6 +14,17 @@ pub enum ChangeProofVerdict {
     NotAssessed,
 }
 
+impl ChangeProofVerdict {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Broken => "BROKEN",
+            Self::Review => "REVIEW",
+            Self::Verified => "VERIFIED",
+            Self::NotAssessed => "NOT ASSESSED",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ChangeProofReasonCode {
