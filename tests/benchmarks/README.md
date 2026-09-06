@@ -30,6 +30,9 @@ python3 scripts/real_history.py adjudication-template \
 python3 scripts/real_history.py validate-adjudication \
   --artifact real-history-run.json --annotation-a annotation-a.toml \
   --annotation-b annotation-b.toml --annotation adjudication.toml
+python3 scripts/real_history.py metrics --artifact real-history-run.json \
+  --annotation-a annotation-a.toml --annotation-b annotation-b.toml \
+  --annotation adjudication.toml --output real-history-metrics.json
 ```
 
 Both entries are intentionally `pending`. This PR does not invent defect labels
@@ -52,5 +55,7 @@ copies both independent labels and leaves the adjudicated label and rationale
 empty for an explicit third decision. These commands create evidence packets;
 `validate-adjudication` requires that decision and its rationale to be filled
 and verifies that the copied independent labels still match both worksheets.
-These commands create evidence packets; they do not infer labels or calculate
-recall.
+`metrics` is then allowed to calculate corpus-only case-level TP/FN/TN/FP,
+recall, specificity, and precision with Wilson 95% intervals. Its output pins
+all three input hashes and states that the result is descriptive evidence for
+this holdout, not a production or language-wide estimate.

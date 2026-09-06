@@ -43,6 +43,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   reviewers and an adjudication template. Worksheets pin collection evidence
   while leaving labels and rationales human-entered; no quality metric is
   inferred before explicit adjudication.
+- Added a gated real-history metrics artifact with case-level confusion counts,
+  recall, specificity, precision, Wilson intervals, input hashes, and an
+  explicit corpus-only limitation.
 
 ### Fixed
 
