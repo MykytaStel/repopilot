@@ -7,6 +7,7 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
+use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::signals::tiered::ReviewSignal;
@@ -32,10 +33,28 @@ pub fn render_markdown_with_gates(
         review_gate,
         report.summary.artifacts.risk_delta.as_ref(),
     );
+    let proof = derive_change_proof_from_review(report, &readiness);
     output.push_str(&format!(
         "- **Merge readiness:** `{}`\n",
         readiness.verdict.label()
     ));
+    output.push_str(&format!(
+        "- **Change proof:** `{}`\n",
+        proof.verdict.label()
+    ));
+    output.push_str(&format!(
+        "- **Proof scope:** {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
+        proof.coverage.analyzed_files,
+        proof.coverage.requested_files,
+        proof.obligations.satisfied,
+        proof.obligations.applicable,
+    ));
+    if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
+        output.push_str(&format!(
+            "- **Proof limits:** {} excluded, {} unsupported file(s)\n",
+            proof.coverage.excluded_files, proof.coverage.unsupported_files
+        ));
+    }
     let ownership_status = match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => "resolved".to_string(),
         OwnershipAssessment::ConfiguredButUnmatched => format!(

@@ -64,6 +64,12 @@ fn render_console_header(
         proof.obligations.satisfied,
         proof.obligations.applicable,
     ));
+    if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
+        output.push_str(&format!(
+            "Proof limits: {} excluded, {} unsupported file(s)\n",
+            proof.coverage.excluded_files, proof.coverage.unsupported_files
+        ));
+    }
     output.push_str(&format!(
         "Merge readiness: {}\n",
         readiness.verdict.label().to_uppercase()

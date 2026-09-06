@@ -73,6 +73,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   CODEOWNERS file is now reported as `not_configured` and disclosed as a
   limitation without creating an artificial unowned-surface review reason;
   configured but unmatched paths remain review-visible.
+- Made ChangeProof coverage explicit: known skipped files are separated from
+  residual unsupported scope, incomplete coverage produces a stable review
+  reason, and console/Markdown now show the same proof limits as JSON.
 
 ### Fixed
 

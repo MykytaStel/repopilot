@@ -99,6 +99,28 @@ fn complete_sufficient_policy_is_verified() {
 }
 
 #[test]
+fn incomplete_scope_coverage_keeps_proof_at_review() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: ProofCoverage {
+            scope: ProofScope::Changed,
+            requested_files: 3,
+            analyzed_files: 2,
+            excluded_files: 1,
+            unsupported_files: 0,
+        },
+        obligations: obligations(),
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert!(proof.reasons.iter().any(|reason| {
+        reason.code == ChangeProofReasonCode::ScopeCoverageIncomplete && reason.count == 1
+    }));
+}
+
+#[test]
 fn static_only_policy_cannot_claim_verified() {
     let proof = derive_change_proof(ChangeProofInput {
         coverage: coverage(1),

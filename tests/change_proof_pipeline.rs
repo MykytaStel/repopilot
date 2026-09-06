@@ -41,6 +41,34 @@ fn real_changed_review_keeps_static_only_at_review() {
 }
 
 #[test]
+fn partial_scope_is_review_with_explicit_coverage_limits() {
+    let temp = prepared_repo();
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn answer() -> u8 { 42 }\n",
+    )
+    .unwrap();
+
+    let mut report = review_report(&temp);
+    let extra_changed_file = report.changed_files[0].clone();
+    report.changed_files.push(extra_changed_file);
+    report.summary.metrics.large_files_skipped = 1;
+    let readiness = derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.coverage.requested_files, 2);
+    assert_eq!(proof.coverage.analyzed_files, 1);
+    assert_eq!(proof.coverage.excluded_files, 1);
+    assert_eq!(proof.coverage.unsupported_files, 0);
+    assert!(proof.reasons.iter().any(|reason| {
+        reason.code == ChangeProofReasonCode::ScopeCoverageIncomplete && reason.count == 1
+    }));
+    let console = repopilot::review::render::render_console(&report, None);
+    assert!(console.contains("Proof limits: 1 excluded, 0 unsupported file(s)"));
+}
+
+#[test]
 fn real_failed_verification_stays_review_not_broken() {
     let temp = prepared_repo();
     fs::write(
