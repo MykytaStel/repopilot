@@ -59,6 +59,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Made differential novelty baseline-aware: each case now records exact base
   scan evidence identities, so an existing architecture finding cannot be
   counted as novel merely because it touches a changed file.
+- Added a single-expert exploratory pilot workflow with blinded worksheets,
+  hash-pinned validation, case-level scoring, Wilson intervals, and captured
+  determinism/timing/resource summaries. The pilot is explicitly not
+  independent validation and leaves the preregistered dual-review protocol
+  unchanged.
 
 ### Fixed
 

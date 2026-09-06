@@ -10,6 +10,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_contract import DifferentialManifestError, validate_differential  # noqa: E402
+import differential  # noqa: E402
 
 
 class DifferentialContractTests(unittest.TestCase):
@@ -93,6 +94,11 @@ baseline_ids = ["python.tests"]
         self.diff.write_text(text, encoding="utf-8")
         with self.assertRaisesRegex(DifferentialManifestError, "at least 2"):
             validate_differential(self.diff, self.holdout, self.rules, self.zoo)
+
+    def test_pilot_commands_require_their_artifacts(self) -> None:
+        self.assertEqual(differential.main(["pilot-template", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
+        self.assertEqual(differential.main(["pilot-validate", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
+        self.assertEqual(differential.main(["pilot-score", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
 
 
 if __name__ == "__main__":

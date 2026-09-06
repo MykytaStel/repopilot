@@ -19,6 +19,14 @@ python3 scripts/differential.py collect --repo-root . \
   --output differential-run.json
 python3 scripts/differential.py validate-result \
   --artifact differential-run.json
+python3 scripts/differential.py pilot-template \
+  --artifact differential-run.json --reviewer expert \
+  --output pilot.toml
+python3 scripts/differential.py pilot-validate \
+  --artifact differential-run.json --pilot pilot.toml
+python3 scripts/differential.py pilot-score \
+  --artifact differential-run.json --pilot pilot.toml \
+  --output pilot-metrics.json
 ```
 
 It freezes the six utility measurements, the baseline set, the holdout case
@@ -66,6 +74,14 @@ RepoPilot findings. The collected artifact still needs dual-label adjudication.
 `validate-result` checks the artifact against the current manifest, including
 the manifest hash, immutable PR revisions, scanner provenance, baseline command
 allowlist, and one review observation per case.
+
+When only one expert is available, `pilot-template` creates a blinded
+`single-expert-pilot-v1` worksheet. Fill one label and rationale per case, then
+run `pilot-validate` and `pilot-score`. The resulting report is explicitly
+exploratory: it can show case-level outcomes, determinism, and captured timing
+or resource summaries, but it is not independent validation and cannot support
+a production or language-wide claim. The pilot does not modify the
+dual-review protocol or its metrics.
 
 `template` creates one deterministic worksheet per independent reviewer. It
 copies only pinned case identity and baseline statuses from the collection

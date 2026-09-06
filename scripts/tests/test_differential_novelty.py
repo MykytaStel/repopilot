@@ -33,6 +33,18 @@ class DifferentialNoveltyTests(unittest.TestCase):
         self.assertEqual(len(base_keys), 1)
         self.assertEqual(novel, ["security.secret-candidate"])
 
+    def test_evidence_identity_orders_missing_and_present_lines(self) -> None:
+        findings = [
+            {
+                "rule_id": "demo.rule",
+                "evidence": [
+                    {"path": "demo.py", "line_start": None, "line_end": None, "snippet": "file"},
+                    {"path": "demo.py", "line_start": 1, "line_end": 1, "snippet": "line"},
+                ],
+            }
+        ]
+        self.assertEqual(len(evidence_keys(findings)), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
