@@ -137,6 +137,8 @@ label_state = "pending"
         left = render_worksheet(self.collection, self.manifest, self.rules, self.zoo, "a")
         right = render_worksheet(self.collection, self.manifest, self.rules, self.zoo, "b")
         self.assertEqual(left.replace('reviewer = "a"', 'reviewer = "b"'), right)
+        self.assertNotIn("observed_in_diff_rule_ids", left)
+        self.assertIn("blinded = true", left)
         self.assertEqual(tomllib.loads(left)["case"][0]["label"], "")
 
     def test_blank_template_is_not_admissible_as_annotation(self) -> None:

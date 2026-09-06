@@ -18,7 +18,7 @@ from real_history_contract import (
 )
 
 
-ANNOTATION_SCHEMA_VERSION = 1
+ANNOTATION_SCHEMA_VERSION = 2
 ANNOTATION_PROTOCOL = "dual-independent-adjudication-v1"
 ANNOTATION_FIELDS = {
     "id",
@@ -27,7 +27,6 @@ ANNOTATION_FIELDS = {
     "base_sha",
     "head_sha",
     "merge_sha",
-    "observed_in_diff_rule_ids",
     "baseline_statuses",
     "label",
     "expected_rule_ids",
@@ -79,15 +78,12 @@ def _worksheet_header(data: dict[str, Any], reviewer: str) -> list[str]:
         f"reviewer = {_toml_string(reviewer)}",
         f"manifest_sha256 = {_toml_string(data['manifest_sha256'])}",
         f"collection_sha256 = {_toml_string(data['collection_sha256'])}",
+        "blinded = true",
         "",
     ]
 
 
 def _worksheet_case(case: HoldoutCase, observation: dict[str, Any]) -> list[str]:
-    review = observation["review"]
-    rule_ids = review.get("in_diff_rule_ids", []) if isinstance(review, dict) else []
-    if not isinstance(rule_ids, list) or not all(isinstance(item, str) for item in rule_ids):
-        raise HoldoutManifestError(f"collection case {case.case_id}: invalid rule evidence")
     baselines = observation["baselines"]
     statuses = [f"{baseline_id}={baselines[baseline_id]['status']}" for baseline_id in case.baseline_ids]
     return [
@@ -98,7 +94,6 @@ def _worksheet_case(case: HoldoutCase, observation: dict[str, Any]) -> list[str]
         f"base_sha = {_toml_string(case.base_sha)}",
         f"head_sha = {_toml_string(case.head_sha)}",
         f"merge_sha = {_toml_string(case.merge_sha)}",
-        f"observed_in_diff_rule_ids = {_toml_array(sorted(set(rule_ids)))}",
         f"baseline_statuses = {_toml_array(statuses)}",
         'label = ""',
         "expected_rule_ids = []",
@@ -150,6 +145,8 @@ def _validate_context(
 ) -> dict[str, dict[str, Any]]:
     if data.get("schema_version") != ANNOTATION_SCHEMA_VERSION:
         raise HoldoutManifestError("annotation schema_version is unsupported")
+    if data.get("blinded") is not True:
+        raise HoldoutManifestError("annotation must declare blinded = true")
     for field in ("corpus", "protocol", "manifest_sha256", "collection_sha256"):
         if data.get(field) != collection.get(field, collection.get("manifest_sha256")):
             expected = collection.get(field)
@@ -178,10 +175,6 @@ def _validate_context(
                 raise HoldoutManifestError(f"annotation case {case_id}: {field} does not match manifest")
         if raw.get("pull_request") != case.pull_request:
             raise HoldoutManifestError(f"annotation case {case_id}: pull_request does not match manifest")
-        if not isinstance(raw.get("observed_in_diff_rule_ids"), list) or not all(
-            isinstance(item, str) for item in raw["observed_in_diff_rule_ids"]
-        ):
-            raise HoldoutManifestError(f"annotation case {case_id}: invalid observed rule IDs")
         if not isinstance(raw.get("baseline_statuses"), list) or not all(
             isinstance(item, str) for item in raw["baseline_statuses"]
         ):
@@ -189,10 +182,6 @@ def _validate_context(
         observation = collected.get(case_id)
         if observation is None:
             raise HoldoutManifestError(f"collection is missing case {case_id}")
-        review = observation.get("review")
-        expected_rules = sorted(set(review.get("in_diff_rule_ids", []))) if isinstance(review, dict) else []
-        if raw["observed_in_diff_rule_ids"] != expected_rules:
-            raise HoldoutManifestError(f"annotation case {case_id}: observed rule evidence drifted")
         expected_statuses = [
             f"{baseline_id}={observation['baselines'][baseline_id]['status']}"
             for baseline_id in case.baseline_ids
@@ -230,4 +219,3 @@ def load_annotation(
     data = _load_toml(path, "annotation")
     known_rules = set(re.findall(r"^### `([^`]+)`", rules_reference.read_text(encoding="utf-8"), re.MULTILINE))
     return data, _validate_context(data, collection, cases, known_rules, reviewer)
-
