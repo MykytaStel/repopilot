@@ -5,7 +5,10 @@ use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
 use crate::scan::types::ScanMode;
 use crate::verification::VerificationStatus;
 
+mod capabilities;
 mod contracts;
+use capabilities::capability_coverage;
+pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 pub use contracts::{ChangeProofContractDelta, ContractChangeKind, ContractFamily};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -117,6 +120,7 @@ pub struct ChangeProof {
     pub coverage: ProofCoverage,
     pub obligations: ProofObligations,
     pub contract_deltas: Vec<ChangeProofContractDelta>,
+    pub capability_coverage: Vec<ProofCapability>,
 }
 
 pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
@@ -172,12 +176,14 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
         }
     };
     reasons.sort_by_key(|reason| reason.code);
+    let capability_coverage = capability_coverage(&input.coverage, input.obligations);
     ChangeProof {
         verdict,
         reasons,
         coverage: input.coverage,
         obligations: input.obligations,
         contract_deltas: Vec::new(),
+        capability_coverage,
     }
 }
 
@@ -228,6 +234,12 @@ pub fn derive_change_proof_from_review(
         reasons,
     });
     proof.contract_deltas = contract_deltas;
+    proof.capability_coverage.push(ProofCapability {
+        id: "contract-deltas".to_string(),
+        status: ProofCapabilityStatus::Assessed,
+        count: proof.contract_deltas.len(),
+        message: "Supported semantic contract changes detected in the review.".to_string(),
+    });
     proof
 }
 

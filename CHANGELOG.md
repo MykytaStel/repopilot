@@ -76,6 +76,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Made ChangeProof coverage explicit: known skipped files are separated from
   residual unsupported scope, incomplete coverage produces a stable review
   reason, and console/Markdown now show the same proof limits as JSON.
+- Added an additive ChangeProof capability ledger with stable IDs and explicit
+  `assessed`, `limited`, and `unavailable` statuses for scope, verification,
+  and supported contract-delta evidence.
 
 ### Fixed
 

@@ -118,6 +118,7 @@ fn review_json_projects_the_canonical_readiness_record() {
     assert_eq!(json["change_proof"]["coverage"]["scope"], "changed");
     assert_eq!(json["change_proof"]["coverage"]["analyzed_files"], 1);
     assert_eq!(json["change_proof"]["obligations"]["applicable"], 0);
+    assert!(json["change_proof"]["capability_coverage"].is_array());
     assert_eq!(json["merge_readiness"]["impact"]["depth"], 0);
     assert_eq!(
         json["merge_readiness"]["ownership"]["suggested_owners"][0]["value"],
