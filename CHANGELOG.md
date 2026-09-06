@@ -64,6 +64,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   determinism/timing/resource summaries. The pilot is explicitly not
   independent validation and leaves the preregistered dual-review protocol
   unchanged.
+- Expanded the pending real-history and differential holdout from two to six
+  immutable merged pull requests across four additional Python repositories.
+  The corpus ID changed before any labels were collected while the protocol
+  contract stayed the same; earlier two-case artifacts remain historical
+  observation packets.
 
 ### Fixed
 
