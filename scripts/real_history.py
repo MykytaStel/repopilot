@@ -20,6 +20,7 @@ from real_history_annotations import (
     render_worksheet,
 )
 from real_history_adjudication import render_adjudication_template, validate_adjudication
+from real_history_metrics import write_metrics
 from real_history_runner import collect_holdout
 
 
@@ -36,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             "validate-annotation",
             "adjudication-template",
             "validate-adjudication",
+            "metrics",
         ),
         default="check",
     )
@@ -156,6 +158,31 @@ def main(argv: list[str] | None = None) -> int:
             print(f"adjudication invalid: {error}", file=sys.stderr)
             return 1
         print(f"Adjudication: valid ({count} cases)")
+        return 0
+    if args.command == "metrics":
+        required = (args.artifact, args.annotation_a, args.annotation_b, args.annotation, args.output)
+        if any(value is None for value in required):
+            print(
+                "metrics requires --artifact, --annotation-a, --annotation-b, --annotation, and --output",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            result = write_metrics(
+                args.output,
+                args.annotation,
+                args.annotation_a,
+                args.annotation_b,
+                args.artifact,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+        except (AnnotationManifestError, OSError) as error:
+            print(f"metrics failed: {error}", file=sys.stderr)
+            return 1
+        counts = result["counts"]
+        print(f"Metrics: {args.output} (TP {counts['tp']}, FN {counts['fn']}, TN {counts['tn']}, FP {counts['fp']})")
         return 0
     if args.command == "collect":
         if args.timeout <= 0:

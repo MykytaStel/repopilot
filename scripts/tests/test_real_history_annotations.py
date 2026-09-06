@@ -19,6 +19,7 @@ from real_history_adjudication import (  # noqa: E402
     render_adjudication_template,
     validate_adjudication,
 )
+from real_history_metrics import _case_outcome, build_metrics, wilson_interval  # noqa: E402
 from real_history_contract import validate_manifest  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
@@ -192,6 +193,47 @@ label_state = "pending"
             validate_adjudication(path, left, right, self.collection, self.manifest, self.rules, self.zoo),
             2,
         )
+
+    def test_metrics_are_corpus_scoped_and_include_intervals(self) -> None:
+        left, right = self.worksheet("a"), self.worksheet("b")
+        self.complete(left, "defect-present")
+        self.complete(right, "defect-present")
+        for path in (left, right):
+            text = path.read_text(encoding="utf-8")
+            marker = '[[case]]\nid = "case-two"'
+            head, tail = text.split(marker, 1)
+            tail = tail.replace('label = "defect-present"', 'label = "no-defect"', 1)
+            tail = tail.replace('expected_rule_ids = ["demo.rule"]', "expected_rule_ids = []", 1)
+            path.write_text(head + marker + tail, encoding="utf-8")
+        adjudication = self.root / "adjudication.toml"
+        adjudication.write_text(
+            render_adjudication_template(
+                left, right, self.collection, self.manifest, self.rules, self.zoo
+            ),
+            encoding="utf-8",
+        )
+        text = adjudication.read_text(encoding="utf-8")
+        text = text.replace('adjudicated = ""', 'adjudicated = "defect-present"', 1)
+        text = text.replace('expected_rule_ids = []', 'expected_rule_ids = ["demo.rule"]', 1)
+        text = text.replace('rationale = ""', 'rationale = "confirmed"', 1)
+        text = text.replace('adjudicated = ""', 'adjudicated = "no-defect"', 1)
+        text = text.replace('rationale = ""', 'rationale = "confirmed"', 1)
+        adjudication.write_text(text, encoding="utf-8")
+        result = build_metrics(
+            adjudication, left, right, self.collection, self.manifest, self.rules, self.zoo
+        )
+        self.assertEqual(result["counts"], {"tp": 1, "fn": 0, "tn": 1, "fp": 0, "excluded": 0})
+        self.assertEqual(result["metrics"]["recall"]["trials"], 1)
+        self.assertEqual(result["scope"], "adjudicated real-history holdout cases only")
+        self.assertIsNotNone(result["metrics"]["recall"]["wilson_95"])
+        self.assertIsNone(wilson_interval(0, 0))
+
+    def test_case_outcomes_cover_confusion_matrix_and_uncertainty(self) -> None:
+        self.assertEqual(_case_outcome("defect-present", ["demo.rule"], ["demo.rule"]), "tp")
+        self.assertEqual(_case_outcome("defect-present", ["demo.rule"], []), "fn")
+        self.assertEqual(_case_outcome("no-defect", [], []), "tn")
+        self.assertEqual(_case_outcome("no-defect", [], ["demo.rule"]), "fp")
+        self.assertEqual(_case_outcome("uncertain", [], ["demo.rule"]), "excluded")
 
 
 if __name__ == "__main__":
