@@ -19,6 +19,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
+- Added a held-out recall corpus contract with seeded-defect and safe-guard
+  cases, stable IDs, declared profiles and languages, path confinement, and a
+  deterministic manifest summary. The contract is evidence scaffolding; it
+  makes no recall claim until a frozen scanner runner executes it.
 
 ### Fixed
 
