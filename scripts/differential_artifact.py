@@ -14,6 +14,7 @@ from real_history_runner import BASELINE_COMMANDS
 
 
 REVIEW_STATUSES = {"collected", "timeout"}
+BASE_SCAN_STATUSES = REVIEW_STATUSES
 
 
 def sha256_file(path: Path) -> str:
@@ -104,6 +105,13 @@ def validate_case(
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline status")
             if not isinstance(run.get("wall_ms"), (int, float)) or run["wall_ms"] < 0:
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline timing")
+    base_scan = observation.get("base_scan")
+    if not isinstance(base_scan, dict) or base_scan.get("status") not in BASE_SCAN_STATUSES:
+        raise DifferentialManifestError(f"case {case.case_id}: base scan observation is missing")
+    if not isinstance(base_scan.get("wall_ms"), (int, float)) or base_scan["wall_ms"] < 0:
+        raise DifferentialManifestError(f"case {case.case_id}: invalid base scan timing")
+    if base_scan["status"] == "collected" and not isinstance(base_scan.get("evidence_keys"), list):
+        raise DifferentialManifestError(f"case {case.case_id}: base scan evidence keys are missing")
     reviews = observation.get("reviews")
     if not isinstance(reviews, list) or len(reviews) != repetitions:
         raise DifferentialManifestError(f"case {case.case_id}: review repetition count drift")
@@ -114,6 +122,10 @@ def validate_case(
             raise DifferentialManifestError(f"case {case.case_id}: invalid review timing")
         if review["status"] == "collected" and not isinstance(review.get("stable_evidence_sha256"), str):
             raise DifferentialManifestError(f"case {case.case_id}: collected review lacks stable evidence hash")
+        if review["status"] == "collected":
+            for field in ("in_diff_evidence_keys", "novel_in_diff_evidence_keys"):
+                if not isinstance(review.get(field), list) or not all(isinstance(item, str) for item in review[field]):
+                    raise DifferentialManifestError(f"case {case.case_id}: collected review lacks {field}")
     determinism = observation.get("determinism")
     if not isinstance(determinism, dict) or not isinstance(determinism.get("stable_evidence_deterministic"), bool):
         raise DifferentialManifestError(f"case {case.case_id}: determinism summary is missing")

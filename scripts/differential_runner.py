@@ -13,6 +13,7 @@ from typing import Any
 
 from differential_contract import validate_differential
 from differential_manifest import load_differential
+from differential_novelty import evidence_keys, novel_evidence_keys
 from real_history_contract import HoldoutCase, HoldoutManifestError, validate_manifest
 from real_history_runner import BASELINE_COMMANDS, clone_case, summarize_review
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
@@ -74,7 +75,40 @@ def run_timed_command(command: tuple[str, ...], cwd: Path, timeout_seconds: int)
     return result
 
 
-def _review_once(scanner: Any, case: HoldoutCase, head: Path, timeout_seconds: int) -> dict[str, Any]:
+def _scan_base(scanner: Any, case: HoldoutCase, base: Path, timeout_seconds: int) -> dict[str, Any]:
+    command = (*scanner.command, "scan", str(base), "--format", "json", "--profile", "default", "--no-progress")
+    started = time.perf_counter()
+    try:
+        process = subprocess.run(list(command), cwd=base, capture_output=True, check=False, timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        return {"status": "timeout", "returncode": None, "wall_ms": round((time.perf_counter() - started) * 1000, 3)}
+    if process.returncode not in (0, 1):
+        raise HoldoutManifestError(
+            f"differential base scan failed for {case.case_id}: {process.stderr.decode(errors='replace').strip()}"
+        )
+    try:
+        report = json.loads(process.stdout)
+    except json.JSONDecodeError as error:
+        raise HoldoutManifestError(f"differential base scan returned invalid JSON for {case.case_id}: {error}") from error
+    findings = report.get("findings")
+    if not isinstance(findings, list):
+        raise HoldoutManifestError(f"differential base scan has no findings array for {case.case_id}")
+    return {
+        "status": "collected",
+        "returncode": process.returncode,
+        "wall_ms": round((time.perf_counter() - started) * 1000, 3),
+        "command": list(command),
+        "evidence_keys": sorted(evidence_keys(findings)),
+    }
+
+
+def _review_once(
+    scanner: Any,
+    case: HoldoutCase,
+    head: Path,
+    base_evidence: set[str],
+    timeout_seconds: int,
+) -> dict[str, Any]:
     command = (
         *scanner.command,
         "review",
@@ -94,7 +128,13 @@ def _review_once(scanner: Any, case: HoldoutCase, head: Path, timeout_seconds: i
     try:
         process = subprocess.run(list(command), cwd=head, capture_output=True, check=False, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        return {"status": "timeout", "returncode": None, "wall_ms": round((time.perf_counter() - started) * 1000, 3)}
+        return {
+            "status": "timeout",
+            "returncode": None,
+            "wall_ms": round((time.perf_counter() - started) * 1000, 3),
+            "in_diff_evidence_keys": [],
+            "novel_in_diff_evidence_keys": [],
+        }
     if process.returncode not in (0, 1):
         raise HoldoutManifestError(
             f"differential review failed for {case.case_id}: {process.stderr.decode(errors='replace').strip()}"
@@ -103,12 +143,16 @@ def _review_once(scanner: Any, case: HoldoutCase, head: Path, timeout_seconds: i
         report = json.loads(process.stdout)
     except json.JSONDecodeError as error:
         raise HoldoutManifestError(f"differential review returned invalid JSON for {case.case_id}: {error}") from error
+    in_diff_findings = [finding for finding in report["findings"] if isinstance(finding, dict) and finding.get("in_diff") is True]
+    in_diff_keys = sorted(evidence_keys(in_diff_findings))
     result = {
         **summarize_review(report, process.stdout),
         "status": "collected",
         "returncode": process.returncode,
         "wall_ms": round((time.perf_counter() - started) * 1000, 3),
         "resource_status": resource_status,
+        "in_diff_evidence_keys": in_diff_keys,
+        "novel_in_diff_evidence_keys": novel_evidence_keys(in_diff_findings, base_evidence),
     }
     _, resource_after = _resource_snapshot()
     if resource_before is not None and resource_after is not None:
@@ -124,7 +168,9 @@ def collect_case(
     root: Path,
     timeout_seconds: int,
 ) -> dict[str, Any]:
-    _, head, merge = clone_case(case, root)
+    base, head, merge = clone_case(case, root)
+    base_scan = _scan_base(scanner, case, base, timeout_seconds)
+    base_evidence = set(base_scan.get("evidence_keys", []))
     baselines = {baseline_id: [] for baseline_id in baseline_ids}
     reviews = []
     for repeat in range(1, repetitions + 1):
@@ -132,7 +178,7 @@ def collect_case(
             result = run_timed_command(BASELINE_COMMANDS[baseline_id], merge, timeout_seconds)
             result["repeat"] = repeat
             baselines[baseline_id].append(result)
-        review = _review_once(scanner, case, head, timeout_seconds)
+        review = _review_once(scanner, case, head, base_evidence, timeout_seconds)
         review["repeat"] = repeat
         reviews.append(review)
     stable_hashes = [run["stable_evidence_sha256"] for run in reviews if run["status"] == "collected"]
@@ -143,6 +189,7 @@ def collect_case(
         "base_sha": case.base_sha,
         "head_sha": case.head_sha,
         "merge_sha": case.merge_sha,
+        "base_scan": base_scan,
         "baselines": baselines,
         "reviews": reviews,
         "determinism": {
