@@ -9,7 +9,9 @@ mod capabilities;
 mod contracts;
 use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
-pub use contracts::{ChangeProofContractDelta, ContractChangeKind, ContractFamily};
+pub use contracts::{
+    ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -230,7 +232,10 @@ pub fn derive_change_proof_from_review(
             stale,
         },
         sufficient_policy: !report.verification.is_empty(),
-        broken_contracts: contract_deltas.len(),
+        broken_contracts: contract_deltas
+            .iter()
+            .filter(|delta| delta.is_broken())
+            .count(),
         reasons,
     });
     proof.contract_deltas = contract_deltas;

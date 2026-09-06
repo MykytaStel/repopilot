@@ -79,6 +79,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added an additive ChangeProof capability ledger with stable IDs and explicit
   `assessed`, `limited`, and `unavailable` statuses for scope, verification,
   and supported contract-delta evidence.
+- Added the first dependency contract deltas for Cargo and npm manifests:
+  additions, removals, upgrades, downgrades, source changes, feature changes,
+  and metadata-only edits now have typed evidence. Lockfile changes remain
+  explicitly limited when a zero-context diff cannot identify the package.
 
 ### Fixed
 
