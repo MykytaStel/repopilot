@@ -13,8 +13,13 @@ path. Run the deterministic contract check from the repository root:
 ```bash
 python3 scripts/recall.py
 python3 scripts/recall.py --format json
+python3 scripts/recall.py run --output recall-run.json
 ```
 
-This contract validates corpus structure only. It does not claim recall until a
-frozen scanner runner executes the cases and records true-positive, false-
-negative, and specificity counts with tool and revision metadata.
+`run` builds the workspace scanner (or accepts `--scanner PATH`), materializes
+each case outside the fixture tree, and writes a deterministic JSON artifact
+with manifest/rules/config hashes, scanner version/schema/revision metadata,
+and per-case target-rule results plus corpus-only TP/FN/TN/FP, recall, and
+specificity metrics. It does not claim general recall: the current corpus is
+synthetic and small, so its result is a regression checkpoint until an
+independent real-history holdout is added.
