@@ -14,12 +14,19 @@ The differential utility protocol is preregistered separately:
 ```bash
 python3 scripts/differential.py check
 python3 scripts/differential.py check --format json
+python3 scripts/differential.py collect --repo-root . \
+  --scanner target/release/repopilot --timeout 300 \
+  --output differential-run.json
+python3 scripts/differential.py validate-result \
+  --artifact differential-run.json
 ```
 
 It freezes the six utility measurements, the baseline set, the holdout case
-set, and three repetitions before a benchmark run. It is only a contract;
-until a runner records labels, timings, determinism, and resource samples it
-does not claim that RepoPilot adds value over existing checks.
+set, and three repetitions before a benchmark run. `collect` executes the
+allowlisted checks and repeated RepoPilot reviews on exact-SHA worktrees and
+records timings, output hashes, determinism, scanner provenance, and best
+effort child-resource samples. The artifact remains unlabeled and makes no
+utility claim until the independent labeling and scoring step exists.
 
 Validate the protocol contract without cloning repositories:
 

@@ -52,6 +52,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a gated real-history metrics artifact with case-level confusion counts,
   recall, specificity, precision, Wilson intervals, input hashes, and an
   explicit corpus-only limitation.
+- Added a differential observation runner for the preregistered utility
+  protocol. It repeats allowlisted baseline checks and exact-SHA RepoPilot
+  reviews, records timing/output/determinism/resource observations, and validates
+  the artifact while keeping labels pending and utility claims gated.
 
 ### Fixed
 
