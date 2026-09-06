@@ -66,6 +66,14 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 | `testing.missing-test-folder` | experimental | no zoo evidence | n/a | 0 |
 | `testing.source-without-test` | experimental | no zoo evidence | n/a | 0 |
 
+## Evidence coverage
+
+- Default-profile evidence: 6 of 54 rules (11.1%), 25 labeled findings across 7 repo(s).
+- Default-profile rules without evidence: 48 (unmeasured, not clean).
+- Strict-profile sampled evidence: 6 rules, 14 sampled findings across 5 repo(s).
+- These coverage counts describe committed labels and do not establish recall.
+
+
 ## Strict-profile sampled evidence
 
 Rules that fire only in the strict profile are too numerous to label exhaustively. These rows come from deterministic per-rule samples (`python3 scripts/zoo.py sample --rule <id>`), so the precision estimate describes the sampled findings, not the rule's full strict-profile population. A rule missing from this table has no sampled evidence at all.

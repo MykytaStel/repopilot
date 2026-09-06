@@ -140,6 +140,38 @@ class RenderScorecardMarkdownTests(unittest.TestCase):
         )
         self.assertIn("| `architecture.dead-module` | experimental | no zoo evidence | n/a | 0 |", rendered)
 
+    def test_evidence_summary_reports_denominator_and_unmeasured_rules(self) -> None:
+        lifecycles = {
+            "architecture.circular-dependency": "stable",
+            "architecture.dead-module": "experimental",
+            "security.secret-candidate": "preview",
+        }
+        scores = {
+            "architecture.circular-dependency": zs.RuleScore(
+                rule_id="architecture.circular-dependency",
+                labeled=4,
+                actionable=4,
+                repos={"repo-a", "repo-b"},
+            )
+        }
+        strict_scores = {
+            "architecture.dead-module": zs.RuleScore(
+                rule_id="architecture.dead-module",
+                labeled=2,
+                actionable=1,
+                repos={"repo-a"},
+            )
+        }
+        rendered = zs.render_scorecard_markdown(scores, lifecycles, strict_scores)
+
+        self.assertIn(
+            "- Default-profile evidence: 1 of 3 rules (33.3%), 4 labeled findings across 2 repo(s).",
+            rendered,
+        )
+        self.assertIn("- Default-profile rules without evidence: 2 (unmeasured, not clean).", rendered)
+        self.assertIn("- Strict-profile sampled evidence: 1 rules, 2 sampled findings across 1 repo(s).", rendered)
+        self.assertIn("These coverage counts describe committed labels and do not establish recall.", rendered)
+
     def test_rule_with_no_labeled_findings_reports_zero_debt(self) -> None:
         score = zs.RuleScore(rule_id="x.rule", labeled=0)
         rendered = zs.render_scorecard_markdown(
