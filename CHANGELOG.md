@@ -16,6 +16,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   export with a resolved local consumer is emitted as `public-symbol /
   removed-export` evidence and drives the `BROKEN` verdict. Coordinated renames
   remain free of this delta.
+- Made the generated rule scorecard report evidence denominators directly:
+  default-profile coverage, labeled findings, repository coverage, strict
+  samples, and the explicit boundary that these labels do not establish recall.
 
 ### Fixed
 

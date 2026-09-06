@@ -143,6 +143,36 @@ def render_strict_sample_section(scores: dict[str, RuleScore], lifecycles: dict[
     return lines
 
 
+def render_evidence_summary(
+    scores: dict[str, RuleScore],
+    lifecycles: dict[str, str],
+    strict_scores: dict[str, RuleScore],
+) -> list[str]:
+    """Render scorecard denominators and the evidence coverage boundary."""
+    rule_ids = set(lifecycles) | set(scores)
+    measured = [score for score in scores.values() if score.labeled > 0]
+    sampled = [score for score in strict_scores.values() if score.labeled > 0]
+    labeled = sum(score.labeled for score in measured)
+    repos = {repo for score in measured for repo in score.repos}
+    strict_labeled = sum(score.labeled for score in sampled)
+    strict_repos = {repo for score in sampled for repo in score.repos}
+    total_rules = len(rule_ids)
+    coverage = (len(measured) / total_rules * 100) if total_rules else 0.0
+    return [
+        "",
+        "## Evidence coverage",
+        "",
+        f"- Default-profile evidence: {len(measured)} of {total_rules} rules "
+        f"({coverage:.1f}%), {labeled} labeled findings across {len(repos)} repo(s).",
+        f"- Default-profile rules without evidence: {total_rules - len(measured)} "
+        "(unmeasured, not clean).",
+        f"- Strict-profile sampled evidence: {len(sampled)} rules, {strict_labeled} "
+        f"sampled findings across {len(strict_repos)} repo(s).",
+        "- These coverage counts describe committed labels and do not establish recall.",
+        "",
+    ]
+
+
 def render_scorecard_markdown(
     scores: dict[str, RuleScore],
     lifecycles: dict[str, str],
@@ -190,7 +220,9 @@ def render_scorecard_markdown(
             precision = f"{score.precision_estimate:.2f}"
             debt = str(score.false_positive)
         lines.append(f"| `{rule_id}` | {lifecycle} | {evidence} | {precision} | {debt} |")
-    lines += render_strict_sample_section(strict_scores or {}, lifecycles)
+    strict_scores = strict_scores or {}
+    lines += render_evidence_summary(scores, lifecycles, strict_scores)
+    lines += render_strict_sample_section(strict_scores, lifecycles)
     return "\n".join(lines)
 
 
