@@ -5,6 +5,7 @@ use crate::findings::redaction::human_verification_step;
 use crate::history::RiskDelta;
 use crate::review::gate::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
+use crate::review::ownership::OwnershipAssessment;
 use crate::risk::RiskPriority;
 use crate::verification::VerificationStatus;
 use std::collections::BTreeSet;
@@ -205,6 +206,12 @@ fn limitations(report: &ReviewReport) -> Vec<String> {
         vec!["Selected local checks do not resolve or suppress static evidence; unselected checks remain unverified."
             .to_string()]
     };
+    if report.ownership.assessment == OwnershipAssessment::NotConfigured {
+        limitations.push(
+            "Ownership is not assessed because the repository has no CODEOWNERS configuration."
+                .to_string(),
+        );
+    }
     if !report.ownership.unowned_paths.is_empty() {
         limitations.push(
             "Unowned paths use package or directory boundaries, not inferred people.".to_string(),

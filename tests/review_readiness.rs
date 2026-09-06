@@ -3,7 +3,8 @@ use repopilot::findings::types::Severity;
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
 use repopilot::review::model::ReviewReport;
 use repopilot::review::{
-    MergeReadinessRecord, OwnershipSummary, ReadinessReasonCode, ReadinessVerdict, derive_readiness,
+    MergeReadinessRecord, OwnershipAssessment, OwnershipSummary, ReadinessReasonCode,
+    ReadinessVerdict, derive_readiness,
 };
 use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
 use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
@@ -27,18 +28,57 @@ fn failed_finding_gate_is_blocked_with_stable_reason_code() {
 
 #[test]
 fn unowned_changed_surface_requires_review() {
+    let index = repopilot::review::OwnershipIndex::from_codeowners(
+        "/src/ @team\n",
+        PathBuf::from("CODEOWNERS"),
+    )
+    .unwrap();
+    let ownership = OwnershipSummary::for_paths([PathBuf::from("docs/architecture.md")], &index);
+    let readiness = derive_readiness(&report_with_ownership(ownership), None, None, None);
+
+    assert_eq!(readiness.verdict, ReadinessVerdict::Review);
+    assert_eq!(
+        readiness.ownership.assessment,
+        OwnershipAssessment::ConfiguredButUnmatched
+    );
+    assert!(
+        readiness.reasons.iter().any(|reason| {
+            reason.code == ReadinessReasonCode::UnownedSurface && reason.count == 1
+        })
+    );
+}
+
+#[test]
+fn missing_codeowners_is_disclosed_without_becoming_a_review_reason() {
     let ownership = OwnershipSummary::for_paths(
         [PathBuf::from("src/auth/session.rs")],
         &repopilot::review::OwnershipIndex::empty(),
     );
     let readiness = derive_readiness(&report_with_ownership(ownership), None, None, None);
 
-    assert_eq!(readiness.verdict, ReadinessVerdict::Review);
-    assert!(
-        readiness.reasons.iter().any(|reason| {
-            reason.code == ReadinessReasonCode::UnownedSurface && reason.count == 1
-        })
+    assert_eq!(readiness.verdict, ReadinessVerdict::Ready);
+    assert_eq!(
+        readiness.ownership.assessment,
+        OwnershipAssessment::NotConfigured
     );
+    assert!(readiness.ownership.unowned_paths.is_empty());
+    assert!(
+        !readiness
+            .reasons
+            .iter()
+            .any(|reason| { reason.code == ReadinessReasonCode::UnownedSurface })
+    );
+    assert!(
+        readiness
+            .limitations
+            .iter()
+            .any(|item| { item.contains("Ownership is not assessed") })
+    );
+    let report = report_with_ownership(readiness.ownership.clone());
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+    assert!(console.contains("Ownership: not configured (not assessed)"));
+    assert!(markdown.contains("**Ownership:** `not configured (not assessed)`"));
 }
 
 #[test]
@@ -52,6 +92,10 @@ fn clean_owned_change_is_ready() {
     let readiness = derive_readiness(&report_with_ownership(ownership), None, None, None);
 
     assert_eq!(readiness.verdict, ReadinessVerdict::Ready);
+    assert_eq!(
+        readiness.ownership.assessment,
+        OwnershipAssessment::Resolved
+    );
     assert!(readiness.reasons.is_empty());
 }
 
@@ -79,6 +123,10 @@ fn review_json_projects_the_canonical_readiness_record() {
         json["merge_readiness"]["ownership"]["suggested_owners"][0]["value"],
         "@team"
     );
+    assert_eq!(
+        json["merge_readiness"]["ownership"]["assessment"],
+        "resolved"
+    );
     assert!(json["merge_readiness"]["limitations"].is_array());
 }
 
@@ -100,7 +148,9 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains("Change Proof: REVIEW"));
     assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
     assert!(console.contains("Suggested owners: @team"));
+    assert!(console.contains("Ownership: resolved"));
     assert!(markdown.contains("**Merge readiness:** `ready`"));
+    assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
 }
 
