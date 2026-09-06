@@ -150,6 +150,8 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
     assert!(markdown.contains("**Merge readiness:** `ready`"));
+    assert!(markdown.contains("**Change proof:** `REVIEW`"));
+    assert!(markdown.contains("**Proof scope:** 1/1 file(s) analyzed"));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
 }

@@ -33,6 +33,7 @@ impl ChangeProofVerdict {
 pub enum ChangeProofReasonCode {
     BrokenContract,
     ScopeNotAssessed,
+    ScopeCoverageIncomplete,
     RequiredVerificationFailed,
     RequiredVerificationUnavailable,
     RequiredVerificationUnselected,
@@ -139,8 +140,10 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
                 "Supported evidence proves a changed contract is broken.",
             ),
         );
+        add_scope_coverage_reason(&mut reasons, &input.coverage);
         ChangeProofVerdict::Broken
     } else {
+        add_scope_coverage_reason(&mut reasons, &input.coverage);
         add_obligation_reasons(&mut reasons, input.obligations);
         if !input.obligations.accounted_for() {
             add_reason(
@@ -190,6 +193,9 @@ pub fn derive_change_proof_from_review(
         ScanMode::Full => report.summary.metrics.files_discovered,
     };
     let analyzed_files = report.summary.metrics.files_analyzed;
+    let excluded_files = known_excluded_files(report, requested_files);
+    let unsupported_files =
+        requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
     let (satisfied, failed, unavailable, unselected, stale) = verification_counts(report);
     let reasons = readiness
         .reasons
@@ -206,8 +212,8 @@ pub fn derive_change_proof_from_review(
             },
             requested_files,
             analyzed_files,
-            excluded_files: requested_files.saturating_sub(analyzed_files),
-            unsupported_files: 0,
+            excluded_files,
+            unsupported_files,
         },
         obligations: ProofObligations {
             applicable: report.verification.len(),
@@ -223,6 +229,17 @@ pub fn derive_change_proof_from_review(
     });
     proof.contract_deltas = contract_deltas;
     proof
+}
+
+fn known_excluded_files(report: &ReviewReport, requested_files: usize) -> usize {
+    let metrics = &report.summary.metrics;
+    metrics
+        .large_files_skipped
+        .saturating_add(metrics.files_skipped_low_signal)
+        .saturating_add(metrics.binary_files_skipped)
+        .saturating_add(metrics.files_skipped_by_limit)
+        .saturating_add(metrics.files_skipped_repopilotignore)
+        .min(requested_files)
 }
 
 fn verification_counts(report: &ReviewReport) -> (usize, usize, usize, usize, usize) {
@@ -317,6 +334,22 @@ impl ProofObligations {
     fn accounted_for(self) -> bool {
         self.satisfied + self.failed + self.unavailable + self.unselected + self.stale
             == self.applicable
+    }
+}
+
+fn add_scope_coverage_reason(reasons: &mut Vec<ChangeProofReason>, coverage: &ProofCoverage) {
+    let count = coverage
+        .excluded_files
+        .saturating_add(coverage.unsupported_files);
+    if count > 0 {
+        add_reason(
+            reasons,
+            ChangeProofReason::new(
+                ChangeProofReasonCode::ScopeCoverageIncomplete,
+                count,
+                "Some requested files were excluded or unsupported, so the proof does not cover the full scope.",
+            ),
+        );
     }
 }
 
