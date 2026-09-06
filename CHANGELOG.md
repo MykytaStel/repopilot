@@ -23,6 +23,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   cases, stable IDs, declared profiles and languages, path confinement, and a
   deterministic manifest summary. The contract is evidence scaffolding; it
   makes no recall claim until a frozen scanner runner executes it.
+- Added the frozen recall runner: it materializes cases outside their fixture
+  paths, records manifest/rules/config hashes and scanner provenance, and emits
+  deterministic per-case TP/safe-guard results plus corpus-only TP/FN/TN/FP,
+  recall, and specificity metrics. Synthetic corpus success is a regression
+  checkpoint, not a general recall estimate.
 
 ### Fixed
 

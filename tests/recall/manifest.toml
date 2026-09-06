@@ -2,7 +2,7 @@ schema_version = 1
 corpus = "v0.23-held-out-recall"
 
 # These cases are held out from tests/fixtures/rules and from zoo labels.
-# A runner will later execute the frozen scanner against each directory.
+# The runner executes a frozen scanner against each directory.
 [[case]]
 id = "circular-import-seeded-defect"
 rule_id = "architecture.circular-dependency"
@@ -24,20 +24,20 @@ language = "typescript"
 rationale = "The dependency is one-way; beta has no import back to alpha."
 
 [[case]]
-id = "rust-expect-seeded-defect"
+id = "rust-unwrap-seeded-defect"
 rule_id = "language.rust.panic-risk"
 path = "../fixtures/recall/language.rust.panic-risk/seeded_defect"
-profile = "default"
+profile = "strict"
 outcome = "must-fire"
 kind = "seeded-defect"
 language = "rust"
-rationale = "expect on an optional configuration value can panic at runtime."
+rationale = "unwrap on an optional configuration value can panic at runtime."
 
 [[case]]
 id = "rust-option-safe-guard"
 rule_id = "language.rust.panic-risk"
 path = "../fixtures/recall/language.rust.panic-risk/safe_guard"
-profile = "default"
+profile = "strict"
 outcome = "must-not-fire"
 kind = "safe-guard"
 language = "rust"

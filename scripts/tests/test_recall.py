@@ -108,6 +108,33 @@ class RecallManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(recall.RecallManifestError, "unknown fields: unexpected"):
             recall.validate_manifest(manifest, self.rules, self.fixture_root)
 
+    def test_evaluates_target_rule_without_confusing_other_findings(self) -> None:
+        manifest = write_manifest(
+            self.root,
+            [
+                case("positive-case", "recall/positive"),
+                case("negative-case", "recall/negative", "must-not-fire", "safe-guard"),
+            ],
+        )
+        _, cases = recall.validate_manifest(manifest, self.rules, self.fixture_root)
+        positive, negative = cases
+        report = {"findings": [{"rule_id": "other.rule"}, {"rule_id": "demo.rule"}]}
+        self.assertEqual(recall.evaluate_case_report(positive, report)["status"], "pass")
+        self.assertEqual(recall.evaluate_case_report(negative, report)["status"], "fail")
+
+    def test_missing_target_rule_is_a_false_negative(self) -> None:
+        manifest = write_manifest(
+            self.root,
+            [
+                case("positive-case", "recall/positive"),
+                case("negative-case", "recall/negative", "must-not-fire", "safe-guard"),
+            ],
+        )
+        _, cases = recall.validate_manifest(manifest, self.rules, self.fixture_root)
+        result = recall.evaluate_case_report(cases[0], {"findings": []})
+        self.assertEqual(result["status"], "fail")
+        self.assertEqual(result["kind"], "seeded-defect")
+
 
 if __name__ == "__main__":
     unittest.main()
