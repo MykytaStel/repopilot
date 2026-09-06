@@ -28,6 +28,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   deterministic per-case TP/safe-guard results plus corpus-only TP/FN/TN/FP,
   recall, and specificity metrics. Synthetic corpus success is a regression
   checkpoint, not a general recall estimate.
+- Added an independent real-history holdout protocol: immutable merged-PR
+  base/head/merge SHAs, exclusion of precision-zoo repositories, declared
+  compiler/test baselines, and a two-reviewer plus adjudication label state.
+  The initial cases remain pending until they are independently labeled.
 
 ### Fixed
 

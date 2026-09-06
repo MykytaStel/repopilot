@@ -1,0 +1,32 @@
+schema_version = 1
+corpus = "v0.23-real-history-holdout"
+protocol = "dual-independent-adjudication-v1"
+
+# These are immutable merged pull-request revisions from repositories outside
+# tests/zoo. Labels remain pending until two independent reviewers annotate the
+# changed behavior and a third record resolves any disagreement.
+[[case]]
+id = "flask-pr-5812"
+repo = "pallets/flask"
+url = "https://github.com/pallets/flask.git"
+pull_request = 5812
+base_sha = "330123258e8c3dc391cbe55ab1ed94891ca83af3"
+head_sha = "c2705ffd9ce1dc8476cb29eaf5ff5d4c719852d9"
+merge_sha = "adf363679da2d9a5ddc564bb2da563c7ca083916"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
+
+[[case]]
+id = "requests-pr-7019"
+repo = "psf/requests"
+url = "https://github.com/psf/requests.git"
+pull_request = 7019
+base_sha = "b25c87d7cb8d6a18a37fa12442b5f883f9e41741"
+head_sha = "d889393b7eedc7e41d347885959519ac760aec76"
+merge_sha = "1c49660b84c88eeb2695796ce4a68903c00e00c5"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
