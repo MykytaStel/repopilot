@@ -56,6 +56,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   protocol. It repeats allowlisted baseline checks and exact-SHA RepoPilot
   reviews, records timing/output/determinism/resource observations, and validates
   the artifact while keeping labels pending and utility claims gated.
+- Made differential novelty baseline-aware: each case now records exact base
+  scan evidence identities, so an existing architecture finding cannot be
+  counted as novel merely because it touches a changed file.
 
 ### Fixed
 

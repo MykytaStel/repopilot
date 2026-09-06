@@ -24,9 +24,11 @@ python3 scripts/differential.py validate-result \
 It freezes the six utility measurements, the baseline set, the holdout case
 set, and three repetitions before a benchmark run. `collect` executes the
 allowlisted checks and repeated RepoPilot reviews on exact-SHA worktrees and
-records timings, output hashes, determinism, scanner provenance, and best
-effort child-resource samples. The artifact remains unlabeled and makes no
-utility claim until the independent labeling and scoring step exists.
+records timings, output hashes, determinism, scanner provenance, best-effort
+child-resource samples, and the base scan's exact evidence identities. Review
+evidence is marked novel only when its rule/path/line/snippet identity is absent
+from that base scan. The artifact remains unlabeled and makes no utility claim
+until the independent labeling and scoring step exists.
 
 Validate the protocol contract without cloning repositories:
 

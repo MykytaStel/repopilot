@@ -46,6 +46,7 @@ class DifferentialRunnerTests(unittest.TestCase):
                         "base_sha": base_sha,
                         "head_sha": head_sha,
                         "merge_sha": merge_sha,
+                        "base_scan": {"status": "collected", "wall_ms": 1.0, "evidence_keys": []},
                         "baselines": {
                             baseline_id: [
                                 {
@@ -58,7 +59,13 @@ class DifferentialRunnerTests(unittest.TestCase):
                             for baseline_id in baseline_ids
                         },
                         "reviews": [
-                            {"status": "collected", "wall_ms": 1.0, "stable_evidence_sha256": "1" * 64}
+                            {
+                                "status": "collected",
+                                "wall_ms": 1.0,
+                                "stable_evidence_sha256": "1" * 64,
+                                "in_diff_evidence_keys": [],
+                                "novel_in_diff_evidence_keys": [],
+                            }
                             for _ in range(3)
                         ],
                         "determinism": {"stable_evidence_deterministic": True},
@@ -79,6 +86,71 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["baseline_observations"], 6)
         self.assertEqual(result["review_observations"], 6)
+
+    def test_artifact_validator_requires_base_scan_for_novelty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["cases"][0].pop("base_scan")
+            with self.assertRaisesRegex(ValueError, "base scan"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    @staticmethod
+    def _valid_artifact(holdout: Path, differential: Path) -> dict[str, object]:
+        cases = []
+        for case_id, baseline_ids, repo, base_sha, head_sha, merge_sha in (
+            ("case-one", ("python.compile",), "owner/one", "a" * 40, "b" * 40, "c" * 40),
+            ("case-two", ("python.tests",), "owner/two", "d" * 40, "e" * 40, "f" * 40),
+        ):
+            cases.append(
+                {
+                    "id": case_id,
+                    "repo": repo,
+                    "base_sha": base_sha,
+                    "head_sha": head_sha,
+                    "merge_sha": merge_sha,
+                    "base_scan": {"status": "collected", "wall_ms": 1.0, "evidence_keys": []},
+                    "baselines": {
+                        baseline_id: [
+                            {
+                                "command": list(BASELINE_COMMANDS[baseline_id]),
+                                "status": "passed",
+                                "wall_ms": 1.0,
+                            }
+                            for _ in range(3)
+                        ]
+                        for baseline_id in baseline_ids
+                    },
+                    "reviews": [
+                        {
+                            "status": "collected",
+                            "wall_ms": 1.0,
+                            "stable_evidence_sha256": "1" * 64,
+                            "in_diff_evidence_keys": [],
+                            "novel_in_diff_evidence_keys": [],
+                        }
+                        for _ in range(3)
+                    ],
+                    "determinism": {"stable_evidence_deterministic": True},
+                }
+            )
+        return {
+            "schema_version": 1,
+            "corpus": "test",
+            "protocol": "differential-utility-v1",
+            "manifest_sha256": hashlib.sha256(holdout.read_bytes()).hexdigest(),
+            "differential_manifest_sha256": hashlib.sha256(differential.read_bytes()).hexdigest(),
+            "scanner": {
+                "mode": "workspace",
+                "version": "0.23",
+                "report_schema_version": "1",
+                "workspace_version": "0.23",
+            },
+            "repetitions": 3,
+            "cases": cases,
+            "label_state": "pending",
+        }
 
     @staticmethod
     def _write_manifests(root: Path) -> tuple[Path, Path, Path, Path]:
