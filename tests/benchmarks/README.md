@@ -14,9 +14,13 @@ Validate the protocol contract without cloning repositories:
 ```bash
 python3 scripts/real_history.py check
 python3 scripts/real_history.py check --format json
+python3 scripts/real_history.py collect --scanner target/release/repopilot \
+  --timeout 60 --output real-history-run.json
 ```
 
 Both entries are intentionally `pending`. This PR does not invent defect labels
-or claim real-history recall. The next benchmark slice will clone the pinned
-revisions, collect baseline outcomes, run RepoPilot, and publish the dual-label
-adjudication artifact.
+or claim real-history recall. `collect` clones the pinned revisions into a
+temporary workspace, runs only the allowlisted baselines and a base-to-head
+RepoPilot review, and records statuses, output hashes, and stable evidence
+hashes. Baseline failures are retained as observations; they do not become
+RepoPilot findings. The collected artifact still needs dual-label adjudication.
