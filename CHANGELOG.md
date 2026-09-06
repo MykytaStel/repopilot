@@ -32,6 +32,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   base/head/merge SHAs, exclusion of precision-zoo repositories, declared
   compiler/test baselines, and a two-reviewer plus adjudication label state.
   The initial cases remain pending until they are independently labeled.
+- Added collection for the pinned holdout: temporary exact-SHA worktrees,
+  allowlisted baseline execution, base-to-head RepoPilot review, and bounded
+  status/output hashes. Collection records failures as observations and still
+  makes no real-history quality claim while labels are pending.
 
 ### Fixed
 
