@@ -48,6 +48,7 @@ def render_adjudication_template(
         f"protocol = {_toml_string(data_a['protocol'])}",
         f"manifest_sha256 = {_toml_string(data_a['manifest_sha256'])}",
         f"collection_sha256 = {_toml_string(data_a['collection_sha256'])}",
+        "blinded = true",
         "",
     ]
     for case_id in sorted(cases_a):
@@ -88,6 +89,8 @@ def validate_adjudication(
     data = _load_toml(adjudication_path, "adjudication")
     if data.get("schema_version") != ANNOTATION_SCHEMA_VERSION:
         raise HoldoutManifestError("adjudication schema_version is unsupported")
+    if data.get("blinded") is not True:
+        raise HoldoutManifestError("adjudication must declare blinded = true")
     for field in ("corpus", "protocol", "manifest_sha256", "collection_sha256"):
         if data.get(field) != collection.get(field):
             raise HoldoutManifestError(f"adjudication {field} does not match collection")

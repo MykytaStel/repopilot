@@ -47,9 +47,10 @@ the manifest hash, immutable PR revisions, scanner provenance, baseline command
 allowlist, and one review observation per case.
 
 `template` creates one deterministic worksheet per independent reviewer. It
-copies only pinned case identity, baseline statuses, and observed in-diff rule
-IDs from the collection artifact; labels and rationales stay empty. Complete
-both worksheets from the diff and repository evidence, then run
+copies only pinned case identity and baseline statuses from the collection
+artifact. The worksheet is explicitly blinded: RepoPilot findings stay in the
+collection artifact and are not shown to the labeler. Labels and rationales
+stay empty. Complete both worksheets from the diff and repository evidence, then run
 `validate-annotation` before creating the `adjudication-template`. The latter
 copies both independent labels and leaves the adjudicated label and rationale
 empty for an explicit third decision. These commands create evidence packets;
