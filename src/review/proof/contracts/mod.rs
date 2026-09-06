@@ -2,18 +2,28 @@ use serde::Serialize;
 
 use crate::review::model::ReviewReport;
 
+mod dependency;
+
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContractFamily {
     PublicSymbol,
+    Dependency,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContractChangeKind {
     RemovedExport,
+    Added,
+    Removed,
+    Upgraded,
+    Downgraded,
+    SourceChanged,
+    FeatureChanged,
+    MetadataOnly,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -28,6 +38,22 @@ pub struct ChangeProofContractDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub line_end: Option<usize>,
     pub evidence: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<ContractConfidence>,
+}
+
+impl ChangeProofContractDelta {
+    pub(crate) fn is_broken(&self) -> bool {
+        self.family == ContractFamily::PublicSymbol
+            && self.change == ContractChangeKind::RemovedExport
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ContractConfidence {
+    High,
+    Limited,
 }
 
 pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
@@ -48,9 +74,11 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
                     .detail
                     .clone()
                     .unwrap_or_else(|| signal.headline.clone()),
+                confidence: Some(ContractConfidence::High),
             })
         })
         .collect::<Vec<_>>();
+    deltas.extend(dependency::dependency_deltas(&report.changed_files));
     deltas.sort_by(|left, right| {
         left.exporter_path
             .cmp(&right.exporter_path)
