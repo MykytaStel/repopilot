@@ -24,8 +24,19 @@ pub struct PathOwnership {
     pub fallback_boundary: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OwnershipAssessment {
+    Resolved,
+    ConfiguredButUnmatched,
+    #[default]
+    NotConfigured,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct OwnershipSummary {
+    #[serde(default)]
+    pub assessment: OwnershipAssessment,
     pub paths: Vec<PathOwnership>,
     pub suggested_owners: Vec<Owner>,
     pub unowned_paths: Vec<String>,
@@ -61,10 +72,11 @@ impl OwnershipSummary {
         let mut summary = Self::default();
         let mut owners = BTreeSet::new();
         let mut boundaries = BTreeSet::new();
+        let configured = index.source().is_some();
         for path in normalized {
             let matched = index.owners_for(path.as_ref());
             let boundary = matched.is_empty().then(|| fallback_boundary(&path));
-            if matched.is_empty() {
+            if configured && matched.is_empty() {
                 summary.unowned_paths.push(path.clone());
             }
             if let Some(boundary) = &boundary {
@@ -79,6 +91,13 @@ impl OwnershipSummary {
         }
         summary.suggested_owners = owners.into_iter().collect();
         summary.fallback_boundaries = boundaries.into_iter().collect();
+        summary.assessment = if !configured {
+            OwnershipAssessment::NotConfigured
+        } else if summary.unowned_paths.is_empty() {
+            OwnershipAssessment::Resolved
+        } else {
+            OwnershipAssessment::ConfiguredButUnmatched
+        };
         summary
     }
 }

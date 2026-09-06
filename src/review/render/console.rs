@@ -6,6 +6,7 @@ use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
+use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::verification_duration_evidence;
@@ -67,6 +68,16 @@ fn render_console_header(
         "Merge readiness: {}\n",
         readiness.verdict.label().to_uppercase()
     ));
+    match readiness.ownership.assessment {
+        OwnershipAssessment::Resolved => output.push_str("Ownership: resolved\n"),
+        OwnershipAssessment::ConfiguredButUnmatched => output.push_str(&format!(
+            "Ownership: configured, {} path(s) unmatched\n",
+            readiness.ownership.unowned_paths.len()
+        )),
+        OwnershipAssessment::NotConfigured => {
+            output.push_str("Ownership: not configured (not assessed)\n")
+        }
+    }
     if !readiness.ownership.suggested_owners.is_empty() {
         output.push_str(&format!(
             "Suggested owners: {}\n",

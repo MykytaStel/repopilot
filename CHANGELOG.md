@@ -69,6 +69,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   The corpus ID changed before any labels were collected while the protocol
   contract stayed the same; earlier two-case artifacts remain historical
   observation packets.
+- Added explicit ownership assessment states to review output. A missing
+  CODEOWNERS file is now reported as `not_configured` and disclosed as a
+  limitation without creating an artificial unowned-surface review reason;
+  configured but unmatched paths remain review-visible.
 
 ### Fixed
 

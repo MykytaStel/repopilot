@@ -1,5 +1,7 @@
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
-use repopilot::review::{FileImpact, ImpactPaths, OwnershipIndex, OwnershipSummary};
+use repopilot::review::{
+    FileImpact, ImpactPaths, OwnershipAssessment, OwnershipIndex, OwnershipSummary,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -55,7 +57,8 @@ fn missing_codeowners_reports_stable_boundaries_without_inventing_people() {
     );
 
     assert!(summary.suggested_owners.is_empty());
-    assert_eq!(summary.unowned_paths.len(), 3);
+    assert_eq!(summary.assessment, OwnershipAssessment::NotConfigured);
+    assert!(summary.unowned_paths.is_empty());
     assert_eq!(summary.fallback_boundaries, vec![".", "src"]);
 }
 

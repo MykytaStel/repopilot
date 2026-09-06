@@ -23,7 +23,8 @@ pub use ci::review_report_for_ci;
 pub use gate::{ReviewSignalGatePolicy, ReviewSignalGateResult};
 pub use impact::{AffectedSurface, FileImpact, ImpactPaths, compute_impact_paths};
 pub use ownership::{
-    Owner, OwnershipDiagnostic, OwnershipDiscovery, OwnershipIndex, OwnershipSummary, PathOwnership,
+    Owner, OwnershipAssessment, OwnershipDiagnostic, OwnershipDiscovery, OwnershipIndex,
+    OwnershipSummary, PathOwnership,
 };
 pub use readiness::{
     MergeReadinessRecord, ReadinessReason, ReadinessReasonCode, ReadinessVerdict, derive_readiness,

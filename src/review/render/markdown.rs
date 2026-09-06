@@ -6,6 +6,7 @@ use crate::output::render_helpers::escape_table_cell;
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
+use crate::review::ownership::OwnershipAssessment;
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::signals::tiered::ReviewSignal;
@@ -35,6 +36,15 @@ pub fn render_markdown_with_gates(
         "- **Merge readiness:** `{}`\n",
         readiness.verdict.label()
     ));
+    let ownership_status = match readiness.ownership.assessment {
+        OwnershipAssessment::Resolved => "resolved".to_string(),
+        OwnershipAssessment::ConfiguredButUnmatched => format!(
+            "configured, {} path(s) unmatched",
+            readiness.ownership.unowned_paths.len()
+        ),
+        OwnershipAssessment::NotConfigured => "not configured (not assessed)".to_string(),
+    };
+    output.push_str(&format!("- **Ownership:** `{ownership_status}`\n"));
     if !readiness.ownership.suggested_owners.is_empty() {
         output.push_str(&format!(
             "- **Suggested owners:** {}\n",
