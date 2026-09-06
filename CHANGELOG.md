@@ -12,6 +12,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   and the console Proof Card while preserving legacy readiness, gates, and exit
   behavior. The additive projection reports verdict, analyzed scope, and proof
   obligation counts from the same review evidence.
+- Added the first typed contract delta to `ChangeProof`: a proven removed public
+  export with a resolved local consumer is emitted as `public-symbol /
+  removed-export` evidence and drives the `BROKEN` verdict. Coordinated renames
+  remain free of this delta.
 
 ### Fixed
 

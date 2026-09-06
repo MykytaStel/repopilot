@@ -23,6 +23,23 @@ fn working_tree_ref_range_and_definitely_gate_share_the_canonical_occurrence() {
     let working = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
     let working_signal = only_b21(&working);
     assert_canonical_occurrence(working_signal);
+    assert_eq!(working["change_proof"]["verdict"], "BROKEN");
+    assert_eq!(
+        working["change_proof"]["contract_deltas"][0]["family"],
+        "public-symbol"
+    );
+    assert_eq!(
+        working["change_proof"]["contract_deltas"][0]["change"],
+        "removed-export"
+    );
+    assert_eq!(
+        working["change_proof"]["contract_deltas"][0]["exporter_path"],
+        "src/api.ts"
+    );
+    assert_eq!(
+        working["change_proof"]["contract_deltas"][0]["consumer_path"],
+        "src/caller.ts"
+    );
     let snapshot_style = run_review_json(
         temp.path(),
         &["review", ".", "--since-snapshot", "--format", "json"],
@@ -72,6 +89,12 @@ fn coordinated_rename_is_not_a_removed_export_failure() {
 
     let report = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
     assert!(b21_records(&report).is_empty());
+    assert_ne!(report["change_proof"]["verdict"], "BROKEN");
+    assert!(
+        report["change_proof"]["contract_deltas"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+    );
     let gated = run_review(
         temp.path(),
         &["review", ".", "--fail-on-review", "definitely"],

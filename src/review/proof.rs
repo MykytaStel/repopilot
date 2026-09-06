@@ -5,6 +5,9 @@ use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
 use crate::scan::types::ScanMode;
 use crate::verification::VerificationStatus;
 
+mod contracts;
+pub use contracts::{ChangeProofContractDelta, ContractChangeKind, ContractFamily};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ChangeProofVerdict {
@@ -112,6 +115,7 @@ pub struct ChangeProof {
     pub reasons: Vec<ChangeProofReason>,
     pub coverage: ProofCoverage,
     pub obligations: ProofObligations,
+    pub contract_deltas: Vec<ChangeProofContractDelta>,
 }
 
 pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
@@ -170,6 +174,7 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
         reasons,
         coverage: input.coverage,
         obligations: input.obligations,
+        contract_deltas: Vec::new(),
     }
 }
 
@@ -192,7 +197,8 @@ pub fn derive_change_proof_from_review(
         .filter_map(map_readiness_reason)
         .collect();
 
-    derive_change_proof(ChangeProofInput {
+    let contract_deltas = contracts::from_review(report);
+    let mut proof = derive_change_proof(ChangeProofInput {
         coverage: ProofCoverage {
             scope: match report.summary.mode {
                 ScanMode::Changed => ProofScope::Changed,
@@ -212,9 +218,11 @@ pub fn derive_change_proof_from_review(
             stale,
         },
         sufficient_policy: !report.verification.is_empty(),
-        broken_contracts: 0,
+        broken_contracts: contract_deltas.len(),
         reasons,
-    })
+    });
+    proof.contract_deltas = contract_deltas;
+    proof
 }
 
 fn verification_counts(report: &ReviewReport) -> (usize, usize, usize, usize, usize) {
