@@ -39,6 +39,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added collection-artifact validation against manifest hashes, immutable PR
   revisions, scanner provenance, baseline command identity, and per-case review
   coverage. A collected artifact cannot silently drift from its protocol.
+- Added deterministic real-history annotation worksheets for two independent
+  reviewers and an adjudication template. Worksheets pin collection evidence
+  while leaving labels and rationales human-entered; no quality metric is
+  inferred before explicit adjudication.
 
 ### Fixed
 

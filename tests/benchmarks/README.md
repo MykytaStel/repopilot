@@ -18,6 +18,18 @@ python3 scripts/real_history.py collect --scanner target/release/repopilot \
   --timeout 60 --output real-history-run.json
 python3 scripts/real_history.py validate-result \
   --artifact real-history-run.json
+python3 scripts/real_history.py template --artifact real-history-run.json \
+  --reviewer a --output annotation-a.toml
+python3 scripts/real_history.py template --artifact real-history-run.json \
+  --reviewer b --output annotation-b.toml
+python3 scripts/real_history.py validate-annotation --artifact real-history-run.json \
+  --annotation annotation-a.toml --reviewer a
+python3 scripts/real_history.py adjudication-template \
+  --artifact real-history-run.json --annotation-a annotation-a.toml \
+  --annotation-b annotation-b.toml --output adjudication.toml
+python3 scripts/real_history.py validate-adjudication \
+  --artifact real-history-run.json --annotation-a annotation-a.toml \
+  --annotation-b annotation-b.toml --annotation adjudication.toml
 ```
 
 Both entries are intentionally `pending`. This PR does not invent defect labels
@@ -30,3 +42,15 @@ RepoPilot findings. The collected artifact still needs dual-label adjudication.
 `validate-result` checks the artifact against the current manifest, including
 the manifest hash, immutable PR revisions, scanner provenance, baseline command
 allowlist, and one review observation per case.
+
+`template` creates one deterministic worksheet per independent reviewer. It
+copies only pinned case identity, baseline statuses, and observed in-diff rule
+IDs from the collection artifact; labels and rationales stay empty. Complete
+both worksheets from the diff and repository evidence, then run
+`validate-annotation` before creating the `adjudication-template`. The latter
+copies both independent labels and leaves the adjudicated label and rationale
+empty for an explicit third decision. These commands create evidence packets;
+`validate-adjudication` requires that decision and its rationale to be filled
+and verifies that the copied independent labels still match both worksheets.
+These commands create evidence packets; they do not infer labels or calculate
+recall.
