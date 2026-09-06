@@ -1,5 +1,5 @@
 schema_version = 1
-corpus = "v0.23-real-history-holdout"
+corpus = "v0.23-real-history-holdout-expanded"
 protocol = "differential-utility-v1"
 repetitions = 3
 
@@ -15,7 +15,23 @@ measurements = [
 ]
 
 [[case]]
+id = "click-pr-3818"
+baseline_ids = ["python.compile", "python.tests"]
+
+[[case]]
 id = "flask-pr-5812"
+baseline_ids = ["python.compile", "python.tests"]
+
+[[case]]
+id = "pydantic-pr-13742"
+baseline_ids = ["python.compile", "python.tests"]
+
+[[case]]
+id = "pytest-pr-14954"
+baseline_ids = ["python.compile", "python.tests"]
+
+[[case]]
+id = "urllib3-pr-5209"
 baseline_ids = ["python.compile", "python.tests"]
 
 [[case]]

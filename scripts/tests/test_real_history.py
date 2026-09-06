@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -106,6 +107,29 @@ class HoldoutManifestTests(unittest.TestCase):
         self.write(case(label_state='"excluded"') + "\n" + case("case-two", "other/repo"))
         with self.assertRaisesRegex(real_history.HoldoutManifestError, "excluded case needs"):
             real_history.validate_manifest(self.manifest, self.rules, self.zoo)
+
+
+class ProductionHoldoutManifestTests(unittest.TestCase):
+    def test_expanded_corpus_is_pinned_before_adjudication(self) -> None:
+        corpus, protocol, cases = real_history.validate_manifest(
+            PROJECT_ROOT / "tests/benchmarks/manifest.toml",
+            PROJECT_ROOT / "docs/rules-reference.md",
+            PROJECT_ROOT / "tests/zoo/manifest.toml",
+        )
+        self.assertEqual((corpus, protocol), ("v0.23-real-history-holdout-expanded", "dual-independent-adjudication-v1"))
+        self.assertEqual(len(cases), 6)
+        self.assertEqual(
+            {item.case_id for item in cases},
+            {
+                "click-pr-3818",
+                "flask-pr-5812",
+                "pydantic-pr-13742",
+                "pytest-pr-14954",
+                "requests-pr-7019",
+                "urllib3-pr-5209",
+            },
+        )
+        self.assertTrue(all(item.label_state == "pending" for item in cases))
 
 
 if __name__ == "__main__":

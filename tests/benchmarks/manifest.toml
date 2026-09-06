@@ -1,10 +1,25 @@
 schema_version = 1
-corpus = "v0.23-real-history-holdout"
+corpus = "v0.23-real-history-holdout-expanded"
 protocol = "dual-independent-adjudication-v1"
 
 # These are immutable merged pull-request revisions from repositories outside
 # tests/zoo. Labels remain pending until two independent reviewers annotate the
-# changed behavior and a third record resolves any disagreement.
+# changed behavior and a third record resolves any disagreement. The corpus
+# was expanded from two to six cases before any labels were collected; prior
+# two-case artifacts remain historical packets and are not reinterpreted.
+[[case]]
+id = "click-pr-3818"
+repo = "pallets/click"
+url = "https://github.com/pallets/click.git"
+pull_request = 3818
+base_sha = "cbb5b2df1ee3492115f8c2ee5cbb09e2271fc714"
+head_sha = "fc518e41218b447e875fe27244ae692c269bcb77"
+merge_sha = "00f257bb8e714064bea16425007543bbc0800445"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
+
 [[case]]
 id = "flask-pr-5812"
 repo = "pallets/flask"
@@ -13,6 +28,45 @@ pull_request = 5812
 base_sha = "330123258e8c3dc391cbe55ab1ed94891ca83af3"
 head_sha = "c2705ffd9ce1dc8476cb29eaf5ff5d4c719852d9"
 merge_sha = "adf363679da2d9a5ddc564bb2da563c7ca083916"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
+
+[[case]]
+id = "pydantic-pr-13742"
+repo = "pydantic/pydantic"
+url = "https://github.com/pydantic/pydantic.git"
+pull_request = 13742
+base_sha = "f512b087202f58ec90a9d38c9102858567d72440"
+head_sha = "b239b4ac0e171cef11fa332c4edafbbeb50100de"
+merge_sha = "5283870ccfce82fe3cf7f374ee00df9289f0c9ab"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
+
+[[case]]
+id = "pytest-pr-14954"
+repo = "pytest-dev/pytest"
+url = "https://github.com/pytest-dev/pytest.git"
+pull_request = 14954
+base_sha = "eadb5a625081a1c9db58552797fecf8c88b2508c"
+head_sha = "ee08c0015ee12ec359aa04933103637f13821838"
+merge_sha = "b0ca559dd01f4f056eeefdc4f67985008d3f3ea4"
+language = "python"
+source_kind = "merged-pull-request"
+baseline_ids = ["python.compile", "python.tests"]
+label_state = "pending"
+
+[[case]]
+id = "urllib3-pr-5209"
+repo = "urllib3/urllib3"
+url = "https://github.com/urllib3/urllib3.git"
+pull_request = 5209
+base_sha = "546f5d2419ee1331cc2a22cdf80e6bad46e92dbc"
+head_sha = "19f92b7cddf45de25d5b20df037485a861868503"
+merge_sha = "7bf6c6c728a4c81a5ba710aff7cb15a58b054aa7"
 language = "python"
 source_kind = "merged-pull-request"
 baseline_ids = ["python.compile", "python.tests"]

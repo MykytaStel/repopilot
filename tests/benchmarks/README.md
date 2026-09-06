@@ -29,8 +29,8 @@ python3 scripts/differential.py pilot-score \
   --output pilot-metrics.json
 ```
 
-It freezes the six utility measurements, the baseline set, the holdout case
-set, and three repetitions before a benchmark run. `collect` executes the
+It freezes the six utility measurements, the baseline set, the six-case
+holdout set, and three repetitions before a benchmark run. `collect` executes the
 allowlisted checks and repeated RepoPilot reviews on exact-SHA worktrees and
 records timings, output hashes, determinism, scanner provenance, best-effort
 child-resource samples, and the base scan's exact evidence identities. Review
@@ -64,8 +64,10 @@ python3 scripts/real_history.py metrics --artifact real-history-run.json \
   --annotation adjudication.toml --output real-history-metrics.json
 ```
 
-Both entries are intentionally `pending`. This PR does not invent defect labels
-or claim real-history recall. `collect` clones the pinned revisions into a
+All six entries are intentionally `pending`. The corpus was expanded before
+any labels were collected; the earlier two-case packets remain historical and
+are not silently merged into the expanded corpus. This PR does not invent
+defect labels or claim real-history recall. `collect` clones the pinned revisions into a
 temporary workspace, runs only the allowlisted baselines and a base-to-head
 RepoPilot review, and records statuses, output hashes, and stable evidence
 hashes. Baseline failures are retained as observations; they do not become

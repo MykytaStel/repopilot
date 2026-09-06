@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -99,6 +100,20 @@ baseline_ids = ["python.tests"]
         self.assertEqual(differential.main(["pilot-template", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["pilot-validate", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["pilot-score", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
+
+
+class ProductionDifferentialManifestTests(unittest.TestCase):
+    def test_expanded_differential_manifest_matches_holdout(self) -> None:
+        result = validate_differential(
+            PROJECT_ROOT / "tests/benchmarks/differential.toml",
+            PROJECT_ROOT / "tests/benchmarks/manifest.toml",
+            PROJECT_ROOT / "docs/rules-reference.md",
+            PROJECT_ROOT / "tests/zoo/manifest.toml",
+        )
+        self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["corpus"], "v0.23-real-history-holdout-expanded")
+        self.assertEqual(result["cases"], 6)
+        self.assertEqual(result["repetitions"], 3)
 
 
 if __name__ == "__main__":
