@@ -1,0 +1,23 @@
+schema_version = 1
+corpus = "v0.23-real-history-holdout"
+protocol = "differential-utility-v1"
+repetitions = 3
+
+# The benchmark compares the same pinned PR revisions against the declared
+# repository checks and RepoPilot. It does not assign defect labels.
+measurements = [
+  "novel-actionable-evidence",
+  "duplicate-work",
+  "time-to-first-useful-evidence",
+  "decision-latency",
+  "determinism",
+  "resource-cost",
+]
+
+[[case]]
+id = "flask-pr-5812"
+baseline_ids = ["python.compile", "python.tests"]
+
+[[case]]
+id = "requests-pr-7019"
+baseline_ids = ["python.compile", "python.tests"]

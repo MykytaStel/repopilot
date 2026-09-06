@@ -46,6 +46,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Made real-history worksheets explicitly blinded: machine findings stay in the
   collection artifact and are withheld from labelers to reduce confirmation
   bias before adjudication.
+- Added a preregistered differential utility contract that freezes baseline
+  checks, six usefulness measurements, holdout membership, and repetitions
+  before any benchmark result is collected.
 - Added a gated real-history metrics artifact with case-level confusion counts,
   recall, specificity, precision, Wilson intervals, input hashes, and an
   explicit corpus-only limitation.

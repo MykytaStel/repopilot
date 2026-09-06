@@ -9,6 +9,18 @@ recall result. A disagreement must have an explicit adjudication record. Each
 case also declares the existing compiler/test baselines that the future runner
 will execute and compare against RepoPilot's actionable evidence.
 
+The differential utility protocol is preregistered separately:
+
+```bash
+python3 scripts/differential.py check
+python3 scripts/differential.py check --format json
+```
+
+It freezes the six utility measurements, the baseline set, the holdout case
+set, and three repetitions before a benchmark run. It is only a contract;
+until a runner records labels, timings, determinism, and resource samples it
+does not claim that RepoPilot adds value over existing checks.
+
 Validate the protocol contract without cloning repositories:
 
 ```bash
