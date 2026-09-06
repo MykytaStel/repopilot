@@ -36,6 +36,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   allowlisted baseline execution, base-to-head RepoPilot review, and bounded
   status/output hashes. Collection records failures as observations and still
   makes no real-history quality claim while labels are pending.
+- Added collection-artifact validation against manifest hashes, immutable PR
+  revisions, scanner provenance, baseline command identity, and per-case review
+  coverage. A collected artifact cannot silently drift from its protocol.
 
 ### Fixed
 

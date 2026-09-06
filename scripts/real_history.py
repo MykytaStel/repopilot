@@ -13,12 +13,15 @@ from real_history_contract import (
     summary,
     validate_manifest,
 )
+from real_history_artifact import validate_collection_artifact, validate_collection_data
 from real_history_runner import collect_holdout
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("check", "collect"), default="check")
+    parser.add_argument(
+        "command", nargs="?", choices=("check", "collect", "validate-result"), default="check"
+    )
     parser.add_argument("--manifest", type=Path, default=Path("tests/benchmarks/manifest.toml"))
     parser.add_argument("--rules-reference", type=Path, default=Path("docs/rules-reference.md"))
     parser.add_argument("--zoo-manifest", type=Path, default=Path("tests/zoo/manifest.toml"))
@@ -28,12 +31,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-version-mismatch", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--output", type=Path, help="write a collection artifact instead of stdout")
+    parser.add_argument("--artifact", type=Path, help="collection artifact to validate")
     args = parser.parse_args(argv)
     try:
         corpus, protocol, cases = validate_manifest(args.manifest, args.rules_reference, args.zoo_manifest)
     except (HoldoutManifestError, OSError) as error:
         print(f"holdout manifest invalid: {error}", file=sys.stderr)
         return 1
+    if args.command == "validate-result":
+        if args.artifact is None:
+            print("--artifact is required for validate-result", file=sys.stderr)
+            return 2
+        try:
+            result = validate_collection_artifact(
+                args.artifact, args.manifest, args.rules_reference, args.zoo_manifest
+            )
+        except (HoldoutManifestError, OSError) as error:
+            print(f"collection artifact invalid: {error}", file=sys.stderr)
+            return 1
+        if args.format == "json":
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print(f"Collection artifact: {result['status']} ({result['cases']} cases)")
+        return 0
     if args.command == "collect":
         if args.timeout <= 0:
             print("--timeout must be positive", file=sys.stderr)
@@ -51,6 +71,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         except (HoldoutManifestError, OSError) as error:
             print(f"holdout collection failed: {error}", file=sys.stderr)
+            return 2
+        try:
+            validate_collection_data(data, args.manifest, args.rules_reference, args.zoo_manifest)
+        except HoldoutManifestError as error:
+            print(f"holdout collection produced invalid artifact: {error}", file=sys.stderr)
             return 2
         rendered = json.dumps(data, indent=2, sort_keys=True) + "\n"
         if args.output:
