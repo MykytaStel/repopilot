@@ -112,6 +112,10 @@ fn run_variant(dir: &Path, variant: &str) {
         .unwrap_or_else(|err| panic!("[{name}] review did not emit JSON: {err}"));
 
     let signals = flatten_signals(&json);
+    let contracts = json["change_proof"]["contract_deltas"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
 
     match variant {
         "safe" => {
@@ -128,6 +132,10 @@ fn run_variant(dir: &Path, variant: &str) {
                 boundary_signals.is_empty(),
                 "[{name}] safe fixture must produce zero boundary_signals, got {boundary_signals:?}"
             );
+            assert!(
+                contracts.is_empty(),
+                "[{name}] safe fixture must produce zero contract deltas, got {contracts:?}"
+            );
         }
         "unsafe" => {
             let expected = read_expected(dir, &name);
@@ -143,6 +151,14 @@ fn run_variant(dir: &Path, variant: &str) {
                         .any(|signal| signal_matches(signal, constraint)),
                     "[{name}] no signal matched expect {constraint}\nobserved:\n{}",
                     describe(&signals)
+                );
+            }
+            for constraint in expected["contract_expect"].as_array().into_iter().flatten() {
+                assert!(
+                    contracts
+                        .iter()
+                        .any(|contract| value_matches(contract, constraint)),
+                    "[{name}] no contract delta matched expect {constraint}\nobserved: {contracts:?}"
                 );
             }
         }
@@ -187,6 +203,16 @@ fn signal_matches(signal: &Value, constraint: &Value) -> bool {
     fields
         .iter()
         .all(|(key, value)| signal.get(key) == Some(value))
+}
+
+/// Partial match for additive ChangeProof contract fields.
+fn value_matches(value: &Value, constraint: &Value) -> bool {
+    let Some(fields) = constraint.as_object() else {
+        return false;
+    };
+    fields
+        .iter()
+        .all(|(key, expected)| value.get(key) == Some(expected))
 }
 
 fn read_expected(dir: &Path, name: &str) -> Value {
