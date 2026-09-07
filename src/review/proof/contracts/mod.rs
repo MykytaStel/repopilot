@@ -27,6 +27,7 @@ pub enum ContractChangeKind {
     Downgraded,
     SourceChanged,
     FeatureChanged,
+    AliasChanged,
     MetadataOnly,
     TriggerChanged,
     PermissionChanged,
@@ -93,7 +94,10 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
         .collect::<Vec<_>>();
     deltas.extend(dependency::dependency_deltas(&report.changed_files));
     deltas.extend(delivery::delivery_deltas(&report.changed_files));
-    deltas.extend(runtime::runtime_deltas(&report.changed_files));
+    deltas.extend(runtime::runtime_deltas_in_repo(
+        &report.repo_root,
+        &report.changed_files,
+    ));
     deltas.sort_by(|left, right| {
         left.exporter_path
             .cmp(&right.exporter_path)
