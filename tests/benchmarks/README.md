@@ -84,6 +84,27 @@ metric is intentionally limited to the security and test IDs. Paths, evidence
 prose, and runtime semantics are not treated as independently validated by
 this family/change measurement.
 
+When only one expert is available for the contract surface, use the separate
+exploratory pilot. It is blinded and hash-pinned, but it does not weaken the
+dual-review protocol or its metrics:
+
+```bash
+python3 scripts/real_history.py contract-pilot-template \
+  --artifact real-history-run.json --pilot-reviewer expert \
+  --output contract-pilot.toml
+# Fill contract_label, expected_contract_ids, and rationale from the pinned diff.
+python3 scripts/real_history.py validate-contract-pilot \
+  --artifact real-history-run.json --pilot contract-pilot.toml
+python3 scripts/real_history.py contract-pilot-metrics \
+  --artifact real-history-run.json --pilot contract-pilot.toml \
+  --output contract-pilot-metrics.json
+```
+
+The pilot reports case outcomes and per-ID confusion counts with Wilson
+intervals. Its scope is explicitly single-expert exploratory evidence over the
+measured security/test subset; it is not independent validation, a production
+estimate, or evidence for the unmeasured contract families.
+
 When only one expert is available, `pilot-template` creates a blinded
 `single-expert-pilot-v1` worksheet. Fill one label and rationale per case, then
 run `pilot-validate` and `pilot-score`. The resulting report is explicitly
