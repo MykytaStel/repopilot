@@ -1,8 +1,27 @@
 use crate::review::diff::ChangedFile;
+use std::path::Path;
 
 use super::*;
 
-pub(super) fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofContractDelta> {
+#[path = "runtime/consumer.rs"]
+mod consumer;
+
+#[cfg(test)]
+fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofContractDelta> {
+    runtime_deltas_with_root(None, changed_files)
+}
+
+pub(super) fn runtime_deltas_in_repo(
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+) -> Vec<ChangeProofContractDelta> {
+    runtime_deltas_with_root(Some(repo_root), changed_files)
+}
+
+fn runtime_deltas_with_root(
+    repo_root: Option<&Path>,
+    changed_files: &[ChangedFile],
+) -> Vec<ChangeProofContractDelta> {
     let config_edits = changed_files
         .iter()
         .filter(|file| is_runtime_config_path(&file.path_string()))
@@ -46,7 +65,7 @@ pub(super) fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofCo
                     "Runtime key `{}` changed from `{}` to `{}`.",
                     edit.key, edit.value, other.value
                 ),
-                consumer_path(changed_files, &edit.key),
+                consumer::find(repo_root, changed_files, &edit.key),
             ));
             continue;
         }
@@ -68,7 +87,7 @@ pub(super) fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofCo
                 ContractChangeKind::Renamed,
                 other.line.or(edit.line),
                 format!("Runtime key `{}` was renamed to `{}`.", edit.key, other.key),
-                consumer_path(changed_files, &other.key),
+                consumer::find(repo_root, changed_files, &other.key),
             ));
             continue;
         }
@@ -79,7 +98,7 @@ pub(super) fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofCo
             ContractChangeKind::Removed,
             edit.line,
             format!("Runtime key `{}` was removed.", edit.key),
-            consumer_path(changed_files, &edit.key),
+            consumer::find(repo_root, changed_files, &edit.key),
         ));
     }
     for (index, (path, added, edit)) in config_edits.iter().enumerate() {
@@ -93,7 +112,7 @@ pub(super) fn runtime_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofCo
             ContractChangeKind::Introduced,
             edit.line,
             format!("Runtime key `{}` was introduced.", edit.key),
-            consumer_path(changed_files, &edit.key),
+            consumer::find(repo_root, changed_files, &edit.key),
         ));
     }
     deltas.sort_by(|left, right| {
@@ -149,51 +168,27 @@ fn is_runtime_key(key: &str) -> bool {
         && key.chars().any(|character| character.is_ascii_uppercase())
 }
 
-fn consumer_path(changed_files: &[ChangedFile], key: &str) -> Option<String> {
-    changed_files
-        .iter()
-        .filter(|file| !is_runtime_config_path(&file.path_string()))
-        .find(|file| {
-            file.hunks.iter().any(|hunk| {
-                hunk.added_lines
-                    .iter()
-                    .chain(&hunk.removed_lines)
-                    .any(|line| line_uses_key(line, key))
-            })
-        })
-        .map(ChangedFile::path_string)
-}
-
-fn line_uses_key(line: &str, key: &str) -> bool {
-    [
-        format!("process.env.{key}"),
-        format!("os.getenv(\"{key}\""),
-        format!("getenv(\"{key}\""),
-        format!("System.getenv(\"{key}\""),
-        format!("config.{key}"),
-        format!("${{{key}}}"),
-    ]
-    .iter()
-    .any(|needle| line.contains(needle))
-}
-
 fn runtime_delta(
     path: &str,
     key: &str,
     change: ContractChangeKind,
     line: Option<usize>,
     evidence: String,
-    consumer: Option<String>,
+    consumer: Option<consumer::ConsumerMatch>,
 ) -> ChangeProofContractDelta {
-    let confidence = consumer
-        .as_ref()
-        .map(|_| ContractConfidence::High)
-        .unwrap_or(ContractConfidence::Limited);
+    let (consumer_path, confidence, evidence) = match consumer {
+        Some(match_) => (
+            match_.path,
+            match_.confidence,
+            format!("{evidence} {}", match_.evidence),
+        ),
+        None => (key.to_string(), ContractConfidence::Limited, evidence),
+    };
     ChangeProofContractDelta {
         family: ContractFamily::RuntimeConfiguration,
         change,
         exporter_path: path.to_string(),
-        consumer_path: consumer.unwrap_or_else(|| key.to_string()),
+        consumer_path,
         line_start: line,
         line_end: line,
         evidence,
@@ -258,5 +253,48 @@ mod tests {
 
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].change, ContractChangeKind::Renamed);
+    }
+
+    #[test]
+    fn unchanged_consumer_is_found_with_high_confidence() {
+        let root = tempfile::tempdir().expect("temp root");
+        std::fs::create_dir_all(root.path().join("src")).expect("src directory");
+        std::fs::write(
+            root.path().join("src/server.ts"),
+            "const url = process.env.DATABASE_URL;\n",
+        )
+        .expect("consumer source");
+
+        let deltas = runtime_deltas_in_repo(
+            root.path(),
+            &[changed(".env", &["DATABASE_URL=postgres://new"], &[])],
+        );
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].consumer_path, "src/server.ts");
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::High));
+        assert!(deltas[0].evidence.contains("unchanged consumer"));
+    }
+
+    #[test]
+    fn ambiguous_unchanged_consumers_remain_limited() {
+        let root = tempfile::tempdir().expect("temp root");
+        std::fs::create_dir_all(root.path().join("src")).expect("src directory");
+        for path in ["src/a.ts", "src/b.ts"] {
+            std::fs::write(
+                root.path().join(path),
+                "const url = process.env.DATABASE_URL;\n",
+            )
+            .expect("consumer source");
+        }
+
+        let deltas = runtime_deltas_in_repo(
+            root.path(),
+            &[changed(".env", &["DATABASE_URL=postgres://new"], &[])],
+        );
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
+        assert!(deltas[0].evidence.contains("multiple consumers"));
     }
 }

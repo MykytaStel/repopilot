@@ -42,19 +42,33 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
                 }
             }
             for (old, new) in paired {
-                let change = classify_pair(&old.specification, &new.specification);
-                deltas.push(delta(
-                    &path,
-                    &new.name,
-                    change,
-                    new.line.or(old.line),
-                    &format!(
+                let alias = is_workspace_alias(&old.specification)
+                    || is_workspace_alias(&new.specification);
+                let change = if alias {
+                    ContractChangeKind::AliasChanged
+                } else {
+                    classify_pair(&old.specification, &new.specification)
+                };
+                let evidence = if alias {
+                    format!(
+                        "Workspace dependency alias `{}` changed from `{}` to `{}`; exact workspace resolution is not claimed.",
+                        new.name, old.specification, new.specification
+                    )
+                } else {
+                    format!(
                         "{} dependency `{}` changed from `{}` to `{}`.",
                         manifest_label(kind),
                         new.name,
                         old.specification,
                         new.specification
-                    ),
+                    )
+                };
+                deltas.push(delta(
+                    &path,
+                    &new.name,
+                    change,
+                    new.line.or(old.line),
+                    &evidence,
                     ContractConfidence::High,
                 ));
             }
@@ -234,5 +248,30 @@ mod tests {
         assert_eq!(deltas[0].consumer_path, "beta");
         assert_eq!(deltas[0].change, ContractChangeKind::Upgraded);
         assert_eq!(deltas[0].confidence, Some(ContractConfidence::High));
+    }
+
+    #[test]
+    fn workspace_alias_transition_is_typed_for_cargo() {
+        let deltas = dependency_deltas(&[changed(
+            "crates/app/Cargo.toml",
+            &["shared = { workspace = true }"],
+            &["shared = { version = \"1.0\" }"],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::AliasChanged);
+        assert!(deltas[0].evidence.contains("Workspace dependency alias"));
+    }
+
+    #[test]
+    fn workspace_alias_transition_is_typed_for_npm() {
+        let deltas = dependency_deltas(&[changed(
+            "packages/app/package.json",
+            &["    \"shared\": \"workspace:^\","],
+            &["    \"shared\": \"workspace:*\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::AliasChanged);
     }
 }
