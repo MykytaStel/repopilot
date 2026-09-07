@@ -5,6 +5,7 @@ use crate::review::model::ReviewReport;
 mod delivery;
 mod dependency;
 mod runtime;
+mod security;
 
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 
@@ -15,6 +16,8 @@ pub enum ContractFamily {
     Dependency,
     Delivery,
     RuntimeConfiguration,
+    SecurityBoundary,
+    TestCoverage,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -38,6 +41,10 @@ pub enum ContractChangeKind {
     Introduced,
     Renamed,
     Changed,
+    BoundaryChanged,
+    EntryPointImpacted,
+    TestChanged,
+    TestMissing,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -98,6 +105,7 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
         &report.repo_root,
         &report.changed_files,
     ));
+    deltas.extend(security::security_deltas(report));
     deltas.sort_by(|left, right| {
         left.exporter_path
             .cmp(&right.exporter_path)
