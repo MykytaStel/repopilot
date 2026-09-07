@@ -93,6 +93,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   classify trigger, permission, secret, action-reference, artifact, and deploy
   changes, and runtime configuration edits classify introduced, removed,
   renamed, or changed keys with changed-diff consumer evidence.
+- Added limited security and test contract deltas: changed access-control or
+  request-trust boundaries are connected to bounded entrypoint candidates and
+  path-related changed tests, while missing or unlinked tests remain explicit
+  review evidence without claiming behavioral coverage or a broken contract.
 
 ### Fixed
 
