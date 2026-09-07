@@ -11,7 +11,8 @@ from pathlib import Path
 from differential_artifact import validate_artifact, validate_data
 from differential_contract import DifferentialManifestError, validate_differential
 from differential_pilot import render_pilot_template, validate_pilot
-from differential_pilot_metrics import write_pilot_metrics
+from differential_pilot_metrics import validate_pilot_metrics, write_pilot_metrics
+from differential_metrics_report import write_differential_metrics_report
 from differential_runner import collect_differential
 from real_history_contract import HoldoutManifestError
 
@@ -21,7 +22,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=("check", "collect", "validate-result", "pilot-template", "pilot-validate", "pilot-score"),
+        choices=(
+            "check",
+            "collect",
+            "validate-result",
+            "pilot-template",
+            "pilot-validate",
+            "pilot-score",
+            "pilot-validate-metrics",
+            "pilot-metrics-report",
+        ),
         default="check",
     )
     parser.add_argument("--manifest", type=Path, default=Path("tests/benchmarks/differential.toml"))
@@ -37,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--artifact", type=Path, help="differential artifact to validate")
     parser.add_argument("--pilot", type=Path, help="single-expert pilot worksheet")
     parser.add_argument("--reviewer", help="single-expert pilot reviewer name")
+    parser.add_argument("--metrics", type=Path, help="single-expert pilot metrics artifact")
     args = parser.parse_args(argv)
     try:
         result = validate_differential(args.manifest, args.holdout_manifest, args.rules_reference, args.zoo_manifest)
@@ -157,6 +168,36 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(pilot_result, indent=2, sort_keys=True))
         else:
             print(f"Pilot metrics: {pilot_result['scope']} ({len(pilot_result['cases'])} cases)")
+        return 0
+    if args.command == "pilot-validate-metrics":
+        if args.artifact is None or args.pilot is None or args.metrics is None:
+            print("pilot-validate-metrics requires --artifact, --pilot, and --metrics", file=sys.stderr)
+            return 2
+        try:
+            metrics_result = validate_pilot_metrics(
+                args.metrics,
+                args.artifact,
+                args.pilot,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+        except (DifferentialManifestError, HoldoutManifestError, OSError) as error:
+            print(f"pilot metrics invalid: {error}", file=sys.stderr)
+            return 1
+        print(f"Pilot metrics: valid ({metrics_result['cases']} cases; reviewer {metrics_result['reviewer']})")
+        return 0
+    if args.command == "pilot-metrics-report":
+        if args.metrics is None or args.output is None:
+            print("pilot-metrics-report requires --metrics and --output", file=sys.stderr)
+            return 2
+        try:
+            write_differential_metrics_report(args.metrics, args.output)
+        except (HoldoutManifestError, OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"pilot metrics report failed: {error}", file=sys.stderr)
+            return 1
+        print(f"Pilot metrics report: {args.output}")
         return 0
     if args.format == "json":
         print(json.dumps(result, indent=2, sort_keys=True))

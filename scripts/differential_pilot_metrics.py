@@ -148,7 +148,10 @@ def build_pilot_metrics(
         "corpus": artifact["corpus"],
         "protocol": "single-expert-pilot-v1",
         "scope": "single-expert exploratory pilot",
-        "limitation": "model-assisted or single-reviewer evidence; not independent validation or a production/language-wide estimate",
+        "limitation": (
+            "model-assisted or single-reviewer evidence; not independent validation "
+            "or a production/language-wide estimate"
+        ),
         "manifest_sha256": sha256_file(manifest_path),
         "differential_artifact_sha256": sha256_file(artifact_path),
         "pilot_sha256": sha256_file(pilot_path),
@@ -190,3 +193,39 @@ def write_pilot_metrics(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return result
+
+
+def validate_pilot_metrics(
+    metrics_path: Path,
+    artifact_path: Path,
+    pilot_path: Path,
+    manifest_path: Path,
+    differential_path: Path,
+    rules_reference: Path,
+    zoo_manifest: Path,
+) -> dict[str, object]:
+    try:
+        actual = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise HoldoutManifestError(f"cannot read differential pilot metrics {metrics_path}: {error}") from error
+    if not isinstance(actual, dict):
+        raise HoldoutManifestError("differential pilot metrics must be a JSON object")
+    expected = build_pilot_metrics(
+        artifact_path,
+        pilot_path,
+        manifest_path,
+        differential_path,
+        rules_reference,
+        zoo_manifest,
+    )
+    if actual != expected:
+        raise HoldoutManifestError("differential pilot metrics artifact does not match recomputed score")
+    return {
+        "status": "valid",
+        "protocol": expected["protocol"],
+        "scope": expected["scope"],
+        "reviewer": expected["reviewer"],
+        "cases": len(expected["cases"]),
+        "counts": expected["counts"],
+        "measurements": expected["measurements"],
+    }
