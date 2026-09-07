@@ -67,6 +67,12 @@ python3 scripts/real_history.py validate-metrics --artifact real-history-run.jso
   --annotation adjudication.toml --metrics real-history-metrics.json
 python3 scripts/real_history.py metrics-report \
   --metrics real-history-metrics.json --output real-history-metrics.md
+python3 scripts/real_history.py label-coverage \
+  --artifact real-history-run.json --output label-coverage.json
+python3 scripts/real_history.py validate-label-coverage \
+  --artifact real-history-run.json --coverage label-coverage.json
+python3 scripts/real_history.py coverage-report \
+  --coverage label-coverage.json --output label-coverage.md
 ```
 
 All six entries are intentionally `pending`. The corpus was expanded before
@@ -143,6 +149,16 @@ hand-edited or stale JSON artifact. `metrics-report` renders a deterministic
 Markdown summary for a validated dual-review or exploratory pilot metrics file;
 the report repeats the scope and limitation so it cannot be mistaken for a
 broader quality claim.
+
+`label-coverage` audits the evidence packet before scoring. With no worksheet
+arguments it reports the collected holdout as pending; with `--pilot` it marks
+the packet as single-expert exploratory; with `--annotation`, `--annotation-a`,
+and `--annotation-b` it validates the dual-adjudicated packet. The output lists
+unreviewed measured observations and emitted contract IDs outside the measured
+registry. `coverage-report` renders the same gaps as deterministic Markdown.
+Run `validate-label-coverage` before circulating the JSON or Markdown packet;
+it recomputes the complete audit and rejects edits or stale label inputs. This
+is a completeness audit, not a recall or precision estimate.
 
 The same metrics artifact now includes per-ID contract confusion counts and
 Wilson intervals for `security-boundary/*` and `test-coverage/*`. A reviewer

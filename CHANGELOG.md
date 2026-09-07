@@ -41,6 +41,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added the same recomputing integrity check for dual-review real-history
   metrics and a deterministic Markdown report for validated pilot or
   adjudicated packets. Reports retain scope, denominators, and limitations.
+- Added a deterministic real-history label coverage audit. It separates pending,
+  single-expert, and dual-adjudicated packets; exposes unreviewed measured
+  observations and observed contract families outside the measured registry;
+  renders a bounded Markdown gap report, and recomputes the complete audit
+  artifact before it can be circulated without turning incomplete labels into
+  quality claims.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

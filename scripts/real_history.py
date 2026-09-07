@@ -22,6 +22,7 @@ from real_history_annotations import (
 from real_history_adjudication import render_adjudication_template, validate_adjudication
 from real_history_metrics import write_metrics
 from real_history_metrics_cli import handle_metrics_command
+from real_history_coverage_cli import handle_coverage_command
 from real_history_pilot_cli import handle_contract_pilot_command
 from real_history_runner import collect_holdout
 
@@ -42,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
             "metrics",
             "validate-metrics",
             "metrics-report",
+            "label-coverage",
+            "validate-label-coverage",
+            "coverage-report",
             "contract-pilot-template",
             "validate-contract-pilot",
             "contract-pilot-metrics",
@@ -66,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pilot", type=Path, help="single-expert contract pilot worksheet")
     parser.add_argument("--pilot-reviewer", default="expert", help="single-expert pilot reviewer label")
     parser.add_argument("--metrics", type=Path, help="single-expert contract pilot metrics artifact")
+    parser.add_argument("--coverage", type=Path, help="label coverage audit artifact")
     args = parser.parse_args(argv)
     try:
         corpus, protocol, cases = validate_manifest(args.manifest, args.rules_reference, args.zoo_manifest)
@@ -198,6 +203,9 @@ def main(argv: list[str] | None = None) -> int:
     pilot_status = handle_contract_pilot_command(args)
     if pilot_status is not None:
         return pilot_status
+    coverage_status = handle_coverage_command(args)
+    if coverage_status is not None:
+        return coverage_status
     metrics_status = handle_metrics_command(args)
     if metrics_status is not None:
         return metrics_status
