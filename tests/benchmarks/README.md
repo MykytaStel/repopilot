@@ -46,9 +46,11 @@ until the independent labeling and scoring step exists.
 The differential collection artifact is schema 2. Each baseline, base scan, and
 review run has validated monotonic start/finish telemetry. Review runs may also
 record evidence-ready and decision-ready phase events from RepoPilot's internal
-timings. Duplicate-work overlap stays unavailable until a baseline adapter
-provides normalized evidence identities; command success or output hashes alone
-are not treated as evidence overlap.
+timings. The first baseline adapters normalize `python.compile` diagnostics as
+`path:line:error-kind` identities and `python.tests` failures as stable pytest
+node identities. A clean successful baseline is measured with an empty evidence
+set; an unrecognized failure stays explicitly unavailable. Command success or
+output hashes alone are not treated as evidence overlap.
 
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports

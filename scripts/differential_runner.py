@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from differential_contract import validate_differential
+from differential_evidence import normalize_baseline_evidence
 from differential_manifest import load_differential
 from differential_novelty import evidence_keys, novel_evidence_keys
 from differential_telemetry import build_command_telemetry, build_review_telemetry
@@ -45,7 +46,9 @@ def _resource_snapshot() -> tuple[str, int | None]:
     return "available", max_rss
 
 
-def run_timed_command(command: tuple[str, ...], cwd: Path, timeout_seconds: int) -> dict[str, Any]:
+def run_timed_command(
+    command: tuple[str, ...], cwd: Path, timeout_seconds: int, baseline_id: str | None = None
+) -> dict[str, Any]:
     resource_status, resource_before = _resource_snapshot()
     started = time.perf_counter()
     try:
@@ -72,10 +75,11 @@ def run_timed_command(command: tuple[str, ...], cwd: Path, timeout_seconds: int)
         "resource_status": resource_status,
     }
     result["telemetry"] = build_command_telemetry(result["wall_ms"])
-    result["evidence"] = {
-        "status": "unavailable",
-        "reason": "baseline command has no normalized evidence adapter",
-    }
+    result["evidence"] = (
+        normalize_baseline_evidence(baseline_id, stdout, stderr, returncode, cwd)
+        if baseline_id is not None and status in {"passed", "failed"}
+        else {"status": "unavailable", "reason": "baseline command did not complete"}
+    )
     if resource_before is not None and resource_after is not None:
         result["child_max_rss_kb"] = max(0, resource_after - resource_before)
     return result
@@ -210,7 +214,7 @@ def collect_case(
     reviews = []
     for repeat in range(1, repetitions + 1):
         for baseline_id in baseline_ids:
-            result = run_timed_command(BASELINE_COMMANDS[baseline_id], merge, timeout_seconds)
+            result = run_timed_command(BASELINE_COMMANDS[baseline_id], merge, timeout_seconds, baseline_id)
             result["repeat"] = repeat
             baselines[baseline_id].append(result)
         review = _review_once(scanner, case, head, base_evidence, timeout_seconds)
