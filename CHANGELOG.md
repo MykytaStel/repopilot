@@ -21,6 +21,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   Exact single consumers can be high confidence; ambiguous or dynamic access
   remains limited, and workspace aliases explicitly avoid claiming a resolved
   version.
+- Added a generated review-contract evidence scorecard for the safe/unsafe
+  fixture matrix. The scorecard validates contract expectation schemas,
+  requires paired controls, and separates synthetic fixture coverage from
+  real-repository precision and recall. Added a related-test boundary fixture
+  covering the limited `test-changed` contract alongside `test-missing`.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

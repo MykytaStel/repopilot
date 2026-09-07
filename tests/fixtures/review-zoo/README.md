@@ -45,9 +45,15 @@ diff, exactly as in the golden-fixture harness).
 | Family | Scenario | Safe reaches | Unsafe reaches |
 |--------|----------|--------------|-----------------|
 | `boundary` | `access-control` | new file at an ordinary path (`src/utils/format.ts`) | new file under `src/auth/**` |
+| `boundary` | `access-control-with-test` | related utility and test change | changed access-control boundary plus related test |
 | `behavioral` | `network-call` | a pure helper with no I/O | an added `fetch()` call |
 | `taint` | `sql-injection` | tainted input reaches a safe ORM call | tainted input reaches raw SQL via string concatenation |
 
 New fixtures are discovered automatically — drop a `<family>/<scenario>/{safe,unsafe}/`
 directory in and it's picked up, no registration needed. A dedicated test
 asserts the family set stays a superset of `{boundary, behavioral, taint}`.
+
+The generated [review contract evidence scorecard](../../../docs/engineering/review-contract-evidence.md)
+counts contract expectations separately from real-repository rule labels. It is
+fixture protocol evidence only; `cargo test --test review_zoo` is required to
+prove the current binary satisfies the expectations.
