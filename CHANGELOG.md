@@ -31,6 +31,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   adjudicated metrics with bounded security/test contract labels. Unmeasured
   current contract families remain visible in observations rather than being
   silently dropped.
+- Added a separate single-expert exploratory contract pilot with blinded,
+  hash-pinned worksheets and per-contract TP/FN/TN/FP metrics plus Wilson
+  intervals. The pilot is explicitly not independent validation, does not
+  alter the dual-review protocol, and cannot claim production-wide quality.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
