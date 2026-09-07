@@ -2,7 +2,9 @@ use serde::Serialize;
 
 use crate::review::model::ReviewReport;
 
+mod delivery;
 mod dependency;
+mod runtime;
 
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 
@@ -11,6 +13,8 @@ const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 pub enum ContractFamily {
     PublicSymbol,
     Dependency,
+    Delivery,
+    RuntimeConfiguration,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -24,6 +28,15 @@ pub enum ContractChangeKind {
     SourceChanged,
     FeatureChanged,
     MetadataOnly,
+    TriggerChanged,
+    PermissionChanged,
+    SecretUseChanged,
+    ActionReferenceChanged,
+    ArtifactChanged,
+    DeploymentChanged,
+    Introduced,
+    Renamed,
+    Changed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -79,6 +92,8 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
         })
         .collect::<Vec<_>>();
     deltas.extend(dependency::dependency_deltas(&report.changed_files));
+    deltas.extend(delivery::delivery_deltas(&report.changed_files));
+    deltas.extend(runtime::runtime_deltas(&report.changed_files));
     deltas.sort_by(|left, right| {
         left.exporter_path
             .cmp(&right.exporter_path)

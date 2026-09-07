@@ -238,6 +238,7 @@ fn file_with_hunk(
         status,
         ranges: new_range.map(|r| vec![r]).unwrap_or_default(),
         hunks: vec![DiffHunk {
+            header: None,
             new_range,
             old_range,
             added_lines: added_lines.into_iter().map(String::from).collect(),
