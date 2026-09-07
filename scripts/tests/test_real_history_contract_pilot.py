@@ -13,7 +13,11 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from real_history_contract_pilot import render_contract_pilot_template, validate_contract_pilot  # noqa: E402
-from real_history_contract_pilot_metrics import build_contract_pilot_metrics  # noqa: E402
+from real_history_contract_pilot_metrics import (  # noqa: E402
+    build_contract_pilot_metrics,
+    validate_contract_pilot_metrics,
+    write_contract_pilot_metrics,
+)
 from real_history_contracts import contract_evidence_hash  # noqa: E402
 from real_history_contract import validate_manifest  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
@@ -113,6 +117,23 @@ label_state = "pending"
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
+    def _completed_pilot(self) -> Path:
+        pilot = self.root / "pilot.toml"
+        rendered = render_contract_pilot_template(
+            self.collection, self.manifest, self.rules, self.zoo, "expert"
+        )
+        rendered = rendered.replace('contract_label = ""', 'contract_label = "contract-present"', 1)
+        rendered = rendered.replace(
+            "expected_contract_ids = []",
+            'expected_contract_ids = ["security-boundary/boundary-changed"]',
+            1,
+        )
+        rendered = rendered.replace('rationale = ""', 'rationale = "confirmed boundary change"', 1)
+        rendered = rendered.replace('contract_label = ""', 'contract_label = "no-contract"', 1)
+        rendered = rendered.replace('rationale = ""', 'rationale = "no measured contract"', 1)
+        pilot.write_text(rendered, encoding="utf-8")
+        return pilot
+
     def test_template_is_blinded_and_validates_after_labels(self) -> None:
         pilot = self.root / "pilot.toml"
         pilot.write_text(
@@ -178,6 +199,32 @@ label_state = "pending"
         pilot.write_text(rendered, encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "unknown contract ID"):
             validate_contract_pilot(pilot, self.collection, self.manifest, self.rules, self.zoo)
+
+    def test_metrics_artifact_round_trips_through_validator(self) -> None:
+        pilot = self._completed_pilot()
+        metrics = self.root / "metrics.json"
+        write_contract_pilot_metrics(
+            metrics, pilot, self.collection, self.manifest, self.rules, self.zoo
+        )
+        result = validate_contract_pilot_metrics(
+            metrics, pilot, self.collection, self.manifest, self.rules, self.zoo
+        )
+        self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["cases"], 2)
+
+    def test_metrics_validator_rejects_tampered_counts(self) -> None:
+        pilot = self._completed_pilot()
+        metrics = self.root / "metrics.json"
+        write_contract_pilot_metrics(
+            metrics, pilot, self.collection, self.manifest, self.rules, self.zoo
+        )
+        data = json.loads(metrics.read_text(encoding="utf-8"))
+        data["counts"]["tp"] += 1
+        metrics.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "metrics artifact does not match"):
+            validate_contract_pilot_metrics(
+                metrics, pilot, self.collection, self.manifest, self.rules, self.zoo
+            )
 
 
 if __name__ == "__main__":
