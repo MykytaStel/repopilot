@@ -16,7 +16,7 @@ tests/fixtures/review-zoo/<family>/<scenario>/{safe,unsafe}/
   patch/
     rationale.md   required, non-empty — names the exact edit and why it is/isn't expected to signal
   after/           file tree overlaid on top, left uncommitted (== the diff)
-  expected.json    { description, expect[] }   (expect[] only required for unsafe/)
+  expected.json    { description, expect[], contract_expect[] }
 ```
 
 The harness commits `before/`, overlays `after/` uncommitted (exactly like the
@@ -27,6 +27,11 @@ fixtures are asserted against `expected.json`'s `expect` array using the same
 partial-match contract as the golden harness (see
 [`tests/fixtures/review/README.md`](../review/README.md#expectedjson-contract)):
 match only on stable fields (`bucket`, `family`, `kind`, `path`, `headline`).
+
+Unsafe fixtures may also declare `contract_expect[]`. Each entry is a partial
+match against `change_proof.contract_deltas`, so a semantic contract claim is
+required to survive the same real CLI fixture that proves its review signal.
+Safe fixtures require zero contract deltas as well as zero review signals.
 
 `patch/rationale.md` is the fixture's documentation — why this exact edit is
 safe or unsafe for this delta family, and (for `safe/`) why no *other* family

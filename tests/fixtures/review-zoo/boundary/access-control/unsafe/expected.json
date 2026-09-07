@@ -7,5 +7,21 @@
       "kind": "boundary.access-control",
       "path": "src/auth/session.ts"
     }
+  ],
+  "contract_expect": [
+    {
+      "family": "security-boundary",
+      "change": "boundary-changed",
+      "exporter_path": "src/auth/session.ts",
+      "consumer_path": "src/auth/session.ts",
+      "confidence": "limited"
+    },
+    {
+      "family": "test-coverage",
+      "change": "test-missing",
+      "exporter_path": "src/auth/session.ts",
+      "consumer_path": "src/auth/session.ts",
+      "confidence": "limited"
+    }
   ]
 }

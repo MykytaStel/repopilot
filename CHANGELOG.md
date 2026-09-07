@@ -97,6 +97,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   request-trust boundaries are connected to bounded entrypoint candidates and
   path-related changed tests, while missing or unlinked tests remain explicit
   review evidence without claiming behavioral coverage or a broken contract.
+- Added contract-level review evidence gates: review-zoo fixtures can assert
+  `ChangeProof` deltas, safe fixtures require zero deltas, and a parity fixture
+  proves security evidence is stable across working-tree, snapshot, cold-cache,
+  warm-cache, and explicit base/head review paths.
 
 ### Fixed
 
