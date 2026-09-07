@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sys
 import tempfile
 import tomllib
@@ -19,7 +20,8 @@ from real_history_adjudication import (  # noqa: E402
     render_adjudication_template,
     validate_adjudication,
 )
-from real_history_metrics import _case_outcome, build_metrics, wilson_interval  # noqa: E402
+from real_history_metrics import _case_outcome, _contract_outcome, build_metrics, wilson_interval  # noqa: E402
+from real_history_contracts import contract_evidence_hash  # noqa: E402
 from real_history_contract import validate_manifest  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
@@ -88,11 +90,14 @@ label_state = "pending"
                     "review": {
                         "status": "collected",
                         "in_diff_rule_ids": ["demo.rule"] if case.case_id == "case-one" else [],
+                        "contract_delta_ids": [],
+                        "contract_delta_count": 0,
+                        "contract_evidence_sha256": hashlib.sha256(b"[]").hexdigest(),
                     },
                 }
             )
         data = {
-            "schema_version": 1,
+            "schema_version": 2,
             "corpus": "test",
             "protocol": "dual-independent-adjudication-v1",
             "manifest_sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest(),
@@ -105,7 +110,7 @@ label_state = "pending"
             "cases": observations,
             "label_state": "pending",
         }
-        self.collection.write_text(__import__("json").dumps(data), encoding="utf-8")
+        self.collection.write_text(json.dumps(data), encoding="utf-8")
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
@@ -157,6 +162,18 @@ label_state = "pending"
         with self.assertRaisesRegex(ValueError, "base_sha does not match"):
             load_annotation(path, self.collection, self.manifest, self.rules, self.zoo, "a")
 
+    def test_annotation_rejects_unknown_contract_identity(self) -> None:
+        path = self.worksheet("a")
+        self.complete(path, "no-defect")
+        text = path.read_text(encoding="utf-8").replace(
+            "expected_contract_ids = []",
+            'expected_contract_ids = ["security-boundary/not-supported"]',
+            1,
+        )
+        path.write_text(text, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "unknown contract ID"):
+            load_annotation(path, self.collection, self.manifest, self.rules, self.zoo, "a")
+
     def test_adjudication_template_preserves_disagreement(self) -> None:
         left, right = self.worksheet("a"), self.worksheet("b")
         self.complete(left, "defect-present")
@@ -197,9 +214,28 @@ label_state = "pending"
         )
 
     def test_metrics_are_corpus_scoped_and_include_intervals(self) -> None:
+        collection = json.loads(self.collection.read_text(encoding="utf-8"))
+        collection["cases"][0]["review"].update(
+            {
+                "contract_delta_ids": ["security-boundary/boundary-changed"],
+                "contract_delta_count": 1,
+                "contract_evidence_sha256": contract_evidence_hash(
+                    ("security-boundary/boundary-changed",)
+                ),
+            }
+        )
+        self.collection.write_text(json.dumps(collection), encoding="utf-8")
         left, right = self.worksheet("a"), self.worksheet("b")
         self.complete(left, "defect-present")
         self.complete(right, "defect-present")
+        for path in (left, right):
+            text = path.read_text(encoding="utf-8")
+            text = text.replace(
+                "expected_contract_ids = []",
+                'expected_contract_ids = ["security-boundary/boundary-changed"]',
+                1,
+            )
+            path.write_text(text, encoding="utf-8")
         for path in (left, right):
             text = path.read_text(encoding="utf-8")
             marker = '[[case]]\nid = "case-two"'
@@ -217,6 +253,11 @@ label_state = "pending"
         text = adjudication.read_text(encoding="utf-8")
         text = text.replace('adjudicated = ""', 'adjudicated = "defect-present"', 1)
         text = text.replace('expected_rule_ids = []', 'expected_rule_ids = ["demo.rule"]', 1)
+        text = text.replace(
+            "expected_contract_ids = []",
+            'expected_contract_ids = ["security-boundary/boundary-changed"]',
+            1,
+        )
         text = text.replace('rationale = ""', 'rationale = "confirmed"', 1)
         text = text.replace('adjudicated = ""', 'adjudicated = "no-defect"', 1)
         text = text.replace('rationale = ""', 'rationale = "confirmed"', 1)
@@ -226,6 +267,10 @@ label_state = "pending"
         )
         self.assertEqual(result["counts"], {"tp": 1, "fn": 0, "tn": 1, "fp": 0, "excluded": 0})
         self.assertEqual(result["metrics"]["recall"]["trials"], 1)
+        self.assertEqual(
+            result["contract_counts"]["security-boundary/boundary-changed"],
+            {"tp": 1, "fn": 0, "tn": 1, "fp": 0, "excluded": 0},
+        )
         self.assertEqual(result["scope"], "adjudicated real-history holdout cases only")
         self.assertIsNotNone(result["metrics"]["recall"]["wilson_95"])
         self.assertIsNone(wilson_interval(0, 0))
@@ -236,6 +281,11 @@ label_state = "pending"
         self.assertEqual(_case_outcome("no-defect", [], []), "tn")
         self.assertEqual(_case_outcome("no-defect", [], ["demo.rule"]), "fp")
         self.assertEqual(_case_outcome("uncertain", [], ["demo.rule"]), "excluded")
+        self.assertEqual(_contract_outcome(True, True, False), "tp")
+        self.assertEqual(_contract_outcome(True, False, False), "fn")
+        self.assertEqual(_contract_outcome(False, True, False), "fp")
+        self.assertEqual(_contract_outcome(False, False, False), "tn")
+        self.assertEqual(_contract_outcome(True, True, True), "excluded")
 
 
 if __name__ == "__main__":

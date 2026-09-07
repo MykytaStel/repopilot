@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from real_history_contract import HoldoutCase, HoldoutManifestError
+from real_history_contracts import ContractEvidenceError, contract_evidence_hash, observed_contract_ids
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
 
 
@@ -57,6 +58,10 @@ def summarize_review(report: dict[str, Any], raw_output: bytes) -> dict[str, Any
         finding for finding in findings
         if isinstance(finding, dict) and finding.get("in_diff") is True
     ]
+    try:
+        contract_ids = observed_contract_ids(report)
+    except ContractEvidenceError as error:
+        raise HoldoutManifestError(f"review report has invalid contract evidence: {error}") from error
     evidence = {
         "schema_version": report.get("schema_version"),
         "repopilot_version": report.get("repopilot_version"),
@@ -65,6 +70,8 @@ def summarize_review(report: dict[str, Any], raw_output: bytes) -> dict[str, Any
         "in_diff_rule_ids": sorted(
             finding["rule_id"] for finding in in_diff if isinstance(finding.get("rule_id"), str)
         ),
+        "contract_delta_ids": list(contract_ids),
+        "contract_delta_count": len(contract_ids),
     }
     return {
         "report_sha256": sha256_bytes(raw_output),
@@ -72,6 +79,16 @@ def summarize_review(report: dict[str, Any], raw_output: bytes) -> dict[str, Any
             json.dumps(evidence, sort_keys=True, separators=(",", ":")).encode()
         ),
         **evidence,
+        "contract_evidence_sha256": contract_evidence_hash(contract_ids),
+    }
+
+
+def empty_contract_observation() -> dict[str, Any]:
+    """Return a deterministic no-delta observation for a timed-out review."""
+    return {
+        "contract_delta_ids": [],
+        "contract_delta_count": 0,
+        "contract_evidence_sha256": contract_evidence_hash(()),
     }
 
 
@@ -138,7 +155,11 @@ def collect_case(scanner: Any, case: HoldoutCase, root: Path, timeout_seconds: i
             list(review_command), cwd=head, capture_output=True, check=False, timeout=timeout_seconds
         )
     except subprocess.TimeoutExpired:
-        review_result: dict[str, Any] = {"status": "timeout", "returncode": None}
+        review_result: dict[str, Any] = {
+            "status": "timeout",
+            "returncode": None,
+            **empty_contract_observation(),
+        }
     else:
         if review.returncode not in (0, 1):
             raise HoldoutManifestError(
@@ -184,7 +205,7 @@ def collect_holdout(
         for index, case in enumerate(cases):
             observations.append(collect_case(scanner, case, root / str(index), timeout_seconds))
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "corpus": corpus,
         "protocol": protocol,
         "manifest_sha256": sha256_bytes(manifest_path.read_bytes()),

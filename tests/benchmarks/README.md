@@ -77,6 +77,13 @@ RepoPilot findings. The collected artifact still needs dual-label adjudication.
 the manifest hash, immutable PR revisions, scanner provenance, baseline command
 allowlist, and one review observation per case.
 
+Collection schema 2 also records the stable `change_proof.contract_deltas`
+family/change IDs and a hash over those IDs. The collector preserves all
+currently emitted contract identities, while the first independent labeling
+metric is intentionally limited to the security and test IDs. Paths, evidence
+prose, and runtime semantics are not treated as independently validated by
+this family/change measurement.
+
 When only one expert is available, `pilot-template` creates a blinded
 `single-expert-pilot-v1` worksheet. Fill one label and rationale per case, then
 run `pilot-validate` and `pilot-score`. The resulting report is explicitly
@@ -99,3 +106,9 @@ and verifies that the copied independent labels still match both worksheets.
 recall, specificity, and precision with Wilson 95% intervals. Its output pins
 all three input hashes and states that the result is descriptive evidence for
 this holdout, not a production or language-wide estimate.
+
+The same metrics artifact now includes per-ID contract confusion counts and
+Wilson intervals for `security-boundary/*` and `test-coverage/*`. A reviewer
+labels `expected_contract_ids` from the diff and repository evidence; the
+machine observation remains in the collection artifact and is not copied into
+the blinded worksheet.
