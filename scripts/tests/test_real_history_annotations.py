@@ -20,7 +20,12 @@ from real_history_adjudication import (  # noqa: E402
     render_adjudication_template,
     validate_adjudication,
 )
-from real_history_metrics import _case_outcome, _contract_outcome, build_metrics, wilson_interval  # noqa: E402
+from real_history_metrics import (  # noqa: E402
+    _case_outcome,
+    _contract_outcome,
+    build_metrics,
+    wilson_interval,
+)
 from real_history_contracts import contract_evidence_hash  # noqa: E402
 from real_history_contract import validate_manifest  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
@@ -286,7 +291,6 @@ label_state = "pending"
         self.assertEqual(_contract_outcome(False, True, False), "fp")
         self.assertEqual(_contract_outcome(False, False, False), "tn")
         self.assertEqual(_contract_outcome(True, True, True), "excluded")
-
 
 if __name__ == "__main__":
     unittest.main()

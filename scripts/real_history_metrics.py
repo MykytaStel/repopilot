@@ -192,3 +192,40 @@ def write_metrics(
     )
     output_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return result
+
+
+def validate_metrics(
+    metrics_path: Path,
+    adjudication_path: Path,
+    annotation_a_path: Path,
+    annotation_b_path: Path,
+    collection_path: Path,
+    manifest_path: Path,
+    rules_reference: Path,
+    zoo_manifest: Path,
+) -> dict[str, object]:
+    try:
+        actual = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise HoldoutManifestError(f"cannot read real-history metrics {metrics_path}: {error}") from error
+    if not isinstance(actual, dict):
+        raise HoldoutManifestError("real-history metrics must be a JSON object")
+    expected = build_metrics(
+        adjudication_path,
+        annotation_a_path,
+        annotation_b_path,
+        collection_path,
+        manifest_path,
+        rules_reference,
+        zoo_manifest,
+    )
+    if actual != expected:
+        raise HoldoutManifestError("real-history metrics artifact does not match recomputed score")
+    return {
+        "status": "valid",
+        "schema_version": expected["schema_version"],
+        "protocol": expected["protocol"],
+        "scope": expected["scope"],
+        "cases": len(expected["cases"]),
+        "counts": expected["counts"],
+    }
