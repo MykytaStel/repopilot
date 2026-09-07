@@ -14,6 +14,7 @@ from typing import Any
 from differential_contract import validate_differential
 from differential_manifest import load_differential
 from differential_novelty import evidence_keys, novel_evidence_keys
+from differential_telemetry import build_command_telemetry, build_review_telemetry
 from real_history_contract import HoldoutCase, HoldoutManifestError, validate_manifest
 from real_history_runner import BASELINE_COMMANDS, clone_case, summarize_review
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
@@ -24,7 +25,7 @@ except ImportError:  # pragma: no cover - Windows has no resource module.
     resource = None
 
 
-DIFFERENTIAL_ARTIFACT_SCHEMA_VERSION = 1
+DIFFERENTIAL_ARTIFACT_SCHEMA_VERSION = 2
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -70,6 +71,11 @@ def run_timed_command(command: tuple[str, ...], cwd: Path, timeout_seconds: int)
         "stderr_sha256": sha256_bytes(stderr if isinstance(stderr, bytes) else stderr.encode()),
         "resource_status": resource_status,
     }
+    result["telemetry"] = build_command_telemetry(result["wall_ms"])
+    result["evidence"] = {
+        "status": "unavailable",
+        "reason": "baseline command has no normalized evidence adapter",
+    }
     if resource_before is not None and resource_after is not None:
         result["child_max_rss_kb"] = max(0, resource_after - resource_before)
     return result
@@ -81,7 +87,13 @@ def _scan_base(scanner: Any, case: HoldoutCase, base: Path, timeout_seconds: int
     try:
         process = subprocess.run(list(command), cwd=base, capture_output=True, check=False, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        return {"status": "timeout", "returncode": None, "wall_ms": round((time.perf_counter() - started) * 1000, 3)}
+        wall_ms = round((time.perf_counter() - started) * 1000, 3)
+        return {
+            "status": "timeout",
+            "returncode": None,
+            "wall_ms": wall_ms,
+            "telemetry": build_command_telemetry(wall_ms),
+        }
     if process.returncode not in (0, 1):
         raise HoldoutManifestError(
             f"differential base scan failed for {case.case_id}: {process.stderr.decode(errors='replace').strip()}"
@@ -93,12 +105,14 @@ def _scan_base(scanner: Any, case: HoldoutCase, base: Path, timeout_seconds: int
     findings = report.get("findings")
     if not isinstance(findings, list):
         raise HoldoutManifestError(f"differential base scan has no findings array for {case.case_id}")
+    wall_ms = round((time.perf_counter() - started) * 1000, 3)
     return {
         "status": "collected",
         "returncode": process.returncode,
-        "wall_ms": round((time.perf_counter() - started) * 1000, 3),
+        "wall_ms": wall_ms,
         "command": list(command),
         "evidence_keys": sorted(evidence_keys(findings)),
+        "telemetry": build_command_telemetry(wall_ms),
     }
 
 
@@ -128,10 +142,12 @@ def _review_once(
     try:
         process = subprocess.run(list(command), cwd=head, capture_output=True, check=False, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
+        wall_ms = round((time.perf_counter() - started) * 1000, 3)
         return {
             "status": "timeout",
             "returncode": None,
-            "wall_ms": round((time.perf_counter() - started) * 1000, 3),
+            "wall_ms": wall_ms,
+            "telemetry": build_command_telemetry(wall_ms),
             "in_diff_evidence_keys": [],
             "novel_in_diff_evidence_keys": [],
         }
@@ -143,20 +159,39 @@ def _review_once(
         report = json.loads(process.stdout)
     except json.JSONDecodeError as error:
         raise HoldoutManifestError(f"differential review returned invalid JSON for {case.case_id}: {error}") from error
-    in_diff_findings = [finding for finding in report["findings"] if isinstance(finding, dict) and finding.get("in_diff") is True]
-    in_diff_keys = sorted(evidence_keys(in_diff_findings))
-    result = {
-        **summarize_review(report, process.stdout),
-        "status": "collected",
-        "returncode": process.returncode,
-        "wall_ms": round((time.perf_counter() - started) * 1000, 3),
-        "resource_status": resource_status,
-        "in_diff_evidence_keys": in_diff_keys,
-        "novel_in_diff_evidence_keys": novel_evidence_keys(in_diff_findings, base_evidence),
-    }
+    result = _build_review_result(
+        report, process.stdout, process.returncode, base_evidence, resource_status, started
+    )
     _, resource_after = _resource_snapshot()
     if resource_before is not None and resource_after is not None:
         result["child_max_rss_kb"] = max(0, resource_after - resource_before)
+    return result
+
+
+def _build_review_result(
+    report: dict[str, Any],
+    raw_output: bytes,
+    returncode: int,
+    base_evidence: set[str],
+    resource_status: str,
+    started: float,
+) -> dict[str, Any]:
+    in_diff_findings = [
+        finding for finding in report["findings"] if isinstance(finding, dict) and finding.get("in_diff") is True
+    ]
+    in_diff_keys = sorted(evidence_keys(in_diff_findings))
+    wall_ms = round((time.perf_counter() - started) * 1000, 3)
+    novel_keys = novel_evidence_keys(in_diff_findings, base_evidence)
+    result = {
+        **summarize_review(report, raw_output),
+        "status": "collected",
+        "returncode": returncode,
+        "wall_ms": wall_ms,
+        "resource_status": resource_status,
+        "in_diff_evidence_keys": in_diff_keys,
+        "novel_in_diff_evidence_keys": novel_keys,
+    }
+    result["telemetry"] = build_review_telemetry(report, wall_ms, bool(novel_keys))
     return result
 
 

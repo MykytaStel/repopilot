@@ -9,6 +9,7 @@ from typing import Any
 
 from differential_contract import validate_differential
 from differential_manifest import DifferentialManifestError
+from differential_telemetry import validate_telemetry
 from real_history_contract import HoldoutManifestError, validate_manifest
 from real_history_runner import BASELINE_COMMANDS
 
@@ -29,7 +30,33 @@ def validate_data(
     zoo_manifest: Path,
 ) -> dict[str, object]:
     protocol = validate_differential(differential_path, manifest_path, rules_reference, zoo_manifest)
-    if data.get("schema_version") != 1:
+    schema_version = _validate_header(data, protocol, manifest_path, differential_path)
+    observations = data.get("cases")
+    if not isinstance(observations, list):
+        raise DifferentialManifestError("differential artifact cases must be an array")
+    _, _, holdout_cases = validate_manifest(manifest_path, rules_reference, zoo_manifest)
+    expected = {case.case_id: case for case in holdout_cases}
+    differential_cases = {case.case_id: case for case in _load_cases(differential_path)}
+    _validate_observations(observations, expected, differential_cases, data["repetitions"], schema_version)
+    return {
+        "status": "valid",
+        "schema_version": schema_version,
+        "corpus": protocol["corpus"],
+        "protocol": protocol["protocol"],
+        "cases": len(observations),
+        "baseline_observations": sum(
+            sum(len(runs) for runs in observation["baselines"].values())
+            for observation in observations
+        ),
+        "review_observations": sum(len(observation["reviews"]) for observation in observations),
+    }
+
+
+def _validate_header(
+    data: dict[str, Any], protocol: dict[str, Any], manifest_path: Path, differential_path: Path
+) -> int:
+    schema_version = data.get("schema_version")
+    if schema_version not in {1, 2}:
         raise DifferentialManifestError("differential artifact schema_version is unsupported")
     if data.get("corpus") != protocol["corpus"] or data.get("protocol") != protocol["protocol"]:
         raise DifferentialManifestError("differential artifact corpus/protocol does not match manifest")
@@ -47,12 +74,16 @@ def validate_data(
     for field in ("mode", "version", "report_schema_version", "workspace_version"):
         if not isinstance(scanner.get(field), str) or not scanner[field]:
             raise DifferentialManifestError(f"scanner provenance missing {field}")
-    observations = data.get("cases")
-    if not isinstance(observations, list):
-        raise DifferentialManifestError("differential artifact cases must be an array")
-    _, _, holdout_cases = validate_manifest(manifest_path, rules_reference, zoo_manifest)
-    expected = {case.case_id: case for case in holdout_cases}
-    differential_cases = {case.case_id: case for case in _load_cases(differential_path)}
+    return schema_version
+
+
+def _validate_observations(
+    observations: list[Any],
+    expected: dict[str, Any],
+    differential_cases: dict[str, Any],
+    repetitions: int,
+    schema_version: int,
+) -> None:
     observed: set[str] = set()
     for observation in observations:
         if not isinstance(observation, dict):
@@ -61,20 +92,16 @@ def validate_data(
         if not isinstance(case_id, str) or case_id in observed or case_id not in expected:
             raise DifferentialManifestError(f"differential artifact has unknown or duplicate case {case_id!r}")
         observed.add(case_id)
-        validate_case(observation, expected[case_id], differential_cases[case_id].baseline_ids, data["repetitions"])
+        validate_case(
+            observation,
+            expected[case_id],
+            differential_cases[case_id].baseline_ids,
+            repetitions,
+            schema_version,
+        )
     if observed != set(expected):
-        raise DifferentialManifestError(f"differential artifact is missing cases: {', '.join(sorted(set(expected) - observed))}")
-    return {
-        "status": "valid",
-        "corpus": protocol["corpus"],
-        "protocol": protocol["protocol"],
-        "cases": len(observations),
-        "baseline_observations": sum(
-            sum(len(runs) for runs in observation["baselines"].values())
-            for observation in observations
-        ),
-        "review_observations": sum(len(observation["reviews"]) for observation in observations),
-    }
+        missing = ", ".join(sorted(set(expected) - observed))
+        raise DifferentialManifestError(f"differential artifact is missing cases: {missing}")
 
 
 def _load_cases(path: Path) -> list[Any]:
@@ -88,6 +115,7 @@ def validate_case(
     case: Any,
     baseline_ids: tuple[str, ...],
     repetitions: int,
+    schema_version: int = 1,
 ) -> None:
     for field in ("repo", "base_sha", "head_sha", "merge_sha"):
         if observation.get(field) != getattr(case, field):
@@ -105,11 +133,14 @@ def validate_case(
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline status")
             if not isinstance(run.get("wall_ms"), (int, float)) or run["wall_ms"] < 0:
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline timing")
+            _validate_run_telemetry(run, run["wall_ms"], schema_version, f"case {case.case_id} baseline")
+            _validate_baseline_evidence(run, f"case {case.case_id} baseline")
     base_scan = observation.get("base_scan")
     if not isinstance(base_scan, dict) or base_scan.get("status") not in BASE_SCAN_STATUSES:
         raise DifferentialManifestError(f"case {case.case_id}: base scan observation is missing")
     if not isinstance(base_scan.get("wall_ms"), (int, float)) or base_scan["wall_ms"] < 0:
         raise DifferentialManifestError(f"case {case.case_id}: invalid base scan timing")
+    _validate_run_telemetry(base_scan, base_scan["wall_ms"], schema_version, f"case {case.case_id} base scan")
     if base_scan["status"] == "collected" and not isinstance(base_scan.get("evidence_keys"), list):
         raise DifferentialManifestError(f"case {case.case_id}: base scan evidence keys are missing")
     reviews = observation.get("reviews")
@@ -120,6 +151,7 @@ def validate_case(
             raise DifferentialManifestError(f"case {case.case_id}: invalid review status")
         if not isinstance(review.get("wall_ms"), (int, float)) or review["wall_ms"] < 0:
             raise DifferentialManifestError(f"case {case.case_id}: invalid review timing")
+        _validate_run_telemetry(review, review["wall_ms"], schema_version, f"case {case.case_id} review")
         if review["status"] == "collected" and not isinstance(review.get("stable_evidence_sha256"), str):
             raise DifferentialManifestError(f"case {case.case_id}: collected review lacks stable evidence hash")
         if review["status"] == "collected":
@@ -129,6 +161,32 @@ def validate_case(
     determinism = observation.get("determinism")
     if not isinstance(determinism, dict) or not isinstance(determinism.get("stable_evidence_deterministic"), bool):
         raise DifferentialManifestError(f"case {case.case_id}: determinism summary is missing")
+
+
+def _validate_run_telemetry(
+    run: dict[str, Any], wall_ms: float, schema_version: int, context: str
+) -> None:
+    telemetry = run.get("telemetry")
+    if telemetry is None and schema_version == 1:
+        return
+    try:
+        validate_telemetry(telemetry, wall_ms, context)
+    except ValueError as error:
+        raise DifferentialManifestError(str(error)) from error
+
+
+def _validate_baseline_evidence(run: dict[str, Any], context: str) -> None:
+    evidence = run.get("evidence")
+    if evidence is None:
+        return
+    if not isinstance(evidence, dict) or evidence.get("status") not in {"measured", "unavailable"}:
+        raise DifferentialManifestError(f"{context}: baseline evidence status is invalid")
+    if evidence["status"] == "measured":
+        keys = evidence.get("keys")
+        if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+            raise DifferentialManifestError(f"{context}: measured baseline evidence keys are missing")
+    elif not isinstance(evidence.get("reason"), str) or not evidence["reason"]:
+        raise DifferentialManifestError(f"{context}: unavailable baseline evidence reason is missing")
 
 
 def validate_artifact(

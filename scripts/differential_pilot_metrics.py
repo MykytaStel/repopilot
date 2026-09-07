@@ -11,6 +11,7 @@ from typing import Any
 
 from differential_novelty import evidence_rule_ids
 from differential_pilot import load_pilot
+from differential_telemetry import event_elapsed_ms
 from real_history_contract import HoldoutManifestError
 
 
@@ -68,10 +69,62 @@ def _case_measurements(observation: dict[str, Any]) -> dict[str, object]:
         for run in reviews
         if isinstance(run.get("child_max_rss_kb"), (int, float))
     ]
+    first_evidence_values = []
+    decision_values = []
+    for review in reviews:
+        telemetry = review.get("telemetry")
+        evidence_ms = event_elapsed_ms(telemetry, "evidence_ready") if isinstance(telemetry, dict) else None
+        decision_ms = event_elapsed_ms(telemetry, "decision_ready") if isinstance(telemetry, dict) else None
+        if evidence_ms is not None:
+            first_evidence_values.append(evidence_ms)
+        if decision_ms is not None:
+            decision_values.append(decision_ms)
+    duplicate = _duplicate_work_measurement(observation)
     return {
         "median_baseline_wall_ms": _median(baseline_values),
         "median_review_wall_ms": _median(review_values),
         "median_review_child_max_rss_kb": _median(rss_values),
+        "time_to_first_useful_evidence": _timing_measurement(
+            first_evidence_values, "no useful-evidence event was recorded"
+        ),
+        "decision_latency": _timing_measurement(decision_values, "no decision event was recorded"),
+        "duplicate_work": duplicate,
+    }
+
+
+def _timing_measurement(values: list[float], reason: str) -> dict[str, object]:
+    if not values:
+        return {"status": "unavailable", "reason": reason}
+    return {"status": "measured", "median_ms": _median(values), "samples": len(values)}
+
+
+def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object]:
+    baseline_keys: set[str] = set()
+    for runs in observation["baselines"].values():
+        for run in runs:
+            evidence = run.get("evidence")
+            if not isinstance(evidence, dict) or evidence.get("status") != "measured":
+                return {
+                    "status": "unavailable",
+                    "reason": "baseline command has no normalized evidence adapter",
+                }
+            keys = evidence.get("keys")
+            if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+                return {"status": "unavailable", "reason": "baseline evidence keys are invalid"}
+            baseline_keys.update(keys)
+    review_keys = {
+        key
+        for review in observation["reviews"]
+        for key in review.get("in_diff_evidence_keys", [])
+        if isinstance(key, str)
+    }
+    overlap_count = len(baseline_keys & review_keys)
+    return {
+        "status": "measured",
+        "overlap_count": overlap_count,
+        "baseline_evidence_count": len(baseline_keys),
+        "review_evidence_count": len(review_keys),
+        "overlap_rate": round(overlap_count / len(review_keys), 3) if review_keys else None,
     }
 
 
@@ -88,58 +141,9 @@ def build_pilot_metrics(
     )
     artifact = _load_json(artifact_path)
     observations = {case["id"]: case for case in artifact["cases"]}
-    counts = {key: 0 for key in ("tp", "fn", "tn", "fp", "excluded")}
-    cases: list[dict[str, object]] = []
-    deterministic_cases = 0
-    novel_evidence_cases = 0
-    baseline_times: list[float] = []
-    review_times: list[float] = []
-    rss_times: list[float] = []
-    for case_id, label in pilot_cases.items():
-        observation = observations.get(case_id)
-        if observation is None:
-            raise HoldoutManifestError(f"differential artifact is missing case {case_id}")
-        novel_keys = sorted(
-            {
-                key
-                for review in observation["reviews"]
-                if isinstance(review, dict)
-                for key in review.get("novel_in_diff_evidence_keys", [])
-            }
-        )
-        observed_rules = sorted(evidence_rule_ids(novel_keys))
-        if novel_keys:
-            novel_evidence_cases += 1
-        expected_rules = sorted(set(label["expected_rule_ids"]))
-        if label["label"] == "defect-present":
-            outcome = "tp" if set(expected_rules) & set(observed_rules) else "fn"
-        elif label["label"] == "no-defect":
-            outcome = "fp" if observed_rules else "tn"
-        else:
-            outcome = "excluded"
-        counts[outcome] += 1
-        if observation["determinism"].get("stable_evidence_deterministic") is True:
-            deterministic_cases += 1
-        case_measurements = _case_measurements(observation)
-        for values, key in (
-            (baseline_times, "median_baseline_wall_ms"),
-            (review_times, "median_review_wall_ms"),
-            (rss_times, "median_review_child_max_rss_kb"),
-        ):
-            value = case_measurements[key]
-            if isinstance(value, (int, float)):
-                values.append(float(value))
-        cases.append(
-            {
-                "id": case_id,
-                "label": label["label"],
-                "expected_rule_ids": expected_rules,
-                "observed_novel_rule_ids": observed_rules,
-                "novel_evidence_count": len(novel_keys),
-                "outcome": outcome,
-                "measurements": case_measurements,
-            }
-        )
+    scores = _collect_pilot_scores(pilot_cases, observations)
+    counts = scores["counts"]
+    cases = scores["cases"]
     actual_positives = counts["tp"] + counts["fn"]
     actual_negatives = counts["tn"] + counts["fp"]
     predicted_positives = counts["tp"] + counts["fp"]
@@ -164,17 +168,146 @@ def build_pilot_metrics(
             "precision": _metric(counts["tp"], predicted_positives),
             "case_coverage": _metric(actual_positives + actual_negatives, len(cases)),
         },
-        "measurements": {
-            "deterministic_cases": deterministic_cases,
-            "novel_evidence_cases": novel_evidence_cases,
-            "case_count": len(cases),
-            "median_baseline_wall_ms": _median(baseline_times),
-            "median_review_wall_ms": _median(review_times),
-            "median_review_child_max_rss_kb": _median(rss_times),
-            "time_to_first_useful_evidence": {"status": "unavailable", "reason": "event timestamps are not captured"},
-            "decision_latency": {"status": "unavailable", "reason": "decision events are not captured"},
-            "duplicate_work": {"status": "unavailable", "reason": "baseline overlap classification is not captured"},
+        "measurements": scores["measurements"],
+    }
+
+
+def _collect_pilot_scores(
+    pilot_cases: dict[str, dict[str, Any]], observations: dict[str, dict[str, Any]]
+) -> dict[str, object]:
+    counts = {key: 0 for key in ("tp", "fn", "tn", "fp", "excluded")}
+    cases: list[dict[str, object]] = []
+    deterministic_cases = 0
+    novel_evidence_cases = 0
+    baseline_times: list[float] = []
+    review_times: list[float] = []
+    rss_times: list[float] = []
+    first_evidence_times: list[float] = []
+    decision_latencies: list[float] = []
+    duplicate_measurements: list[dict[str, object]] = []
+    for case_id, label in pilot_cases.items():
+        observation = observations.get(case_id)
+        if observation is None:
+            raise HoldoutManifestError(f"differential artifact is missing case {case_id}")
+        scored = _score_pilot_case(case_id, label, observation)
+        counts[scored["outcome"]] += 1
+        if scored["novel"]:
+            novel_evidence_cases += 1
+        if scored["deterministic"]:
+            deterministic_cases += 1
+        case_measurements = scored["measurements"]
+        for values, key in (
+            (first_evidence_times, "time_to_first_useful_evidence"),
+            (decision_latencies, "decision_latency"),
+        ):
+            measurement = case_measurements[key]
+            if measurement.get("status") == "measured" and isinstance(measurement.get("median_ms"), (int, float)):
+                values.append(float(measurement["median_ms"]))
+        duplicate_measurements.append(case_measurements["duplicate_work"])
+        for values, key in (
+            (baseline_times, "median_baseline_wall_ms"),
+            (review_times, "median_review_wall_ms"),
+            (rss_times, "median_review_child_max_rss_kb"),
+        ):
+            value = case_measurements[key]
+            if isinstance(value, (int, float)):
+                values.append(float(value))
+        cases.append(scored["case"])
+    return {
+        "counts": counts,
+        "cases": cases,
+        "measurements": _build_measurement_summary(
+            cases,
+            deterministic_cases,
+            novel_evidence_cases,
+            baseline_times,
+            review_times,
+            rss_times,
+            first_evidence_times,
+            decision_latencies,
+            duplicate_measurements,
+        ),
+    }
+
+
+def _build_measurement_summary(
+    cases: list[dict[str, object]],
+    deterministic_cases: int,
+    novel_evidence_cases: int,
+    baseline_times: list[float],
+    review_times: list[float],
+    rss_times: list[float],
+    first_evidence_times: list[float],
+    decision_latencies: list[float],
+    duplicate_measurements: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "deterministic_cases": deterministic_cases,
+        "novel_evidence_cases": novel_evidence_cases,
+        "case_count": len(cases),
+        "median_baseline_wall_ms": _median(baseline_times),
+        "median_review_wall_ms": _median(review_times),
+        "median_review_child_max_rss_kb": _median(rss_times),
+        "time_to_first_useful_evidence": _timing_measurement(
+            first_evidence_times, "no useful-evidence events were recorded"
+        ),
+        "decision_latency": _timing_measurement(
+            decision_latencies, "no decision events were recorded"
+        ),
+        "duplicate_work": _aggregate_duplicate_work(duplicate_measurements),
+    }
+
+
+def _score_pilot_case(
+    case_id: str, label: dict[str, Any], observation: dict[str, Any]
+) -> dict[str, object]:
+    novel_keys = sorted(
+        {
+            key
+            for review in observation["reviews"]
+            if isinstance(review, dict)
+            for key in review.get("novel_in_diff_evidence_keys", [])
+        }
+    )
+    observed_rules = sorted(evidence_rule_ids(novel_keys))
+    expected_rules = sorted(set(label["expected_rule_ids"]))
+    if label["label"] == "defect-present":
+        outcome = "tp" if set(expected_rules) & set(observed_rules) else "fn"
+    elif label["label"] == "no-defect":
+        outcome = "fp" if observed_rules else "tn"
+    else:
+        outcome = "excluded"
+    measurements = _case_measurements(observation)
+    return {
+        "outcome": outcome,
+        "novel": bool(novel_keys),
+        "deterministic": observation["determinism"].get("stable_evidence_deterministic") is True,
+        "measurements": measurements,
+        "case": {
+            "id": case_id,
+            "label": label["label"],
+            "expected_rule_ids": expected_rules,
+            "observed_novel_rule_ids": observed_rules,
+            "novel_evidence_count": len(novel_keys),
+            "outcome": outcome,
+            "measurements": measurements,
         },
+    }
+
+
+def _aggregate_duplicate_work(measurements: list[dict[str, object]]) -> dict[str, object]:
+    if not measurements or any(measurement.get("status") != "measured" for measurement in measurements):
+        return {"status": "unavailable", "reason": "baseline overlap classification is not captured"}
+    overlap_count = sum(int(measurement.get("overlap_count", 0)) for measurement in measurements)
+    baseline_count = sum(int(measurement.get("baseline_evidence_count", 0)) for measurement in measurements)
+    review_count = sum(int(measurement.get("review_evidence_count", 0)) for measurement in measurements)
+    return {
+        "status": "measured",
+        "overlap_count": overlap_count,
+        "baseline_evidence_count": baseline_count,
+        "review_evidence_count": review_count,
+        "overlap_rate": round(overlap_count / review_count, 3) if review_count else None,
+        "cases": len(measurements),
     }
 
 

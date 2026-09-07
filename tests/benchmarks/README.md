@@ -43,6 +43,13 @@ evidence is marked novel only when its rule/path/line/snippet identity is absent
 from that base scan. The artifact remains unlabeled and makes no utility claim
 until the independent labeling and scoring step exists.
 
+The differential collection artifact is schema 2. Each baseline, base scan, and
+review run has validated monotonic start/finish telemetry. Review runs may also
+record evidence-ready and decision-ready phase events from RepoPilot's internal
+timings. Duplicate-work overlap stays unavailable until a baseline adapter
+provides normalized evidence identities; command success or output hashes alone
+are not treated as evidence overlap.
+
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports
 only captured novel-evidence, timing, determinism, and resource fields;

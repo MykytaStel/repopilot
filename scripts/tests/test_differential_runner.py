@@ -12,6 +12,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from differential_artifact import validate_data  # noqa: E402
 from differential_runner import run_timed_command  # noqa: E402
+from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
@@ -23,6 +24,8 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["returncode"], 0)
         self.assertGreaterEqual(result["wall_ms"], 0)
         self.assertEqual(len(result["stdout_sha256"]), 64)
+        self.assertEqual(result["telemetry"]["events"][0]["name"], "process_started")
+        self.assertEqual(result["telemetry"]["events"][-1]["name"], "process_finished")
 
     def test_timed_command_records_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -95,6 +98,35 @@ class DifferentialRunnerTests(unittest.TestCase):
             artifact["cases"][0].pop("base_scan")
             with self.assertRaisesRegex(ValueError, "base scan"):
                 validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_requires_telemetry_for_every_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            with self.assertRaisesRegex(ValueError, "telemetry"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_accepts_valid_telemetry_and_baseline_evidence_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            result = validate_data(artifact, holdout, differential, rules, zoo)
+        self.assertEqual(result["status"], "valid")
 
     @staticmethod
     def _valid_artifact(holdout: Path, differential: Path) -> dict[str, object]:

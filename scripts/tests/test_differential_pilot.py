@@ -14,6 +14,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 from differential_artifact import validate_artifact  # noqa: E402
 from differential_pilot import load_pilot, render_pilot_template, validate_pilot  # noqa: E402
 from differential_pilot_metrics import build_pilot_metrics  # noqa: E402
+from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
@@ -71,6 +72,49 @@ class DifferentialPilotTests(unittest.TestCase):
         self.assertEqual(output["counts"], {"tp": 0, "fn": 0, "tn": 0, "fp": 1, "excluded": 1})
         self.assertIsNone(output["metrics"]["recall"]["value"])
         self.assertEqual(output["measurements"]["deterministic_cases"], 2)
+
+    def test_metrics_use_recorded_telemetry_and_baseline_overlap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inputs = self._write_inputs(root, include_novel=True)
+            data = json.loads(inputs["artifact"].read_text(encoding="utf-8"))
+            for case in data["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(run["wall_ms"])
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": ["security.secret-candidate"],
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = {
+                        "schema_version": 1,
+                        "events": [
+                            {"name": "process_started", "elapsed_ms": 0.0},
+                            {"name": "evidence_ready", "elapsed_ms": 5.0},
+                            {"name": "decision_ready", "elapsed_ms": 10.0},
+                            {"name": "process_finished", "elapsed_ms": review["wall_ms"]},
+                        ],
+                    }
+            inputs["artifact"].write_text(json.dumps(data), encoding="utf-8")
+            pilot = root / "pilot.toml"
+            pilot.write_text(
+                render_pilot_template(
+                    inputs["artifact"], inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"], "expert"
+                )
+                .replace('label = ""', 'label = "no-defect"', 1)
+                .replace('rationale = ""', 'rationale = "reviewed first case"', 1)
+                .replace('label = ""', 'label = "uncertain"', 1)
+                .replace('rationale = ""', 'rationale = "insufficient context"', 1),
+                encoding="utf-8",
+            )
+            output = build_pilot_metrics(
+                inputs["artifact"], pilot, inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"]
+            )
+        self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["status"], "measured")
+        self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["median_ms"], 5.0)
+        self.assertEqual(output["measurements"]["decision_latency"]["median_ms"], 10.0)
+        self.assertEqual(output["measurements"]["duplicate_work"]["overlap_count"], 1)
 
     @staticmethod
     def _write_inputs(root: Path, include_novel: bool = False) -> dict[str, Path]:
