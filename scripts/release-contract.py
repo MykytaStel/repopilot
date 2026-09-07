@@ -21,6 +21,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+import review_contract_scorecard as rcs  # noqa: E402  (after the sys.path fix above)
 import zoo_scorecard as zs  # noqa: E402  (after the sys.path fix above)
 
 
@@ -654,6 +655,28 @@ def check_rule_scorecard() -> None:
         raise ContractError("engineering index does not link to the rule scorecard")
 
 
+def check_review_contract_scorecard() -> None:
+    """The review-zoo contract evidence document must match its fixtures."""
+    fixture_dir = ROOT / "tests" / "fixtures" / "review-zoo"
+    scorecard_path = ROOT / "docs" / "engineering" / "review-contract-evidence.md"
+    if not fixture_dir.is_dir():
+        raise ContractError("Missing review-zoo fixture directory")
+    if not scorecard_path.is_file():
+        raise ContractError("Missing review contract evidence scorecard")
+    try:
+        rendered = rcs.render_scorecard(rcs.collect_score(fixture_dir))
+    except rcs.ScorecardError as exc:
+        raise ContractError(f"review contract evidence protocol is invalid: {exc}") from exc
+    if read_text(scorecard_path) != rendered:
+        raise ContractError(
+            "docs/engineering/review-contract-evidence.md is stale; "
+            "regenerate with `python3 scripts/review_contract_scorecard.py --write`"
+        )
+    engineering_index = read_text(ROOT / "docs" / "engineering" / "README.md")
+    if "review-contract-evidence.md" not in engineering_index:
+        raise ContractError("engineering index does not link to review contract evidence")
+
+
 def check_zoo_gate() -> None:
     """Fail the release contract if the real-repo zoo gate fails, when available.
 
@@ -705,6 +728,7 @@ def check_contract(tag: str | None) -> None:
     check_v023_docs()
     check_docs_parity()
     check_rule_scorecard()
+    check_review_contract_scorecard()
     check_zoo_gate()
     print(f"Release contract passed for {version}")
 

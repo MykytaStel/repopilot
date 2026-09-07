@@ -516,6 +516,75 @@ class ReleaseContractTests(unittest.TestCase):
 
         release_contract.check_rule_scorecard()
 
+    def _write_review_contract_fixture(self) -> None:
+        root = release_contract.ROOT / "tests/fixtures/review-zoo/boundary/access-control"
+        for variant in ("safe", "unsafe"):
+            (root / variant).mkdir(parents=True, exist_ok=True)
+            (root / variant / "expected.json").write_text(
+                json.dumps(
+                    {
+                        "description": variant,
+                        "expect": [] if variant == "safe" else [{}],
+                        "contract_expect": [] if variant == "safe" else [
+                            {
+                                "family": "security-boundary",
+                                "change": "boundary-changed",
+                                "exporter_path": "src/auth/session.ts",
+                                "consumer_path": "src/auth/session.ts",
+                                "confidence": "limited",
+                            },
+                            {
+                                "family": "test-coverage",
+                                "change": "test-missing",
+                                "exporter_path": "src/auth/session.ts",
+                                "consumer_path": "src/auth/session.ts",
+                                "confidence": "limited",
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    def _fresh_review_contract_scorecard(self) -> str:
+        fixture_dir = release_contract.ROOT / "tests/fixtures/review-zoo"
+        return release_contract.rcs.render_scorecard(
+            release_contract.rcs.collect_score(fixture_dir)
+        )
+
+    def test_review_contract_scorecard_requires_committed_files(self) -> None:
+        with self.assertRaisesRegex(release_contract.ContractError, "Missing review-zoo"):
+            release_contract.check_review_contract_scorecard()
+
+    def test_review_contract_scorecard_fails_when_stale(self) -> None:
+        self._write_review_contract_fixture()
+        self.write("docs/engineering/review-contract-evidence.md", "stale\n")
+        self.write("docs/engineering/README.md", "review-contract-evidence.md\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "stale"):
+            release_contract.check_review_contract_scorecard()
+
+    def test_review_contract_scorecard_requires_docs_index_link(self) -> None:
+        self._write_review_contract_fixture()
+        self.write(
+            "docs/engineering/review-contract-evidence.md",
+            self._fresh_review_contract_scorecard(),
+        )
+        self.write("docs/engineering/README.md", "no scorecard link\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "does not link"):
+            release_contract.check_review_contract_scorecard()
+
+    def test_review_contract_scorecard_passes_when_fresh(self) -> None:
+        self._write_review_contract_fixture()
+        self.write(
+            "docs/engineering/review-contract-evidence.md",
+            self._fresh_review_contract_scorecard(),
+        )
+        self.write("docs/engineering/README.md", "review-contract-evidence.md\n")
+
+        release_contract.check_review_contract_scorecard()
+
     def test_zoo_gate_skips_when_not_cloned(self) -> None:
         self.write("tests/zoo/manifest.toml", '[[repo]]\nname = "repo-a"\n')
 
