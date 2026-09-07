@@ -38,6 +38,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a recomputing validator for pilot metrics artifacts. It pins the
   worksheet, collection, and manifest inputs and rejects edited, stale, or
   structurally different JSON scores before they can be used as evidence.
+- Added the same recomputing integrity check for dual-review real-history
+  metrics and a deterministic Markdown report for validated pilot or
+  adjudicated packets. Reports retain scope, denominators, and limitations.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

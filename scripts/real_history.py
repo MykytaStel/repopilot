@@ -21,6 +21,7 @@ from real_history_annotations import (
 )
 from real_history_adjudication import render_adjudication_template, validate_adjudication
 from real_history_metrics import write_metrics
+from real_history_metrics_cli import handle_metrics_command
 from real_history_pilot_cli import handle_contract_pilot_command
 from real_history_runner import collect_holdout
 
@@ -39,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
             "adjudication-template",
             "validate-adjudication",
             "metrics",
+            "validate-metrics",
+            "metrics-report",
             "contract-pilot-template",
             "validate-contract-pilot",
             "contract-pilot-metrics",
@@ -195,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
     pilot_status = handle_contract_pilot_command(args)
     if pilot_status is not None:
         return pilot_status
+    metrics_status = handle_metrics_command(args)
+    if metrics_status is not None:
+        return metrics_status
     if args.command == "collect":
         if args.timeout <= 0:
             print("--timeout must be positive", file=sys.stderr)

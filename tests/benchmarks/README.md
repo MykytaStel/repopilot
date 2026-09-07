@@ -62,6 +62,11 @@ python3 scripts/real_history.py validate-adjudication \
 python3 scripts/real_history.py metrics --artifact real-history-run.json \
   --annotation-a annotation-a.toml --annotation-b annotation-b.toml \
   --annotation adjudication.toml --output real-history-metrics.json
+python3 scripts/real_history.py validate-metrics --artifact real-history-run.json \
+  --annotation-a annotation-a.toml --annotation-b annotation-b.toml \
+  --annotation adjudication.toml --metrics real-history-metrics.json
+python3 scripts/real_history.py metrics-report \
+  --metrics real-history-metrics.json --output real-history-metrics.md
 ```
 
 All six entries are intentionally `pending`. The corpus was expanded before
@@ -132,6 +137,12 @@ and verifies that the copied independent labels still match both worksheets.
 recall, specificity, and precision with Wilson 95% intervals. Its output pins
 all three input hashes and states that the result is descriptive evidence for
 this holdout, not a production or language-wide estimate.
+
+`validate-metrics` recomputes that score from the pinned inputs and rejects a
+hand-edited or stale JSON artifact. `metrics-report` renders a deterministic
+Markdown summary for a validated dual-review or exploratory pilot metrics file;
+the report repeats the scope and limitation so it cannot be mistaken for a
+broader quality claim.
 
 The same metrics artifact now includes per-ID contract confusion counts and
 Wilson intervals for `security-boundary/*` and `test-coverage/*`. A reviewer
