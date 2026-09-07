@@ -33,6 +33,27 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["returncode"], 3)
 
+    def test_timed_baseline_command_records_normalized_evidence(self) -> None:
+        diagnostic = (
+            "*** Error compiling '/workspace/pkg/bad.py'...\n"
+            "  File '/workspace/pkg/bad.py', line 4\n"
+            "SyntaxError: invalid syntax\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_timed_command(
+                (
+                    sys.executable,
+                    "-c",
+                    "import sys; print(sys.argv[1], file=sys.stderr); raise SystemExit(1)",
+                    diagnostic,
+                ),
+                Path(tmp),
+                5,
+                "python.compile",
+            )
+        self.assertEqual(result["evidence"]["status"], "measured")
+        self.assertEqual(result["evidence"]["keys"], ["python.compile:bad.py:4:SyntaxError"])
+
     def test_artifact_validator_accepts_complete_pending_observations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -127,6 +148,29 @@ class DifferentialRunnerTests(unittest.TestCase):
                     review["telemetry"] = build_command_telemetry(1.0)
             result = validate_data(artifact, holdout, differential, rules, zoo)
         self.assertEqual(result["status"], "valid")
+
+    def test_artifact_schema_two_requires_provenance_for_measured_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {"status": "measured", "keys": []}
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "evidence source"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+            for case in artifact["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["evidence"]["source"] = "unrelated-adapter-v1"
+            with self.assertRaisesRegex(ValueError, "source drift"):
+                validate_data(artifact, holdout, differential, rules, zoo)
 
     @staticmethod
     def _valid_artifact(holdout: Path, differential: Path) -> dict[str, object]:

@@ -134,7 +134,7 @@ def validate_case(
             if not isinstance(run.get("wall_ms"), (int, float)) or run["wall_ms"] < 0:
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline timing")
             _validate_run_telemetry(run, run["wall_ms"], schema_version, f"case {case.case_id} baseline")
-            _validate_baseline_evidence(run, f"case {case.case_id} baseline")
+            _validate_baseline_evidence(run, f"case {case.case_id} baseline", schema_version, baseline_id)
     base_scan = observation.get("base_scan")
     if not isinstance(base_scan, dict) or base_scan.get("status") not in BASE_SCAN_STATUSES:
         raise DifferentialManifestError(f"case {case.case_id}: base scan observation is missing")
@@ -175,7 +175,9 @@ def _validate_run_telemetry(
         raise DifferentialManifestError(str(error)) from error
 
 
-def _validate_baseline_evidence(run: dict[str, Any], context: str) -> None:
+def _validate_baseline_evidence(
+    run: dict[str, Any], context: str, schema_version: int = 1, baseline_id: str | None = None
+) -> None:
     evidence = run.get("evidence")
     if evidence is None:
         return
@@ -185,6 +187,13 @@ def _validate_baseline_evidence(run: dict[str, Any], context: str) -> None:
         keys = evidence.get("keys")
         if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
             raise DifferentialManifestError(f"{context}: measured baseline evidence keys are missing")
+        if schema_version >= 2:
+            source = evidence.get("source")
+            if not isinstance(source, str) or not source:
+                raise DifferentialManifestError(f"{context}: measured baseline evidence source is missing")
+            expected_source = f"{baseline_id}-v1" if baseline_id else None
+            if expected_source and source != expected_source:
+                raise DifferentialManifestError(f"{context}: measured baseline evidence source drift")
     elif not isinstance(evidence.get("reason"), str) or not evidence["reason"]:
         raise DifferentialManifestError(f"{context}: unavailable baseline evidence reason is missing")
 
