@@ -20,9 +20,8 @@ from real_history_annotations import (
     render_worksheet,
 )
 from real_history_adjudication import render_adjudication_template, validate_adjudication
-from real_history_contract_pilot import render_contract_pilot_template, validate_contract_pilot
-from real_history_contract_pilot_metrics import build_contract_pilot_metrics
 from real_history_metrics import write_metrics
+from real_history_pilot_cli import handle_contract_pilot_command
 from real_history_runner import collect_holdout
 
 
@@ -43,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             "contract-pilot-template",
             "validate-contract-pilot",
             "contract-pilot-metrics",
+            "validate-contract-pilot-metrics",
         ),
         default="check",
     )
@@ -62,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reviewer", choices=("a", "b"), help="independent worksheet owner")
     parser.add_argument("--pilot", type=Path, help="single-expert contract pilot worksheet")
     parser.add_argument("--pilot-reviewer", default="expert", help="single-expert pilot reviewer label")
+    parser.add_argument("--metrics", type=Path, help="single-expert contract pilot metrics artifact")
     args = parser.parse_args(argv)
     try:
         corpus, protocol, cases = validate_manifest(args.manifest, args.rules_reference, args.zoo_manifest)
@@ -191,60 +192,9 @@ def main(argv: list[str] | None = None) -> int:
         counts = result["counts"]
         print(f"Metrics: {args.output} (TP {counts['tp']}, FN {counts['fn']}, TN {counts['tn']}, FP {counts['fp']})")
         return 0
-    if args.command == "contract-pilot-template":
-        if args.artifact is None or args.output is None:
-            print("contract-pilot-template requires --artifact and --output", file=sys.stderr)
-            return 2
-        try:
-            rendered = render_contract_pilot_template(
-                args.artifact,
-                args.manifest,
-                args.rules_reference,
-                args.zoo_manifest,
-                args.pilot_reviewer,
-            )
-        except (HoldoutManifestError, OSError) as error:
-            print(f"contract pilot template failed: {error}", file=sys.stderr)
-            return 1
-        args.output.write_text(rendered, encoding="utf-8")
-        print(f"Contract pilot worksheet: {args.output}")
-        return 0
-    if args.command == "validate-contract-pilot":
-        if args.artifact is None or args.pilot is None:
-            print("validate-contract-pilot requires --artifact and --pilot", file=sys.stderr)
-            return 2
-        try:
-            result = validate_contract_pilot(
-                args.pilot,
-                args.artifact,
-                args.manifest,
-                args.rules_reference,
-                args.zoo_manifest,
-            )
-        except (HoldoutManifestError, OSError) as error:
-            print(f"contract pilot invalid: {error}", file=sys.stderr)
-            return 1
-        print(f"Contract pilot: valid ({result['cases']} cases; reviewer {result['reviewer']})")
-        return 0
-    if args.command == "contract-pilot-metrics":
-        if args.artifact is None or args.pilot is None or args.output is None:
-            print("contract-pilot-metrics requires --artifact, --pilot, and --output", file=sys.stderr)
-            return 2
-        try:
-            result = build_contract_pilot_metrics(
-                args.pilot,
-                args.artifact,
-                args.manifest,
-                args.rules_reference,
-                args.zoo_manifest,
-            )
-            args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        except (HoldoutManifestError, OSError) as error:
-            print(f"contract pilot metrics failed: {error}", file=sys.stderr)
-            return 1
-        counts = result["counts"]
-        print(f"Contract pilot metrics: {args.output} (TP {counts['tp']}, FN {counts['fn']}, TN {counts['tn']}, FP {counts['fp']})")
-        return 0
+    pilot_status = handle_contract_pilot_command(args)
+    if pilot_status is not None:
+        return pilot_status
     if args.command == "collect":
         if args.timeout <= 0:
             print("--timeout must be positive", file=sys.stderr)

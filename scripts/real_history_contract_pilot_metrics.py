@@ -140,3 +140,47 @@ def build_contract_pilot_metrics(
             "case_coverage": _metric(actual_positives + actual_negatives, len(case_rows)),
         },
     }
+
+
+def write_contract_pilot_metrics(
+    output_path: Path,
+    pilot_path: Path,
+    collection_path: Path,
+    manifest_path: Path,
+    rules_reference: Path,
+    zoo_manifest: Path,
+) -> dict[str, object]:
+    result = build_contract_pilot_metrics(
+        pilot_path, collection_path, manifest_path, rules_reference, zoo_manifest
+    )
+    output_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return result
+
+
+def validate_contract_pilot_metrics(
+    metrics_path: Path,
+    pilot_path: Path,
+    collection_path: Path,
+    manifest_path: Path,
+    rules_reference: Path,
+    zoo_manifest: Path,
+) -> dict[str, object]:
+    try:
+        actual = json.loads(metrics_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise HoldoutManifestError(f"cannot read contract pilot metrics {metrics_path}: {error}") from error
+    if not isinstance(actual, dict):
+        raise HoldoutManifestError("contract pilot metrics must be a JSON object")
+    expected = build_contract_pilot_metrics(
+        pilot_path, collection_path, manifest_path, rules_reference, zoo_manifest
+    )
+    if actual != expected:
+        raise HoldoutManifestError("contract pilot metrics artifact does not match recomputed score")
+    return {
+        "status": "valid",
+        "protocol": expected["protocol"],
+        "scope": expected["scope"],
+        "reviewer": expected["reviewer"],
+        "cases": len(expected["cases"]),
+        "contract_ids": expected["contract_ids"],
+    }

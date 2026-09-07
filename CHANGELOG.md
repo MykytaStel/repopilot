@@ -35,6 +35,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   hash-pinned worksheets and per-contract TP/FN/TN/FP metrics plus Wilson
   intervals. The pilot is explicitly not independent validation, does not
   alter the dual-review protocol, and cannot claim production-wide quality.
+- Added a recomputing validator for pilot metrics artifacts. It pins the
+  worksheet, collection, and manifest inputs and rejects edited, stale, or
+  structurally different JSON scores before they can be used as evidence.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

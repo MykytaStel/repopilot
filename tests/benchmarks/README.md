@@ -98,12 +98,17 @@ python3 scripts/real_history.py validate-contract-pilot \
 python3 scripts/real_history.py contract-pilot-metrics \
   --artifact real-history-run.json --pilot contract-pilot.toml \
   --output contract-pilot-metrics.json
+python3 scripts/real_history.py validate-contract-pilot-metrics \
+  --artifact real-history-run.json --pilot contract-pilot.toml \
+  --metrics contract-pilot-metrics.json
 ```
 
 The pilot reports case outcomes and per-ID confusion counts with Wilson
-intervals. Its scope is explicitly single-expert exploratory evidence over the
-measured security/test subset; it is not independent validation, a production
-estimate, or evidence for the unmeasured contract families.
+intervals. The final validation command recomputes the score from the pinned
+inputs and rejects edited or stale metrics. Its scope is explicitly
+single-expert exploratory evidence over the measured security/test subset; it
+is not independent validation, a production estimate, or evidence for the
+unmeasured contract families.
 
 When only one expert is available, `pilot-template` creates a blinded
 `single-expert-pilot-v1` worksheet. Fill one label and rationale per case, then
