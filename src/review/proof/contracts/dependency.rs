@@ -2,6 +2,8 @@ use crate::review::diff::ChangedFile;
 
 use super::*;
 
+#[path = "dependency/lockfile.rs"]
+mod lockfile;
 #[path = "dependency/parse.rs"]
 mod parse;
 use parse::*;
@@ -14,26 +16,7 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
         };
         let path = file.path_string();
         if kind == ManifestKind::Lockfile {
-            if file.hunks.iter().any(|hunk| {
-                hunk.added_lines
-                    .iter()
-                    .chain(&hunk.removed_lines)
-                    .any(|line| {
-                        let line = line.trim_start();
-                        line.starts_with("version =")
-                            || line.starts_with("\"version\":")
-                            || line.starts_with("version:")
-                    })
-            }) {
-                deltas.push(delta(
-                    &path,
-                    "lockfile resolution",
-                    ContractChangeKind::MetadataOnly,
-                    None,
-                    "Lockfile resolution changed, but this diff does not prove the package identity or exact dependency transition.",
-                    ContractConfidence::Limited,
-                ));
-            }
+            deltas.extend(lockfile::deltas(file, &path));
             continue;
         }
 
@@ -143,11 +126,21 @@ mod tests {
     use std::path::PathBuf;
 
     fn changed(path: &str, added: &[&str], removed: &[&str]) -> ChangedFile {
+        changed_with_header(path, added, removed, None)
+    }
+
+    fn changed_with_header(
+        path: &str,
+        added: &[&str],
+        removed: &[&str],
+        header: Option<&str>,
+    ) -> ChangedFile {
         ChangedFile {
             path: PathBuf::from(path),
             status: ChangeStatus::Modified,
             ranges: vec![ChangedRange { start: 4, end: 4 }],
             hunks: vec![DiffHunk {
+                header: header.map(str::to_string),
                 new_range: Some(ChangedRange { start: 4, end: 4 }),
                 old_range: Some(ChangedRange { start: 4, end: 4 }),
                 added_lines: added.iter().map(|line| (*line).to_string()).collect(),
@@ -226,5 +219,20 @@ mod tests {
         )]);
         assert_eq!(npm_deltas.len(), 1);
         assert_eq!(npm_deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn cargo_lockfile_version_change_keeps_package_identity() {
+        let deltas = dependency_deltas(&[changed_with_header(
+            "Cargo.lock",
+            &["version = \"2.1.0\""],
+            &["version = \"2.0.0\""],
+            Some("name = \"beta\""),
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].consumer_path, "beta");
+        assert_eq!(deltas[0].change, ContractChangeKind::Upgraded);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::High));
     }
 }

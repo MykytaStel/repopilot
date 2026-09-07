@@ -72,6 +72,9 @@ pub struct ChangedFile {
 /// body line is either an addition or a removal — there are no context lines.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffHunk {
+    /// Optional text after the hunk marker. Git uses this to expose a nearby
+    /// structural header such as `name = "beta"` in Cargo.lock.
+    pub header: Option<String>,
     /// Added-line range in the post-change file. `None` for a pure-deletion
     /// hunk (`@@ -a,b +c,0 @@`), which carries only removed lines.
     pub new_range: Option<ChangedRange>,
@@ -355,6 +358,7 @@ fn consume_diff_line(
     if line.starts_with("@@") {
         finish_hunk(file, hunk);
         *hunk = Some(DiffHunk {
+            header: parse_hunk_header(line),
             new_range: parse_hunk_added_range(line),
             old_range: parse_hunk_removed_range(line),
             added_lines: Vec::new(),
@@ -363,6 +367,12 @@ fn consume_diff_line(
         return;
     }
     append_hunk_line(line, hunk);
+}
+
+fn parse_hunk_header(line: &str) -> Option<String> {
+    let (_, suffix) = line.strip_prefix("@@")?.split_once("@@")?;
+    let header = suffix.trim();
+    (!header.is_empty()).then(|| header.to_string())
 }
 
 fn finish_current_file(

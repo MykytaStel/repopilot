@@ -83,6 +83,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   additions, removals, upgrades, downgrades, source changes, feature changes,
   and metadata-only edits now have typed evidence. Lockfile changes remain
   explicitly limited when a zero-context diff cannot identify the package.
+- Expanded the semantic contract map across three review surfaces: Cargo
+  lockfile hunk context can now retain package identity, workflow/action edits
+  classify trigger, permission, secret, action-reference, artifact, and deploy
+  changes, and runtime configuration edits classify introduced, removed,
+  renamed, or changed keys with changed-diff consumer evidence.
 
 ### Fixed
 

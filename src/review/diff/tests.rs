@@ -35,6 +35,7 @@ index 1111111..2222222 100644
     assert_eq!(file.ranges, vec![ChangedRange { start: 10, end: 12 }]);
     assert_eq!(file.hunks.len(), 1);
     let hunk = &file.hunks[0];
+    assert_eq!(hunk.header.as_deref(), Some("fn main()"));
     assert_eq!(hunk.new_range, Some(ChangedRange { start: 10, end: 12 }));
     assert_eq!(hunk.added_lines, vec!["new one", "new two", "new three"]);
     assert_eq!(hunk.removed_lines, vec!["old one", "old two"]);
