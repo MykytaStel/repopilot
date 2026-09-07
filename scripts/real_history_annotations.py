@@ -16,9 +16,10 @@ from real_history_contract import (
     HoldoutManifestError,
     validate_manifest,
 )
+from real_history_contracts import ContractEvidenceError, validate_expected_contract_ids
 
 
-ANNOTATION_SCHEMA_VERSION = 2
+ANNOTATION_SCHEMA_VERSION = 3
 ANNOTATION_PROTOCOL = "dual-independent-adjudication-v1"
 ANNOTATION_FIELDS = {
     "id",
@@ -30,6 +31,7 @@ ANNOTATION_FIELDS = {
     "baseline_statuses",
     "label",
     "expected_rule_ids",
+    "expected_contract_ids",
     "rationale",
 }
 
@@ -97,6 +99,7 @@ def _worksheet_case(case: HoldoutCase, observation: dict[str, Any]) -> list[str]
         f"baseline_statuses = {_toml_array(statuses)}",
         'label = ""',
         "expected_rule_ids = []",
+        "expected_contract_ids = []",
         'rationale = ""',
         "",
     ]
@@ -198,6 +201,13 @@ def _validate_context(
             raise HoldoutManifestError(f"annotation case {case_id}: expected_rule_ids contains an unknown rule")
         if raw["label"] == "defect-present" and not raw["expected_rule_ids"]:
             raise HoldoutManifestError(f"annotation case {case_id}: defect-present needs expected_rule_ids")
+        try:
+            validate_expected_contract_ids(
+                raw.get("expected_contract_ids"),
+                f"annotation case {case_id} expected_contract_ids",
+            )
+        except ContractEvidenceError as error:
+            raise HoldoutManifestError(str(error)) from error
         if not isinstance(raw.get("rationale"), str) or not raw["rationale"].strip():
             raise HoldoutManifestError(f"annotation case {case_id}: rationale is required")
         observed[case_id] = raw

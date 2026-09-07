@@ -14,16 +14,20 @@ from real_history_annotations import (
     _load_toml,
 )
 from real_history_contract import ALLOWED_LABELS, HoldoutManifestError, validate_manifest
+from real_history_contracts import ContractEvidenceError, validate_expected_contract_ids
 
 
 ADJUDICATION_FIELDS = {
     "id",
     "label_a",
     "expected_rule_ids_a",
+    "expected_contract_ids_a",
     "label_b",
     "expected_rule_ids_b",
+    "expected_contract_ids_b",
     "adjudicated",
     "expected_rule_ids",
+    "expected_contract_ids",
     "rationale",
 }
 
@@ -58,10 +62,13 @@ def render_adjudication_template(
             f"id = {_toml_string(case_id)}",
             f"label_a = {_toml_string(left['label'])}",
             f"expected_rule_ids_a = {_toml_array(left['expected_rule_ids'])}",
+            f"expected_contract_ids_a = {_toml_array(left['expected_contract_ids'])}",
             f"label_b = {_toml_string(right['label'])}",
             f"expected_rule_ids_b = {_toml_array(right['expected_rule_ids'])}",
+            f"expected_contract_ids_b = {_toml_array(right['expected_contract_ids'])}",
             'adjudicated = ""',
             "expected_rule_ids = []",
+            "expected_contract_ids = []",
             'rationale = ""',
             "",
         ])
@@ -116,6 +123,9 @@ def validate_adjudication(
                 raise HoldoutManifestError(f"adjudication case {case_id}: {label_key} does not match worksheet")
             if raw.get(rules_key) != source[case_id]["expected_rule_ids"]:
                 raise HoldoutManifestError(f"adjudication case {case_id}: {rules_key} does not match worksheet")
+            contracts_key = f"expected_contract_ids_{side}"
+            if raw.get(contracts_key) != source[case_id]["expected_contract_ids"]:
+                raise HoldoutManifestError(f"adjudication case {case_id}: {contracts_key} does not match worksheet")
         label = raw.get("adjudicated")
         if label not in ALLOWED_LABELS:
             raise HoldoutManifestError(f"adjudication case {case_id}: adjudicated label is required")
@@ -126,6 +136,13 @@ def validate_adjudication(
             raise HoldoutManifestError(f"adjudication case {case_id}: expected_rule_ids contains an unknown rule")
         if label == "defect-present" and not rules:
             raise HoldoutManifestError(f"adjudication case {case_id}: defect-present needs expected_rule_ids")
+        try:
+            validate_expected_contract_ids(
+                raw.get("expected_contract_ids"),
+                f"adjudication case {case_id} expected_contract_ids",
+            )
+        except ContractEvidenceError as error:
+            raise HoldoutManifestError(str(error)) from error
         if not isinstance(raw.get("rationale"), str) or not raw["rationale"].strip():
             raise HoldoutManifestError(f"adjudication case {case_id}: rationale is required")
     if observed != expected_ids:

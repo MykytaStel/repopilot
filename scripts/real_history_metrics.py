@@ -12,9 +12,10 @@ from typing import Any
 from real_history_adjudication import validate_adjudication
 from real_history_annotations import load_collection
 from real_history_contract import HoldoutManifestError
+from real_history_contracts import CONTRACT_IDS, ContractEvidenceError, validate_expected_contract_ids
 
 
-METRICS_SCHEMA_VERSION = 1
+METRICS_SCHEMA_VERSION = 2
 
 
 def sha256_file(path: Path) -> str:
@@ -62,6 +63,18 @@ def _case_outcome(gold_label: str, expected_rules: list[str], observed_rules: li
     return "excluded"
 
 
+def _contract_outcome(expected: bool, observed: bool, excluded: bool) -> str:
+    if excluded:
+        return "excluded"
+    if expected and observed:
+        return "tp"
+    if expected:
+        return "fn"
+    if observed:
+        return "fp"
+    return "tn"
+
+
 def build_metrics(
     adjudication_path: Path,
     annotation_a_path: Path,
@@ -87,6 +100,10 @@ def build_metrics(
     }
     cases: list[dict[str, object]] = []
     counts = {key: 0 for key in ("tp", "fn", "tn", "fp", "excluded")}
+    contract_counts = {
+        contract_id: {key: 0 for key in ("tp", "fn", "tn", "fp", "excluded")}
+        for contract_id in CONTRACT_IDS
+    }
     for labeled in adjudication["case"]:
         case_id = labeled["id"]
         observation = observations.get(case_id)
@@ -96,18 +113,41 @@ def build_metrics(
         expected_rules = sorted(set(labeled["expected_rule_ids"]))
         outcome = _case_outcome(labeled["adjudicated"], expected_rules, observed_rules)
         counts[outcome] += 1
+        observed_contracts = sorted(set(observation["review"].get("contract_delta_ids", [])))
+        try:
+            expected_contracts = list(validate_expected_contract_ids(labeled["expected_contract_ids"]))
+        except ContractEvidenceError as error:
+            raise HoldoutManifestError(str(error)) from error
+        for contract_id in CONTRACT_IDS:
+            contract_counts[contract_id][_contract_outcome(
+                contract_id in expected_contracts,
+                contract_id in observed_contracts,
+                labeled["adjudicated"] == "uncertain",
+            )] += 1
         cases.append(
             {
                 "id": case_id,
                 "gold_label": labeled["adjudicated"],
                 "expected_rule_ids": expected_rules,
                 "observed_in_diff_rule_ids": observed_rules,
+                "expected_contract_ids": expected_contracts,
+                "observed_contract_ids": observed_contracts,
                 "outcome": outcome,
             }
         )
-    positive_predictions = counts["tp"] + counts["fp"]
-    actual_positives = counts["tp"] + counts["fn"]
-    actual_negatives = counts["tn"] + counts["fp"]
+    rule_positive_predictions = counts["tp"] + counts["fp"]
+    rule_actual_positives = counts["tp"] + counts["fn"]
+    rule_actual_negatives = counts["tn"] + counts["fp"]
+    contract_metrics = {}
+    for contract_id, contract_result in contract_counts.items():
+        contract_positive_predictions = contract_result["tp"] + contract_result["fp"]
+        contract_actual_positives = contract_result["tp"] + contract_result["fn"]
+        contract_actual_negatives = contract_result["tn"] + contract_result["fp"]
+        contract_metrics[contract_id] = {
+            "recall": _metric(contract_result["tp"], contract_actual_positives),
+            "specificity": _metric(contract_result["tn"], contract_actual_negatives),
+            "precision": _metric(contract_result["tp"], contract_positive_predictions),
+        }
     return {
         "schema_version": METRICS_SCHEMA_VERSION,
         "corpus": adjudication["corpus"],
@@ -119,11 +159,14 @@ def build_metrics(
         "limitation": "descriptive corpus evidence; not a production or language-wide estimate",
         "cases": cases,
         "counts": counts,
+        "contract_ids": list(CONTRACT_IDS),
+        "contract_counts": contract_counts,
+        "contract_metrics": contract_metrics,
         "metrics": {
-            "recall": _metric(counts["tp"], actual_positives),
-            "specificity": _metric(counts["tn"], actual_negatives),
-            "precision": _metric(counts["tp"], positive_predictions),
-            "case_coverage": _metric(actual_positives + actual_negatives, len(cases)),
+            "recall": _metric(counts["tp"], rule_actual_positives),
+            "specificity": _metric(counts["tn"], rule_actual_negatives),
+            "precision": _metric(counts["tp"], rule_positive_predictions),
+            "case_coverage": _metric(rule_actual_positives + rule_actual_negatives, len(cases)),
         },
     }
 

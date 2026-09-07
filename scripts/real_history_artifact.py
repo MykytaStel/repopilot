@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from real_history_contract import HoldoutCase, HoldoutManifestError, validate_manifest
+from real_history_contracts import (
+    ContractEvidenceError,
+    contract_evidence_hash,
+    validate_observed_contract_ids,
+)
 from real_history_runner import BASELINE_COMMANDS
 
 
-COLLECTION_SCHEMA_VERSION = 1
+COLLECTION_SCHEMA_VERSION = 2
 BASELINE_STATUSES = {"passed", "failed", "unavailable", "timeout"}
 REVIEW_STATUSES = {"collected", "timeout"}
 
@@ -63,6 +69,15 @@ def validate_collection_data(
         "cases": len(observations),
         "baseline_observations": sum(len(observation["baselines"]) for observation in observations),
         "review_observations": len(observations),
+        "contract_id_counts": dict(
+            sorted(
+                Counter(
+                    contract_id
+                    for observation in observations
+                    for contract_id in observation["review"]["contract_delta_ids"]
+                ).items()
+            )
+        ),
         "status": "valid",
     }
 
@@ -86,6 +101,17 @@ def validate_observation(observation: dict[str, Any], case: HoldoutCase) -> None
     review = observation.get("review")
     if not isinstance(review, dict) or review.get("status") not in REVIEW_STATUSES:
         raise HoldoutManifestError(f"collection case {case.case_id}: invalid review result")
+    try:
+        contract_ids = validate_observed_contract_ids(
+            review.get("contract_delta_ids"),
+            f"collection case {case.case_id} contract_delta_ids",
+        )
+    except ContractEvidenceError as error:
+        raise HoldoutManifestError(str(error)) from error
+    if review.get("contract_delta_count") != len(contract_ids):
+        raise HoldoutManifestError(f"collection case {case.case_id}: contract delta count drift")
+    if review.get("contract_evidence_sha256") != contract_evidence_hash(contract_ids):
+        raise HoldoutManifestError(f"collection case {case.case_id}: contract evidence hash drift")
 
 
 def validate_collection_artifact(

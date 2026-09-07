@@ -26,6 +26,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   requires paired controls, and separates synthetic fixture coverage from
   real-repository precision and recall. Added a related-test boundary fixture
   covering the limited `test-changed` contract alongside `test-missing`.
+- Extended the real-history holdout collector to retain stable contract
+  family/change IDs and an evidence hash, and extended blinded worksheets and
+  adjudicated metrics with bounded security/test contract labels. Unmeasured
+  current contract families remain visible in observations rather than being
+  silently dropped.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
