@@ -22,6 +22,15 @@ def _measurement_status(value: Any) -> str:
         return "unavailable"
     if value.get("status") == "unavailable":
         return f"unavailable: {value.get('reason', 'unspecified')}"
+    if value.get("status") == "measured":
+        details = []
+        if isinstance(value.get("median_ms"), (int, float)):
+            details.append(f"median {float(value['median_ms']):.3f} ms")
+        if isinstance(value.get("overlap_count"), int):
+            details.append(f"overlap {value['overlap_count']}")
+        if isinstance(value.get("overlap_rate"), (int, float)):
+            details.append(f"rate {float(value['overlap_rate']):.3f}")
+        return "measured" + (f" ({', '.join(details)})" if details else "")
     return str(value.get("status", "unknown"))
 
 

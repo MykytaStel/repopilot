@@ -50,6 +50,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added recomputing validation and a deterministic Markdown report for the
   differential utility pilot metrics. Edited or stale scores are rejected, and
   unavailable utility measurements remain explicit instead of being inferred.
+- Differential collection artifacts now carry a validated telemetry contract:
+  review phase events can measure evidence-ready and decision-ready latency,
+  while baseline evidence adapters make duplicate-work overlap measurable when
+  the baseline supplies normalized evidence identities.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
