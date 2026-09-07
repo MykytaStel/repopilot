@@ -47,6 +47,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   renders a bounded Markdown gap report, and recomputes the complete audit
   artifact before it can be circulated without turning incomplete labels into
   quality claims.
+- Added recomputing validation and a deterministic Markdown report for the
+  differential utility pilot metrics. Edited or stale scores are rejected, and
+  unavailable utility measurements remain explicit instead of being inferred.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

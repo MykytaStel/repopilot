@@ -27,6 +27,11 @@ python3 scripts/differential.py pilot-validate \
 python3 scripts/differential.py pilot-score \
   --artifact differential-run.json --pilot pilot.toml \
   --output pilot-metrics.json
+python3 scripts/differential.py pilot-validate-metrics \
+  --artifact differential-run.json --pilot pilot.toml \
+  --metrics pilot-metrics.json
+python3 scripts/differential.py pilot-metrics-report \
+  --metrics pilot-metrics.json --output pilot-metrics.md
 ```
 
 It freezes the six utility measurements, the baseline set, the six-case
@@ -37,6 +42,13 @@ child-resource samples, and the base scan's exact evidence identities. Review
 evidence is marked novel only when its rule/path/line/snippet identity is absent
 from that base scan. The artifact remains unlabeled and makes no utility claim
 until the independent labeling and scoring step exists.
+
+When one reviewer is available, `pilot-template` creates an exploratory
+worksheet over the same pinned differential artifact. `pilot-score` reports
+only captured novel-evidence, timing, determinism, and resource fields;
+decision latency, time to first useful evidence, and duplicate work remain
+unavailable until the collector records the required events. Validate the
+metrics artifact before rendering or circulating its report.
 
 Validate the protocol contract without cloning repositories:
 
@@ -120,6 +132,13 @@ inputs and rejects edited or stale metrics. Its scope is explicitly
 single-expert exploratory evidence over the measured security/test subset; it
 is not independent validation, a production estimate, or evidence for the
 unmeasured contract families.
+
+The differential pilot follows the same integrity rule. Run
+`pilot-validate-metrics` before circulating `pilot-metrics.json`; it rejects
+edited counts, stale hashes, missing fields, and extra fields. The
+`pilot-metrics-report` output keeps unavailable measurements visible, so missing
+event instrumentation cannot become an invented latency or duplicate-work
+result.
 
 When only one expert is available, `pilot-template` creates a blinded
 `single-expert-pilot-v1` worksheet. Fill one label and rationale per case, then
