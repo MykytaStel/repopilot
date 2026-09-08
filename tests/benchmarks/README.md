@@ -49,7 +49,9 @@ record evidence-ready and decision-ready phase events from RepoPilot's internal
 timings. The first baseline adapters normalize `python.compile` diagnostics as
 `path:line:error-kind` identities and `python.tests` failures as stable pytest
 node identities. A clean successful baseline is measured with an empty evidence
-set; an unrecognized failure stays explicitly unavailable. Command success or
+set; conftest import failures are normalized to their collection path; an
+unrecognized failure stays explicitly unavailable. `validate-result` reports
+measured, unavailable, and untracked coverage separately. Command success or
 output hashes alone are not treated as evidence overlap.
 
 When one reviewer is available, `pilot-template` creates an exploratory

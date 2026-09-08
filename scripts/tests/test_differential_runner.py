@@ -110,6 +110,20 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["baseline_observations"], 6)
         self.assertEqual(result["review_observations"], 6)
+        self.assertEqual(
+            result["baseline_evidence"],
+            {
+                "total": 6,
+                "tracked": 0,
+                "measured": 0,
+                "unavailable": 0,
+                "untracked": 6,
+                "tracked_rate": 0.0,
+                "measurement_rate": None,
+                "keys": 0,
+                "sources": {},
+            },
+        )
 
     def test_artifact_validator_requires_base_scan_for_novelty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -148,6 +162,8 @@ class DifferentialRunnerTests(unittest.TestCase):
                     review["telemetry"] = build_command_telemetry(1.0)
             result = validate_data(artifact, holdout, differential, rules, zoo)
         self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["baseline_evidence"]["unavailable"], 6)
+        self.assertEqual(result["baseline_evidence"]["measurement_rate"], 0.0)
 
     def test_artifact_schema_two_requires_provenance_for_measured_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

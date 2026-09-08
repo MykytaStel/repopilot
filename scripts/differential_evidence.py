@@ -13,6 +13,9 @@ _PYTHON_ERROR = re.compile(r"^\s*(?P<kind>[A-Za-z_]\w*(?:Error|Warning)):")
 _PYTEST_FAILURE = re.compile(
     r"^(?P<status>FAILED|ERROR)\s+(?:(?:collecting)\s+)?(?P<node>\S+)", re.MULTILINE
 )
+_PYTEST_CONFTEST_ERROR = re.compile(
+    r"ImportError while loading conftest ['\"](?P<path>.+?)['\"]\."
+)
 
 
 def _text(value: bytes | str) -> str:
@@ -70,6 +73,9 @@ def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> di
         return {"status": "measured", "keys": [], "source": "python.tests-v1"}
     text = "\n".join((stdout, stderr))
     keys: set[str] = set()
+    for match in _PYTEST_CONFTEST_ERROR.finditer(text):
+        path = _relative_path(match.group("path"), cwd)
+        keys.add(f"python.tests:{path}:collection-error")
     for match in _PYTEST_FAILURE.finditer(text):
         node = match.group("node")
         if "::" in node:

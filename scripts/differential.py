@@ -73,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(artifact_result, indent=2, sort_keys=True))
         else:
             print(f"Differential artifact: {artifact_result['status']} ({artifact_result['cases']} cases)")
+            evidence = artifact_result["baseline_evidence"]
+            print(
+                "Baseline evidence: "
+                f"{evidence['measured']}/{evidence['tracked']} tracked runs measured; "
+                f"{evidence['unavailable']} unavailable; {evidence['untracked']} untracked"
+            )
         return 0
     if args.command == "collect":
         if args.output is None:

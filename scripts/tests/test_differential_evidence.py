@@ -59,6 +59,12 @@ ERROR collecting tests/test_import.py
         self.assertEqual(result["status"], "unavailable")
         self.assertIn("supported diagnostic", result["reason"])
 
+    def test_pytest_conftest_import_error_normalizes_collection_path(self) -> None:
+        output = b"ImportError while loading conftest '/workspace/tests/conftest.py'.\n"
+        result = normalize_baseline_evidence("python.tests", output, b"", 4, Path("/workspace"))
+        self.assertEqual(result["status"], "measured")
+        self.assertEqual(result["keys"], ["python.tests:tests/conftest.py:collection-error"])
+
     def test_unknown_baseline_is_unavailable(self) -> None:
         result = normalize_baseline_evidence("python.lint", b"", b"", 0, Path("/repo"))
         self.assertEqual(result["status"], "unavailable")

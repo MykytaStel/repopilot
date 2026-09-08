@@ -58,6 +58,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `python.tests`. Recognized diagnostics are reduced to path/line/error-kind or
   pytest-node identities, clean runs are measured with empty evidence, and
   unsupported failures remain explicitly unavailable rather than being guessed.
+- Extended the pytest adapter to normalize conftest import failures and added
+  schema-2 validation coverage summaries, separating measured, unavailable, and
+  untracked baseline runs.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

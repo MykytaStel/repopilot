@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ def validate_data(
     expected = {case.case_id: case for case in holdout_cases}
     differential_cases = {case.case_id: case for case in _load_cases(differential_path)}
     _validate_observations(observations, expected, differential_cases, data["repetitions"], schema_version)
+    baseline_evidence = baseline_evidence_summary(observations)
     return {
         "status": "valid",
         "schema_version": schema_version,
@@ -49,6 +51,42 @@ def validate_data(
             for observation in observations
         ),
         "review_observations": sum(len(observation["reviews"]) for observation in observations),
+        "baseline_evidence": baseline_evidence,
+    }
+
+
+def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, object]:
+    """Summarize adapter coverage without turning missing evidence into a pass."""
+
+    total = tracked = measured = unavailable = untracked = key_count = 0
+    sources: Counter[str] = Counter()
+    for observation in observations:
+        for runs in observation.get("baselines", {}).values():
+            for run in runs:
+                total += 1
+                evidence = run.get("evidence") if isinstance(run, dict) else None
+                if not isinstance(evidence, dict):
+                    untracked += 1
+                    continue
+                tracked += 1
+                status = evidence.get("status")
+                if status == "measured":
+                    measured += 1
+                    key_count += len(evidence.get("keys", []))
+                    source = evidence.get("source")
+                    sources[str(source) if source else "<unspecified>"] += 1
+                elif status == "unavailable":
+                    unavailable += 1
+    return {
+        "total": total,
+        "tracked": tracked,
+        "measured": measured,
+        "unavailable": unavailable,
+        "untracked": untracked,
+        "tracked_rate": round(tracked / total, 3) if total else None,
+        "measurement_rate": round(measured / tracked, 3) if tracked else None,
+        "keys": key_count,
+        "sources": dict(sorted(sources.items())),
     }
 
 
