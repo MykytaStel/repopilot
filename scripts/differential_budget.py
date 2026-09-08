@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from differential_manifest import DifferentialManifestError
+from differential_budget_workload import (
+    WorkloadPolicyError,
+    normalize_verification_checks,
+    workload_mismatch,
+)
 
 
 REQUIRED_PHASES = ("cold", "warm")
@@ -47,6 +52,12 @@ def _validate_policy(policy: object) -> dict[str, Any]:
         raise DifferentialBudgetError("resource policy must use median KiB measurements")
     if policy.get("unavailable") != "fail":
         raise DifferentialBudgetError('resource policy unavailable must be "fail"')
+    try:
+        verification_checks = normalize_verification_checks(
+            policy.get("verification_checks", []), "resource policy verification_checks"
+        )
+    except WorkloadPolicyError as error:
+        raise DifferentialBudgetError(str(error)) from error
     ceilings = policy.get("ceiling_kb_by_phase")
     if not isinstance(ceilings, dict) or set(ceilings) != set(REQUIRED_PHASES):
         raise DifferentialBudgetError("resource policy must define cold and warm ceilings")
@@ -69,6 +80,7 @@ def _validate_policy(policy: object) -> dict[str, Any]:
             for phase in REQUIRED_PHASES
         }
     normalized["case_ceiling_kb_by_phase"] = normalized_cases
+    normalized["verification_checks"] = sorted(verification_checks)
     return normalized
 
 
@@ -153,6 +165,12 @@ def evaluate_resource_budget(
     artifact: dict[str, Any], manifest: dict[str, Any], policy: dict[str, Any]
 ) -> dict[str, object]:
     normalized = _validate_policy(policy)
+    try:
+        mismatch = workload_mismatch(normalized, artifact, REQUIRED_PHASES)
+    except WorkloadPolicyError as error:
+        raise DifferentialBudgetError(str(error)) from error
+    if mismatch is not None:
+        return mismatch
     manifest_ids = _case_ids(manifest)
     raw_cases = artifact.get("cases")
     if not isinstance(raw_cases, list):

@@ -85,6 +85,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   artifact records the config hash and coverage report separately; this evidence
   can measure overlap with an executed verification check, but is never
   presented as static-review detection.
+- Bound differential RSS policies to the selected verification workload. A
+  static-review budget now fails closed when applied to an artifact that ran
+  explicit checks; a separate policy file can be pinned for that workload
+  without changing the canonical differential manifest.
 - Hardened differential resource evidence: cumulative child RSS is recorded
   only when a positive per-command sample exists; non-positive or unavailable
   deltas are explicitly marked unavailable instead of being reported as zero.

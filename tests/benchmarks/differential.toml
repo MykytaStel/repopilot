@@ -24,6 +24,7 @@ statistic = "median"
 required_phases = ["cold", "warm"]
 ceiling_kb_by_phase = { cold = 65536, warm = 49152 }
 unavailable = "fail"
+verification_checks = []
 
 [[case]]
 id = "click-pr-3818"
