@@ -109,6 +109,25 @@ baseline_ids = ["python.tests"]
         self.assertEqual(differential.main(["pilot-metrics-report", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["coverage-audit", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
 
+    def test_collect_requires_a_pinned_config_for_pytest_verification(self) -> None:
+        result = differential.main(
+            [
+                "collect",
+                "--manifest",
+                str(self.diff),
+                "--holdout-manifest",
+                str(self.holdout),
+                "--rules-reference",
+                str(self.rules),
+                "--zoo-manifest",
+                str(self.zoo),
+                "--output",
+                str(self.root / "artifact.json"),
+                "--review-verify-python-tests",
+            ]
+        )
+        self.assertEqual(result, 2)
+
     def _budget_artifact(self, cold: int = 100, warm: int = 200) -> Path:
         self.diff.write_text(
             self.diff.read_text(encoding="utf-8")

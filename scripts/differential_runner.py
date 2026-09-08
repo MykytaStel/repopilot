@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from differential_contract import validate_differential
-from differential_evidence import normalize_baseline_evidence
+from differential_evidence import normalize_baseline_evidence, normalize_review_verification
 from differential_identity import review_comparable_diagnostic_keys
 from differential_manifest import load_differential
 from differential_novelty import evidence_keys, novel_evidence_keys
@@ -101,26 +101,52 @@ def _scan_base(scanner: Any, case: HoldoutCase, base: Path, timeout_seconds: int
     }
 
 
+def _review_command(
+    scanner: Any,
+    base_sha: str,
+    head_sha: str,
+    head: Path,
+    review_config: Path | None,
+    review_verify: tuple[str, ...],
+) -> tuple[str, ...]:
+    scanner_command = scanner.command if hasattr(scanner, "command") else scanner
+    command = (
+        *scanner_command,
+        "review",
+        str(head),
+        "--base",
+        base_sha,
+        "--head",
+        head_sha,
+        "--format",
+        "json",
+        "--profile",
+        "default",
+        "--no-progress",
+    )
+    if review_config is not None:
+        command += ("--config", str(review_config))
+    for check_id in review_verify:
+        command += ("--verify", check_id)
+    return command
+
+
 def _review_once(
     scanner: Any,
     case: HoldoutCase,
     head: Path,
     base_evidence: set[str],
     timeout_seconds: int,
+    review_config: Path | None = None,
+    review_verify: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    command = (
-        *scanner.command,
-        "review",
-        str(head),
-        "--base",
+    command = _review_command(
+        scanner,
         case.base_sha,
-        "--head",
         case.head_sha,
-        "--format",
-        "json",
-        "--profile",
-        "default",
-        "--no-progress",
+        head,
+        review_config,
+        review_verify,
     )
     observation = execute_timed_command(command, head, timeout_seconds)
     if observation["status"] == "timeout":
@@ -135,6 +161,7 @@ def _review_once(
             "in_diff_evidence_keys": [],
             "novel_in_diff_evidence_keys": [],
             "in_diff_comparison_keys": [],
+            "verification_comparison": normalize_review_verification({}, head),
         }
         if resource["status"] == "unavailable":
             result["resource_reason"] = resource["reason"]
@@ -156,6 +183,7 @@ def _review_once(
         observation["returncode"],
         base_evidence,
         observation["wall_ms"],
+        head,
     )
     resource = observation["resource"]
     result["resource_status"] = resource["status"]
@@ -173,6 +201,7 @@ def _build_review_result(
     returncode: int,
     base_evidence: set[str],
     wall_ms: float,
+    cwd: Path,
 ) -> dict[str, Any]:
     in_diff_findings = [
         finding for finding in report["findings"] if isinstance(finding, dict) and finding.get("in_diff") is True
@@ -180,6 +209,7 @@ def _build_review_result(
     in_diff_keys = sorted(evidence_keys(in_diff_findings))
     novel_keys = novel_evidence_keys(in_diff_findings, base_evidence)
     comparison_keys = review_comparable_diagnostic_keys(report)
+    verification_comparison = normalize_review_verification(report, cwd)
     result = {
         **summarize_review(report, raw_output),
         "status": "collected",
@@ -188,6 +218,7 @@ def _build_review_result(
         "in_diff_evidence_keys": in_diff_keys,
         "novel_in_diff_evidence_keys": novel_keys,
         "in_diff_comparison_keys": comparison_keys,
+        "verification_comparison": verification_comparison,
     }
     result["telemetry"] = build_review_telemetry(report, wall_ms, bool(novel_keys))
     return result
@@ -200,6 +231,8 @@ def collect_case(
     repetitions: int,
     root: Path,
     timeout_seconds: int,
+    review_config: Path | None = None,
+    review_verify: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     base, head, merge = clone_case(case, root)
     base_scan = _scan_base(scanner, case, base, timeout_seconds)
@@ -212,7 +245,15 @@ def collect_case(
             result["repeat"] = repeat
             result["resource_phase"] = _resource_phase(repeat)
             baselines[baseline_id].append(result)
-        review = _review_once(scanner, case, head, base_evidence, timeout_seconds)
+        review = _review_once(
+            scanner,
+            case,
+            head,
+            base_evidence,
+            timeout_seconds,
+            review_config,
+            review_verify,
+        )
         review["repeat"] = repeat
         review["resource_phase"] = _resource_phase(repeat)
         reviews.append(review)
@@ -244,6 +285,8 @@ def collect_differential(
     scanner_path: str | None,
     allow_version_mismatch: bool,
     timeout_seconds: int,
+    review_config: Path | None = None,
+    review_verify: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     summary = validate_differential(differential_path, manifest_path, rules_reference, zoo_manifest)
     corpus, _, holdout_cases = validate_manifest(manifest_path, rules_reference, zoo_manifest)
@@ -265,6 +308,8 @@ def collect_differential(
                     summary["repetitions"],
                     Path(temporary) / str(index),
                     timeout_seconds,
+                    review_config,
+                    review_verify,
                 )
             )
     return {
@@ -281,6 +326,14 @@ def collect_differential(
             "workspace_commit": scanner.workspace_commit,
             "workspace_dirty": scanner.workspace_dirty,
             "version_mismatch_allowed": scanner.version_mismatch_allowed,
+        },
+        "review_verification": {
+            "checks": list(review_verify),
+            "config_sha256": (
+                hashlib.sha256(review_config.read_bytes()).hexdigest()
+                if review_config is not None
+                else None
+            ),
         },
         "repetitions": summary["repetitions"],
         "cases": observations,

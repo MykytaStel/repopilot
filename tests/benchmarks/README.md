@@ -68,9 +68,9 @@ set; conftest import failures are normalized to their collection path; an
 unrecognized failure stays explicitly unavailable. `validate-result` reports
 measured, unavailable, and untracked coverage separately. Command success or
 output hashes alone are not treated as evidence overlap. A baseline diagnostic
-ID is not automatically comparable to a RepoPilot finding ID: duplicate-work
-requires an explicit `review-exact-v1` comparison mapping, otherwise the
-measurement remains unavailable.
+ID is not automatically comparable to a RepoPilot finding ID: static
+duplicate-work requires an explicit `review-exact-v1` comparison mapping,
+otherwise that measurement remains unavailable.
 
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without
@@ -91,18 +91,40 @@ regression gate for the pinned packet-v9 host and workload; changing either
 requires a new measurement and an explicit policy change. An unavailable
 sample fails the check.
 
-For `python.tests`, a failed pytest node remains baseline-only. RepoPilot does
-not execute tests during review, so a test path or changed test name cannot
-prove the same failure identity; the comparison stays unavailable until a
-review-side exact failure provenance exists.
+For `python.tests`, a failed pytest node remains baseline-only in the default
+static review run. A path or changed test name cannot prove the same failure
+identity. To collect an explicit verification comparison, provide a temporary
+config that defines the exact check and pin it in the artifact:
+
+```toml
+[[verification.checks]]
+id = "python.tests"
+role = "test"
+program = "python3"
+args = ["-m", "pytest", "-q"]
+```
+
+```bash
+python3 scripts/differential.py collect \
+  --scanner target/release/repopilot \
+  --review-config /tmp/repopilot-python-tests.toml \
+  --review-verify-python-tests \
+  --output differential-run.json
+```
+
+Only complete, revision-compatible output from that explicit check is recorded
+as `review-verification-v1` exact node evidence. The artifact stores the config
+hash and the coverage audit reports it separately. Any resulting overlap is
+evidence about executed verification work; it is not static-review detection
+and cannot be used to claim precision or recall.
 
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports
 only captured novel-evidence, timing, determinism, and resource fields;
 decision latency and time to first useful evidence remain unavailable until the
 collector records the required events. Duplicate work additionally requires
-the explicit review-comparable identity mapping. Validate the metrics artifact
-before rendering or circulating its report.
+an explicit `review-exact-v1` or `review-verification-v1` identity mapping.
+Validate the metrics artifact before rendering or circulating its report.
 
 Validate the protocol contract without cloning repositories:
 

@@ -8,7 +8,10 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from differential_evidence import normalize_baseline_evidence  # noqa: E402
+from differential_evidence import (  # noqa: E402
+    normalize_baseline_evidence,
+    normalize_review_verification,
+)
 
 
 class DifferentialEvidenceTests(unittest.TestCase):
@@ -105,6 +108,85 @@ ERROR collecting tests/test_import.py
         result = normalize_baseline_evidence("python.tests", output, b"", 4, Path("/workspace"))
         self.assertEqual(result["status"], "measured")
         self.assertEqual(result["keys"], ["python.tests:tests/conftest.py:collection-error"])
+
+    def test_review_verification_exposes_exact_pytest_failure_identity(self) -> None:
+        report = {
+            "merge_readiness": {
+                "verification": [
+                    {
+                        "check_id": "python.tests",
+                        "role": "test",
+                        "status": "failed",
+                        "revision_compatible": True,
+                        "stdout_excerpt": "FAILED tests/test_api.py::test_create - AssertionError\n",
+                        "stderr_excerpt": "",
+                        "stdout_truncated": False,
+                        "stderr_truncated": False,
+                    }
+                ]
+            }
+        }
+
+        result = normalize_review_verification(report, Path("/workspace"))
+
+        self.assertEqual(
+            result,
+            {
+                "status": "measured",
+                "keys": ["python.tests:tests/test_api.py::test_create:failed"],
+                "scheme": "review-verification-v1",
+            },
+        )
+
+    def test_review_verification_rejects_truncated_or_incompatible_output(self) -> None:
+        report = {
+            "verification": [
+                {
+                    "check_id": "python.tests",
+                    "role": "test",
+                    "status": "failed",
+                    "revision_compatible": False,
+                    "stdout_excerpt": "FAILED tests/test_api.py::test_create - AssertionError\n",
+                    "stderr_excerpt": "",
+                    "stdout_truncated": True,
+                    "stderr_truncated": False,
+                }
+            ]
+        }
+
+        result = normalize_review_verification(report, Path("/workspace"))
+
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIn("revision-compatible", result["reason"])
+
+    def test_review_verification_pass_is_measured_with_empty_failure_set(self) -> None:
+        report = {
+            "merge_readiness": {
+                "verification": [
+                    {
+                        "check_id": "python.tests",
+                        "role": "test",
+                        "status": "passed",
+                        "revision_compatible": True,
+                        "stdout_excerpt": "3 passed in 0.01s\n",
+                        "stderr_excerpt": "",
+                        "stdout_truncated": False,
+                        "stderr_truncated": False,
+                    }
+                ]
+            }
+        }
+
+        self.assertEqual(
+            normalize_review_verification(report, Path("/workspace")),
+            {"status": "measured", "keys": [], "scheme": "review-verification-v1"},
+        )
+
+    def test_review_verification_without_selected_python_check_is_unavailable(self) -> None:
+        result = normalize_review_verification({"verification": []}, Path("/workspace"))
+
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIn("explicit python.tests verification", result["reason"])
 
     def test_unknown_baseline_is_unavailable(self) -> None:
         result = normalize_baseline_evidence("python.lint", b"", b"", 0, Path("/repo"))

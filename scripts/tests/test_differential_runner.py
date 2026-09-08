@@ -11,12 +11,49 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_artifact import validate_data  # noqa: E402
-from differential_runner import _build_review_result, _resource_phase, run_timed_command  # noqa: E402
+from differential_runner import (  # noqa: E402
+    _build_review_result,
+    _resource_phase,
+    _review_command,
+    run_timed_command,
+)
 from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
 class DifferentialRunnerTests(unittest.TestCase):
+    def test_review_command_can_pin_explicit_verification_config_and_checks(self) -> None:
+        command = _review_command(
+            ("repopilot",),
+            "base-sha",
+            "head-sha",
+            Path("/tmp/worktree"),
+            Path("/tmp/review.toml"),
+            ("python.tests",),
+        )
+
+        self.assertEqual(
+            command,
+            (
+                "repopilot",
+                "review",
+                "/tmp/worktree",
+                "--base",
+                "base-sha",
+                "--head",
+                "head-sha",
+                "--format",
+                "json",
+                "--profile",
+                "default",
+                "--no-progress",
+                "--config",
+                "/tmp/review.toml",
+                "--verify",
+                "python.tests",
+            ),
+        )
+
     def test_repeated_runs_have_explicit_cold_and_warm_phases(self) -> None:
         self.assertEqual(_resource_phase(1), "cold")
         self.assertEqual(_resource_phase(2), "warm")
@@ -46,12 +83,56 @@ class DifferentialRunnerTests(unittest.TestCase):
             0,
             set(),
             1.0,
+            Path("/worktree"),
         )
 
         self.assertEqual(result["in_diff_evidence_keys"], [])
         self.assertEqual(
             result["in_diff_comparison_keys"],
             ["python.compile:pkg/bad.py:7:SyntaxError"],
+        )
+
+    def test_review_result_records_exact_verification_comparison_keys(self) -> None:
+        report = {
+            "root_path": "/worktree",
+            "changed_files": [],
+            "diagnostics": [],
+            "merge_readiness": {
+                "verification": [
+                    {
+                        "check_id": "python.tests",
+                        "role": "test",
+                        "status": "failed",
+                        "revision_compatible": True,
+                        "stdout_excerpt": "FAILED tests/test_api.py::test_create - AssertionError\n",
+                        "stderr_excerpt": "",
+                        "stdout_truncated": False,
+                        "stderr_truncated": False,
+                    }
+                ]
+            },
+            "findings": [],
+            "schema_version": "0.26",
+            "repopilot_version": "0.23.0",
+            "change_proof": {"contract_deltas": []},
+        }
+
+        result = _build_review_result(
+            report,
+            b"report",
+            0,
+            set(),
+            1.0,
+            Path("/worktree"),
+        )
+
+        self.assertEqual(
+            result["verification_comparison"],
+            {
+                "status": "measured",
+                "keys": ["python.tests:tests/test_api.py::test_create:failed"],
+                "scheme": "review-verification-v1",
+            },
         )
 
     def test_timed_command_records_pass_and_hashes(self) -> None:
@@ -193,6 +274,13 @@ class DifferentialRunnerTests(unittest.TestCase):
                     },
                     "unavailable_reasons": {},
                 },
+                "review_verification": {
+                    "measured": 0,
+                    "unavailable": 0,
+                    "untracked": 6,
+                    "keys": 0,
+                    "unavailable_reasons": {},
+                },
             },
         )
 
@@ -320,6 +408,43 @@ class DifferentialRunnerTests(unittest.TestCase):
                 for review in case["reviews"]:
                     review["telemetry"] = build_command_telemetry(1.0)
             with self.assertRaisesRegex(ValueError, "comparison"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_invalid_review_verification_comparison(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+                    review["verification_comparison"] = {
+                        "status": "measured",
+                        "keys": [],
+                        "scheme": "wrong-scheme",
+                    }
+            with self.assertRaisesRegex(ValueError, "verification comparison scheme"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_unpinned_review_verification_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["review_verification"] = {
+                "checks": ["python.tests"],
+                "config_sha256": None,
+            }
+            with self.assertRaisesRegex(ValueError, "config hash is missing"):
                 validate_data(artifact, holdout, differential, rules, zoo)
 
     @staticmethod
