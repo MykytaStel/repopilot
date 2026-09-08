@@ -162,6 +162,27 @@ class DifferentialRunnerTests(unittest.TestCase):
                     "untracked": 6,
                     "keys": 0,
                     "measurement_rate": None,
+                    "by_baseline": {
+                        "python.compile": {
+                            "total": 3,
+                            "measured": 0,
+                            "unavailable": 0,
+                            "untracked": 3,
+                            "keys": 0,
+                            "unavailable_reasons": {},
+                            "measurement_rate": None,
+                        },
+                        "python.tests": {
+                            "total": 3,
+                            "measured": 0,
+                            "unavailable": 0,
+                            "untracked": 3,
+                            "keys": 0,
+                            "unavailable_reasons": {},
+                            "measurement_rate": None,
+                        },
+                    },
+                    "unavailable_reasons": {},
                 },
             },
         )

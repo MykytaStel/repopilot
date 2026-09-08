@@ -71,6 +71,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   kinds, unchanged-line diagnostics, and unsupported baseline failures remain
   unavailable. Validation reports comparison coverage separately from baseline
   adapter coverage.
+- Added a deterministic differential coverage audit. It partitions comparable
+  evidence by baseline, preserves unavailable mapping reasons, and emits the
+  next adapter action without turning adapter coverage into a utility claim.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

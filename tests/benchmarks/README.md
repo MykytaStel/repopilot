@@ -19,6 +19,8 @@ python3 scripts/differential.py collect --repo-root . \
   --output differential-run.json
 python3 scripts/differential.py validate-result \
   --artifact differential-run.json
+python3 scripts/differential.py coverage-audit \
+  --artifact differential-run.json --output coverage-audit.md
 python3 scripts/differential.py pilot-template \
   --artifact differential-run.json --reviewer expert \
   --output pilot.toml
@@ -56,6 +58,10 @@ output hashes alone are not treated as evidence overlap. A baseline diagnostic
 ID is not automatically comparable to a RepoPilot finding ID: duplicate-work
 requires an explicit `review-exact-v1` comparison mapping, otherwise the
 measurement remains unavailable.
+
+`coverage-audit` renders the same validated denominators by baseline ID. It
+keeps unavailable reasons visible and points to the next adapter work without
+scoring precision, recall, utility, or overlap.
 
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports

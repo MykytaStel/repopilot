@@ -102,6 +102,7 @@ baseline_ids = ["python.tests"]
         self.assertEqual(differential.main(["pilot-score", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["pilot-validate-metrics", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["pilot-metrics-report", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
+        self.assertEqual(differential.main(["coverage-audit", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
 
 
 class ProductionDifferentialManifestTests(unittest.TestCase):
