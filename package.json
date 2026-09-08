@@ -22,7 +22,8 @@
 		"release:contract": "python3 scripts/release-contract.py check",
 		"test:release-contract": "python3 -m unittest discover -s scripts/tests -p 'test_*.py'",
 		"review:performance": "node scripts/check-review-performance.js",
-		"scan:performance": "node scripts/check-scan-performance.js"
+		"scan:performance": "node scripts/check-scan-performance.js",
+		"scan:resource": "python3 scripts/scan_resource_matrix.py"
 	},
 	"files": [
 		"bin",

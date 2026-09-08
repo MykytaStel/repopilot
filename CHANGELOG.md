@@ -89,6 +89,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added `differential.py budget-check` with a pinned review-workload RSS policy;
   it requires both phases, checks the sampler source, and fails on unavailable
   samples instead of treating them as zero.
+- Added the `scan:resource` matrix gate for full and changed synthetic scans;
+  it records cold/warm RSS, host profile, and the JSON result as a CI artifact.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

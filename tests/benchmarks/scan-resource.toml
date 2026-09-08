@@ -1,0 +1,8 @@
+schema_version = 1
+policy_id = "scan-rss-v1"
+workload = "synthetic-medium-v1"
+source = "posix-time-v1"
+unit = "KiB"
+required_scenarios = ["full_cold", "full_warm", "changed_cold", "changed_warm"]
+ceiling_kb_by_scenario = { full_cold = 65536, full_warm = 65536, changed_cold = 65536, changed_warm = 49152 }
+unavailable = "fail"
