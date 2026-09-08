@@ -235,6 +235,32 @@ unavailable = "fail"
         self.assertEqual(result, 2)
         self.assertIn("--artifact is required", error.getvalue())
 
+    def test_budget_check_rejects_invalid_artifact(self) -> None:
+        artifact = self._budget_artifact()
+        error = io.StringIO()
+        with patch.object(differential, "validate_differential", return_value={"status": "valid"}), patch.object(
+            differential,
+            "validate_artifact",
+            side_effect=DifferentialManifestError("bad artifact"),
+        ), redirect_stderr(error):
+            result = differential.main(
+                [
+                    "budget-check",
+                    "--manifest",
+                    str(self.diff),
+                    "--holdout-manifest",
+                    str(self.holdout),
+                    "--rules-reference",
+                    str(self.rules),
+                    "--zoo-manifest",
+                    str(self.zoo),
+                    "--artifact",
+                    str(artifact),
+                ]
+            )
+        self.assertEqual(result, 1)
+        self.assertIn("bad artifact", error.getvalue())
+
 
 class ProductionDifferentialManifestTests(unittest.TestCase):
     def test_expanded_differential_manifest_matches_holdout(self) -> None:
