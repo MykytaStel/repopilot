@@ -62,14 +62,29 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
     total = tracked = measured = unavailable = untracked = key_count = 0
     comparison_measured = comparison_unavailable = comparison_untracked = comparison_key_count = 0
     sources: Counter[str] = Counter()
+    comparison_by_baseline: dict[str, dict[str, object]] = {}
+    comparison_reasons: Counter[str] = Counter()
     for observation in observations:
-        for runs in observation.get("baselines", {}).values():
+        for baseline_id, runs in observation.get("baselines", {}).items():
+            coverage = comparison_by_baseline.setdefault(
+                baseline_id,
+                {
+                    "total": 0,
+                    "measured": 0,
+                    "unavailable": 0,
+                    "untracked": 0,
+                    "keys": 0,
+                    "unavailable_reasons": Counter(),
+                },
+            )
             for run in runs:
                 total += 1
+                coverage["total"] += 1
                 evidence = run.get("evidence") if isinstance(run, dict) else None
                 if not isinstance(evidence, dict):
                     untracked += 1
                     comparison_untracked += 1
+                    coverage["untracked"] += 1
                     continue
                 tracked += 1
                 status = evidence.get("status")
@@ -83,11 +98,24 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
                 comparison = evidence.get("comparison")
                 if isinstance(comparison, dict) and comparison.get("status") == "measured":
                     comparison_measured += 1
-                    comparison_key_count += len(comparison.get("keys", []))
+                    keys = comparison.get("keys", [])
+                    comparison_key_count += len(keys)
+                    coverage["measured"] += 1
+                    coverage["keys"] += len(keys)
                 elif isinstance(comparison, dict) and comparison.get("status") == "unavailable":
                     comparison_unavailable += 1
+                    coverage["unavailable"] += 1
+                    reason = str(comparison.get("reason") or "unspecified")
+                    comparison_reasons[reason] += 1
+                    coverage["unavailable_reasons"][reason] += 1
                 else:
                     comparison_untracked += 1
+                    coverage["untracked"] += 1
+    for coverage in comparison_by_baseline.values():
+        reasons = coverage["unavailable_reasons"]
+        coverage["unavailable_reasons"] = dict(sorted(reasons.items()))
+        denominator = coverage["measured"] + coverage["unavailable"]
+        coverage["measurement_rate"] = round(coverage["measured"] / denominator, 3) if denominator else None
     return {
         "total": total,
         "tracked": tracked,
@@ -108,6 +136,8 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
             )
             if comparison_measured + comparison_unavailable
             else None,
+            "by_baseline": dict(sorted(comparison_by_baseline.items())),
+            "unavailable_reasons": dict(sorted(comparison_reasons.items())),
         },
     }
 

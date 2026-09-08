@@ -10,6 +10,7 @@ from pathlib import Path
 
 from differential_artifact import validate_artifact, validate_data
 from differential_contract import DifferentialManifestError, validate_differential
+from differential_coverage import render_coverage_audit
 from differential_pilot import render_pilot_template, validate_pilot
 from differential_pilot_metrics import validate_pilot_metrics, write_pilot_metrics
 from differential_metrics_report import write_differential_metrics_report
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
             "pilot-score",
             "pilot-validate-metrics",
             "pilot-metrics-report",
+            "coverage-audit",
         ),
         default="check",
     )
@@ -211,6 +213,26 @@ def main(argv: list[str] | None = None) -> int:
             print(f"pilot metrics report failed: {error}", file=sys.stderr)
             return 1
         print(f"Pilot metrics report: {args.output}")
+        return 0
+    if args.command == "coverage-audit":
+        if args.artifact is None or args.output is None:
+            print("coverage-audit requires --artifact and --output", file=sys.stderr)
+            return 2
+        try:
+            validation = validate_artifact(
+                args.artifact,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+            report = render_coverage_audit(validation)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(report, encoding="utf-8")
+        except (DifferentialManifestError, HoldoutManifestError, OSError, KeyError, TypeError) as error:
+            print(f"coverage audit failed: {error}", file=sys.stderr)
+            return 1
+        print(f"Differential coverage audit: {args.output}")
         return 0
     if args.format == "json":
         print(json.dumps(result, indent=2, sort_keys=True))
