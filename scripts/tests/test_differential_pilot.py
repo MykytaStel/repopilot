@@ -92,6 +92,7 @@ class DifferentialPilotTests(unittest.TestCase):
                             },
                         }
                 for review in case["reviews"]:
+                    review["in_diff_comparison_keys"] = []
                     review["telemetry"] = {
                         "schema_version": 1,
                         "events": [
@@ -119,7 +120,7 @@ class DifferentialPilotTests(unittest.TestCase):
         self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["status"], "measured")
         self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["median_ms"], 5.0)
         self.assertEqual(output["measurements"]["decision_latency"]["median_ms"], 10.0)
-        self.assertEqual(output["measurements"]["duplicate_work"]["overlap_count"], 1)
+        self.assertEqual(output["measurements"]["duplicate_work"]["overlap_count"], 0)
 
     def test_metrics_do_not_infer_overlap_from_unmapped_baseline_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

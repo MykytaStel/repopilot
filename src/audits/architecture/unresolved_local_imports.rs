@@ -195,6 +195,7 @@ fn limitation_diagnostics(
                 "{count} unresolved internal import(s) used ambiguous or unsupported resolution semantics and were not reported as broken code."
             ),
             path: None,
+            line: None,
         })
         .collect()
 }

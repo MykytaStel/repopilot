@@ -11,12 +11,46 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_artifact import validate_data  # noqa: E402
-from differential_runner import run_timed_command  # noqa: E402
+from differential_runner import _build_review_result, run_timed_command  # noqa: E402
 from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
 class DifferentialRunnerTests(unittest.TestCase):
+    def test_review_result_keeps_comparable_diagnostic_keys_separate(self) -> None:
+        report = {
+            "root_path": "/worktree",
+            "changed_files": [
+                {"path": "pkg/bad.py", "ranges": [{"start": 7, "end": 7}]},
+            ],
+            "diagnostics": [
+                {
+                    "code": "python.syntax-error",
+                    "path": "/worktree/pkg/bad.py",
+                    "line": 7,
+                },
+            ],
+            "findings": [],
+            "schema_version": "0.26",
+            "repopilot_version": "0.23.0",
+            "change_proof": {"contract_deltas": []},
+        }
+
+        result = _build_review_result(
+            report,
+            b"report",
+            0,
+            set(),
+            "available",
+            0.0,
+        )
+
+        self.assertEqual(result["in_diff_evidence_keys"], [])
+        self.assertEqual(
+            result["in_diff_comparison_keys"],
+            ["python.compile:pkg/bad.py:7:SyntaxError"],
+        )
+
     def test_timed_command_records_pass_and_hashes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = run_timed_command((sys.executable, "-c", "print('ok')"), Path(tmp), 5)
@@ -122,6 +156,13 @@ class DifferentialRunnerTests(unittest.TestCase):
                 "measurement_rate": None,
                 "keys": 0,
                 "sources": {},
+                "comparison": {
+                    "measured": 0,
+                    "unavailable": 0,
+                    "untracked": 6,
+                    "keys": 0,
+                    "measurement_rate": None,
+                },
             },
         )
 

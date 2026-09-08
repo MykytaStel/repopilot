@@ -79,6 +79,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"{evidence['measured']}/{evidence['tracked']} tracked runs measured; "
                 f"{evidence['unavailable']} unavailable; {evidence['untracked']} untracked"
             )
+            comparison = evidence["comparison"]
+            print(
+                "Review-comparable evidence: "
+                f"{comparison['measured']} measured; "
+                f"{comparison['unavailable']} unavailable; "
+                f"{comparison['untracked']} untracked"
+            )
         return 0
     if args.command == "collect":
         if args.output is None:
