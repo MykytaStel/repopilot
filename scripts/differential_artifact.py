@@ -33,6 +33,7 @@ def validate_data(
 ) -> dict[str, object]:
     protocol = validate_differential(differential_path, manifest_path, rules_reference, zoo_manifest)
     schema_version = _validate_header(data, protocol, manifest_path, differential_path)
+    _validate_review_verification_config(data)
     observations = data.get("cases")
     if not isinstance(observations, list):
         raise DifferentialManifestError("differential artifact cases must be an array")
@@ -64,7 +65,19 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
     sources: Counter[str] = Counter()
     comparison_by_baseline: dict[str, dict[str, object]] = {}
     comparison_reasons: Counter[str] = Counter()
+    verification_measured = verification_unavailable = verification_untracked = verification_keys = 0
+    verification_reasons: Counter[str] = Counter()
     for observation in observations:
+        for review in observation.get("reviews", []):
+            verification = review.get("verification_comparison") if isinstance(review, dict) else None
+            if not isinstance(verification, dict):
+                verification_untracked += 1
+            elif verification.get("status") == "measured":
+                verification_measured += 1
+                verification_keys += len(verification.get("keys", []))
+            elif verification.get("status") == "unavailable":
+                verification_unavailable += 1
+                verification_reasons[str(verification.get("reason") or "unspecified")] += 1
         for baseline_id, runs in observation.get("baselines", {}).items():
             coverage = comparison_by_baseline.setdefault(
                 baseline_id,
@@ -138,6 +151,13 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
             else None,
             "by_baseline": dict(sorted(comparison_by_baseline.items())),
             "unavailable_reasons": dict(sorted(comparison_reasons.items())),
+        },
+        "review_verification": {
+            "measured": verification_measured,
+            "unavailable": verification_unavailable,
+            "untracked": verification_untracked,
+            "keys": verification_keys,
+            "unavailable_reasons": dict(sorted(verification_reasons.items())),
         },
     }
 
@@ -259,6 +279,7 @@ def validate_case(
                 raise DifferentialManifestError(
                     f"case {case.case_id}: collected review has invalid comparison keys"
                 )
+            _validate_review_verification(review, f"case {case.case_id} review")
     determinism = observation.get("determinism")
     if not isinstance(determinism, dict) or not isinstance(determinism.get("stable_evidence_deterministic"), bool):
         raise DifferentialManifestError(f"case {case.case_id}: determinism summary is missing")
@@ -339,6 +360,46 @@ def _validate_baseline_evidence(
                 raise DifferentialManifestError(f"{context}: unavailable comparison reason is missing")
     elif not isinstance(evidence.get("reason"), str) or not evidence["reason"]:
         raise DifferentialManifestError(f"{context}: unavailable baseline evidence reason is missing")
+
+
+def _validate_review_verification(review: dict[str, Any], context: str) -> None:
+    """Validate optional exact pytest evidence emitted by explicit review verification."""
+
+    evidence = review.get("verification_comparison")
+    if evidence is None:
+        return
+    if not isinstance(evidence, dict) or evidence.get("status") not in {"measured", "unavailable"}:
+        raise DifferentialManifestError(f"{context}: review verification comparison status is invalid")
+    if evidence["status"] == "measured":
+        keys = evidence.get("keys")
+        if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+            raise DifferentialManifestError(f"{context}: review verification comparison keys are missing")
+        if evidence.get("scheme") != "review-verification-v1":
+            raise DifferentialManifestError(f"{context}: review verification comparison scheme drift")
+    elif not isinstance(evidence.get("reason"), str) or not evidence["reason"]:
+        raise DifferentialManifestError(f"{context}: review verification comparison reason is missing")
+
+
+def _validate_review_verification_config(data: dict[str, Any]) -> None:
+    config = data.get("review_verification")
+    if config is None:
+        return
+    if not isinstance(config, dict):
+        raise DifferentialManifestError("differential artifact review verification config is invalid")
+    checks = config.get("checks")
+    if not isinstance(checks, list) or not all(isinstance(check, str) for check in checks):
+        raise DifferentialManifestError("differential artifact review verification checks are invalid")
+    if len(set(checks)) != len(checks) or any(check != "python.tests" for check in checks):
+        raise DifferentialManifestError("differential artifact review verification checks are unsupported")
+    config_hash = config.get("config_sha256")
+    if config_hash is not None and (
+        not isinstance(config_hash, str)
+        or len(config_hash) != 64
+        or any(character not in "0123456789abcdef" for character in config_hash)
+    ):
+        raise DifferentialManifestError("differential artifact review verification config hash is invalid")
+    if checks and config_hash is None:
+        raise DifferentialManifestError("differential artifact review verification config hash is missing")
 
 
 def validate_artifact(

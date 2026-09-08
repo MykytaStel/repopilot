@@ -31,7 +31,12 @@ class DifferentialMetricsReportTests(unittest.TestCase):
                     "median_review_child_max_rss_kb_by_phase": {"cold": 150.0, "warm": 100.0},
                     "time_to_first_useful_evidence": {"status": "unavailable", "reason": "not recorded"},
                     "decision_latency": {"status": "unavailable", "reason": "not recorded"},
-                    "duplicate_work": {"status": "unavailable", "reason": "unlabeled"},
+                    "duplicate_work": {
+                        "status": "measured",
+                        "identity_source": "review-verification-v1",
+                        "overlap_count": 1,
+                        "overlap_rate": 1.0,
+                    },
                 },
                 "cases": [
                     {
@@ -52,6 +57,7 @@ class DifferentialMetricsReportTests(unittest.TestCase):
         self.assertIn("Median review peak RSS warm (KiB)", report)
         self.assertIn("RSS cold KiB", report)
         self.assertIn("| 0 | 20.000 | 150.000 | 100.000 |", report)
+        self.assertIn("review-verification-v1", report)
 
 
 if __name__ == "__main__":

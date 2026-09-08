@@ -50,14 +50,23 @@ class DifferentialCoverageTests(unittest.TestCase):
                             "python.tests review has no exact test-node failure identity; node paths alone are not comparable": 3,
                         },
                     },
+                    "review_verification": {
+                        "measured": 3,
+                        "unavailable": 0,
+                        "untracked": 0,
+                        "keys": 2,
+                        "unavailable_reasons": {},
+                    },
                 },
             }
         )
         self.assertIn("| `python.compile` | 3 | 3 | 0 | 0 | 1 | 1.0 |", report)
         self.assertIn("test-node failure identity", report)
         self.assertIn("does not estimate precision, recall, utility, or overlap", report)
-        self.assertIn("For `python.tests`, keep node failures unavailable", report)
-        self.assertIn("Do not derive overlap from a test path", report)
+        self.assertIn("Static `python.tests` overlap remains unavailable", report)
+        self.assertIn("derive overlap from a test path", report)
+        self.assertIn("Explicit review verification", report)
+        self.assertIn("3 measured", report)
 
 
 if __name__ == "__main__":

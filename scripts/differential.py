@@ -54,6 +54,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scanner", help="use an existing repopilot binary instead of building the workspace")
     parser.add_argument("--allow-version-mismatch", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument(
+        "--review-config",
+        type=Path,
+        help="explicit repopilot.toml used for review verification (required with --review-verify-python-tests)",
+    )
+    parser.add_argument(
+        "--review-verify-python-tests",
+        action="store_true",
+        help="run the configured python.tests check during each review for exact pytest provenance",
+    )
     parser.add_argument("--output", type=Path, help="write a differential artifact")
     parser.add_argument("--artifact", type=Path, help="differential artifact to validate")
     parser.add_argument("--pilot", type=Path, help="single-expert pilot worksheet")
@@ -100,6 +110,13 @@ def main(argv: list[str] | None = None) -> int:
                 f"{comparison['unavailable']} unavailable; "
                 f"{comparison['untracked']} untracked"
             )
+            verification = evidence.get("review_verification", {})
+            print(
+                "Explicit review verification: "
+                f"{verification.get('measured', 0)} measured; "
+                f"{verification.get('unavailable', 0)} unavailable; "
+                f"{verification.get('untracked', 0)} untracked"
+            )
         return 0
     if args.command == "budget-check":
         try:
@@ -142,6 +159,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.timeout <= 0:
             print("--timeout must be positive", file=sys.stderr)
             return 2
+        if args.review_verify_python_tests and args.review_config is None:
+            print("--review-config is required with --review-verify-python-tests", file=sys.stderr)
+            return 2
+        if args.review_config is not None and not args.review_verify_python_tests:
+            print("--review-config requires --review-verify-python-tests", file=sys.stderr)
+            return 2
+        if args.review_config is not None and not args.review_config.is_file():
+            print(f"--review-config does not exist: {args.review_config}", file=sys.stderr)
+            return 2
         try:
             artifact = collect_differential(
                 args.repo_root.resolve(),
@@ -152,6 +178,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.scanner,
                 args.allow_version_mismatch,
                 args.timeout,
+                args.review_config.resolve() if args.review_config is not None else None,
+                ("python.tests",) if args.review_verify_python_tests else (),
             )
             validate_data(
                 artifact,

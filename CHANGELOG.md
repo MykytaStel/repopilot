@@ -61,10 +61,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Extended the pytest adapter to normalize conftest import failures and added
   schema-2 validation coverage summaries, separating measured, unavailable, and
   untracked baseline runs.
-- Separated baseline diagnostic IDs from review-comparable identities in the
-  differential metric contract. `duplicate-work` now stays unavailable unless
-  a baseline adapter explicitly supplies the shared `review-exact-v1` mapping,
-  preventing different namespaces from producing a false zero-overlap result.
+- Separated baseline diagnostic IDs from static-review-comparable identities in
+  the differential metric contract. Static `duplicate-work` stays unavailable
+  unless a baseline adapter explicitly supplies the shared `review-exact-v1`
+  mapping, preventing different namespaces from producing a false zero-overlap
+  result.
 - Added the first non-empty `review-exact-v1` mapping: Python `SyntaxError`
   diagnostics on changed lines now carry a deterministic path/line identity in
   review JSON, so `python.compile` can measure exact overlap. Other compiler
@@ -78,6 +79,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   baseline evidence, but comparison stays unavailable until review exposes an
   exact test-node failure identity. Path-only or changed-test-name matching is
   rejected as non-comparable.
+- Added an explicit pytest verification adapter for differential runs. When a
+  pinned review config selects `python.tests`, complete revision-compatible
+  output is normalized as `review-verification-v1` exact node evidence. The
+  artifact records the config hash and coverage report separately; this evidence
+  can measure overlap with an executed verification check, but is never
+  presented as static-review detection.
 - Hardened differential resource evidence: cumulative child RSS is recorded
   only when a positive per-command sample exists; non-positive or unavailable
   deltas are explicitly marked unavailable instead of being reported as zero.

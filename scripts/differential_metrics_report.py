@@ -30,6 +30,8 @@ def _measurement_status(value: Any) -> str:
             details.append(f"overlap {value['overlap_count']}")
         if isinstance(value.get("overlap_rate"), (int, float)):
             details.append(f"rate {float(value['overlap_rate']):.3f}")
+        if isinstance(value.get("identity_source"), str):
+            details.append(f"identity {value['identity_source']}")
         return "measured" + (f" ({', '.join(details)})" if details else "")
     return str(value.get("status", "unknown"))
 

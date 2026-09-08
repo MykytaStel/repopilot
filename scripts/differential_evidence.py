@@ -19,9 +19,13 @@ _PYTEST_CONFTEST_ERROR = re.compile(
     r"ImportError while loading conftest ['\"](?P<path>.+?)['\"]\."
 )
 _COMPARISON_SCHEME = REVIEW_COMPARISON_SCHEME
+_REVIEW_VERIFICATION_SCHEME = "review-verification-v1"
 _COMPARABLE_COMPILE_KINDS = {"SyntaxError"}
 _PYTEST_COMPARISON_UNAVAILABLE = (
     "python.tests review has no exact test-node failure identity; node paths alone are not comparable"
+)
+_PYTEST_VERIFICATION_UNAVAILABLE = (
+    "python.tests requires an explicit python.tests verification with revision-compatible, complete output"
 )
 
 
@@ -139,6 +143,17 @@ def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> di
     if returncode == 0:
         return _measured("python.tests-v1", [])
     text = "\n".join((stdout, stderr))
+    keys = _pytest_failure_keys(text, cwd)
+    if not keys:
+        return _unavailable("python.tests output did not contain a supported diagnostic")
+    return _measured(
+        "python.tests-v1",
+        sorted(keys),
+        comparison_reason=_PYTEST_COMPARISON_UNAVAILABLE,
+    )
+
+
+def _pytest_failure_keys(text: str, cwd: Path) -> set[str]:
     keys: set[str] = set()
     for match in _PYTEST_CONFTEST_ERROR.finditer(text):
         path = _relative_path(match.group("path"), cwd)
@@ -153,13 +168,56 @@ def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> di
             normalized_node = _relative_path(node, cwd)
             status = "collection-error"
         keys.add(f"python.tests:{normalized_node}:{status}")
+    return keys
+
+
+def normalize_review_verification(report: dict[str, Any], cwd: Path) -> dict[str, Any]:
+    """Normalize an explicit, revision-compatible pytest verification result.
+
+    This is deliberately separate from static review identities. An exact node
+    overlap is comparable only when RepoPilot actually ran the configured
+    `python.tests` check and retained complete output for the same revision.
+    """
+
+    outcomes = report.get("verification")
+    if outcomes is None:
+        readiness = report.get("merge_readiness")
+        outcomes = readiness.get("verification") if isinstance(readiness, dict) else None
+    if not isinstance(outcomes, list):
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    selected = [
+        outcome
+        for outcome in outcomes
+        if isinstance(outcome, dict) and outcome.get("check_id") == "python.tests"
+    ]
+    if len(selected) != 1:
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    outcome = selected[0]
+    if outcome.get("role") != "test" or outcome.get("revision_compatible") is not True:
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    if outcome.get("stdout_truncated") is not False or outcome.get("stderr_truncated") is not False:
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    status = outcome.get("status")
+    if status == "passed":
+        return {
+            "status": "measured",
+            "keys": [],
+            "scheme": _REVIEW_VERIFICATION_SCHEME,
+        }
+    if status != "failed":
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    stdout = outcome.get("stdout_excerpt")
+    stderr = outcome.get("stderr_excerpt")
+    if not isinstance(stdout, str) or not isinstance(stderr, str):
+        return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+    keys = _pytest_failure_keys("\n".join((stdout, stderr)), cwd)
     if not keys:
-        return _unavailable("python.tests output did not contain a supported diagnostic")
-    return _measured(
-        "python.tests-v1",
-        sorted(keys),
-        comparison_reason=_PYTEST_COMPARISON_UNAVAILABLE,
-    )
+        return _unavailable("python.tests verification output did not contain a supported diagnostic")
+    return {
+        "status": "measured",
+        "keys": sorted(keys),
+        "scheme": _REVIEW_VERIFICATION_SCHEME,
+    }
 
 
 def normalize_baseline_evidence(

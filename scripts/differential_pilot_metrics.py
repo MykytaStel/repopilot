@@ -121,6 +121,8 @@ def _timing_measurement(values: list[float], reason: str) -> dict[str, object]:
 
 def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object]:
     baseline_keys: set[str] = set()
+    needs_verification = False
+    used_static_mapping = False
     for runs in observation["baselines"].values():
         for run in runs:
             evidence = run.get("evidence")
@@ -131,6 +133,20 @@ def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object
                 }
             comparison = evidence.get("comparison")
             if not isinstance(comparison, dict) or comparison.get("status") != "measured":
+                if (
+                    evidence.get("status") == "measured"
+                    and comparison
+                    and comparison.get("scheme") == "review-exact-v1"
+                ):
+                    needs_verification = True
+                    keys = evidence.get("keys")
+                    if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+                        return {
+                            "status": "unavailable",
+                            "reason": "baseline evidence has invalid normalized identity keys",
+                        }
+                    baseline_keys.update(keys)
+                    continue
                 return {
                     "status": "unavailable",
                     "reason": "baseline evidence has no review-comparable identity mapping",
@@ -141,15 +157,36 @@ def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object
             if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
                 return {"status": "unavailable", "reason": "baseline comparison keys are invalid"}
             baseline_keys.update(keys)
+            used_static_mapping = True
     review_keys: set[str] = set()
+    verification_keys: set[str] = set()
     for review in observation["reviews"]:
         keys = review.get("in_diff_comparison_keys")
         if not isinstance(keys, list):
             keys = review.get("in_diff_evidence_keys", [])
         review_keys.update(key for key in keys if isinstance(key, str))
+        verification = review.get("verification_comparison")
+        if needs_verification:
+            if not isinstance(verification, dict) or verification.get("status") != "measured":
+                return {
+                    "status": "unavailable",
+                    "reason": "baseline evidence has no review-comparable identity mapping",
+                }
+            if verification.get("scheme") != "review-verification-v1":
+                return {"status": "unavailable", "reason": "review verification identity scheme is unsupported"}
+            keys = verification.get("keys")
+            if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+                return {"status": "unavailable", "reason": "review verification keys are invalid"}
+            verification_keys.update(keys)
+    if needs_verification:
+        review_keys.update(verification_keys)
+        identity_source = "mixed" if used_static_mapping else "review-verification-v1"
+    else:
+        identity_source = "review-exact-v1"
     overlap_count = len(baseline_keys & review_keys)
     return {
         "status": "measured",
+        "identity_source": identity_source,
         "overlap_count": overlap_count,
         "baseline_evidence_count": len(baseline_keys),
         "review_evidence_count": len(review_keys),
@@ -353,8 +390,16 @@ def _aggregate_duplicate_work(measurements: list[dict[str, object]]) -> dict[str
     overlap_count = sum(int(measurement.get("overlap_count", 0)) for measurement in measurements)
     baseline_count = sum(int(measurement.get("baseline_evidence_count", 0)) for measurement in measurements)
     review_count = sum(int(measurement.get("review_evidence_count", 0)) for measurement in measurements)
+    identity_sources = sorted(
+        {
+            str(measurement["identity_source"])
+            for measurement in measurements
+            if isinstance(measurement.get("identity_source"), str)
+        }
+    )
     return {
         "status": "measured",
+        "identity_source": identity_sources[0] if len(identity_sources) == 1 else "mixed",
         "overlap_count": overlap_count,
         "baseline_evidence_count": baseline_count,
         "review_evidence_count": review_count,
