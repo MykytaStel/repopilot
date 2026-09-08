@@ -188,6 +188,27 @@ class DifferentialRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source drift"):
                 validate_data(artifact, holdout, differential, rules, zoo)
 
+    def test_artifact_schema_two_requires_review_comparison_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for baseline_id, runs in case["baselines"].items():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": [],
+                            "source": f"{baseline_id}-v1",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "comparison"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
     @staticmethod
     def _valid_artifact(holdout: Path, differential: Path) -> dict[str, object]:
         cases = []

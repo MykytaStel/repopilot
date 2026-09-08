@@ -17,6 +17,7 @@ from real_history_runner import BASELINE_COMMANDS
 
 REVIEW_STATUSES = {"collected", "timeout"}
 BASE_SCAN_STATUSES = REVIEW_STATUSES
+REVIEW_COMPARISON_SCHEME = "review-exact-v1"
 
 
 def sha256_file(path: Path) -> str:
@@ -232,6 +233,19 @@ def _validate_baseline_evidence(
             expected_source = f"{baseline_id}-v1" if baseline_id else None
             if expected_source and source != expected_source:
                 raise DifferentialManifestError(f"{context}: measured baseline evidence source drift")
+            comparison = evidence.get("comparison")
+            if not isinstance(comparison, dict) or comparison.get("status") not in {"measured", "unavailable"}:
+                raise DifferentialManifestError(f"{context}: baseline evidence comparison is missing")
+            if comparison.get("scheme") != REVIEW_COMPARISON_SCHEME:
+                raise DifferentialManifestError(f"{context}: baseline evidence comparison scheme drift")
+            if comparison["status"] == "measured":
+                comparison_keys = comparison.get("keys")
+                if not isinstance(comparison_keys, list) or not all(
+                    isinstance(key, str) for key in comparison_keys
+                ):
+                    raise DifferentialManifestError(f"{context}: measured comparison keys are missing")
+            elif not isinstance(comparison.get("reason"), str) or not comparison["reason"]:
+                raise DifferentialManifestError(f"{context}: unavailable comparison reason is missing")
     elif not isinstance(evidence.get("reason"), str) or not evidence["reason"]:
         raise DifferentialManifestError(f"{context}: unavailable baseline evidence reason is missing")
 
