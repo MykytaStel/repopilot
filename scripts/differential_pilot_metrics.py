@@ -55,6 +55,18 @@ def _median(values: list[float]) -> float | None:
     return round(statistics.median(values), 3) if values else None
 
 
+def _resource_phase(run: dict[str, Any]) -> str | None:
+    phase = run.get("resource_phase")
+    if phase in {"cold", "warm"}:
+        return phase
+    repeat = run.get("repeat")
+    if repeat == 1:
+        return "cold"
+    if isinstance(repeat, int) and repeat > 1:
+        return "warm"
+    return None
+
+
 def _case_measurements(observation: dict[str, Any]) -> dict[str, object]:
     baseline_values = [
         float(run["wall_ms"])
@@ -69,6 +81,12 @@ def _case_measurements(observation: dict[str, Any]) -> dict[str, object]:
         for run in reviews
         if isinstance(run.get("child_max_rss_kb"), (int, float))
     ]
+    rss_by_phase: dict[str, list[float]] = {"cold": [], "warm": []}
+    for review in reviews:
+        sample = review.get("child_max_rss_kb")
+        phase = _resource_phase(review)
+        if isinstance(sample, (int, float)) and phase is not None:
+            rss_by_phase[phase].append(float(sample))
     first_evidence_values = []
     decision_values = []
     for review in reviews:
@@ -84,6 +102,9 @@ def _case_measurements(observation: dict[str, Any]) -> dict[str, object]:
         "median_baseline_wall_ms": _median(baseline_values),
         "median_review_wall_ms": _median(review_values),
         "median_review_child_max_rss_kb": _median(rss_values),
+        "median_review_child_max_rss_kb_by_phase": {
+            phase: _median(values) for phase, values in rss_by_phase.items()
+        },
         "time_to_first_useful_evidence": _timing_measurement(
             first_evidence_values, "no useful-evidence event was recorded"
         ),
@@ -190,6 +211,7 @@ def _collect_pilot_scores(
     baseline_times: list[float] = []
     review_times: list[float] = []
     rss_times: list[float] = []
+    rss_times_by_phase: dict[str, list[float]] = {"cold": [], "warm": []}
     first_evidence_times: list[float] = []
     decision_latencies: list[float] = []
     duplicate_measurements: list[dict[str, object]] = []
@@ -220,6 +242,10 @@ def _collect_pilot_scores(
             value = case_measurements[key]
             if isinstance(value, (int, float)):
                 values.append(float(value))
+        for phase, values in rss_times_by_phase.items():
+            value = case_measurements["median_review_child_max_rss_kb_by_phase"][phase]
+            if isinstance(value, (int, float)):
+                values.append(float(value))
         cases.append(scored["case"])
     return {
         "counts": counts,
@@ -231,6 +257,7 @@ def _collect_pilot_scores(
             baseline_times,
             review_times,
             rss_times,
+            rss_times_by_phase,
             first_evidence_times,
             decision_latencies,
             duplicate_measurements,
@@ -245,6 +272,7 @@ def _build_measurement_summary(
     baseline_times: list[float],
     review_times: list[float],
     rss_times: list[float],
+    rss_times_by_phase: dict[str, list[float]],
     first_evidence_times: list[float],
     decision_latencies: list[float],
     duplicate_measurements: list[dict[str, object]],
@@ -256,6 +284,9 @@ def _build_measurement_summary(
         "median_baseline_wall_ms": _median(baseline_times),
         "median_review_wall_ms": _median(review_times),
         "median_review_child_max_rss_kb": _median(rss_times),
+        "median_review_child_max_rss_kb_by_phase": {
+            phase: _median(values) for phase, values in rss_times_by_phase.items()
+        },
         "time_to_first_useful_evidence": _timing_measurement(
             first_evidence_times, "no useful-evidence events were recorded"
         ),

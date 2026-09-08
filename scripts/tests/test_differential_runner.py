@@ -11,29 +11,15 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_artifact import validate_data  # noqa: E402
-from differential_runner import _build_review_result, _record_resource_usage, run_timed_command  # noqa: E402
+from differential_runner import _build_review_result, _resource_phase, run_timed_command  # noqa: E402
 from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
 class DifferentialRunnerTests(unittest.TestCase):
-    def test_resource_usage_rejects_non_positive_cumulative_delta(self) -> None:
-        result = {"resource_status": "available"}
-
-        _record_resource_usage(result, "available", 4096, 4096)
-
-        self.assertEqual(result["resource_status"], "unavailable")
-        self.assertNotIn("child_max_rss_kb", result)
-        self.assertIn("cumulative", result["resource_reason"])
-
-    def test_resource_usage_keeps_positive_delta_as_a_measured_sample(self) -> None:
-        result = {"resource_status": "available"}
-
-        _record_resource_usage(result, "available", 4096, 5120)
-
-        self.assertEqual(result["resource_status"], "available")
-        self.assertEqual(result["child_max_rss_kb"], 1024)
-        self.assertNotIn("resource_reason", result)
+    def test_repeated_runs_have_explicit_cold_and_warm_phases(self) -> None:
+        self.assertEqual(_resource_phase(1), "cold")
+        self.assertEqual(_resource_phase(2), "warm")
 
     def test_review_result_keeps_comparable_diagnostic_keys_separate(self) -> None:
         report = {
@@ -59,8 +45,7 @@ class DifferentialRunnerTests(unittest.TestCase):
             b"report",
             0,
             set(),
-            "available",
-            0.0,
+            1.0,
         )
 
         self.assertEqual(result["in_diff_evidence_keys"], [])
@@ -78,6 +63,12 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(len(result["stdout_sha256"]), 64)
         self.assertEqual(result["telemetry"]["events"][0]["name"], "process_started")
         self.assertEqual(result["telemetry"]["events"][-1]["name"], "process_finished")
+        self.assertIn(result["resource_status"], {"available", "unavailable"})
+        if result["resource_status"] == "available":
+            self.assertGreater(result["child_max_rss_kb"], 0)
+            self.assertEqual(result["resource_source"], "posix-time-v1")
+        else:
+            self.assertTrue(result["resource_reason"])
 
     def test_timed_command_records_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -264,6 +255,27 @@ class DifferentialRunnerTests(unittest.TestCase):
                 for review in case["reviews"]:
                     review["telemetry"] = build_command_telemetry(1.0)
             with self.assertRaisesRegex(ValueError, "available resource sample"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_unknown_resource_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                        run["resource_phase"] = "invalid"
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "resource phase"):
                 validate_data(artifact, holdout, differential, rules, zoo)
 
     def test_artifact_schema_two_requires_provenance_for_measured_evidence(self) -> None:

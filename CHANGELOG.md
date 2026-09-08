@@ -81,6 +81,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Hardened differential resource evidence: cumulative child RSS is recorded
   only when a positive per-command sample exists; non-positive or unavailable
   deltas are explicitly marked unavailable instead of being reported as zero.
+- Added a portable POSIX peak-RSS sampler using `/usr/bin/time` with explicit
+  source identity and parser coverage for Linux and macOS. Unsupported
+  platforms and malformed sampler output remain unavailable.
+- Added cold/warm resource phases to repeated differential runs and metrics;
+  reports now keep first-run cold RSS separate from subsequent warm samples.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
