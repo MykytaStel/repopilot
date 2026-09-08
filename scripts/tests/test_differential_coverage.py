@@ -42,21 +42,22 @@ class DifferentialCoverageTests(unittest.TestCase):
                                 "keys": 0,
                                 "measurement_rate": 0.0,
                                 "unavailable_reasons": {
-                                    "baseline evidence has no review-comparable identity mapping": 3,
+                                    "python.tests review has no exact test-node failure identity; node paths alone are not comparable": 3,
                                 },
                             },
                         },
                         "unavailable_reasons": {
-                            "baseline evidence has no review-comparable identity mapping": 3,
+                            "python.tests review has no exact test-node failure identity; node paths alone are not comparable": 3,
                         },
                     },
                 },
             }
         )
         self.assertIn("| `python.compile` | 3 | 3 | 0 | 0 | 1 | 1.0 |", report)
-        self.assertIn("identity mapping (3)", report)
+        self.assertIn("test-node failure identity", report)
         self.assertIn("does not estimate precision, recall, utility, or overlap", report)
-        self.assertIn("Add or review an exact `review-exact-v1` identity adapter", report)
+        self.assertIn("For `python.tests`, keep node failures unavailable", report)
+        self.assertIn("Do not derive overlap from a test path", report)
 
 
 if __name__ == "__main__":

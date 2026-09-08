@@ -86,6 +86,14 @@ ERROR collecting tests/test_import.py
                 "python.tests:tests/test_import.py:collection-error",
             ],
         )
+        self.assertEqual(
+            result["comparison"],
+            {
+                "status": "unavailable",
+                "reason": "python.tests review has no exact test-node failure identity; node paths alone are not comparable",
+                "scheme": "review-exact-v1",
+            },
+        )
 
     def test_pytest_unknown_failure_is_unavailable(self) -> None:
         result = normalize_baseline_evidence("python.tests", b"pytest crashed", b"", 2, Path("/repo"))

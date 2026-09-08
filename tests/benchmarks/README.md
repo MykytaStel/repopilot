@@ -63,6 +63,11 @@ measurement remains unavailable.
 keeps unavailable reasons visible and points to the next adapter work without
 scoring precision, recall, utility, or overlap.
 
+For `python.tests`, a failed pytest node remains baseline-only. RepoPilot does
+not execute tests during review, so a test path or changed test name cannot
+prove the same failure identity; the comparison stays unavailable until a
+review-side exact failure provenance exists.
+
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports
 only captured novel-evidence, timing, determinism, and resource fields;
