@@ -174,6 +174,8 @@ pub struct ScanDiagnostic {
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
 }
 
 impl ScanDiagnostic {
@@ -183,6 +185,7 @@ impl ScanDiagnostic {
             severity: DiagnosticSeverity::Error,
             message: message.into(),
             path: None,
+            line: None,
         }
     }
 
@@ -192,11 +195,17 @@ impl ScanDiagnostic {
             severity: DiagnosticSeverity::Warning,
             message: message.into(),
             path: None,
+            line: None,
         }
     }
 
     pub fn with_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.path = Some(path.into());
+        self
+    }
+
+    pub fn with_line(mut self, line: usize) -> Self {
+        self.line = Some(line);
         self
     }
 }

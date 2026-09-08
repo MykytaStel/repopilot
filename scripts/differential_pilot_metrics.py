@@ -120,12 +120,12 @@ def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object
             if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
                 return {"status": "unavailable", "reason": "baseline comparison keys are invalid"}
             baseline_keys.update(keys)
-    review_keys = {
-        key
-        for review in observation["reviews"]
-        for key in review.get("in_diff_evidence_keys", [])
-        if isinstance(key, str)
-    }
+    review_keys: set[str] = set()
+    for review in observation["reviews"]:
+        keys = review.get("in_diff_comparison_keys")
+        if not isinstance(keys, list):
+            keys = review.get("in_diff_evidence_keys", [])
+        review_keys.update(key for key in keys if isinstance(key, str))
     overlap_count = len(baseline_keys & review_keys)
     return {
         "status": "measured",

@@ -35,12 +35,28 @@ SyntaxError: '(' was never closed
         result = normalize_baseline_evidence("python.compile", b"", stderr, 1, Path("/tmp/work"))
         self.assertEqual(result["status"], "measured")
         self.assertEqual(result["keys"], ["python.compile:pkg/bad.py:7:SyntaxError"])
-        self.assertEqual(result["comparison"]["status"], "unavailable")
+        self.assertEqual(
+            result["comparison"],
+            {
+                "status": "measured",
+                "keys": ["python.compile:pkg/bad.py:7:SyntaxError"],
+                "scheme": "review-exact-v1",
+            },
+        )
 
     def test_compile_failure_without_supported_diagnostic_is_unavailable(self) -> None:
         result = normalize_baseline_evidence("python.compile", b"compiler crashed", b"", 1, Path("/repo"))
         self.assertEqual(result["status"], "unavailable")
         self.assertIn("supported diagnostic", result["reason"])
+
+    def test_compile_diagnostic_outside_workspace_is_not_review_comparable(self) -> None:
+        stderr = b"""
+  File "/outside/bad.py", line 7
+SyntaxError: invalid syntax
+"""
+        result = normalize_baseline_evidence("python.compile", b"", stderr, 1, Path("/repo"))
+        self.assertEqual(result["status"], "measured")
+        self.assertEqual(result["comparison"]["status"], "unavailable")
 
     def test_pytest_success_is_measured_with_empty_evidence(self) -> None:
         result = normalize_baseline_evidence("python.tests", b"3 passed in 0.02s\n", b"", 0, Path("/repo"))

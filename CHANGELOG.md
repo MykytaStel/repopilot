@@ -65,6 +65,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   differential metric contract. `duplicate-work` now stays unavailable unless
   a baseline adapter explicitly supplies the shared `review-exact-v1` mapping,
   preventing different namespaces from producing a false zero-overlap result.
+- Added the first non-empty `review-exact-v1` mapping: Python `SyntaxError`
+  diagnostics on changed lines now carry a deterministic path/line identity in
+  review JSON, so `python.compile` can measure exact overlap. Other compiler
+  kinds, unchanged-line diagnostics, and unsupported baseline failures remain
+  unavailable. Validation reports comparison coverage separately from baseline
+  adapter coverage.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

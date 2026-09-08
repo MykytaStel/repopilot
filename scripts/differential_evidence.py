@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from differential_identity import REVIEW_COMPARISON_SCHEME
+
 
 _COMPILE_FILE = re.compile(r"\*\*\* Error compiling ['\"](?P<path>.+?)['\"]")
 _PYTHON_FILE = re.compile(r'^\s*File ["\'](?P<path>.+?)["\'], line (?P<line>\d+)')
@@ -16,7 +18,8 @@ _PYTEST_FAILURE = re.compile(
 _PYTEST_CONFTEST_ERROR = re.compile(
     r"ImportError while loading conftest ['\"](?P<path>.+?)['\"]\."
 )
-_COMPARISON_SCHEME = "review-exact-v1"
+_COMPARISON_SCHEME = REVIEW_COMPARISON_SCHEME
+_COMPARABLE_COMPILE_KINDS = {"SyntaxError"}
 
 
 def _text(value: bytes | str) -> str:
@@ -39,20 +42,39 @@ def _relative_path(raw_path: str, cwd: Path) -> str:
     return normalized or "."
 
 
+def _comparison_path_is_confined(raw_path: str, cwd: Path) -> bool:
+    candidate = Path(raw_path.replace("\\", "/"))
+    if not candidate.is_absolute():
+        return True
+    try:
+        candidate.relative_to(Path(cwd))
+    except ValueError:
+        return False
+    return True
+
+
 def _unavailable(reason: str) -> dict[str, Any]:
     return {"status": "unavailable", "reason": reason}
 
 
-def _measured(source: str, keys: list[str]) -> dict[str, Any]:
+def _measured(
+    source: str, keys: list[str], comparison_keys: list[str] | None = None
+) -> dict[str, Any]:
     comparison: dict[str, Any]
-    if keys:
+    if comparison_keys is None and not keys:
+        comparison = {"status": "measured", "keys": [], "scheme": _COMPARISON_SCHEME}
+    elif comparison_keys is None:
         comparison = {
             "status": "unavailable",
             "reason": "baseline evidence has no review-comparable identity mapping",
             "scheme": _COMPARISON_SCHEME,
         }
     else:
-        comparison = {"status": "measured", "keys": [], "scheme": _COMPARISON_SCHEME}
+        comparison = {
+            "status": "measured",
+            "keys": comparison_keys,
+            "scheme": _COMPARISON_SCHEME,
+        }
     return {"status": "measured", "keys": keys, "source": source, "comparison": comparison}
 
 
@@ -62,24 +84,43 @@ def _compile_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> d
     text = "\n".join((stdout, stderr))
     current_path: str | None = None
     current_line: str | None = None
+    current_path_comparable = False
     keys: set[str] = set()
+    comparison_keys: set[str] = set()
     for line in text.splitlines():
         file_match = _COMPILE_FILE.search(line)
         if file_match:
-            current_path = _relative_path(file_match.group("path"), cwd)
+            raw_path = file_match.group("path")
+            current_path = _relative_path(raw_path, cwd)
+            current_path_comparable = _comparison_path_is_confined(raw_path, cwd)
             current_line = None
             continue
         location_match = _PYTHON_FILE.match(line)
         if location_match:
-            current_path = _relative_path(location_match.group("path"), cwd)
+            raw_path = location_match.group("path")
+            current_path = _relative_path(raw_path, cwd)
+            current_path_comparable = _comparison_path_is_confined(raw_path, cwd)
             current_line = location_match.group("line")
             continue
         error_match = _PYTHON_ERROR.match(line)
         if error_match and current_path and current_line:
-            keys.add(f"python.compile:{current_path}:{current_line}:{error_match.group('kind')}")
+            kind = error_match.group("kind")
+            key = f"python.compile:{current_path}:{current_line}:{kind}"
+            keys.add(key)
+            if current_path_comparable:
+                comparison_keys.add(key)
     if not keys:
         return _unavailable("python.compile output did not contain a supported diagnostic")
-    return _measured("python.compile-v1", sorted(keys))
+    normalized_keys = sorted(keys)
+    if comparison_keys == keys and all(
+        kind in _COMPARABLE_COMPILE_KINDS for kind in _compile_kinds(normalized_keys)
+    ):
+        return _measured("python.compile-v1", normalized_keys, normalized_keys)
+    return _measured("python.compile-v1", normalized_keys)
+
+
+def _compile_kinds(keys: list[str]) -> set[str]:
+    return {key.rsplit(":", 1)[-1] for key in keys}
 
 
 def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> dict[str, Any]:

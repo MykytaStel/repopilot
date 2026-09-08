@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from differential_contract import validate_differential
+from differential_identity import REVIEW_COMPARISON_SCHEME
 from differential_manifest import DifferentialManifestError
 from differential_telemetry import validate_telemetry
 from real_history_contract import HoldoutManifestError, validate_manifest
@@ -17,7 +18,6 @@ from real_history_runner import BASELINE_COMMANDS
 
 REVIEW_STATUSES = {"collected", "timeout"}
 BASE_SCAN_STATUSES = REVIEW_STATUSES
-REVIEW_COMPARISON_SCHEME = "review-exact-v1"
 
 
 def sha256_file(path: Path) -> str:
@@ -60,6 +60,7 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
     """Summarize adapter coverage without turning missing evidence into a pass."""
 
     total = tracked = measured = unavailable = untracked = key_count = 0
+    comparison_measured = comparison_unavailable = comparison_untracked = comparison_key_count = 0
     sources: Counter[str] = Counter()
     for observation in observations:
         for runs in observation.get("baselines", {}).values():
@@ -68,6 +69,7 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
                 evidence = run.get("evidence") if isinstance(run, dict) else None
                 if not isinstance(evidence, dict):
                     untracked += 1
+                    comparison_untracked += 1
                     continue
                 tracked += 1
                 status = evidence.get("status")
@@ -78,6 +80,14 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
                     sources[str(source) if source else "<unspecified>"] += 1
                 elif status == "unavailable":
                     unavailable += 1
+                comparison = evidence.get("comparison")
+                if isinstance(comparison, dict) and comparison.get("status") == "measured":
+                    comparison_measured += 1
+                    comparison_key_count += len(comparison.get("keys", []))
+                elif isinstance(comparison, dict) and comparison.get("status") == "unavailable":
+                    comparison_unavailable += 1
+                else:
+                    comparison_untracked += 1
     return {
         "total": total,
         "tracked": tracked,
@@ -88,6 +98,17 @@ def baseline_evidence_summary(observations: list[dict[str, Any]]) -> dict[str, o
         "measurement_rate": round(measured / tracked, 3) if tracked else None,
         "keys": key_count,
         "sources": dict(sorted(sources.items())),
+        "comparison": {
+            "measured": comparison_measured,
+            "unavailable": comparison_unavailable,
+            "untracked": comparison_untracked,
+            "keys": comparison_key_count,
+            "measurement_rate": round(
+                comparison_measured / (comparison_measured + comparison_unavailable), 3
+            )
+            if comparison_measured + comparison_unavailable
+            else None,
+        },
     }
 
 
@@ -197,6 +218,13 @@ def validate_case(
             for field in ("in_diff_evidence_keys", "novel_in_diff_evidence_keys"):
                 if not isinstance(review.get(field), list) or not all(isinstance(item, str) for item in review[field]):
                     raise DifferentialManifestError(f"case {case.case_id}: collected review lacks {field}")
+            comparison_keys = review.get("in_diff_comparison_keys", [])
+            if not isinstance(comparison_keys, list) or not all(
+                isinstance(item, str) for item in comparison_keys
+            ):
+                raise DifferentialManifestError(
+                    f"case {case.case_id}: collected review has invalid comparison keys"
+                )
     determinism = observation.get("determinism")
     if not isinstance(determinism, dict) or not isinstance(determinism.get("stable_evidence_deterministic"), bool):
         raise DifferentialManifestError(f"case {case.case_id}: determinism summary is missing")

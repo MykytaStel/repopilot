@@ -63,6 +63,30 @@ fn review_reports_working_tree_findings_on_changed_lines() {
 }
 
 #[test]
+fn review_reports_python_syntax_diagnostic_on_the_changed_line() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    fs::write(temp.path().join("bad.py"), "def ok():\n    return 1\n")
+        .expect("write valid Python source");
+    commit_all(temp.path(), "initial");
+
+    fs::write(temp.path().join("bad.py"), "def broken(:\n    return 2\n")
+        .expect("write invalid Python source");
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+
+    let diagnostic = json["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array")
+        .iter()
+        .find(|item| item["code"] == "python.syntax-error")
+        .expect("changed Python syntax should be reported");
+    assert_eq!(diagnostic["path"], "bad.py");
+    assert_eq!(diagnostic["line"], 1);
+    assert_eq!(json["changed_files"][0]["ranges"][0]["start"], 1);
+}
+
+#[test]
 fn review_treats_untracked_files_as_fully_changed() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());

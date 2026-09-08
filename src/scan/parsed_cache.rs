@@ -9,8 +9,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 5;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-symbols-spans-guarded-v4";
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 6;
+const PARSED_FACTS_ANALYSIS_VERSION: &str =
+    "tree-sitter-imports-exports-symbols-spans-guarded-syntax-v5";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
@@ -47,6 +48,8 @@ pub struct CachedSyntaxSummary {
     pub parsed: bool,
     pub root_kind: Option<String>,
     pub has_errors: bool,
+    #[serde(default)]
+    pub first_error_line: Option<usize>,
     pub named_child_count: usize,
 }
 
@@ -250,6 +253,7 @@ impl From<&SyntaxSummary> for CachedSyntaxSummary {
             parsed: value.parsed,
             root_kind: value.root_kind.clone(),
             has_errors: value.has_errors,
+            first_error_line: value.first_error_line,
             named_child_count: value.named_child_count,
         }
     }
@@ -261,6 +265,7 @@ impl From<&CachedSyntaxSummary> for SyntaxSummary {
             parsed: value.parsed,
             root_kind: value.root_kind.clone(),
             has_errors: value.has_errors,
+            first_error_line: value.first_error_line,
             named_child_count: value.named_child_count,
         }
     }
@@ -319,6 +324,7 @@ mod tests {
                 parsed: true,
                 root_kind: Some("source_file".to_string()),
                 has_errors: false,
+                first_error_line: None,
                 named_child_count: 3,
             },
         );

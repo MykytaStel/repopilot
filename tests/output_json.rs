@@ -234,6 +234,7 @@ fn json_scan_report_includes_structured_diagnostics() {
                 severity: DiagnosticSeverity::Warning,
                 message: "Package scan failed; results are partial.".to_string(),
                 path: Some(PathBuf::from("packages/api")),
+                line: None,
             }],
             ..Default::default()
         },

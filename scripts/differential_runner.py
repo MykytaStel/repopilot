@@ -13,6 +13,7 @@ from typing import Any
 
 from differential_contract import validate_differential
 from differential_evidence import normalize_baseline_evidence
+from differential_identity import review_comparable_diagnostic_keys
 from differential_manifest import load_differential
 from differential_novelty import evidence_keys, novel_evidence_keys
 from differential_telemetry import build_command_telemetry, build_review_telemetry
@@ -154,6 +155,7 @@ def _review_once(
             "telemetry": build_command_telemetry(wall_ms),
             "in_diff_evidence_keys": [],
             "novel_in_diff_evidence_keys": [],
+            "in_diff_comparison_keys": [],
         }
     if process.returncode not in (0, 1):
         raise HoldoutManifestError(
@@ -186,6 +188,7 @@ def _build_review_result(
     in_diff_keys = sorted(evidence_keys(in_diff_findings))
     wall_ms = round((time.perf_counter() - started) * 1000, 3)
     novel_keys = novel_evidence_keys(in_diff_findings, base_evidence)
+    comparison_keys = review_comparable_diagnostic_keys(report)
     result = {
         **summarize_review(report, raw_output),
         "status": "collected",
@@ -194,6 +197,7 @@ def _build_review_result(
         "resource_status": resource_status,
         "in_diff_evidence_keys": in_diff_keys,
         "novel_in_diff_evidence_keys": novel_keys,
+        "in_diff_comparison_keys": comparison_keys,
     }
     result["telemetry"] = build_review_telemetry(report, wall_ms, bool(novel_keys))
     return result
