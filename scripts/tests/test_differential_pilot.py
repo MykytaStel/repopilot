@@ -91,8 +91,12 @@ class DifferentialPilotTests(unittest.TestCase):
                                 "scheme": "review-exact-v1",
                             },
                         }
-                for review in case["reviews"]:
+                for index, review in enumerate(case["reviews"]):
                     review["in_diff_comparison_keys"] = []
+                    review["resource_status"] = "available"
+                    review["resource_source"] = "posix-time-v1"
+                    review["resource_phase"] = "cold" if index == 0 else "warm"
+                    review["child_max_rss_kb"] = 100 + index * 10
                     review["telemetry"] = {
                         "schema_version": 1,
                         "events": [
@@ -121,6 +125,10 @@ class DifferentialPilotTests(unittest.TestCase):
         self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["median_ms"], 5.0)
         self.assertEqual(output["measurements"]["decision_latency"]["median_ms"], 10.0)
         self.assertEqual(output["measurements"]["duplicate_work"]["overlap_count"], 0)
+        self.assertEqual(
+            output["measurements"]["median_review_child_max_rss_kb_by_phase"],
+            {"cold": 100.0, "warm": 115.0},
+        )
 
     def test_metrics_do_not_infer_overlap_from_unmapped_baseline_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

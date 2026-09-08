@@ -62,14 +62,19 @@ def render_differential_metrics_report(data: dict[str, Any]) -> str:
         f"| Median baseline wall time (ms) | {_number(measurements.get('median_baseline_wall_ms'))} |",
         f"| Median review wall time (ms) | {_number(measurements.get('median_review_wall_ms'))} |",
         f"| Median review child max RSS (KiB) | {_number(measurements.get('median_review_child_max_rss_kb'))} |",
+        "| Median review peak RSS cold (KiB) | "
+        f"{_number(measurements.get('median_review_child_max_rss_kb_by_phase', {}).get('cold'))} |",
+        "| Median review peak RSS warm (KiB) | "
+        f"{_number(measurements.get('median_review_child_max_rss_kb_by_phase', {}).get('warm'))} |",
         f"| Time to first useful evidence | {_measurement_status(measurements.get('time_to_first_useful_evidence'))} |",
         f"| Decision latency | {_measurement_status(measurements.get('decision_latency'))} |",
         f"| Duplicate work | {_measurement_status(measurements.get('duplicate_work'))} |",
         "",
         "## Case detail",
         "",
-        "| Case | Outcome | Expected rules | Observed novel rules | Novel evidence | Review ms | RSS KiB |",
-        "| --- | --- | --- | --- | ---: | ---: | ---: |",
+        "| Case | Outcome | Expected rules | Observed novel rules | Novel evidence | Review ms | "
+        "RSS cold KiB | RSS warm KiB |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: |",
     ]
     for case in data.get("cases", []):
         case_measurements = case.get("measurements", {})
@@ -77,7 +82,10 @@ def render_differential_metrics_report(data: dict[str, Any]) -> str:
             f"| `{case.get('id', 'unknown')}` | {case.get('outcome', 'unknown')} | "
             f"{_ids(case.get('expected_rule_ids', []))} | {_ids(case.get('observed_novel_rule_ids', []))} | "
             f"{case.get('novel_evidence_count', 0)} | {_number(case_measurements.get('median_review_wall_ms'))} | "
-            f"{_number(case_measurements.get('median_review_child_max_rss_kb'))} |"
+            "{cold} | {warm} |".format(
+                cold=_number(case_measurements.get("median_review_child_max_rss_kb_by_phase", {}).get("cold")),
+                warm=_number(case_measurements.get("median_review_child_max_rss_kb_by_phase", {}).get("warm")),
+            )
         )
     lines.extend(
         [

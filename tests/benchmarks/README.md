@@ -66,6 +66,10 @@ scoring precision, recall, utility, or overlap.
 Resource samples follow the same boundary: cumulative child RSS is measured
 only when a positive per-command delta is available. A zero or unsupported
 delta is reported as unavailable, never as proof of zero memory use.
+On Linux and macOS the collector uses `/usr/bin/time` and records the sampler
+source; Windows and systems without a supported time format stay unavailable.
+Repeated runs are labeled `cold` for the first execution and `warm` for later
+executions, and pilot reports preserve those RSS medians separately.
 
 For `python.tests`, a failed pytest node remains baseline-only. RepoPilot does
 not execute tests during review, so a test path or changed test name cannot
