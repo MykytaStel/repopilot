@@ -19,6 +19,8 @@ python3 scripts/differential.py collect --repo-root . \
   --output differential-run.json
 python3 scripts/differential.py validate-result \
   --artifact differential-run.json
+python3 scripts/differential.py budget-check \
+  --artifact differential-run.json
 python3 scripts/differential.py coverage-audit \
   --artifact differential-run.json --output coverage-audit.md
 python3 scripts/differential.py pilot-template \
@@ -70,6 +72,13 @@ On Linux and macOS the collector uses `/usr/bin/time` and records the sampler
 source; Windows and systems without a supported time format stay unavailable.
 Repeated runs are labeled `cold` for the first execution and `warm` for later
 executions, and pilot reports preserve those RSS medians separately.
+
+The manifest also carries `differential-rss-v1`, a review-workload budget of
+65,536 KiB for cold runs and 49,152 KiB for warm runs. `budget-check` requires
+the `posix-time-v1` source and both phases for every case. These ceilings are a
+regression gate for the pinned packet-v9 host and workload; changing either
+requires a new measurement and an explicit policy change. An unavailable
+sample fails the check.
 
 For `python.tests`, a failed pytest node remains baseline-only. RepoPilot does
 not execute tests during review, so a test path or changed test name cannot

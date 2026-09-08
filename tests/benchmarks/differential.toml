@@ -14,6 +14,17 @@ measurements = [
   "resource-cost",
 ]
 
+[resource_policy]
+schema_version = 1
+policy_id = "differential-rss-v1"
+workload = "v0.23-real-history-holdout-expanded-review"
+source = "posix-time-v1"
+unit = "KiB"
+statistic = "median"
+required_phases = ["cold", "warm"]
+ceiling_kb_by_phase = { cold = 65536, warm = 49152 }
+unavailable = "fail"
+
 [[case]]
 id = "click-pr-3818"
 baseline_ids = ["python.compile", "python.tests"]
