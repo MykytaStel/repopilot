@@ -14,7 +14,15 @@ from differential_evidence import normalize_baseline_evidence  # noqa: E402
 class DifferentialEvidenceTests(unittest.TestCase):
     def test_compile_success_is_measured_with_empty_evidence(self) -> None:
         result = normalize_baseline_evidence("python.compile", b"", b"", 0, Path("/repo"))
-        self.assertEqual(result, {"status": "measured", "keys": [], "source": "python.compile-v1"})
+        self.assertEqual(
+            result,
+            {
+                "status": "measured",
+                "keys": [],
+                "source": "python.compile-v1",
+                "comparison": {"status": "measured", "keys": [], "scheme": "review-exact-v1"},
+            },
+        )
 
     def test_compile_failure_normalizes_path_line_and_error_kind(self) -> None:
         stderr = b"""
@@ -27,6 +35,7 @@ SyntaxError: '(' was never closed
         result = normalize_baseline_evidence("python.compile", b"", stderr, 1, Path("/tmp/work"))
         self.assertEqual(result["status"], "measured")
         self.assertEqual(result["keys"], ["python.compile:pkg/bad.py:7:SyntaxError"])
+        self.assertEqual(result["comparison"]["status"], "unavailable")
 
     def test_compile_failure_without_supported_diagnostic_is_unavailable(self) -> None:
         result = normalize_baseline_evidence("python.compile", b"compiler crashed", b"", 1, Path("/repo"))
@@ -35,7 +44,15 @@ SyntaxError: '(' was never closed
 
     def test_pytest_success_is_measured_with_empty_evidence(self) -> None:
         result = normalize_baseline_evidence("python.tests", b"3 passed in 0.02s\n", b"", 0, Path("/repo"))
-        self.assertEqual(result, {"status": "measured", "keys": [], "source": "python.tests-v1"})
+        self.assertEqual(
+            result,
+            {
+                "status": "measured",
+                "keys": [],
+                "source": "python.tests-v1",
+                "comparison": {"status": "measured", "keys": [], "scheme": "review-exact-v1"},
+            },
+        )
 
     def test_pytest_failure_normalizes_node_ids_and_is_order_stable(self) -> None:
         output = b"""

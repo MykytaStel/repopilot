@@ -61,6 +61,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Extended the pytest adapter to normalize conftest import failures and added
   schema-2 validation coverage summaries, separating measured, unavailable, and
   untracked baseline runs.
+- Separated baseline diagnostic IDs from review-comparable identities in the
+  differential metric contract. `duplicate-work` now stays unavailable unless
+  a baseline adapter explicitly supplies the shared `review-exact-v1` mapping,
+  preventing different namespaces from producing a false zero-overlap result.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

@@ -16,6 +16,7 @@ _PYTEST_FAILURE = re.compile(
 _PYTEST_CONFTEST_ERROR = re.compile(
     r"ImportError while loading conftest ['\"](?P<path>.+?)['\"]\."
 )
+_COMPARISON_SCHEME = "review-exact-v1"
 
 
 def _text(value: bytes | str) -> str:
@@ -42,9 +43,22 @@ def _unavailable(reason: str) -> dict[str, Any]:
     return {"status": "unavailable", "reason": reason}
 
 
+def _measured(source: str, keys: list[str]) -> dict[str, Any]:
+    comparison: dict[str, Any]
+    if keys:
+        comparison = {
+            "status": "unavailable",
+            "reason": "baseline evidence has no review-comparable identity mapping",
+            "scheme": _COMPARISON_SCHEME,
+        }
+    else:
+        comparison = {"status": "measured", "keys": [], "scheme": _COMPARISON_SCHEME}
+    return {"status": "measured", "keys": keys, "source": source, "comparison": comparison}
+
+
 def _compile_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> dict[str, Any]:
     if returncode == 0:
-        return {"status": "measured", "keys": [], "source": "python.compile-v1"}
+        return _measured("python.compile-v1", [])
     text = "\n".join((stdout, stderr))
     current_path: str | None = None
     current_line: str | None = None
@@ -65,12 +79,12 @@ def _compile_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> d
             keys.add(f"python.compile:{current_path}:{current_line}:{error_match.group('kind')}")
     if not keys:
         return _unavailable("python.compile output did not contain a supported diagnostic")
-    return {"status": "measured", "keys": sorted(keys), "source": "python.compile-v1"}
+    return _measured("python.compile-v1", sorted(keys))
 
 
 def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> dict[str, Any]:
     if returncode == 0:
-        return {"status": "measured", "keys": [], "source": "python.tests-v1"}
+        return _measured("python.tests-v1", [])
     text = "\n".join((stdout, stderr))
     keys: set[str] = set()
     for match in _PYTEST_CONFTEST_ERROR.finditer(text):
@@ -88,7 +102,7 @@ def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> di
         keys.add(f"python.tests:{normalized_node}:{status}")
     if not keys:
         return _unavailable("python.tests output did not contain a supported diagnostic")
-    return {"status": "measured", "keys": sorted(keys), "source": "python.tests-v1"}
+    return _measured("python.tests-v1", sorted(keys))
 
 
 def normalize_baseline_evidence(

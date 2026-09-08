@@ -108,9 +108,17 @@ def _duplicate_work_measurement(observation: dict[str, Any]) -> dict[str, object
                     "status": "unavailable",
                     "reason": "baseline command has no normalized evidence adapter",
                 }
-            keys = evidence.get("keys")
+            comparison = evidence.get("comparison")
+            if not isinstance(comparison, dict) or comparison.get("status") != "measured":
+                return {
+                    "status": "unavailable",
+                    "reason": "baseline evidence has no review-comparable identity mapping",
+                }
+            if comparison.get("scheme") != "review-exact-v1":
+                return {"status": "unavailable", "reason": "baseline comparison identity scheme is unsupported"}
+            keys = comparison.get("keys")
             if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
-                return {"status": "unavailable", "reason": "baseline evidence keys are invalid"}
+                return {"status": "unavailable", "reason": "baseline comparison keys are invalid"}
             baseline_keys.update(keys)
     review_keys = {
         key
@@ -296,8 +304,21 @@ def _score_pilot_case(
 
 
 def _aggregate_duplicate_work(measurements: list[dict[str, object]]) -> dict[str, object]:
-    if not measurements or any(measurement.get("status") != "measured" for measurement in measurements):
-        return {"status": "unavailable", "reason": "baseline overlap classification is not captured"}
+    unavailable = [measurement for measurement in measurements if measurement.get("status") != "measured"]
+    if not measurements or unavailable:
+        reasons = sorted(
+            {
+                str(measurement.get("reason"))
+                for measurement in unavailable
+                if isinstance(measurement.get("reason"), str) and measurement["reason"]
+            }
+        )
+        return {
+            "status": "unavailable",
+            "reason": reasons[0] if len(reasons) == 1 else "baseline overlap classification is not captured",
+            "cases_measured": len(measurements) - len(unavailable),
+            "cases_unavailable": len(unavailable),
+        }
     overlap_count = sum(int(measurement.get("overlap_count", 0)) for measurement in measurements)
     baseline_count = sum(int(measurement.get("baseline_evidence_count", 0)) for measurement in measurements)
     review_count = sum(int(measurement.get("review_evidence_count", 0)) for measurement in measurements)

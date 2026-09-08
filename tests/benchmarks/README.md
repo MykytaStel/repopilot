@@ -52,14 +52,18 @@ node identities. A clean successful baseline is measured with an empty evidence
 set; conftest import failures are normalized to their collection path; an
 unrecognized failure stays explicitly unavailable. `validate-result` reports
 measured, unavailable, and untracked coverage separately. Command success or
-output hashes alone are not treated as evidence overlap.
+output hashes alone are not treated as evidence overlap. A baseline diagnostic
+ID is not automatically comparable to a RepoPilot finding ID: duplicate-work
+requires an explicit `review-exact-v1` comparison mapping, otherwise the
+measurement remains unavailable.
 
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports
 only captured novel-evidence, timing, determinism, and resource fields;
-decision latency, time to first useful evidence, and duplicate work remain
-unavailable until the collector records the required events. Validate the
-metrics artifact before rendering or circulating its report.
+decision latency and time to first useful evidence remain unavailable until the
+collector records the required events. Duplicate work additionally requires
+the explicit review-comparable identity mapping. Validate the metrics artifact
+before rendering or circulating its report.
 
 Validate the protocol contract without cloning repositories:
 
