@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 
+_PYTEST_FAILURE_MAPPING_REASON = "python.tests review has no exact test-node failure identity"
+
+
 def _number(value: Any) -> str:
     return "—" if value is None else str(value)
 
@@ -52,11 +55,17 @@ def render_coverage_audit(validation: dict[str, Any]) -> str:
     )
     reasons = comparison.get("unavailable_reasons", {})
     if reasons:
-        lines.append(
-            "Add or review an exact `review-exact-v1` identity adapter for the unavailable baseline "
-            "reasons above before interpreting duplicate work. Keep those runs unavailable until the "
-            "mapping is proven against changed-line provenance."
-        )
+        if any(_PYTEST_FAILURE_MAPPING_REASON in reason for reason in reasons):
+            lines.append(
+                "For `python.tests`, keep node failures unavailable until review emits exact test-node "
+                "failure provenance. Do not derive overlap from a test path or changed test name."
+            )
+        else:
+            lines.append(
+                "Add or review an exact `review-exact-v1` identity adapter for the unavailable baseline "
+                "reasons above before interpreting duplicate work. Keep those runs unavailable until the "
+                "mapping is proven against changed-line provenance."
+            )
     else:
         lines.append(
             "No unavailable comparison reasons were recorded; inspect the measured keys before scoring overlap."

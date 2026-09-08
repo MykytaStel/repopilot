@@ -74,6 +74,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Added a deterministic differential coverage audit. It partitions comparable
   evidence by baseline, preserves unavailable mapping reasons, and emits the
   next adapter action without turning adapter coverage into a utility claim.
+- Clarified the pytest comparison boundary: normalized node IDs remain
+  baseline evidence, but comparison stays unavailable until review exposes an
+  exact test-node failure identity. Path-only or changed-test-name matching is
+  rejected as non-comparable.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.

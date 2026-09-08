@@ -20,6 +20,9 @@ _PYTEST_CONFTEST_ERROR = re.compile(
 )
 _COMPARISON_SCHEME = REVIEW_COMPARISON_SCHEME
 _COMPARABLE_COMPILE_KINDS = {"SyntaxError"}
+_PYTEST_COMPARISON_UNAVAILABLE = (
+    "python.tests review has no exact test-node failure identity; node paths alone are not comparable"
+)
 
 
 def _text(value: bytes | str) -> str:
@@ -58,10 +61,19 @@ def _unavailable(reason: str) -> dict[str, Any]:
 
 
 def _measured(
-    source: str, keys: list[str], comparison_keys: list[str] | None = None
+    source: str,
+    keys: list[str],
+    comparison_keys: list[str] | None = None,
+    comparison_reason: str | None = None,
 ) -> dict[str, Any]:
     comparison: dict[str, Any]
-    if comparison_keys is None and not keys:
+    if comparison_reason is not None:
+        comparison = {
+            "status": "unavailable",
+            "reason": comparison_reason,
+            "scheme": _COMPARISON_SCHEME,
+        }
+    elif comparison_keys is None and not keys:
         comparison = {"status": "measured", "keys": [], "scheme": _COMPARISON_SCHEME}
     elif comparison_keys is None:
         comparison = {
@@ -143,7 +155,11 @@ def _pytest_evidence(stdout: str, stderr: str, returncode: int, cwd: Path) -> di
         keys.add(f"python.tests:{normalized_node}:{status}")
     if not keys:
         return _unavailable("python.tests output did not contain a supported diagnostic")
-    return _measured("python.tests-v1", sorted(keys))
+    return _measured(
+        "python.tests-v1",
+        sorted(keys),
+        comparison_reason=_PYTEST_COMPARISON_UNAVAILABLE,
+    )
 
 
 def normalize_baseline_evidence(
