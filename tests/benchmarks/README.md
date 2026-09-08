@@ -118,6 +118,31 @@ hash and the coverage audit reports it separately. Any resulting overlap is
 evidence about executed verification work; it is not static-review detection
 and cannot be used to claim precision or recall.
 
+Resource budgets are workload-bound. The committed `differential-rss-v1`
+policy declares `verification_checks = []`, so it applies to static review
+only. A packet collected with explicit verification must use a separately
+reviewed policy file whose `verification_checks` exactly match the artifact;
+otherwise `budget-check` fails with `workload_mismatch` instead of comparing
+incompatible RSS samples:
+
+```toml
+[resource_policy]
+schema_version = 1
+policy_id = "differential-rss-python-tests-v1"
+workload = "v0.23-real-history-expanded-review-python-tests"
+source = "posix-time-v1"
+unit = "KiB"
+statistic = "median"
+required_phases = ["cold", "warm"]
+ceiling_kb_by_phase = { cold = 65536, warm = 49152 }
+unavailable = "fail"
+verification_checks = ["python.tests"]
+```
+
+Pass a temporary policy with `--resource-policy /tmp/python-tests-policy.toml`;
+do not reuse the static policy or treat one local packet as a universal memory
+claim.
+
 When one reviewer is available, `pilot-template` creates an exploratory
 worksheet over the same pinned differential artifact. `pilot-score` reports
 only captured novel-evidence, timing, determinism, and resource fields;

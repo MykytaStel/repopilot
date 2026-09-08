@@ -29,6 +29,7 @@ def _policy() -> dict[str, object]:
         "required_phases": ["cold", "warm"],
         "ceiling_kb_by_phase": {"cold": 500, "warm": 400},
         "unavailable": "fail",
+        "verification_checks": [],
     }
 
 
@@ -108,6 +109,21 @@ class DifferentialBudgetTests(unittest.TestCase):
     def test_rejects_manifest_case_drift(self) -> None:
         with self.assertRaisesRegex(DifferentialBudgetError, "case set mismatch"):
             evaluate_resource_budget(_artifact("one"), _manifest("two"), _policy())
+
+    def test_rejects_policy_for_a_different_verification_workload(self) -> None:
+        artifact = _artifact("one")
+        artifact["review_verification"] = {"checks": ["python.tests"]}
+        result = evaluate_resource_budget(artifact, _manifest("one"), _policy())
+        self.assertEqual(result["status"], "fail")
+        self.assertEqual(result["violations"][0]["kind"], "workload_mismatch")
+
+    def test_accepts_matching_explicit_verification_workload(self) -> None:
+        artifact = _artifact("one")
+        artifact["review_verification"] = {"checks": ["python.tests"]}
+        policy = _policy()
+        policy["verification_checks"] = ["python.tests"]
+        result = evaluate_resource_budget(artifact, _manifest("one"), policy)
+        self.assertEqual(result["status"], "pass")
 
     def test_render_is_deterministic_and_json_safe(self) -> None:
         result = evaluate_resource_budget(_artifact("one"), _manifest("one"), _policy())

@@ -198,6 +198,50 @@ unavailable = "fail"
         self.assertEqual(result, 0)
         self.assertEqual(json.loads(output.getvalue())["status"], "pass")
 
+    def test_budget_check_accepts_a_separate_resource_policy(self) -> None:
+        artifact = self._budget_artifact()
+        policy = self.root / "resource-policy.toml"
+        policy.write_text(
+            """[resource_policy]
+schema_version = 1
+policy_id = "differential-rss-explicit-v1"
+workload = "explicit-tests"
+source = "posix-time-v1"
+unit = "KiB"
+statistic = "median"
+required_phases = ["cold", "warm"]
+ceiling_kb_by_phase = { cold = 500, warm = 400 }
+unavailable = "fail"
+verification_checks = []
+""",
+            encoding="utf-8",
+        )
+        output = io.StringIO()
+        with patch.object(differential, "validate_differential", return_value={"status": "valid"}), patch.object(
+            differential, "validate_artifact", return_value={"status": "valid"}
+        ), redirect_stdout(output):
+            result = differential.main(
+                [
+                    "budget-check",
+                    "--manifest",
+                    str(self.diff),
+                    "--resource-policy",
+                    str(policy),
+                    "--holdout-manifest",
+                    str(self.holdout),
+                    "--rules-reference",
+                    str(self.rules),
+                    "--zoo-manifest",
+                    str(self.zoo),
+                    "--artifact",
+                    str(artifact),
+                    "--format",
+                    "json",
+                ]
+            )
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(output.getvalue())["policy_id"], "differential-rss-explicit-v1")
+
     def test_budget_check_returns_failure_for_over_budget_artifact(self) -> None:
         artifact = self._budget_artifact(cold=600)
         output = io.StringIO()
@@ -300,6 +344,7 @@ class ProductionDifferentialManifestTests(unittest.TestCase):
         self.assertEqual(policy["source"], "posix-time-v1")
         self.assertEqual(policy["required_phases"], ["cold", "warm"])
         self.assertEqual(policy["ceiling_kb_by_phase"], {"cold": 65536.0, "warm": 49152.0})
+        self.assertEqual(policy["verification_checks"], [])
 
 
 if __name__ == "__main__":

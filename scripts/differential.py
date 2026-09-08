@@ -66,6 +66,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--output", type=Path, help="write a differential artifact")
     parser.add_argument("--artifact", type=Path, help="differential artifact to validate")
+    parser.add_argument(
+        "--resource-policy",
+        type=Path,
+        help="optional manifest containing the resource_policy for budget-check",
+    )
     parser.add_argument("--pilot", type=Path, help="single-expert pilot worksheet")
     parser.add_argument("--reviewer", help="single-expert pilot reviewer name")
     parser.add_argument("--metrics", type=Path, help="single-expert pilot metrics artifact")
@@ -129,17 +134,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             artifact = json.loads(args.artifact.read_text(encoding="utf-8"))
             manifest = load_manifest_document(args.manifest)
-            policy = load_resource_policy(args.manifest)
+            policy_path = args.resource_policy or args.manifest
+            policy = load_resource_policy(policy_path)
             if policy is None:
                 result = {
                     "status": "unconfigured",
                     "reason": "manifest has no resource_policy",
                     "manifest_sha256": _sha256(args.manifest),
+                    "resource_policy_sha256": _sha256(policy_path),
                     "artifact_sha256": _sha256(args.artifact),
                 }
             else:
                 result = evaluate_resource_budget(artifact, manifest, policy)
                 result["manifest_sha256"] = _sha256(args.manifest)
+                result["resource_policy_sha256"] = _sha256(policy_path)
                 result["artifact_sha256"] = _sha256(args.artifact)
         except (DifferentialBudgetError, DifferentialManifestError, HoldoutManifestError, OSError, json.JSONDecodeError) as error:
             print(f"differential resource budget invalid: {error}", file=sys.stderr)
