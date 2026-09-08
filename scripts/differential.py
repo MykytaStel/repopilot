@@ -4,11 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 from differential_artifact import validate_artifact, validate_data
+from differential_budget import (
+    DifferentialBudgetError,
+    evaluate_resource_budget,
+    load_manifest_document,
+    load_resource_policy,
+    render_resource_budget,
+)
 from differential_contract import DifferentialManifestError, validate_differential
 from differential_coverage import render_coverage_audit
 from differential_pilot import render_pilot_template, validate_pilot
@@ -27,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
             "check",
             "collect",
             "validate-result",
+            "budget-check",
             "pilot-template",
             "pilot-validate",
             "pilot-score",
@@ -51,6 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reviewer", help="single-expert pilot reviewer name")
     parser.add_argument("--metrics", type=Path, help="single-expert pilot metrics artifact")
     args = parser.parse_args(argv)
+    if args.command == "budget-check" and args.artifact is None:
+        print("--artifact is required for budget-check", file=sys.stderr)
+        return 2
     try:
         result = validate_differential(args.manifest, args.holdout_manifest, args.rules_reference, args.zoo_manifest)
     except (DifferentialManifestError, OSError) as error:
@@ -89,6 +101,40 @@ def main(argv: list[str] | None = None) -> int:
                 f"{comparison['untracked']} untracked"
             )
         return 0
+    if args.command == "budget-check":
+        try:
+            validate_artifact(
+                args.artifact,
+                args.holdout_manifest,
+                args.manifest,
+                args.rules_reference,
+                args.zoo_manifest,
+            )
+            artifact = json.loads(args.artifact.read_text(encoding="utf-8"))
+            manifest = load_manifest_document(args.manifest)
+            policy = load_resource_policy(args.manifest)
+            if policy is None:
+                result = {
+                    "status": "unconfigured",
+                    "reason": "manifest has no resource_policy",
+                    "manifest_sha256": _sha256(args.manifest),
+                    "artifact_sha256": _sha256(args.artifact),
+                }
+            else:
+                result = evaluate_resource_budget(artifact, manifest, policy)
+                result["manifest_sha256"] = _sha256(args.manifest)
+                result["artifact_sha256"] = _sha256(args.artifact)
+        except (DifferentialBudgetError, DifferentialManifestError, HoldoutManifestError, OSError, json.JSONDecodeError) as error:
+            print(f"differential resource budget invalid: {error}", file=sys.stderr)
+            return 1
+        if args.format == "json":
+            print(json.dumps(result, indent=2, sort_keys=True))
+        elif result["status"] == "unconfigured":
+            print("Differential resource budget: unconfigured")
+            print(f"Reason: {result['reason']}")
+        else:
+            print(render_resource_budget(result), end="")
+        return 1 if result["status"] == "fail" else 0
     if args.command == "collect":
         if args.output is None:
             print("--output is required for collect", file=sys.stderr)
@@ -241,6 +287,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Measurements: {', '.join(result['measurements'])}")
         print(f"Repetitions: {result['repetitions']}")
     return 0
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 if __name__ == "__main__":

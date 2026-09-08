@@ -18,6 +18,14 @@ class DifferentialBudgetError(DifferentialManifestError):
     """Raised when a resource policy or artifact cannot be enforced."""
 
 
+def load_manifest_document(manifest_path: Path) -> dict[str, Any]:
+    try:
+        document = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise DifferentialBudgetError(f"cannot read differential manifest {manifest_path}: {error}") from error
+    return document
+
+
 def _positive_number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
         raise DifferentialBudgetError(f"{label} must be a positive number")
@@ -65,10 +73,7 @@ def _validate_policy(policy: object) -> dict[str, Any]:
 
 
 def load_resource_policy(manifest_path: Path) -> dict[str, Any] | None:
-    try:
-        document = tomllib.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        raise DifferentialBudgetError(f"cannot read differential manifest {manifest_path}: {error}") from error
+    document = load_manifest_document(manifest_path)
     raw_policy = document.get("resource_policy")
     return None if raw_policy is None else _validate_policy(raw_policy)
 

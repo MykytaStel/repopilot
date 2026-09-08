@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SCRIPTS_DIR.parent
@@ -103,6 +107,132 @@ baseline_ids = ["python.tests"]
         self.assertEqual(differential.main(["pilot-validate-metrics", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["pilot-metrics-report", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
         self.assertEqual(differential.main(["coverage-audit", "--manifest", str(self.diff), "--holdout-manifest", str(self.holdout), "--rules-reference", str(self.rules), "--zoo-manifest", str(self.zoo)]), 2)
+
+    def _budget_artifact(self, cold: int = 100, warm: int = 200) -> Path:
+        self.diff.write_text(
+            self.diff.read_text(encoding="utf-8")
+            + """
+[resource_policy]
+schema_version = 1
+policy_id = "differential-rss-v1"
+workload = "test"
+source = "posix-time-v1"
+unit = "KiB"
+statistic = "median"
+required_phases = ["cold", "warm"]
+ceiling_kb_by_phase = { cold = 500, warm = 400 }
+unavailable = "fail"
+""",
+            encoding="utf-8",
+        )
+        artifact = {
+            "schema_version": 2,
+            "cases": [
+                {
+                    "id": case_id,
+                    "reviews": [
+                        {
+                            "resource_status": "available",
+                            "resource_source": "posix-time-v1",
+                            "resource_phase": "cold",
+                            "child_max_rss_kb": cold,
+                        },
+                        {
+                            "resource_status": "available",
+                            "resource_source": "posix-time-v1",
+                            "resource_phase": "warm",
+                            "child_max_rss_kb": warm,
+                        },
+                    ],
+                }
+                for case_id in ("case-one", "case-two")
+            ],
+        }
+        path = self.root / "artifact.json"
+        path.write_text(json.dumps(artifact), encoding="utf-8")
+        return path
+
+    def test_budget_check_passes_and_supports_json(self) -> None:
+        artifact = self._budget_artifact()
+        output = io.StringIO()
+        with patch.object(differential, "validate_differential", return_value={"status": "valid"}), patch.object(
+            differential, "validate_artifact", return_value={"status": "valid"}
+        ), redirect_stdout(output):
+            result = differential.main(
+                [
+                    "budget-check",
+                    "--manifest",
+                    str(self.diff),
+                    "--holdout-manifest",
+                    str(self.holdout),
+                    "--rules-reference",
+                    str(self.rules),
+                    "--zoo-manifest",
+                    str(self.zoo),
+                    "--artifact",
+                    str(artifact),
+                    "--format",
+                    "json",
+                ]
+            )
+        self.assertEqual(result, 0)
+        self.assertEqual(json.loads(output.getvalue())["status"], "pass")
+
+    def test_budget_check_returns_failure_for_over_budget_artifact(self) -> None:
+        artifact = self._budget_artifact(cold=600)
+        output = io.StringIO()
+        with patch.object(differential, "validate_differential", return_value={"status": "valid"}), patch.object(
+            differential, "validate_artifact", return_value={"status": "valid"}
+        ), redirect_stdout(output):
+            result = differential.main(
+                [
+                    "budget-check",
+                    "--manifest",
+                    str(self.diff),
+                    "--holdout-manifest",
+                    str(self.holdout),
+                    "--rules-reference",
+                    str(self.rules),
+                    "--zoo-manifest",
+                    str(self.zoo),
+                    "--artifact",
+                    str(artifact),
+                ]
+            )
+        self.assertEqual(result, 1)
+        self.assertIn("Differential resource budget: fail", output.getvalue())
+
+    def test_budget_check_is_unconfigured_without_policy(self) -> None:
+        artifact = self.root / "artifact.json"
+        artifact.write_text(json.dumps({"cases": []}), encoding="utf-8")
+        output = io.StringIO()
+        with patch.object(differential, "validate_differential", return_value={"status": "valid"}), patch.object(
+            differential, "validate_artifact", return_value={"status": "valid"}
+        ), redirect_stdout(output):
+            result = differential.main(
+                [
+                    "budget-check",
+                    "--manifest",
+                    str(self.diff),
+                    "--holdout-manifest",
+                    str(self.holdout),
+                    "--rules-reference",
+                    str(self.rules),
+                    "--zoo-manifest",
+                    str(self.zoo),
+                    "--artifact",
+                    str(artifact),
+                ]
+            )
+        self.assertEqual(result, 0)
+        self.assertIn("unconfigured", output.getvalue())
+
+    def test_budget_check_requires_artifact(self) -> None:
+        error = io.StringIO()
+        with redirect_stderr(error):
+            result = differential.main(["budget-check", "--manifest", str(self.diff)])
+        self.assertEqual(result, 2)
+        self.assertIn("--artifact is required", error.getvalue())
 
 
 class ProductionDifferentialManifestTests(unittest.TestCase):
