@@ -15,6 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_contract import DifferentialManifestError, validate_differential  # noqa: E402
+from differential_budget import load_resource_policy  # noqa: E402
 import differential  # noqa: E402
 
 
@@ -247,6 +248,13 @@ class ProductionDifferentialManifestTests(unittest.TestCase):
         self.assertEqual(result["corpus"], "v0.23-real-history-holdout-expanded")
         self.assertEqual(result["cases"], 6)
         self.assertEqual(result["repetitions"], 3)
+
+    def test_production_manifest_declares_strict_resource_policy(self) -> None:
+        policy = load_resource_policy(PROJECT_ROOT / "tests/benchmarks/differential.toml")
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy["source"], "posix-time-v1")
+        self.assertEqual(policy["required_phases"], ["cold", "warm"])
+        self.assertEqual(policy["ceiling_kb_by_phase"], {"cold": 65536.0, "warm": 49152.0})
 
 
 if __name__ == "__main__":

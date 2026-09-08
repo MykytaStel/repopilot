@@ -86,6 +86,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   platforms and malformed sampler output remain unavailable.
 - Added cold/warm resource phases to repeated differential runs and metrics;
   reports now keep first-run cold RSS separate from subsequent warm samples.
+- Added `differential.py budget-check` with a pinned review-workload RSS policy;
+  it requires both phases, checks the sampler source, and fails on unavailable
+  samples instead of treating them as zero.
 - Made the generated rule scorecard report evidence denominators directly:
   default-profile coverage, labeled findings, repository coverage, strict
   samples, and the explicit boundary that these labels do not establish recall.
