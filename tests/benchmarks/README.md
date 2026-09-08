@@ -63,6 +63,10 @@ measurement remains unavailable.
 keeps unavailable reasons visible and points to the next adapter work without
 scoring precision, recall, utility, or overlap.
 
+Resource samples follow the same boundary: cumulative child RSS is measured
+only when a positive per-command delta is available. A zero or unsupported
+delta is reported as unavailable, never as proof of zero memory use.
+
 For `python.tests`, a failed pytest node remains baseline-only. RepoPilot does
 not execute tests during review, so a test path or changed test name cannot
 prove the same failure identity; the comparison stays unavailable until a

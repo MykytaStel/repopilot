@@ -47,6 +47,27 @@ def _resource_snapshot() -> tuple[str, int | None]:
     return "available", max_rss
 
 
+def _record_resource_usage(
+    result: dict[str, Any],
+    resource_status: str,
+    resource_before: int | None,
+    resource_after: int | None,
+) -> None:
+    """Record only a positive per-command RSS sample from cumulative child usage."""
+
+    if resource_status != "available" or resource_before is None or resource_after is None:
+        result["resource_status"] = "unavailable"
+        result["resource_reason"] = "per-command child RSS sample is unavailable"
+        return
+    delta = resource_after - resource_before
+    if delta <= 0:
+        result["resource_status"] = "unavailable"
+        result["resource_reason"] = "cumulative child RSS delta was non-positive"
+        return
+    result["resource_status"] = "available"
+    result["child_max_rss_kb"] = delta
+
+
 def run_timed_command(
     command: tuple[str, ...], cwd: Path, timeout_seconds: int, baseline_id: str | None = None
 ) -> dict[str, Any]:
@@ -81,8 +102,7 @@ def run_timed_command(
         if baseline_id is not None and status in {"passed", "failed"}
         else {"status": "unavailable", "reason": "baseline command did not complete"}
     )
-    if resource_before is not None and resource_after is not None:
-        result["child_max_rss_kb"] = max(0, resource_after - resource_before)
+    _record_resource_usage(result, resource_status, resource_before, resource_after)
     return result
 
 
@@ -169,8 +189,7 @@ def _review_once(
         report, process.stdout, process.returncode, base_evidence, resource_status, started
     )
     _, resource_after = _resource_snapshot()
-    if resource_before is not None and resource_after is not None:
-        result["child_max_rss_kb"] = max(0, resource_after - resource_before)
+    _record_resource_usage(result, resource_status, resource_before, resource_after)
     return result
 
 

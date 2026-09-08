@@ -224,6 +224,7 @@ def validate_case(
             if not isinstance(run.get("wall_ms"), (int, float)) or run["wall_ms"] < 0:
                 raise DifferentialManifestError(f"case {case.case_id}: invalid baseline timing")
             _validate_run_telemetry(run, run["wall_ms"], schema_version, f"case {case.case_id} baseline")
+            _validate_resource_usage(run, f"case {case.case_id} baseline")
             _validate_baseline_evidence(run, f"case {case.case_id} baseline", schema_version, baseline_id)
     base_scan = observation.get("base_scan")
     if not isinstance(base_scan, dict) or base_scan.get("status") not in BASE_SCAN_STATUSES:
@@ -242,6 +243,7 @@ def validate_case(
         if not isinstance(review.get("wall_ms"), (int, float)) or review["wall_ms"] < 0:
             raise DifferentialManifestError(f"case {case.case_id}: invalid review timing")
         _validate_run_telemetry(review, review["wall_ms"], schema_version, f"case {case.case_id} review")
+        _validate_resource_usage(review, f"case {case.case_id} review")
         if review["status"] == "collected" and not isinstance(review.get("stable_evidence_sha256"), str):
             raise DifferentialManifestError(f"case {case.case_id}: collected review lacks stable evidence hash")
         if review["status"] == "collected":
@@ -270,6 +272,24 @@ def _validate_run_telemetry(
         validate_telemetry(telemetry, wall_ms, context)
     except ValueError as error:
         raise DifferentialManifestError(str(error)) from error
+
+
+def _validate_resource_usage(run: dict[str, Any], context: str) -> None:
+    status = run.get("resource_status")
+    if status is None:
+        return
+    if status not in {"available", "unavailable"}:
+        raise DifferentialManifestError(f"{context}: resource status is invalid")
+    sample = run.get("child_max_rss_kb")
+    if status == "available":
+        if not isinstance(sample, (int, float)) or sample < 0:
+            raise DifferentialManifestError(f"{context}: available resource sample is missing")
+        if "resource_reason" in run:
+            raise DifferentialManifestError(f"{context}: available resource sample has a reason")
+    elif not isinstance(run.get("resource_reason"), str) or not run["resource_reason"]:
+        raise DifferentialManifestError(f"{context}: unavailable resource reason is missing")
+    if status == "unavailable" and sample is not None:
+        raise DifferentialManifestError(f"{context}: unavailable resource sample must be omitted")
 
 
 def _validate_baseline_evidence(
