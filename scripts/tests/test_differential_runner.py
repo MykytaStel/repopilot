@@ -11,12 +11,30 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_artifact import validate_data  # noqa: E402
-from differential_runner import _build_review_result, run_timed_command  # noqa: E402
+from differential_runner import _build_review_result, _record_resource_usage, run_timed_command  # noqa: E402
 from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
 class DifferentialRunnerTests(unittest.TestCase):
+    def test_resource_usage_rejects_non_positive_cumulative_delta(self) -> None:
+        result = {"resource_status": "available"}
+
+        _record_resource_usage(result, "available", 4096, 4096)
+
+        self.assertEqual(result["resource_status"], "unavailable")
+        self.assertNotIn("child_max_rss_kb", result)
+        self.assertIn("cumulative", result["resource_reason"])
+
+    def test_resource_usage_keeps_positive_delta_as_a_measured_sample(self) -> None:
+        result = {"resource_status": "available"}
+
+        _record_resource_usage(result, "available", 4096, 5120)
+
+        self.assertEqual(result["resource_status"], "available")
+        self.assertEqual(result["child_max_rss_kb"], 1024)
+        self.assertNotIn("resource_reason", result)
+
     def test_review_result_keeps_comparable_diagnostic_keys_separate(self) -> None:
         report = {
             "root_path": "/worktree",
@@ -226,6 +244,27 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["baseline_evidence"]["unavailable"], 6)
         self.assertEqual(result["baseline_evidence"]["measurement_rate"], 0.0)
+
+    def test_artifact_rejects_available_resource_without_a_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                        run["resource_status"] = "available"
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "available resource sample"):
+                validate_data(artifact, holdout, differential, rules, zoo)
 
     def test_artifact_schema_two_requires_provenance_for_measured_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
