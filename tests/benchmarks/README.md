@@ -47,6 +47,17 @@ evidence is marked novel only when its rule/path/line/snippet identity is absent
 from that base scan. The artifact remains unlabeled and makes no utility claim
 until the independent labeling and scoring step exists.
 
+The release binary's synthetic scan resource matrix uses the separate
+`scan-rss-v1` policy:
+
+```bash
+npm run scan:resource
+```
+
+It runs full and changed scans in cold and warm phases, writes the host profile
+and RSS samples to `/tmp/repopilot-scan-resource-matrix.json`, and fails when a
+required sample is unavailable or over its ceiling.
+
 The differential collection artifact is schema 2. Each baseline, base scan, and
 review run has validated monotonic start/finish telemetry. Review runs may also
 record evidence-ready and decision-ready phase events from RepoPilot's internal

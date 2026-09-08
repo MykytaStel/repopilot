@@ -52,6 +52,17 @@ jobs:
       - name: Changed review performance gate
         run: npm run review:performance
 
+      - name: Scan resource matrix gate
+        run: npm run scan:resource
+
+      - name: Upload scan resource matrix
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repopilot-scan-resource-matrix
+          path: /tmp/repopilot-scan-resource-matrix.json
+          if-no-files-found: ignore
+
       - name: RepoPilot CI gate
         shell: bash
         run: |
