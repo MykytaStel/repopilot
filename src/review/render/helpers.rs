@@ -2,6 +2,7 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
+use crate::review::proof::ProofObligations;
 use crate::verification::VerificationOutcome;
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
@@ -10,6 +11,33 @@ pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> S
     } else {
         format!("{} ms", outcome.duration_ms)
     }
+}
+
+pub(super) fn verification_proof_summary(
+    report: &ReviewReport,
+    obligations: ProofObligations,
+) -> String {
+    if report.verification.is_empty() {
+        return "none selected; no verification evidence".to_string();
+    }
+
+    let revision = if report
+        .verification
+        .iter()
+        .all(|outcome| outcome.revision_compatible)
+    {
+        "revision-compatible"
+    } else {
+        "revision-incompatible"
+    };
+    format!(
+        "{} passed, {} failed, {} unavailable, {} unselected, {} stale ({revision})",
+        obligations.satisfied,
+        obligations.failed,
+        obligations.unavailable,
+        obligations.unselected,
+        obligations.stale,
+    )
 }
 
 pub(super) fn status_for_finding(

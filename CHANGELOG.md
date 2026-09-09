@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added a verification-proof line to the console and Markdown review summaries.
+  It reports passed, failed, unavailable, unselected, and stale obligations,
+  makes revision compatibility explicit, and discloses when no verification
+  evidence was selected.
 - Projected the canonical `ChangeProof` into review JSON, MCP review results,
   and the console Proof Card while preserving legacy readiness, gates, and exit
   behavior. The additive projection reports verdict, analyzed scope, and proof
