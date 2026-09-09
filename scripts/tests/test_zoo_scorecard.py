@@ -111,6 +111,39 @@ class AggregateRuleScoresTests(unittest.TestCase):
         self.assertEqual(score.repos, {"repo-a", "repo-b"})
         self.assertAlmostEqual(score.precision_estimate, 2 / 3)
 
+
+class RuleScoreStatisticsTests(unittest.TestCase):
+    def test_wilson_interval_is_bounded_and_reproducible(self) -> None:
+        lower, upper = zs.wilson_interval(8, 10)
+        self.assertAlmostEqual(lower, 0.490, places=3)
+        self.assertAlmostEqual(upper, 0.943, places=3)
+
+    def test_empty_sample_has_no_interval(self) -> None:
+        self.assertIsNone(zs.wilson_interval(0, 0))
+
+    def test_invalid_interval_counts_fail_closed(self) -> None:
+        with self.assertRaises(ValueError):
+            zs.wilson_interval(11, 10)
+        with self.assertRaises(ValueError):
+            zs.wilson_interval(1, 0)
+
+    def test_rule_score_exposes_distinct_quality_rates(self) -> None:
+        score = zs.RuleScore(
+            rule_id="x.rule",
+            labeled=10,
+            actionable=4,
+            valid_but_accepted=3,
+            false_positive=3,
+        )
+        self.assertAlmostEqual(score.validity_estimate, 0.7)
+        self.assertAlmostEqual(score.actionability_estimate, 0.4)
+        self.assertAlmostEqual(score.false_positive_rate, 0.3)
+        self.assertEqual(score.evidence_status, "descriptive")
+
+    def test_small_sample_is_explicitly_limited(self) -> None:
+        score = zs.RuleScore(rule_id="x.rule", labeled=9, actionable=9)
+        self.assertEqual(score.evidence_status, "insufficient evidence")
+
     def test_missing_expectation_file_is_skipped_not_raised(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             scores = zs.aggregate_rule_scores([{"name": "no-such-repo"}], Path(tmp))
@@ -135,10 +168,29 @@ class RenderScorecardMarkdownTests(unittest.TestCase):
 
         self.assertIn("<!-- @generated", rendered)
         self.assertIn(
-            "| `architecture.circular-dependency` | stable | 4 labeled across 1 repo(s) | 0.75 | 1 |",
+            "| `architecture.circular-dependency` | stable | 4 labeled across 1 repo(s) | insufficient evidence",
             rendered,
         )
-        self.assertIn("| `architecture.dead-module` | experimental | no zoo evidence | n/a | 0 |", rendered)
+        self.assertIn("| `architecture.dead-module` | experimental | no zoo evidence | unmeasured |", rendered)
+
+    def test_scorecard_renders_interval_and_separate_rates_for_descriptive_sample(self) -> None:
+        score = zs.RuleScore(
+            rule_id="architecture.circular-dependency",
+            labeled=10,
+            actionable=4,
+            valid_but_accepted=3,
+            false_positive=3,
+            repos={"repo-a", "repo-b", "repo-c"},
+        )
+        rendered = zs.render_scorecard_markdown(
+            {"architecture.circular-dependency": score},
+            {"architecture.circular-dependency": "stable"},
+        )
+        self.assertIn("Validity (95% Wilson)", rendered)
+        self.assertIn("0.70 (0.40–0.89)", rendered)
+        self.assertIn("0.40", rendered)
+        self.assertIn("0.30", rendered)
+        self.assertIn("descriptive", rendered)
 
     def test_evidence_summary_reports_denominator_and_unmeasured_rules(self) -> None:
         lifecycles = {
@@ -177,7 +229,10 @@ class RenderScorecardMarkdownTests(unittest.TestCase):
         rendered = zs.render_scorecard_markdown(
             {"x.rule": score}, {"x.rule": "preview"}
         )
-        self.assertIn("| `x.rule` | preview | no zoo evidence | n/a | 0 |", rendered)
+        self.assertIn(
+            "| `x.rule` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |",
+            rendered,
+        )
 
     def test_output_is_deterministic_and_sorted(self) -> None:
         lifecycles = {"z.rule": "stable", "a.rule": "preview"}
@@ -219,7 +274,7 @@ class StrictEvidenceKindTests(unittest.TestCase):
     def test_hand_picked_anchors_are_excluded_from_sampled_precision(self) -> None:
         # Catches counting recall anchors as measurement: an anchor is chosen
         # *because* it is a known true positive, so aggregating it would report
-        # selection bias as a precision estimate.
+        # selection bias as a validity estimate.
         with tempfile.TemporaryDirectory() as tmp:
             expectation_dir = Path(tmp)
             (expectation_dir / "repo-a.toml").write_text(

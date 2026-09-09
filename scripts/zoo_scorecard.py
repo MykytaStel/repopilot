@@ -14,11 +14,17 @@ This module has no network access and never runs the scanner; it is driven by
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import zoo_expectations as ze
+from zoo_scorecard_stats import (
+    MIN_DESCRIPTIVE_LABELS,
+    RuleScore,
+    format_rate,
+    format_validity,
+    wilson_interval,
+)
 
 GENERATED_BANNER = (
     "<!-- @generated from tests/zoo/expectations/*.toml and docs/rules-reference.md "
@@ -28,30 +34,6 @@ GENERATED_BANNER = (
 
 _RULE_HEADING = re.compile(r"^### `(?P<rule_id>[^`]+)`", re.MULTILINE)
 _LIFECYCLE_LINE = re.compile(r"^- \*\*Lifecycle:\*\* (?P<lifecycle>\S+)", re.MULTILINE)
-
-
-@dataclass
-class RuleScore:
-    """Aggregated default-profile zoo evidence for one rule."""
-
-    rule_id: str
-    labeled: int = 0
-    actionable: int = 0
-    valid_but_accepted: int = 0
-    false_positive: int = 0
-    repos: set[str] = field(default_factory=set)
-
-    @property
-    def precision_estimate(self) -> float | None:
-        """`(actionable + valid-but-accepted) / labeled`; `None` if never labeled.
-
-        A proxy derived from reviewed dispositions, not measured precision.
-        """
-        if self.labeled == 0:
-            return None
-        return (self.actionable + self.valid_but_accepted) / self.labeled
-
-
 def load_rule_lifecycles(rules_reference_path: Path) -> dict[str, str]:
     """Parse `rule_id -> lifecycle` out of the generated rules reference doc."""
     text = rules_reference_path.read_text(encoding="utf-8")
@@ -79,7 +61,7 @@ def aggregate_rule_scores(
     to record, and averaging the two would present partial coverage as measured
     coverage. Passing `evidence` narrows a strict aggregate to one kind — only
     `sample` entries are drawn without looking at the finding, so only they can
-    support a precision estimate.
+    support a validity estimate.
     """
     scores: dict[str, RuleScore] = {}
     for repo in manifest:
@@ -118,7 +100,7 @@ def render_strict_sample_section(scores: dict[str, RuleScore], lifecycles: dict[
         "",
         "Rules that fire only in the strict profile are too numerous to label "
         "exhaustively. These rows come from deterministic per-rule samples "
-        "(`python3 scripts/zoo.py sample --rule <id>`), so the precision "
+        "(`python3 scripts/zoo.py sample --rule <id>`), so the validity "
         "estimate describes the sampled findings, not the rule's full "
         "strict-profile population. A rule missing from this table has no "
         "sampled evidence at all.",
@@ -129,15 +111,19 @@ def render_strict_sample_section(scores: dict[str, RuleScore], lifecycles: dict[
         lines.append("No rule has strict-profile sampled evidence yet.")
         lines.append("")
         return lines
-    lines.append("| Rule | Lifecycle | Sampled | Precision Estimate | False-Positive Debt |")
-    lines.append("|---|---|---|---:|---:|")
+    lines.append(
+        "| Rule | Lifecycle | Sampled | Evidence Status | Validity (95% Wilson) | "
+        "Actionability | False-Positive Rate | False-Positive Debt |"
+    )
+    lines.append("|---|---|---|---|---:|---:|---:|---:|")
     for rule_id in sorted(sampled):
         score = sampled[rule_id]
         lifecycle = lifecycles.get(rule_id, "unknown")
         sample = f"{score.labeled} sampled across {len(score.repos)} repo(s)"
         lines.append(
-            f"| `{rule_id}` | {lifecycle} | {sample} | "
-            f"{score.precision_estimate:.2f} | {score.false_positive} |"
+            f"| `{rule_id}` | {lifecycle} | {sample} | {score.evidence_status} | "
+            f"{format_validity(score)} | {format_rate(score.actionability_estimate)} | "
+            f"{format_rate(score.false_positive_rate)} | {score.false_positive} |"
         )
     lines.append("")
     return lines
@@ -168,6 +154,8 @@ def render_evidence_summary(
         "(unmeasured, not clean).",
         f"- Strict-profile sampled evidence: {len(sampled)} rules, {strict_labeled} "
         f"sampled findings across {len(strict_repos)} repo(s).",
+        f"- Evidence status is `insufficient evidence` below {MIN_DESCRIPTIVE_LABELS} "
+        "labeled findings; `descriptive` is a sample-size label, not a production precision claim.",
         "- These coverage counts describe committed labels and do not establish recall.",
         "",
     ]
@@ -192,10 +180,12 @@ def render_scorecard_markdown(
         "",
         "Per-rule signal quality derived from the real-repo validation zoo "
         "(`tests/zoo/expectations/*.toml`) and each rule's lifecycle "
-        "(`docs/rules-reference.md`). Precision estimate is "
+        "(`docs/rules-reference.md`). Validity estimate is "
         "`(actionable + valid-but-accepted) / labeled` default-profile zoo "
         "findings — a proxy from human-reviewed dispositions, not measured "
-        "precision. False-positive debt is the count of zoo findings a "
+        "production precision. The validity column includes a 95% Wilson "
+        "interval for the labeled sample; actionability and false-positive "
+        "rate remain separate descriptive proportions. False-positive debt is the count of zoo findings a "
         "reviewer explicitly dispositioned `false-positive`; labels never "
         "suppress the finding, so debt reflects outstanding calibration work, "
         "not detector correctness at large.",
@@ -207,19 +197,33 @@ def render_scorecard_markdown(
         "rule never fired in the default profile on any of them — the rule is "
         "unmeasured, which is not the same as clean.",
         "",
-        "| Rule | Lifecycle | Zoo Evidence | Precision Estimate | False-Positive Debt |",
-        "|---|---|---|---:|---:|",
+        "| Rule | Lifecycle | Zoo Evidence | Evidence Status | Validity (95% Wilson) | "
+        "Actionability | False-Positive Rate | False-Positive Debt |",
+        "|---|---|---|---|---:|---:|---:|---:|",
     ]
     for rule_id in sorted(set(lifecycles) | set(scores)):
         lifecycle = lifecycles.get(rule_id, "unknown")
         score = scores.get(rule_id)
         if score is None or score.labeled == 0:
-            evidence, precision, debt = "no zoo evidence", "n/a", "0"
+            evidence, status, validity, actionability, fp_rate, debt = (
+                "no zoo evidence",
+                "unmeasured",
+                "n/a",
+                "n/a",
+                "n/a",
+                "0",
+            )
         else:
             evidence = f"{score.labeled} labeled across {len(score.repos)} repo(s)"
-            precision = f"{score.precision_estimate:.2f}"
+            status = score.evidence_status
+            validity = format_validity(score)
+            actionability = format_rate(score.actionability_estimate)
+            fp_rate = format_rate(score.false_positive_rate)
             debt = str(score.false_positive)
-        lines.append(f"| `{rule_id}` | {lifecycle} | {evidence} | {precision} | {debt} |")
+        lines.append(
+            f"| `{rule_id}` | {lifecycle} | {evidence} | {status} | {validity} | "
+            f"{actionability} | {fp_rate} | {debt} |"
+        )
     strict_scores = strict_scores or {}
     lines += render_evidence_summary(scores, lifecycles, strict_scores)
     lines += render_strict_sample_section(strict_scores, lifecycles)
