@@ -8,6 +8,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Extended the GitHub Action review summary with the canonical Change Proof
+  verdict, analyzed scope, verification obligation state, and proof limits.
 - Added a verification-proof line to the console and Markdown review summaries.
   It reports passed, failed, unavailable, unselected, and stale obligations,
   makes revision compatibility explicit, and discloses when no verification

@@ -88,6 +88,26 @@ write_review_summary() {
       echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$review_json")"
     fi
     echo "- **Merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
+    jq -r '
+      def verification_revision:
+        ([.merge_readiness.verification[]?] | length) as $outcomes
+        | if $outcomes > 0
+          and ([.merge_readiness.verification[]? | select(.revision_compatible != true)] | length) == 0
+          then "revision-compatible"
+          else "revision-incompatible"
+          end;
+      .change_proof as $proof
+      | "- **Change proof:** \($proof.verdict // "unavailable")",
+        "- **Proof scope:** \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed",
+        (if ($proof.obligations.applicable // 0) == 0 then
+          "- **Verification proof:** none selected; no verification evidence"
+        else
+          "- **Verification proof:** \($proof.obligations.satisfied // 0) passed, \($proof.obligations.failed // 0) failed, \($proof.obligations.unavailable // 0) unavailable, \($proof.obligations.unselected // 0) unselected, \($proof.obligations.stale // 0) stale (\(verification_revision))"
+        end),
+        (if (($proof.coverage.excluded_files // 0) > 0 or ($proof.coverage.unsupported_files // 0) > 0) then
+          "- **Proof limits:** \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported file(s)"
+        else empty end)
+    ' "$review_json"
     echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$review_json")"
     echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$review_json")"
     echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$review_json")"
