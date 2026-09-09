@@ -18,6 +18,10 @@ pub struct InitOptions {
     #[arg(long)]
     pub path: Option<PathBuf>,
 
+    /// Write a reviewable TOML snippet with the detected suggestions
+    #[arg(long)]
+    pub suggestions_output: Option<PathBuf>,
+
     /// Generate a review-first GitHub Actions workflow
     #[arg(long)]
     pub github_action: bool,

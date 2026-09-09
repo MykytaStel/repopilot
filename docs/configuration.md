@@ -31,6 +31,17 @@ Each proposal includes a source marker such as `Cargo.toml`,
 `package.json:scripts.test`, or `src/auth`, so the heuristic can be reviewed
 against repository evidence before it becomes policy.
 
+To create a reviewable snippet without changing the active config:
+
+```bash
+repopilot init --suggestions-output .repopilot/init-suggestions.toml
+```
+
+The snippet contains explicit verification entries and keeps critical-path
+candidates as comments. RepoPilot never loads it automatically; copy reviewed
+entries into `repopilot.toml` deliberately. The output path cannot be the active
+config path.
+
 ## Precedence
 
 Configuration is resolved in this order:

@@ -29,8 +29,7 @@ pub(crate) struct InitSuggestions {
     pub(crate) critical_paths: Vec<CriticalPathCandidate>,
 }
 
-pub(crate) fn render(root: &Path) -> String {
-    let suggestions = detect(root);
+pub(crate) fn render(suggestions: &InitSuggestions) -> String {
     let mut output = String::new();
 
     if suggestions.stacks.is_empty() {
@@ -51,7 +50,7 @@ pub(crate) fn render(root: &Path) -> String {
         output.push_str("No stack-specific verification checks detected.\n");
     } else {
         output.push_str("Suggested verification checks (not run):\n");
-        for check in suggestions.checks {
+        for check in &suggestions.checks {
             output.push_str(&format!(
                 "  - {}: {} (source: {})\n",
                 check.id, check.command, check.source
@@ -63,7 +62,7 @@ pub(crate) fn render(root: &Path) -> String {
         output.push_str("No critical path candidates detected.\n");
     } else {
         output.push_str("Critical path candidates (review before committing):\n");
-        for path in suggestions.critical_paths {
+        for path in &suggestions.critical_paths {
             output.push_str(&format!("  - {} (source: {})\n", path.pattern, path.source));
         }
     }
@@ -72,7 +71,7 @@ pub(crate) fn render(root: &Path) -> String {
     output
 }
 
-fn detect(root: &Path) -> InitSuggestions {
+pub(crate) fn detect(root: &Path) -> InitSuggestions {
     let mut stacks = Vec::new();
     let mut checks = Vec::new();
 
