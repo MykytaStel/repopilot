@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- `repopilot init` now prints deterministic stack-specific verification
+  proposals and existing critical-path candidates. Proposals are display-only:
+  no commands run, and an existing config is preserved unless `--force` is
+  passed.
 - Added self-contained HTML output for `repopilot review`. The local Change Map
   leads with the canonical Proof Card, contract-to-consumer evidence, impact
   paths, verification outcomes, findings, and explicit scope limitations.
