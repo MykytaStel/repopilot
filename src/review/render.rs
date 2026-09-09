@@ -1,6 +1,8 @@
 mod console;
 mod diagnostics;
 mod helpers;
+mod html;
+mod html_assets;
 mod json;
 mod markdown;
 mod sarif;
@@ -11,6 +13,7 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
 
 pub use console::render_console;
+pub use html::render_review_html;
 pub use json::render_json;
 pub use markdown::render_markdown;
 pub use sarif::render_review_sarif;
@@ -74,8 +77,7 @@ pub fn render_with_options(
             ci_gate,
             review_gate,
         )),
-        OutputFormat::Html | OutputFormat::Sarif => {
-            unreachable!("HTML and SARIF are not supported for the review command")
-        }
+        OutputFormat::Html => Ok(html::render_review_html(report, ci_gate, review_gate)),
+        OutputFormat::Sarif => unreachable!("SARIF is not supported for the review command"),
     }
 }

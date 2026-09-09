@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added self-contained HTML output for `repopilot review`. The local Change Map
+  leads with the canonical Proof Card, contract-to-consumer evidence, impact
+  paths, verification outcomes, findings, and explicit scope limitations.
 - Extended the GitHub Action review summary with the canonical Change Proof
   verdict, analyzed scope, verification obligation state, and proof limits.
 - Added a verification-proof line to the console and Markdown review summaries.
