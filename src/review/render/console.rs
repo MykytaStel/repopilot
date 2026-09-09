@@ -9,7 +9,7 @@ use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::ReviewRenderOptions;
-use crate::review::render::helpers::verification_duration_evidence;
+use crate::review::render::helpers::{verification_duration_evidence, verification_proof_summary};
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
 
@@ -70,6 +70,10 @@ fn render_console_header(
             proof.coverage.excluded_files, proof.coverage.unsupported_files
         ));
     }
+    output.push_str(&format!(
+        "Verification proof: {}\n",
+        verification_proof_summary(report, proof.obligations)
+    ));
     output.push_str(&format!(
         "Merge readiness: {}\n",
         readiness.verdict.label().to_uppercase()

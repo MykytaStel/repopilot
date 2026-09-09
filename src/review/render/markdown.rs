@@ -9,7 +9,9 @@ use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::helpers::verification_duration_evidence;
-use crate::review::render::helpers::{render_ranges, status_for_finding};
+use crate::review::render::helpers::{
+    render_ranges, status_for_finding, verification_proof_summary,
+};
 use crate::review::signals::tiered::ReviewSignal;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
@@ -55,6 +57,10 @@ pub fn render_markdown_with_gates(
             proof.coverage.excluded_files, proof.coverage.unsupported_files
         ));
     }
+    output.push_str(&format!(
+        "- **Verification proof:** {}\n",
+        verification_proof_summary(report, proof.obligations)
+    ));
     let ownership_status = match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => "resolved".to_string(),
         OwnershipAssessment::ConfiguredButUnmatched => format!(

@@ -182,6 +182,70 @@ fn human_reports_show_when_verification_was_reused() {
 }
 
 #[test]
+fn human_summary_discloses_when_no_verification_was_selected() {
+    let report = report_with_ownership(OwnershipSummary::default());
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    assert!(console.contains("Verification proof: none selected; no verification evidence"));
+    assert!(markdown.contains("- **Verification proof:** none selected; no verification evidence"));
+}
+
+#[test]
+fn human_summary_reports_revision_compatible_passed_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_failed_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "0 passed, 1 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_unavailable_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Unavailable, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "0 passed, 0 failed, 1 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_revision_incompatible_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, false)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary =
+        "0 passed, 0 failed, 0 unavailable, 0 unselected, 1 stale (revision-incompatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
 fn failed_verification_blocks_canonical_readiness() {
     let mut report = report_with_ownership(OwnershipSummary::default());
     report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
