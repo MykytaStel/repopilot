@@ -68,7 +68,7 @@ while (($#)); do
 done
 if [[ "$command" == "review" ]]; then
   cat > "$output" <<'JSON'
-{"merge_readiness":{"verdict":"ready"},"review":{"in_diff_findings":1,"tiered_signals":{"definitely":0,"maybe":0,"noise":0,"total":0}},"tiered_signals":{"definitely":[],"maybe":[],"noise":[]},"findings":[]}
+{"merge_readiness":{"verdict":"ready"},"change_proof":{"verdict":"REVIEW","coverage":{"requested_files":1,"analyzed_files":1,"excluded_files":0,"unsupported_files":0},"obligations":{"applicable":0,"satisfied":0,"failed":0,"unavailable":0,"unselected":0,"stale":0}},"review":{"in_diff_findings":1,"tiered_signals":{"definitely":0,"maybe":0,"noise":0,"total":0}},"tiered_signals":{"definitely":[],"maybe":[],"noise":[]},"findings":[]}
 JSON
   printf '{"version":"2.1.0","runs":[]}\n' > "$sarif"
   exit 0
@@ -145,6 +145,9 @@ fi
     assert!(summary.contains("**New findings:** 1"));
     assert!(summary.contains("**Resolved findings:** 1"));
     assert!(summary.contains("**Merge readiness:** ready"));
+    assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(summary.contains("**Proof scope:** 1/1 file(s) analyzed"));
+    assert!(summary.contains("**Verification proof:** none selected; no verification evidence"));
     assert!(
         summary.contains("New finding"),
         "the new finding's title should appear in the summary:\n{summary}"
@@ -153,4 +156,69 @@ fi
         !summary.contains("Survives a line move"),
         "an existing (unmoved-key) finding must not be listed as new:\n{summary}"
     );
+}
+
+#[test]
+fn review_action_summary_projects_verification_proof_card() {
+    let temp = tempdir().expect("tempdir");
+    let root = temp.path();
+    fs::write(
+        root.join("review.json"),
+        r#"{
+          "merge_readiness": {
+            "verdict": "blocked",
+            "verification": [{"revision_compatible": true}]
+          },
+          "change_proof": {
+            "verdict": "REVIEW",
+            "coverage": {
+              "requested_files": 4,
+              "analyzed_files": 3,
+              "excluded_files": 1,
+              "unsupported_files": 0
+            },
+            "obligations": {
+              "applicable": 1,
+              "satisfied": 1,
+              "failed": 0,
+              "unavailable": 0,
+              "unselected": 0,
+              "stale": 0
+            }
+          },
+          "review": {
+            "in_diff_findings": 0,
+            "tiered_signals": {"definitely": 0, "maybe": 0, "noise": 0, "total": 0}
+          },
+          "tiered_signals": {"definitely": [], "maybe": [], "noise": []}
+        }"#,
+    )
+    .expect("write review report");
+
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let source = manifest.join("scripts/repopilot-action-review.sh");
+    let command = format!(
+        "source \"{}\" && write_review_summary review.json",
+        source.display()
+    );
+    let output = Command::new("bash")
+        .arg("-c")
+        .arg(command)
+        .current_dir(root)
+        .output()
+        .expect("run summary helper");
+    assert!(
+        output.status.success(),
+        "summary helper failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let summary =
+        fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
+    assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(summary.contains("**Proof scope:** 3/4 file(s) analyzed"));
+    assert!(summary.contains(
+        "**Verification proof:** 1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)"
+    ));
+    assert!(summary.contains("**Proof limits:** 1 excluded, 0 unsupported file(s)"));
 }
