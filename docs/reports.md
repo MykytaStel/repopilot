@@ -289,6 +289,21 @@ signals continue to omit it. It is nevertheless a source compatibility change
 for Rust users that construct the public `ReviewSignal` with a struct literal;
 those literals must now provide `target_path`, normally as `None`.
 
+## Review HTML reports
+
+`repopilot review --format html --output review.html` writes a self-contained
+local report. Its first screen is the canonical Proof Card: Change Proof
+verdict, legacy merge readiness, analyzed scope, verification evidence, gates,
+proof limits, and one next action. The Change Map then links changed files to
+typed contract/consumer deltas and bounded impact paths, followed by review
+signals, verification outcomes, and findings.
+
+The report embeds its CSS and small navigation script. It does not load remote
+fonts, scripts, source files, or repository data. Repository-controlled paths,
+evidence, signal details, and finding text are HTML-escaped before rendering;
+large signal and finding lists remain bounded in the human report while JSON
+retains the complete machine-readable record.
+
 ## Audit receipt JSON
 
 Use `--receipt` when a CI job, release process, or audit trail needs compact

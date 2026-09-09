@@ -313,6 +313,9 @@ repopilot review . --base origin/main --no-progress
 # Save a Markdown review report
 repopilot review . --base origin/main --format markdown --output review.md
 
+# Save a self-contained HTML Change Map
+repopilot review . --base origin/main --format html --output review.html
+
 # Preserve the previous full-repository strict review
 repopilot review . --scope full --profile strict
 
@@ -623,7 +626,7 @@ The `--min-severity` flag filters rendered findings before gate evaluation, and 
 | `console` | `scan`, `review` | Versioned terminal report with risk summary, top risk clusters, and grouped findings |
 | `json` | `scan`, `review` | Machine consumption, piping to scripts |
 | `markdown` | `scan`, `review` | Versioned human-readable report with top rules and findings index |
-| `html` | `scan` | Standalone visual report with severity, category, and rule filters |
+| `html` | `scan`, `review` | Standalone local report; review HTML adds the Proof Card and contract/consumer Change Map |
 | `sarif` | `scan` | GitHub Code Scanning, CI security tooling |
 
 See [docs/integrations/github-code-scanning.md](integrations/github-code-scanning.md) for the SARIF upload workflow.
