@@ -4,16 +4,29 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DetectedStack {
+    pub(crate) name: String,
+    pub(crate) source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SuggestedCheck {
     pub(crate) id: String,
     pub(crate) command: String,
+    pub(crate) source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CriticalPathCandidate {
+    pub(crate) pattern: String,
+    pub(crate) source: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InitSuggestions {
-    pub(crate) stacks: Vec<String>,
+    pub(crate) stacks: Vec<DetectedStack>,
     pub(crate) checks: Vec<SuggestedCheck>,
-    pub(crate) critical_paths: Vec<String>,
+    pub(crate) critical_paths: Vec<CriticalPathCandidate>,
 }
 
 pub(crate) fn render(root: &Path) -> String {
@@ -25,7 +38,12 @@ pub(crate) fn render(root: &Path) -> String {
     } else {
         output.push_str(&format!(
             "Detected stack: {}\n",
-            suggestions.stacks.join(", ")
+            suggestions
+                .stacks
+                .iter()
+                .map(|stack| format!("{} ({})", stack.name, stack.source))
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -34,7 +52,10 @@ pub(crate) fn render(root: &Path) -> String {
     } else {
         output.push_str("Suggested verification checks (not run):\n");
         for check in suggestions.checks {
-            output.push_str(&format!("  - {}: {}\n", check.id, check.command));
+            output.push_str(&format!(
+                "  - {}: {} (source: {})\n",
+                check.id, check.command, check.source
+            ));
         }
     }
 
@@ -43,7 +64,7 @@ pub(crate) fn render(root: &Path) -> String {
     } else {
         output.push_str("Critical path candidates (review before committing):\n");
         for path in suggestions.critical_paths {
-            output.push_str(&format!("  - {path}\n"));
+            output.push_str(&format!("  - {} (source: {})\n", path.pattern, path.source));
         }
     }
 
@@ -56,46 +77,75 @@ fn detect(root: &Path) -> InitSuggestions {
     let mut checks = Vec::new();
 
     if root.join("Cargo.toml").is_file() {
-        stacks.push("Rust".to_string());
+        stacks.push(DetectedStack {
+            name: "Rust".to_string(),
+            source: "Cargo.toml".to_string(),
+        });
         checks.push(SuggestedCheck {
             id: "rust.test".to_string(),
             command: "cargo test --all".to_string(),
+            source: "Cargo.toml".to_string(),
         });
     }
 
     if root.join("package.json").is_file() {
-        stacks.push("Node.js".to_string());
+        stacks.push(DetectedStack {
+            name: "Node.js".to_string(),
+            source: "package.json".to_string(),
+        });
         checks.extend(node_checks(root));
     }
 
-    if has_python_marker(root) {
-        stacks.push("Python".to_string());
-        if has_pytest_evidence(root) {
+    if let Some(source) = python_marker(root) {
+        stacks.push(DetectedStack {
+            name: "Python".to_string(),
+            source,
+        });
+        if let Some(source) = pytest_evidence(root) {
             checks.push(SuggestedCheck {
                 id: "python.test".to_string(),
                 command: "python3 -m pytest -q".to_string(),
+                source,
             });
         }
     }
 
     if root.join("go.mod").is_file() {
-        stacks.push("Go".to_string());
+        stacks.push(DetectedStack {
+            name: "Go".to_string(),
+            source: "go.mod".to_string(),
+        });
         checks.push(SuggestedCheck {
             id: "go.test".to_string(),
             command: "go test ./...".to_string(),
+            source: "go.mod".to_string(),
         });
     }
 
     if root.join("pom.xml").is_file() {
-        stacks.push("Java/Maven".to_string());
+        stacks.push(DetectedStack {
+            name: "Java/Maven".to_string(),
+            source: "pom.xml".to_string(),
+        });
         checks.push(SuggestedCheck {
             id: "maven.test".to_string(),
             command: "mvn test".to_string(),
+            source: "pom.xml".to_string(),
         });
     }
 
-    if root.join("build.gradle").is_file() || root.join("build.gradle.kts").is_file() {
-        stacks.push("Java/Gradle".to_string());
+    let gradle_source = if root.join("build.gradle").is_file() {
+        Some("build.gradle")
+    } else if root.join("build.gradle.kts").is_file() {
+        Some("build.gradle.kts")
+    } else {
+        None
+    };
+    if let Some(source) = gradle_source {
+        stacks.push(DetectedStack {
+            name: "Java/Gradle".to_string(),
+            source: source.to_string(),
+        });
         let command = if root.join("gradlew").is_file() {
             "./gradlew test"
         } else {
@@ -104,6 +154,7 @@ fn detect(root: &Path) -> InitSuggestions {
         checks.push(SuggestedCheck {
             id: "gradle.test".to_string(),
             command: command.to_string(),
+            source: source.to_string(),
         });
     }
 
@@ -137,14 +188,15 @@ fn node_checks(root: &Path) -> Vec<SuggestedCheck> {
             .and_then(Value::as_str)
             .is_some_and(|command| !command.trim().is_empty())
     })
-    .map(|(_, id, command)| SuggestedCheck {
+    .map(|(script, id, command)| SuggestedCheck {
         id: id.to_string(),
         command: command.to_string(),
+        source: format!("package.json:scripts.{script}"),
     })
     .collect()
 }
 
-fn has_python_marker(root: &Path) -> bool {
+fn python_marker(root: &Path) -> Option<String> {
     [
         "pyproject.toml",
         "pytest.ini",
@@ -152,10 +204,11 @@ fn has_python_marker(root: &Path) -> bool {
         "requirements.txt",
     ]
     .into_iter()
-    .any(|name| root.join(name).is_file())
+    .find(|name| root.join(name).is_file())
+    .map(str::to_string)
 }
 
-fn has_pytest_evidence(root: &Path) -> bool {
+fn pytest_evidence(root: &Path) -> Option<String> {
     [
         "pytest.ini",
         "pyproject.toml",
@@ -164,11 +217,15 @@ fn has_pytest_evidence(root: &Path) -> bool {
         "requirements-dev.txt",
     ]
     .into_iter()
-    .filter_map(|name| fs::read_to_string(root.join(name)).ok())
-    .any(|contents| contents.to_ascii_lowercase().contains("pytest"))
+    .find(|name| {
+        fs::read_to_string(root.join(name))
+            .ok()
+            .is_some_and(|contents| contents.to_ascii_lowercase().contains("pytest"))
+    })
+    .map(str::to_string)
 }
 
-fn critical_path_candidates(root: &Path) -> Vec<String> {
+fn critical_path_candidates(root: &Path) -> Vec<CriticalPathCandidate> {
     const DIRECTORIES: &[(&str, &str)] = &[
         (".github/workflows", ".github/workflows/**"),
         ("config", "config/**"),
@@ -186,7 +243,7 @@ fn critical_path_candidates(root: &Path) -> Vec<String> {
 
     for (directory, pattern) in DIRECTORIES {
         if root.join(directory).is_dir() {
-            candidates.insert((*pattern).to_string());
+            candidates.insert(((*pattern).to_string(), (*directory).to_string()));
         }
     }
 
@@ -199,90 +256,14 @@ fn critical_path_candidates(root: &Path) -> Vec<String> {
                     .is_some_and(|name| name == ".env" || name.starts_with(".env."))
         })
     {
-        candidates.insert(".env*".to_string());
+        candidates.insert((".env*".to_string(), "root .env* marker".to_string()));
     }
 
-    candidates.into_iter().collect()
+    candidates
+        .into_iter()
+        .map(|(pattern, source)| CriticalPathCandidate { pattern, source })
+        .collect()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    #[test]
-    fn node_proposals_use_only_declared_scripts() {
-        let temp = tempdir().expect("temp dir");
-        fs::write(
-            temp.path().join("package.json"),
-            r#"{"scripts":{"test":"vitest","build":"vite build"}}"#,
-        )
-        .expect("package");
-
-        let suggestions = detect(temp.path());
-
-        assert_eq!(suggestions.stacks, vec!["Node.js"]);
-        assert_eq!(
-            suggestions.checks,
-            vec![
-                SuggestedCheck {
-                    id: "node.test".to_string(),
-                    command: "npm test".to_string(),
-                },
-                SuggestedCheck {
-                    id: "node.build".to_string(),
-                    command: "npm run build".to_string(),
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn critical_paths_are_existing_and_sorted() {
-        let temp = tempdir().expect("temp dir");
-        fs::create_dir_all(temp.path().join("src/security")).expect("security");
-        fs::create_dir_all(temp.path().join("migrations")).expect("migrations");
-        fs::write(temp.path().join(".env.local"), "SECRET=redacted\n").expect("env");
-
-        let suggestions = detect(temp.path());
-
-        assert_eq!(
-            suggestions.critical_paths,
-            vec![".env*", "migrations/**", "src/security/**"]
-        );
-    }
-
-    #[test]
-    fn stack_markers_are_deterministic_and_python_requires_pytest_evidence() {
-        let temp = tempdir().expect("temp dir");
-        fs::write(
-            temp.path().join("Cargo.toml"),
-            "[package]\nname = \"demo\"\n",
-        )
-        .expect("cargo");
-        fs::write(temp.path().join("go.mod"), "module example.test\n").expect("go");
-        fs::write(
-            temp.path().join("pyproject.toml"),
-            "[project]\nname = \"demo\"\n",
-        )
-        .expect("python");
-
-        let suggestions = detect(temp.path());
-
-        assert_eq!(suggestions.stacks, vec!["Rust", "Python", "Go"]);
-        assert_eq!(
-            suggestions.checks,
-            vec![
-                SuggestedCheck {
-                    id: "rust.test".to_string(),
-                    command: "cargo test --all".to_string(),
-                },
-                SuggestedCheck {
-                    id: "go.test".to_string(),
-                    command: "go test ./...".to_string(),
-                },
-            ]
-        );
-    }
-}
+mod tests;

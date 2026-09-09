@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- `repopilot init` now includes source markers for every verification and
+  critical-path proposal, so a maintainer can see which local file or declared
+  script produced the suggestion.
 - `repopilot init` now prints deterministic stack-specific verification
   proposals and existing critical-path candidates. Proposals are display-only:
   no commands run, and an existing config is preserved unless `--force` is

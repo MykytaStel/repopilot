@@ -27,6 +27,9 @@ It does not execute those commands, access the network, or write the
 suggestions into `repopilot.toml`; review them before turning an accepted check
 into a bounded `[[verification.checks]]` entry. Existing config files remain
 unchanged unless `--force` is passed.
+Each proposal includes a source marker such as `Cargo.toml`,
+`package.json:scripts.test`, or `src/auth`, so the heuristic can be reviewed
+against repository evidence before it becomes policy.
 
 ## Precedence
 
