@@ -1,5 +1,6 @@
 use crate::cli::{InitOptions, McpClientArg};
-use crate::commands::init_suggestions::render as render_init_suggestions;
+use crate::commands::init_suggestions::{detect, render as render_init_suggestions};
+use crate::commands::init_suggestions_export::render as render_init_suggestions_toml;
 use repopilot::config::template::default_config_toml;
 use repopilot::review::diff::resolve_git_root;
 use std::fs;
@@ -22,6 +23,13 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
 
     let config_path =
         explicit_or_default_config_path(options.path.as_deref(), invocation_dir, &root);
+    let suggestions_path = options
+        .suggestions_output
+        .as_deref()
+        .map(|path| explicit_or_default_config_path(Some(path), invocation_dir, &root));
+    if suggestions_path.as_ref() == Some(&config_path) {
+        return Err("suggestions output must be different from the RepoPilot config path".into());
+    }
     let config = default_config_toml();
     write_owned_file(&config_path, &config, options.force, "RepoPilot config")?;
 
@@ -44,6 +52,16 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
         )?;
     }
 
+    let suggestions = detect(&root);
+    if let Some(path) = suggestions_path {
+        write_owned_file(
+            &path,
+            &render_init_suggestions_toml(&suggestions),
+            options.force,
+            "init suggestions",
+        )?;
+    }
+
     print_next_steps(
         &config_path,
         &root,
@@ -52,7 +70,7 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
         mcp_client,
     );
     println!();
-    print!("{}", render_init_suggestions(&root));
+    print!("{}", render_init_suggestions(&suggestions));
     Ok(())
 }
 
@@ -191,6 +209,7 @@ mod tests {
         InitOptions {
             force: false,
             path: Some(root.join("repopilot.toml")),
+            suggestions_output: None,
             github_action: false,
             mcp_client: None,
             all: false,

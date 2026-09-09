@@ -11,6 +11,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - `repopilot init` now includes source markers for every verification and
   critical-path proposal, so a maintainer can see which local file or declared
   script produced the suggestion.
+- Added an explicit `--suggestions-output` export for reviewable TOML snippets.
+  Exported checks remain inactive until a maintainer copies them into the active
+  config; critical paths stay comments and existing files are preserved.
 - `repopilot init` now prints deterministic stack-specific verification
   proposals and existing critical-path candidates. Proposals are display-only:
   no commands run, and an existing config is preserved unless `--force` is

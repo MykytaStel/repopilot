@@ -520,6 +520,7 @@ repopilot init [OPTIONS]
 |------|------|---------|-------------|
 | `--force` | flag | — | Overwrite an existing config file |
 | `--path` | path | Git root `repopilot.toml` | Explicit config path; relative paths stay relative to the invocation directory |
+| `--suggestions-output` | path | — | Write a reviewable TOML suggestion snippet; existing output is preserved unless `--force` is passed |
 
 ### Examples
 
@@ -527,6 +528,7 @@ repopilot init [OPTIONS]
 repopilot init
 repopilot init --force
 repopilot init --path ./config/repopilot.toml
+repopilot init --suggestions-output .repopilot/init-suggestions.toml
 repopilot init --github-action
 repopilot init --mcp-client claude
 repopilot init --mcp-client cursor

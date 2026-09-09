@@ -6,8 +6,13 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn run_init(root: &Path) -> String {
+    run_init_with_args(root, &[])
+}
+
+fn run_init_with_args(root: &Path, args: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_repopilot"))
         .arg("init")
+        .args(args)
         .current_dir(root)
         .output()
         .expect("run repopilot init");
@@ -128,6 +133,58 @@ fn init_reports_python_and_go_provenance_without_claiming_python_without_pytest(
         "{output}"
     );
     assert!(output.contains("No commands were run"), "{output}");
+}
+
+#[test]
+fn init_exports_reviewable_toml_without_applying_it_to_config() {
+    let temp = tempdir().expect("tempdir");
+    fs::write(
+        temp.path().join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .expect("Cargo.toml");
+    fs::create_dir_all(temp.path().join("src/auth")).expect("auth directory");
+    let output = run_init_with_args(temp.path(), &["--suggestions-output", "suggestions.toml"]);
+
+    let suggestions_path = temp.path().join("suggestions.toml");
+    let rendered = fs::read_to_string(&suggestions_path).expect("suggestions file");
+    let parsed: toml::Value = toml::from_str(&rendered).expect("valid suggestions TOML");
+    repopilot::config::loader::parse_config(&rendered, Some(&suggestions_path))
+        .expect("suggestions are valid RepoPilot config");
+
+    assert!(output.contains("Created init suggestions"), "{output}");
+    assert_eq!(
+        parsed["verification"]["checks"][0]["id"].as_str(),
+        Some("rust.test")
+    );
+    assert!(rendered.contains("# source: \"Cargo.toml\""));
+    assert!(rendered.contains("# - src/auth/** (source: src/auth)"));
+    assert!(temp.path().join("repopilot.toml").is_file());
+}
+
+#[test]
+fn init_preserves_existing_suggestions_and_rejects_config_collision() {
+    let temp = tempdir().expect("tempdir");
+    let suggestions_path = temp.path().join("suggestions.toml");
+    fs::write(&suggestions_path, "sentinel = true\n").expect("existing suggestions");
+
+    let output = run_init_with_args(temp.path(), &["--suggestions-output", "suggestions.toml"]);
+    assert!(
+        output.contains("init suggestions already exists"),
+        "{output}"
+    );
+    assert_eq!(
+        fs::read_to_string(&suggestions_path).expect("suggestions"),
+        "sentinel = true\n"
+    );
+
+    let collision = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .args(["init", "--suggestions-output", "repopilot.toml"])
+        .current_dir(temp.path())
+        .output()
+        .expect("run collision");
+    assert!(!collision.status.success());
+    assert!(String::from_utf8_lossy(&collision.stderr).contains("different"));
 }
 
 #[test]
