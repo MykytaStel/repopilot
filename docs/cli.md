@@ -544,6 +544,9 @@ After the bootstrap steps, `init` reports the detected stack, declared
 verification commands, and critical-path candidates such as existing workflow,
 authentication, migration, or deployment directories. These are deterministic
 proposals only: commands are not run and existing config is not overwritten.
+Each proposal includes a source marker for the file, directory, or declared
+script that triggered it. A source marker explains the suggestion; it is not
+proof that the check passes or that the path is exhaustive.
 
 ---
 
