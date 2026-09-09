@@ -540,6 +540,11 @@ When invoked below a Git worktree root, the default config, Action workflow, and
 MCP bootstrap are created at that root. Outside Git they remain rooted at the
 current directory.
 
+After the bootstrap steps, `init` reports the detected stack, declared
+verification commands, and critical-path candidates such as existing workflow,
+authentication, migration, or deployment directories. These are deterministic
+proposals only: commands are not run and existing config is not overwritten.
+
 ---
 
 ## `mcp`

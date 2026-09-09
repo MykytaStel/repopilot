@@ -21,6 +21,13 @@ Write to a custom path:
 repopilot init --path ./config/repopilot.toml
 ```
 
+`init` also inspects local marker files and declared package scripts to print
+stack-specific verification proposals and existing critical-path candidates.
+It does not execute those commands, access the network, or write the
+suggestions into `repopilot.toml`; review them before turning an accepted check
+into a bounded `[[verification.checks]]` entry. Existing config files remain
+unchanged unless `--force` is passed.
+
 ## Precedence
 
 Configuration is resolved in this order:

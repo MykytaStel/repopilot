@@ -1,4 +1,5 @@
 use crate::cli::{InitOptions, McpClientArg};
+use crate::commands::init_suggestions::render as render_init_suggestions;
 use repopilot::config::template::default_config_toml;
 use repopilot::review::diff::resolve_git_root;
 use std::fs;
@@ -50,6 +51,8 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
         generate_action,
         mcp_client,
     );
+    println!();
+    print!("{}", render_init_suggestions(&root));
     Ok(())
 }
 
