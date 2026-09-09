@@ -91,13 +91,19 @@ impl AnalysisStore {
                     .and_then(|value| value.get("tiered_signals"))
                     .map(count_review_signals)
                     .unwrap_or(0);
-                Some(json!({
+                let mut summary = json!({
                     "analysis_handle": handle,
                     "kind": record.kind.label(),
                     "workspace_revision": record.workspace_revision,
                     "findings": findings,
                     "review_signals": review_signals
-                }))
+                });
+                if let Some(change_proof) =
+                    report.as_ref().and_then(|value| value.get("change_proof"))
+                {
+                    summary["change_proof"] = change_proof.clone();
+                }
+                Some(summary)
             })
             .collect()
     }

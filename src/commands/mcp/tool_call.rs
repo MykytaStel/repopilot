@@ -59,14 +59,18 @@ pub(super) fn handle_tools_call_with_context(
     // Analysis may update RepoPilot-owned cache files. Capture the revision at
     // response time so a handle never becomes stale because of its own call.
     let workspace_revision = WorkspaceRevision::capture(&state.root).id().to_string();
-    let (outcome, publishable) = match outcome {
+    let (outcome, structured_content, publishable) = match outcome {
         Ok(execution) => {
             let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
                 revision.revision_compatible && revision.analysis_revision == workspace_revision
             });
-            (Ok(execution.rendered), publishable)
+            (
+                Ok(execution.rendered),
+                execution.structured_content,
+                publishable,
+            )
         }
-        Err(message) => (Err(message), false),
+        Err(message) => (Err(message), None, false),
     };
     let prepared = prepare_tool_result(
         name,
@@ -75,6 +79,7 @@ pub(super) fn handle_tools_call_with_context(
         state,
         &workspace_revision,
         publishable,
+        structured_content,
     );
     if cancellation.is_cancelled() {
         return Response::error(id, -32800, "request cancelled");
@@ -98,6 +103,7 @@ fn tool_response(
             None,
             None,
             state.max_response_bytes,
+            None,
         ),
     )
 }
@@ -123,6 +129,7 @@ fn dispatch_tool(
             )
             .map(|result| ToolExecution {
                 rendered: result.rendered,
+                structured_content: None,
                 review_revision: Some(ReviewRevision {
                     analysis_revision: result.analysis_revision,
                     revision_compatible: result.revision_compatible,
@@ -136,9 +143,26 @@ fn dispatch_tool(
         scan::TOOL_NAME => scan::call(arguments)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
-        context::TOOL_NAME => context::call(arguments)
-            .map(ToolExecution::plain)
-            .map_err(DispatchError::Message),
+        context::TOOL_NAME => {
+            let stored_review = referenced
+                .filter(|record| record.kind == AnalysisKind::Review)
+                .map(|record| record.report.as_str());
+            context::call(arguments, stored_review)
+                .map(|result| {
+                    let context::ContextCallResult {
+                        markdown,
+                        change_proof,
+                    } = result;
+                    let structured_content = change_proof.map(|change_proof| {
+                        json!({
+                            "markdown": markdown.clone(),
+                            "change_proof": change_proof
+                        })
+                    });
+                    ToolExecution::with_structured(markdown, structured_content)
+                })
+                .map_err(DispatchError::Message)
+        }
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
@@ -165,6 +189,7 @@ enum DispatchError {
 
 struct ToolExecution {
     rendered: String,
+    structured_content: Option<Value>,
     review_revision: Option<ReviewRevision>,
 }
 
@@ -172,6 +197,15 @@ impl ToolExecution {
     fn plain(rendered: String) -> Self {
         Self {
             rendered,
+            structured_content: None,
+            review_revision: None,
+        }
+    }
+
+    fn with_structured(rendered: String, structured_content: Option<Value>) -> Self {
+        Self {
+            rendered,
+            structured_content,
             review_revision: None,
         }
     }

@@ -102,8 +102,9 @@ pub fn call(
             return stored_fallback(report, finding_id, source, locator.as_ref(), &reason);
         }
     };
-    serde_json::to_string_pretty(&selection)
-        .map_err(|error| format!("render finding explanation failed: {error}"))
+    let rendered = serde_json::to_string_pretty(&selection)
+        .map_err(|error| format!("render finding explanation failed: {error}"))?;
+    with_change_proof(&rendered, report)
 }
 
 fn stored_fallback(
@@ -133,6 +134,7 @@ fn stored_fallback(
         "message": "The finding is available, but a safe live decision replay is unavailable.",
         "replay": { "status": "unavailable", "reason": reason },
         "finding": finding,
+        "change_proof": report.get("change_proof").cloned().unwrap_or(Value::Null),
         "decision": finding.get("decision").cloned().unwrap_or(Value::Null),
         "limitations": [
             "This fallback preserves stored analysis evidence and does not claim a live replay.",
@@ -141,6 +143,20 @@ fn stored_fallback(
     });
     serde_json::to_string_pretty(&fallback)
         .map_err(|error| format!("render finding fallback failed: {error}"))
+}
+
+fn with_change_proof(rendered: &str, report: &str) -> Result<String, String> {
+    let mut explanation: Value =
+        serde_json::from_str(rendered).map_err(|error| format!("invalid explanation: {error}"))?;
+    let report: Value =
+        serde_json::from_str(report).map_err(|error| format!("invalid session report: {error}"))?;
+    if let Some(change_proof) = report.get("change_proof")
+        && let Some(object) = explanation.as_object_mut()
+    {
+        object.insert("change_proof".to_string(), change_proof.clone());
+    }
+    serde_json::to_string_pretty(&explanation)
+        .map_err(|error| format!("render finding explanation failed: {error}"))
 }
 
 fn fallback_matches_locator(finding: &Value, locator: &FindingOccurrenceLocator) -> bool {
@@ -304,6 +320,27 @@ mod tests {
         assert_eq!(value["replay"]["status"], "unavailable");
         assert_eq!(value["finding"]["id"], "project-wide");
         assert_eq!(value["decision"]["severity"], "medium");
+    }
+
+    #[test]
+    fn explanation_preserves_the_stored_change_proof() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let (report, finding_id) = report_fixture(temp.path());
+        let mut report_value: Value = serde_json::from_str(&report).expect("report JSON");
+        report_value["change_proof"] = json!({
+            "verdict": "REVIEW",
+            "coverage": { "scope": "full" }
+        });
+
+        let rendered = call(
+            &json!({ "finding_id": finding_id, "source": "last-scan" }),
+            temp.path(),
+            Some(&report_value.to_string()),
+            None,
+        )
+        .expect("explain finding");
+        let value: Value = serde_json::from_str(&rendered).expect("valid JSON");
+        assert_eq!(value["change_proof"]["verdict"], "REVIEW");
     }
 
     fn duplicate_report(report: &str) -> String {
