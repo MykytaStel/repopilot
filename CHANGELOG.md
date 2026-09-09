@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Extended the generated rule scorecard with separate validity, actionability,
+  and false-positive rates, 95% Wilson intervals, and an explicit
+  `insufficient evidence` status for small labeled samples. The scorecard still
+  keeps unmeasured rules visible and does not turn zoo labels into a production
+  precision claim.
 - `repopilot init` now includes source markers for every verification and
   critical-path proposal, so a maintainer can see which local file or declared
   script produced the suggestion.
