@@ -39,6 +39,7 @@ pub(super) fn prepare_tool_result(
     state: &ServerState,
     workspace_revision: &str,
     publishable: bool,
+    structured_content: Option<Value>,
 ) -> PreparedToolResult {
     let kind = match name {
         scan::TOOL_NAME => Some(AnalysisKind::Scan),
@@ -54,6 +55,7 @@ pub(super) fn prepare_tool_result(
                 None,
                 None,
                 state.max_response_bytes,
+                structured_content,
             ),
             publication: None,
         };
@@ -88,6 +90,7 @@ pub(super) fn prepare_tool_result(
         handle.as_deref(),
         page.metadata,
         state.max_response_bytes,
+        structured_content,
     );
     if result["isError"] == true {
         return PreparedToolResult {
@@ -120,6 +123,7 @@ fn error_result(
             None,
             None,
             max_response_bytes,
+            None,
         ),
         publication: None,
     }
@@ -148,9 +152,10 @@ pub(super) fn tool_result(
     analysis_handle: Option<&str>,
     pagination: Option<Value>,
     max_response_bytes: usize,
+    structured_content: Option<Value>,
 ) -> Value {
     let mut result = match outcome {
-        Ok(text) => success_result(name, text),
+        Ok(text) => success_result(name, text, structured_content),
         Err(message) => {
             json!({ "content": [{ "type": "text", "text": message }], "isError": true })
         }
@@ -168,13 +173,15 @@ pub(super) fn tool_result(
     oversized_result(workspace_revision, max_response_bytes)
 }
 
-fn success_result(name: &str, text: String) -> Value {
-    let structured = serde_json::from_str::<Value>(&text).unwrap_or_else(|_| {
-        if name == context::TOOL_NAME {
-            json!({ "markdown": text })
-        } else {
-            json!({ "text": text })
-        }
+fn success_result(name: &str, text: String, structured_content: Option<Value>) -> Value {
+    let structured = structured_content.unwrap_or_else(|| {
+        serde_json::from_str::<Value>(&text).unwrap_or_else(|_| {
+            if name == context::TOOL_NAME {
+                json!({ "markdown": text })
+            } else {
+                json!({ "text": text })
+            }
+        })
     });
     json!({
         "content": [{ "type": "text", "text": text }],

@@ -304,6 +304,16 @@ evidence, signal details, and finding text are HTML-escaped before rendering;
 large signal and finding lists remain bounded in the human report while JSON
 retains the complete machine-readable record.
 
+### MCP ChangeProof parity
+
+When an MCP review returns an `analysisHandle`, pass that handle to
+`repopilot_context`, `repopilot_explain_finding`, or
+`repopilot_explain_review_signal`. The returned structured content includes the
+same canonical `change_proof` object that was emitted by the review. The
+`repopilot://analyses` resource exposes that object in its stored-analysis
+summary as well. Context content remains Markdown, while the proof stays
+machine-readable in `structuredContent`.
+
 ## Audit receipt JSON
 
 Use `--receipt` when a CI job, release process, or audit trail needs compact

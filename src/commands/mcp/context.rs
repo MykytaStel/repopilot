@@ -16,6 +16,11 @@ use std::path::PathBuf;
 
 pub const TOOL_NAME: &str = "repopilot_context";
 
+pub struct ContextCallResult {
+    pub markdown: String,
+    pub change_proof: Option<Value>,
+}
+
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
@@ -46,7 +51,13 @@ pub fn definition() -> Value {
         },
         "outputSchema": {
             "type": "object",
-            "properties": { "markdown": { "type": "string" } },
+            "properties": {
+                "markdown": { "type": "string" },
+                "change_proof": {
+                    "type": "object",
+                    "description": "Canonical ChangeProof from the referenced review handle, when selected."
+                }
+            },
             "required": ["markdown"],
             "additionalProperties": false
         },
@@ -59,7 +70,10 @@ pub fn definition() -> Value {
     })
 }
 
-pub fn call(arguments: &Value) -> Result<String, String> {
+pub fn call(
+    arguments: &Value,
+    stored_review_report: Option<&str>,
+) -> Result<ContextCallResult, String> {
     let path = PathBuf::from(arguments.get("path").and_then(Value::as_str).unwrap_or("."));
     let focus = parse_focus_category(arguments.get("focus").and_then(Value::as_str))
         .map_err(|error| error.to_string())?;
@@ -108,5 +122,16 @@ pub fn call(arguments: &Value) -> Result<String, String> {
         scan_result.repo_facts_summary.as_ref(),
         &options,
     );
-    Ok(content)
+    let change_proof = stored_review_report
+        .map(|report| {
+            serde_json::from_str::<Value>(report)
+                .map_err(|error| format!("stored review report is invalid: {error}"))
+        })
+        .transpose()?
+        .and_then(|report| report.get("change_proof").cloned());
+
+    Ok(ContextCallResult {
+        markdown: content,
+        change_proof,
+    })
 }

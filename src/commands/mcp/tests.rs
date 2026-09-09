@@ -690,6 +690,7 @@ fn oversized_tool_result_is_replaced_by_a_bounded_error() {
         Some("scan-handle"),
         None,
         1024,
+        None,
     );
 
     assert_eq!(result["isError"], true);
