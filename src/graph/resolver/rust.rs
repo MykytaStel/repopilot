@@ -54,6 +54,65 @@ pub(super) fn resolve_rust(
     None
 }
 
+/// Enumerates Rust imports whose file target is fixed by the syntax itself.
+///
+/// A `mod name;` declaration can only be backed by `name.rs` or
+/// `name/mod.rs` beside the declaring module. `#[path = "..."]` and
+/// `include!("...")` are represented as `relfile::...` and name exactly one
+/// path. `use crate::...` stays out of this set because it may refer to an
+/// inline module or a re-export rather than a file.
+pub(super) fn definitive_local_candidates(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+) -> Option<Vec<PathBuf>> {
+    let candidates = if let Some(name) = raw.strip_prefix("mod::") {
+        if !is_module_name(name) {
+            return None;
+        }
+        let dir = rust_current_module_dir(from_file, root);
+        vec![
+            dir.join(format!("{name}.rs")),
+            dir.join(name).join("mod.rs"),
+        ]
+    } else {
+        let rel = raw.strip_prefix("relfile::")?;
+        let path = Path::new(rel);
+        if rel.is_empty() || path.is_absolute() || rel.contains('\0') {
+            return None;
+        }
+        let base = from_file.parent().unwrap_or(root);
+        vec![base.join(path)]
+    };
+
+    let root = super::normalize_path(root);
+    let candidates = candidates
+        .into_iter()
+        .map(|candidate| super::normalize_path(&candidate))
+        .collect::<Vec<_>>();
+    (candidates
+        .iter()
+        .all(|candidate| candidate.starts_with(&root)))
+    .then_some(candidates)
+}
+
+fn is_module_name(name: &str) -> bool {
+    let identifier = name.strip_prefix("r#").unwrap_or(name);
+    !identifier.is_empty()
+        && name != "self"
+        && name != "super"
+        && name != "crate"
+        && is_rust_identifier(identifier)
+}
+
+fn is_rust_identifier(identifier: &str) -> bool {
+    let mut chars = identifier.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first == '_' || first.is_alphabetic()) && chars.all(|ch| ch == '_' || ch.is_alphanumeric())
+}
+
 fn resolve_rust_module_path(
     base_dir: &Path,
     module_path: &str,

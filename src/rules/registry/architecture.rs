@@ -130,7 +130,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
             "Restore the imported module, update the import path, or run the project compiler to confirm the intended generated target.",
         ),
         false_positive_notes: Some(
-            "Only explicit supported TypeScript/JavaScript file extensions and explicit Python relative modules are reported. Python imports guarded by an absorbing ImportError or ModuleNotFoundError handler are excluded; broad or unrelated handlers and bare re-raises do not qualify. Extensionless imports, aliases, workspace packages, Rust module forms, generated targets, and unsupported semantics remain limitations rather than findings.",
+            "Only explicit supported TypeScript/JavaScript file extensions, explicit Python relative modules, and file-backed Rust mod/path/include forms are reported. Python imports guarded by an absorbing ImportError or ModuleNotFoundError handler are excluded; broad or unrelated handlers and bare re-raises do not qualify. Extensionless imports, aliases, workspace packages, computed Rust paths, generated targets, and unsupported semantics remain limitations rather than findings.",
         ),
         ..RuleMetadata::DEFAULT
     },

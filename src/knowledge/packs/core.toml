@@ -794,7 +794,7 @@ risk = { id = "knowledge.circular-dependency", label = "cycle risk", weight = 6,
 [[rules]]
 rule_id = "architecture.unresolved-local-import"
 minimum_support = "rule-aware"
-languages = ["python", "typescript", "typescript-react", "javascript", "javascript-react"]
+languages = ["rust", "python", "typescript", "typescript-react", "javascript", "javascript-react"]
 suppress_low_signal = true
 suppress_generated = true
 risk = { id = "knowledge.unresolved-local-import", label = "broken local import", weight = 8, reason = "a proven missing local module prevents the importing source from loading or compiling" }

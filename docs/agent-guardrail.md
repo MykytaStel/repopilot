@@ -131,8 +131,9 @@ findings count. See
 Two review-first checks look for provably broken code rather than risky
 patterns, so an agent's own edits get caught before a human does:
 
-- **`architecture.unresolved-local-import`** — an explicit local TypeScript/
-  JavaScript or Python relative import whose complete candidate set is absent.
+- **`architecture.unresolved-local-import`** — an explicit local file-backed
+  Rust, TypeScript/JavaScript or Python relative import whose complete candidate
+  set is absent.
   Ambiguous forms (aliases, extensionless imports, workspace packages) stay
   bounded diagnostics, never a false broken-code claim.
 - **`behavioral.removed-export-still-imported`** — a named export an agent

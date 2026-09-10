@@ -87,6 +87,37 @@ fn internal_import_classifier_separates_workspace_from_third_party() {
 }
 
 #[test]
+fn internal_import_classifier_recognizes_rust_file_backed_forms() {
+    let repo_dirs = HashSet::new();
+    let repo_jvm_packages = HashSet::new();
+    let source = Path::new("src/lib.rs");
+
+    assert!(is_unresolved_internal_import(
+        "mod::missing",
+        source,
+        &repo_jvm_packages,
+        &repo_dirs,
+    ));
+    assert!(is_unresolved_internal_import(
+        "relfile::sections/header.rs",
+        source,
+        &repo_jvm_packages,
+        &repo_dirs,
+    ));
+}
+
+#[test]
+fn rust_file_backed_evidence_has_its_own_kind() {
+    let mut stats = ImportResolutionStats::default();
+    stats.record(Path::new("src/lib.rs"), "mod::missing");
+
+    assert_eq!(
+        stats.evidence().next().map(|evidence| evidence.kind),
+        Some(UnresolvedImportKind::RustFileBacked)
+    );
+}
+
+#[test]
 fn repo_directory_names_collects_parent_segments_only() {
     let paths = [
         Path::new("apps/ml/app/train.py"),

@@ -93,6 +93,7 @@ pub(crate) fn definitive_local_candidates(
             ts::definitive_relative_candidates(raw_import, &source)?
         }
         "py" => python::definitive_relative_candidates(raw_import, &source)?,
+        "rs" => rust::definitive_local_candidates(raw_import, &source, &root)?,
         _ => return None,
     };
     let candidates = candidates
@@ -210,10 +211,55 @@ mod definitive_candidates_tests {
     }
 
     #[test]
-    fn rust_module_semantics_remain_limited_in_first_slice() {
+    fn rust_module_declaration_has_bounded_local_candidates() {
+        let candidates = definitive_local_candidates(
+            "mod::missing",
+            Path::new("/repo/src/lib.rs"),
+            Path::new("/repo"),
+        )
+        .expect("a plain Rust module declaration has two file forms");
+
+        assert_eq!(
+            candidates,
+            vec![
+                PathBuf::from("/repo/src/missing.rs"),
+                PathBuf::from("/repo/src/missing/mod.rs"),
+            ]
+        );
+    }
+
+    #[test]
+    fn rust_relative_file_attribute_has_one_bounded_candidate() {
+        let candidates = definitive_local_candidates(
+            "relfile::sections/header.rs",
+            Path::new("/repo/src/lib.rs"),
+            Path::new("/repo"),
+        )
+        .expect("a literal Rust relative file path is definitive");
+
+        assert_eq!(
+            candidates,
+            vec![PathBuf::from("/repo/src/sections/header.rs")]
+        );
+    }
+
+    #[test]
+    fn rust_relative_file_that_escapes_repository_is_not_definitive() {
         assert_eq!(
             definitive_local_candidates(
-                "mod::missing",
+                "relfile::../../outside.rs",
+                Path::new("/repo/src/lib.rs"),
+                Path::new("/repo"),
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn malformed_rust_module_name_is_not_definitive() {
+        assert_eq!(
+            definitive_local_candidates(
+                "mod::not#a_module",
                 Path::new("/repo/src/lib.rs"),
                 Path::new("/repo"),
             ),

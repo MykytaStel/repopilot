@@ -92,6 +92,55 @@ fn missing_explicit_python_relative_module_emits_finding() {
 }
 
 #[test]
+fn missing_rust_module_declaration_emits_high_confidence_finding() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("src/lib.rs");
+    let facts = facts(
+        source.clone(),
+        "Rust",
+        "mod missing;\n\nfn main() {}\n",
+        &["mod::missing"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "mod::missing", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+    assert_eq!(result.findings[0].severity, Severity::High);
+    assert_eq!(result.findings[0].confidence, Confidence::High);
+    assert_eq!(result.findings[0].evidence[0].line_start, 1);
+    assert!(result.diagnostics.is_empty());
+}
+
+#[test]
+fn missing_rust_literal_file_reference_emits_high_confidence_finding() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("src/lib.rs");
+    let facts = facts(
+        source.clone(),
+        "Rust",
+        "include!(\"sections/missing.rs\");\n",
+        &["relfile::sections/missing.rs"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "relfile::sections/missing.rs", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+    assert_eq!(result.findings[0].confidence, Confidence::High);
+    assert_eq!(result.findings[0].evidence[0].line_start, 1);
+    assert!(
+        result.findings[0].evidence[0]
+            .snippet
+            .contains("sections/missing.rs")
+    );
+}
+
+#[test]
 fn guarded_optional_python_import_is_not_reported_as_broken() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
