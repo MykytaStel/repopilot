@@ -94,6 +94,7 @@ pub(crate) fn definitive_local_candidates(
         }
         "py" => python::definitive_relative_candidates(raw_import, &source)?,
         "rs" => rust::definitive_local_candidates(raw_import, &source, &root)?,
+        "go" => go::definitive_local_candidates(raw_import, &root)?,
         _ => return None,
     };
     let candidates = candidates
@@ -101,8 +102,12 @@ pub(crate) fn definitive_local_candidates(
         .map(|candidate| normalize_path(&candidate))
         .collect::<Vec<_>>();
 
-    (!candidates.is_empty() && candidates.iter().all(|path| path.starts_with(&root)))
-        .then_some(candidates)
+    let stays_under_root = candidates.iter().all(|path| path.starts_with(&root));
+    (stays_under_root && (ext == "go" || !candidates.is_empty())).then_some(candidates)
+}
+
+pub(crate) fn is_local_go_module_import(raw_import: &str, root: &Path) -> bool {
+    go::is_local_module_import(raw_import, root)
 }
 
 /// Returns the first candidate that exists in `known_files`, after normalizing
@@ -263,6 +268,66 @@ mod definitive_candidates_tests {
                 Path::new("/repo/src/lib.rs"),
                 Path::new("/repo"),
             ),
+            None
+        );
+    }
+
+    #[test]
+    fn go_module_import_maps_to_source_files_in_local_package() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/app\n\ngo 1.22\n").unwrap();
+        let package = root.join("internal/present");
+        std::fs::create_dir_all(&package).unwrap();
+        std::fs::write(package.join("present.go"), "package present\n").unwrap();
+
+        let candidates = definitive_local_candidates(
+            "example.com/app/internal/present",
+            &root.join("cmd/app/main.go"),
+            root,
+        )
+        .expect("a local Go module import should have bounded file candidates");
+
+        assert_eq!(candidates, vec![package.join("present.go")]);
+    }
+
+    #[test]
+    fn missing_go_module_package_is_definitive_with_no_candidates() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/app\n").unwrap();
+
+        let candidates =
+            definitive_local_candidates("example.com/app/missing", &root.join("main.go"), root)
+                .expect("a local Go module import remains definitive when its package is absent");
+
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn go_module_replace_keeps_resolution_limited() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(
+            root.join("go.mod"),
+            "module example.com/app\n\nreplace\texample.com/app => ../local\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            definitive_local_candidates("example.com/app/missing", &root.join("main.go"), root,),
+            None
+        );
+    }
+
+    #[test]
+    fn external_go_module_is_not_definitive() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(root.join("go.mod"), "module example.com/app\n").unwrap();
+
+        assert_eq!(
+            definitive_local_candidates("example.com/other/missing", &root.join("main.go"), root,),
             None
         );
     }

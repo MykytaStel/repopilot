@@ -118,6 +118,35 @@ fn rust_file_backed_evidence_has_its_own_kind() {
 }
 
 #[test]
+fn go_module_file_backed_evidence_has_its_own_kind() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    std::fs::write(root.join("go.mod"), "module example.com/app\n").unwrap();
+    let source = root.join("cmd/app/main.go");
+    let mut stats = ImportResolutionStats::default();
+    stats.record_classified(&source, "example.com/app/internal/missing", root);
+
+    assert_eq!(
+        stats.evidence().next().map(|evidence| evidence.kind),
+        Some(UnresolvedImportKind::GoFileBacked)
+    );
+}
+
+#[test]
+fn go_module_import_classifier_does_not_claim_external_modules() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    std::fs::write(root.join("go.mod"), "module example.com/app\n").unwrap();
+    let source = root.join("cmd/app/main.go");
+
+    assert!(!is_unresolved_go_module_import(
+        "example.com/other/missing",
+        &source,
+        root,
+    ));
+}
+
+#[test]
 fn repo_directory_names_collects_parent_segments_only() {
     let paths = [
         Path::new("apps/ml/app/train.py"),
