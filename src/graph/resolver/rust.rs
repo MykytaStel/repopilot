@@ -75,15 +75,14 @@ pub(super) fn definitive_local_candidates(
             dir.join(format!("{name}.rs")),
             dir.join(name).join("mod.rs"),
         ]
-    } else if let Some(rel) = raw.strip_prefix("relfile::") {
+    } else {
+        let rel = raw.strip_prefix("relfile::")?;
         let path = Path::new(rel);
         if rel.is_empty() || path.is_absolute() || rel.contains('\0') {
             return None;
         }
         let base = from_file.parent().unwrap_or(root);
         vec![base.join(path)]
-    } else {
-        return None;
     };
 
     let root = super::normalize_path(root);
