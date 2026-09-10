@@ -73,6 +73,43 @@ fn full_and_warm_changed_scans_preserve_missing_rust_module_evidence() {
 }
 
 #[test]
+fn full_and_warm_changed_scans_preserve_missing_go_module_evidence() {
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    write(
+        &temp.path().join("go.mod"),
+        "module example.com/app\n\ngo 1.22\n",
+    );
+    write(
+        &temp.path().join("cmd/app/main.go"),
+        "package main\n\nimport \"example.com/app/internal/present\"\n\nfunc main() { present.Run() }\n",
+    );
+    write(
+        &temp.path().join("internal/present/present.go"),
+        "package present\n\nfunc Run() {}\n",
+    );
+    commit_all(temp.path(), "initial");
+    write(
+        &temp.path().join("cmd/app/main.go"),
+        "package main\n\nimport \"example.com/app/internal/missing\"\n\nfunc main() { missing.Run() }\n",
+    );
+
+    let full = scan_json(temp.path(), &[]);
+    let _cold_changed = scan_json(temp.path(), &["--changed"]);
+    let warm_changed = scan_json(temp.path(), &["--changed"]);
+    let full_finding = rule_finding(&full);
+    let changed_finding = rule_finding(&warm_changed);
+
+    assert_eq!(full_finding["rule_id"], RULE_ID);
+    assert_eq!(full_finding["severity"], "HIGH");
+    assert_eq!(full_finding["confidence"], "HIGH");
+    assert_eq!(full_finding["evidence"][0]["path"], "cmd/app/main.go");
+    assert_eq!(full_finding["evidence"][0]["line_start"], 3);
+    assert_eq!(full_finding["evidence"][0], changed_finding["evidence"][0]);
+    assert_eq!(full_finding["id"], changed_finding["id"]);
+}
+
+#[test]
 fn full_and_warm_changed_scans_ignore_guarded_optional_python_import() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());

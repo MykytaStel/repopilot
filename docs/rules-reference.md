@@ -218,7 +218,7 @@ A supported explicit local import does not resolve to any bounded source-file ca
 
 **Recommendation:** Restore the imported module, update the import path, or run the project compiler to confirm the intended generated target.
 
-**Known false positives:** Only explicit supported TypeScript/JavaScript file extensions, explicit Python relative modules, and file-backed Rust mod/path/include forms are reported. Python imports guarded by an absorbing ImportError or ModuleNotFoundError handler are excluded; broad or unrelated handlers and bare re-raises do not qualify. Extensionless imports, aliases, workspace packages, computed Rust paths, generated targets, and unsupported semantics remain limitations rather than findings.
+**Known false positives:** Only explicit supported TypeScript/JavaScript file extensions, explicit Python relative modules, file-backed Rust mod/path/include forms, and Go module paths owned by the repository's go.mod are reported. Python imports guarded by an absorbing ImportError or ModuleNotFoundError handler are excluded; broad or unrelated handlers and bare re-raises do not qualify. Go replace directives, external modules, extensionless imports, aliases, workspace packages, computed Rust paths, generated targets, and unsupported semantics remain limitations rather than findings.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rulesets.md#architecture>
 

@@ -380,6 +380,12 @@ instead of a separate Python implementation.
   the explicit `from <package>.<module> import name` form, which never records
   the parent package, is claimed as a missing module. The rule now carries
   labeled zoo evidence.
+- Extend `architecture.unresolved-local-import` with bounded Go module-path
+  evidence. Imports under the repository's `go.mod` module are mapped to the
+  package directory's non-test `.go` files and emit the same High/High finding
+  only when that complete local set is absent. Go `replace` directives,
+  external modules, build-tag semantics, and other unresolved package forms
+  remain limited evidence rather than fabricated breakage.
 - Measure rules that only fire in the strict profile. `scripts/zoo.py sample
   --rule <id>` draws a deterministic, evenly spread subset of one rule's zoo
   findings to label, and the rule scorecard reports that sampled evidence in its
