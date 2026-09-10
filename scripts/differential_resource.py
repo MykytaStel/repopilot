@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,29 @@ def unavailable_resource(reason: str) -> dict[str, Any]:
     return {"status": "unavailable", "reason": reason, "source": "unavailable"}
 
 
+@lru_cache(maxsize=1)
+def _resource_sampler_supported() -> bool:
+    """Probe the optional sampler without allowing it to mask child status."""
+
+    probe_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="repopilot-rss-probe-", suffix=".txt", delete=False) as handle:
+            probe_path = Path(handle.name)
+        wrapped = resource_command((sys.executable, "-c", "pass"), probe_path)
+        if wrapped is None:
+            return False
+        process = subprocess.run(wrapped, capture_output=True, check=False, timeout=5)
+        return process.returncode == 0 and resource_sample_from_file(probe_path)["status"] == "available"
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    finally:
+        if probe_path is not None:
+            try:
+                probe_path.unlink()
+            except OSError:
+                pass
+
+
 def execute_timed_command(
     command: tuple[str, ...], cwd: Path, timeout_seconds: float
 ) -> dict[str, Any]:
@@ -73,7 +97,7 @@ def execute_timed_command(
 
     sampler_path: Path | None = None
     wrapped_command: list[str] | None = None
-    if resource_command(command, Path("/tmp/repopilot-rss.txt")) is not None:
+    if _resource_sampler_supported():
         with tempfile.NamedTemporaryFile(prefix="repopilot-rss-", suffix=".txt", delete=False) as handle:
             sampler_path = Path(handle.name)
         wrapped_command = resource_command(command, sampler_path)
@@ -97,10 +121,10 @@ def execute_timed_command(
         returncode, stdout, stderr = process.returncode, process.stdout, process.stderr
     finally:
         wall_ms = round((time.perf_counter() - started) * 1000, 3)
-    if sampler_path is None:
-        resource = unavailable_resource("portable peak RSS sampler is unavailable on this platform")
-    elif status == "timeout":
+    if status == "timeout":
         resource = unavailable_resource("command timed out before peak RSS sampling completed")
+    elif sampler_path is None:
+        resource = unavailable_resource("portable peak RSS sampler is unavailable on this platform")
     else:
         resource = resource_sample_from_file(sampler_path)
     if sampler_path is not None:

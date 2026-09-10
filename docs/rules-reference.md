@@ -303,6 +303,8 @@ The file's branch count density exceeds the complexity threshold, indicating too
 
 **Recommendation:** Extract conditionals into well-named helper functions. Prefer early returns to deeply nested if/else chains.
 
+**Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
+
 ### `code-quality.complex-function` — Function has high cognitive complexity
 
 - **Severity:** MEDIUM
