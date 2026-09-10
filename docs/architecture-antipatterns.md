@@ -41,7 +41,7 @@ from broad architecture structure heuristics.
 | `architecture.test-leak` | Does production code import a test or fixture file? | On by default; evidence cites the import line. |
 | `architecture.layer-violation` | Does a module import against the declared layer order? | Strictly opt-in via `[[architecture.layers]]`. |
 | `architecture.package-boundary-violation` | Does one package reach into another's internals instead of its public API? | Auto-enabled on a detected workspace (manifest boundaries → High confidence); also configurable via `[architecture] package_roots` (→ Medium). |
-| `architecture.unresolved-local-import` | Does a supported explicit local import point to a module that is absent? | High/High only for bounded TS/JS file candidates and Python relative modules; ambiguous semantics produce an informational limitation, not a finding. |
+| `architecture.unresolved-local-import` | Does a supported explicit local import point to a module that is absent? | High/High only for bounded TS/JS file candidates, Python relative modules, and file-backed Rust `mod`/`#[path]`/`include!` forms; ambiguous semantics produce an informational limitation, not a finding. |
 
 ## Broken local import boundary
 
@@ -53,6 +53,8 @@ only:
   or `.jsx` target; and
 - Python relative modules such as `.payments` when neither the module file nor
   package initializer exists.
+- file-backed Rust `mod name;` declarations and literal `#[path = "..."]` /
+  `include!("...")` references when the target path is absent.
 
 Python imports inside a `try` body are not reported when an explicit
 `ImportError` or `ModuleNotFoundError` handler absorbs the failure. A handler
@@ -63,7 +65,7 @@ reparse source text.
 
 RepoPilot checks every bounded candidate on disk before reporting, so a valid
 target omitted by ignore or scan-size policy remains quiet. Extensionless
-imports, path aliases, workspace packages, generated targets, Rust module forms,
+imports, path aliases, workspace packages, generated targets, Rust `use` paths,
 root escapes, and unsupported language semantics remain uncertainty. They are
 counted in an aggregated informational diagnostic and are never described as a
 proven build failure.

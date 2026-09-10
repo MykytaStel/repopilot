@@ -368,9 +368,12 @@ instead of a separate Python implementation.
 - Add the first v0.22 broken-code detector,
   `architecture.unresolved-local-import`. It reports only explicit local
   TypeScript/JavaScript file imports and Python relative modules whose complete,
-  root-confined candidate set is absent. Ambiguous aliases, extensionless
-  imports, workspace packages, Rust module forms, and unsupported semantics stay
-  as bounded informational diagnostics instead of false broken-code claims.
+  root-confined candidate set is absent. Plain Rust `mod` declarations and
+  literal `#[path = "..."]`/`include!("...")` file references now use the same
+  high-confidence missing-target evidence; Rust `use` paths, ambiguous aliases,
+  extensionless imports, computed Rust paths, workspace packages, and
+  unsupported semantics stay as bounded informational diagnostics instead of
+  false broken-code claims.
   A Python `from <package> import name` candidate is one of those bounded
   limitations: `name` may be a submodule or a member defined in the package's
   `__init__.py`, and the two are indistinguishable from the import alone. Only
