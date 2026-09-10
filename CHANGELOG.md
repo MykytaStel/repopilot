@@ -212,6 +212,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Added rule-reference documentation metadata for high-severity
+  `code-quality.complex-file` findings, removing the self-scan contract warning
+  while preserving the existing complexity signal.
+
 - Hardened `security.secret-candidate` evidence redaction: connection strings
   now mask the matched credential segment instead of the first assignment, and
   Unicode secrets no longer risk a byte-boundary panic. Real demo/Docker
