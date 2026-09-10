@@ -216,6 +216,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `code-quality.complex-file` findings, removing the self-scan contract warning
   while preserving the existing complexity signal.
 
+- Made the differential benchmark's optional RSS sampler fail open when the
+  host denies `/usr/bin/time` telemetry, so unavailable resource data cannot
+  mask the measured command exit status.
+
 - Hardened `security.secret-candidate` evidence redaction: connection strings
   now mask the matched credential segment instead of the first assignment, and
   Unicode secrets no longer risk a byte-boundary panic. Real demo/Docker
