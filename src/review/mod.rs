@@ -17,6 +17,7 @@ pub mod render;
 mod report;
 mod signal_pass;
 pub mod signals;
+pub mod verification;
 
 pub use blast_radius::compute_blast_radius;
 pub use ci::review_report_for_ci;

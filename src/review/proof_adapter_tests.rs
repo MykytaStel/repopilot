@@ -2,8 +2,16 @@ use super::proof::{
     ChangeProofReasonCode, ChangeProofVerdict, ProofScope, derive_change_proof_from_review,
 };
 use super::{MergeReadinessRecord, ReadinessReason, ReadinessReasonCode, ReadinessVerdict};
+use crate::findings::provenance::AnalysisScope;
+use crate::findings::types::Confidence;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::model::ReviewReport;
+use crate::review::signals::tiered::{
+    ConfidenceTier, ReviewSignal, ReviewSignalProvenance, ReviewSignalVerificationPlan,
+    SignalFamily,
+};
+use crate::review::verification::{VerificationPolicy, VerificationPolicyCheck};
+use crate::rules::{RuleLifecycle, SignalSource};
 use crate::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
 use crate::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::path::PathBuf;
@@ -44,6 +52,7 @@ fn report(mode: ScanMode, discovered: usize, analyzed: usize) -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings: Vec::new(),
     }
@@ -191,4 +200,158 @@ fn incompatible_pass_is_reported_as_stale_proof() {
             .iter()
             .any(|reason| reason.code == ChangeProofReasonCode::RequiredVerificationUnavailable)
     );
+}
+
+#[test]
+fn signal_role_requirement_is_unselected_until_matching_check_is_selected() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report
+        .tiered_signals
+        .definitely
+        .push(access_control_signal());
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: Vec::new(),
+        }],
+        selected: Vec::new(),
+    };
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unselected, 1);
+    assert_eq!(proof.obligations.unavailable, 0);
+}
+
+#[test]
+fn signal_role_requirement_is_satisfied_by_selected_matching_check() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report
+        .tiered_signals
+        .definitely
+        .push(access_control_signal());
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: Vec::new(),
+        }],
+        selected: vec!["unit".to_string()],
+    };
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.satisfied, 1);
+    assert_eq!(proof.obligations.unselected, 0);
+    assert_eq!(proof.obligations.unavailable, 0);
+    assert!(
+        proof
+            .capability_coverage
+            .iter()
+            .any(|capability| { capability.id == "verification" && capability.count == 1 })
+    );
+}
+
+#[test]
+fn signal_role_requirement_is_unavailable_without_matching_capability() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report
+        .tiered_signals
+        .definitely
+        .push(access_control_signal());
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unavailable, 1);
+    assert_eq!(proof.obligations.unselected, 0);
+}
+
+#[test]
+fn role_requirement_without_path_matching_capability_is_unavailable() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report
+        .tiered_signals
+        .definitely
+        .push(access_control_signal());
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: vec!["tests/**".to_string()],
+        }],
+        selected: Vec::new(),
+    };
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unavailable, 1);
+    assert_eq!(proof.obligations.unselected, 0);
+}
+
+#[test]
+fn removed_export_contract_creates_typecheck_obligation_without_signal_plan() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    let mut signal = access_control_signal();
+    signal.kind = "behavioral.removed-export-still-imported".to_string();
+    signal.family = SignalFamily::Behavioral;
+    signal.target_path = Some("src/api.ts".to_string());
+    signal.path = "src/app.ts".to_string();
+    signal.verification_plan = None;
+    report.tiered_signals.definitely.push(signal);
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "types".to_string(),
+            role: VerificationRole::TypeCheck,
+            paths: Vec::new(),
+        }],
+        selected: Vec::new(),
+    };
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.contract_deltas.len(), 1);
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unselected, 1);
+}
+
+fn access_control_signal() -> ReviewSignal {
+    ReviewSignal {
+        signal_id: "boundary:src/lib.rs:access-control".to_string(),
+        kind: "boundary.access-control".to_string(),
+        family: SignalFamily::Boundary,
+        tier: ConfidenceTier::DefinitelySensitive,
+        confidence: Confidence::High,
+        path: "src/lib.rs".to_string(),
+        target_path: None,
+        line: Some(4),
+        line_start: Some(4),
+        line_end: Some(4),
+        evidence_lines: vec![4],
+        headline: "access control changed".to_string(),
+        detail: None,
+        blast_radius: 0,
+        provenance: ReviewSignalProvenance {
+            detector: "test".to_string(),
+            lifecycle: RuleLifecycle::Stable,
+            signal_source: SignalSource::GitDiff,
+            analysis_scope: AnalysisScope::GitDiff,
+        },
+        suppressed: false,
+        suppression_reason: None,
+        gate_eligible: true,
+        verification_plan: Some(ReviewSignalVerificationPlan {
+            steps: vec!["run focused test".to_string()],
+        }),
+    }
 }

@@ -109,6 +109,7 @@ pub fn review_decision_summary(
     );
     let findings = report.in_diff_findings();
     let stats = finding_stats(&findings);
+    let verification_plans = stats.verification_plans + signal_verification_plans(report);
     let definitely_sensitive = report
         .tiered_signals
         .definitely
@@ -158,7 +159,7 @@ pub fn review_decision_summary(
         findings: findings.len(),
         p0: stats.p0,
         p1: stats.p1,
-        verification_plans: stats.verification_plans,
+        verification_plans,
         definitely_sensitive,
         maybe_sensitive,
         affected_files: report.impact_paths.affected_surface.impacted_files,
@@ -214,6 +215,15 @@ fn finding_stats(findings: &[&Finding]) -> FindingStats {
         }
     }
     stats
+}
+
+fn signal_verification_plans(report: &ReviewReport) -> usize {
+    report
+        .tiered_signals
+        .definitely
+        .iter()
+        .filter(|signal| !signal.suppressed && signal.verification_plan.is_some())
+        .count()
 }
 
 fn push_priority_reasons(reasons: &mut Vec<String>, p0: usize, p1: usize) {

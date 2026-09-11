@@ -3,15 +3,16 @@ use serde::Serialize;
 use crate::review::model::ReviewReport;
 use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
 use crate::scan::types::ScanMode;
-use crate::verification::VerificationStatus;
 
 mod capabilities;
 mod contracts;
+mod obligations;
 use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 pub use contracts::{
     ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
 };
+use obligations::derive_verification_obligations;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -204,14 +205,15 @@ pub fn derive_change_proof_from_review(
     let excluded_files = known_excluded_files(report, requested_files);
     let unsupported_files =
         requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
-    let (satisfied, failed, unavailable, unselected, stale) = verification_counts(report);
+    let contract_deltas = contracts::from_review(report);
+    let (obligations, sufficient_policy) =
+        derive_verification_obligations(report, &contract_deltas);
     let reasons = readiness
         .reasons
         .iter()
         .filter_map(map_readiness_reason)
         .collect();
 
-    let contract_deltas = contracts::from_review(report);
     let mut proof = derive_change_proof(ChangeProofInput {
         coverage: ProofCoverage {
             scope: match report.summary.mode {
@@ -223,15 +225,8 @@ pub fn derive_change_proof_from_review(
             excluded_files,
             unsupported_files,
         },
-        obligations: ProofObligations {
-            applicable: report.verification.len(),
-            satisfied,
-            failed,
-            unavailable,
-            unselected,
-            stale,
-        },
-        sufficient_policy: !report.verification.is_empty(),
+        obligations,
+        sufficient_policy,
         broken_contracts: contract_deltas
             .iter()
             .filter(|delta| delta.is_broken())
@@ -257,22 +252,6 @@ fn known_excluded_files(report: &ReviewReport, requested_files: usize) -> usize 
         .saturating_add(metrics.files_skipped_by_limit)
         .saturating_add(metrics.files_skipped_repopilotignore)
         .min(requested_files)
-}
-
-fn verification_counts(report: &ReviewReport) -> (usize, usize, usize, usize, usize) {
-    let mut counts = (0, 0, 0, 0, 0);
-    for outcome in &report.verification {
-        match outcome.status {
-            VerificationStatus::Passed if outcome.revision_compatible => counts.0 += 1,
-            VerificationStatus::Passed => counts.4 += 1,
-            VerificationStatus::Failed => counts.1 += 1,
-            VerificationStatus::TimedOut
-            | VerificationStatus::Unavailable
-            | VerificationStatus::Cancelled => counts.2 += 1,
-            VerificationStatus::Skipped => counts.3 += 1,
-        }
-    }
-    counts
 }
 
 fn map_readiness_reason(

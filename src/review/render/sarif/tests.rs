@@ -58,6 +58,7 @@ fn report_with_signal(signal: ReviewSignal) -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals,
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings: Vec::new(),
     }

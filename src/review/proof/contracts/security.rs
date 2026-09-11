@@ -213,6 +213,7 @@ mod tests {
             boundary_missing_test: false,
             tiered_signals: Default::default(),
             timings: Default::default(),
+            verification_policy: Default::default(),
             verification: Vec::new(),
             findings: Vec::new(),
         }

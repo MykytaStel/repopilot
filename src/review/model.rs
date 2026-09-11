@@ -6,6 +6,7 @@ use crate::review::impact::ImpactPaths;
 use crate::review::ownership::{OwnershipDiagnostic, OwnershipSummary};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
+use crate::review::verification::VerificationPolicy;
 use crate::scan::types::ScanSummary;
 use crate::verification::VerificationOutcome;
 use serde::Serialize;
@@ -36,6 +37,7 @@ pub struct ReviewReport {
     /// Boundary + behavioral + algorithmic + taint signals by confidence tier.
     pub tiered_signals: TieredSignals,
     pub timings: ReviewTimings,
+    pub verification_policy: VerificationPolicy,
     pub verification: Vec<VerificationOutcome>,
     pub findings: Vec<ReviewFindingStatus>,
 }
