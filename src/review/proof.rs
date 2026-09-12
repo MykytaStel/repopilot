@@ -45,6 +45,7 @@ pub enum ChangeProofReasonCode {
     RequiredVerificationUnselected,
     RequiredVerificationStale,
     RequiredVerificationCoverageIncomplete,
+    UnsupportedContractCoverage,
     InsufficientPolicy,
     AnalysisError,
     FindingGateFailed,
@@ -206,13 +207,24 @@ pub fn derive_change_proof_from_review(
     let unsupported_files =
         requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
     let contract_deltas = contracts::from_review(report);
+    let unsupported_contract_deltas = contract_deltas
+        .iter()
+        .filter(|delta| delta.family == ContractFamily::Delivery)
+        .count();
     let (obligations, sufficient_policy) =
         derive_verification_obligations(report, &contract_deltas);
-    let reasons = readiness
+    let mut reasons = readiness
         .reasons
         .iter()
         .filter_map(map_readiness_reason)
-        .collect();
+        .collect::<Vec<_>>();
+    if unsupported_contract_deltas > 0 {
+        reasons.push(ChangeProofReason::new(
+            ChangeProofReasonCode::UnsupportedContractCoverage,
+            unsupported_contract_deltas,
+            "Some detected contract changes are outside the supported proof coverage.",
+        ));
+    }
 
     let mut proof = derive_change_proof(ChangeProofInput {
         coverage: ProofCoverage {
@@ -236,9 +248,20 @@ pub fn derive_change_proof_from_review(
     proof.contract_deltas = contract_deltas;
     proof.capability_coverage.push(ProofCapability {
         id: "contract-deltas".to_string(),
-        status: ProofCapabilityStatus::Assessed,
+        status: if unsupported_contract_deltas > 0 {
+            ProofCapabilityStatus::Limited
+        } else {
+            ProofCapabilityStatus::Assessed
+        },
         count: proof.contract_deltas.len(),
-        message: "Supported semantic contract changes detected in the review.".to_string(),
+        message: if unsupported_contract_deltas > 0 {
+            format!(
+                "{} detected delivery contract change(s) have limited semantic proof coverage.",
+                unsupported_contract_deltas
+            )
+        } else {
+            "Supported semantic contract changes detected in the review.".to_string()
+        },
     });
     proof
 }

@@ -449,6 +449,11 @@ calibration policy.
 
 SARIF output carries the same category, recommendation, confidence, baseline
 status, and workspace package metadata in result properties when available.
+Review SARIF additionally carries optional run-level `changeProof` and
+`verification` properties. `changeProof` is the same gated canonical proof
+used by review JSON/Markdown/HTML projections; `verification` preserves the
+recorded check outcomes, including skipped and revision-incompatible states.
+Scan and baseline SARIF omit these review-only properties.
 
 ## Recommended usage
 

@@ -168,7 +168,8 @@ fn outcome_state(outcome: &crate::verification::VerificationOutcome) -> Obligati
         VerificationStatus::TimedOut
         | VerificationStatus::Unavailable
         | VerificationStatus::Cancelled => ObligationState::Unavailable,
-        VerificationStatus::Skipped => ObligationState::Unselected,
+        VerificationStatus::Skipped if outcome.revision_compatible => ObligationState::Unavailable,
+        VerificationStatus::Skipped => ObligationState::Stale,
     }
 }
 

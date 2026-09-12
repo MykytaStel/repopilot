@@ -356,6 +356,7 @@ fn disabled_failed_skipped_and_incompatible_checks_never_reuse() {
         &mut |_| {},
     );
     assert_eq!(outcome[0].status, VerificationStatus::Skipped);
+    assert!(outcome[0].revision_compatible);
 
     let tracked = root.path().join("tracked.txt");
     std::fs::write(&tracked, "before").expect("tracked input");
@@ -471,5 +472,6 @@ args = ["-c", "printf spawned > second.txt"]
     assert_eq!(outcomes[0].check_id, "mutate");
     assert!(!outcomes[0].revision_compatible);
     assert_eq!(outcomes[1].status, VerificationStatus::Skipped);
+    assert!(!outcomes[1].revision_compatible);
     assert!(!temp.path().join("second.txt").exists());
 }

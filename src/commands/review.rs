@@ -14,7 +14,9 @@ use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::history::{AnalysisScope, ReceiptContext, record_session};
 use repopilot::output::{DetailLevel, FindingRenderLimit, OutputFormat};
 use repopilot::report::writer::write_report;
-use repopilot::review::render::{ReviewRenderOptions, render_review_sarif, render_with_options};
+use repopilot::review::render::{
+    ReviewRenderOptions, render_review_sarif_with_gates, render_with_options,
+};
 use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input, load_review_input_since, review_report_for_ci,
@@ -204,7 +206,10 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
 
     write_report(&rendered_report, options.output.as_deref())?;
     if let Some(path) = options.sarif_output.as_deref() {
-        write_report(&render_review_sarif(&review_report)?, Some(path))?;
+        write_report(
+            &render_review_sarif_with_gates(&review_report, ci_gate.as_ref(), Some(&review_gate))?,
+            Some(path),
+        )?;
     }
     enforce_diagnostics_exit_policy(&review_report.summary)?;
 
