@@ -21,6 +21,10 @@ pub struct SarifRun {
 #[derive(Debug, Clone, Serialize)]
 pub struct SarifRunProperties {
     pub report: ReportEnvelope,
+    #[serde(rename = "changeProof", skip_serializing_if = "Option::is_none")]
+    pub change_proof: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification: Option<Vec<crate::verification::VerificationOutcome>>,
 }
 
 #[derive(Debug, Clone, Serialize)]

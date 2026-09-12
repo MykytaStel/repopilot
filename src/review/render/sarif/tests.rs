@@ -1,13 +1,15 @@
-use super::{render_review_sarif, severity_for_tier};
+use super::{render_review_sarif, render_review_sarif_with_gates, severity_for_tier};
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::{Confidence, Severity};
+use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::model::ReviewReport;
 use crate::review::signals::tiered::{
     ConfidenceTier, ReviewSignal, ReviewSignalProvenance, SignalFamily, TieredSignals,
 };
+use crate::review::{ReviewSignalGatePolicy, ReviewSignalGateResult};
 use crate::rules::{RuleLifecycle, SignalSource};
 use crate::scan::types::ScanSummary;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 fn taint_signal(kind: &str, tier: ConfidenceTier) -> ReviewSignal {
     ReviewSignal {
@@ -94,4 +96,56 @@ fn severity_is_read_from_the_tier_not_the_kind_string() {
         level, "error",
         "DefinitelySensitive must map to SARIF error (High)"
     );
+}
+
+#[test]
+fn review_sarif_carries_the_canonical_change_proof() {
+    let report = report_with_signal(taint_signal(
+        "taint.deserialize",
+        ConfidenceTier::DefinitelySensitive,
+    ));
+    let rendered = render_review_sarif(&report).expect("sarif renders");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("valid json");
+    let proof = &value["runs"][0]["properties"]["changeProof"];
+
+    assert!(proof.is_object());
+    assert!(proof["verdict"].is_string());
+    assert!(proof["reasons"].is_array());
+    assert!(proof["coverage"].is_object());
+    assert!(proof["obligations"].is_object());
+    assert!(proof["contract_deltas"].is_array());
+    assert!(proof["capability_coverage"].is_array());
+}
+
+#[test]
+fn review_sarif_proof_uses_the_review_gate() {
+    let mut report = report_with_signal(taint_signal(
+        "taint.deserialize",
+        ConfidenceTier::DefinitelySensitive,
+    ));
+    report.summary.metadata.mode = crate::scan::types::ScanMode::Changed;
+    report.summary.metrics.files_discovered = 1;
+    report.summary.metrics.files_analyzed = 1;
+    report.changed_files = vec![ChangedFile {
+        path: PathBuf::from("src/app.py"),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let review_gate = ReviewSignalGateResult {
+        policy: ReviewSignalGatePolicy::Definitely,
+        failed_signals: 1,
+    };
+
+    let rendered =
+        render_review_sarif_with_gates(&report, None, Some(&review_gate)).expect("sarif renders");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("valid json");
+    let proof = &value["runs"][0]["properties"]["changeProof"];
+
+    assert_eq!(proof["verdict"], "REVIEW");
+    assert!(proof["reasons"].as_array().is_some_and(|reasons| {
+        reasons
+            .iter()
+            .any(|reason| reason["code"] == "review-signal-gate-failed")
+    }));
 }

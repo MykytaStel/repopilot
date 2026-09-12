@@ -16,7 +16,7 @@ pub use console::render_console;
 pub use html::render_review_html;
 pub use json::render_json;
 pub use markdown::render_markdown;
-pub use sarif::render_review_sarif;
+pub use sarif::{render_review_sarif, render_review_sarif_with_gates};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReviewRenderOptions {

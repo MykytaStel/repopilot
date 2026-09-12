@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Hardened canonical ChangeProof coverage: unsupported delivery deltas now
+  remain `REVIEW` with an explicit limited capability, selected skipped checks
+  distinguish unavailable from stale revision state, and review SARIF carries
+  the gated proof plus verification outcomes.
 - Extended the generated rule scorecard with separate validity, actionability,
   and false-positive rates, 95% Wilson intervals, and an explicit
   `insufficient evidence` status for small labeled samples. The scorecard still

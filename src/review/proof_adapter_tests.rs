@@ -1,10 +1,11 @@
 use super::proof::{
-    ChangeProofReasonCode, ChangeProofVerdict, ProofScope, derive_change_proof_from_review,
+    ChangeProofReasonCode, ChangeProofVerdict, ProofCapabilityStatus, ProofScope,
+    derive_change_proof_from_review,
 };
 use super::{MergeReadinessRecord, ReadinessReason, ReadinessReasonCode, ReadinessVerdict};
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::Confidence;
-use crate::review::diff::{ChangeStatus, ChangedFile};
+use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange, DiffHunk};
 use crate::review::model::ReviewReport;
 use crate::review::signals::tiered::{
     ConfidenceTier, ReviewSignal, ReviewSignalProvenance, ReviewSignalVerificationPlan,
@@ -203,6 +204,77 @@ fn incompatible_pass_is_reported_as_stale_proof() {
 }
 
 #[test]
+fn unsupported_delivery_delta_is_limited_and_blocks_verified() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.changed_files = vec![delivery_changed_file()];
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: Vec::new(),
+        }],
+        selected: vec!["unit".to_string()],
+    };
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::UnsupportedContractCoverage)
+    );
+    assert_eq!(
+        proof
+            .capability_coverage
+            .iter()
+            .find(|capability| capability.id == "contract-deltas")
+            .map(|capability| capability.status),
+        Some(ProofCapabilityStatus::Limited)
+    );
+}
+
+#[test]
+fn mixed_broken_and_delivery_deltas_keep_both_reasons_visible() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.changed_files = vec![delivery_changed_file()];
+    let mut signal = access_control_signal();
+    signal.kind = "behavioral.removed-export-still-imported".to_string();
+    signal.family = SignalFamily::Behavioral;
+    signal.target_path = Some("src/api.ts".to_string());
+    signal.verification_plan = None;
+    report.tiered_signals.definitely.push(signal);
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Broken);
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::BrokenContract)
+    );
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::UnsupportedContractCoverage)
+    );
+    assert_eq!(
+        proof
+            .capability_coverage
+            .iter()
+            .find(|capability| capability.id == "contract-deltas")
+            .map(|capability| capability.status),
+        Some(ProofCapabilityStatus::Limited)
+    );
+}
+
+#[test]
 fn signal_role_requirement_is_unselected_until_matching_check_is_selected() {
     let mut report = report(ScanMode::Changed, 1, 1);
     report
@@ -271,6 +343,50 @@ fn signal_role_requirement_is_unavailable_without_matching_capability() {
 
     assert_eq!(proof.obligations.applicable, 1);
     assert_eq!(proof.obligations.unavailable, 1);
+    assert_eq!(proof.obligations.unselected, 0);
+}
+
+#[test]
+fn selected_path_inapplicable_check_is_unavailable_not_unselected() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: vec!["tests/**".to_string()],
+        }],
+        selected: vec!["unit".to_string()],
+    };
+    report.verification = vec![outcome(VerificationStatus::Skipped, true)];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.unavailable, 1);
+    assert_eq!(proof.obligations.unselected, 0);
+}
+
+#[test]
+fn selected_revision_changed_check_is_stale_not_unselected() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report
+        .tiered_signals
+        .definitely
+        .push(access_control_signal());
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: Vec::new(),
+        }],
+        selected: vec!["unit".to_string()],
+    };
+    report.verification = vec![outcome(VerificationStatus::Skipped, false)];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.stale, 1);
     assert_eq!(proof.obligations.unselected, 0);
 }
 
@@ -353,5 +469,20 @@ fn access_control_signal() -> ReviewSignal {
         verification_plan: Some(ReviewSignalVerificationPlan {
             steps: vec!["run focused test".to_string()],
         }),
+    }
+}
+
+fn delivery_changed_file() -> ChangedFile {
+    ChangedFile {
+        path: PathBuf::from(".github/workflows/ci.yml"),
+        status: ChangeStatus::Modified,
+        ranges: vec![ChangedRange { start: 4, end: 4 }],
+        hunks: vec![DiffHunk {
+            header: None,
+            old_range: Some(ChangedRange { start: 4, end: 1 }),
+            new_range: Some(ChangedRange { start: 4, end: 1 }),
+            added_lines: vec!["permissions: write-all".to_string()],
+            removed_lines: vec!["permissions: read-all".to_string()],
+        }],
     }
 }

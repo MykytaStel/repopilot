@@ -63,6 +63,7 @@ fn outcome_for_check(
             check,
             revision,
             "workspace revision changed before this check could run",
+            false,
         );
     }
     if !check.is_applicable(evidence_paths.iter().map(std::path::PathBuf::as_path)) {
@@ -70,6 +71,7 @@ fn outcome_for_check(
             check,
             revision,
             "no changed or impacted path matched this check",
+            true,
         );
     }
     execute_or_reuse(check, revision, cancellation, cache)
