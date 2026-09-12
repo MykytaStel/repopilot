@@ -47,6 +47,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings: Vec::new(),
     };
@@ -146,6 +147,7 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings: Vec::new(),
     };

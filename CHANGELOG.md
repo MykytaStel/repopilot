@@ -35,6 +35,20 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   It reports passed, failed, unavailable, unselected, and stale obligations,
   makes revision compatibility explicit, and discloses when no verification
   evidence was selected.
+- Human review decision summaries and merge-readiness verification steps now
+  include guidance attached to visible definitely-sensitive signals alongside
+  finding verification plans.
+- Change proof now derives role-scoped verification obligations from visible
+  sensitive signals and the configured/selected check policy, exposing missing
+  capabilities and unselected checks instead of treating returned outcomes as
+  the whole policy.
+- Role-scoped proof obligations now respect configured verification check path
+  globs, so a check for an unrelated path is unavailable rather than merely
+  unselected for the sensitive signal under review.
+- Supported contract deltas now contribute deterministic proof obligations as
+  well: removed exports require a matching type-check capability, dependency
+  changes a build capability, and bounded runtime/security/test changes a
+  matching test capability; unsupported delivery forms remain limitations.
 - Projected the canonical `ChangeProof` into review JSON, MCP review results,
   and the console Proof Card while preserving legacy readiness, gates, and exit
   behavior. The additive projection reports verdict, analyzed scope, and proof

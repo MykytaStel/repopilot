@@ -17,7 +17,7 @@ pub(super) fn verification_proof_summary(
     report: &ReviewReport,
     obligations: ProofObligations,
 ) -> String {
-    if report.verification.is_empty() {
+    if report.verification.is_empty() && obligations.applicable == 0 {
         return "none selected; no verification evidence".to_string();
     }
 

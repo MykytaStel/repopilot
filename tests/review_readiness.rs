@@ -1,11 +1,17 @@
 use repopilot::baseline::gate::{CiGateResult, FailOn};
+use repopilot::findings::provenance::AnalysisScope;
 use repopilot::findings::types::Severity;
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
 use repopilot::review::model::ReviewReport;
+use repopilot::review::signals::tiered::{
+    ConfidenceTier, ReviewSignal, ReviewSignalProvenance, ReviewSignalVerificationPlan,
+    SignalFamily,
+};
 use repopilot::review::{
     MergeReadinessRecord, OwnershipAssessment, OwnershipSummary, ReadinessReasonCode,
     ReadinessVerdict, derive_readiness,
 };
+use repopilot::rules::{RuleLifecycle, SignalSource};
 use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
 use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::path::PathBuf;
@@ -193,6 +199,54 @@ fn human_summary_discloses_when_no_verification_was_selected() {
 }
 
 #[test]
+fn readiness_includes_visible_signal_verification_guidance() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.tiered_signals.definitely.push(ReviewSignal {
+        signal_id: "signal-1".to_string(),
+        kind: "boundary.access-control".to_string(),
+        family: SignalFamily::Boundary,
+        tier: ConfidenceTier::DefinitelySensitive,
+        confidence: repopilot::findings::types::Confidence::High,
+        path: "src/auth.rs".to_string(),
+        target_path: None,
+        line: Some(4),
+        line_start: Some(4),
+        line_end: Some(4),
+        evidence_lines: vec![4],
+        headline: "access control changed".to_string(),
+        detail: None,
+        blast_radius: 0,
+        provenance: ReviewSignalProvenance {
+            detector: "boundary.access-control".to_string(),
+            lifecycle: RuleLifecycle::Preview,
+            signal_source: SignalSource::GitDiff,
+            analysis_scope: AnalysisScope::GitDiff,
+        },
+        suppressed: false,
+        suppression_reason: None,
+        gate_eligible: true,
+        verification_plan: Some(ReviewSignalVerificationPlan {
+            steps: vec!["confirm access behavior".to_string()],
+        }),
+    });
+
+    let readiness = derive_readiness(&report, None, None, None);
+
+    assert_eq!(
+        readiness.verification_steps,
+        vec!["confirm access behavior".to_string()]
+    );
+    let rendered = repopilot::review::render::render_json(&report, None).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(
+        json["merge_readiness"]["verification_steps"][0],
+        "confirm access behavior"
+    );
+    assert_eq!(json["change_proof"]["obligations"]["applicable"], 1);
+    assert_eq!(json["change_proof"]["obligations"]["unavailable"], 1);
+}
+
+#[test]
 fn human_summary_reports_revision_compatible_passed_verification() {
     let mut report = report_with_ownership(OwnershipSummary::default());
     report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
@@ -328,6 +382,7 @@ fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings: Vec::new(),
     }

@@ -15,6 +15,7 @@ use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::ownership::{OwnershipIndex, OwnershipSummary};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, tiered};
+use crate::review::verification::VerificationPolicy;
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::session::AnalysisSession;
 use crate::scan::types::ScanSummary;
@@ -129,14 +130,16 @@ pub fn build_review_report_from_input(
         None => all_findings_new(summary),
     };
 
-    Ok(classify_findings(
+    let mut report = classify_findings(
         baseline_report,
         repo_root,
         changed_files,
         boundary_signals,
         content_signals,
         config.review.impact_path_depth,
-    ))
+    );
+    report.verification_policy = VerificationPolicy::from_configs(&config.verification.checks);
+    Ok(report)
 }
 
 fn classify_findings(
@@ -215,6 +218,7 @@ fn classify_findings(
         boundary_missing_test,
         tiered_signals,
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
         findings,
     }
