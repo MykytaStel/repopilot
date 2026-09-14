@@ -22,7 +22,7 @@
   "strict": {
     "by_rule": {
       "architecture.circular-dependency": 11,
-      "architecture.dead-module": 48,
+      "architecture.dead-module": 47,
       "architecture.deep-directory-nesting": 12,
       "architecture.deep-relative-imports": 33,
       "architecture.excessive-fan-out": 17,
@@ -36,12 +36,12 @@
       "code-quality.complex-function": 67,
       "code-quality.deep-control-flow": 16,
       "code-quality.long-function": 180,
-      "framework.js.var-declaration": 12,
+      "framework.js.var-declaration": 9,
       "framework.react.class-component": 4,
       "framework.react.prop-types": 12,
       "language.python.exception-risk": 45,
       "testing.source-without-test": 485
     },
-    "visible_total": 1069
+    "visible_total": 1065
   }
 }

@@ -70,7 +70,7 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 
 - Default-profile evidence: 6 of 54 rules (11.1%), 25 labeled findings across 7 repo(s).
 - Default-profile rules without evidence: 48 (unmeasured, not clean).
-- Strict-profile sampled evidence: 11 rules, 37 sampled findings across 6 repo(s).
+- Strict-profile sampled evidence: 10 rules, 32 sampled findings across 6 repo(s).
 - Evidence status is `insufficient evidence` below 10 labeled findings; `descriptive` is a sample-size label, not a production precision claim.
 - These coverage counts describe committed labels and do not establish recall.
 
@@ -81,7 +81,6 @@ Rules that fire only in the strict profile are too numerous to label exhaustivel
 
 | Rule | Lifecycle | Sampled | Evidence Status | Validity (95% Wilson) | Actionability | False-Positive Rate | False-Positive Debt |
 |---|---|---|---|---:|---:|---:|---:|
-| `architecture.dead-module` | experimental | 3 sampled across 2 repo(s) | insufficient evidence | 0.00 (0.00–0.56) | 0.00 | 1.00 | 3 |
 | `architecture.deep-relative-imports` | preview | 3 sampled across 2 repo(s) | insufficient evidence | 1.00 (0.44–1.00) | 0.33 | 0.00 | 0 |
 | `architecture.excessive-fan-out` | stable | 6 sampled across 2 repo(s) | insufficient evidence | 1.00 (0.61–1.00) | 0.00 | 0.00 | 0 |
 | `architecture.large-file` | experimental | 3 sampled across 3 repo(s) | insufficient evidence | 1.00 (0.44–1.00) | 0.00 | 0.00 | 0 |
@@ -89,6 +88,6 @@ Rules that fire only in the strict profile are too numerous to label exhaustivel
 | `code-quality.complex-file` | preview | 3 sampled across 3 repo(s) | insufficient evidence | 1.00 (0.44–1.00) | 0.00 | 0.00 | 0 |
 | `code-quality.complex-function` | preview | 3 sampled across 3 repo(s) | insufficient evidence | 1.00 (0.44–1.00) | 1.00 | 0.00 | 0 |
 | `code-quality.long-function` | preview | 3 sampled across 3 repo(s) | insufficient evidence | 1.00 (0.44–1.00) | 0.33 | 0.00 | 0 |
-| `framework.js.var-declaration` | preview | 3 sampled across 2 repo(s) | insufficient evidence | 0.33 (0.06–0.79) | 0.00 | 0.67 | 2 |
+| `framework.js.var-declaration` | preview | 1 sampled across 1 repo(s) | insufficient evidence | 1.00 (0.21–1.00) | 0.00 | 0.00 | 0 |
 | `language.go.panic-exit-risk` | preview | 5 sampled across 1 repo(s) | insufficient evidence | 1.00 (0.57–1.00) | 0.00 | 0.00 | 0 |
 | `security.env-file-committed` | stable | 2 sampled across 1 repo(s) | insufficient evidence | 1.00 (0.34–1.00) | 0.00 | 0.00 | 0 |

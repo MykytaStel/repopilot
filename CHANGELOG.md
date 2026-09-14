@@ -241,6 +241,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Calibrated `architecture.dead-module` for test-support files skipped from the
+  default graph and Python `*_viewset` dotted-path loaders, and made
+  `framework.js.var-declaration` ignore CSS `var(...)` inside JavaScript and
+  TypeScript strings. Regression coverage protects these false-positive fixes
+  while keeping ordinary dotted strings, real `var` declarations, and Rust
+  production test-support modules eligible for their existing rules.
+
 - Added rule-reference documentation metadata for high-severity
   `code-quality.complex-file` findings, removing the self-scan contract warning
   while preserving the existing complexity signal.

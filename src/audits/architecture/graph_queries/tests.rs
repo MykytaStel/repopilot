@@ -169,6 +169,20 @@ fn dead_module_exempts_entrypoints_public_api_and_imported_files() {
 }
 
 #[test]
+fn dead_module_ignores_test_support_conventions() {
+    let readiness = GraphReadiness::Available;
+    for relative in [
+        "packages/apply-release-plan/src/test-utils/failing-functions.ts",
+        "packages/assemble-release-plan/src/test-utils.ts",
+    ] {
+        assert!(
+            dead_module_finding(&prod(relative), Some(0), readiness).is_none(),
+            "test support is not a production dead-module candidate: {relative}"
+        );
+    }
+}
+
+#[test]
 fn dead_module_is_demoted_to_low_when_graph_has_unresolved_imports() {
     let finding = dead_module_finding(
         &prod("src/orphan.ts"),

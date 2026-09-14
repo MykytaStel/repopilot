@@ -13,6 +13,7 @@ use crate::findings::types::{Confidence, Evidence, Finding, FindingCategory, Sev
 use crate::graph::ImportResolutionStats;
 use crate::graph::v2::{GraphClaim, GraphReadiness, graph_capabilities, graph_readiness};
 use crate::scan::facts::FileFacts;
+use crate::scan::path_classification::is_test_support_path;
 
 mod audit_helpers;
 mod edge_evidence;
@@ -92,6 +93,7 @@ fn dead_module_finding(
     // references need no import and are invisible here. Ask the resolver which
     // languages support absence claims so this cannot drift from graph semantics.
     let supports_absence = crate::graph::resolver::supports_file_absence_claims(&info.relative);
+    let is_test_support = is_test_support_path(&info.relative);
     // A file that carries its own tests is exercised by the suite, and its only
     // importer is often a `#[cfg(test)] mod ...;` declaration, whose edge is
     // intentionally excluded from the production import graph. Treating such a
@@ -104,6 +106,7 @@ fn dead_module_finding(
         || ctx.is_public_api
         || fan_in.unwrap_or(0) != 0
         || has_inline_tests
+        || is_test_support
         // A tool config, build script, framework-autoloaded module, routed
         // file, browser entry, or documentation example is reached without an
         // import, so its fan-in is zero in every healthy repository.

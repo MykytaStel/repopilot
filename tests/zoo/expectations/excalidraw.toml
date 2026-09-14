@@ -132,15 +132,6 @@ evidence = "sample"
 disposition = "valid-but-accepted"
 reason = "The chat component reaches the shared i18n module through three parent segments inside the package; an alias could improve readability, but this is a bounded internal path and not a broken import."
 
-[[finding]]
-profile = "strict"
-finding_id = "framework.js.var-declaration:packages/excalidraw/components/App.tsx:d7eae6c6bbfffdf9"
-rule_id = "framework.js.var-declaration"
-path = "packages/excalidraw/components/App.tsx"
-line = 2008
-evidence = "sample"
-disposition = "false-positive"
-reason = "The reported evidence is the object-literal property `boxShadow:`, not a JavaScript `var` declaration; this strict finding is detector calibration debt."
 
 [[finding]]
 profile = "strict"
