@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# install.sh — downloads and installs the latest repopilot release binary.
+# install.sh — downloads and installs a repopilot release binary.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | bash
+#   REPOPILOT_VERSION=0.23.0 bash install.sh
 #
 # The binary is placed in ~/.local/bin (created if needed). If you want a system-wide
 # install, re-run with sudo and set INSTALL_DIR=/usr/local/bin.
@@ -42,7 +43,7 @@ case "$OS" in
     ;;
 esac
 
-# ── Resolve latest version ────────────────────────────────────────────────────
+# ── Resolve an exact version or the latest release ────────────────────────────
 
 if command -v curl >/dev/null 2>&1; then
   fetch_stdout() {
@@ -63,14 +64,23 @@ else
   exit 1
 fi
 
-VERSION=$(
-  fetch_stdout "https://api.github.com/repos/$REPO/releases/latest" |
-  grep '"tag_name"' |
-  sed 's/.*"tag_name": *"v\([^"]*\)".*/\1/'
-)
+if [ -n "${REPOPILOT_VERSION:-}" ]; then
+  VERSION="$REPOPILOT_VERSION"
+else
+  VERSION=$(
+    fetch_stdout "https://api.github.com/repos/$REPO/releases/latest" |
+    grep '"tag_name"' |
+    sed 's/.*"tag_name": *"v\([^"]*\)".*/\1/'
+  )
+fi
 
 if [ -z "$VERSION" ]; then
   echo "Could not determine the latest version." >&2
+  exit 1
+fi
+
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "Invalid RepoPilot version: $VERSION" >&2
   exit 1
 fi
 
