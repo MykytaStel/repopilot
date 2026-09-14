@@ -73,6 +73,7 @@ class ContractEvidenceTests(unittest.TestCase):
         self.assertEqual(
             CONTRACT_IDS,
             (
+                "delivery/action-reference-changed",
                 "security-boundary/boundary-changed",
                 "security-boundary/entrypoint-impacted",
                 "test-coverage/test-changed",

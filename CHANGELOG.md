@@ -81,9 +81,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   covering the limited `test-changed` contract alongside `test-missing`.
 - Extended the real-history holdout collector to retain stable contract
   family/change IDs and an evidence hash, and extended blinded worksheets and
-  adjudicated metrics with bounded security/test contract labels. Unmeasured
-  current contract families remain visible in observations rather than being
-  silently dropped.
+  adjudicated metrics with bounded delivery/security/test contract labels.
+  Unmeasured current contract families remain visible in observations rather
+  than being silently dropped.
 - Added a separate single-expert exploratory contract pilot with blinded,
   hash-pinned worksheets and per-contract TP/FN/TN/FP metrics plus Wilson
   intervals. The pilot is explicitly not independent validation, does not
