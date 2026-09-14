@@ -6,3 +6,53 @@ strict_coverage = "selective"
 # cobra emits no default-visible findings at the pinned SHA. The file is still
 # required so the zoo gate proves the empty default profile was reviewed, not
 # merely un-scanned.
+
+[[finding]]
+profile = "strict"
+finding_id = "language.go.panic-exit-risk:cobra.go:7335983ab9f134f5"
+rule_id = "language.go.panic-exit-risk"
+path = "cobra.go"
+line = 150
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "Eq is a deprecated compatibility helper with an explicit documented contract that unsupported kinds panic; the detector correctly identifies a process-risk edge, but the upstream API preserves this behavior for compatibility."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.go.panic-exit-risk:command_win.go:d2bbd5f74a9bf3b6"
+rule_id = "language.go.panic-exit-risk"
+path = "command_win.go"
+line = 39
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The Windows Explorer launch hook intentionally terminates after displaying help to the user; os.Exit is the designed end of this platform-specific command path."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.go.panic-exit-risk:flag_groups.go:aead477fd743c0d0"
+rule_id = "language.go.panic-exit-risk"
+path = "flag_groups.go"
+line = 38
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "MarkFlagsOneRequired treats an unknown flag name as a programmer configuration error; panicking during command setup preserves a fail-fast invariant for the Cobra API."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.go.panic-exit-risk:flag_groups.go:b7ae33a993d7d202"
+rule_id = "language.go.panic-exit-risk"
+path = "flag_groups.go"
+line = 58
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "MarkFlagsRequiredTogether fails fast if the caller supplies an invalid flag name or an impossible annotation; this is an API misuse path, not an expected user-input error path."
+
+[[finding]]
+profile = "strict"
+finding_id = "language.go.panic-exit-risk:flag_groups.go:b7ae33a993d7d202"
+rule_id = "language.go.panic-exit-risk"
+path = "flag_groups.go"
+line = 74
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "MarkFlagsMutuallyExclusive fails fast if flag annotation setup violates the command-construction invariant; the panic is intentionally retained for invalid API configuration."

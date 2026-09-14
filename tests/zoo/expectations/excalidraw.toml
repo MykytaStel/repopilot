@@ -81,3 +81,73 @@ line = 1
 evidence = "sample"
 disposition = "valid-but-accepted"
 reason = "Committed Vite build-time config (VITE_* vars, a Firebase apiKey, and an RSA *public* export key). All VITE_* vars ship into the client bundle regardless of .gitignore, so there is nothing secret to protect; excalidraw commits .env.production/.env.development/.env.test deliberately."
+
+[[finding]]
+profile = "strict"
+finding_id = "security.env-file-committed:.env.development:449ca767a377cdab"
+rule_id = "security.env-file-committed"
+path = ".env.development"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "Committed development Vite config contains public client-side endpoints, a Firebase web apiKey, and an RSA public export key; these values are intentionally bundled or used for local development, and the repository tracks its .env.* build configurations."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.excessive-fan-out:excalidraw-app/App.tsx:8f82ae1c9add232f"
+rule_id = "architecture.excessive-fan-out"
+path = "excalidraw-app/App.tsx"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The application root intentionally coordinates rendering, collaboration, persistence, export, and UI features; fan_out=49 is high but reflects a top-level composition boundary rather than accidental coupling."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.excessive-fan-out:packages/excalidraw/components/Actions.tsx:c817b985ae67bcbc"
+rule_id = "architecture.excessive-fan-out"
+path = "packages/excalidraw/components/Actions.tsx"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "This component is the action toolbar coordinator and intentionally imports the action predicates, tools, icons, and shared UI needed to render the controls; fan_out=24 is a composition cost, not evidence of a broken dependency boundary."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.excessive-fan-out:packages/excalidraw/components/Stats/index.tsx:c978fe515b2c08e5"
+rule_id = "architecture.excessive-fan-out"
+path = "packages/excalidraw/components/Stats/index.tsx"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The Stats component is a deliberate UI aggregation point for measurement panels and shared editor state; fan_out=21 is expected for this feature coordinator and does not by itself justify a refactor."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.deep-relative-imports:packages/excalidraw/components/TTDDialog/Chat/ChatHistoryMenu.tsx:d125430b04d828e1"
+rule_id = "architecture.deep-relative-imports"
+path = "packages/excalidraw/components/TTDDialog/Chat/ChatHistoryMenu.tsx"
+line = 3
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The chat component reaches the shared i18n module through three parent segments inside the package; an alias could improve readability, but this is a bounded internal path and not a broken import."
+
+[[finding]]
+profile = "strict"
+finding_id = "framework.js.var-declaration:packages/excalidraw/components/App.tsx:d7eae6c6bbfffdf9"
+rule_id = "framework.js.var-declaration"
+path = "packages/excalidraw/components/App.tsx"
+line = 2008
+evidence = "sample"
+disposition = "false-positive"
+reason = "The reported evidence is the object-literal property `boxShadow:`, not a JavaScript `var` declaration; this strict finding is detector calibration debt."
+
+[[finding]]
+profile = "strict"
+finding_id = "architecture.too-many-modules:packages/element/src:3e5f6b00d6de287c"
+rule_id = "architecture.too-many-modules"
+path = "packages/element/src"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The element package is a deliberately broad public library with 47 focused source modules; the directory size reflects API surface and domain decomposition rather than an accidental flat module dump."
