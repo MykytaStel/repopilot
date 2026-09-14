@@ -67,3 +67,13 @@ line = 23
 evidence = "sample"
 disposition = "actionable"
 reason = "Complexity 41 against a threshold of 15 — nearly three times over. Branch density this high is what the rule exists to surface."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-file:packages/config/src/utils.ts:0817bda7890a6b73"
+rule_id = "code-quality.complex-file"
+path = "packages/config/src/utils.ts"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The 37-line utility implements ordered positive/negative glob matching with nine branches; the density is real, but the logic is localized and intentionally kept as one matcher."
