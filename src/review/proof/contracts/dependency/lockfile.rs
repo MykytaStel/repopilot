@@ -51,6 +51,13 @@ pub(super) fn deltas(file: &ChangedFile, path: &str) -> Vec<ChangeProofContractD
                     "Lockfile source changed from `{old}` to `{new}`, but package identity is unavailable."
                 ),
             ),
+            _ if has_meaningful_change(hunk) => (
+                ContractChangeKind::Unknown,
+                format!(
+                    "Lockfile change for `{}` could not be classified with supported package identity, version, or source evidence.",
+                    subject.as_deref().unwrap_or("lockfile resolution")
+                ),
+            ),
             _ => continue,
         };
         deltas.push(delta(
@@ -59,7 +66,9 @@ pub(super) fn deltas(file: &ChangedFile, path: &str) -> Vec<ChangeProofContractD
             change,
             line,
             &evidence,
-            if subject.is_some() {
+            if change == ContractChangeKind::Unknown {
+                ContractConfidence::Limited
+            } else if subject.is_some() {
                 ContractConfidence::High
             } else {
                 ContractConfidence::Limited
@@ -67,6 +76,16 @@ pub(super) fn deltas(file: &ChangedFile, path: &str) -> Vec<ChangeProofContractD
         ));
     }
     deltas
+}
+
+fn has_meaningful_change(hunk: &crate::review::diff::DiffHunk) -> bool {
+    hunk.added_lines
+        .iter()
+        .chain(&hunk.removed_lines)
+        .any(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && !trimmed.starts_with('#')
+        })
 }
 
 fn parse_lockfile_value(line: &str, key: &str) -> Option<String> {

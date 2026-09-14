@@ -207,9 +207,12 @@ pub fn derive_change_proof_from_review(
     let unsupported_files =
         requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
     let contract_deltas = contracts::from_review(report);
-    let unsupported_contract_deltas = contract_deltas
+    let limited_contract_deltas = contract_deltas
         .iter()
-        .filter(|delta| delta.family == ContractFamily::Delivery)
+        .filter(|delta| {
+            delta.family == ContractFamily::Delivery
+                || delta.confidence == Some(ContractConfidence::Limited)
+        })
         .count();
     let (obligations, sufficient_policy) =
         derive_verification_obligations(report, &contract_deltas);
@@ -218,11 +221,11 @@ pub fn derive_change_proof_from_review(
         .iter()
         .filter_map(map_readiness_reason)
         .collect::<Vec<_>>();
-    if unsupported_contract_deltas > 0 {
+    if limited_contract_deltas > 0 {
         reasons.push(ChangeProofReason::new(
             ChangeProofReasonCode::UnsupportedContractCoverage,
-            unsupported_contract_deltas,
-            "Some detected contract changes are outside the supported proof coverage.",
+            limited_contract_deltas,
+            "Some detected contract changes have limited semantic proof coverage.",
         ));
     }
 
@@ -248,16 +251,16 @@ pub fn derive_change_proof_from_review(
     proof.contract_deltas = contract_deltas;
     proof.capability_coverage.push(ProofCapability {
         id: "contract-deltas".to_string(),
-        status: if unsupported_contract_deltas > 0 {
+        status: if limited_contract_deltas > 0 {
             ProofCapabilityStatus::Limited
         } else {
             ProofCapabilityStatus::Assessed
         },
         count: proof.contract_deltas.len(),
-        message: if unsupported_contract_deltas > 0 {
+        message: if limited_contract_deltas > 0 {
             format!(
-                "{} detected delivery contract change(s) have limited semantic proof coverage.",
-                unsupported_contract_deltas
+                "{} detected contract change(s) have limited semantic proof coverage.",
+                limited_contract_deltas
             )
         } else {
             "Supported semantic contract changes detected in the review.".to_string()
