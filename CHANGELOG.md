@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Release verification now checks Homebrew formula SHA-256 values against all
+  published platform archives. `install.sh` accepts an exact
+  `REPOPILOT_VERSION` pin for reproducible installation smoke tests while
+  retaining latest-release behavior by default.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries

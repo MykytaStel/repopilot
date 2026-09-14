@@ -427,6 +427,21 @@ jobs:
             rm -f "$error_file"
           }
 
+          check_homebrew_digests() {
+            local formula="$1" target expected
+            for target in \
+              aarch64-apple-darwin \
+              x86_64-apple-darwin \
+              aarch64-unknown-linux-gnu \
+              x86_64-unknown-linux-gnu; do
+              expected="$(awk '{print $1}' "$verify_tmp/repopilot-${VERSION}-${target}.tar.gz.sha256")"
+              if [[ -z "$expected" ]] || ! grep -Fq "sha256 \"$expected\"" <<<"$formula"; then
+                echo "::error::published-mismatch; Homebrew formula digest does not match ${target}"
+                exit 1
+              fi
+            done
+          }
+
           for attempt in {1..20}; do
             echo "Publication verification attempt ${attempt}/20"
             retry_needed=false
@@ -459,6 +474,7 @@ jobs:
             if formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" 2>"$verify_tmp/formula.err")"; then
               formula_version="$(sed -nE 's/^version "([^"]+)".*/\1/p' <<<"$formula" | head -n 1)"
               if [[ "$formula_version" == "$VERSION_NUMBER" ]]; then
+                check_homebrew_digests "$formula"
                 record_state --channel homebrew --expected-version "$VERSION_NUMBER" --observed-version "$formula_version"
               elif [[ -z "$formula_version" ]]; then
                 record_state --channel homebrew --expected-version "$VERSION_NUMBER"

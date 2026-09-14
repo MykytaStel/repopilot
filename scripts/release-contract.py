@@ -429,6 +429,7 @@ def check_publication_recovery_contract() -> None:
         "404",
         "rate-limit-failure",
         "published-mismatch",
+        "check_homebrew_digests",
     )
     required_npm = (
         'ref: ${{ inputs.tag || github.ref }}',
