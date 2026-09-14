@@ -41,6 +41,7 @@ pub enum ContractChangeKind {
     Introduced,
     Renamed,
     Changed,
+    Unknown,
     BoundaryChanged,
     EntryPointImpacted,
     TestChanged,

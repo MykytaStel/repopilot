@@ -12,6 +12,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   published platform archives. `install.sh` accepts an exact
   `REPOPILOT_VERSION` pin for reproducible installation smoke tests while
   retaining latest-release behavior by default.
+- ChangeProof now emits explicit `unknown`/`limited` contract deltas for
+  unclassified dependency manifest and lockfile, workflow, and runtime-config
+  changes. Any limited semantic contract keeps the verdict at `REVIEW`, even
+  when configured verification checks pass.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries

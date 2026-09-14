@@ -238,6 +238,40 @@ fn unsupported_delivery_delta_is_limited_and_blocks_verified() {
 }
 
 #[test]
+fn limited_runtime_delta_blocks_verified_even_when_verification_passes() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.changed_files = vec![limited_runtime_changed_file()];
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "unit".to_string(),
+            role: VerificationRole::Test,
+            paths: Vec::new(),
+        }],
+        selected: vec!["unit".to_string()],
+    };
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::UnsupportedContractCoverage)
+    );
+    assert_eq!(
+        proof
+            .capability_coverage
+            .iter()
+            .find(|capability| capability.id == "contract-deltas")
+            .map(|capability| capability.status),
+        Some(ProofCapabilityStatus::Limited)
+    );
+}
+
+#[test]
 fn mixed_broken_and_delivery_deltas_keep_both_reasons_visible() {
     let mut report = report(ScanMode::Changed, 1, 1);
     report.changed_files = vec![delivery_changed_file()];
@@ -483,6 +517,21 @@ fn delivery_changed_file() -> ChangedFile {
             new_range: Some(ChangedRange { start: 4, end: 1 }),
             added_lines: vec!["permissions: write-all".to_string()],
             removed_lines: vec!["permissions: read-all".to_string()],
+        }],
+    }
+}
+
+fn limited_runtime_changed_file() -> ChangedFile {
+    ChangedFile {
+        path: PathBuf::from(".env"),
+        status: ChangeStatus::Modified,
+        ranges: vec![ChangedRange { start: 1, end: 1 }],
+        hunks: vec![DiffHunk {
+            header: None,
+            new_range: Some(ChangedRange { start: 1, end: 1 }),
+            old_range: Some(ChangedRange { start: 1, end: 1 }),
+            added_lines: vec!["DATABASE_URL=postgres://new".to_string()],
+            removed_lines: Vec::new(),
         }],
     }
 }
