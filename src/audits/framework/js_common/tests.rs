@@ -62,6 +62,48 @@ fn var_inside_identifier_not_flagged() {
 }
 
 #[test]
+fn css_var_function_in_string_not_flagged() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("styles.ts");
+    writeln!(
+        std::fs::File::create(&file_path).unwrap(),
+        "const style = {{ boxShadow: \"inset 0 0 0 1px var(--color-shadow)\" }};"
+    )
+    .unwrap();
+    let mut facts = ScanFacts {
+        root_path: dir.path().to_path_buf(),
+        ..ScanFacts::default()
+    };
+    facts.files.push(make_file_facts(file_path));
+    let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
+    assert!(
+        findings.is_empty(),
+        "CSS var() inside a string is not a JavaScript var declaration"
+    );
+}
+
+#[test]
+fn var_in_inline_comment_not_flagged() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("comment.ts");
+    writeln!(
+        std::fs::File::create(&file_path).unwrap(),
+        "const value = 1; // var fake = 2;"
+    )
+    .unwrap();
+    let mut facts = ScanFacts {
+        root_path: dir.path().to_path_buf(),
+        ..ScanFacts::default()
+    };
+    facts.files.push(make_file_facts(file_path));
+    let findings = VarDeclarationAudit.audit(&facts, &ScanConfig::default());
+    assert!(
+        findings.is_empty(),
+        "var in an inline comment is not executable"
+    );
+}
+
+#[test]
 fn var_in_test_file_skipped() {
     let dir = tempdir().unwrap();
     let test_dir = dir.path().join("__tests__");

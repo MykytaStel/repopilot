@@ -168,6 +168,26 @@ fn rust_super_import_resolves_to_parent_module() {
 }
 
 #[test]
+fn dotted_python_viewset_reference_resolves_to_local_module() {
+    let snapshot = graph_snapshot_from_scan(&scan(vec![
+        file(
+            "/repo/wagtail/users/apps.py",
+            &["wagtail.users.views.groups.GroupViewSet"],
+        ),
+        file("/repo/wagtail/users/views/groups.py", &[]),
+    ]));
+
+    let edge = snapshot
+        .edges
+        .iter()
+        .find(|edge| edge.from.as_str() == "file:wagtail/users/apps.py")
+        .expect("dotted viewset reference should produce a graph edge");
+    assert_eq!(edge.to.as_str(), "file:wagtail/users/views/groups.py");
+    assert_eq!(edge.kind, GraphEdgeKind::Imports);
+    assert_eq!(edge.confidence, GraphEdgeConfidence::High);
+}
+
+#[test]
 fn test_files_link_to_their_subject_with_a_test_of_edge() {
     let snapshot = graph_snapshot_from_scan(&scan(vec![
         file("/repo/src/math.ts", &[]),
