@@ -33,6 +33,7 @@ ALL_CONTRACT_IDS = (
     "test-coverage/test-missing",
 )
 CONTRACT_IDS = (
+    "delivery/action-reference-changed",
     "security-boundary/boundary-changed",
     "security-boundary/entrypoint-impacted",
     "test-coverage/test-changed",

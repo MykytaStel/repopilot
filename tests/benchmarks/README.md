@@ -204,9 +204,10 @@ allowlist, and one review observation per case.
 Collection schema 2 also records the stable `change_proof.contract_deltas`
 family/change IDs and a hash over those IDs. The collector preserves all
 currently emitted contract identities, while the first independent labeling
-metric is intentionally limited to the security and test IDs. Paths, evidence
-prose, and runtime semantics are not treated as independently validated by
-this family/change measurement.
+metric is intentionally limited to the measured delivery action-reference,
+security-boundary, and test-coverage IDs. Paths, evidence prose, and runtime
+semantics are not treated as independently validated by this family/change
+measurement.
 
 When only one expert is available for the contract surface, use the separate
 exploratory pilot. It is blinded and hash-pinned, but it does not weaken the
@@ -230,9 +231,9 @@ python3 scripts/real_history.py validate-contract-pilot-metrics \
 The pilot reports case outcomes and per-ID confusion counts with Wilson
 intervals. The final validation command recomputes the score from the pinned
 inputs and rejects edited or stale metrics. Its scope is explicitly
-single-expert exploratory evidence over the measured security/test subset; it
-is not independent validation, a production estimate, or evidence for the
-unmeasured contract families.
+single-expert exploratory evidence over the measured delivery action-reference,
+security-boundary, and test-coverage subset; it is not independent validation,
+a production estimate, or evidence for the unmeasured contract families.
 
 The differential pilot follows the same integrity rule. Run
 `pilot-validate-metrics` before circulating `pilot-metrics.json`; it rejects
