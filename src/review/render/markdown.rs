@@ -45,6 +45,19 @@ pub fn render_markdown_with_gates(
         proof.verdict.label()
     ));
     output.push_str(&format!(
+        "- **Intent drift:** `{}`\n",
+        proof.intent_drift.status.label()
+    ));
+    if proof.intent_drift.is_drifted() {
+        output.push_str(&format!(
+            "- **Intent limits:** {} unexpected path(s), {} unexpected contract family(ies), {} critical-path mismatch(es), {} unselected check(s)\n",
+            proof.intent_drift.unexpected_paths.len(),
+            proof.intent_drift.unexpected_contract_families.len(),
+            proof.intent_drift.unexpected_critical_paths.len(),
+            proof.intent_drift.missing_verification.len(),
+        ));
+    }
+    output.push_str(&format!(
         "- **Proof scope:** {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
         proof.coverage.analyzed_files,
         proof.coverage.requested_files,

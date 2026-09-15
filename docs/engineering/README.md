@@ -34,6 +34,8 @@ documentation](../README.md) instead.
 - [Phase 0A evidence baseline plan](v0.23-phase-0a-plan.md)
 - [Phase 0B2 compatibility evidence plan](v0.23-phase-0b-compatibility-plan.md)
 - [Recoverable publication plan](v0.23-0c-publication-recovery-plan.md)
+- [Phase C intent drift specification](v0.23-phase-c-intent-drift-spec.md)
+- [Phase C intent drift implementation plan](v0.23-phase-c-intent-drift-plan.md)
 
 <details>
 <summary>Historical release records (v0.20–v0.22)</summary>

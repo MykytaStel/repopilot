@@ -384,6 +384,7 @@ fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     }
 }

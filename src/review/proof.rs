@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::review::intent::{IntentDrift, evaluate_intent};
 use crate::review::model::ReviewReport;
 use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
 use crate::scan::types::ScanMode;
@@ -7,11 +8,11 @@ use crate::scan::types::ScanMode;
 mod capabilities;
 mod contracts;
 mod obligations;
-use capabilities::capability_coverage;
-pub use capabilities::{ProofCapability, ProofCapabilityStatus};
-pub use contracts::{
+pub use crate::review::contract::{
     ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
 };
+use capabilities::capability_coverage;
+pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 use obligations::derive_verification_obligations;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -57,6 +58,7 @@ pub enum ChangeProofReasonCode {
     BoundaryMissingTest,
     VisibleFinding,
     UnownedSurface,
+    IntentDrift,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -125,6 +127,7 @@ pub struct ChangeProof {
     pub obligations: ProofObligations,
     pub contract_deltas: Vec<ChangeProofContractDelta>,
     pub capability_coverage: Vec<ProofCapability>,
+    pub intent_drift: IntentDrift,
 }
 
 pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
@@ -188,6 +191,7 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
         obligations: input.obligations,
         contract_deltas: Vec::new(),
         capability_coverage,
+        intent_drift: IntentDrift::default(),
     }
 }
 
@@ -249,6 +253,49 @@ pub fn derive_change_proof_from_review(
         reasons,
     });
     proof.contract_deltas = contract_deltas;
+    let mut actual_paths = report
+        .changed_files
+        .iter()
+        .map(|file| file.path_string())
+        .collect::<Vec<_>>();
+    for impact in &report.impact_paths.files {
+        actual_paths.push(impact.path.to_string_lossy().replace('\\', "/"));
+        actual_paths.extend(
+            impact
+                .direct_dependents
+                .iter()
+                .chain(impact.transitive_dependents.iter())
+                .map(|path| path.to_string_lossy().replace('\\', "/")),
+        );
+    }
+    proof.intent_drift = evaluate_intent(
+        report.intent.contract.as_ref(),
+        &actual_paths,
+        &proof
+            .contract_deltas
+            .iter()
+            .map(|delta| delta.family)
+            .collect::<Vec<_>>(),
+        &report.intent.critical_paths,
+        &report.verification_policy.selected,
+    );
+    if proof.intent_drift.is_drifted() {
+        add_reason(
+            &mut proof.reasons,
+            ChangeProofReason::new(
+                ChangeProofReasonCode::IntentDrift,
+                proof.intent_drift.unexpected_paths.len()
+                    + proof.intent_drift.unexpected_contract_families.len()
+                    + proof.intent_drift.unexpected_critical_paths.len()
+                    + proof.intent_drift.missing_verification.len(),
+                "Observed change impact exceeds the supplied intent contract.",
+            ),
+        );
+        if proof.verdict == ChangeProofVerdict::Verified {
+            proof.verdict = ChangeProofVerdict::Review;
+        }
+    }
+    proof.reasons.sort_by_key(|reason| reason.code);
     proof.capability_coverage.push(ProofCapability {
         id: "contract-deltas".to_string(),
         status: if limited_contract_deltas > 0 {

@@ -138,6 +138,7 @@ pub fn build_review_report_from_input(
         content_signals,
         config.review.impact_path_depth,
     );
+    report.intent.critical_paths = config.review.critical_paths.clone();
     report.verification_policy = VerificationPolicy::from_configs(&config.verification.checks);
     Ok(report)
 }
@@ -220,6 +221,7 @@ fn classify_findings(
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings,
     }
 }
