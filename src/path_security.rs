@@ -39,13 +39,13 @@ impl RootConfinement {
 
     pub fn resolve_allow_missing(&self, path: &Path, label: &str) -> Result<PathBuf, String> {
         let joined = self.joined_candidate(path);
-        if joined.exists() {
+        if path_exists(&joined) {
             return self.resolve_existing(&joined, label);
         }
         let candidate = self.lexical_candidate(&joined, label)?;
 
         let mut ancestor = candidate.clone();
-        while !ancestor.exists() {
+        while !path_exists(&ancestor) {
             if !ancestor.pop() {
                 return Err(format!(
                     "{label} {} has no accessible parent",
@@ -99,6 +99,10 @@ impl RootConfinement {
             ))
         }
     }
+}
+
+fn path_exists(path: &Path) -> bool {
+    fs::symlink_metadata(path).is_ok()
 }
 
 fn normalize_lexically(path: &Path) -> Option<PathBuf> {
@@ -176,5 +180,22 @@ mod tests {
             .expect_err("symlink escape must fail");
 
         assert!(error.contains("must stay within workspace root"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_missing_leaf_beneath_dangling_symlink() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir().expect("root");
+        let outside = root.path().join("missing-target");
+        symlink(&outside, root.path().join("linked")).expect("create dangling symlink");
+        let confinement = RootConfinement::new(root.path()).expect("confinement");
+
+        let error = confinement
+            .resolve_allow_missing(Path::new("linked/new.json"), "output")
+            .expect_err("dangling symlink escape must fail");
+
+        assert!(error.contains("unavailable") || error.contains("must stay within"));
     }
 }
