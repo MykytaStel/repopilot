@@ -298,6 +298,13 @@ signals continue to omit it. It is nevertheless a source compatibility change
 for Rust users that construct the public `ReviewSignal` with a struct literal;
 those literals must now provide `target_path`, normally as `None`.
 
+Review JSON also carries an additive top-level `evidence` object. It contains
+the evidence class (`observation`, `supported-proof`, `suspicion`, or
+`unknown`), coverage status and scope counts, plus analyzer/schema provenance,
+selected checks, unavailable inputs, and a canonical projection hash. The
+object is derived from the same `change_proof` used by the human renderers;
+older readers may ignore it without changing existing fields or exit codes.
+
 ## Review HTML reports
 
 `repopilot review --format html --output review.html` writes a self-contained
@@ -322,10 +329,10 @@ retains the complete machine-readable record.
 When an MCP review returns an `analysisHandle`, pass that handle to
 `repopilot_context`, `repopilot_explain_finding`, or
 `repopilot_explain_review_signal`. The returned structured content includes the
-same canonical `change_proof` object that was emitted by the review. The
-`repopilot://analyses` resource exposes that object in its stored-analysis
-summary as well. Context content remains Markdown, while the proof stays
-machine-readable in `structuredContent`.
+same canonical `change_proof` and additive `evidence` objects that were emitted
+by the review. The `repopilot://analyses` resource exposes both objects in its
+stored-analysis summary as well. Context content remains Markdown, while the
+proof and evidence stay machine-readable in `structuredContent`.
 
 ## Audit receipt JSON
 
@@ -463,9 +470,12 @@ calibration policy.
 SARIF output carries the same category, recommendation, confidence, baseline
 status, and workspace package metadata in result properties when available.
 Review SARIF additionally carries optional run-level `changeProof` and
-`verification` properties. `changeProof` is the same gated canonical proof
-used by review JSON/Markdown/HTML projections; `verification` preserves the
-recorded check outcomes, including skipped and revision-incompatible states.
+`evidence` and `verification` properties. `changeProof` and `evidence` are the
+same gated canonical records used by review JSON/Markdown/HTML projections;
+`changeProof` is the canonical proof and `evidence` records its claim strength,
+coverage, and provenance. The Action summary reads this object when present and
+keeps a compatible fallback for older review JSON. `verification` preserves
+the recorded check outcomes, including skipped and revision-incompatible states.
 Scan and baseline SARIF omit these review-only properties.
 
 ## Recommended usage

@@ -29,6 +29,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   provenance inputs that are unavailable in the current review record. An
   internal canonical projection hash is normalized over evidence collections;
   existing JSON fields and exit codes remain unchanged.
+- Review JSON and review SARIF now carry the additive `evidence` projection;
+  MCP stored analyses, explain/context tools, and the GitHub Action summary use
+  that same record while retaining a fallback for older review artifacts.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries

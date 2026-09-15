@@ -116,11 +116,32 @@ write_review_summary() {
         else
           "SUSPICION"
         end;
-      .change_proof as $proof
+      def evidence_class_label($proof; $evidence):
+        if $evidence.class == "observation" then "OBSERVATION"
+        elif $evidence.class == "supported-proof" then "SUPPORTED PROOF"
+        elif $evidence.class == "suspicion" then "SUSPICION"
+        elif $evidence.class == "unknown" then "UNKNOWN"
+        else evidence_class($proof)
+        end;
+      def evidence_scope_line($proof; $evidence):
+        if ($evidence.scope | type) == "object" then
+          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported (\($evidence.coverage_status // "unavailable"))"
+        else
+          "\($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))"
+        end;
+      def evidence_provenance($report; $proof; $evidence):
+        if ($evidence.provenance | type) == "object" then
+          "RepoPilot \($evidence.provenance.analyzer_version // "unknown"), schema \($evidence.provenance.report_schema // "unknown"); unavailable: \((($evidence.provenance.unavailable_inputs // []) | join(", ")))"
+        else
+          "RepoPilot \($report.repopilot_version // "unknown"), schema \($report.schema_version // "unknown"); unavailable: \(if (($proof.coverage.scope // "changed") == "changed") then "base revision, " else "" end)current revision, head revision, scanner configuration, toolchain"
+        end;
+      . as $report
+      | .change_proof as $proof
+      | (.evidence // {}) as $evidence
       | "- **Change proof:** \($proof.verdict // "unavailable")",
-        "- **Evidence class:** \(evidence_class($proof))",
-        "- **Evidence scope:** \($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))",
-        "- **Evidence provenance:** RepoPilot \(.repopilot_version // "unknown"), schema \(.schema_version // "unknown"), base ref unavailable; unavailable: \(if ($proof.coverage.scope // "changed") == "changed" then "base revision, " else "" end)current revision, head revision, scanner configuration, toolchain",
+        "- **Evidence class:** \(evidence_class_label($proof; $evidence))",
+        "- **Evidence scope:** \(evidence_scope_line($proof; $evidence))",
+        "- **Evidence provenance:** \(evidence_provenance($report; $proof; $evidence))",
         (if ($proof.coverage.requested_files // 0) == 0 then
           "- **Why:** No changed files were available for assessment."
         elif $proof.verdict == "BROKEN" then

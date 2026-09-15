@@ -202,6 +202,24 @@ fn review_action_summary_projects_verification_proof_card() {
               "stale": 0
             }
           },
+          "evidence": {
+            "class": "suspicion",
+            "coverage_status": "limited",
+            "scope": {
+              "scope": "changed",
+              "requested_files": 4,
+              "analyzed_files": 3,
+              "excluded_files": 1,
+              "unsupported_files": 0
+            },
+            "provenance": {
+              "analyzer_version": "fixture-analyzer",
+              "report_schema": "fixture-schema",
+              "selected_checks": [],
+              "canonical_projection_hash": "sha256:fixture",
+              "unavailable_inputs": ["current revision"]
+            }
+          },
           "review": {
             "in_diff_findings": 0,
             "tiered_signals": {"definitely": 0, "maybe": 0, "noise": 0, "total": 0}
@@ -236,7 +254,10 @@ fn review_action_summary_projects_verification_proof_card() {
     assert!(summary.contains(
         "**Evidence scope:** changed; 3/4 file(s) analyzed; 1 excluded, 0 unsupported (limited)"
     ));
-    assert!(summary.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
+    assert!(
+        summary
+            .contains("**Evidence provenance:** RepoPilot fixture-analyzer, schema fixture-schema")
+    );
     assert!(summary.contains(
         "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
     ));

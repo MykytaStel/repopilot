@@ -53,6 +53,7 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         "signal_id": signal_id,
         "signal": signal,
         "change_proof": report.get("change_proof").cloned().unwrap_or(Value::Null),
+        "evidence": report.get("evidence").cloned().unwrap_or(Value::Null),
         "why_it_matters": why_it_matters(signal),
         "impact": impact_for_path(&report, impact_path),
         "gate": {
@@ -151,6 +152,10 @@ mod tests {
             },
             "impact_paths": {
                 "files": [{ "path": "src/auth.rs", "direct_dependents": ["src/api.rs"] }]
+            },
+            "evidence": {
+                "class": "suspicion",
+                "coverage_status": "limited"
             }
         })
         .to_string();
@@ -161,5 +166,6 @@ mod tests {
         assert_eq!(value["status"], "explained");
         assert_eq!(value["gate"]["eligible"], true);
         assert_eq!(value["impact"]["direct_dependents"][0], "src/api.rs");
+        assert_eq!(value["evidence"]["class"], "suspicion");
     }
 }

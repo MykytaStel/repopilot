@@ -258,6 +258,9 @@ verdict with its meaning, proof policy, scope, reasons, and next action; legacy
 merge readiness, the finding CI gate, and the review-signal gate are separate
 fields. A review with no changed files is `NOT ASSESSED` and says that no
 changed files were available for assessment.
+Review JSON exposes the same evidence class, coverage scope, provenance inputs,
+and canonical projection hash in its additive top-level `evidence` object;
+review SARIF and MCP projections carry that object as well.
 
 ### Synopsis
 

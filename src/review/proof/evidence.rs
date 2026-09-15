@@ -59,7 +59,7 @@ pub struct EvidenceProvenance {
     pub unavailable_inputs: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EvidenceSummary {
     pub class: EvidenceClass,
     pub coverage_status: EvidenceCoverageStatus,

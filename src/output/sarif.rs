@@ -98,6 +98,7 @@ fn findings_to_sarif_with_properties(
             properties: SarifRunProperties {
                 report: ReportEnvelope::sarif(),
                 change_proof: None,
+                evidence: None,
                 verification: None,
             },
             results: findings
