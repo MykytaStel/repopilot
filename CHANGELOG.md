@@ -32,6 +32,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Review JSON and review SARIF now carry the additive `evidence` projection;
   MCP stored analyses, explain/context tools, and the GitHub Action summary use
   that same record while retaining a fallback for older review artifacts.
+- Resilience hardening rejects dangling symlink ancestors during root-confined
+  path resolution, and malformed TOML errors no longer echo quoted
+  configuration values into CLI/MCP surfaces.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries

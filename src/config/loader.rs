@@ -74,10 +74,24 @@ impl std::fmt::Display for ConfigError {
                 )
             }
             Self::Parse { path, source } => {
-                if let Some(path) = path {
-                    write!(formatter, "invalid config {}: {source}", path.display())
+                // TOML's rich formatter includes the source line. A config
+                // value can be a credential, so only expose the parser's
+                // value-free message; messages containing quoted values are
+                // replaced with a generic safe explanation.
+                let message = source.message();
+                let safe_message = if message.contains('"') || message.contains('\'') {
+                    "TOML parse error (details omitted to avoid echoing configuration values)"
                 } else {
-                    write!(formatter, "invalid config: {source}")
+                    message
+                };
+                if let Some(path) = path {
+                    write!(
+                        formatter,
+                        "invalid config {}: {safe_message}",
+                        path.display()
+                    )
+                } else {
+                    write!(formatter, "invalid config: {safe_message}")
                 }
             }
         }
