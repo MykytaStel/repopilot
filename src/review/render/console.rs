@@ -1,7 +1,6 @@
 use super::diagnostics;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
-use crate::output::decision_summary::{render_decision_summary, review_decision_summary};
 use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
@@ -9,7 +8,10 @@ use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::ReviewRenderOptions;
-use crate::review::render::helpers::{verification_duration_evidence, verification_proof_summary};
+use crate::review::render::helpers::{
+    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
+    verification_duration_evidence, verification_proof_summary,
+};
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
 
@@ -45,10 +47,6 @@ fn render_console_header(
     review_gate: Option<&ReviewSignalGateResult>,
 ) {
     output.push_str("RepoPilot Review\n\n");
-    render_decision_summary(
-        output,
-        &review_decision_summary(report, ci_gate, review_gate),
-    );
     let readiness = derive_readiness(
         report,
         ci_gate,
@@ -57,6 +55,21 @@ fn render_console_header(
     );
     let proof = derive_change_proof_from_review(report, &readiness);
     output.push_str(&format!("Change Proof: {}\n", proof.verdict.label()));
+    output.push_str(&format!("Why: {}\n", change_proof_headline(report, &proof)));
+    output.push_str(&format!(
+        "Proof policy: {}\n",
+        change_proof_policy_summary(report)
+    ));
+    if !proof.reasons.is_empty() {
+        output.push_str("Reasons:\n");
+        for reason in proof.reasons.iter().take(5) {
+            output.push_str(&format!("  - {}\n", reason.message));
+        }
+        output.push_str(&format!(
+            "Next action: {}\n",
+            change_proof_next_action(&proof)
+        ));
+    }
     output.push_str(&format!(
         "Intent drift: {}\n",
         proof.intent_drift.status.label()
@@ -88,7 +101,7 @@ fn render_console_header(
         verification_proof_summary(report, proof.obligations)
     ));
     output.push_str(&format!(
-        "Merge readiness: {}\n",
+        "Legacy merge readiness: {}\n",
         readiness.verdict.label().to_uppercase()
     ));
     match readiness.ownership.assessment {
@@ -155,6 +168,8 @@ fn render_console_header(
     if let Some(ci_gate) = ci_gate {
         let status = if ci_gate.passed() { "passed" } else { "failed" };
         output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
+    } else {
+        output.push_str("CI gate: not configured\n");
     }
     if let Some(review_gate) = review_gate {
         if review_gate.enabled() {
@@ -171,6 +186,8 @@ fn render_console_header(
         } else {
             output.push_str("Review gate: disabled\n");
         }
+    } else {
+        output.push_str("Review gate: not configured\n");
     }
 }
 

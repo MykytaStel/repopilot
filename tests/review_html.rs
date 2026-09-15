@@ -58,6 +58,17 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
     assert!(html.contains("RepoPilot Review Report"));
     assert!(html.contains("class=\"proof-card verdict-review\""));
     assert!(html.contains("Change proof"));
+    assert!(html.contains(
+        "Why:</strong> Review the listed evidence, coverage limits, and required checks."
+    ));
+    assert!(html.contains(
+        "Next action:</strong> Review the listed evidence, close the proof limits, or run the required checks."
+    ));
+    assert!(html.contains("Why this verdict"));
+    assert!(html.contains("Legacy merge readiness"));
+    assert!(html.contains("Proof policy"));
+    assert!(html.contains("CI gate"));
+    assert!(html.contains("Review gate"));
     assert!(html.contains("REVIEW"));
     assert!(html.contains("1/1 file(s) analyzed"));
     assert!(html.contains("none selected; no verification evidence"));

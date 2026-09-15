@@ -248,6 +248,13 @@ They compose: either one failing exits non-zero.
 When the review-signal policy is `none`, human output says
 `Review gate: disabled`; passed/failed is reserved for an enabled policy.
 
+Human review output leads with the canonical `Change Proof` verdict (`NOT
+ASSESSED`, `BROKEN`, `REVIEW`, or `VERIFIED`). It follows the verdict with its
+meaning, proof policy, scope, reasons, and next action; legacy merge readiness,
+the finding CI gate, and the review-signal gate are separate fields. A review
+with no changed files is `NOT ASSESSED` and says that no changed files were
+available for assessment.
+
 ### Synopsis
 
 ```

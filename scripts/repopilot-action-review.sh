@@ -87,7 +87,6 @@ write_review_summary() {
     else
       echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$review_json")"
     fi
-    echo "- **Merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
     jq -r '
       def verification_revision:
         ([.merge_readiness.verification[]?] | length) as $outcomes
@@ -98,7 +97,29 @@ write_review_summary() {
           end;
       .change_proof as $proof
       | "- **Change proof:** \($proof.verdict // "unavailable")",
+        (if ($proof.coverage.requested_files // 0) == 0 then
+          "- **Why:** No changed files were available for assessment."
+        elif $proof.verdict == "BROKEN" then
+          "- **Why:** A supported contract appears broken in the changed scope."
+        elif $proof.verdict == "VERIFIED" then
+          "- **Why:** The assessed scope satisfies the selected proof policy."
+        else
+          "- **Why:** Review the listed evidence, coverage limits, and required checks."
+        end),
+        (if (($proof.reasons // []) | length) > 0 then
+          "- **Reasons:**\n" + ([ $proof.reasons[]?.message ] | map("  - " + .) | join("\n"))
+        else empty end),
+        (if $proof.verdict == "BROKEN" then
+          "- **Next action:** Inspect the broken contract and its listed consumer before merge."
+        elif $proof.verdict == "NOT ASSESSED" then
+          "- **Next action:** Expand the analyzable scope before treating this review as evidence."
+        elif $proof.verdict == "VERIFIED" then
+          "- **Next action:** Proceed with the normal merge review; the reported scope has compatible proof."
+        else
+          "- **Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+        end),
         "- **Proof scope:** \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed",
+        "- **Proof policy:** \($proof.obligations.applicable // 0) applicable obligation(s)",
         (if ($proof.obligations.applicable // 0) == 0 then
           "- **Verification proof:** none selected; no verification evidence"
         else
@@ -108,9 +129,23 @@ write_review_summary() {
           "- **Proof limits:** \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported file(s)"
         else empty end)
     ' "$review_json"
+    echo "- **Legacy merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
+    jq -r '
+      if .ci_gate then
+        "- **CI gate:** \(.ci_gate.status // "unknown") (\(.ci_gate.fail_on // "unknown"))"
+      else
+        "- **CI gate:** not configured"
+      end
+    ' "$review_json"
     echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$review_json")"
     echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$review_json")"
-    echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$review_json")"
+    jq -r '
+      if .review_gate then
+        "- **Review gate:** \(.review_gate.status // "unknown")"
+      else
+        "- **Review gate:** not configured"
+      end
+    ' "$review_json"
     echo
     jq -r '
       [.tiered_signals.definitely[], .tiered_signals.maybe[]]
