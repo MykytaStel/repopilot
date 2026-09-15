@@ -103,6 +103,9 @@ impl AnalysisStore {
                 {
                     summary["change_proof"] = change_proof.clone();
                 }
+                if let Some(evidence) = report.as_ref().and_then(|value| value.get("evidence")) {
+                    summary["evidence"] = evidence.clone();
+                }
                 Some(summary)
             })
             .collect()
