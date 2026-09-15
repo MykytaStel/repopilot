@@ -249,11 +249,15 @@ When the review-signal policy is `none`, human output says
 `Review gate: disabled`; passed/failed is reserved for an enabled policy.
 
 Human review output leads with the canonical `Change Proof` verdict (`NOT
-ASSESSED`, `BROKEN`, `REVIEW`, or `VERIFIED`). It follows the verdict with its
-meaning, proof policy, scope, reasons, and next action; legacy merge readiness,
-the finding CI gate, and the review-signal gate are separate fields. A review
-with no changed files is `NOT ASSESSED` and says that no changed files were
-available for assessment.
+ASSESSED`, `BROKEN`, `REVIEW`, or `VERIFIED`). It also reports an evidence class:
+`SUPPORTED PROOF` is reserved for a complete supported scope, `SUSPICION`
+requires follow-up, and `UNKNOWN` means the property could not be assessed. The
+summary includes analyzed, excluded, and unsupported files plus provenance
+inputs that are unavailable in the current review record. It follows the
+verdict with its meaning, proof policy, scope, reasons, and next action; legacy
+merge readiness, the finding CI gate, and the review-signal gate are separate
+fields. A review with no changed files is `NOT ASSESSED` and says that no
+changed files were available for assessment.
 
 ### Synopsis
 

@@ -159,6 +159,11 @@ fn human_reports_project_readiness_and_owners() {
             < console.find("Legacy merge readiness: READY").unwrap()
     );
     assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
+    assert!(console.contains("Evidence class: SUSPICION"));
+    assert!(console.contains(
+        "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+    ));
+    assert!(console.contains("Evidence provenance: RepoPilot 0.22.0, schema 0.26"));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
     assert!(console.contains("Reasons:"));
     assert!(console.contains("Next action: Review the listed evidence"));
@@ -175,6 +180,11 @@ fn human_reports_project_readiness_and_owners() {
                 .unwrap()
     );
     assert!(markdown.contains("**Proof scope:** 1/1 file(s) analyzed"));
+    assert!(markdown.contains("**Evidence class:** `SUSPICION`"));
+    assert!(markdown.contains(
+        "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+    ));
+    assert!(markdown.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
     assert!(markdown.contains("**Reasons:**"));
     assert!(markdown.contains("**Next action:** Review the listed evidence"));
@@ -195,6 +205,10 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     let markdown = repopilot::review::render::render_markdown(&report, None);
 
     assert!(console.contains("Change Proof: NOT ASSESSED"));
+    assert!(console.contains("Evidence class: UNKNOWN"));
+    assert!(console.contains(
+        "Evidence scope: changed; 0/0 file(s) analyzed; 0 excluded, 0 unsupported (unavailable)"
+    ));
     assert!(console.contains("Why: No changed files were available for assessment."));
     assert!(console.contains(
         "Next action: Expand the analyzable scope before treating this review as evidence."
@@ -202,6 +216,7 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     assert!(console.contains("Legacy merge readiness: READY"));
     assert!(!console.contains("Decision: PASS"));
     assert!(markdown.contains("**Change proof:** `NOT ASSESSED`"));
+    assert!(markdown.contains("**Evidence class:** `UNKNOWN`"));
     assert!(markdown.contains("**Why:** No changed files were available for assessment."));
     assert!(markdown.contains(
         "**Next action:** Expand the analyzable scope before treating this review as evidence."

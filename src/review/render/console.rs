@@ -6,7 +6,7 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
-use crate::review::proof::derive_change_proof_from_review;
+use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_next_action, change_proof_policy_summary,
@@ -54,7 +54,14 @@ fn render_console_header(
         report.summary.artifacts.risk_delta.as_ref(),
     );
     let proof = derive_change_proof_from_review(report, &readiness);
+    let evidence = EvidenceSummary::from_review(report, &proof);
     output.push_str(&format!("Change Proof: {}\n", proof.verdict.label()));
+    output.push_str(&format!("Evidence class: {}\n", evidence.class.label()));
+    output.push_str(&format!("Evidence scope: {}\n", evidence.scope_line()));
+    output.push_str(&format!(
+        "Evidence provenance: {}\n",
+        evidence.provenance_line()
+    ));
     output.push_str(&format!("Why: {}\n", change_proof_headline(report, &proof)));
     output.push_str(&format!(
         "Proof policy: {}\n",

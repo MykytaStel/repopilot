@@ -7,12 +7,14 @@ use crate::scan::types::ScanMode;
 
 mod capabilities;
 mod contracts;
+mod evidence;
 mod obligations;
 pub use crate::review::contract::{
     ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
 };
 use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
+pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
 use obligations::derive_verification_obligations;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

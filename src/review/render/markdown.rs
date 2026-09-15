@@ -7,7 +7,7 @@ use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
-use crate::review::proof::derive_change_proof_from_review;
+use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_next_action, change_proof_policy_summary, render_ranges,
@@ -37,9 +37,22 @@ pub fn render_markdown_with_gates(
         report.summary.artifacts.risk_delta.as_ref(),
     );
     let proof = derive_change_proof_from_review(report, &readiness);
+    let evidence = EvidenceSummary::from_review(report, &proof);
     output.push_str(&format!(
         "- **Change proof:** `{}`\n",
         proof.verdict.label()
+    ));
+    output.push_str(&format!(
+        "- **Evidence class:** `{}`\n",
+        evidence.class.label()
+    ));
+    output.push_str(&format!(
+        "- **Evidence scope:** {}\n",
+        evidence.scope_line()
+    ));
+    output.push_str(&format!(
+        "- **Evidence provenance:** {}\n",
+        evidence.provenance_line()
     ));
     output.push_str(&format!(
         "- **Intent drift:** `{}`\n",

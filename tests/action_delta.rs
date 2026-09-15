@@ -179,6 +179,8 @@ fn review_action_summary_projects_verification_proof_card() {
     fs::write(
         root.join("review.json"),
         r#"{
+          "schema_version": "0.26",
+          "repopilot_version": "0.22.0",
           "merge_readiness": {
             "verdict": "blocked",
             "verification": [{"revision_compatible": true}]
@@ -230,6 +232,11 @@ fn review_action_summary_projects_verification_proof_card() {
     let summary =
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(summary.contains("**Evidence class:** SUSPICION"));
+    assert!(summary.contains(
+        "**Evidence scope:** changed; 3/4 file(s) analyzed; 1 excluded, 0 unsupported (limited)"
+    ));
+    assert!(summary.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
     assert!(summary.contains(
         "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
     ));

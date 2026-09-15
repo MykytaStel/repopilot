@@ -6,7 +6,7 @@ use super::html_assets::{SCRIPT, STYLE};
 use crate::baseline::gate::CiGateResult;
 use crate::review::ReviewSignalGateResult;
 use crate::review::model::ReviewReport;
-use crate::review::proof::{ChangeProof, derive_change_proof_from_review};
+use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_from_review};
 use crate::review::readiness::{MergeReadinessRecord, derive_readiness};
 #[path = "html_sections.rs"]
 mod html_sections;
@@ -23,6 +23,7 @@ pub fn render_review_html(
         report.summary.artifacts.risk_delta.as_ref(),
     );
     let proof = derive_change_proof_from_review(report, &readiness);
+    let evidence = EvidenceSummary::from_review(report, &proof);
     let verdict_class = proof.verdict.label().to_ascii_lowercase().replace(' ', "-");
     format!(
         r#"<!DOCTYPE html>
@@ -49,6 +50,7 @@ pub fn render_review_html(
             report,
             &readiness,
             &proof,
+            &evidence,
             verdict_class,
             ci_gate,
             review_gate,
@@ -65,6 +67,7 @@ fn render_proof_card(
     report: &ReviewReport,
     readiness: &MergeReadinessRecord,
     proof: &ChangeProof,
+    evidence: &EvidenceSummary,
     verdict_class: String,
     ci_gate: Option<&CiGateResult>,
     review_gate: Option<&ReviewSignalGateResult>,
@@ -111,6 +114,9 @@ fn render_proof_card(
   {reasons}
   <div class="proof-grid">
     <dl class="metric"><dt>Change proof</dt><dd><span class="badge {verdict_class}">{verdict}</span></dd></dl>
+    <dl class="metric"><dt>Evidence class</dt><dd>{evidence_class}</dd></dl>
+    <dl class="metric"><dt>Evidence scope</dt><dd>{evidence_scope}</dd></dl>
+    <dl class="metric"><dt>Evidence provenance</dt><dd>{evidence_provenance}</dd></dl>
     <dl class="metric"><dt>Intent drift</dt><dd>{intent_status}</dd></dl>
     <dl class="metric"><dt>Legacy merge readiness</dt><dd><span class="badge {readiness_class}">{readiness}</span></dd></dl>
     <dl class="metric"><dt>Proof scope</dt><dd>{analyzed}/{requested} file(s) analyzed</dd></dl>
@@ -122,6 +128,9 @@ fn render_proof_card(
   {limits}{readiness_limits}
 </section>"#,
         verdict = proof.verdict.label(),
+        evidence_class = evidence.class.label(),
+        evidence_scope = escape(&evidence.scope_line()),
+        evidence_provenance = escape(&evidence.provenance_line()),
         intent_status = escape(proof.intent_drift.status.label()),
         readiness = readiness.verdict.label(),
         readiness_class = readiness.verdict.label(),

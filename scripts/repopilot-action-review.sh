@@ -95,8 +95,32 @@ write_review_summary() {
           then "revision-compatible"
           else "revision-incompatible"
           end;
+      def evidence_coverage_complete($proof):
+        (($proof.coverage.requested_files // 0) > 0)
+        and (($proof.coverage.analyzed_files // 0) == ($proof.coverage.requested_files // 0))
+        and (($proof.coverage.excluded_files // 0) == 0)
+        and (($proof.coverage.unsupported_files // 0) == 0)
+        and (([$proof.capability_coverage[]?
+          | select((.count // 0) > 0 and (.status == "limited" or .status == "unavailable"))]
+          | length) == 0)
+        and ((($proof.obligations.satisfied // 0)
+          + ($proof.obligations.failed // 0)
+          + ($proof.obligations.unavailable // 0)
+          + ($proof.obligations.unselected // 0)
+          + ($proof.obligations.stale // 0)) == ($proof.obligations.applicable // 0));
+      def evidence_class($proof):
+        if ($proof.coverage.analyzed_files // 0) == 0 or $proof.verdict == "NOT ASSESSED" then
+          "UNKNOWN"
+        elif evidence_coverage_complete($proof) and ($proof.verdict == "BROKEN" or $proof.verdict == "VERIFIED") then
+          "SUPPORTED PROOF"
+        else
+          "SUSPICION"
+        end;
       .change_proof as $proof
       | "- **Change proof:** \($proof.verdict // "unavailable")",
+        "- **Evidence class:** \(evidence_class($proof))",
+        "- **Evidence scope:** \($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))",
+        "- **Evidence provenance:** RepoPilot \(.repopilot_version // "unknown"), schema \(.schema_version // "unknown"), base ref unavailable; unavailable: \(if ($proof.coverage.scope // "changed") == "changed" then "base revision, " else "" end)current revision, head revision, scanner configuration, toolchain",
         (if ($proof.coverage.requested_files // 0) == 0 then
           "- **Why:** No changed files were available for assessment."
         elif $proof.verdict == "BROKEN" then

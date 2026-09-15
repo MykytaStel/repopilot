@@ -24,6 +24,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   explain its reasons and next action, show proof policy and scope, and keep
   CI, review-gate, and legacy readiness statuses separate across console,
   Markdown, HTML, and GitHub Action output.
+- Human review summaries now disclose an evidence class (`SUPPORTED PROOF`,
+  `SUSPICION`, or `UNKNOWN`), explicit analyzed/excluded/unsupported scope, and
+  provenance inputs that are unavailable in the current review record. An
+  internal canonical projection hash is normalized over evidence collections;
+  existing JSON fields and exit codes remain unchanged.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries
