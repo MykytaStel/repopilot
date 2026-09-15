@@ -78,6 +78,11 @@ max_file_bytes = 2097152
 scope = "changed"
 fail_on = "none"
 
+# Optional repository-owned critical areas used by Phase C intent evidence.
+# [[review.critical_paths]]
+# name = "authentication"
+# paths = ["src/auth/**", "src/middleware/auth.rs"]
+
 [architecture]
 max_file_lines = 300
 huge_file_lines = 1000
@@ -111,6 +116,35 @@ repopilot review . --fail-on-review definitely
 
 See [CLI reference → Gates](cli.md#gates) for the full two-axis gate model
 (finding gate vs review-signal gate).
+
+## Phase C intent and critical paths
+
+Critical paths are named repository policy and are descriptive evidence only:
+
+```toml
+[[review.critical_paths]]
+name = "authentication"
+paths = ["src/auth/**", "src/middleware/auth.rs"]
+```
+
+An optional intent contract can remain private under `.repopilot/` and be
+passed explicitly for one review:
+
+```toml
+version = 1
+summary = "Update authentication token validation"
+paths = ["src/auth/**", "tests/auth/**"]
+contract_families = ["security-boundary", "public-symbol"]
+critical_paths = ["authentication"]
+verification = ["unit"]
+```
+
+Run it with `repopilot review . --intent .repopilot/intent.toml`. The file is
+root-confined and bounded to 16 KiB; paths and lists are bounded, and only
+configured verification IDs may be named. Intent is metadata and scope policy,
+never a shell command or an implicit test request. Missing intent is reported
+as `not-supplied` without penalizing the proof. Drift keeps the canonical proof
+at `REVIEW` and never suppresses findings, signals, or failed checks.
 
 ## Explicit local verification
 

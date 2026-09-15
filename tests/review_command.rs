@@ -1,5 +1,5 @@
 use repopilot::report::schema::SCAN_REPORT_SCHEMA_VERSION;
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -59,6 +59,46 @@ fn review_reports_working_tree_findings_on_changed_lines() {
         json["findings"].as_array().unwrap().iter().any(|finding| {
             finding["rule_id"] == "code-marker.todo" && finding["in_diff"] == true
         })
+    );
+}
+
+#[test]
+fn review_accepts_a_private_intent_contract_and_projects_its_status() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// changed\n",
+    )
+    .expect("failed to modify source file");
+    fs::create_dir_all(temp.path().join(".repopilot")).expect("private config dir");
+    fs::write(
+        temp.path().join(".repopilot/intent.toml"),
+        "version = 1\npaths = [\"src/**\"]\n",
+    )
+    .expect("private intent contract");
+
+    let json = run_review_json(
+        temp.path(),
+        &[
+            "review",
+            ".",
+            "--intent",
+            ".repopilot/intent.toml",
+            "--format",
+            "json",
+        ],
+    );
+
+    assert_eq!(
+        json["change_proof"]["intent_drift"]["status"],
+        "within-scope"
+    );
+    assert_eq!(
+        json["change_proof"]["intent_drift"]["declared_paths"],
+        json!(["src/**"])
     );
 }
 

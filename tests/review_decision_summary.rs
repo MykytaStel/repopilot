@@ -67,6 +67,7 @@ fn definitely_sensitive_signal_plan_counts_as_decision_input() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     };
 

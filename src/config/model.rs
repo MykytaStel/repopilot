@@ -75,6 +75,9 @@ pub struct ReviewSection {
     /// How many dependency hops `review` traces for impact paths: 1 =
     /// immediate dependents only, 2+ = transitive dependents up to this depth.
     pub impact_path_depth: usize,
+    /// Named repository-owned critical areas surfaced by Phase C intent proof.
+    #[serde(default)]
+    pub critical_paths: Vec<CriticalPathRule>,
 }
 
 impl Default for ReviewSection {
@@ -83,8 +86,19 @@ impl Default for ReviewSection {
             scope: ReviewScope::default(),
             fail_on: ReviewFailOn::default(),
             impact_path_depth: DEFAULT_IMPACT_PATH_DEPTH,
+            critical_paths: Vec::new(),
         }
     }
+}
+
+/// A named, repository-relative set of paths whose intersection with a review
+/// is useful evidence (for example authentication or billing). This policy is
+/// descriptive and never suppresses findings or executes commands.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct CriticalPathRule {
+    pub name: String,
+    #[serde(default)]
+    pub paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]

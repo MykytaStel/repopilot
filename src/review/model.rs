@@ -3,6 +3,7 @@ use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::impact::ImpactPaths;
+use crate::review::intent::IntentContext;
 use crate::review::ownership::{OwnershipDiagnostic, OwnershipSummary};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
@@ -39,6 +40,7 @@ pub struct ReviewReport {
     pub timings: ReviewTimings,
     pub verification_policy: VerificationPolicy,
     pub verification: Vec<VerificationOutcome>,
+    pub intent: IntentContext,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

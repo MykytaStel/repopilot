@@ -1,5 +1,6 @@
-use serde::Serialize;
-
+use crate::review::contract::{
+    ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
+};
 use crate::review::model::ReviewReport;
 
 mod delivery;
@@ -8,75 +9,6 @@ mod runtime;
 mod security;
 
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ContractFamily {
-    PublicSymbol,
-    Dependency,
-    Delivery,
-    RuntimeConfiguration,
-    SecurityBoundary,
-    TestCoverage,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ContractChangeKind {
-    RemovedExport,
-    Added,
-    Removed,
-    Upgraded,
-    Downgraded,
-    SourceChanged,
-    FeatureChanged,
-    AliasChanged,
-    MetadataOnly,
-    TriggerChanged,
-    PermissionChanged,
-    SecretUseChanged,
-    ActionReferenceChanged,
-    ArtifactChanged,
-    DeploymentChanged,
-    Introduced,
-    Renamed,
-    Changed,
-    Unknown,
-    BoundaryChanged,
-    EntryPointImpacted,
-    TestChanged,
-    TestMissing,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct ChangeProofContractDelta {
-    pub family: ContractFamily,
-    #[serde(rename = "change")]
-    pub change: ContractChangeKind,
-    pub exporter_path: String,
-    pub consumer_path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line_start: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line_end: Option<usize>,
-    pub evidence: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub confidence: Option<ContractConfidence>,
-}
-
-impl ChangeProofContractDelta {
-    pub(crate) fn is_broken(&self) -> bool {
-        self.family == ContractFamily::PublicSymbol
-            && self.change == ContractChangeKind::RemovedExport
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ContractConfidence {
-    High,
-    Limited,
-}
 
 pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
     let mut deltas = report

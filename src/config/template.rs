@@ -28,6 +28,11 @@ max_file_bytes = {DEFAULT_MAX_FILE_BYTES}
 scope = "changed"
 # Review signals are advisory unless explicitly enabled as a gate.
 fail_on = "none"
+# Optional repository-owned critical areas. Intent can name these areas without
+# executing any command; copy a reviewed local contract into --intent when needed.
+# [[review.critical_paths]]
+# name = "authentication"
+# paths = ["src/auth/**", "src/middleware/auth.rs"]
 
 # Explicit local checks run only when selected with `repopilot review --verify <id>`.
 # [[verification.checks]]

@@ -270,6 +270,68 @@ fn mcp_review_projects_the_canonical_merge_readiness_record() {
 }
 
 #[test]
+fn mcp_review_accepts_inline_intent_and_projects_drift() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::create_dir_all(temp.path().join("src")).expect("src dir");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn value() -> i32 { 1 }\n",
+    )
+    .expect("source file");
+    git(temp.path(), &["init", "-q"]);
+    git(temp.path(), &["config", "user.email", "test@example.com"]);
+    git(temp.path(), &["config", "user.name", "Test"]);
+    git(temp.path(), &["add", "."]);
+    git(temp.path(), &["commit", "-qm", "initial"]);
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn value() -> i32 { 2 }\n",
+    )
+    .expect("changed source file");
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": {
+                    "path": ".",
+                    "intent": {
+                        "version": 1,
+                        "paths": ["src/**"],
+                        "contract_families": [
+                            "public-symbol", "dependency", "delivery",
+                            "runtime-configuration", "security-boundary", "test-coverage"
+                        ]
+                    }
+                }
+            }
+        }),
+    );
+    let response = receive_mcp(&mut stdout);
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+
+    let text = response["result"]["content"][0]["text"]
+        .as_str()
+        .expect("text content");
+    let report: Value = serde_json::from_str(text).expect("review report is json");
+    assert_eq!(
+        report["change_proof"]["intent_drift"]["status"],
+        "within-scope"
+    );
+    assert_eq!(
+        report["change_proof"]["intent_drift"]["declared_paths"],
+        json!(["src/**"])
+    );
+}
+
+#[test]
 fn mcp_review_and_explanation_share_the_removed_export_occurrence() {
     let temp = tempfile::tempdir().expect("temp dir");
     let root = temp.path();

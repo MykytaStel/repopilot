@@ -49,6 +49,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     };
 
@@ -149,6 +150,7 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     };
     report.verification.push(VerificationOutcome {

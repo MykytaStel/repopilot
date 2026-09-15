@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Phase C adds bounded optional intent contracts and repository-configured
+  critical paths. `review --intent` and MCP intent inputs compare declared
+  scope with canonical changed/impacted contracts without executing commands;
+  drift is explicit in ChangeProof and missing intent is informational.
 - Release verification now checks Homebrew formula SHA-256 values against all
   published platform archives. `install.sh` accepts an exact
   `REPOPILOT_VERSION` pin for reproducible installation smoke tests while

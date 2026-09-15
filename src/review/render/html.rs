@@ -105,6 +105,7 @@ fn render_proof_card(
   <div class="proof-header"><h2 id="proof-heading">Proof Card</h2><span class="badge {verdict_class}">{verdict}</span></div>
   <div class="proof-grid">
     <dl class="metric"><dt>Change proof</dt><dd><span class="badge {verdict_class}">{verdict}</span></dd></dl>
+    <dl class="metric"><dt>Intent drift</dt><dd>{intent_status}</dd></dl>
     <dl class="metric"><dt>Merge readiness</dt><dd><span class="badge {readiness_class}">{readiness}</span></dd></dl>
     <dl class="metric"><dt>Proof scope</dt><dd>{analyzed}/{requested} file(s) analyzed</dd></dl>
     <dl class="metric"><dt>Verification proof</dt><dd>{verification}</dd></dl>
@@ -114,6 +115,7 @@ fn render_proof_card(
   {limits}{readiness_limits}{reasons}
 </section>"#,
         verdict = proof.verdict.label(),
+        intent_status = escape(proof.intent_drift.status.label()),
         readiness = readiness.verdict.label(),
         readiness_class = readiness.verdict.label(),
         analyzed = proof.coverage.analyzed_files,

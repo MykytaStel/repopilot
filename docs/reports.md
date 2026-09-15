@@ -268,6 +268,15 @@ suppression state, and gate eligibility. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.
 
+When supplied, a review also carries `change_proof.intent_drift` with the
+bounded declared scope, observed changed/impacted paths, canonical contract
+families, configured critical-path intersections, and missing selected
+verification IDs. Its status is `not-supplied`, `within-scope`, or `drifted`.
+`not-supplied` is informational; `drifted` adds an additive `intent-drift`
+proof reason and never suppresses findings or failed verification. The same
+record is returned by the MCP review tool and retained in stored MCP analysis
+handles.
+
 For `behavioral.removed-export-still-imported`, B2.1 adds the optional
 `target_path` field to the canonical review signal. `path` and its line range
 remain the direct named-import evidence in the surviving caller, while

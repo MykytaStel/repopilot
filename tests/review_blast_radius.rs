@@ -159,6 +159,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: vec![],
     };
 

@@ -212,6 +212,7 @@ fn scan_and_review_help_have_flag_descriptions() {
     assert!(review_help.contains("Review everything since the last `repopilot snapshot`"));
     assert!(review_help.contains("Finding gate: exit 1 when in-diff findings"));
     assert!(review_help.contains("Review-signal gate"));
+    assert!(review_help.contains("Path to a bounded repository-rooted intent contract"));
     assert!(review_help.contains("Disable progress indicators"));
 }
 
