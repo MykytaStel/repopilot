@@ -151,16 +151,62 @@ fn human_reports_project_readiness_and_owners() {
 
     let console = repopilot::review::render::render_console(&report, None);
     let markdown = repopilot::review::render::render_markdown(&report, None);
-    assert!(console.contains("Merge readiness: READY"));
+    assert!(console.contains("Legacy merge readiness: READY"));
     assert!(console.contains("Change Proof: REVIEW"));
+    assert!(!console.contains("Decision: PASS"));
+    assert!(
+        console.find("Change Proof: REVIEW").unwrap()
+            < console.find("Legacy merge readiness: READY").unwrap()
+    );
     assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
+    assert!(console.contains("Proof policy: none selected (0 configured)"));
+    assert!(console.contains("Reasons:"));
+    assert!(console.contains("Next action: Review the listed evidence"));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
-    assert!(markdown.contains("**Merge readiness:** `ready`"));
+    assert!(console.contains("CI gate: not configured"));
+    assert!(console.contains("Review gate: not configured"));
+    assert!(markdown.contains("**Legacy merge readiness:** `ready`"));
     assert!(markdown.contains("**Change proof:** `REVIEW`"));
+    assert!(
+        markdown.find("**Change proof:** `REVIEW`").unwrap()
+            < markdown
+                .find("**Legacy merge readiness:** `ready`")
+                .unwrap()
+    );
     assert!(markdown.contains("**Proof scope:** 1/1 file(s) analyzed"));
+    assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
+    assert!(markdown.contains("**Reasons:**"));
+    assert!(markdown.contains("**Next action:** Review the listed evidence"));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
+    assert!(markdown.contains("**CI gate:** not configured"));
+    assert!(markdown.contains("**Review gate:** not configured"));
+}
+
+#[test]
+fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.changed_files.clear();
+    report.summary.metrics.files_discovered = 0;
+    report.summary.metrics.files_analyzed = 0;
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    assert!(console.contains("Change Proof: NOT ASSESSED"));
+    assert!(console.contains("Why: No changed files were available for assessment."));
+    assert!(console.contains(
+        "Next action: Expand the analyzable scope before treating this review as evidence."
+    ));
+    assert!(console.contains("Legacy merge readiness: READY"));
+    assert!(!console.contains("Decision: PASS"));
+    assert!(markdown.contains("**Change proof:** `NOT ASSESSED`"));
+    assert!(markdown.contains("**Why:** No changed files were available for assessment."));
+    assert!(markdown.contains(
+        "**Next action:** Expand the analyzable scope before treating this review as evidence."
+    ));
+    assert!(markdown.contains("**Legacy merge readiness:** `ready`"));
 }
 
 #[test]

@@ -10,7 +10,8 @@ use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::derive_change_proof_from_review;
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{
-    render_ranges, status_for_finding, verification_proof_summary,
+    change_proof_headline, change_proof_next_action, change_proof_policy_summary, render_ranges,
+    status_for_finding, verification_proof_summary,
 };
 use crate::review::signals::tiered::ReviewSignal;
 
@@ -37,10 +38,6 @@ pub fn render_markdown_with_gates(
     );
     let proof = derive_change_proof_from_review(report, &readiness);
     output.push_str(&format!(
-        "- **Merge readiness:** `{}`\n",
-        readiness.verdict.label()
-    ));
-    output.push_str(&format!(
         "- **Change proof:** `{}`\n",
         proof.verdict.label()
     ));
@@ -55,6 +52,24 @@ pub fn render_markdown_with_gates(
             proof.intent_drift.unexpected_contract_families.len(),
             proof.intent_drift.unexpected_critical_paths.len(),
             proof.intent_drift.missing_verification.len(),
+        ));
+    }
+    output.push_str(&format!(
+        "- **Why:** {}\n",
+        change_proof_headline(report, &proof)
+    ));
+    output.push_str(&format!(
+        "- **Proof policy:** {}\n",
+        change_proof_policy_summary(report)
+    ));
+    if !proof.reasons.is_empty() {
+        output.push_str("- **Reasons:**\n");
+        for reason in proof.reasons.iter().take(5) {
+            output.push_str(&format!("  - {}\n", reason.message));
+        }
+        output.push_str(&format!(
+            "- **Next action:** {}\n",
+            change_proof_next_action(&proof)
         ));
     }
     output.push_str(&format!(
@@ -73,6 +88,10 @@ pub fn render_markdown_with_gates(
     output.push_str(&format!(
         "- **Verification proof:** {}\n",
         verification_proof_summary(report, proof.obligations)
+    ));
+    output.push_str(&format!(
+        "- **Legacy merge readiness:** `{}`\n",
+        readiness.verdict.label()
     ));
     let ownership_status = match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => "resolved".to_string(),
@@ -132,6 +151,8 @@ pub fn render_markdown_with_gates(
             "- **CI gate:** {status} (`{}`)\n",
             ci_gate.label()
         ));
+    } else {
+        output.push_str("- **CI gate:** not configured\n");
     }
     if let Some(review_gate) = review_gate {
         if review_gate.enabled() {
@@ -148,6 +169,8 @@ pub fn render_markdown_with_gates(
         } else {
             output.push_str("- **Review gate:** disabled\n");
         }
+    } else {
+        output.push_str("- **Review gate:** not configured\n");
     }
 
     output.push_str("\n## Changed Files\n\n");

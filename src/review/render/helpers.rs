@@ -2,7 +2,7 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
-use crate::review::proof::ProofObligations;
+use crate::review::proof::{ChangeProof, ChangeProofVerdict, ProofObligations};
 use crate::verification::VerificationOutcome;
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
@@ -38,6 +38,54 @@ pub(super) fn verification_proof_summary(
         obligations.unselected,
         obligations.stale,
     )
+}
+
+pub(super) fn change_proof_headline(report: &ReviewReport, proof: &ChangeProof) -> &'static str {
+    match proof.verdict {
+        ChangeProofVerdict::Broken => "A supported contract appears broken in the changed scope.",
+        ChangeProofVerdict::Review => {
+            "Review the listed evidence, coverage limits, and required checks."
+        }
+        ChangeProofVerdict::Verified => "The assessed scope satisfies the selected proof policy.",
+        ChangeProofVerdict::NotAssessed if report.changed_files.is_empty() => {
+            "No changed files were available for assessment."
+        }
+        ChangeProofVerdict::NotAssessed => "No analyzable files were available for assessment.",
+    }
+}
+
+pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
+    let configured = report.verification_policy.configured.len();
+    let selected = report.verification_policy.selected.len();
+    if selected == 0 {
+        if report.verification.is_empty() {
+            format!("none selected ({configured} configured)")
+        } else {
+            format!(
+                "recorded outcomes ({} check(s); no configured policy)",
+                report.verification.len()
+            )
+        }
+    } else {
+        format!("{selected} selected ({configured} configured)")
+    }
+}
+
+pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
+    match proof.verdict {
+        ChangeProofVerdict::Broken => {
+            "Inspect the broken contract and its listed consumer before merge."
+        }
+        ChangeProofVerdict::Review => {
+            "Review the listed evidence, close the proof limits, or run the required checks."
+        }
+        ChangeProofVerdict::Verified => {
+            "Proceed with the normal merge review; the reported scope has compatible proof."
+        }
+        ChangeProofVerdict::NotAssessed => {
+            "Expand the analyzable scope before treating this review as evidence."
+        }
+    }
 }
 
 pub(super) fn status_for_finding(

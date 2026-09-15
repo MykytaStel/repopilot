@@ -20,6 +20,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   unclassified dependency manifest and lockfile, workflow, and runtime-config
   changes. Any limited semantic contract keeps the verdict at `REVIEW`, even
   when configured verification checks pass.
+- Human review summaries now lead with the canonical ChangeProof verdict,
+  explain its reasons and next action, show proof policy and scope, and keep
+  CI, review-gate, and legacy readiness statuses separate across console,
+  Markdown, HTML, and GitHub Action output.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries

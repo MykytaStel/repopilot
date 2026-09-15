@@ -1,4 +1,7 @@
-use super::helpers::verification_proof_summary;
+use super::helpers::{
+    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
+    verification_proof_summary,
+};
 use super::html_assets::{SCRIPT, STYLE};
 use crate::baseline::gate::CiGateResult;
 use crate::review::ReviewSignalGateResult;
@@ -98,21 +101,25 @@ fn render_proof_card(
     } else {
         format!("<h3>Why this verdict</h3><ul class=\"reasons\">{reasons}</ul>")
     };
-    let next_action = next_action(proof);
-    let gate = gate_label(ci_gate, review_gate);
+    let next_action = change_proof_next_action(proof);
+    let (ci_gate, review_gate) = gate_labels(ci_gate, review_gate);
     format!(
         r#"<section class="proof-card verdict-{verdict_class}" id="proof-card" aria-labelledby="proof-heading">
   <div class="proof-header"><h2 id="proof-heading">Proof Card</h2><span class="badge {verdict_class}">{verdict}</span></div>
+  <p class="verdict-headline"><strong>Why:</strong> {headline}</p>
+  <div class="next-action"><strong>Next action:</strong> {next_action}</div>
+  {reasons}
   <div class="proof-grid">
     <dl class="metric"><dt>Change proof</dt><dd><span class="badge {verdict_class}">{verdict}</span></dd></dl>
     <dl class="metric"><dt>Intent drift</dt><dd>{intent_status}</dd></dl>
-    <dl class="metric"><dt>Merge readiness</dt><dd><span class="badge {readiness_class}">{readiness}</span></dd></dl>
+    <dl class="metric"><dt>Legacy merge readiness</dt><dd><span class="badge {readiness_class}">{readiness}</span></dd></dl>
     <dl class="metric"><dt>Proof scope</dt><dd>{analyzed}/{requested} file(s) analyzed</dd></dl>
+    <dl class="metric"><dt>Proof policy</dt><dd>{policy}</dd></dl>
     <dl class="metric"><dt>Verification proof</dt><dd>{verification}</dd></dl>
-    <dl class="metric"><dt>Gate</dt><dd>{gate}</dd></dl>
+    <dl class="metric"><dt>CI gate</dt><dd>{ci_gate}</dd></dl>
+    <dl class="metric"><dt>Review gate</dt><dd>{review_gate}</dd></dl>
   </div>
-  <div class="next-action"><strong>Next action:</strong> {next_action}</div>
-  {limits}{readiness_limits}{reasons}
+  {limits}{readiness_limits}
 </section>"#,
         verdict = proof.verdict.label(),
         intent_status = escape(proof.intent_drift.status.label()),
@@ -120,54 +127,41 @@ fn render_proof_card(
         readiness_class = readiness.verdict.label(),
         analyzed = proof.coverage.analyzed_files,
         requested = proof.coverage.requested_files,
+        policy = escape(&change_proof_policy_summary(report)),
         verification = escape(&verification_proof_summary(report, proof.obligations)),
-        gate = escape(&gate),
+        headline = escape(change_proof_headline(report, proof)),
+        ci_gate = escape(&ci_gate),
+        review_gate = escape(&review_gate),
         next_action = escape(next_action),
+        reasons = reasons,
     )
 }
 
-fn next_action(proof: &ChangeProof) -> &'static str {
-    match proof.verdict {
-        crate::review::proof::ChangeProofVerdict::Broken => {
-            "Inspect the broken contract and its listed consumer before merge."
-        }
-        crate::review::proof::ChangeProofVerdict::Review => {
-            "Review the listed evidence, close the proof limits, or run the required checks."
-        }
-        crate::review::proof::ChangeProofVerdict::Verified => {
-            "Proceed with the normal merge review; the reported scope has compatible proof."
-        }
-        crate::review::proof::ChangeProofVerdict::NotAssessed => {
-            "Expand the analyzable scope before treating this review as evidence."
-        }
-    }
-}
-
-fn gate_label(
+fn gate_labels(
     ci_gate: Option<&CiGateResult>,
     review_gate: Option<&ReviewSignalGateResult>,
-) -> String {
-    let mut gates = Vec::new();
-    if let Some(gate) = ci_gate {
-        gates.push(format!(
-            "finding gate {} ({})",
-            if gate.passed() { "passed" } else { "failed" },
-            gate.label()
-        ));
-    }
-    if let Some(gate) = review_gate.filter(|gate| gate.enabled()) {
-        gates.push(format!(
+) -> (String, String) {
+    let finding_gate = ci_gate.map_or_else(
+        || "finding gate not configured".to_string(),
+        |gate| {
+            format!(
+                "finding gate {} ({})",
+                if gate.passed() { "passed" } else { "failed" },
+                gate.label()
+            )
+        },
+    );
+    let review_gate = match review_gate {
+        Some(gate) if gate.enabled() => format!(
             "review gate {} ({}, {} failed)",
             if gate.passed() { "passed" } else { "failed" },
             gate.label(),
             gate.failed_signals
-        ));
-    }
-    if gates.is_empty() {
-        "not configured".to_string()
-    } else {
-        gates.join("; ")
-    }
+        ),
+        Some(_) => "review gate disabled".to_string(),
+        None => "review gate not configured".to_string(),
+    };
+    (finding_gate, review_gate)
 }
 
 fn escape(value: &str) -> String {

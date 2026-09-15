@@ -82,7 +82,7 @@ output excerpts, not complete input fixtures for a report reader.
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
-| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its assessment in `merge_readiness`. |
+| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its canonical proof in `change_proof` and its compatibility readiness record in `merge_readiness`. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `health_score` | number | Visible health after the selected profile and explicit filters; retained for compatibility. |
 | `maintainability_score` | number | Stable score for findings hidden by the default visibility policy, computed before explicit filters. |
@@ -302,8 +302,9 @@ those literals must now provide `target_path`, normally as `None`.
 
 `repopilot review --format html --output review.html` writes a self-contained
 local report. Its first screen is the canonical Proof Card: Change Proof
-verdict, legacy merge readiness, analyzed scope, verification evidence, gates,
-proof limits, and one next action. The Change Map then links changed files to
+verdict, meaning, reasons, one next action, legacy merge readiness, proof
+policy, analyzed scope, verification evidence, and separate CI/review gates.
+The Change Map then links changed files to
 typed contract/consumer deltas and bounded impact paths, followed by review
 signals, verification outcomes, and findings.
 

@@ -144,8 +144,22 @@ fi
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**New findings:** 1"));
     assert!(summary.contains("**Resolved findings:** 1"));
-    assert!(summary.contains("**Merge readiness:** ready"));
+    assert!(summary.contains("**Legacy merge readiness:** ready"));
     assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(
+        summary
+            .contains("**Why:** Review the listed evidence, coverage limits, and required checks.")
+    );
+    assert!(summary.contains(
+        "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+    ));
+    assert!(summary.contains("**Proof policy:** 0 applicable obligation(s)"));
+    assert!(summary.contains("**CI gate:** not configured"));
+    assert!(summary.contains("**Review gate:** not configured"));
+    assert!(
+        summary.find("**Change proof:** REVIEW").unwrap()
+            < summary.find("**Legacy merge readiness:** ready").unwrap()
+    );
     assert!(summary.contains("**Proof scope:** 1/1 file(s) analyzed"));
     assert!(summary.contains("**Verification proof:** none selected; no verification evidence"));
     assert!(
@@ -216,6 +230,9 @@ fn review_action_summary_projects_verification_proof_card() {
     let summary =
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(summary.contains(
+        "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+    ));
     assert!(summary.contains("**Proof scope:** 3/4 file(s) analyzed"));
     assert!(summary.contains(
         "**Verification proof:** 1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)"
