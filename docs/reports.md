@@ -302,8 +302,11 @@ those literals must now provide `target_path`, normally as `None`.
 
 `repopilot review --format html --output review.html` writes a self-contained
 local report. Its first screen is the canonical Proof Card: Change Proof
-verdict, meaning, reasons, one next action, legacy merge readiness, proof
-policy, analyzed scope, verification evidence, and separate CI/review gates.
+verdict, evidence class, meaning, reasons, one next action, legacy merge
+readiness, proof policy, analyzed scope, verification evidence, provenance
+inputs, and separate CI/review gates. `SUPPORTED PROOF` is emitted only for a
+complete supported scope; limited coverage is shown as `SUSPICION`, while an
+unavailable scope is `UNKNOWN`.
 The Change Map then links changed files to
 typed contract/consumer deltas and bounded impact paths, followed by review
 signals, verification outcomes, and findings.

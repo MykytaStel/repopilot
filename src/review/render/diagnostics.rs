@@ -8,14 +8,13 @@ pub(super) fn render_console(output: &mut String, summary: &ScanSummary) {
 
     output.push_str("Diagnostics:\n");
     for diagnostic in &summary.artifacts.diagnostics {
-        writeln!(
+        let _ = writeln!(
             output,
             "  [{}] {}: {}",
             severity_label(diagnostic.severity),
             diagnostic.code,
             diagnostic.message
-        )
-        .unwrap();
+        );
     }
 }
 
@@ -26,14 +25,13 @@ pub(super) fn render_markdown(output: &mut String, summary: &ScanSummary) {
 
     output.push_str("- **Diagnostics:**\n");
     for diagnostic in &summary.artifacts.diagnostics {
-        writeln!(
+        let _ = writeln!(
             output,
             "  - `[{}] {}`: {}",
             severity_label(diagnostic.severity),
             diagnostic.code,
             diagnostic.message
-        )
-        .unwrap();
+        );
     }
 }
 

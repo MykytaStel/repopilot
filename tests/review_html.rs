@@ -67,6 +67,10 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
     assert!(html.contains("Why this verdict"));
     assert!(html.contains("Legacy merge readiness"));
     assert!(html.contains("Proof policy"));
+    assert!(html.contains("Evidence class"));
+    assert!(html.contains("SUSPICION"));
+    assert!(html.contains("Evidence scope"));
+    assert!(html.contains("Evidence provenance"));
     assert!(html.contains("CI gate"));
     assert!(html.contains("Review gate"));
     assert!(html.contains("REVIEW"));
