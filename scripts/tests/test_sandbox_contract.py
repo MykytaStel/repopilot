@@ -65,6 +65,27 @@ class SandboxContractTests(unittest.TestCase):
         self.assertEqual(manifest.cases[0].oracle[0], "python3")
         self.assertEqual(manifest.policy.memory_mb, 4096)
 
+    def test_manifest_loads_changed_analysis_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(
+                manifest_text() + 'analysis_mode = "changed"\n', encoding="utf-8"
+            )
+
+            manifest = load_manifest(path)
+
+        self.assertEqual(manifest.cases[0].analysis_mode, "changed")
+
+    def test_manifest_rejects_unsupported_analysis_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(
+                manifest_text() + 'analysis_mode = "invalid"\n', encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(SandboxManifestError, "analysis_mode"):
+                load_manifest(path)
+
     def test_manifest_rejects_shell_metacharacters_in_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "manifest.toml"

@@ -26,6 +26,7 @@ class SandboxReportTests(unittest.TestCase):
                 {
                     "case_id": "control-case",
                     "project_id": "control",
+                    "analysis_mode": "changed",
                     "status": "passed",
                     "comparison": {
                         "status": "stable",
@@ -62,6 +63,7 @@ class SandboxReportTests(unittest.TestCase):
         self.assertIn("**PASSED**", report)
         self.assertIn("2 runs per case: cold, warm", report)
         self.assertIn("stable; 3 normalized findings", report)
+        self.assertIn("| `changed` |", report)
         self.assertIn("Next action", report)
         self.assertIn("technical reproducibility evidence", report)
 
@@ -78,6 +80,7 @@ class SandboxReportTests(unittest.TestCase):
                     "project_id": "express",
                     "mutation_kind": "violation",
                     "split": "evaluation",
+                    "analysis_mode": "changed",
                     "status": "passed",
                     "expected_oracle": "failed",
                     "oracle_status": "failed",
@@ -116,6 +119,7 @@ class SandboxReportTests(unittest.TestCase):
         self.assertIn("negative control", report)
         self.assertIn("evaluation", report)
         self.assertIn("RepoPilot scan: 1 normalized finding", report)
+        self.assertIn("| `changed` |", report)
 
     def test_mutation_report_flags_missing_violation_signal(self) -> None:
         summary = {

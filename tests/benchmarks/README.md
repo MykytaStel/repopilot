@@ -152,6 +152,11 @@ passing mutation case only when baseline/setup and reverse patch pass as well.
 The summary keeps the independent oracle state visible and remains separate
 from production recall or precision.
 
+Cases may set `analysis_mode = "changed"` when the mutation is intended to
+exercise changed-scan semantics; the default is `"default"`. The selected mode
+is recorded in the artifact and report so a full scan cannot be mistaken for a
+change-review measurement.
+
 `report` validates a pilot or mutation summary against its manifest before
 rendering a deterministic human-readable Markdown or text report. It shows the
 overall status, per-case status, oracle states, normalized finding counts and

@@ -114,8 +114,8 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
         "- Static analysis is summarized by normalized finding count and hash; raw output is omitted.",
         "",
         "## Cases",
-        "| Case | Project | Status | Oracle runs | Scan comparison |",
-        "| --- | --- | --- | --- | --- |",
+        "| Case | Project | Analysis | Status | Oracle runs | Scan comparison |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for item in sorted(
         summary.get("cases", []), key=lambda case: str(case.get("case_id", ""))
@@ -127,6 +127,7 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
         comparison = item.get("comparison", {})
         lines.append(
             f"| `{_safe_text(item.get('case_id'))}` | `{_safe_text(item.get('project_id'))}` "
+            f"| `{_safe_text(item.get('analysis_mode', 'default'))}` "
             f"| **{_status(item.get('status'))}** | `{oracle_runs or 'none'}` "
             f"| {_pilot_comparison(comparison)} |"
         )
@@ -154,8 +155,8 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
 def _render_mutation_markdown(summary: dict[str, Any]) -> list[str]:
     lines = [
         "## Cases",
-        "| Case | Project | Kind | Split | Status | Oracle | RepoPilot scan | Lifecycle |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Case | Project | Kind | Split | Analysis | Status | Oracle | RepoPilot scan | Lifecycle |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     cases = sorted(
         summary.get("cases", []), key=lambda case: str(case.get("case_id", ""))
@@ -168,7 +169,9 @@ def _render_mutation_markdown(summary: dict[str, Any]) -> list[str]:
         )
         lines.append(
             f"| `{_safe_text(item.get('case_id'))}` | `{_safe_text(item.get('project_id'))}` "
-            f"| {kind} | `{_safe_text(item.get('split'))}` | **{_status(item.get('status'))}** "
+            f"| {kind} | `{_safe_text(item.get('split'))}` "
+            f"| `{_safe_text(item.get('analysis_mode', 'default'))}` "
+            f"| **{_status(item.get('status'))}** "
             f"| `{_mutation_oracle(item)}` | {_scan_text(item.get('analysis'))} | "
             f"{_phase_chain(item.get('phases', {}), str(item.get('expected_oracle', 'unknown')))} |"
         )

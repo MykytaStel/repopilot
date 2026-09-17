@@ -30,6 +30,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   intervals, coverage, lifecycle/determinism or mutation scan observations,
   analyze wall time, and explicit unavailable TP/FN/TN/FP or RSS measurements
   when the protocol lacks the required identities or sampler.
+- Sandbox cases can declare `analysis_mode = "changed"` for mutations that
+  require changed-scan semantics; the mode is recorded in artifacts and local
+  reports.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared

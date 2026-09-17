@@ -76,6 +76,7 @@ class SandboxCase:
     patch: str | None
     mutation_kind: str = "control"
     split: str = "pilot"
+    analysis_mode: str = "default"
 
 
 @dataclass(frozen=True)

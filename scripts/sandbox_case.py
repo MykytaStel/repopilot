@@ -180,7 +180,11 @@ def _base_artifact(
             "prepare_timeout_seconds": manifest.policy.prepare_timeout_seconds,
             "network": manifest.policy.network,
         },
-        "provenance": {"scanner_command": None, "scanner_sha256": None},
+        "provenance": {
+            "scanner_command": None,
+            "scanner_sha256": None,
+            "analysis_mode": case.analysis_mode,
+        },
         "phases": [],
         "status": "failed",
         "reason": "sandbox run did not finalize",

@@ -11,7 +11,11 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from sandbox_contract import load_manifest, validate_artifact  # noqa: E402
+from sandbox_contract import (  # noqa: E402
+    SandboxManifestError,
+    load_manifest,
+    validate_artifact,
+)
 from sandbox_runner import DockerResult, SubprocessDockerAdapter, run_case, run_command  # noqa: E402
 
 
@@ -199,6 +203,67 @@ class SandboxRunnerTests(unittest.TestCase):
             [{"rule_id": "demo.rule", "path": "main.py", "line": 1, "in_diff": True}],
         )
         self.assertNotIn("secret", json.dumps(result))
+
+    def test_changed_analysis_mode_passes_flag_and_records_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, sha = self.make_repo(root)
+            manifest_path = root / "manifest.toml"
+            manifest_path.write_text(
+                manifest_text(sha).replace(
+                    'expected_oracle = "passed"',
+                    'expected_oracle = "passed"\nanalysis_mode = "changed"',
+                ),
+                encoding="utf-8",
+            )
+            output = root / "result.json"
+            scanner = (
+                sys.executable,
+                "-c",
+                "import json,sys; print(json.dumps({'findings': [{'rule_id': 'demo.rule', 'path': 'main.py', 'line': 1, 'in_diff': '--changed' in sys.argv}]} if '--changed' in sys.argv else {'findings': []}))",
+            )
+
+            result = run_case(
+                manifest_path,
+                "control-case",
+                output,
+                source_override=source,
+                scanner=scanner,
+                docker=FakeDocker(),
+            )
+
+        self.assertEqual(result["provenance"]["analysis_mode"], "changed")
+        analysis = next(
+            phase for phase in result["phases"] if phase["name"] == "analyze"
+        )
+        self.assertEqual(analysis["result"]["normalized_findings"]["count"], 1)
+
+    def test_artifact_validator_rejects_analysis_mode_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, sha = self.make_repo(root)
+            manifest_path = root / "manifest.toml"
+            manifest_path.write_text(
+                manifest_text(sha).replace(
+                    'expected_oracle = "passed"',
+                    'expected_oracle = "passed"\nanalysis_mode = "changed"',
+                ),
+                encoding="utf-8",
+            )
+            output = root / "result.json"
+            run_case(
+                manifest_path,
+                "control-case",
+                output,
+                source_override=source,
+                dry_run=True,
+            )
+            data = json.loads(output.read_text(encoding="utf-8"))
+            data["provenance"]["analysis_mode"] = "default"
+            output.write_text(json.dumps(data), encoding="utf-8")
+
+            with self.assertRaisesRegex(SandboxManifestError, "does not match"):
+                validate_artifact(output, manifest_path)
 
     def test_mutation_patch_is_applied_and_reverted_in_run_owned_copy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

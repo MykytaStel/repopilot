@@ -148,6 +148,7 @@ def _case_summary(
     result: dict[str, Any] = {
         "case_id": case.case_id,
         "project_id": case.project_id,
+        "analysis_mode": case.analysis_mode,
         "source": str(source) if source else None,
         "source_reason": source_reason,
         "runs": runs,
