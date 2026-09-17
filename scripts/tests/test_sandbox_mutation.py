@@ -8,6 +8,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from sandbox_case import _redact_command  # noqa: E402
 from sandbox_mutation import _case_status  # noqa: E402
 
 
@@ -37,6 +38,12 @@ class SandboxMutationTests(unittest.TestCase):
 
     def test_wrong_oracle_state_is_failed(self) -> None:
         self.assertEqual(_case_status(artifact(), "failed"), "failed")
+
+    def test_eval_code_is_redacted_in_recorded_commands(self) -> None:
+        self.assertEqual(
+            _redact_command(("node", "-e", "contains-secret-token")),
+            ["node", "[REDACTED]", "[REDACTED]"],
+        )
 
 
 if __name__ == "__main__":

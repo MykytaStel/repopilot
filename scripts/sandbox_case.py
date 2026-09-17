@@ -28,9 +28,9 @@ def _redact_command(command: tuple[str, ...] | list[str]) -> list[str]:
     redact_next = False
     for item in command:
         value = str(item)
-        if redact_next or value == "-c" or sensitive.search(value):
+        if redact_next or value in {"-c", "-e", "--eval"} or sensitive.search(value):
             redacted.append("[REDACTED]")
-            redact_next = value == "-c"
+            redact_next = value in {"-c", "-e", "--eval"}
         else:
             redacted.append(value)
     return redacted
