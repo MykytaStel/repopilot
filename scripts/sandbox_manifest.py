@@ -242,6 +242,7 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
             "patch",
             "mutation_kind",
             "split",
+            "analysis_mode",
         }
         unknown = set(item) - allowed
         if unknown:
@@ -271,10 +272,13 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
             )
         mutation_kind = item.get("mutation_kind", "control")
         split = item.get("split", "pilot")
+        analysis_mode = item.get("analysis_mode", "default")
         if mutation_kind not in {"control", "violation", "negative-control"}:
             raise SandboxManifestError(f"case {case_id}: mutation_kind is unsupported")
         if split not in {"pilot", "tuning", "evaluation"}:
             raise SandboxManifestError(f"case {case_id}: split is unsupported")
+        if analysis_mode not in {"default", "changed"}:
+            raise SandboxManifestError(f"case {case_id}: analysis_mode is unsupported")
         if mutation_kind != "control" and patch is None:
             raise SandboxManifestError(
                 f"case {case_id}: mutation cases require a patch"
@@ -291,6 +295,7 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
                 patch.strip() if isinstance(patch, str) else None,
                 mutation_kind,
                 split,
+                analysis_mode,
             )
         )
     return cases

@@ -161,6 +161,7 @@ def _case_artifacts(
                 "case_id": item.get("case_id"),
                 "status": item.get("status"),
                 "mutation_kind": item.get("mutation_kind"),
+                "analysis_mode": item.get("analysis_mode", "default"),
                 "analysis_status": "measured"
                 if len(measured) == len(measurements)
                 else "unavailable",

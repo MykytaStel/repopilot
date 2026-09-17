@@ -57,6 +57,17 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
     inputs = data.get("inputs")
     if not isinstance(inputs, dict):
         raise SandboxManifestError("sandbox artifact requires input provenance")
+    provenance = data.get("provenance")
+    if provenance is not None:
+        if not isinstance(provenance, dict):
+            raise SandboxManifestError("sandbox artifact provenance is invalid")
+        analysis_mode = provenance.get("analysis_mode", "default")
+        if analysis_mode not in {"default", "changed"}:
+            raise SandboxManifestError("sandbox artifact analysis_mode is unsupported")
+        if analysis_mode != case.analysis_mode:
+            raise SandboxManifestError(
+                "sandbox artifact analysis_mode does not match manifest"
+            )
     project = manifest.project(case.project_id)
     if inputs.get("project_sha") != project.sha or inputs.get("image") != case.image:
         raise SandboxManifestError(
@@ -126,6 +137,10 @@ def validate_pilot_summary(path: Path, manifest_path: Path) -> dict[str, Any]:
         seen.add(case_id)
         if item.get("status") not in {"passed", "drift", "unavailable"}:
             raise SandboxManifestError("pilot summary case has unsupported status")
+        if item.get("analysis_mode", "default") != manifest.case(case_id).analysis_mode:
+            raise SandboxManifestError(
+                "pilot summary analysis_mode does not match manifest"
+            )
         runs = item.get("runs")
         if not isinstance(runs, list) or len(runs) != repeats:
             raise SandboxManifestError("pilot summary run count does not match repeats")
@@ -207,6 +222,7 @@ def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]
             item.get("mutation_kind") != expected.mutation_kind
             or item.get("split") != expected.split
             or item.get("expected_oracle") != expected.expected_oracle
+            or item.get("analysis_mode", "default") != expected.analysis_mode
         ):
             raise SandboxManifestError(
                 "mutation summary case metadata does not match manifest"

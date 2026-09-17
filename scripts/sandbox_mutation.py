@@ -110,6 +110,7 @@ def _case_summary(
         "mutation_kind": case.mutation_kind,
         "split": case.split,
         "expected_oracle": case.expected_oracle,
+        "analysis_mode": case.analysis_mode,
         "source": str(source) if source else None,
         "source_reason": source_reason,
         "artifact": f"{output_dir.name}/{artifact_path.name}",

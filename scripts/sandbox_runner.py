@@ -186,12 +186,14 @@ def run_case(
                 scanner_command[0] = str(scanner_path)
                 artifact["provenance"]["scanner_sha256"] = sha256_file(scanner_path)
             artifact["provenance"]["scanner_command"] = _redact_command(scanner_command)
+            analysis_options = ("--changed",) if case.analysis_mode == "changed" else ()
             analysis = run_command(
                 tuple(
                     (
                         *scanner_command,
                         "scan",
                         str(after),
+                        *analysis_options,
                         "--format",
                         "json",
                         "--profile",
