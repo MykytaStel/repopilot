@@ -25,6 +25,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   rendering a deterministic local report with per-case status, oracle/lifecycle
   explanations, normalized scan counts and hashes, explicit limits, and next
   actions. Reports omit raw command output and finding snippets.
+- Added sandbox metrics and validation commands. Metrics are recomputed from
+  validated child artifacts with explicit numerators/denominators, 95% Wilson
+  intervals, coverage, lifecycle/determinism or mutation scan observations,
+  analyze wall time, and explicit unavailable TP/FN/TN/FP or RSS measurements
+  when the protocol lacks the required identities or sampler.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared

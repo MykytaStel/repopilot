@@ -115,6 +115,19 @@ python3 scripts/sandbox.py report \
   --manifest .zoo/repopilot-validation/manifest-mutation.toml \
   --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
   --format markdown --output .zoo/repopilot-validation/runs/express-mutation-report.md
+python3 scripts/sandbox.py metrics \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --output .zoo/repopilot-validation/runs/express-mutation-metrics.json
+python3 scripts/sandbox.py validate-metrics \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --metrics .zoo/repopilot-validation/runs/express-mutation-metrics.json
+python3 scripts/sandbox.py metrics-report \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --metrics .zoo/repopilot-validation/runs/express-mutation-metrics.json \
+  --output .zoo/repopilot-validation/runs/express-mutation-metrics.md
 ```
 
 The manifest requires a full source SHA, a content-addressed image, an
@@ -148,6 +161,16 @@ case; `unavailable` remains an explicit missing-evidence state. The report does
 not include raw command output or finding snippets. Without `--output` it is
 printed to the terminal; with `--output` it is saved under the ignored sandbox
 directory.
+
+`metrics` recomputes a JSON artifact from the validated summary and its child
+artifacts. It records numerator/denominator pairs, 95% Wilson intervals,
+coverage, lifecycle, determinism or mutation scan observations, analyze wall
+time, and peak RSS availability. `validate-metrics` rejects edited or stale
+metrics by recomputing the artifact. The current mutation manifest does not
+declare exact expected rule IDs or a baseline scan, so TP/FN/TN/FP and exact
+additional value remain `unavailable`; this is a protocol boundary, not a
+zero-quality result. `metrics-report` validates before rendering the bounded
+Markdown report.
 
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without

@@ -88,6 +88,17 @@ expected_oracle = "passed"
         self.assertEqual(result.returncode, 2)
         self.assertIn("pilot-summary or mutation-summary", result.stderr)
 
+    def test_metrics_requires_summary_and_output(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "sandbox.py"), "metrics"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("metrics requires --artifact and --output", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
