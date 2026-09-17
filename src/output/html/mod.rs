@@ -12,6 +12,7 @@ use crate::scan::types::ScanSummary;
 pub fn render(summary: &ScanSummary) -> String {
     let stats = build_report_stats(summary);
     let cards = sections::render_summary_cards(summary, &stats);
+    let decision_section = sections::render_decision_section(summary);
     let risk_section = sections::render_risk_section(summary, &stats);
     let top_rules_section = sections::render_top_rules_section(&stats);
     let languages_section = sections::render_languages_section(summary);
@@ -25,6 +26,7 @@ pub fn render(summary: &ScanSummary) -> String {
         path: &path,
         scan_meta: &scan_meta,
         baseline_meta: "",
+        decision_section: &decision_section,
         cards: &cards,
         risk_section: &risk_section,
         top_rules_section: &top_rules_section,
@@ -38,6 +40,7 @@ pub fn render(summary: &ScanSummary) -> String {
 pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGateResult>) -> String {
     let stats = build_report_stats(&report.summary);
     let cards = sections::render_baseline_summary_cards(report, &stats);
+    let decision_section = sections::render_decision_section(&report.summary);
     let risk_section = sections::render_risk_section(&report.summary, &stats);
     let top_rules_section = sections::render_top_rules_section(&stats);
     let languages_section = sections::render_languages_section(&report.summary);
@@ -54,6 +57,7 @@ pub fn render_with_baseline(report: &BaselineScanReport, ci_gate: Option<&CiGate
         path: &path,
         scan_meta: &scan_meta,
         baseline_meta: &baseline_meta,
+        decision_section: &decision_section,
         cards: &cards,
         risk_section: &risk_section,
         top_rules_section: &top_rules_section,

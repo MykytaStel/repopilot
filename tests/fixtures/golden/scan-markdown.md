@@ -1,5 +1,13 @@
 # RepoPilot Scan Report
 
+## Decision
+
+- **Decision:** `BLOCK`
+- **Why:** Resolve scan errors or P0 evidence before shipping this repository.
+- **Limits:** Static evidence covers only analyzed files in the selected visibility profile. 1 P0 finding(s) are visible.
+- **Next action:** Resolve the blocking evidence or scan errors, then rerun the scan.
+- **Decision inputs:** 1 finding(s), P0 1, P1 0, 1 verification plan(s)
+
 ## Overview
 
 - **RepoPilot version:** {{VERSION}}

@@ -33,6 +33,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Sandbox cases can declare `analysis_mode = "changed"` for mutations that
   require changed-scan semantics; the mode is recorded in artifacts and local
   reports.
+- Markdown and HTML scan reports now lead with the same decision summary as the
+  console: decision, why, evidence limits, decision inputs, and the next action.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared
