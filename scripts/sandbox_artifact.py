@@ -154,3 +154,87 @@ def validate_pilot_summary(path: Path, manifest_path: Path) -> dict[str, Any]:
     if seen != expected_ids:
         raise SandboxManifestError("pilot summary is missing manifest cases")
     return {"status": "valid", "cases": len(cases), "repeats": repeats}
+
+
+def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]:
+    manifest = load_manifest(manifest_path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise SandboxManifestError(
+            f"cannot read mutation summary {path}: {error}"
+        ) from error
+    if (
+        not isinstance(data, dict)
+        or data.get("schema_version") != 1
+        or data.get("kind") != "mutation-summary"
+        or data.get("protocol") != PROTOCOL
+        or data.get("manifest_sha256") != manifest.sha256
+    ):
+        raise SandboxManifestError(
+            "mutation summary schema, protocol or manifest mismatch"
+        )
+    if data.get("status") not in {"passed", "failed", "unavailable"}:
+        raise SandboxManifestError("mutation summary has unsupported status")
+    expected_cases = {
+        case.case_id: case
+        for case in manifest.cases
+        if case.mutation_kind in {"violation", "negative-control"}
+    }
+    cases = data.get("cases")
+    if (
+        not expected_cases
+        or not isinstance(cases, list)
+        or len(cases) != len(expected_cases)
+    ):
+        raise SandboxManifestError("mutation summary cases do not match manifest")
+    seen: set[str] = set()
+    for item in cases:
+        if not isinstance(item, dict):
+            raise SandboxManifestError("mutation summary case is invalid")
+        case_id = item.get("case_id")
+        if (
+            not isinstance(case_id, str)
+            or case_id not in expected_cases
+            or case_id in seen
+        ):
+            raise SandboxManifestError(
+                "mutation summary case id is invalid or duplicated"
+            )
+        seen.add(case_id)
+        expected = expected_cases[case_id]
+        if (
+            item.get("mutation_kind") != expected.mutation_kind
+            or item.get("split") != expected.split
+            or item.get("expected_oracle") != expected.expected_oracle
+        ):
+            raise SandboxManifestError(
+                "mutation summary case metadata does not match manifest"
+            )
+        if item.get("status") not in {"passed", "failed", "unavailable"}:
+            raise SandboxManifestError("mutation summary case has unsupported status")
+        artifact_name = item.get("artifact")
+        if not isinstance(artifact_name, str):
+            raise SandboxManifestError("mutation summary artifact is invalid")
+        artifact = (path.parent / artifact_name).resolve()
+        try:
+            artifact.relative_to(path.parent.resolve())
+        except ValueError as error:
+            raise SandboxManifestError(
+                "mutation artifact path escapes summary directory"
+            ) from error
+        validated = validate_artifact(artifact, manifest_path)
+        if validated["case_id"] != case_id:
+            raise SandboxManifestError(
+                "mutation artifact case does not match summary case"
+            )
+        phases = item.get("phases")
+        if not isinstance(phases, dict) or any(
+            not isinstance(phases.get(name), dict)
+            or phases[name].get("status") not in ALLOWED_STATUSES
+            for name in ("baseline", "mutate", "oracle", "revert")
+        ):
+            raise SandboxManifestError("mutation summary phases are invalid")
+    if seen != set(expected_cases):
+        raise SandboxManifestError("mutation summary is missing manifest cases")
+    return {"status": "valid", "cases": len(cases)}

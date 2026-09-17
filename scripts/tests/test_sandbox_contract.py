@@ -83,6 +83,16 @@ class SandboxContractTests(unittest.TestCase):
             with self.assertRaisesRegex(SandboxManifestError, "digest"):
                 load_manifest(path)
 
+    def test_manifest_requires_patch_for_mutation_case(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(
+                manifest_text() + 'mutation_kind = "violation"\n', encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(SandboxManifestError, "require a patch"):
+                load_manifest(path)
+
     def test_artifact_validator_requires_cleanup_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

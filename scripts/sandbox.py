@@ -13,8 +13,10 @@ from sandbox_contract import (
     SandboxManifestError,
     load_manifest,
     validate_artifact,
+    validate_mutation_summary,
     validate_pilot_summary,
 )
+from sandbox_mutation import run_mutation_packet
 from sandbox_pilot import run_pilot
 from sandbox_runner import run_case
 
@@ -100,11 +102,46 @@ def _validate_pilot(args: argparse.Namespace) -> int:
     return 0
 
 
+def _mutation(args: argparse.Namespace) -> int:
+    scanner = tuple(shlex.split(args.scanner)) if args.scanner else None
+    result = run_mutation_packet(
+        args.manifest,
+        args.output,
+        source_root=args.source_root,
+        scanner=scanner,
+        work_root=args.work_root,
+    )
+    print(
+        json.dumps(result, indent=2, sort_keys=True)
+        if args.format == "json"
+        else f"Sandbox mutation: {result['status']} ({args.output})"
+    )
+    return 0 if result["status"] == "passed" else 1
+
+
+def _validate_mutation(args: argparse.Namespace) -> int:
+    result = validate_mutation_summary(args.artifact, args.manifest)
+    print(
+        json.dumps(result, indent=2, sort_keys=True)
+        if args.format == "json"
+        else f"Sandbox mutation summary: valid ({args.artifact})"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("check", "run", "pilot", "validate-artifact", "validate-pilot"),
+        choices=(
+            "check",
+            "run",
+            "pilot",
+            "mutation",
+            "validate-artifact",
+            "validate-pilot",
+            "validate-mutation",
+        ),
         default="check",
         nargs="?",
     )
@@ -139,10 +176,18 @@ def main(argv: list[str] | None = None) -> int:
             if args.output is None:
                 parser.error("pilot requires --output")
             return _pilot(args)
+        if args.command == "mutation":
+            if args.output is None:
+                parser.error("mutation requires --output")
+            return _mutation(args)
         if args.command == "validate-pilot":
             if args.artifact is None:
                 parser.error("validate-pilot requires --artifact")
             return _validate_pilot(args)
+        if args.command == "validate-mutation":
+            if args.artifact is None:
+                parser.error("validate-mutation requires --artifact")
+            return _validate_mutation(args)
         if args.artifact is None:
             parser.error("validate-artifact requires --artifact")
         return _validate(args)
