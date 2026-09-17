@@ -18,6 +18,7 @@ from sandbox_contract import (
 )
 from sandbox_mutation import run_mutation_packet
 from sandbox_pilot import run_pilot
+from sandbox_report_io import report_summary
 from sandbox_runner import run_case
 
 
@@ -129,6 +130,21 @@ def _validate_mutation(args: argparse.Namespace) -> int:
     return 0
 
 
+def _report(args: argparse.Namespace) -> int:
+    if args.artifact is None:
+        raise SandboxManifestError("report requires --artifact")
+    if args.format == "json":
+        raise SandboxManifestError("report format must be markdown or text")
+    report = report_summary(args.artifact, args.manifest, args.format)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(report, encoding="utf-8")
+        print(f"Sandbox report: written ({args.output})")
+    else:
+        print(report, end="")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -141,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
             "validate-artifact",
             "validate-pilot",
             "validate-mutation",
+            "report",
         ),
         default="check",
         nargs="?",
@@ -150,7 +167,9 @@ def main(argv: list[str] | None = None) -> int:
         type=_manifest_path,
         default=Path(".zoo/repopilot-validation/manifest.toml"),
     )
-    parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument(
+        "--format", choices=("text", "json", "markdown"), default="text"
+    )
     parser.add_argument("--case")
     parser.add_argument("--output", type=Path)
     parser.add_argument(
@@ -188,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.artifact is None:
                 parser.error("validate-mutation requires --artifact")
             return _validate_mutation(args)
+        if args.command == "report":
+            return _report(args)
         if args.artifact is None:
             parser.error("validate-artifact requires --artifact")
         return _validate(args)

@@ -107,6 +107,14 @@ python3 scripts/sandbox.py mutation \
 python3 scripts/sandbox.py validate-mutation \
   --manifest .zoo/repopilot-validation/manifest-mutation.toml \
   --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json
+python3 scripts/sandbox.py report \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --artifact .zoo/repopilot-validation/runs/technical-pilot-summary.json \
+  --format markdown
+python3 scripts/sandbox.py report \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --format markdown --output .zoo/repopilot-validation/runs/express-mutation-report.md
 ```
 
 The manifest requires a full source SHA, a content-addressed image, an
@@ -130,6 +138,16 @@ reproducibility result, separate from mutation and human-usability metrics.
 passing mutation case only when baseline/setup and reverse patch pass as well.
 The summary keeps the independent oracle state visible and remains separate
 from production recall or precision.
+
+`report` validates a pilot or mutation summary against its manifest before
+rendering a deterministic human-readable Markdown or text report. It shows the
+overall status, per-case status, oracle states, normalized finding counts and
+hashes when available, the mutation lifecycle, limits, and a next action. An
+expected oracle failure for a `violation` is explained as a successful mutation
+case; `unavailable` remains an explicit missing-evidence state. The report does
+not include raw command output or finding snippets. Without `--output` it is
+printed to the terminal; with `--output` it is saved under the ignored sandbox
+directory.
 
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without

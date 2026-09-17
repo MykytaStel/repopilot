@@ -36,6 +36,22 @@ def _phase(artifact: dict[str, Any], name: str) -> dict[str, Any]:
     )
 
 
+def _analysis(artifact: dict[str, Any]) -> dict[str, Any]:
+    phase = _phase(artifact, "analyze")
+    result = phase.get("result", {})
+    normalized = (
+        result.get("normalized_findings", {}) if isinstance(result, dict) else {}
+    )
+    if not isinstance(normalized, dict):
+        normalized = {}
+    return {
+        "status": normalized.get("status", "unavailable"),
+        "count": normalized.get("count"),
+        "sha256": normalized.get("sha256"),
+        "reason": normalized.get("reason") or phase.get("reason"),
+    }
+
+
 def _case_status(artifact: dict[str, Any], expected_oracle: str) -> str:
     phases = {
         name: _phase(artifact, name)
@@ -99,6 +115,7 @@ def _case_summary(
         "artifact": f"{output_dir.name}/{artifact_path.name}",
         "status": _case_status(artifact, case.expected_oracle),
         "artifact_status": artifact.get("status"),
+        "analysis": _analysis(artifact),
         "phases": {
             name: {"status": phase.get("status"), "reason": phase.get("reason")}
             for name, phase in phases.items()
