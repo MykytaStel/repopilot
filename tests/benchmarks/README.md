@@ -90,6 +90,15 @@ python3 scripts/sandbox.py run \
 python3 scripts/sandbox.py validate-artifact \
   --manifest .zoo/repopilot-validation/manifest.toml \
   --artifact .zoo/repopilot-validation/runs/ripgrep-control.json
+python3 scripts/sandbox.py pilot \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --source-root .zoo \
+  --scanner target/release/repopilot \
+  --repeats 3 \
+  --output .zoo/repopilot-validation/runs/technical-pilot-summary.json
+python3 scripts/sandbox.py validate-pilot \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --artifact .zoo/repopilot-validation/runs/technical-pilot-summary.json
 ```
 
 The manifest requires a full source SHA, a content-addressed image, an
@@ -102,6 +111,11 @@ timeouts). If Docker or the scanner is unavailable, the result remains
 bounded; raw stdout/stderr and finding snippets are not persisted. The current
 runner records RSS as explicitly unavailable until a supported sampler is
 added, so these artifacts do not make a universal resource claim.
+
+`pilot` writes one artifact per case and repetition plus a summary. A case is
+`passed` only when every oracle passes and every normalized scan hash is stable;
+otherwise the summary reports `drift` or `unavailable`. This is a technical
+reproducibility result, separate from mutation and human-usability metrics.
 
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without

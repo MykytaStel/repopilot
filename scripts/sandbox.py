@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate or run one RepoPilot real-project sandbox case."""
+"""Validate or run RepoPilot real-project sandbox cases."""
 
 from __future__ import annotations
 
@@ -9,7 +9,13 @@ import shlex
 import sys
 from pathlib import Path
 
-from sandbox_contract import SandboxManifestError, load_manifest, validate_artifact
+from sandbox_contract import (
+    SandboxManifestError,
+    load_manifest,
+    validate_artifact,
+    validate_pilot_summary,
+)
+from sandbox_pilot import run_pilot
 from sandbox_runner import run_case
 
 
@@ -66,11 +72,39 @@ def _validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _pilot(args: argparse.Namespace) -> int:
+    scanner = tuple(shlex.split(args.scanner)) if args.scanner else None
+    result = run_pilot(
+        args.manifest,
+        args.output,
+        source_root=args.source_root,
+        scanner=scanner,
+        repeats=args.repeats,
+        work_root=args.work_root,
+    )
+    print(
+        json.dumps(result, indent=2, sort_keys=True)
+        if args.format == "json"
+        else f"Sandbox pilot: {result['status']} ({args.output})"
+    )
+    return 0 if result["status"] == "passed" else 1
+
+
+def _validate_pilot(args: argparse.Namespace) -> int:
+    result = validate_pilot_summary(args.artifact, args.manifest)
+    print(
+        json.dumps(result, indent=2, sort_keys=True)
+        if args.format == "json"
+        else f"Sandbox pilot summary: valid ({args.artifact})"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=("check", "run", "validate-artifact"),
+        choices=("check", "run", "pilot", "validate-artifact", "validate-pilot"),
         default="check",
         nargs="?",
     )
@@ -88,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--scanner", help="static scanner command, parsed without a shell"
     )
+    parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--work-root", type=Path)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--artifact", type=Path)
@@ -99,6 +135,14 @@ def main(argv: list[str] | None = None) -> int:
             if args.case is None or args.output is None:
                 parser.error("run requires --case and --output")
             return _run(args)
+        if args.command == "pilot":
+            if args.output is None:
+                parser.error("pilot requires --output")
+            return _pilot(args)
+        if args.command == "validate-pilot":
+            if args.artifact is None:
+                parser.error("validate-pilot requires --artifact")
+            return _validate_pilot(args)
         if args.artifact is None:
             parser.error("validate-artifact requires --artifact")
         return _validate(args)
