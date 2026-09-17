@@ -72,6 +72,37 @@ ID is not automatically comparable to a RepoPilot finding ID: static
 duplicate-work requires an explicit `review-exact-v1` comparison mapping,
 otherwise that measurement remains unavailable.
 
+## Local real-project sandbox
+
+The B5 runner is intentionally separate from the differential and real-history
+collectors. It consumes a pinned TOML manifest and writes only to the ignored
+`.zoo/repopilot-validation/` directory:
+
+```bash
+python3 scripts/sandbox.py check \
+  --manifest .zoo/repopilot-validation/manifest.toml
+python3 scripts/sandbox.py run \
+  --manifest .zoo/repopilot-validation/manifest.toml \
+  --case ripgrep-control \
+  --source .zoo/ripgrep \
+  --scanner target/release/repopilot \
+  --output .zoo/repopilot-validation/runs/ripgrep-control.json
+python3 scripts/sandbox.py validate-artifact \
+  --manifest .zoo/repopilot-validation/manifest.toml \
+  --artifact .zoo/repopilot-validation/runs/ripgrep-control.json
+```
+
+The manifest requires a full source SHA, a content-addressed image, an
+allowlisted argument-vector command, and `network = "none"` for measured
+commands. The runner copies a verified source into a run-owned case directory;
+it never mutates an existing zoo clone. Build/test oracles run only through the
+Docker adapter (`--pull=never`, one workspace mount, 2 CPU, 4 GiB, bounded
+timeouts). If Docker or the scanner is unavailable, the result remains
+`unavailable` and retains a cleanup receipt. Command output is hashed and
+bounded; raw stdout/stderr and finding snippets are not persisted. The current
+runner records RSS as explicitly unavailable until a supported sampler is
+added, so these artifacts do not make a universal resource claim.
+
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without
 scoring precision, recall, utility, or overlap.

@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added the local validation sandbox contract and artifact-first runner. A
+  pinned manifest can drive isolated copies, Docker-only oracle commands with
+  `--network none` and resource limits, optional static analysis, bounded
+  redacted command records, and crash-safe result artifacts under the ignored
+  `.zoo/repopilot-validation/` path.
+
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared
   scope with canonical changed/impacted contracts without executing commands;
