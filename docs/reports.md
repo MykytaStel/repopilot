@@ -9,6 +9,18 @@ read scan output.
 repopilot scan . --format json --output repopilot-report.json
 ```
 
+## Human-readable scan decisions
+
+Console, Markdown, and HTML scan reports begin with the same decision summary.
+It states the `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED` result, explains why
+it was selected, names the evidence limits, and gives a next action. The
+decision covers only analyzed files and the selected visibility profile; it is
+not a runtime or human-usability guarantee. Hidden strict-only suggestions are
+called out with a command to inspect them.
+
+The decision is a presentation of existing scan evidence. JSON, SARIF, MCP,
+exit codes, and finding semantics remain unchanged.
+
 ## JSON report schema
 
 JSON scan, baseline-scan, and review reports share schema `0.26`. This is

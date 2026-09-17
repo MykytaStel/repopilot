@@ -3,6 +3,7 @@ pub(crate) mod ai_plan;
 pub mod color;
 pub mod console;
 pub mod decision_summary;
+pub(crate) mod decision_view;
 mod dispatch;
 pub(crate) mod finding_helpers;
 pub mod html;

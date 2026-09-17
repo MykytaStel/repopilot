@@ -8,5 +8,6 @@ use crate::scan::types::{AssessmentStatus, DiagnosticSeverity, ScanSummary};
 use std::fmt::Write;
 
 include!("sections/overview.rs");
+include!("sections/decision.rs");
 include!("sections/risk.rs");
 include!("sections/inventory.rs");
