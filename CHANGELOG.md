@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   sequentially with one cold and two warm repetitions, validates each result,
   compares normalized outputs, and keeps missing images, oracles, and bounded
   scanner output explicitly `unavailable`.
+- Added the controlled mutation packet command. Mutation cases declare a
+  violation or negative-control role and tuning/evaluation split; the runner
+  verifies baseline, patch, expected independent oracle state, reverse patch,
+  and an artifact-backed summary without treating unavailable evidence as pass.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared

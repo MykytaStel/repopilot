@@ -240,6 +240,8 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
             "oracle",
             "expected_oracle",
             "patch",
+            "mutation_kind",
+            "split",
         }
         unknown = set(item) - allowed
         if unknown:
@@ -267,6 +269,16 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
             raise SandboxManifestError(
                 f"case {case_id}: patch must be a non-empty path"
             )
+        mutation_kind = item.get("mutation_kind", "control")
+        split = item.get("split", "pilot")
+        if mutation_kind not in {"control", "violation", "negative-control"}:
+            raise SandboxManifestError(f"case {case_id}: mutation_kind is unsupported")
+        if split not in {"pilot", "tuning", "evaluation"}:
+            raise SandboxManifestError(f"case {case_id}: split is unsupported")
+        if mutation_kind != "control" and patch is None:
+            raise SandboxManifestError(
+                f"case {case_id}: mutation cases require a patch"
+            )
         ids.add(case_id)
         cases.append(
             SandboxCase(
@@ -277,6 +289,8 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
                 _command(item.get("oracle"), "oracle", f"case {case_id}"),
                 expected,
                 patch.strip() if isinstance(patch, str) else None,
+                mutation_kind,
+                split,
             )
         )
     return cases

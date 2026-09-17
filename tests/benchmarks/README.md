@@ -99,6 +99,14 @@ python3 scripts/sandbox.py pilot \
 python3 scripts/sandbox.py validate-pilot \
   --manifest .zoo/repopilot-validation/manifest-pilot.toml \
   --artifact .zoo/repopilot-validation/runs/technical-pilot-summary.json
+python3 scripts/sandbox.py mutation \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --source-root .zoo \
+  --scanner target/release/repopilot \
+  --output .zoo/repopilot-validation/runs/express-mutation-summary.json
+python3 scripts/sandbox.py validate-mutation \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json
 ```
 
 The manifest requires a full source SHA, a content-addressed image, an
@@ -116,6 +124,12 @@ added, so these artifacts do not make a universal resource claim.
 `passed` only when every oracle passes and every normalized scan hash is stable;
 otherwise the summary reports `drift` or `unavailable`. This is a technical
 reproducibility result, separate from mutation and human-usability metrics.
+
+`mutation` consumes cases with `mutation_kind = "violation"` or
+`"negative-control"`. A violation may expect an oracle failure; that is a
+passing mutation case only when baseline/setup and reverse patch pass as well.
+The summary keeps the independent oracle state visible and remains separate
+from production recall or precision.
 
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without
