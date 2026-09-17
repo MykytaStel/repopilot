@@ -208,6 +208,29 @@ class SubprocessDockerAdapter:
                 probe.wall_ms,
                 "docker daemon is unavailable",
             )
+        image_probe = run_command(
+            (
+                self.docker_binary,
+                "image",
+                "inspect",
+                image,
+                "--format",
+                "{{.Id}}",
+            ),
+            cwd,
+            5,
+            "docker image probe",
+            4096,
+        )
+        if image_probe.status != "passed":
+            return DockerResult(
+                "unavailable",
+                image_probe.returncode,
+                image_probe.stdout_sha256,
+                image_probe.stderr_sha256,
+                image_probe.wall_ms,
+                "pinned Docker image is unavailable locally",
+            )
         name = f"repopilot-sandbox-{run_id}"
         docker_command = self.build_command(
             command, cwd, image, policy, name, self.docker_binary

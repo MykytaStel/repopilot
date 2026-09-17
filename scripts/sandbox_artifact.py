@@ -78,3 +78,79 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
         "project_id": case.project_id,
         "phases": len(phases),
     }
+
+
+def validate_pilot_summary(path: Path, manifest_path: Path) -> dict[str, Any]:
+    manifest = load_manifest(manifest_path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise SandboxManifestError(
+            f"cannot read pilot summary {path}: {error}"
+        ) from error
+    if not isinstance(data, dict):
+        raise SandboxManifestError("pilot summary must be a JSON object")
+    if (
+        data.get("schema_version") != 1
+        or data.get("kind") != "pilot-summary"
+        or data.get("protocol") != PROTOCOL
+        or data.get("manifest_sha256") != manifest.sha256
+    ):
+        raise SandboxManifestError(
+            "pilot summary schema, protocol or manifest mismatch"
+        )
+    repeats = data.get("repeats")
+    if (
+        not isinstance(repeats, int)
+        or isinstance(repeats, bool)
+        or not 1 <= repeats <= 3
+    ):
+        raise SandboxManifestError("pilot summary repeats must be between 1 and 3")
+    if data.get("status") not in {"passed", "drift", "unavailable", "failed"}:
+        raise SandboxManifestError("pilot summary has unsupported status")
+    cases = data.get("cases")
+    if not isinstance(cases, list) or len(cases) != len(manifest.cases):
+        raise SandboxManifestError("pilot summary cases do not match manifest")
+    expected_ids = {case.case_id for case in manifest.cases}
+    seen: set[str] = set()
+    for item in cases:
+        if not isinstance(item, dict):
+            raise SandboxManifestError("pilot summary case is invalid")
+        case_id = item.get("case_id")
+        if (
+            not isinstance(case_id, str)
+            or case_id not in expected_ids
+            or case_id in seen
+        ):
+            raise SandboxManifestError("pilot summary case id is invalid or duplicated")
+        seen.add(case_id)
+        if item.get("status") not in {"passed", "drift", "unavailable"}:
+            raise SandboxManifestError("pilot summary case has unsupported status")
+        runs = item.get("runs")
+        if not isinstance(runs, list) or len(runs) != repeats:
+            raise SandboxManifestError("pilot summary run count does not match repeats")
+        for run in runs:
+            if not isinstance(run, dict) or not isinstance(run.get("artifact"), str):
+                raise SandboxManifestError("pilot summary run artifact is invalid")
+            artifact = (path.parent / run["artifact"]).resolve()
+            try:
+                artifact.relative_to(path.parent.resolve())
+            except ValueError as error:
+                raise SandboxManifestError(
+                    "pilot artifact path escapes summary directory"
+                ) from error
+            validated = validate_artifact(artifact, manifest_path)
+            if validated["case_id"] != case_id:
+                raise SandboxManifestError(
+                    "pilot artifact case does not match summary case"
+                )
+        comparison = item.get("comparison")
+        if not isinstance(comparison, dict) or comparison.get("status") not in {
+            "stable",
+            "drift",
+            "unavailable",
+        }:
+            raise SandboxManifestError("pilot summary comparison is invalid")
+    if seen != expected_ids:
+        raise SandboxManifestError("pilot summary is missing manifest cases")
+    return {"status": "valid", "cases": len(cases), "repeats": repeats}

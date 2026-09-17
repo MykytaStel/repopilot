@@ -110,3 +110,9 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, object]:
     from sandbox_artifact import validate_artifact as _validate_artifact
 
     return _validate_artifact(path, manifest_path)
+
+
+def validate_pilot_summary(path: Path, manifest_path: Path) -> dict[str, object]:
+    from sandbox_artifact import validate_pilot_summary as _validate_pilot_summary
+
+    return _validate_pilot_summary(path, manifest_path)

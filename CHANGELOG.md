@@ -13,6 +13,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `--network none` and resource limits, optional static analysis, bounded
   redacted command records, and crash-safe result artifacts under the ignored
   `.zoo/repopilot-validation/` path.
+- Added the local technical-pilot batch command. It runs manifest cases
+  sequentially with one cold and two warm repetitions, validates each result,
+  compares normalized outputs, and keeps missing images, oracles, and bounded
+  scanner output explicitly `unavailable`.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared
