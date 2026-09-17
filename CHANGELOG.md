@@ -21,6 +21,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   violation or negative-control role and tuning/evaluation split; the runner
   verifies baseline, patch, expected independent oracle state, reverse patch,
   and an artifact-backed summary without treating unavailable evidence as pass.
+- Added `sandbox.py report`, which validates pilot and mutation summaries before
+  rendering a deterministic local report with per-case status, oracle/lifecycle
+  explanations, normalized scan counts and hashes, explicit limits, and next
+  actions. Reports omit raw command output and finding snippets.
 
 - Phase C adds bounded optional intent contracts and repository-configured
   critical paths. `review --intent` and MCP intent inputs compare declared

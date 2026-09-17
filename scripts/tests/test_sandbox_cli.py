@@ -64,6 +64,30 @@ expected_oracle = "passed"
         self.assertEqual(result.returncode, 0)
         self.assertIn('"status": "valid"', result.stdout)
 
+    def test_report_rejects_unknown_summary_kind(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = Path(tmp) / "summary.json"
+            summary.write_text('{"kind": "unknown-summary"}\n', encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "sandbox.py"),
+                    "report",
+                    "--manifest",
+                    str(Path(tmp) / "manifest.toml"),
+                    "--artifact",
+                    str(summary),
+                    "--format",
+                    "markdown",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("pilot-summary or mutation-summary", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

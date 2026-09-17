@@ -235,6 +235,23 @@ def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]
             for name in ("baseline", "mutate", "oracle", "revert")
         ):
             raise SandboxManifestError("mutation summary phases are invalid")
+        analysis = item.get("analysis")
+        if analysis is not None:
+            if not isinstance(analysis, dict) or analysis.get("status") not in {
+                "measured",
+                "unavailable",
+            }:
+                raise SandboxManifestError("mutation summary analysis is invalid")
+            count = analysis.get("count")
+            if count is not None and (
+                not isinstance(count, int) or isinstance(count, bool) or count < 0
+            ):
+                raise SandboxManifestError("mutation summary analysis count is invalid")
+            digest = analysis.get("sha256")
+            if digest is not None and (
+                not isinstance(digest, str) or not SHA256.fullmatch(digest)
+            ):
+                raise SandboxManifestError("mutation summary analysis hash is invalid")
     if seen != set(expected_cases):
         raise SandboxManifestError("mutation summary is missing manifest cases")
     return {"status": "valid", "cases": len(cases)}
