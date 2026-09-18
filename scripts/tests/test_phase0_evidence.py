@@ -57,12 +57,19 @@ class Phase0EvidenceReportTests(unittest.TestCase):
             report = phase0_evidence.build_report(
                 replace(self.paths, real_history_artifact=artifact)
             )
+            report["tracks"][0]["observation"] = {
+                "cases": 2,
+                "baseline_observations": 4,
+                "review_observations": 2,
+            }
 
         text = phase0_evidence.render_text(report)
         markdown = phase0_evidence.render_markdown(report)
         self.assertIn("artifact:", text)
         self.assertIn("current.json", text)
+        self.assertIn("cases=2", text)
         self.assertIn("artifact", markdown)
+        self.assertIn("cases=2", markdown)
 
     def test_tampered_real_history_artifact_is_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
