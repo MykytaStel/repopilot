@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added an advisory CI shadow policy runner that records policy, analyzer and
+  revision provenance, bounded redacted logs, report hashes, and explicit
+  passed/failed/unavailable/invalid statuses without changing the blocking CI
+  gate.
 - Added the local validation sandbox contract and artifact-first runner. A
   pinned manifest can drive isolated copies, Docker-only oracle commands with
   `--network none` and resource limits, optional static analysis, bounded
