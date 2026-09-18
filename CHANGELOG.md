@@ -46,6 +46,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - Release publication verification now accepts checksum files with Windows
   CRLF line endings while still failing closed on a digest mismatch.
+- Release builds now smoke-test the packaged archive on native Unix and
+  Windows runners before publishing; cross-compiled Linux ARM remains an
+  explicit unavailable runtime check.
 - Markdown and HTML scan reports now lead with the same decision summary as the
   console: decision, why, evidence limits, decision inputs, and the next action.
 

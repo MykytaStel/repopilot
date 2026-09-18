@@ -129,6 +129,25 @@ jobs:
           echo "ASSET=dist/${AssetName}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "CHECKSUM=dist/${AssetName}.zip.sha256" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Smoke packaged archive (Unix)
+        if: matrix.archive == 'tar.gz' && matrix.target != 'aarch64-unknown-linux-gnu'
+        run: |
+          mkdir -p packaged-smoke
+          tar -xzf "$ASSET" -C packaged-smoke
+          ./packaged-smoke/repopilot --version
+
+      - name: Smoke packaged archive (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $SmokeDir = "packaged-smoke"
+          Expand-Archive -Path $env:ASSET -DestinationPath $SmokeDir
+          & ".\$SmokeDir\repopilot.exe" --version
+
+      - name: Record cross-compiled smoke boundary
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: echo "::notice::packaged archive smoke is unavailable for the cross-compiled Linux ARM target on this runner"
+
       - name: Generate artifact attestations
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
