@@ -37,6 +37,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Sandbox cases can declare `analysis_mode = "changed"` for mutations that
   require changed-scan semantics; the mode is recorded in artifacts and local
   reports.
+- Added automatic discovery of fresh `*-current` Phase 0 evidence packets and
+  artifact/observation counts in the local text and Markdown audit, so the
+  sandbox can show its current state without treating historical packets as
+  fresh evidence.
 - Markdown and HTML scan reports now lead with the same decision summary as the
   console: decision, why, evidence limits, decision inputs, and the next action.
 

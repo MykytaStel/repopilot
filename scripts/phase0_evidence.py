@@ -51,6 +51,17 @@ def render_text(report: dict[str, Any]) -> str:
             f"- {track['id']}: protocol={track['protocol_status']}; "
             f"evidence={track['evidence_status']}; scope={track['scope']}"
         )
+        if track.get("artifact"):
+            lines.append(f"  artifact: {track['artifact']}")
+        observation = track.get("observation")
+        if isinstance(observation, dict):
+            counts = [
+                f"{key}={observation[key]}"
+                for key in ("cases", "baseline_observations", "review_observations")
+                if key in observation
+            ]
+            if counts:
+                lines.append(f"  observations: {', '.join(counts)}")
         lines.append(f"  next: {track['next_action']}")
         if "reason" in track:
             lines.append(f"  reason: {track['reason']}")
@@ -73,6 +84,17 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| `{track['id']}` | `{track['protocol_status']}` | "
             f"`{track['evidence_status']}` | `{track['scope']}` |"
         )
+        observation = track.get("observation")
+        if track.get("artifact"):
+            lines.append(f"|  | artifact | `{track['artifact']}` |  |")
+        if isinstance(observation, dict):
+            counts = [
+                f"{key}={observation[key]}"
+                for key in ("cases", "baseline_observations", "review_observations")
+                if key in observation
+            ]
+            if counts:
+                lines.append(f"|  | observations | `{', '.join(counts)}` |  |")
     lines.extend(["", "## Next actions", ""])
     for track in report["tracks"]:
         lines.append(f"- `{track['id']}`: {track['next_action']}")
@@ -101,6 +123,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=("text", "markdown", "json"), default="text")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument(
+        "--evidence-dir",
+        type=Path,
+        help="discover only fresh *-current evidence packets from this directory",
+    )
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--differential-manifest", type=Path)
     parser.add_argument("--rules-reference", type=Path)
@@ -136,6 +163,15 @@ def main(argv: list[str] | None = None) -> int:
         zoo_manifest=_resolve(root, args.zoo_manifest) or defaults.zoo_manifest,
         **{name: _resolve(root, getattr(args, name)) for name in optional_names},
     )
+    if args.evidence_dir is not None:
+        paths = paths.with_evidence_dir(_resolve(root, args.evidence_dir) or args.evidence_dir)
+        paths = replace(
+            paths,
+            **{
+                name: _resolve(root, getattr(args, name)) or getattr(paths, name)
+                for name in optional_names
+            },
+        )
     report = build_report(paths)
     rendered = {"text": render_text, "markdown": render_markdown, "json": render_json}[args.format](report)
     if args.output is None:
