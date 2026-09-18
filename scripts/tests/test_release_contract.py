@@ -197,6 +197,16 @@ class ReleaseContractTests(unittest.TestCase):
             workflow,
         )
 
+    def test_release_workflow_smokes_packaged_archives(self) -> None:
+        workflow = (self.original_root / ".github/workflows/release.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('tar -xzf "$ASSET" -C packaged-smoke', workflow)
+        self.assertIn('./packaged-smoke/repopilot --version', workflow)
+        self.assertIn('Expand-Archive -Path $env:ASSET -DestinationPath $SmokeDir', workflow)
+        self.assertIn('& ".\\$SmokeDir\\repopilot.exe" --version', workflow)
+
     def test_publication_recovery_rejects_mutable_latest_queries(self) -> None:
         self.write(
             ".github/workflows/release.yml",
