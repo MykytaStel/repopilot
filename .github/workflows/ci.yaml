@@ -89,6 +89,26 @@ jobs:
           path: /tmp/repopilot-ci.md
           if-no-files-found: ignore
 
+      - name: RepoPilot CI shadow policy
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          scripts/repopilot-shadow.sh \
+            --output-dir /tmp/repopilot-shadow \
+            --repo . \
+            --binary "$PWD/target/debug/repopilot" \
+            --profile strict \
+            --fail-on-priority p1
+
+      - name: Upload RepoPilot CI shadow
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repopilot-shadow
+          path: /tmp/repopilot-shadow
+          if-no-files-found: warn
+
       - name: CLI release smoke tests
         run: cargo test --test cli_release_smoke
       - name: Install Node.js

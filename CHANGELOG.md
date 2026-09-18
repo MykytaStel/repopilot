@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added an advisory CI shadow policy runner that records policy, analyzer and
+  revision provenance, bounded redacted logs, report hashes, and explicit
+  passed/failed/unavailable/invalid statuses without changing the blocking CI
+  gate.
 - Added the local validation sandbox contract and artifact-first runner. A
   pinned manifest can drive isolated copies, Docker-only oracle commands with
   `--network none` and resource limits, optional static analysis, bounded
@@ -33,6 +37,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Sandbox cases can declare `analysis_mode = "changed"` for mutations that
   require changed-scan semantics; the mode is recorded in artifacts and local
   reports.
+- Added automatic discovery of fresh `*-current` Phase 0 evidence packets and
+  artifact/observation counts in the local text and Markdown audit, so the
+  sandbox can show its current state without treating historical packets as
+  fresh evidence.
+
+### Fixed
+
+- Release publication verification now accepts checksum files with Windows
+  CRLF line endings while still failing closed on a digest mismatch.
 - Markdown and HTML scan reports now lead with the same decision summary as the
   console: decision, why, evidence limits, decision inputs, and the next action.
 
