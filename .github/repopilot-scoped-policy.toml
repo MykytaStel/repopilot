@@ -1,0 +1,7 @@
+schema_version = 1
+policy_id = "stable-architecture-v1"
+owner = "repopilot-maintainers"
+profile = "default"
+max_priority = "p1"
+rules = ["architecture.circular-dependency"]
+rollback = "Unset REPOPILOT_SCOPED_BLOCKING or run the evaluator with --mode advisory."
