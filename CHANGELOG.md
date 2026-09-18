@@ -41,6 +41,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   artifact/observation counts in the local text and Markdown audit, so the
   sandbox can show its current state without treating historical packets as
   fresh evidence.
+- Added an opt-in scoped CI policy evaluator. An explicit policy can block only
+  allowlisted stable rules at a selected profile and priority; advisory mode,
+  unavailable evidence, provenance, hashes, and a documented rollback remain
+  separate from the existing CI gate.
 
 ### Fixed
 
