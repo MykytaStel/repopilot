@@ -187,6 +187,16 @@ class ReleaseContractTests(unittest.TestCase):
         ):
             release_contract.check_publication_recovery_contract()
 
+    def test_release_verifier_normalizes_crlf_checksum_files(self) -> None:
+        workflow = (self.original_root / ".github/workflows/release.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(
+            'tr -d \'\\r\' < "$archive.sha256" | sha256sum -c -',
+            workflow,
+        )
+
     def test_publication_recovery_rejects_mutable_latest_queries(self) -> None:
         self.write(
             ".github/workflows/release.yml",

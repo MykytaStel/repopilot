@@ -375,7 +375,7 @@ jobs:
             fi
             test -f "$verify_tmp/$archive"
             test -f "$verify_tmp/$archive.sha256"
-            (cd "$verify_tmp" && sha256sum -c "$archive.sha256")
+            (cd "$verify_tmp" && tr -d '\r' < "$archive.sha256" | sha256sum -c -)
           done
 
           cargo package --allow-dirty --no-verify >/dev/null

@@ -41,6 +41,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   artifact/observation counts in the local text and Markdown audit, so the
   sandbox can show its current state without treating historical packets as
   fresh evidence.
+
+### Fixed
+
+- Release publication verification now accepts checksum files with Windows
+  CRLF line endings while still failing closed on a digest mismatch.
 - Markdown and HTML scan reports now lead with the same decision summary as the
   console: decision, why, evidence limits, decision inputs, and the next action.
 

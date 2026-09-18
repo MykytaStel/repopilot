@@ -423,6 +423,7 @@ def check_publication_recovery_contract() -> None:
     required_release = (
         'VERSION_NUMBER="${VERSION#v}"',
         "scripts/publication_state.py classify",
+        'tr -d \'\\r\' < "$archive.sha256" | sha256sum -c -',
         'npm view "${package}@${VERSION_NUMBER}" version dist.integrity --json',
         "cargo package --allow-dirty --no-verify",
         "version.checksum",
