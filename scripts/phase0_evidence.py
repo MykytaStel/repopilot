@@ -64,6 +64,7 @@ def render_text(report: dict[str, Any]) -> str:
         lines.append("- none")
     lines.extend(["", "Next actions:"])
     lines.extend(action_lines(report["next_actions"]))
+    lines.extend(["", "Track details:"])
     for track in report["tracks"]:
         lines.append(
             f"- {track['id']}: protocol={track['protocol_status']}; "
@@ -80,9 +81,6 @@ def render_text(report: dict[str, Any]) -> str:
             ]
             if counts:
                 lines.append(f"  observations: {', '.join(counts)}")
-        lines.append(f"  next: {track['next_action']}")
-        if "reason" in track:
-            lines.append(f"  reason: {track['reason']}")
     lines.append(report["claim_boundary"])
     return "\n".join(lines) + "\n"
 
