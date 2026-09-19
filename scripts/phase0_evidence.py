@@ -11,6 +11,7 @@ from typing import Any
 
 from phase0_evidence_model import Phase0Paths
 from phase0_evidence_tracks import differential_track, real_history_track
+from phase0_evidence_decision import action_lines, coverage_line, decision_summary
 
 
 REPORT_SCHEMA_VERSION = 1
@@ -26,7 +27,7 @@ def build_report(paths: Phase0Paths) -> dict[str, Any]:
     invalid = any(
         track["evidence_status"] in {"invalid", "protocol-invalid"} for track in tracks
     )
-    return {
+    report = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "protocol": REPORT_PROTOCOL,
         "status": "invalid" if invalid else ("complete" if closure_eligible else "open"),
@@ -38,6 +39,8 @@ def build_report(paths: Phase0Paths) -> dict[str, Any]:
             "Hosted publication/install proof and human review remain separate gates when applicable.",
         ],
     }
+    report.update(decision_summary(tracks))
+    return report
 
 
 def render_json(report: dict[str, Any]) -> str:
@@ -45,7 +48,22 @@ def render_json(report: dict[str, Any]) -> str:
 
 
 def render_text(report: dict[str, Any]) -> str:
-    lines = [f"Phase 0 evidence: {report['status']} (closure: {report['closure']})"]
+    lines = [
+        f"Phase 0 evidence: {report['status']} (closure: {report['closure']})",
+        f"Decision: {report['decision']}",
+        coverage_line(report["coverage"]),
+        "",
+        "Blocking reasons:",
+    ]
+    if report["blocking_reasons"]:
+        lines.extend(
+            f"- {item['track']}: {item['status']} — {item['reason']}"
+            for item in report["blocking_reasons"]
+        )
+    else:
+        lines.append("- none")
+    lines.extend(["", "Next actions:"])
+    lines.extend(action_lines(report["next_actions"]))
     for track in report["tracks"]:
         lines.append(
             f"- {track['id']}: protocol={track['protocol_status']}; "
@@ -76,6 +94,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Status: `{report['status']}`",
         f"- Closure: `{report['closure']}`",
         "",
+        "## Decision",
+        "",
+        f"`{report['decision']}`",
+        "",
+        f"{coverage_line(report['coverage'])}",
+        "",
         "| Track | Protocol | Evidence | Scope |",
         "| --- | --- | --- | --- |",
     ]
@@ -95,11 +119,16 @@ def render_markdown(report: dict[str, Any]) -> str:
             ]
             if counts:
                 lines.append(f"|  | observations | `{', '.join(counts)}` |  |")
+    lines.extend(["", "## Blocking reasons", ""])
+    if report["blocking_reasons"]:
+        lines.extend(
+            f"- `{item['track']}` (`{item['status']}`): {item['reason']}"
+            for item in report["blocking_reasons"]
+        )
+    else:
+        lines.append("- None")
     lines.extend(["", "## Next actions", ""])
-    for track in report["tracks"]:
-        lines.append(f"- `{track['id']}`: {track['next_action']}")
-        if "reason" in track:
-            lines.append(f"  - Reason: {track['reason']}")
+    lines.extend(action_lines(report["next_actions"]))
     lines.extend(["", f"> {report['claim_boundary']}", ""])
     return "\n".join(lines)
 
