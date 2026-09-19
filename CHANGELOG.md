@@ -45,6 +45,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   allowlisted stable rules at a selected profile and priority; advisory mode,
   unavailable evidence, provenance, hashes, and a documented rollback remain
   separate from the existing CI gate.
+- Added an additive decision projection to the Phase 0 evidence audit. CLI,
+  JSON, and Markdown reports now show `verified`, `blocked`, or `invalid`,
+  structured coverage counts, blocking reasons, and the exact next actions
+  without changing legacy fields or exit codes.
 
 ### Fixed
 
