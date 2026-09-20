@@ -77,17 +77,22 @@ def render_metrics_report(data: dict[str, Any]) -> str:
             "",
             "## Case detail",
             "",
-            "| Case | Status | Scan | Analyze ms | RSS KiB |",
-            "| --- | --- | --- | ---: | ---: |",
+            "| Case | Split | Profile | Status | Rule evidence | Scan | Analyze ms | RSS KiB |",
+            "| --- | --- | --- | --- | --- | --- | ---: | ---: |",
         ]
     )
     for case in sorted(
         data.get("cases", []), key=lambda item: str(item.get("case_id", ""))
     ):
         scan = _scan_label(case.get("normalized_finding_count"))
+        rule_observation = case.get("rule_observation") or {}
+        rule_status = rule_observation.get("status", "not-declared")
         lines.append(
-            f"| `{case.get('case_id', 'unknown')}` | {case.get('status', 'unknown')} | {scan} | "
-            f"{_number(case.get('analyze_wall_ms'))} | {_number(case.get('peak_rss_kb'))} |"
+            f"| `{case.get('case_id', 'unknown')}` | {case.get('split', 'pilot')} | "
+            f"{case.get('profile', 'default')} | {case.get('status', 'unknown')} | "
+            f"{rule_status} | {scan} | "
+            f"{_number(case.get('analyze_wall_ms'))} | "
+            f"{_number(case.get('peak_rss_kb'))} |"
         )
     lines.extend(
         [

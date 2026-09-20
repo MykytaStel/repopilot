@@ -155,6 +155,19 @@ passing mutation case only when baseline/setup and reverse patch pass as well.
 The summary keeps the independent oracle state visible and remains separate
 from production recall or precision.
 
+Mutation cases may declare `expected_rule_ids`. For a `violation`, every
+declared rule must be observed in the mutated scan; for a `negative-control`,
+declared rules must not be introduced by the patch. The runner therefore makes
+a separate baseline scan and compares stable normalized rule/path/evidence
+identities. Evidence uses a digest of the reported snippet and the finding ID,
+with a line fallback when those fields are unavailable, so line shifts and
+pre-existing findings do not invalidate a clean negative control. The receipt
+records expected, observed-new, and all observed rule IDs, and metrics expose
+exact violation and negative-control rates. Cases without this field retain
+lifecycle-only semantics and cannot support an exact rule-signal claim.
+Mutation metrics also keep `tuning` and `evaluation` cases separate; tuning
+results must not be presented as held-out evaluation.
+
 Cases may set `analysis_mode = "changed"` when the mutation is intended to
 exercise changed-scan semantics; the default is `"default"`. The selected mode
 is recorded in the artifact and report so a full scan cannot be mistaken for a

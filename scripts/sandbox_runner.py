@@ -50,6 +50,53 @@ def _scanner_report_payload(
     return None, "scanner did not produce a complete JSON report"
 
 
+def _run_static_analysis(
+    scanner_command: list[str],
+    checkout: Path,
+    report_path: Path,
+    analysis_options: tuple[str, ...],
+    manifest: Any,
+    label: str,
+    profile: str,
+) -> tuple[CommandResult, dict[str, Any], dict[str, Any]]:
+    analysis = run_command(
+        tuple(
+            (
+                *scanner_command,
+                "scan",
+                str(checkout),
+                *analysis_options,
+                "--format",
+                "json",
+                "--output",
+                str(report_path),
+                "--profile",
+                profile,
+                "--no-progress",
+            )
+        ),
+        checkout,
+        manifest.policy.measured_timeout_seconds,
+        label,
+        manifest.policy.log_limit_bytes,
+        True,
+    )
+    payload, report_reason = _scanner_report_payload(
+        report_path, analysis.payload, analysis.stdout_truncated
+    )
+    normalized = (
+        _normalize_findings(payload, checkout)
+        if payload is not None
+        else {"status": "unavailable", "reason": report_reason}
+    )
+    details = analysis.as_dict()
+    if report_path.is_file():
+        details["report_sha256"] = sha256_file(report_path)
+        details["report_bytes"] = report_path.stat().st_size
+    details["normalized_findings"] = normalized
+    return analysis, normalized, details
+
+
 def run_case(
     manifest_path: Path,
     case_id: str,
@@ -198,6 +245,9 @@ def run_case(
         if mutation.status != "passed":
             raise SandboxManifestError("mutation patch could not be applied")
         report_path: Path | None = None
+        baseline_analysis: CommandResult | None = None
+        baseline_normalized: dict[str, Any] | None = None
+        baseline_details: dict[str, Any] | None = None
         if scanner:
             scanner_path = Path(scanner[0]).expanduser()
             scanner_command = list(scanner)
@@ -207,37 +257,32 @@ def run_case(
                 artifact["provenance"]["scanner_sha256"] = sha256_file(scanner_path)
             artifact["provenance"]["scanner_command"] = _redact_command(scanner_command)
             analysis_options = ("--changed",) if case.analysis_mode == "changed" else ()
-            report_path = after / ".repopilot-sandbox-report.json"
-            analysis = run_command(
-                tuple(
-                    (
-                        *scanner_command,
-                        "scan",
-                        str(after),
-                        *analysis_options,
-                        "--format",
-                        "json",
-                        "--output",
-                        str(report_path),
-                        "--profile",
-                        "default",
-                        "--no-progress",
+            if case.expected_rule_ids:
+                baseline_report_path = case_root / ".repopilot-sandbox-baseline-report.json"
+                baseline_analysis, baseline_normalized, baseline_details = (
+                    _run_static_analysis(
+                        scanner_command,
+                        before,
+                        baseline_report_path,
+                        analysis_options,
+                        manifest,
+                        "baseline static analysis",
+                        case.profile,
                     )
-                ),
+                )
+            report_path = case_root / ".repopilot-sandbox-report.json"
+            analysis, normalized, analysis_result = _run_static_analysis(
+                scanner_command,
                 after,
-                manifest.policy.measured_timeout_seconds,
+                report_path,
+                analysis_options,
+                manifest,
                 "static analysis",
-                manifest.policy.log_limit_bytes,
-                True,
+                case.profile,
             )
-            payload, report_reason = _scanner_report_payload(
-                report_path, analysis.payload, analysis.stdout_truncated
-            )
-            normalized = (
-                _normalize_findings(payload, after)
-                if payload is not None
-                else {"status": "unavailable", "reason": report_reason}
-            )
+            if baseline_details is not None:
+                analysis_result["baseline_analysis"] = baseline_details
+                analysis_result["baseline_normalized_findings"] = baseline_normalized
         else:
             analysis = CommandResult(
                 "unavailable",
@@ -248,11 +293,8 @@ def run_case(
                 "scanner is unavailable",
             )
             normalized = {"status": "unavailable", "reason": "scanner is unavailable"}
-        analysis_result = analysis.as_dict()
-        if report_path is not None and report_path.is_file():
-            analysis_result["report_sha256"] = sha256_file(report_path)
-            analysis_result["report_bytes"] = report_path.stat().st_size
-        analysis_result["normalized_findings"] = normalized
+            analysis_result = analysis.as_dict()
+            analysis_result["normalized_findings"] = normalized
         analysis_status = analysis.status
         analysis_reason = analysis.reason
         if analysis.status == "passed" and normalized.get("status") != "measured":
@@ -260,6 +302,16 @@ def run_case(
             analysis_reason = str(
                 normalized.get("reason") or "normalized scanner output is unavailable"
             )
+        if (
+            baseline_analysis is not None
+            and (
+                baseline_analysis.status != "passed"
+                or not baseline_normalized
+                or baseline_normalized.get("status") != "measured"
+            )
+        ):
+            analysis_status = "unavailable"
+            analysis_reason = "baseline static analysis is unavailable"
         artifact["phases"].append(
             _phase("analyze", analysis_status, analysis_reason, result=analysis_result)
         )

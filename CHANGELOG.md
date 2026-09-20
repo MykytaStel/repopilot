@@ -30,6 +30,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   violation or negative-control role and tuning/evaluation split; the runner
   verifies baseline, patch, expected independent oracle state, reverse patch,
   and an artifact-backed summary without treating unavailable evidence as pass.
+- Mutation cases can now declare exact `expected_rule_ids`. Receipts record
+  observed rule IDs and distinguish exact violation signals from negative
+  controls; expected-rule cases compare a separate baseline scan by stable
+  rule/path/evidence identity (snippet digests and finding IDs, with a line
+  fallback) so line shifts and pre-existing findings do not poison negative
+  controls. Metrics keep lifecycle-only cases separate from this stronger
+  rule-level evidence and report tuning and evaluation splits independently.
 - Added `sandbox.py report`, which validates pilot and mutation summaries before
   rendering a deterministic local report with per-case status, oracle/lifecycle
   explanations, normalized scan counts and hashes, explicit limits, and next
