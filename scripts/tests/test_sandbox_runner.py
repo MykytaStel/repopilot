@@ -204,6 +204,40 @@ class SandboxRunnerTests(unittest.TestCase):
         )
         self.assertNotIn("secret", json.dumps(result))
 
+    def test_large_scanner_json_is_normalized_without_stdout_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, sha = self.make_repo(root)
+            manifest_path = root / "manifest.toml"
+            manifest_path.write_text(manifest_text(sha), encoding="utf-8")
+            output = root / "result.json"
+            scanner = (
+                sys.executable,
+                "-c",
+                "import json,sys; path=sys.argv[sys.argv.index('--output')+1]; "
+                "open(path, 'w').write(json.dumps({'findings': ["
+                "{'rule_id': 'demo.rule', 'path': 'main.py', 'line': 1, "
+                "'in_diff': True, 'padding': 'x' * 300} for _ in range(400)]}))",
+            )
+
+            result = run_case(
+                manifest_path,
+                "control-case",
+                output,
+                source_override=source,
+                scanner=scanner,
+                docker=FakeDocker(),
+            )
+
+        self.assertEqual(result["status"], "passed")
+        analysis = next(
+            phase for phase in result["phases"] if phase["name"] == "analyze"
+        )
+        normalized = analysis["result"]["normalized_findings"]
+        self.assertEqual(normalized["status"], "measured")
+        self.assertEqual(normalized["count"], 400)
+        self.assertEqual(len(analysis["result"]["report_sha256"]), 64)
+
     def test_changed_analysis_mode_passes_flag_and_records_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
