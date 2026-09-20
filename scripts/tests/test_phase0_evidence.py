@@ -24,6 +24,12 @@ class Phase0EvidenceReportTests(unittest.TestCase):
 
         self.assertEqual(report["status"], "open")
         self.assertEqual(report["closure"], "open")
+        self.assertEqual(report["decision"], "blocked")
+        self.assertEqual(report["coverage"]["tracks_total"], 2)
+        self.assertEqual(report["coverage"]["protocols_valid"], 2)
+        self.assertEqual(report["coverage"]["evidence_valid"], 0)
+        self.assertEqual(len(report["blocking_reasons"]), 2)
+        self.assertEqual(len(report["next_actions"]), 2)
         self.assertEqual(
             [track["id"] for track in report["tracks"]],
             ["real-history", "differential-utility"],
@@ -89,8 +95,35 @@ class Phase0EvidenceReportTests(unittest.TestCase):
             report = phase0_evidence.build_report(replace(self.paths, manifest=manifest))
 
         self.assertEqual(report["status"], "invalid")
+        self.assertEqual(report["decision"], "invalid")
+        self.assertEqual(report["coverage"]["protocols_invalid"], 2)
         self.assertTrue(all(track["evidence_status"] == "protocol-invalid" for track in report["tracks"]))
         self.assertEqual(phase0_evidence.exit_code(report, require_complete=False), 1)
+
+    def test_complete_independent_tracks_are_verified(self) -> None:
+        tracks = [
+            {
+                "id": "real-history",
+                "protocol_status": "valid",
+                "evidence_status": "valid",
+                "scope": "independent-adjudication",
+                "next_action": "retain the bounded result",
+            },
+            {
+                "id": "differential-utility",
+                "protocol_status": "valid",
+                "evidence_status": "valid",
+                "scope": "independent-adjudication",
+                "next_action": "retain the bounded result",
+            },
+        ]
+
+        decision = phase0_evidence.decision_summary(tracks)
+
+        self.assertEqual(decision["decision"], "verified")
+        self.assertEqual(decision["coverage"]["evidence_valid"], 2)
+        self.assertEqual(decision["blocking_reasons"], [])
+        self.assertEqual(len(decision["next_actions"]), 2)
 
     def test_renderers_are_deterministic_and_json_is_machine_readable(self) -> None:
         report = phase0_evidence.build_report(self.paths)
@@ -100,6 +133,10 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         decoded = json.loads(phase0_evidence.render_json(report))
         self.assertEqual(decoded, report)
         self.assertIn("no precision, recall, or utility claim", phase0_evidence.render_markdown(report).lower())
+        self.assertIn("decision", decoded)
+        self.assertIn("Decision", phase0_evidence.render_markdown(report))
+        self.assertIn("Blocking reasons", phase0_evidence.render_markdown(report))
+        self.assertIn("Next actions", phase0_evidence.render_text(report))
 
 
 if __name__ == "__main__":
