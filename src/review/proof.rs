@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::review::intent::{IntentDrift, evaluate_intent};
 use crate::review::model::ReviewReport;
@@ -41,7 +41,7 @@ pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ChangeProofVerdict {
     Broken,
@@ -61,7 +61,7 @@ impl ChangeProofVerdict {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ChangeProofReasonCode {
     BrokenContract,
@@ -87,7 +87,7 @@ pub enum ChangeProofReasonCode {
     IntentDrift,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProofReason {
     pub code: ChangeProofReasonCode,
     pub count: usize,
@@ -104,14 +104,14 @@ impl ChangeProofReason {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProofScope {
     Changed,
     Full,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofCoverage {
     pub scope: ProofScope,
     pub requested_files: usize,
@@ -126,7 +126,7 @@ impl ProofCoverage {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofObligations {
     pub applicable: usize,
     pub satisfied: usize,
@@ -145,7 +145,7 @@ pub struct ChangeProofInput {
     pub reasons: Vec<ChangeProofReason>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProof {
     pub verdict: ChangeProofVerdict,
     pub reasons: Vec<ChangeProofReason>,
