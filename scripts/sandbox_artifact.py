@@ -16,6 +16,7 @@ from sandbox_contract import (
     SandboxManifestError,
 )
 from sandbox_manifest import load_manifest
+from sandbox_resource import validate_resource_observation
 
 
 def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
@@ -47,6 +48,10 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
         for phase in phases
     ):
         raise SandboxManifestError("sandbox artifact phases are invalid")
+    for phase in phases:
+        result = phase.get("result")
+        if isinstance(result, dict) and "resource" in result:
+            validate_resource_observation(result["resource"], f"phase {phase['name']}")
     cleanup = data.get("cleanup")
     if not isinstance(cleanup, dict) or cleanup.get("status") not in {
         "complete",
