@@ -32,6 +32,31 @@ def artifact(
 
 
 class SandboxMutationTests(unittest.TestCase):
+    def test_analysis_preserves_resource_receipt(self) -> None:
+        resource = {
+            "status": "available",
+            "peak_rss_kb": 1024,
+            "source": "posix-time-v1",
+        }
+        result = _analysis(
+            {
+                "phases": [
+                    {
+                        "name": "analyze",
+                        "result": {
+                            "normalized_findings": {
+                                "status": "measured",
+                                "count": 1,
+                            },
+                            "resource": resource,
+                        },
+                    }
+                ]
+            }
+        )
+
+        self.assertEqual(result["resource"], resource)
+
     def test_expected_failed_oracle_is_a_passing_violation_case(self) -> None:
         self.assertEqual(_case_status(artifact(oracle="failed"), "failed"), "passed")
 

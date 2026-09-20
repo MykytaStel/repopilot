@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from sandbox_contract import SandboxManifestError
+from sandbox_report_resources import resource_section
 
 
 _SENSITIVE_WORD = re.compile(
@@ -242,11 +243,16 @@ def render_report(summary: dict[str, Any], output_format: str = "markdown") -> s
         f"- Recorded reason: {_reason(summary.get('reason'))}",
         "",
     ]
-    lines.extend(
+    body = (
         _render_pilot_markdown(summary)
         if kind == "pilot-summary"
         else _render_mutation_markdown(summary)
     )
+    limits_index = next(
+        (index for index, line in enumerate(body) if line == "## Limits"), len(body)
+    )
+    body[limits_index:limits_index] = resource_section(summary)
+    lines.extend(body)
     lines.extend(
         [
             "## Next action",

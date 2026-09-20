@@ -40,8 +40,10 @@ def _phase(artifact: dict[str, Any], name: str) -> dict[str, Any]:
 def _analysis(artifact: dict[str, Any]) -> dict[str, Any]:
     phase = _phase(artifact, "analyze")
     result = phase.get("result", {})
+    if not isinstance(result, dict):
+        result = {}
     normalized = (
-        result.get("normalized_findings", {}) if isinstance(result, dict) else {}
+        result.get("normalized_findings", {})
     )
     if not isinstance(normalized, dict):
         normalized = {}
@@ -60,6 +62,7 @@ def _analysis(artifact: dict[str, Any]) -> dict[str, Any]:
             if isinstance(rule_id, str)
         )
     baseline = result.get("baseline_normalized_findings")
+    resource = result.get("resource") if isinstance(result.get("resource"), dict) else None
     baseline_status = None
     if isinstance(baseline, dict):
         baseline_status = baseline.get("status", "unavailable")
@@ -72,6 +75,7 @@ def _analysis(artifact: dict[str, Any]) -> dict[str, Any]:
                 "all_rule_ids": all_rule_ids,
                 "baseline_status": baseline_status,
                 "reason": baseline.get("reason") or "baseline scan is unavailable",
+                "resource": resource,
             }
         baseline_findings = baseline.get("findings", [])
         baseline_identities = Counter(
@@ -101,6 +105,7 @@ def _analysis(artifact: dict[str, Any]) -> dict[str, Any]:
         "all_rule_ids": all_rule_ids,
         "baseline_status": baseline_status,
         "reason": normalized.get("reason") or phase.get("reason"),
+        "resource": resource,
     }
 
 
