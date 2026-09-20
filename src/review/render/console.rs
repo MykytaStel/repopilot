@@ -10,7 +10,7 @@ use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_next_action, change_proof_policy_summary,
-    verification_duration_evidence, verification_proof_summary,
+    legacy_readiness_summary, verification_duration_evidence, verification_proof_summary,
 };
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
@@ -109,7 +109,7 @@ fn render_console_header(
     ));
     output.push_str(&format!(
         "Legacy merge readiness: {}\n",
-        readiness.verdict.label().to_uppercase()
+        legacy_readiness_summary(report, &readiness).to_uppercase()
     ));
     match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => output.push_str("Ownership: resolved\n"),

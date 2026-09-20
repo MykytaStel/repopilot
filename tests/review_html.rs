@@ -198,6 +198,40 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
     assert!(html.contains("1 passed, 0 failed"));
 }
 
+#[test]
+fn review_html_explains_legacy_readiness_for_empty_scope() {
+    let report = ReviewReport {
+        analysis_revision: None,
+        summary: ScanSummary {
+            metadata: ScanMetadata {
+                mode: ScanMode::Changed,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        repo_root: PathBuf::from("/repo"),
+        baseline_path: None,
+        changed_files: Vec::new(),
+        blast_radius: Vec::new(),
+        impact_paths: Default::default(),
+        ownership: Default::default(),
+        ownership_diagnostics: Vec::new(),
+        boundary_signals: Vec::new(),
+        boundary_missing_test: false,
+        tiered_signals: Default::default(),
+        timings: Default::default(),
+        verification_policy: Default::default(),
+        verification: Vec::new(),
+        intent: Default::default(),
+        findings: Vec::new(),
+    };
+
+    let html = render_review_html(&report, None, None);
+
+    assert!(html.contains("NOT ASSESSED"));
+    assert!(html.contains("ready (compatibility field; no changed scope assessed)"));
+}
+
 fn init_repo(root: &Path) {
     git(root, &["init"]);
     git(root, &["config", "user.email", "test@example.com"]);

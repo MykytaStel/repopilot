@@ -10,8 +10,8 @@ use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{
-    change_proof_headline, change_proof_next_action, change_proof_policy_summary, render_ranges,
-    status_for_finding, verification_proof_summary,
+    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
+    legacy_readiness_summary, render_ranges, status_for_finding, verification_proof_summary,
 };
 use crate::review::signals::tiered::ReviewSignal;
 
@@ -104,7 +104,7 @@ pub fn render_markdown_with_gates(
     ));
     output.push_str(&format!(
         "- **Legacy merge readiness:** `{}`\n",
-        readiness.verdict.label()
+        legacy_readiness_summary(report, &readiness)
     ));
     let ownership_status = match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => "resolved".to_string(),
