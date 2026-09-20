@@ -21,7 +21,8 @@ pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
 use obligations::derive_verification_obligations;
 pub use receipt::{
-    ProofReceipt, ReceiptReplayContext, ReceiptReplayState, build_proof_receipt, replay_receipt,
+    ProofReceipt, ReceiptReplayContext, ReceiptReplayDiagnostic, ReceiptReplayState,
+    build_proof_receipt, replay_receipt, replay_receipt_with_reason,
 };
 
 pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {

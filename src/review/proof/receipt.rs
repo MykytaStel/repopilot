@@ -26,6 +26,13 @@ pub struct ReceiptReplayContext {
     pub report_schema: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReceiptReplayDiagnostic {
+    pub state: ReceiptReplayState,
+    pub code: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofReceipt {
     pub schema_version: String,
@@ -90,38 +97,93 @@ pub fn replay_receipt(
     receipt: &ProofReceipt,
     context: &ReceiptReplayContext,
 ) -> ReceiptReplayState {
+    replay_receipt_with_reason(receipt, context).state
+}
+
+pub fn replay_receipt_with_reason(
+    receipt: &ProofReceipt,
+    context: &ReceiptReplayContext,
+) -> ReceiptReplayDiagnostic {
     if receipt.schema_version != PROOF_RECEIPT_SCHEMA_VERSION {
-        return ReceiptReplayState::Unsupported;
+        return diagnostic(
+            ReceiptReplayState::Unsupported,
+            "receipt-schema-unsupported",
+            "receipt schema is not supported",
+        );
     }
     let Some(analyzer_version) = context.analyzer_version.as_deref() else {
-        return ReceiptReplayState::Unavailable;
+        return diagnostic(
+            ReceiptReplayState::Unavailable,
+            "replay-context-unavailable",
+            "replay context is missing analyzer version",
+        );
     };
     let Some(report_schema) = context.report_schema.as_deref() else {
-        return ReceiptReplayState::Unavailable;
+        return diagnostic(
+            ReceiptReplayState::Unavailable,
+            "replay-context-unavailable",
+            "replay context is missing report schema",
+        );
     };
     let Some(workspace_revision) = context.workspace_revision.as_deref() else {
-        return ReceiptReplayState::Unavailable;
+        return diagnostic(
+            ReceiptReplayState::Unavailable,
+            "replay-context-unavailable",
+            "replay context is missing workspace revision",
+        );
     };
     let Some(configuration_hash) = context.configuration_hash.as_deref() else {
-        return ReceiptReplayState::Unavailable;
+        return diagnostic(
+            ReceiptReplayState::Unavailable,
+            "replay-context-unavailable",
+            "replay context is missing configuration hash",
+        );
     };
     if analyzer_version != REPOPILOT_VERSION || receipt.analyzer_version != REPOPILOT_VERSION {
-        return ReceiptReplayState::Unsupported;
+        return diagnostic(
+            ReceiptReplayState::Unsupported,
+            "analyzer-unsupported",
+            "analyzer version is not supported",
+        );
     }
     if report_schema != SCAN_REPORT_SCHEMA_VERSION
         || receipt.report_schema != SCAN_REPORT_SCHEMA_VERSION
     {
-        return ReceiptReplayState::Unsupported;
+        return diagnostic(
+            ReceiptReplayState::Unsupported,
+            "report-schema-unsupported",
+            "report schema is not supported",
+        );
     }
     if workspace_revision != receipt.workspace_revision
         || configuration_hash != receipt.configuration_hash
     {
-        return ReceiptReplayState::Stale;
+        return diagnostic(
+            ReceiptReplayState::Stale,
+            "replay-context-stale",
+            "workspace revision or configuration hash differs",
+        );
     }
     if receipt_projection_hash(receipt) != receipt.projection_hash {
-        return ReceiptReplayState::Invalid;
+        return diagnostic(
+            ReceiptReplayState::Invalid,
+            "receipt-hash-invalid",
+            "receipt projection hash does not match its payload",
+        );
     }
-    ReceiptReplayState::Matched
+    diagnostic(
+        ReceiptReplayState::Matched,
+        "receipt-matched",
+        "receipt matches the replay context",
+    )
+}
+
+fn diagnostic(state: ReceiptReplayState, code: &str, reason: &str) -> ReceiptReplayDiagnostic {
+    ReceiptReplayDiagnostic {
+        state,
+        code: code.to_string(),
+        reason: reason.chars().take(256).collect(),
+    }
 }
 
 fn configuration_hash(report: &ReviewReport) -> String {
