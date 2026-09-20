@@ -70,6 +70,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   report limit, so large real-project outputs are normalized before the
   separate command-log limit is applied; the report hash and byte count remain
   in the artifact.
+- Sandbox command artifacts now record bounded peak RSS when the host provides
+  the shared `posix-time-v1` sampler. Unsupported platforms, malformed samples,
+  and timeouts remain explicit `unavailable` resource observations instead of
+  being treated as zero memory use.
 
 ### Fixed
 

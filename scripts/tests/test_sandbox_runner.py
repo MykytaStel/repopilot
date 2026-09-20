@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
@@ -18,6 +19,7 @@ from sandbox_contract import (  # noqa: E402
 )
 from sandbox_case import _normalize_findings  # noqa: E402
 from sandbox_runner import DockerResult, SubprocessDockerAdapter, run_case, run_command  # noqa: E402
+from sandbox_resource import ResourceProbe  # noqa: E402
 
 
 def manifest_text(sha: str) -> str:
@@ -411,6 +413,8 @@ class SandboxRunnerTests(unittest.TestCase):
         self.assertEqual(result.returncode, None)
         self.assertGreaterEqual(result.wall_ms, 0)
         self.assertEqual(len(result.stdout_sha256), 64)
+        self.assertEqual(result.resource["status"], "unavailable")
+        self.assertIn("timed out", result.resource["reason"])
 
     def test_timed_command_marks_bounded_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -420,6 +424,50 @@ class SandboxRunnerTests(unittest.TestCase):
 
         self.assertTrue(result.stdout_truncated)
         self.assertFalse(result.stderr_truncated)
+
+    def test_timed_command_records_unavailable_resource(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch(
+                "sandbox_process.prepare_resource_probe",
+                return_value=ResourceProbe(
+                    (sys.executable, "-c", "pass"),
+                    None,
+                    "sandbox RSS sampler is unavailable on this platform",
+                ),
+            ),
+        ):
+            result = run_command(
+                (sys.executable, "-c", "pass"), Path(tmp), 5, "run-test"
+            )
+
+        self.assertEqual(result.resource["status"], "unavailable")
+        self.assertEqual(result.resource["source"], "unavailable")
+        self.assertEqual(result.as_dict()["resource"], result.resource)
+
+    def test_timed_command_records_peak_rss_from_sampler(self) -> None:
+        sample = {"status": "available", "peak_rss_kb": 1234, "source": "posix-time-v1"}
+
+        class FakeProbe:
+            command = (sys.executable, "-c", "pass")
+
+            def sample(
+                self, status: str, reason: str | None = None
+            ) -> dict[str, object]:
+                return sample
+
+            def cleanup(self) -> None:
+                return None
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("sandbox_process.prepare_resource_probe", return_value=FakeProbe()),
+        ):
+            result = run_command(
+                (sys.executable, "-c", "pass"), Path(tmp), 5, "run-test"
+            )
+
+        self.assertEqual(result.resource, sample)
 
 
 if __name__ == "__main__":

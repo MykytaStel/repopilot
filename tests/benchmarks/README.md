@@ -140,9 +140,11 @@ before the smaller stdout/stderr log bound is applied; reports above the
 8 MiB normalization limit remain explicitly unavailable. If Docker or the
 scanner is unavailable, the result remains `unavailable` and retains a cleanup
 receipt. Command output is hashed and
-bounded; raw stdout/stderr and finding snippets are not persisted. The current
-runner records RSS as explicitly unavailable until a supported sampler is
-added, so these artifacts do not make a universal resource claim.
+bounded; raw stdout/stderr and finding snippets are not persisted. On Linux and
+macOS, command artifacts now record positive peak RSS through the shared
+`posix-time-v1` `/usr/bin/time` sampler. Unsupported platforms, malformed
+sampler output, and timeouts remain `unavailable`; a missing sample never
+becomes a zero-memory claim.
 
 `pilot` writes one artifact per case and repetition plus a summary. A case is
 `passed` only when every oracle passes and every normalized scan hash is stable;
