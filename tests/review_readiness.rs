@@ -213,7 +213,9 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     assert!(console.contains(
         "Next action: Expand the analyzable scope before treating this review as evidence."
     ));
-    assert!(console.contains("Legacy merge readiness: READY"));
+    assert!(console.contains(
+        "Legacy merge readiness: READY (COMPATIBILITY FIELD; NO CHANGED SCOPE ASSESSED)"
+    ));
     assert!(!console.contains("Decision: PASS"));
     assert!(markdown.contains("**Change proof:** `NOT ASSESSED`"));
     assert!(markdown.contains("**Evidence class:** `UNKNOWN`"));
@@ -221,7 +223,9 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     assert!(markdown.contains(
         "**Next action:** Expand the analyzable scope before treating this review as evidence."
     ));
-    assert!(markdown.contains("**Legacy merge readiness:** `ready`"));
+    assert!(markdown.contains(
+        "**Legacy merge readiness:** `ready (compatibility field; no changed scope assessed)`"
+    ));
 }
 
 #[test]

@@ -57,6 +57,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Empty reviews now explain that the legacy `READY` readiness value is a
+  compatibility field and that no changed scope was assessed in console,
+  Markdown, and HTML output.
 - Release publication verification now accepts checksum files with Windows
   CRLF line endings while still failing closed on a digest mismatch.
 - Release builds now smoke-test the packaged archive on native Unix and

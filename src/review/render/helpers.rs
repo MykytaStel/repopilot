@@ -3,6 +3,7 @@ use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
 use crate::review::proof::{ChangeProof, ChangeProofVerdict, ProofObligations};
+use crate::review::readiness::MergeReadinessRecord;
 use crate::verification::VerificationOutcome;
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
@@ -73,6 +74,18 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
 
 pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
     crate::review::proof::next_action_for(proof)
+}
+
+pub(super) fn legacy_readiness_summary(
+    report: &ReviewReport,
+    readiness: &MergeReadinessRecord,
+) -> String {
+    let label = readiness.verdict.label();
+    if report.changed_files.is_empty() {
+        format!("{label} (compatibility field; no changed scope assessed)")
+    } else {
+        label.to_string()
+    }
 }
 
 pub(super) fn status_for_finding(
