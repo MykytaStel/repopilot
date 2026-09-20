@@ -77,6 +77,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Sandbox artifact validation now requires available RSS observations to carry a
   positive finite sample from `posix-time-v1`; invalid, stale, or contradictory
   resource fields are rejected before metrics and reports consume them.
+- Sandbox pilot and mutation summaries now retain analyzed-command resource
+  receipts, and human-facing reports show per-case median peak RSS, sample
+  availability, and sampler source without exposing raw command output.
 
 ### Fixed
 

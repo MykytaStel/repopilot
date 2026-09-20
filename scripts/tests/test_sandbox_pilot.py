@@ -11,7 +11,12 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from sandbox_pilot import _case_comparison, _case_status, run_pilot  # noqa: E402
+from sandbox_pilot import (  # noqa: E402
+    _analyze_record,
+    _case_comparison,
+    _case_status,
+    run_pilot,
+)
 from sandbox_contract import validate_pilot_summary  # noqa: E402
 from sandbox_runner import DockerResult  # noqa: E402
 
@@ -52,6 +57,32 @@ class FakeDocker:
 
 
 class SandboxPilotTests(unittest.TestCase):
+    def test_analyze_record_preserves_resource_receipt(self) -> None:
+        resource = {
+            "status": "available",
+            "peak_rss_kb": 2048,
+            "source": "posix-time-v1",
+        }
+        record = _analyze_record(
+            {
+                "phases": [
+                    {
+                        "name": "analyze",
+                        "result": {
+                            "normalized_findings": {
+                                "status": "measured",
+                                "count": 1,
+                                "sha256": "a" * 64,
+                            },
+                            "resource": resource,
+                        },
+                    }
+                ]
+            }
+        )
+
+        self.assertEqual(record["resource"], resource)
+
     def test_repeated_case_is_stable_and_summary_validates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

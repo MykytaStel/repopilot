@@ -181,9 +181,11 @@ overall status, per-case status, oracle states, normalized finding counts and
 hashes when available, the mutation lifecycle, limits, and a next action. An
 expected oracle failure for a `violation` is explained as a successful mutation
 case; `unavailable` remains an explicit missing-evidence state. The report does
-not include raw command output or finding snippets. Without `--output` it is
-printed to the terminal; with `--output` it is saved under the ignored sandbox
-directory.
+not include raw command output or finding snippets. It includes a resource
+evidence table per case with median analyzed-command peak RSS, the available
+sample count, and sampler source. Unavailable samples remain visible and are
+never treated as zero memory use. Without `--output` it is printed to the
+terminal; with `--output` it is saved under the ignored sandbox directory.
 
 `metrics` recomputes a JSON artifact from the validated summary and its child
 artifacts. It records numerator/denominator pairs, 95% Wilson intervals,
