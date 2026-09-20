@@ -6,6 +6,7 @@ use crate::review::proof::{
 };
 use crate::review::verification::VerificationPolicy;
 use crate::scan::types::{ScanMetadata, ScanMode, ScanSummary};
+use serde_json::Value;
 use std::path::PathBuf;
 
 #[test]
@@ -31,6 +32,18 @@ fn receipt_hash_is_stable_when_collection_inputs_are_reordered() {
     let second = build_proof_receipt(&first_report, &proof);
 
     assert_eq!(first.projection_hash, second.projection_hash);
+}
+
+#[test]
+fn receipt_round_trips_through_json_for_replay() {
+    let (report, proof) = review_and_proof(ChangeProofVerdict::Review);
+    let receipt = build_proof_receipt(&report, &proof);
+    let encoded = serde_json::to_value(&receipt).expect("receipt serializes");
+    let decoded: super::ProofReceipt = serde_json::from_value::<Value>(encoded)
+        .and_then(serde_json::from_value)
+        .expect("receipt deserializes");
+
+    assert_eq!(decoded, receipt);
 }
 
 fn review_and_proof(verdict: ChangeProofVerdict) -> (ReviewReport, ChangeProof) {

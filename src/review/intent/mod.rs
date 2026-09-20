@@ -6,14 +6,14 @@
 use crate::config::model::CriticalPathRule;
 use crate::review::contract::ContractFamily;
 use globset::Glob;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 mod input;
 pub use input::validate_critical_paths;
 pub use input::{load_intent_file, parse_intent_json, parse_intent_toml, validate_intent};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntentContract {
     pub version: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -50,7 +50,7 @@ pub struct IntentContext {
     pub critical_paths: Vec<CriticalPathRule>,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum IntentStatus {
     #[default]
@@ -69,13 +69,13 @@ impl IntentStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CriticalPathMatch {
     pub name: String,
     pub paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntentDrift {
     pub status: IntentStatus,
     #[serde(skip_serializing_if = "Option::is_none")]

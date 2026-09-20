@@ -2,11 +2,11 @@ use super::{ChangeProof, ChangeProofVerdict, ProofCapabilityStatus, ProofCoverag
 use crate::report::schema::{REPOPILOT_VERSION, SCAN_REPORT_SCHEMA_VERSION};
 use crate::review::model::ReviewReport;
 use crate::scan::types::ScanMode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 /// A claim-strength label; supported static proof does not imply all runtime
 /// properties of the changed system.
@@ -28,7 +28,7 @@ impl EvidenceClass {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EvidenceCoverageStatus {
     Complete,
@@ -46,7 +46,7 @@ impl EvidenceCoverageStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceProvenance {
     pub analyzer_version: String,
     pub report_schema: String,
@@ -59,7 +59,7 @@ pub struct EvidenceProvenance {
     pub unavailable_inputs: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceSummary {
     pub class: EvidenceClass,
     pub coverage_status: EvidenceCoverageStatus,

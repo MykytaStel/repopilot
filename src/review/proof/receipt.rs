@@ -26,7 +26,7 @@ pub struct ReceiptReplayContext {
     pub report_schema: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofReceipt {
     pub schema_version: String,
     pub analyzer_version: String,
