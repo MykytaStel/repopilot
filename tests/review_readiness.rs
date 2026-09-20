@@ -415,6 +415,7 @@ fn verification_outcome(
 
 fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

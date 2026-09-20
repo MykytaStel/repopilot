@@ -95,7 +95,10 @@ pub fn build_review_report_from_session(
     baseline: Option<(&Baseline, PathBuf)>,
     session: &AnalysisSession,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
-    build_review_report_from_input(summary, input, baseline, session.repo_config())
+    let mut report =
+        build_review_report_from_input(summary, input, baseline, session.repo_config())?;
+    report.analysis_revision = Some(session.revision().id().to_string());
+    Ok(report)
 }
 
 pub fn build_review_report_from_input(
@@ -207,6 +210,7 @@ fn classify_findings(
     sort_findings_with_review_status(&mut summary.artifacts.findings, &mut findings);
 
     ReviewReport {
+        analysis_revision: None,
         summary,
         repo_root,
         baseline_path: baseline_report.baseline_path,

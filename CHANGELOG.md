@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added an additive replayable Proof Receipt to review JSON and SARIF. It is
+  derived from the canonical ChangeProof, records scope/provenance hashes and
+  next action, and fails closed with explicit matched/stale/unsupported/
+  invalid/unavailable replay states while preserving legacy fields and exit
+  codes.
 - Added an advisory CI shadow policy runner that records policy, analyzer and
   revision provenance, bounded redacted logs, report hashes, and explicit
   passed/failed/unavailable/invalid statuses without changing the blocking CI

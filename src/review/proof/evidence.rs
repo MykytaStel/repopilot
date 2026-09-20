@@ -2,11 +2,11 @@ use super::{ChangeProof, ChangeProofVerdict, ProofCapabilityStatus, ProofCoverag
 use crate::report::schema::{REPOPILOT_VERSION, SCAN_REPORT_SCHEMA_VERSION};
 use crate::review::model::ReviewReport;
 use crate::scan::types::ScanMode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 /// A claim-strength label; supported static proof does not imply all runtime
 /// properties of the changed system.
@@ -28,7 +28,7 @@ impl EvidenceClass {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EvidenceCoverageStatus {
     Complete,
@@ -46,7 +46,7 @@ impl EvidenceCoverageStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceProvenance {
     pub analyzer_version: String,
     pub report_schema: String,
@@ -59,7 +59,7 @@ pub struct EvidenceProvenance {
     pub unavailable_inputs: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceSummary {
     pub class: EvidenceClass,
     pub coverage_status: EvidenceCoverageStatus,
@@ -167,7 +167,7 @@ pub(crate) fn coverage_status(proof: &ChangeProof) -> EvidenceCoverageStatus {
 }
 
 pub(crate) fn canonical_json_hash<T: Serialize>(value: &T) -> String {
-    let value = serde_json::to_value(value).expect("evidence fingerprint must serialize");
+    let value = serde_json::to_value(value).unwrap_or(Value::Null);
     let mut canonical = String::new();
     write_canonical_json(&value, &mut canonical);
     let digest = Sha256::digest(canonical.as_bytes());
@@ -201,7 +201,7 @@ fn projection_hash(
         coverage: proof.coverage.clone(),
         selected_checks,
         changed_paths,
-        proof: serde_json::to_value(proof).expect("change proof must serialize"),
+        proof: serde_json::to_value(proof).unwrap_or(Value::Null),
     })
 }
 
@@ -250,8 +250,9 @@ fn write_canonical_json(value: &Value, output: &mut String) {
         Value::Null => output.push_str("null"),
         Value::Bool(value) => output.push_str(if *value { "true" } else { "false" }),
         Value::Number(value) => output.push_str(&value.to_string()),
-        Value::String(value) => output
-            .push_str(&serde_json::to_string(value).expect("JSON strings must be serializable")),
+        Value::String(value) => output.push_str(
+            &serde_json::to_string(value).unwrap_or_else(|_| "\"<invalid>\"".to_string()),
+        ),
         Value::Array(values) => {
             let mut items = values
                 .iter()
@@ -275,7 +276,7 @@ fn write_canonical_json(value: &Value, output: &mut String) {
                     output.push(',');
                 }
                 output.push_str(
-                    &serde_json::to_string(key).expect("JSON object keys must be serializable"),
+                    &serde_json::to_string(key).unwrap_or_else(|_| "\"<invalid>\"".to_string()),
                 );
                 output.push(':');
                 write_canonical_json(value, output);

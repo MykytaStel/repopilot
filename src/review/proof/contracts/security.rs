@@ -196,6 +196,7 @@ mod tests {
 
     fn report(changed_files: Vec<ChangedFile>, impact: ImpactPaths) -> ReviewReport {
         ReviewReport {
+            analysis_revision: None,
             summary: Default::default(),
             repo_root: PathBuf::from("/repo"),
             baseline_path: None,

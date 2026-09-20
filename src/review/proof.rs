@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::review::intent::{IntentDrift, evaluate_intent};
 use crate::review::model::ReviewReport;
@@ -9,6 +9,10 @@ mod capabilities;
 mod contracts;
 mod evidence;
 mod obligations;
+mod receipt;
+#[cfg(test)]
+#[path = "proof/receipt_tests.rs"]
+mod receipt_tests;
 pub use crate::review::contract::{
     ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
 };
@@ -16,8 +20,29 @@ use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
 use obligations::derive_verification_obligations;
+pub use receipt::{
+    ProofReceipt, ReceiptReplayContext, ReceiptReplayDiagnostic, ReceiptReplayState,
+    build_proof_receipt, replay_receipt, replay_receipt_with_reason, replay_serialized_receipt,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
+    match proof.verdict {
+        ChangeProofVerdict::Broken => {
+            "Inspect the broken contract and its listed consumer before merge."
+        }
+        ChangeProofVerdict::Review => {
+            "Review the listed evidence, close the proof limits, or run the required checks."
+        }
+        ChangeProofVerdict::Verified => {
+            "Proceed with the normal merge review; the reported scope has compatible proof."
+        }
+        ChangeProofVerdict::NotAssessed => {
+            "Expand the analyzable scope before treating this review as evidence."
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ChangeProofVerdict {
     Broken,
@@ -37,7 +62,7 @@ impl ChangeProofVerdict {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ChangeProofReasonCode {
     BrokenContract,
@@ -63,7 +88,7 @@ pub enum ChangeProofReasonCode {
     IntentDrift,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProofReason {
     pub code: ChangeProofReasonCode,
     pub count: usize,
@@ -80,14 +105,14 @@ impl ChangeProofReason {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProofScope {
     Changed,
     Full,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofCoverage {
     pub scope: ProofScope,
     pub requested_files: usize,
@@ -102,7 +127,7 @@ impl ProofCoverage {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofObligations {
     pub applicable: usize,
     pub satisfied: usize,
@@ -121,7 +146,7 @@ pub struct ChangeProofInput {
     pub reasons: Vec<ChangeProofReason>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProof {
     pub verdict: ChangeProofVerdict,
     pub reasons: Vec<ChangeProofReason>,

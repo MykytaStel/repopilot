@@ -41,6 +41,7 @@ fn report(mode: ScanMode, discovered: usize, analyzed: usize) -> ReviewReport {
     };
     summary.metadata.root_path = PathBuf::from("/repo");
     ReviewReport {
+        analysis_revision: None,
         summary,
         repo_root: PathBuf::from("/repo"),
         baseline_path: None,
