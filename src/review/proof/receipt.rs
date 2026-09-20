@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub const PROOF_RECEIPT_SCHEMA_VERSION: &str = "0.1";
+const MAX_SERIALIZED_RECEIPT_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -61,10 +62,13 @@ impl ProofReceipt {
 }
 
 pub fn build_proof_receipt(report: &ReviewReport, proof: &ChangeProof) -> ProofReceipt {
-    let evidence = EvidenceSummary::from_review(report, proof);
-    let workspace_revision = WorkspaceRevision::capture(&report.repo_root)
-        .id()
-        .to_string();
+    let proof = canonicalize_proof(proof.clone());
+    let evidence = EvidenceSummary::from_review(report, &proof);
+    let workspace_revision = report.analysis_revision.clone().unwrap_or_else(|| {
+        WorkspaceRevision::capture(&report.repo_root)
+            .id()
+            .to_string()
+    });
     let configuration_hash = configuration_hash(report);
     let reason_codes = sorted_unique(
         proof
@@ -74,7 +78,7 @@ pub fn build_proof_receipt(report: &ReviewReport, proof: &ChangeProof) -> ProofR
             .collect(),
     );
     let unavailable_inputs = sorted_unique(evidence.provenance.unavailable_inputs.clone());
-    let next_action = next_action_for(proof).to_string();
+    let next_action = next_action_for(&proof).to_string();
     let mut receipt = ProofReceipt {
         schema_version: PROOF_RECEIPT_SCHEMA_VERSION.to_string(),
         analyzer_version: REPOPILOT_VERSION.to_string(),
@@ -83,7 +87,7 @@ pub fn build_proof_receipt(report: &ReviewReport, proof: &ChangeProof) -> ProofR
         configuration_hash,
         replay_state: ReceiptReplayState::Matched,
         projection_hash: String::new(),
-        proof: proof.clone(),
+        proof,
         evidence,
         reason_codes,
         next_action,
@@ -91,6 +95,39 @@ pub fn build_proof_receipt(report: &ReviewReport, proof: &ChangeProof) -> ProofR
     };
     receipt.projection_hash = receipt_projection_hash(&receipt);
     receipt
+}
+
+fn canonicalize_proof(mut proof: ChangeProof) -> ChangeProof {
+    sort_serialized(&mut proof.reasons);
+    sort_serialized(&mut proof.contract_deltas);
+    sort_serialized(&mut proof.capability_coverage);
+    canonicalize_intent(&mut proof.intent_drift);
+    proof
+}
+
+fn canonicalize_intent(intent: &mut crate::review::intent::IntentDrift) {
+    sort_strings(&mut intent.declared_paths);
+    intent.declared_contract_families.sort();
+    sort_strings(&mut intent.declared_critical_paths);
+    sort_strings(&mut intent.expected_verification);
+    sort_strings(&mut intent.actual_paths);
+    intent.actual_contract_families.sort();
+    for matched in &mut intent.critical_path_matches {
+        sort_strings(&mut matched.paths);
+    }
+    sort_serialized(&mut intent.critical_path_matches);
+    sort_strings(&mut intent.unexpected_paths);
+    intent.unexpected_contract_families.sort();
+    sort_strings(&mut intent.unexpected_critical_paths);
+    sort_strings(&mut intent.missing_verification);
+}
+
+fn sort_strings(values: &mut [String]) {
+    values.sort();
+}
+
+fn sort_serialized<T: Serialize>(values: &mut [T]) {
+    values.sort_by_key(|value| serde_json::to_string(value).unwrap_or_default());
 }
 
 pub fn replay_receipt(
@@ -178,6 +215,58 @@ pub fn replay_receipt_with_reason(
     )
 }
 
+/// Validate and replay a serialized receipt without touching the filesystem,
+/// network, or command execution. Schema dispatch happens before typed decode
+/// so a future payload is reported as unsupported even when its shape differs.
+pub fn replay_serialized_receipt(
+    input: &[u8],
+    context: &ReceiptReplayContext,
+) -> ReceiptReplayDiagnostic {
+    if input.len() > MAX_SERIALIZED_RECEIPT_BYTES {
+        return diagnostic(
+            ReceiptReplayState::Invalid,
+            "receipt-input-too-large",
+            "serialized receipt exceeds the supported size limit",
+        );
+    }
+
+    let value: serde_json::Value = match serde_json::from_slice(input) {
+        Ok(value) => value,
+        Err(_) => {
+            return diagnostic(
+                ReceiptReplayState::Invalid,
+                "receipt-json-invalid",
+                "serialized receipt is not valid JSON",
+            );
+        }
+    };
+    let Some(schema_version) = value.get("schema_version").and_then(|value| value.as_str()) else {
+        return diagnostic(
+            ReceiptReplayState::Invalid,
+            "receipt-schema-invalid",
+            "serialized receipt does not contain a string schema version",
+        );
+    };
+    if schema_version != PROOF_RECEIPT_SCHEMA_VERSION {
+        return diagnostic(
+            ReceiptReplayState::Unsupported,
+            "receipt-schema-unsupported",
+            "receipt schema is not supported",
+        );
+    }
+    let receipt: ProofReceipt = match serde_json::from_value(value) {
+        Ok(receipt) => receipt,
+        Err(_) => {
+            return diagnostic(
+                ReceiptReplayState::Invalid,
+                "receipt-schema-invalid",
+                "serialized receipt does not match the supported schema",
+            );
+        }
+    };
+    replay_receipt_with_reason(&receipt, context)
+}
+
 fn diagnostic(state: ReceiptReplayState, code: &str, reason: &str) -> ReceiptReplayDiagnostic {
     ReceiptReplayDiagnostic {
         state,
@@ -191,10 +280,48 @@ fn configuration_hash(report: &ReviewReport) -> String {
         .verification_policy
         .configured
         .iter()
-        .map(|check| check.id.clone())
+        .map(|check| {
+            let mut paths = check.paths.clone();
+            paths.sort();
+            paths.dedup();
+            json!({
+                "id": check.id,
+                "role": check.role,
+                "paths": paths,
+            })
+        })
         .collect::<Vec<_>>();
-    configured_checks.sort();
-    configured_checks.dedup();
+    configured_checks.sort_by_key(|check| check.to_string());
+    let mut critical_paths = report
+        .intent
+        .critical_paths
+        .iter()
+        .map(|rule| {
+            let mut paths = rule.paths.clone();
+            paths.sort();
+            paths.dedup();
+            json!({ "name": rule.name, "paths": paths })
+        })
+        .collect::<Vec<_>>();
+    critical_paths.sort_by_key(|rule| rule.to_string());
+    let intent_contract = report.intent.contract.as_ref().map(|contract| {
+        let mut paths = contract.paths.clone();
+        paths.sort();
+        let mut contract_families = contract.contract_families.clone();
+        contract_families.sort();
+        let mut declared_critical_paths = contract.critical_paths.clone();
+        declared_critical_paths.sort();
+        let mut verification = contract.verification.clone();
+        verification.sort();
+        json!({
+            "version": contract.version,
+            "summary": contract.summary,
+            "paths": paths,
+            "contract_families": contract_families,
+            "critical_paths": declared_critical_paths,
+            "verification": verification,
+        })
+    });
     let mut selected_checks = report.verification_policy.selected.clone();
     selected_checks.sort();
     selected_checks.dedup();
@@ -204,6 +331,8 @@ fn configuration_hash(report: &ReviewReport) -> String {
         "base_ref": report.summary.base_ref,
         "configured_checks": configured_checks,
         "selected_checks": selected_checks,
+        "intent_contract": intent_contract,
+        "critical_paths": critical_paths,
         "report_schema": SCAN_REPORT_SCHEMA_VERSION,
     }))
 }
@@ -239,10 +368,9 @@ struct ReceiptFingerprint<'a> {
 
 fn reason_code(code: super::ChangeProofReasonCode) -> String {
     serde_json::to_value(code)
-        .expect("proof reason code must serialize")
-        .as_str()
-        .expect("proof reason code must be a string")
-        .to_string()
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn sorted_unique(mut values: Vec<String>) -> Vec<String> {

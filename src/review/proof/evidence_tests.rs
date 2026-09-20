@@ -69,6 +69,7 @@ fn canonical_hash_ignores_object_and_collection_order() {
 #[test]
 fn summary_records_provenance_and_normalizes_collection_order() {
     let mut report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

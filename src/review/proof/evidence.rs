@@ -167,7 +167,7 @@ pub(crate) fn coverage_status(proof: &ChangeProof) -> EvidenceCoverageStatus {
 }
 
 pub(crate) fn canonical_json_hash<T: Serialize>(value: &T) -> String {
-    let value = serde_json::to_value(value).expect("evidence fingerprint must serialize");
+    let value = serde_json::to_value(value).unwrap_or(Value::Null);
     let mut canonical = String::new();
     write_canonical_json(&value, &mut canonical);
     let digest = Sha256::digest(canonical.as_bytes());
@@ -201,7 +201,7 @@ fn projection_hash(
         coverage: proof.coverage.clone(),
         selected_checks,
         changed_paths,
-        proof: serde_json::to_value(proof).expect("change proof must serialize"),
+        proof: serde_json::to_value(proof).unwrap_or(Value::Null),
     })
 }
 
@@ -250,8 +250,9 @@ fn write_canonical_json(value: &Value, output: &mut String) {
         Value::Null => output.push_str("null"),
         Value::Bool(value) => output.push_str(if *value { "true" } else { "false" }),
         Value::Number(value) => output.push_str(&value.to_string()),
-        Value::String(value) => output
-            .push_str(&serde_json::to_string(value).expect("JSON strings must be serializable")),
+        Value::String(value) => output.push_str(
+            &serde_json::to_string(value).unwrap_or_else(|_| "\"<invalid>\"".to_string()),
+        ),
         Value::Array(values) => {
             let mut items = values
                 .iter()
@@ -275,7 +276,7 @@ fn write_canonical_json(value: &Value, output: &mut String) {
                     output.push(',');
                 }
                 output.push_str(
-                    &serde_json::to_string(key).expect("JSON object keys must be serializable"),
+                    &serde_json::to_string(key).unwrap_or_else(|_| "\"<invalid>\"".to_string()),
                 );
                 output.push(':');
                 write_canonical_json(value, output);

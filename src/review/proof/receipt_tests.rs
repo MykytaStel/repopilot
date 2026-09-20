@@ -1,14 +1,17 @@
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::model::ReviewReport;
 use crate::review::proof::{
-    ChangeProof, ChangeProofVerdict, ProofCoverage, ProofObligations, ProofScope,
+    ChangeProof, ChangeProofReason, ChangeProofReasonCode, ChangeProofVerdict, ProofCapability,
+    ProofCapabilityStatus, ProofCoverage, ProofObligations, ProofScope,
 };
 use crate::review::proof::{
     ReceiptReplayContext, ReceiptReplayState, build_proof_receipt, replay_receipt,
-    replay_receipt_with_reason,
+    replay_receipt_with_reason, replay_serialized_receipt,
 };
 use crate::review::verification::VerificationPolicy;
+use crate::review::verification::VerificationPolicyCheck;
 use crate::scan::types::{ScanMetadata, ScanMode, ScanSummary};
+use crate::verification::VerificationRole;
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -38,6 +41,46 @@ fn receipt_hash_is_stable_when_collection_inputs_are_reordered() {
 }
 
 #[test]
+fn receipt_bytes_are_stable_when_proof_collections_are_reordered() {
+    let (report, mut first_proof) = review_and_proof(ChangeProofVerdict::Review);
+    first_proof.reasons = vec![
+        ChangeProofReason::new(ChangeProofReasonCode::VisibleFinding, 2, "two"),
+        ChangeProofReason::new(ChangeProofReasonCode::AnalysisError, 1, "one"),
+    ];
+    first_proof.capability_coverage = vec![
+        ProofCapability {
+            id: "z".to_string(),
+            status: ProofCapabilityStatus::Limited,
+            count: 2,
+            message: "zeta".to_string(),
+        },
+        ProofCapability {
+            id: "a".to_string(),
+            status: ProofCapabilityStatus::Assessed,
+            count: 1,
+            message: "alpha".to_string(),
+        },
+    ];
+    first_proof.intent_drift.actual_paths = vec!["z.rs".to_string(), "a.rs".to_string()];
+    first_proof.intent_drift.missing_verification =
+        vec!["z-check".to_string(), "a-check".to_string()];
+    let mut second_proof = first_proof.clone();
+    second_proof.reasons.reverse();
+    second_proof.capability_coverage.reverse();
+    second_proof.intent_drift.actual_paths.reverse();
+    second_proof.intent_drift.missing_verification.reverse();
+
+    let first = build_proof_receipt(&report, &first_proof);
+    let second = build_proof_receipt(&report, &second_proof);
+
+    assert_eq!(first.projection_hash, second.projection_hash);
+    assert_eq!(
+        serde_json::to_vec(&first).expect("first receipt serializes"),
+        serde_json::to_vec(&second).expect("second receipt serializes")
+    );
+}
+
+#[test]
 fn receipt_round_trips_through_json_for_replay() {
     let (report, proof) = review_and_proof(ChangeProofVerdict::Review);
     let receipt = build_proof_receipt(&report, &proof);
@@ -47,6 +90,49 @@ fn receipt_round_trips_through_json_for_replay() {
         .expect("receipt deserializes");
 
     assert_eq!(decoded, receipt);
+}
+
+#[test]
+fn serialized_valid_receipt_replays_to_matched() {
+    let (report, proof) = review_and_proof(ChangeProofVerdict::Review);
+    let receipt = build_proof_receipt(&report, &proof);
+    let encoded = serde_json::to_vec(&receipt).expect("receipt serializes");
+
+    let diagnostic = replay_serialized_receipt(&encoded, &receipt.replay_context());
+
+    assert_eq!(diagnostic.state, ReceiptReplayState::Matched);
+    assert_eq!(diagnostic.code, "receipt-matched");
+}
+
+#[test]
+fn receipt_discloses_empty_and_partial_scope_without_verified_claims() {
+    let (report, mut empty_proof) = review_and_proof(ChangeProofVerdict::NotAssessed);
+    empty_proof.coverage.requested_files = 0;
+    empty_proof.coverage.analyzed_files = 0;
+    let empty = build_proof_receipt(&report, &empty_proof);
+    assert_eq!(
+        empty.evidence.class,
+        crate::review::proof::EvidenceClass::Unknown
+    );
+    assert_eq!(
+        empty.evidence.coverage_status,
+        crate::review::proof::EvidenceCoverageStatus::Unavailable
+    );
+
+    let mut partial_proof = empty_proof;
+    partial_proof.verdict = ChangeProofVerdict::Review;
+    partial_proof.coverage.requested_files = 3;
+    partial_proof.coverage.analyzed_files = 1;
+    partial_proof.coverage.unsupported_files = 2;
+    let partial = build_proof_receipt(&report, &partial_proof);
+    assert_eq!(
+        partial.evidence.class,
+        crate::review::proof::EvidenceClass::Suspicion
+    );
+    assert_eq!(
+        partial.evidence.coverage_status,
+        crate::review::proof::EvidenceCoverageStatus::Limited
+    );
 }
 
 #[test]
@@ -75,6 +161,26 @@ fn replay_rejects_configuration_change_as_stale() {
         ReceiptReplayState::Stale
     );
     assert_eq!(receipt.proof.verdict, ChangeProofVerdict::Review);
+}
+
+#[test]
+fn configuration_hash_includes_verification_role_and_paths() {
+    let (mut report, proof) = review_and_proof(ChangeProofVerdict::Review);
+    report.verification_policy.configured = vec![VerificationPolicyCheck {
+        id: "unit".to_string(),
+        role: VerificationRole::Test,
+        paths: vec!["src/**".to_string()],
+    }];
+    let first = build_proof_receipt(&report, &proof);
+
+    report.verification_policy.configured[0].paths = vec!["tests/**".to_string()];
+    let second = build_proof_receipt(&report, &proof);
+
+    assert_ne!(first.configuration_hash, second.configuration_hash);
+    assert_eq!(
+        replay_receipt(&first, &second.replay_context()),
+        ReceiptReplayState::Stale
+    );
 }
 
 #[test]
@@ -141,8 +247,65 @@ fn replay_reason_is_bounded_and_explains_the_state() {
     assert!(diagnostic.reason.len() <= 256);
 }
 
+#[test]
+fn serialized_replay_reports_invalid_and_unsupported_inputs() {
+    let invalid_json = replay_serialized_receipt(
+        b"{",
+        &ReceiptReplayContext {
+            workspace_revision: None,
+            configuration_hash: None,
+            analyzer_version: None,
+            report_schema: None,
+        },
+    );
+    assert_eq!(invalid_json.state, ReceiptReplayState::Invalid);
+    assert_eq!(invalid_json.code, "receipt-json-invalid");
+
+    let future_shape = replay_serialized_receipt(
+        br#"{"schema_version":"9.0","not_a_receipt":true}"#,
+        &ReceiptReplayContext {
+            workspace_revision: None,
+            configuration_hash: None,
+            analyzer_version: None,
+            report_schema: None,
+        },
+    );
+    assert_eq!(future_shape.state, ReceiptReplayState::Unsupported);
+    assert_eq!(future_shape.code, "receipt-schema-unsupported");
+
+    let invalid_shape = replay_serialized_receipt(
+        br#"{"schema_version":"0.1"}"#,
+        &ReceiptReplayContext {
+            workspace_revision: None,
+            configuration_hash: None,
+            analyzer_version: None,
+            report_schema: None,
+        },
+    );
+    assert_eq!(invalid_shape.state, ReceiptReplayState::Invalid);
+    assert_eq!(invalid_shape.code, "receipt-schema-invalid");
+}
+
+#[test]
+fn serialized_replay_rejects_oversized_input_before_parsing() {
+    let oversized = vec![b' '; 1024 * 1024 + 1];
+    let diagnostic = replay_serialized_receipt(
+        &oversized,
+        &ReceiptReplayContext {
+            workspace_revision: None,
+            configuration_hash: None,
+            analyzer_version: None,
+            report_schema: None,
+        },
+    );
+
+    assert_eq!(diagnostic.state, ReceiptReplayState::Invalid);
+    assert_eq!(diagnostic.code, "receipt-input-too-large");
+}
+
 fn review_and_proof(verdict: ChangeProofVerdict) -> (ReviewReport, ChangeProof) {
     let report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

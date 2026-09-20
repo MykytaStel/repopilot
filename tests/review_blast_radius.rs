@@ -131,6 +131,7 @@ fn render_console_includes_blast_radius_section_when_present() {
     );
 
     let report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 root_path: temp.path().to_path_buf(),

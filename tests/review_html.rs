@@ -11,6 +11,7 @@ use tempfile::TempDir;
 #[test]
 fn review_html_renders_proof_card_change_map_and_escaped_scope() {
     let report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -135,6 +136,7 @@ fn review_cli_writes_html_contract_consumer_map() {
 #[test]
 fn review_html_renders_verification_outcomes_and_revision_state() {
     let mut report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

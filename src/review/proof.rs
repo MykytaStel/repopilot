@@ -22,7 +22,7 @@ pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, Ev
 use obligations::derive_verification_obligations;
 pub use receipt::{
     ProofReceipt, ReceiptReplayContext, ReceiptReplayDiagnostic, ReceiptReplayState,
-    build_proof_receipt, replay_receipt, replay_receipt_with_reason,
+    build_proof_receipt, replay_receipt, replay_receipt_with_reason, replay_serialized_receipt,
 };
 
 pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {

@@ -21,9 +21,8 @@ fn review_json_and_sarif_publish_the_same_proof_receipt() {
         "pub fn before() {}\npub fn after() {}\n",
     );
 
-    let artifacts = tempdir().expect("artifact tempdir");
-    let json_path = artifacts.path().join("review.json");
-    let sarif_path = artifacts.path().join("review.sarif");
+    let json_path = temp.path().join("review.json");
+    let sarif_path = temp.path().join("review.sarif");
     let output = repopilot()
         .args([
             "review",

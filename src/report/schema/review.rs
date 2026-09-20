@@ -70,9 +70,10 @@ impl<'a> ReviewJsonReport<'a> {
             review_gate,
             report.summary.artifacts.risk_delta.as_ref(),
         );
-        let change_proof = derive_change_proof_from_review(report, &readiness);
-        let evidence = EvidenceSummary::from_review(report, &change_proof);
-        let proof_receipt = build_proof_receipt(report, &change_proof);
+        let derived_proof = derive_change_proof_from_review(report, &readiness);
+        let proof_receipt = build_proof_receipt(report, &derived_proof);
+        let change_proof = proof_receipt.proof.clone();
+        let evidence = proof_receipt.evidence.clone();
         Self {
             schema_version: SCAN_REPORT_SCHEMA_VERSION,
             repopilot_version: REPOPILOT_VERSION,
