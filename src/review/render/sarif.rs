@@ -5,7 +5,7 @@ use crate::output::sarif::findings_to_sarif;
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
-use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
+use crate::review::proof::{EvidenceSummary, build_proof_receipt, derive_change_proof_from_review};
 use crate::review::signals::tiered::{ConfidenceTier, SignalFamily};
 use std::path::PathBuf;
 
@@ -84,10 +84,12 @@ pub fn render_review_sarif_with_gates(
     );
     let proof = derive_change_proof_from_review(report, &readiness);
     let evidence = EvidenceSummary::from_review(report, &proof);
+    let proof_receipt = build_proof_receipt(report, &proof);
     let mut sarif = findings_to_sarif(&findings, &report.repo_root);
     if let Some(run) = sarif.runs.first_mut() {
         run.properties.change_proof = Some(serde_json::to_value(proof)?);
         run.properties.evidence = Some(serde_json::to_value(evidence)?);
+        run.properties.proof_receipt = Some(serde_json::to_value(proof_receipt)?);
         if !report.verification.is_empty() {
             run.properties.verification = Some(report.verification.clone());
         }

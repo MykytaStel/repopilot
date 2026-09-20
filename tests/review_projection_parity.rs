@@ -49,10 +49,15 @@ fn review_projections_share_canonical_proof_and_evidence() {
         .expect("valid review JSON");
     let proof = json["change_proof"].clone();
     let evidence = json["evidence"].clone();
+    let proof_receipt = json["proof_receipt"].clone();
     assert!(proof.is_object(), "review JSON keeps change_proof");
     assert!(
         evidence.is_object(),
         "review JSON exposes canonical evidence"
+    );
+    assert!(
+        proof_receipt.is_object(),
+        "review JSON exposes replayable proof receipt"
     );
     assert_eq!(json["schema_version"], "0.26");
     assert_eq!(json["report"]["kind"], "review");
@@ -63,6 +68,10 @@ fn review_projections_share_canonical_proof_and_evidence() {
         serde_json::from_slice(&fs::read(&sarif_path).expect("read SARIF")).expect("valid SARIF");
     assert_eq!(sarif["runs"][0]["properties"]["changeProof"], proof);
     assert_eq!(sarif["runs"][0]["properties"]["evidence"], evidence);
+    assert_eq!(
+        sarif["runs"][0]["properties"]["proofReceipt"],
+        proof_receipt
+    );
 
     let markdown = run_text_review(temp.path(), "markdown");
     let html = run_text_review(temp.path(), "html");

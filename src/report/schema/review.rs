@@ -3,7 +3,10 @@ use crate::review::ImpactPaths;
 use crate::review::MergeReadinessRecord;
 use crate::review::ReviewSignalGateResult;
 use crate::review::derive_readiness;
-use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_from_review};
+use crate::review::proof::{
+    ChangeProof, EvidenceSummary, ProofReceipt, build_proof_receipt,
+    derive_change_proof_from_review,
+};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 
@@ -24,6 +27,8 @@ pub struct ReviewJsonReport<'a> {
     pub change_proof: ChangeProof,
     /// Additive evidence contract shared by machine and human projections.
     pub evidence: EvidenceSummary,
+    /// Replayable proof receipt built from the same canonical ChangeProof.
+    pub proof_receipt: ProofReceipt,
     pub boundary_signals: &'a [BoundarySignal],
     /// Boundary, behavioral, algorithmic, and taint signals grouped by tier.
     /// `boundary_signals` remains as a compatibility view and feeds the
@@ -67,6 +72,7 @@ impl<'a> ReviewJsonReport<'a> {
         );
         let change_proof = derive_change_proof_from_review(report, &readiness);
         let evidence = EvidenceSummary::from_review(report, &change_proof);
+        let proof_receipt = build_proof_receipt(report, &change_proof);
         Self {
             schema_version: SCAN_REPORT_SCHEMA_VERSION,
             repopilot_version: REPOPILOT_VERSION,
@@ -86,6 +92,7 @@ impl<'a> ReviewJsonReport<'a> {
             merge_readiness: readiness,
             change_proof,
             evidence,
+            proof_receipt,
             boundary_signals: &report.boundary_signals,
             tiered_signals: &report.tiered_signals,
             review_timings: report.timings,
