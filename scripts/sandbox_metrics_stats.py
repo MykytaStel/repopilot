@@ -125,16 +125,83 @@ def summary_metrics(
         negatives = [
             case for case in measured if case.get("mutation_kind") == "negative-control"
         ]
+        declared_violations = [
+            case for case in violations if case.get("expected_rule_ids")
+        ]
+        declared_negatives = [
+            case for case in negatives if case.get("expected_rule_ids")
+        ]
         metrics["violation_signal_rate"] = metric(
             sum(
+                case.get("rule_observation", {}).get("status") == "matched"
+                for case in declared_violations
+            )
+            if declared_violations
+            else sum(
                 isinstance(case.get("normalized_finding_count"), int)
                 and case["normalized_finding_count"] > 0
                 for case in violations
             ),
-            len(violations),
+            len(declared_violations) if declared_violations else len(violations),
         )
         metrics["negative_control_clean_rate"] = metric(
-            sum(case.get("normalized_finding_count") == 0 for case in negatives),
-            len(negatives),
+            sum(
+                case.get("rule_observation", {}).get("status") == "matched"
+                for case in declared_negatives
+            )
+            if declared_negatives
+            else sum(case.get("normalized_finding_count") == 0 for case in negatives),
+            len(declared_negatives) if declared_negatives else len(negatives),
         )
+        declared = [case for case in measured if case.get("expected_rule_ids")]
+        metrics["expected_rule_match_rate"] = metric(
+            sum(
+                case.get("rule_observation", {}).get("status") == "matched"
+                for case in declared
+            ),
+            len(declared),
+        )
+        declared_violations = [
+            case for case in declared if case.get("mutation_kind") == "violation"
+        ]
+        declared_negatives = [
+            case for case in declared if case.get("mutation_kind") == "negative-control"
+        ]
+        metrics["exact_violation_signal_rate"] = metric(
+            sum(
+                case.get("rule_observation", {}).get("status") == "matched"
+                for case in declared_violations
+            ),
+            len(declared_violations),
+        )
+        metrics["exact_negative_control_clean_rate"] = metric(
+            sum(
+                case.get("rule_observation", {}).get("status") == "matched"
+                for case in declared_negatives
+            ),
+            len(declared_negatives),
+        )
+        for split in ("tuning", "evaluation"):
+            split_declared_violations = [
+                case
+                for case in declared_violations
+                if case.get("split") == split
+            ]
+            split_declared_negatives = [
+                case for case in declared_negatives if case.get("split") == split
+            ]
+            metrics[f"{split}_exact_violation_signal_rate"] = metric(
+                sum(
+                    case.get("rule_observation", {}).get("status") == "matched"
+                    for case in split_declared_violations
+                ),
+                len(split_declared_violations),
+            )
+            metrics[f"{split}_exact_negative_control_clean_rate"] = metric(
+                sum(
+                    case.get("rule_observation", {}).get("status") == "matched"
+                    for case in split_declared_negatives
+                ),
+                len(split_declared_negatives),
+            )
     return metrics

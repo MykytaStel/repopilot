@@ -16,6 +16,7 @@ from sandbox_contract import (  # noqa: E402
     load_manifest,
     validate_artifact,
 )
+from sandbox_case import _normalize_findings  # noqa: E402
 from sandbox_runner import DockerResult, SubprocessDockerAdapter, run_case, run_command  # noqa: E402
 
 
@@ -100,6 +101,42 @@ class SandboxRunnerTests(unittest.TestCase):
             ["git", "rev-parse", "HEAD"], cwd=source, text=True
         ).strip()
         return source, sha
+
+    def test_normalization_keeps_evidence_location_without_snippet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checkout = Path(tmp) / "checkout"
+            checkout.mkdir()
+            payload = json.dumps(
+                {
+                    "findings": [
+                        {
+                            "rule_id": "demo.rule",
+                            "evidence": [
+                                {
+                                    "path": str(checkout / "src/main.rs"),
+                                    "line_start": 12,
+                                    "snippet": "secret-value",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ).encode()
+
+            normalized = _normalize_findings(payload, checkout)
+
+        self.assertEqual(
+            normalized["findings"],
+            [
+                {
+                    "rule_id": "demo.rule",
+                    "path": "src/main.rs",
+                    "line": 12,
+                    "in_diff": None,
+                    "evidence_sha256": "31160254d1297393d2ad00e1c01851aec834361e02c524b89fe06aff2879ce6a",
+                }
+            ],
+        )
 
     def test_dry_run_writes_reproducible_artifact_and_cleanup_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

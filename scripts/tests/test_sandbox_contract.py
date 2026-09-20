@@ -76,6 +76,27 @@ class SandboxContractTests(unittest.TestCase):
 
         self.assertEqual(manifest.cases[0].analysis_mode, "changed")
 
+    def test_manifest_loads_expected_rule_ids(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(
+                manifest_text() + 'expected_rule_ids = ["demo.rule"]\n',
+                encoding="utf-8",
+            )
+
+            manifest = load_manifest(path)
+
+        self.assertEqual(manifest.cases[0].expected_rule_ids, ("demo.rule",))
+
+    def test_manifest_loads_analysis_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.toml"
+            path.write_text(manifest_text() + 'profile = "strict"\n', encoding="utf-8")
+
+            manifest = load_manifest(path)
+
+        self.assertEqual(manifest.cases[0].profile, "strict")
+
     def test_manifest_rejects_unsupported_analysis_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "manifest.toml"

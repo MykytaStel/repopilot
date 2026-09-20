@@ -243,6 +243,8 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
             "mutation_kind",
             "split",
             "analysis_mode",
+            "expected_rule_ids",
+            "profile",
         }
         unknown = set(item) - allowed
         if unknown:
@@ -273,12 +275,16 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
         mutation_kind = item.get("mutation_kind", "control")
         split = item.get("split", "pilot")
         analysis_mode = item.get("analysis_mode", "default")
+        expected_rule_ids = _rule_ids(item.get("expected_rule_ids"), case_id)
+        profile = item.get("profile", "default")
         if mutation_kind not in {"control", "violation", "negative-control"}:
             raise SandboxManifestError(f"case {case_id}: mutation_kind is unsupported")
         if split not in {"pilot", "tuning", "evaluation"}:
             raise SandboxManifestError(f"case {case_id}: split is unsupported")
         if analysis_mode not in {"default", "changed"}:
             raise SandboxManifestError(f"case {case_id}: analysis_mode is unsupported")
+        if profile not in {"default", "strict"}:
+            raise SandboxManifestError(f"case {case_id}: profile is unsupported")
         if mutation_kind != "control" and patch is None:
             raise SandboxManifestError(
                 f"case {case_id}: mutation cases require a patch"
@@ -296,6 +302,31 @@ def _parse_cases(raw: object, project_ids: set[str]) -> list[SandboxCase]:
                 mutation_kind,
                 split,
                 analysis_mode,
+                expected_rule_ids,
+                profile,
             )
         )
     return cases
+
+
+def _rule_ids(raw: object, case_id: str) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    if (
+        not isinstance(raw, list)
+        or not raw
+        or not all(isinstance(item, str) and item.strip() for item in raw)
+    ):
+        raise SandboxManifestError(
+            f"case {case_id}: expected_rule_ids must be a non-empty string array"
+        )
+    values = tuple(item.strip() for item in raw)
+    if len(set(values)) != len(values):
+        raise SandboxManifestError(
+            f"case {case_id}: expected_rule_ids must not contain duplicates"
+        )
+    if any(any(char.isspace() for char in value) for value in values):
+        raise SandboxManifestError(
+            f"case {case_id}: expected_rule_ids must not contain whitespace"
+        )
+    return values
