@@ -2,16 +2,57 @@
 
 from __future__ import annotations
 
+import math
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from differential_resource import (
+    RESOURCE_SOURCE,
     resource_command,
     resource_sample_from_file,
     unavailable_resource,
 )
+from sandbox_contract import SandboxManifestError
+
+
+_RESOURCE_STATUSES = {"available", "unavailable"}
+_RESOURCE_SOURCES = {RESOURCE_SOURCE, "unavailable"}
+
+
+def validate_resource_observation(value: Any, context: str) -> None:
+    """Validate the optional resource receipt embedded in a phase result."""
+
+    if not isinstance(value, dict):
+        raise SandboxManifestError(f"{context} resource must be an object")
+    status = value.get("status")
+    if not isinstance(status, str) or status not in _RESOURCE_STATUSES:
+        raise SandboxManifestError(f"{context} resource status is unsupported")
+    source = value.get("source")
+    if source is not None and (
+        not isinstance(source, str) or source not in _RESOURCE_SOURCES
+    ):
+        raise SandboxManifestError(f"{context} resource source is unsupported")
+    sample = value.get("peak_rss_kb")
+    if status == "available":
+        if source != RESOURCE_SOURCE or not _positive_finite_number(sample):
+            raise SandboxManifestError(
+                f"{context} available resource requires a positive finite sample"
+            )
+    elif sample is not None:
+        raise SandboxManifestError(
+            f"{context} unavailable resource must not contain a sample"
+        )
+
+
+def _positive_finite_number(value: Any) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value)) and value > 0
+    except (OverflowError, ValueError):
+        return False
 
 
 @dataclass

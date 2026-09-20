@@ -74,6 +74,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   the shared `posix-time-v1` sampler. Unsupported platforms, malformed samples,
   and timeouts remain explicit `unavailable` resource observations instead of
   being treated as zero memory use.
+- Sandbox artifact validation now requires available RSS observations to carry a
+  positive finite sample from `posix-time-v1`; invalid, stale, or contradictory
+  resource fields are rejected before metrics and reports consume them.
 
 ### Fixed
 
