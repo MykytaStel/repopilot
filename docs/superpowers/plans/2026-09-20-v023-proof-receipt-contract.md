@@ -26,7 +26,7 @@
 - A changed workspace revision or configuration must return `stale`, never `matched`; replay tests own both mismatches.
 - An unknown receipt schema and malformed JSON must return structured `unsupported` or `invalid`, without panicking; replay tests own both cases.
 - Empty, partially covered, and unavailable reviews must carry their existing `NOT ASSESSED`/`REVIEW` proof and explicit receipt state; receipt-construction tests own these cases.
-- Two findings with the same stable ID but different paths/lines must remain two evidence entries; projection parity tests own this case.
+- Two findings with the same stable ID but different paths/lines must remain two distinct finding records; the projection parity test owns this case.
 
 ---
 
@@ -100,9 +100,9 @@ pub struct ReceiptReplayContext {
     pub report_schema: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofReceipt {
-    pub schema_version: &'static str,
+    pub schema_version: String,
     pub analyzer_version: String,
     pub report_schema: String,
     pub workspace_revision: String,
@@ -177,7 +177,7 @@ assert_eq!(json["proof_receipt"]["replay_state"], "matched");
 assert!(json["proof_receipt"]["unavailable_inputs"].is_array());
 ```
 
-Also add two findings with the same stable ID at different evidence locations to the fixture and assert the receipt retains both evidence entries in the detailed proof payload.
+Also add two findings with the same stable ID at different evidence locations to the fixture and assert the review JSON still retains both distinct finding records; the receipt must not aggregate or rewrite those records.
 
 - [ ] **Step 2: Run the test and verify it fails**
 
