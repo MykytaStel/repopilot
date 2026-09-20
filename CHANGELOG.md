@@ -54,6 +54,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   JSON, and Markdown reports now show `verified`, `blocked`, or `invalid`,
   structured coverage counts, blocking reasons, and the exact next actions
   without changing legacy fields or exit codes.
+- Added a required `rule-quality` track to the Phase 0 evidence audit. It
+  validates the committed scorecard, snapshot/label denominators, and rule
+  registry coverage, while keeping unmeasured rules explicitly pending rather
+  than treating them as clean or as a production precision/recall estimate;
+  the additive audit protocol is versioned as `phase0-evidence-closure-v2`.
 
 ### Fixed
 

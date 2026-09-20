@@ -24,19 +24,32 @@ class Phase0EvidenceReportTests(unittest.TestCase):
 
         self.assertEqual(report["status"], "open")
         self.assertEqual(report["closure"], "open")
+        self.assertEqual(report["protocol"], "phase0-evidence-closure-v2")
         self.assertEqual(report["decision"], "blocked")
-        self.assertEqual(report["coverage"]["tracks_total"], 2)
-        self.assertEqual(report["coverage"]["protocols_valid"], 2)
+        self.assertEqual(report["coverage"]["tracks_total"], 3)
+        self.assertEqual(report["coverage"]["protocols_valid"], 3)
         self.assertEqual(report["coverage"]["evidence_valid"], 0)
-        self.assertEqual(len(report["blocking_reasons"]), 2)
-        self.assertEqual(len(report["next_actions"]), 2)
+        self.assertEqual(len(report["blocking_reasons"]), 3)
+        self.assertEqual(len(report["next_actions"]), 3)
         self.assertEqual(
             [track["id"] for track in report["tracks"]],
-            ["real-history", "differential-utility"],
+            ["real-history", "differential-utility", "rule-quality"],
         )
         self.assertTrue(all(track["protocol_status"] == "valid" for track in report["tracks"]))
-        self.assertTrue(all(track["evidence_status"] == "artifact-missing" for track in report["tracks"]))
-        self.assertTrue(all(track["label_state"] == "not-supplied" for track in report["tracks"]))
+        self.assertEqual(
+            [track["evidence_status"] for track in report["tracks"]],
+            ["artifact-missing", "artifact-missing", "pending-labels"],
+        )
+        self.assertEqual(
+            [track["label_state"] for track in report["tracks"]],
+            ["not-supplied", "not-supplied", "committed-reviewed-labels"],
+        )
+
+        rule_quality = report["tracks"][2]
+        self.assertEqual(rule_quality["observation"]["rules_total"], 54)
+        self.assertEqual(rule_quality["observation"]["default_rules_measured"], 6)
+        self.assertEqual(rule_quality["observation"]["default_rules_unmeasured"], 48)
+        self.assertEqual(rule_quality["observation"]["labeled_default_findings"], 25)
 
     def test_audit_mode_is_open_but_require_complete_fails_closed(self) -> None:
         report = phase0_evidence.build_report(self.paths)
@@ -77,6 +90,15 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         self.assertIn("artifact", markdown)
         self.assertIn("cases=2", markdown)
 
+    def test_renderers_show_rule_quality_coverage(self) -> None:
+        report = phase0_evidence.build_report(self.paths)
+
+        text = phase0_evidence.render_text(report)
+        markdown = phase0_evidence.render_markdown(report)
+        self.assertIn("rules_total=54", text)
+        self.assertIn("default_rules_unmeasured=48", text)
+        self.assertIn("labeled_default_findings=25", markdown)
+
     def test_tampered_real_history_artifact_is_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / "real-history.json"
@@ -97,7 +119,10 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         self.assertEqual(report["status"], "invalid")
         self.assertEqual(report["decision"], "invalid")
         self.assertEqual(report["coverage"]["protocols_invalid"], 2)
-        self.assertTrue(all(track["evidence_status"] == "protocol-invalid" for track in report["tracks"]))
+        self.assertEqual(
+            [track["evidence_status"] for track in report["tracks"]],
+            ["protocol-invalid", "protocol-invalid", "pending-labels"],
+        )
         self.assertEqual(phase0_evidence.exit_code(report, require_complete=False), 1)
 
     def test_complete_independent_tracks_are_verified(self) -> None:

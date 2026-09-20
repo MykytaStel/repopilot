@@ -27,6 +27,9 @@ class Phase0Paths:
     differential_artifact: Path | None = None
     differential_pilot: Path | None = None
     differential_metrics: Path | None = None
+    rule_scorecard: Path | None = None
+    zoo_expectation_dir: Path | None = None
+    zoo_snapshot_dir: Path | None = None
 
     @classmethod
     def defaults(cls, root: Path) -> "Phase0Paths":
@@ -37,6 +40,9 @@ class Phase0Paths:
             differential_manifest=base / "tests/benchmarks/differential.toml",
             rules_reference=base / "docs/rules-reference.md",
             zoo_manifest=base / "tests/zoo/manifest.toml",
+            rule_scorecard=base / "docs/engineering/rule-scorecard.md",
+            zoo_expectation_dir=base / "tests/zoo/expectations",
+            zoo_snapshot_dir=base / "tests/zoo/snapshots",
         )
 
     def with_evidence_dir(self, evidence_dir: Path) -> "Phase0Paths":
