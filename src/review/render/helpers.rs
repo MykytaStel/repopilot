@@ -72,20 +72,7 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
 }
 
 pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
-    match proof.verdict {
-        ChangeProofVerdict::Broken => {
-            "Inspect the broken contract and its listed consumer before merge."
-        }
-        ChangeProofVerdict::Review => {
-            "Review the listed evidence, close the proof limits, or run the required checks."
-        }
-        ChangeProofVerdict::Verified => {
-            "Proceed with the normal merge review; the reported scope has compatible proof."
-        }
-        ChangeProofVerdict::NotAssessed => {
-            "Expand the analyzable scope before treating this review as evidence."
-        }
-    }
+    crate::review::proof::next_action_for(proof)
 }
 
 pub(super) fn status_for_finding(
