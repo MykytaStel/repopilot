@@ -31,6 +31,25 @@ from sandbox_case import (
 )
 
 
+MAX_SCANNER_REPORT_BYTES = 8 * 1024 * 1024
+
+
+def _scanner_report_payload(
+    report_path: Path, fallback: bytes | None, fallback_truncated: bool
+) -> tuple[bytes | None, str | None]:
+    if report_path.is_file():
+        try:
+            size = report_path.stat().st_size
+            if size > MAX_SCANNER_REPORT_BYTES:
+                return None, "scanner report exceeds the bounded report size"
+            return report_path.read_bytes(), None
+        except OSError:
+            return None, "scanner report could not be read"
+    if fallback is not None and not fallback_truncated:
+        return fallback, None
+    return None, "scanner did not produce a complete JSON report"
+
+
 def run_case(
     manifest_path: Path,
     case_id: str,
@@ -178,6 +197,7 @@ def run_case(
         )
         if mutation.status != "passed":
             raise SandboxManifestError("mutation patch could not be applied")
+        report_path: Path | None = None
         if scanner:
             scanner_path = Path(scanner[0]).expanduser()
             scanner_command = list(scanner)
@@ -187,6 +207,7 @@ def run_case(
                 artifact["provenance"]["scanner_sha256"] = sha256_file(scanner_path)
             artifact["provenance"]["scanner_command"] = _redact_command(scanner_command)
             analysis_options = ("--changed",) if case.analysis_mode == "changed" else ()
+            report_path = after / ".repopilot-sandbox-report.json"
             analysis = run_command(
                 tuple(
                     (
@@ -196,6 +217,8 @@ def run_case(
                         *analysis_options,
                         "--format",
                         "json",
+                        "--output",
+                        str(report_path),
                         "--profile",
                         "default",
                         "--no-progress",
@@ -207,7 +230,14 @@ def run_case(
                 manifest.policy.log_limit_bytes,
                 True,
             )
-            normalized = _normalize_findings(analysis.payload, after)
+            payload, report_reason = _scanner_report_payload(
+                report_path, analysis.payload, analysis.stdout_truncated
+            )
+            normalized = (
+                _normalize_findings(payload, after)
+                if payload is not None
+                else {"status": "unavailable", "reason": report_reason}
+            )
         else:
             analysis = CommandResult(
                 "unavailable",
@@ -219,6 +249,9 @@ def run_case(
             )
             normalized = {"status": "unavailable", "reason": "scanner is unavailable"}
         analysis_result = analysis.as_dict()
+        if report_path is not None and report_path.is_file():
+            analysis_result["report_sha256"] = sha256_file(report_path)
+            analysis_result["report_bytes"] = report_path.stat().st_size
         analysis_result["normalized_findings"] = normalized
         analysis_status = analysis.status
         analysis_reason = analysis.reason

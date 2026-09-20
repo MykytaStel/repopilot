@@ -135,8 +135,11 @@ allowlisted argument-vector command, and `network = "none"` for measured
 commands. The runner copies a verified source into a run-owned case directory;
 it never mutates an existing zoo clone. Build/test oracles run only through the
 Docker adapter (`--pull=never`, one workspace mount, 2 CPU, 4 GiB, bounded
-timeouts). If Docker or the scanner is unavailable, the result remains
-`unavailable` and retains a cleanup receipt. Command output is hashed and
+timeouts). Scanner JSON is written to a run-owned report file and normalized
+before the smaller stdout/stderr log bound is applied; reports above the
+8 MiB normalization limit remain explicitly unavailable. If Docker or the
+scanner is unavailable, the result remains `unavailable` and retains a cleanup
+receipt. Command output is hashed and
 bounded; raw stdout/stderr and finding snippets are not persisted. The current
 runner records RSS as explicitly unavailable until a supported sampler is
 added, so these artifacts do not make a universal resource claim.

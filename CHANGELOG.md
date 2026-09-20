@@ -59,6 +59,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   registry coverage, while keeping unmeasured rules explicitly pending rather
   than treating them as clean or as a production precision/recall estimate;
   the additive audit protocol is versioned as `phase0-evidence-closure-v2`.
+- Sandbox scanner reports now use a run-owned JSON file with a bounded 8 MiB
+  report limit, so large real-project outputs are normalized before the
+  separate command-log limit is applied; the report hash and byte count remain
+  in the artifact.
 
 ### Fixed
 
