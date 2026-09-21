@@ -4,7 +4,7 @@ use super::helpers::{
 use super::html_assets::{SCRIPT, STYLE};
 use crate::baseline::gate::CiGateResult;
 use crate::review::ReviewSignalGateResult;
-use crate::review::decision::{ReviewDecision, derive_review_decision};
+use crate::review::decision::derive_review_decision;
 use crate::review::model::ReviewReport;
 use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_from_review};
 use crate::review::readiness::{MergeReadinessRecord, derive_readiness};
@@ -56,7 +56,6 @@ pub fn render_review_html(
             &readiness,
             &proof,
             &evidence,
-            &decision,
             verdict_class,
             ci_gate,
             review_gate,
@@ -74,11 +73,11 @@ fn render_proof_card(
     readiness: &MergeReadinessRecord,
     proof: &ChangeProof,
     evidence: &EvidenceSummary,
-    decision: &ReviewDecision,
     verdict_class: String,
     ci_gate: Option<&CiGateResult>,
     review_gate: Option<&ReviewSignalGateResult>,
 ) -> String {
+    let decision = derive_review_decision(report, proof, readiness, ci_gate, review_gate);
     let limits = if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
         format!(
             "<ul class=\"limits\"><li>{} excluded, {} unsupported file(s)</li></ul>",
