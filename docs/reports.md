@@ -21,6 +21,11 @@ called out with a command to inspect them.
 The decision is a presentation of existing scan evidence. JSON, SARIF, MCP,
 exit codes, and finding semantics remain unchanged.
 
+Review Proof Cards choose the next action from the proof state. Failed,
+unavailable, stale, or unselected required checks, incomplete file coverage,
+and a missing proof policy receive different remediation guidance; the same
+wording is carried by the proof receipt used by JSON and SARIF readers.
+
 ## JSON report schema
 
 JSON scan, baseline-scan, and review reports share schema `0.26`. This is

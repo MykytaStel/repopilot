@@ -31,7 +31,26 @@ pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
             "Inspect the broken contract and its listed consumer before merge."
         }
         ChangeProofVerdict::Review => {
-            "Review the listed evidence, close the proof limits, or run the required checks."
+            if proof.obligations.failed > 0 {
+                "Fix the failed required checks, then run the review again."
+            } else if proof.obligations.unavailable > 0 {
+                "Make the required checks available, then run the review again."
+            } else if proof.obligations.stale > 0 {
+                "Run the required checks against the current revision, then run the review again."
+            } else if proof.obligations.unselected > 0 {
+                "Select the required checks, then run the review again."
+            } else if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
+                "Review the excluded or unsupported files before treating this review as verified."
+            } else if proof.obligations.applicable == 0
+                && proof
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.code == ChangeProofReasonCode::InsufficientPolicy)
+            {
+                "Configure or select a proof policy, then run the review again."
+            } else {
+                "Review the listed evidence, close the proof limits, or run the required checks."
+            }
         }
         ChangeProofVerdict::Verified => {
             "Proceed with the normal merge review; the reported scope has compatible proof."

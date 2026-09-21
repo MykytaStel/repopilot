@@ -31,6 +31,23 @@ fn receipt_keeps_verdict_scope_reasons_obligations_and_next_action() {
 }
 
 #[test]
+fn receipt_uses_contextual_next_action_for_failed_checks() {
+    let (report, mut proof) = review_and_proof(ChangeProofVerdict::Review);
+    proof.obligations = ProofObligations {
+        applicable: 1,
+        failed: 1,
+        ..proof.obligations
+    };
+
+    let receipt = build_proof_receipt(&report, &proof);
+
+    assert_eq!(
+        receipt.next_action,
+        "Fix the failed required checks, then run the review again."
+    );
+}
+
+#[test]
 fn receipt_hash_is_stable_when_collection_inputs_are_reordered() {
     let (mut first_report, proof) = review_and_proof(ChangeProofVerdict::Verified);
     let first = build_proof_receipt(&first_report, &proof);

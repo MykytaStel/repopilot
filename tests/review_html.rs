@@ -63,7 +63,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         "Why:</strong> Review the listed evidence, coverage limits, and required checks."
     ));
     assert!(html.contains(
-        "Next action:</strong> Review the listed evidence, close the proof limits, or run the required checks."
+        "Next action:</strong> Review the excluded or unsupported files before treating this review as verified."
     ));
     assert!(html.contains("Why this verdict"));
     assert!(html.contains("Legacy merge readiness"));
