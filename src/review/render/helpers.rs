@@ -72,10 +72,6 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
     }
 }
 
-pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
-    crate::review::proof::next_action_for(proof)
-}
-
 pub(super) fn legacy_readiness_summary(
     report: &ReviewReport,
     readiness: &MergeReadinessRecord,
