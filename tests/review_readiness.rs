@@ -166,7 +166,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains("Evidence provenance: RepoPilot 0.22.0, schema 0.26"));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
     assert!(console.contains("Reasons:"));
-    assert!(console.contains("Next action: Review the listed evidence"));
+    assert!(console.contains("Next action: Configure or select a proof policy"));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
     assert!(console.contains("CI gate: not configured"));
@@ -187,7 +187,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(markdown.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
     assert!(markdown.contains("**Reasons:**"));
-    assert!(markdown.contains("**Next action:** Review the listed evidence"));
+    assert!(markdown.contains("**Next action:** Configure or select a proof policy"));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
     assert!(markdown.contains("**CI gate:** not configured"));

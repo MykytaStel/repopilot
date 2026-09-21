@@ -85,6 +85,106 @@ fn incomplete_obligation_keeps_proof_at_review() {
 }
 
 #[test]
+fn next_action_names_failed_required_checks() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            failed: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Fix the failed required checks, then run the review again."
+    );
+}
+
+#[test]
+fn next_action_names_unavailable_required_checks() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            unavailable: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Make the required checks available, then run the review again."
+    );
+}
+
+#[test]
+fn next_action_names_stale_required_checks() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            stale: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Run the required checks against the current revision, then run the review again."
+    );
+}
+
+#[test]
+fn next_action_names_unselected_required_checks() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            unselected: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Select the required checks, then run the review again."
+    );
+}
+
+#[test]
+fn next_action_explains_missing_policy_when_no_checks_apply() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            applicable: 0,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: false,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Configure or select a proof policy, then run the review again."
+    );
+}
+
+#[test]
 fn complete_sufficient_policy_is_verified() {
     let proof = derive_change_proof(ChangeProofInput {
         coverage: coverage(1),

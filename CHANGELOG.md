@@ -83,6 +83,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Review Proof Cards now choose a next action from the recorded proof state:
+  failed, unavailable, stale, and unselected checks, incomplete scope, and a
+  missing proof policy each receive distinct remediation guidance across the
+  console, Markdown, HTML, and proof receipt projections.
 - Empty reviews now explain that the legacy `READY` readiness value is a
   compatibility field and that no changed scope was assessed in console,
   Markdown, and HTML output.
