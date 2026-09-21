@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added a canonical review decision summary. Review reports now expose one
+  additive `PASS`, `REVIEW`, `BLOCK`, or `NOT_ASSESSED` decision with its
+  meaning, limitations, next action, and separate CI/review gate states across
+  console, Markdown, HTML, JSON, SARIF, and MCP, while preserving existing
+  proof, readiness, fields, and exit codes.
 - Added canonical finding evidence cards. Each finding now carries a
   deterministic explanation of its claim, signal source, analysis scope,
   lifecycle, evidence-location count, conservative limitations, and next action in
