@@ -77,6 +77,8 @@ class SandboxCase:
     mutation_kind: str = "control"
     split: str = "pilot"
     analysis_mode: str = "default"
+    expected_rule_ids: tuple[str, ...] = ()
+    profile: str = "default"
 
 
 @dataclass(frozen=True)

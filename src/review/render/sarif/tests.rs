@@ -48,6 +48,7 @@ fn report_with_signal(signal: ReviewSignal) -> ReviewReport {
         ConfidenceTier::LargeDiffOrNoise => tiered_signals.noise.push(signal),
     }
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary::default(),
         repo_root: Path::new("/repo").to_path_buf(),
         baseline_path: None,

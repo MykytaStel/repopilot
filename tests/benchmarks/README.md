@@ -135,11 +135,16 @@ allowlisted argument-vector command, and `network = "none"` for measured
 commands. The runner copies a verified source into a run-owned case directory;
 it never mutates an existing zoo clone. Build/test oracles run only through the
 Docker adapter (`--pull=never`, one workspace mount, 2 CPU, 4 GiB, bounded
-timeouts). If Docker or the scanner is unavailable, the result remains
-`unavailable` and retains a cleanup receipt. Command output is hashed and
-bounded; raw stdout/stderr and finding snippets are not persisted. The current
-runner records RSS as explicitly unavailable until a supported sampler is
-added, so these artifacts do not make a universal resource claim.
+timeouts). Scanner JSON is written to a run-owned report file and normalized
+before the smaller stdout/stderr log bound is applied; reports above the
+8 MiB normalization limit remain explicitly unavailable. If Docker or the
+scanner is unavailable, the result remains `unavailable` and retains a cleanup
+receipt. Command output is hashed and
+bounded; raw stdout/stderr and finding snippets are not persisted. On Linux and
+macOS, command artifacts now record positive peak RSS through the shared
+`posix-time-v1` `/usr/bin/time` sampler. Unsupported platforms, malformed
+sampler output, and timeouts remain `unavailable`; a missing sample never
+becomes a zero-memory claim.
 
 `pilot` writes one artifact per case and repetition plus a summary. A case is
 `passed` only when every oracle passes and every normalized scan hash is stable;
@@ -152,6 +157,19 @@ passing mutation case only when baseline/setup and reverse patch pass as well.
 The summary keeps the independent oracle state visible and remains separate
 from production recall or precision.
 
+Mutation cases may declare `expected_rule_ids`. For a `violation`, every
+declared rule must be observed in the mutated scan; for a `negative-control`,
+declared rules must not be introduced by the patch. The runner therefore makes
+a separate baseline scan and compares stable normalized rule/path/evidence
+identities. Evidence uses a digest of the reported snippet and the finding ID,
+with a line fallback when those fields are unavailable, so line shifts and
+pre-existing findings do not invalidate a clean negative control. The receipt
+records expected, observed-new, and all observed rule IDs, and metrics expose
+exact violation and negative-control rates. Cases without this field retain
+lifecycle-only semantics and cannot support an exact rule-signal claim.
+Mutation metrics also keep `tuning` and `evaluation` cases separate; tuning
+results must not be presented as held-out evaluation.
+
 Cases may set `analysis_mode = "changed"` when the mutation is intended to
 exercise changed-scan semantics; the default is `"default"`. The selected mode
 is recorded in the artifact and report so a full scan cannot be mistaken for a
@@ -163,9 +181,11 @@ overall status, per-case status, oracle states, normalized finding counts and
 hashes when available, the mutation lifecycle, limits, and a next action. An
 expected oracle failure for a `violation` is explained as a successful mutation
 case; `unavailable` remains an explicit missing-evidence state. The report does
-not include raw command output or finding snippets. Without `--output` it is
-printed to the terminal; with `--output` it is saved under the ignored sandbox
-directory.
+not include raw command output or finding snippets. It includes a resource
+evidence table per case with median analyzed-command peak RSS, the available
+sample count, and sampler source. Unavailable samples remain visible and are
+never treated as zero memory use. Without `--output` it is printed to the
+terminal; with `--output` it is saved under the ignored sandbox directory.
 
 `metrics` recomputes a JSON artifact from the validated summary and its child
 artifacts. It records numerator/denominator pairs, 95% Wilson intervals,

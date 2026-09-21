@@ -25,6 +25,8 @@ pub struct SarifRunProperties {
     pub change_proof: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evidence: Option<serde_json::Value>,
+    #[serde(rename = "proofReceipt", skip_serializing_if = "Option::is_none")]
+    pub proof_receipt: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification: Option<Vec<crate::verification::VerificationOutcome>>,
 }

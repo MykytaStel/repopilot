@@ -42,6 +42,7 @@ def _analyze_record(artifact: dict[str, Any]) -> dict[str, Any]:
     normalized = (
         result.get("normalized_findings", {}) if isinstance(result, dict) else {}
     )
+    resource = result.get("resource") if isinstance(result, dict) else None
     if not isinstance(normalized, dict):
         normalized = {}
     return {
@@ -50,6 +51,7 @@ def _analyze_record(artifact: dict[str, Any]) -> dict[str, Any]:
         "sha256": normalized.get("sha256"),
         "reason": normalized.get("reason")
         or (phase.get("reason") if isinstance(phase, dict) else None),
+        "resource": resource if isinstance(resource, dict) else None,
     }
 
 
@@ -149,6 +151,7 @@ def _case_summary(
         "case_id": case.case_id,
         "project_id": case.project_id,
         "analysis_mode": case.analysis_mode,
+        "profile": case.profile,
         "source": str(source) if source else None,
         "source_reason": source_reason,
         "runs": runs,

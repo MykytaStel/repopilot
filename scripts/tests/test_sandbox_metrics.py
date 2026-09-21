@@ -14,6 +14,7 @@ from sandbox_contract import SandboxManifestError, load_manifest  # noqa: E402
 from sandbox_metrics import build_metrics  # noqa: E402
 from sandbox_metrics_io import validate_metrics, write_metrics  # noqa: E402
 from sandbox_metrics_report import render_metrics_report  # noqa: E402
+from sandbox_metrics_stats import summary_metrics  # noqa: E402
 
 
 def manifest_text() -> str:
@@ -149,6 +150,55 @@ def summary_data(manifest_sha: str) -> dict:
 
 
 class SandboxMetricsTests(unittest.TestCase):
+    def test_mutation_metrics_keep_tuning_and_evaluation_separate(self) -> None:
+        cases = [
+            {
+                "status": "passed",
+                "analysis_status": "measured",
+                "mutation_kind": "violation",
+                "split": "tuning",
+                "expected_rule_ids": ["demo.rule"],
+                "rule_observation": {"status": "matched"},
+            },
+            {
+                "status": "passed",
+                "analysis_status": "measured",
+                "mutation_kind": "negative-control",
+                "split": "tuning",
+                "expected_rule_ids": ["demo.rule"],
+                "rule_observation": {"status": "matched"},
+            },
+            {
+                "status": "passed",
+                "analysis_status": "measured",
+                "mutation_kind": "violation",
+                "split": "evaluation",
+                "expected_rule_ids": ["demo.rule"],
+                "rule_observation": {"status": "matched"},
+            },
+            {
+                "status": "passed",
+                "analysis_status": "measured",
+                "mutation_kind": "negative-control",
+                "split": "evaluation",
+                "expected_rule_ids": ["demo.rule"],
+                "rule_observation": {"status": "matched"},
+            },
+        ]
+
+        metrics = summary_metrics({"kind": "mutation-summary"}, cases)
+
+        self.assertEqual(
+            metrics["tuning_exact_violation_signal_rate"]["numerator"], 1
+        )
+        self.assertEqual(
+            metrics["evaluation_exact_violation_signal_rate"]["numerator"], 1
+        )
+        self.assertEqual(
+            metrics["evaluation_exact_negative_control_clean_rate"]["denominator"],
+            1,
+        )
+
     def test_mutation_metrics_keep_denominators_and_unavailable_quality_claims(
         self,
     ) -> None:
@@ -240,6 +290,7 @@ class SandboxMetricsTests(unittest.TestCase):
         self.assertIn("TP", report)
         self.assertIn("unavailable", report)
         self.assertIn("Wilson", report)
+        self.assertIn("| Case | Split | Profile | Status |", report)
         self.assertIn("| 1 normalized finding |", report)
 
 

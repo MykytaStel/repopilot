@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
@@ -16,7 +17,9 @@ from sandbox_contract import (  # noqa: E402
     load_manifest,
     validate_artifact,
 )
+from sandbox_case import _normalize_findings  # noqa: E402
 from sandbox_runner import DockerResult, SubprocessDockerAdapter, run_case, run_command  # noqa: E402
+from sandbox_resource import ResourceProbe  # noqa: E402
 
 
 def manifest_text(sha: str) -> str:
@@ -100,6 +103,42 @@ class SandboxRunnerTests(unittest.TestCase):
             ["git", "rev-parse", "HEAD"], cwd=source, text=True
         ).strip()
         return source, sha
+
+    def test_normalization_keeps_evidence_location_without_snippet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checkout = Path(tmp) / "checkout"
+            checkout.mkdir()
+            payload = json.dumps(
+                {
+                    "findings": [
+                        {
+                            "rule_id": "demo.rule",
+                            "evidence": [
+                                {
+                                    "path": str(checkout / "src/main.rs"),
+                                    "line_start": 12,
+                                    "snippet": "secret-value",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ).encode()
+
+            normalized = _normalize_findings(payload, checkout)
+
+        self.assertEqual(
+            normalized["findings"],
+            [
+                {
+                    "rule_id": "demo.rule",
+                    "path": "src/main.rs",
+                    "line": 12,
+                    "in_diff": None,
+                    "evidence_sha256": "31160254d1297393d2ad00e1c01851aec834361e02c524b89fe06aff2879ce6a",
+                }
+            ],
+        )
 
     def test_dry_run_writes_reproducible_artifact_and_cleanup_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -203,6 +242,40 @@ class SandboxRunnerTests(unittest.TestCase):
             [{"rule_id": "demo.rule", "path": "main.py", "line": 1, "in_diff": True}],
         )
         self.assertNotIn("secret", json.dumps(result))
+
+    def test_large_scanner_json_is_normalized_without_stdout_truncation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source, sha = self.make_repo(root)
+            manifest_path = root / "manifest.toml"
+            manifest_path.write_text(manifest_text(sha), encoding="utf-8")
+            output = root / "result.json"
+            scanner = (
+                sys.executable,
+                "-c",
+                "import json,sys; path=sys.argv[sys.argv.index('--output')+1]; "
+                "open(path, 'w').write(json.dumps({'findings': ["
+                "{'rule_id': 'demo.rule', 'path': 'main.py', 'line': 1, "
+                "'in_diff': True, 'padding': 'x' * 300} for _ in range(400)]}))",
+            )
+
+            result = run_case(
+                manifest_path,
+                "control-case",
+                output,
+                source_override=source,
+                scanner=scanner,
+                docker=FakeDocker(),
+            )
+
+        self.assertEqual(result["status"], "passed")
+        analysis = next(
+            phase for phase in result["phases"] if phase["name"] == "analyze"
+        )
+        normalized = analysis["result"]["normalized_findings"]
+        self.assertEqual(normalized["status"], "measured")
+        self.assertEqual(normalized["count"], 400)
+        self.assertEqual(len(analysis["result"]["report_sha256"]), 64)
 
     def test_changed_analysis_mode_passes_flag_and_records_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -340,6 +413,8 @@ class SandboxRunnerTests(unittest.TestCase):
         self.assertEqual(result.returncode, None)
         self.assertGreaterEqual(result.wall_ms, 0)
         self.assertEqual(len(result.stdout_sha256), 64)
+        self.assertEqual(result.resource["status"], "unavailable")
+        self.assertIn("timed out", result.resource["reason"])
 
     def test_timed_command_marks_bounded_output(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -349,6 +424,50 @@ class SandboxRunnerTests(unittest.TestCase):
 
         self.assertTrue(result.stdout_truncated)
         self.assertFalse(result.stderr_truncated)
+
+    def test_timed_command_records_unavailable_resource(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch(
+                "sandbox_process.prepare_resource_probe",
+                return_value=ResourceProbe(
+                    (sys.executable, "-c", "pass"),
+                    None,
+                    "sandbox RSS sampler is unavailable on this platform",
+                ),
+            ),
+        ):
+            result = run_command(
+                (sys.executable, "-c", "pass"), Path(tmp), 5, "run-test"
+            )
+
+        self.assertEqual(result.resource["status"], "unavailable")
+        self.assertEqual(result.resource["source"], "unavailable")
+        self.assertEqual(result.as_dict()["resource"], result.resource)
+
+    def test_timed_command_records_peak_rss_from_sampler(self) -> None:
+        sample = {"status": "available", "peak_rss_kb": 1234, "source": "posix-time-v1"}
+
+        class FakeProbe:
+            command = (sys.executable, "-c", "pass")
+
+            def sample(
+                self, status: str, reason: str | None = None
+            ) -> dict[str, object]:
+                return sample
+
+            def cleanup(self) -> None:
+                return None
+
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("sandbox_process.prepare_resource_probe", return_value=FakeProbe()),
+        ):
+            result = run_command(
+                (sys.executable, "-c", "pass"), Path(tmp), 5, "run-test"
+            )
+
+        self.assertEqual(result.resource, sample)
 
 
 if __name__ == "__main__":

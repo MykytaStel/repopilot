@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from sandbox_contract import SandboxManifestError
+from sandbox_report_resources import resource_section
 
 
 _SENSITIVE_WORD = re.compile(
@@ -114,8 +115,8 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
         "- Static analysis is summarized by normalized finding count and hash; raw output is omitted.",
         "",
         "## Cases",
-        "| Case | Project | Analysis | Status | Oracle runs | Scan comparison |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Case | Project | Profile | Analysis | Status | Oracle runs | Scan comparison |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for item in sorted(
         summary.get("cases", []), key=lambda case: str(case.get("case_id", ""))
@@ -127,6 +128,7 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
         comparison = item.get("comparison", {})
         lines.append(
             f"| `{_safe_text(item.get('case_id'))}` | `{_safe_text(item.get('project_id'))}` "
+            f"| `{_safe_text(item.get('profile', 'default'))}` "
             f"| `{_safe_text(item.get('analysis_mode', 'default'))}` "
             f"| **{_status(item.get('status'))}** | `{oracle_runs or 'none'}` "
             f"| {_pilot_comparison(comparison)} |"
@@ -155,8 +157,8 @@ def _render_pilot_markdown(summary: dict[str, Any]) -> list[str]:
 def _render_mutation_markdown(summary: dict[str, Any]) -> list[str]:
     lines = [
         "## Cases",
-        "| Case | Project | Kind | Split | Analysis | Status | Oracle | RepoPilot scan | Lifecycle |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Case | Project | Kind | Split | Profile | Analysis | Status | Oracle | RepoPilot scan | Lifecycle |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     cases = sorted(
         summary.get("cases", []), key=lambda case: str(case.get("case_id", ""))
@@ -170,6 +172,7 @@ def _render_mutation_markdown(summary: dict[str, Any]) -> list[str]:
         lines.append(
             f"| `{_safe_text(item.get('case_id'))}` | `{_safe_text(item.get('project_id'))}` "
             f"| {kind} | `{_safe_text(item.get('split'))}` "
+            f"| `{_safe_text(item.get('profile', 'default'))}` "
             f"| `{_safe_text(item.get('analysis_mode', 'default'))}` "
             f"| **{_status(item.get('status'))}** "
             f"| `{_mutation_oracle(item)}` | {_scan_text(item.get('analysis'))} | "
@@ -240,11 +243,16 @@ def render_report(summary: dict[str, Any], output_format: str = "markdown") -> s
         f"- Recorded reason: {_reason(summary.get('reason'))}",
         "",
     ]
-    lines.extend(
+    body = (
         _render_pilot_markdown(summary)
         if kind == "pilot-summary"
         else _render_mutation_markdown(summary)
     )
+    limits_index = next(
+        (index for index, line in enumerate(body) if line == "## Limits"), len(body)
+    )
+    body[limits_index:limits_index] = resource_section(summary)
+    lines.extend(body)
     lines.extend(
         [
             "## Next action",

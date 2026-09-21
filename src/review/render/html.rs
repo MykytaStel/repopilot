@@ -1,6 +1,6 @@
 use super::helpers::{
     change_proof_headline, change_proof_next_action, change_proof_policy_summary,
-    verification_proof_summary,
+    legacy_readiness_summary, verification_proof_summary,
 };
 use super::html_assets::{SCRIPT, STYLE};
 use crate::baseline::gate::CiGateResult;
@@ -105,6 +105,7 @@ fn render_proof_card(
         format!("<h3>Why this verdict</h3><ul class=\"reasons\">{reasons}</ul>")
     };
     let next_action = change_proof_next_action(proof);
+    let readiness_text = legacy_readiness_summary(report, readiness);
     let (ci_gate, review_gate) = gate_labels(ci_gate, review_gate);
     format!(
         r#"<section class="proof-card verdict-{verdict_class}" id="proof-card" aria-labelledby="proof-heading">
@@ -132,7 +133,7 @@ fn render_proof_card(
         evidence_scope = escape(&evidence.scope_line()),
         evidence_provenance = escape(&evidence.provenance_line()),
         intent_status = escape(proof.intent_drift.status.label()),
-        readiness = readiness.verdict.label(),
+        readiness = escape(&readiness_text),
         readiness_class = readiness.verdict.label(),
         analyzed = proof.coverage.analyzed_files,
         requested = proof.coverage.requested_files,

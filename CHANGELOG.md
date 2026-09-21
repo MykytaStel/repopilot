@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added an additive replayable Proof Receipt to review JSON and SARIF. It is
+  derived from the canonical ChangeProof, records scope/provenance hashes and
+  next action, and fails closed with explicit matched/stale/unsupported/
+  invalid/unavailable replay states while preserving legacy fields and exit
+  codes.
 - Added an advisory CI shadow policy runner that records policy, analyzer and
   revision provenance, bounded redacted logs, report hashes, and explicit
   passed/failed/unavailable/invalid statuses without changing the blocking CI
@@ -25,6 +30,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   violation or negative-control role and tuning/evaluation split; the runner
   verifies baseline, patch, expected independent oracle state, reverse patch,
   and an artifact-backed summary without treating unavailable evidence as pass.
+- Mutation cases can now declare exact `expected_rule_ids`. Receipts record
+  observed rule IDs and distinguish exact violation signals from negative
+  controls; expected-rule cases compare a separate baseline scan by stable
+  rule/path/evidence identity (snippet digests and finding IDs, with a line
+  fallback) so line shifts and pre-existing findings do not poison negative
+  controls. Metrics keep lifecycle-only cases separate from this stronger
+  rule-level evidence and report tuning and evaluation splits independently.
 - Added `sandbox.py report`, which validates pilot and mutation summaries before
   rendering a deterministic local report with per-case status, oracle/lifecycle
   explanations, normalized scan counts and hashes, explicit limits, and next
@@ -45,9 +57,35 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   allowlisted stable rules at a selected profile and priority; advisory mode,
   unavailable evidence, provenance, hashes, and a documented rollback remain
   separate from the existing CI gate.
+- Added an additive decision projection to the Phase 0 evidence audit. CLI,
+  JSON, and Markdown reports now show `verified`, `blocked`, or `invalid`,
+  structured coverage counts, blocking reasons, and the exact next actions
+  without changing legacy fields or exit codes.
+- Added a required `rule-quality` track to the Phase 0 evidence audit. It
+  validates the committed scorecard, snapshot/label denominators, and rule
+  registry coverage, while keeping unmeasured rules explicitly pending rather
+  than treating them as clean or as a production precision/recall estimate;
+  the additive audit protocol is versioned as `phase0-evidence-closure-v2`.
+- Sandbox scanner reports now use a run-owned JSON file with a bounded 8 MiB
+  report limit, so large real-project outputs are normalized before the
+  separate command-log limit is applied; the report hash and byte count remain
+  in the artifact.
+- Sandbox command artifacts now record bounded peak RSS when the host provides
+  the shared `posix-time-v1` sampler. Unsupported platforms, malformed samples,
+  and timeouts remain explicit `unavailable` resource observations instead of
+  being treated as zero memory use.
+- Sandbox artifact validation now requires available RSS observations to carry a
+  positive finite sample from `posix-time-v1`; invalid, stale, or contradictory
+  resource fields are rejected before metrics and reports consume them.
+- Sandbox pilot and mutation summaries now retain analyzed-command resource
+  receipts, and human-facing reports show per-case median peak RSS, sample
+  availability, and sampler source without exposing raw command output.
 
 ### Fixed
 
+- Empty reviews now explain that the legacy `READY` readiness value is a
+  compatibility field and that no changed scope was assessed in console,
+  Markdown, and HTML output.
 - Release publication verification now accepts checksum files with Windows
   CRLF line endings while still failing closed on a digest mismatch.
 - Release builds now smoke-test the packaged archive on native Unix and

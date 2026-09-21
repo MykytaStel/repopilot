@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import statistics
 from pathlib import Path
 from typing import Any
@@ -104,11 +105,14 @@ def _wall_ms(result: Any) -> float | None:
 def _rss_kb(result: Any) -> float | None:
     resource = result.get("resource") if isinstance(result, dict) else None
     value = resource.get("peak_rss_kb") if isinstance(resource, dict) else None
-    return (
-        float(value)
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
-        else None
-    )
+    if not isinstance(resource, dict) or resource.get("status") != "available":
+        return None
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    try:
+        return float(value) if math.isfinite(float(value)) and value > 0 else None
+    except (OverflowError, ValueError):
+        return None
 
 
 def _case_artifacts(
@@ -161,7 +165,12 @@ def _case_artifacts(
                 "case_id": item.get("case_id"),
                 "status": item.get("status"),
                 "mutation_kind": item.get("mutation_kind"),
+                "split": item.get("split", "pilot"),
                 "analysis_mode": item.get("analysis_mode", "default"),
+                "profile": item.get("profile", "default"),
+                "expected_rule_ids": item.get("expected_rule_ids", []),
+                "observed_rule_ids": item.get("observed_rule_ids", []),
+                "rule_observation": item.get("rule_observation"),
                 "analysis_status": "measured"
                 if len(measured) == len(measurements)
                 else "unavailable",

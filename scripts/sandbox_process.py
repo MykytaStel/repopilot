@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from sandbox_contract import ResourcePolicy
+from sandbox_resource import prepare_resource_probe, unavailable_resource
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -43,6 +44,7 @@ class CommandResult:
     payload: bytes | None = None
     stdout_truncated: bool = False
     stderr_truncated: bool = False
+    resource: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -51,10 +53,8 @@ class CommandResult:
             "stdout_sha256": self.stdout_sha256,
             "stderr_sha256": self.stderr_sha256,
             "wall_ms": self.wall_ms,
-            "resource": {
-                "status": "unavailable",
-                "reason": "sandbox RSS sampler is not configured",
-            },
+            "resource": self.resource
+            or unavailable_resource("sandbox RSS sampler is unavailable"),
             "stdout_truncated": self.stdout_truncated,
             "stderr_truncated": self.stderr_truncated,
         }
@@ -106,9 +106,10 @@ def run_command(
     started = time.perf_counter()
     stdout_file = tempfile.TemporaryFile()
     stderr_file = tempfile.TemporaryFile()
+    probe = prepare_resource_probe(command)
     try:
         process = subprocess.Popen(
-            list(command),
+            list(probe.command),
             cwd=cwd,
             stdout=stdout_file,
             stderr=stderr_file,
@@ -118,6 +119,7 @@ def run_command(
     except FileNotFoundError:
         stdout_file.close()
         stderr_file.close()
+        probe.cleanup()
         return CommandResult(
             "unavailable",
             None,
@@ -125,6 +127,7 @@ def run_command(
             sha256_bytes(b""),
             0.0,
             "program is unavailable",
+            resource=probe.sample("unavailable", "program is unavailable"),
         )
     try:
         process.wait(timeout=timeout_seconds)
@@ -155,6 +158,8 @@ def run_command(
     stderr_file.read(log_limit_bytes)
     stdout_file.close()
     stderr_file.close()
+    resource = probe.sample(status)
+    probe.cleanup()
     return CommandResult(
         status,
         returncode,
@@ -165,6 +170,7 @@ def run_command(
         payload,
         stdout_truncated,
         stderr_truncated,
+        resource,
     )
 
 

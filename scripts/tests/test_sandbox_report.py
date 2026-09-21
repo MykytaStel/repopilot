@@ -41,12 +41,22 @@ class SandboxReportTests(unittest.TestCase):
                             "normalized": {
                                 "status": "measured",
                                 "count": 3,
+                                "resource": {
+                                    "status": "available",
+                                    "peak_rss_kb": 2048,
+                                    "source": "posix-time-v1",
+                                },
                             },
                         },
                         {
                             "phase": "warm",
                             "status": "passed",
                             "oracle_status": "passed",
+                            "resource": {
+                                "status": "unavailable",
+                                "reason": "unsupported platform",
+                                "source": "unavailable",
+                            },
                             "normalized": {
                                 "status": "measured",
                                 "count": 3,
@@ -64,6 +74,9 @@ class SandboxReportTests(unittest.TestCase):
         self.assertIn("2 runs per case: cold, warm", report)
         self.assertIn("stable; 3 normalized findings", report)
         self.assertIn("| `changed` |", report)
+        self.assertIn("Resource evidence", report)
+        self.assertIn("1/2 available", report)
+        self.assertIn("posix-time-v1", report)
         self.assertIn("Next action", report)
         self.assertIn("technical reproducibility evidence", report)
 
@@ -88,6 +101,11 @@ class SandboxReportTests(unittest.TestCase):
                         "status": "measured",
                         "count": 1,
                         "sha256": "c" * 64,
+                        "resource": {
+                            "status": "available",
+                            "peak_rss_kb": 4096,
+                            "source": "posix-time-v1",
+                        },
                     },
                     "phases": {
                         "baseline": {"status": "passed"},
@@ -119,6 +137,7 @@ class SandboxReportTests(unittest.TestCase):
         self.assertIn("negative control", report)
         self.assertIn("evaluation", report)
         self.assertIn("RepoPilot scan: 1 normalized finding", report)
+        self.assertIn("median 4,096 KiB", report)
         self.assertIn("| `changed` |", report)
 
     def test_mutation_report_flags_missing_violation_signal(self) -> None:

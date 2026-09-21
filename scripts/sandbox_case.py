@@ -184,6 +184,7 @@ def _base_artifact(
             "scanner_command": None,
             "scanner_sha256": None,
             "analysis_mode": case.analysis_mode,
+            "profile": case.profile,
         },
         "phases": [],
         "status": "failed",
@@ -213,6 +214,38 @@ def _normalize_findings(payload: bytes | None, checkout: Path) -> dict[str, Any]
         if not isinstance(finding, dict):
             continue
         path = finding.get("path")
+        line = finding.get("line")
+        evidence_snippet: str | None = None
+        if (not isinstance(path, str) or not isinstance(line, int)) and isinstance(
+            finding.get("evidence"), list
+        ):
+            evidence = next(
+                (
+                    item
+                    for item in finding["evidence"]
+                    if isinstance(item, dict)
+                    and isinstance(item.get("path"), str)
+                    and isinstance(item.get("line_start"), int)
+                ),
+                None,
+            )
+            if evidence is not None:
+                path = evidence["path"]
+                line = evidence["line_start"]
+                if isinstance(evidence.get("snippet"), str):
+                    evidence_snippet = evidence["snippet"]
+        elif isinstance(finding.get("evidence"), list):
+            evidence = next(
+                (
+                    item
+                    for item in finding["evidence"]
+                    if isinstance(item, dict)
+                    and isinstance(item.get("snippet"), str)
+                ),
+                None,
+            )
+            if evidence is not None:
+                evidence_snippet = evidence["snippet"]
         if isinstance(path, str):
             try:
                 raw_path = Path(path)
@@ -220,20 +253,23 @@ def _normalize_findings(payload: bytes | None, checkout: Path) -> dict[str, Any]
                 path = str(candidate.resolve().relative_to(checkout.resolve()))
             except ValueError:
                 path = "<outside-checkout>"
-        normalized.append(
-            {
-                "rule_id": finding.get("rule_id")
-                if isinstance(finding.get("rule_id"), str)
-                else "unknown",
-                "path": path if isinstance(path, str) else None,
-                "line": finding.get("line")
-                if isinstance(finding.get("line"), int)
-                else None,
-                "in_diff": finding.get("in_diff")
-                if isinstance(finding.get("in_diff"), bool)
-                else None,
-            }
-        )
+        item: dict[str, Any] = {
+            "rule_id": finding.get("rule_id")
+            if isinstance(finding.get("rule_id"), str)
+            else "unknown",
+            "path": path if isinstance(path, str) else None,
+            "line": line if isinstance(line, int) else None,
+            "in_diff": finding.get("in_diff")
+            if isinstance(finding.get("in_diff"), bool)
+            else None,
+        }
+        if isinstance(finding.get("id"), str):
+            item["finding_id"] = finding["id"]
+        if evidence_snippet is not None:
+            item["evidence_sha256"] = sha256_bytes(
+                evidence_snippet.encode("utf-8")
+            )
+        normalized.append(item)
     normalized.sort(
         key=lambda item: (item["path"] or "", item["line"] or 0, item["rule_id"])
     )

@@ -99,6 +99,7 @@ fn findings_to_sarif_with_properties(
                 report: ReportEnvelope::sarif(),
                 change_proof: None,
                 evidence: None,
+                proof_receipt: None,
                 verification: None,
             },
             results: findings

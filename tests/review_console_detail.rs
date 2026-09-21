@@ -75,6 +75,7 @@ fn report_with_changed_files() -> ReviewReport {
         .chain(["README.md".to_string(), "tools/check.rs".to_string()]);
 
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 root_path: PathBuf::from("."),

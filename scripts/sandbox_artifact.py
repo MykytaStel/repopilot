@@ -16,6 +16,7 @@ from sandbox_contract import (
     SandboxManifestError,
 )
 from sandbox_manifest import load_manifest
+from sandbox_resource import validate_resource_observation
 
 
 def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
@@ -47,6 +48,10 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
         for phase in phases
     ):
         raise SandboxManifestError("sandbox artifact phases are invalid")
+    for phase in phases:
+        result = phase.get("result")
+        if isinstance(result, dict) and "resource" in result:
+            validate_resource_observation(result["resource"], f"phase {phase['name']}")
     cleanup = data.get("cleanup")
     if not isinstance(cleanup, dict) or cleanup.get("status") not in {
         "complete",
@@ -68,6 +73,11 @@ def validate_artifact(path: Path, manifest_path: Path) -> dict[str, Any]:
             raise SandboxManifestError(
                 "sandbox artifact analysis_mode does not match manifest"
             )
+        profile = provenance.get("profile", "default")
+        if profile not in {"default", "strict"}:
+            raise SandboxManifestError("sandbox artifact profile is unsupported")
+        if profile != case.profile:
+            raise SandboxManifestError("sandbox artifact profile does not match manifest")
     project = manifest.project(case.project_id)
     if inputs.get("project_sha") != project.sha or inputs.get("image") != case.image:
         raise SandboxManifestError(
@@ -141,6 +151,8 @@ def validate_pilot_summary(path: Path, manifest_path: Path) -> dict[str, Any]:
             raise SandboxManifestError(
                 "pilot summary analysis_mode does not match manifest"
             )
+        if item.get("profile", "default") != manifest.case(case_id).profile:
+            raise SandboxManifestError("pilot summary profile does not match manifest")
         runs = item.get("runs")
         if not isinstance(runs, list) or len(runs) != repeats:
             raise SandboxManifestError("pilot summary run count does not match repeats")
@@ -223,10 +235,35 @@ def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]
             or item.get("split") != expected.split
             or item.get("expected_oracle") != expected.expected_oracle
             or item.get("analysis_mode", "default") != expected.analysis_mode
+            or item.get("profile", "default") != expected.profile
         ):
             raise SandboxManifestError(
                 "mutation summary case metadata does not match manifest"
             )
+        expected_rule_ids = item.get("expected_rule_ids")
+        if expected.expected_rule_ids:
+            if expected_rule_ids != list(expected.expected_rule_ids):
+                raise SandboxManifestError(
+                    "mutation summary expected rule IDs do not match manifest"
+                )
+        elif expected_rule_ids is not None and expected_rule_ids != []:
+            raise SandboxManifestError(
+                "mutation summary expected rule IDs do not match manifest"
+            )
+        observed_rule_ids = item.get("observed_rule_ids")
+        if observed_rule_ids is not None and (
+            not isinstance(observed_rule_ids, list)
+            or any(not isinstance(rule_id, str) for rule_id in observed_rule_ids)
+            or observed_rule_ids != sorted(set(observed_rule_ids))
+        ):
+            raise SandboxManifestError("mutation summary observed rule IDs are invalid")
+        observation = item.get("rule_observation")
+        if observation is not None and (
+            not isinstance(observation, dict)
+            or observation.get("status")
+            not in {"matched", "failed", "not-declared"}
+        ):
+            raise SandboxManifestError("mutation summary rule observation is invalid")
         if item.get("status") not in {"passed", "failed", "unavailable"}:
             raise SandboxManifestError("mutation summary case has unsupported status")
         artifact_name = item.get("artifact")
@@ -244,6 +281,42 @@ def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]
             raise SandboxManifestError(
                 "mutation artifact case does not match summary case"
             )
+        if expected.expected_rule_ids:
+            try:
+                artifact_data = json.loads(artifact.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as error:
+                raise SandboxManifestError(
+                    f"cannot read mutation artifact {artifact}: {error}"
+                ) from error
+            from sandbox_mutation import _analysis, _rule_observation
+
+            recomputed = _analysis(artifact_data)
+            if item.get("observed_rule_ids") != recomputed["rule_ids"]:
+                raise SandboxManifestError(
+                    "mutation summary observed rule IDs do not match artifact"
+                )
+            summary_analysis = item.get("analysis")
+            if (
+                not isinstance(summary_analysis, dict)
+                or summary_analysis.get("rule_ids") != recomputed["rule_ids"]
+            ):
+                raise SandboxManifestError(
+                    "mutation summary analysis rule IDs do not match artifact"
+                )
+            expected_observation = _rule_observation(
+                expected.expected_rule_ids,
+                expected.mutation_kind,
+                tuple(recomputed["rule_ids"]),
+            )
+            observation = item.get("rule_observation")
+            if (
+                not isinstance(observation, dict)
+                or observation.get("status") != expected_observation[0]
+                or observation.get("reason") != expected_observation[1]
+            ):
+                raise SandboxManifestError(
+                    "mutation summary rule observation does not match artifact"
+                )
         phases = item.get("phases")
         if not isinstance(phases, dict) or any(
             not isinstance(phases.get(name), dict)
@@ -268,6 +341,13 @@ def validate_mutation_summary(path: Path, manifest_path: Path) -> dict[str, Any]
                 not isinstance(digest, str) or not SHA256.fullmatch(digest)
             ):
                 raise SandboxManifestError("mutation summary analysis hash is invalid")
+            rule_ids = analysis.get("rule_ids", [])
+            if (
+                not isinstance(rule_ids, list)
+                or any(not isinstance(rule_id, str) for rule_id in rule_ids)
+                or rule_ids != sorted(set(rule_ids))
+            ):
+                raise SandboxManifestError("mutation summary analysis rule IDs are invalid")
     if seen != set(expected_cases):
         raise SandboxManifestError("mutation summary is missing manifest cases")
     return {"status": "valid", "cases": len(cases)}

@@ -24,6 +24,9 @@ pub struct ReviewTimings {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ReviewReport {
+    /// Workspace revision captured with the analysis session. Renderers reuse
+    /// this value so later output writes cannot change receipt provenance.
+    pub analysis_revision: Option<String>,
     pub summary: ScanSummary,
     pub repo_root: PathBuf,
     pub baseline_path: Option<PathBuf>,

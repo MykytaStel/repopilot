@@ -3,6 +3,7 @@ use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
 use crate::review::proof::{ChangeProof, ChangeProofVerdict, ProofObligations};
+use crate::review::readiness::MergeReadinessRecord;
 use crate::verification::VerificationOutcome;
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
@@ -72,19 +73,18 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
 }
 
 pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
-    match proof.verdict {
-        ChangeProofVerdict::Broken => {
-            "Inspect the broken contract and its listed consumer before merge."
-        }
-        ChangeProofVerdict::Review => {
-            "Review the listed evidence, close the proof limits, or run the required checks."
-        }
-        ChangeProofVerdict::Verified => {
-            "Proceed with the normal merge review; the reported scope has compatible proof."
-        }
-        ChangeProofVerdict::NotAssessed => {
-            "Expand the analyzable scope before treating this review as evidence."
-        }
+    crate::review::proof::next_action_for(proof)
+}
+
+pub(super) fn legacy_readiness_summary(
+    report: &ReviewReport,
+    readiness: &MergeReadinessRecord,
+) -> String {
+    let label = readiness.verdict.label();
+    if report.changed_files.is_empty() {
+        format!("{label} (compatibility field; no changed scope assessed)")
+    } else {
+        label.to_string()
     }
 }
 
