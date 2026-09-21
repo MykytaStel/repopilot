@@ -118,8 +118,9 @@ repopilot review . --base origin/main --fail-on-review definitely
 Every review also resolves to one merge-readiness verdict — `ready`,
 `review`, or `blocked` — built from findings, review signals, CODEOWNERS,
 and blast radius, with deterministic reason codes and suggested owners.
-Console, Markdown, JSON, MCP, and the GitHub Action summary all read the
-same record.
+Console, Markdown, JSON, MCP, and the GitHub Action summary all read the same
+ChangeProof and evidence records; machine projections keep the legacy fields
+for compatibility.
 
 ## Compare risk across runs
 

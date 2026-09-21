@@ -32,11 +32,18 @@ class RealHistoryRunnerTests(unittest.TestCase):
                 {"rule_id": "security.secret-candidate", "in_diff": True},
                 {"rule_id": "architecture.large-file", "in_diff": False},
             ],
+            "change_proof": {
+                "contract_deltas": [
+                    {"family": "security-boundary", "change": "boundary-changed"}
+                ]
+            },
         }
         summary = summarize_review(report, b"report")
         self.assertEqual(summary["in_diff_findings"], 1)
         self.assertEqual(summary["out_of_diff_findings"], 1)
         self.assertEqual(summary["in_diff_rule_ids"], ["security.secret-candidate"])
+        self.assertEqual(summary["contract_delta_ids"], ["security-boundary/boundary-changed"])
+        self.assertEqual(summary["contract_delta_count"], 1)
         self.assertEqual(len(summary["report_sha256"]), 64)
         self.assertEqual(len(summary["stable_evidence_sha256"]), 64)
 

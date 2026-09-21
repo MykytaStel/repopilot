@@ -2,6 +2,8 @@ use crate::review::diff::ChangedFile;
 
 use super::*;
 
+#[path = "dependency/lockfile.rs"]
+mod lockfile;
 #[path = "dependency/parse.rs"]
 mod parse;
 use parse::*;
@@ -14,30 +16,12 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
         };
         let path = file.path_string();
         if kind == ManifestKind::Lockfile {
-            if file.hunks.iter().any(|hunk| {
-                hunk.added_lines
-                    .iter()
-                    .chain(&hunk.removed_lines)
-                    .any(|line| {
-                        let line = line.trim_start();
-                        line.starts_with("version =")
-                            || line.starts_with("\"version\":")
-                            || line.starts_with("version:")
-                    })
-            }) {
-                deltas.push(delta(
-                    &path,
-                    "lockfile resolution",
-                    ContractChangeKind::MetadataOnly,
-                    None,
-                    "Lockfile resolution changed, but this diff does not prove the package identity or exact dependency transition.",
-                    ContractConfidence::Limited,
-                ));
-            }
+            deltas.extend(lockfile::deltas(file, &path));
             continue;
         }
 
         for hunk in &file.hunks {
+            let delta_count_before_hunk = deltas.len();
             let removed = hunk
                 .removed_lines
                 .iter()
@@ -59,19 +43,33 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
                 }
             }
             for (old, new) in paired {
-                let change = classify_pair(&old.specification, &new.specification);
-                deltas.push(delta(
-                    &path,
-                    &new.name,
-                    change,
-                    new.line.or(old.line),
-                    &format!(
+                let alias = is_workspace_alias(&old.specification)
+                    || is_workspace_alias(&new.specification);
+                let change = if alias {
+                    ContractChangeKind::AliasChanged
+                } else {
+                    classify_pair(&old.specification, &new.specification)
+                };
+                let evidence = if alias {
+                    format!(
+                        "Workspace dependency alias `{}` changed from `{}` to `{}`; exact workspace resolution is not claimed.",
+                        new.name, old.specification, new.specification
+                    )
+                } else {
+                    format!(
                         "{} dependency `{}` changed from `{}` to `{}`.",
                         manifest_label(kind),
                         new.name,
                         old.specification,
                         new.specification
-                    ),
+                    )
+                };
+                deltas.push(delta(
+                    &path,
+                    &new.name,
+                    change,
+                    new.line.or(old.line),
+                    &evidence,
                     ContractConfidence::High,
                 ));
             }
@@ -124,6 +122,22 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
                     ContractConfidence::High,
                 ));
             }
+            if deltas.len() == delta_count_before_hunk
+                && hunk
+                    .added_lines
+                    .iter()
+                    .chain(&hunk.removed_lines)
+                    .any(|line| is_meaningful_change(line))
+            {
+                deltas.push(delta(
+                    &path,
+                    "manifest dependency resolution",
+                    ContractChangeKind::Unknown,
+                    hunk.new_range.or(hunk.old_range).map(|range| range.start),
+                    "Manifest dependency change could not be classified with supported package specification evidence.",
+                    ContractConfidence::Limited,
+                ));
+            }
         }
     }
     deltas.sort_by(|left, right| {
@@ -136,6 +150,19 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
     deltas
 }
 
+fn is_meaningful_change(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with("//")
+        || (trimmed.starts_with('[') && trimmed.ends_with(']'))
+        || matches!(trimmed, "{" | "}" | "[" | "]" | ",")
+    {
+        return false;
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,11 +170,21 @@ mod tests {
     use std::path::PathBuf;
 
     fn changed(path: &str, added: &[&str], removed: &[&str]) -> ChangedFile {
+        changed_with_header(path, added, removed, None)
+    }
+
+    fn changed_with_header(
+        path: &str,
+        added: &[&str],
+        removed: &[&str],
+        header: Option<&str>,
+    ) -> ChangedFile {
         ChangedFile {
             path: PathBuf::from(path),
             status: ChangeStatus::Modified,
             ranges: vec![ChangedRange { start: 4, end: 4 }],
             hunks: vec![DiffHunk {
+                header: header.map(str::to_string),
                 new_range: Some(ChangedRange { start: 4, end: 4 }),
                 old_range: Some(ChangedRange { start: 4, end: 4 }),
                 added_lines: added.iter().map(|line| (*line).to_string()).collect(),
@@ -226,5 +263,71 @@ mod tests {
         )]);
         assert_eq!(npm_deltas.len(), 1);
         assert_eq!(npm_deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn unclassified_lockfile_change_is_unknown_and_limited() {
+        let deltas = dependency_deltas(&[changed(
+            "package-lock.json",
+            &["    \"integrity\": \"sha512-new\","],
+            &["    \"integrity\": \"sha512-old\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn dynamic_manifest_specification_is_unknown_and_limited() {
+        let deltas = dependency_deltas(&[changed(
+            "package.json",
+            &["    \"react\": \"${REACT_VERSION}\","],
+            &["    \"react\": \"${OLD_REACT_VERSION}\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn cargo_lockfile_version_change_keeps_package_identity() {
+        let deltas = dependency_deltas(&[changed_with_header(
+            "Cargo.lock",
+            &["version = \"2.1.0\""],
+            &["version = \"2.0.0\""],
+            Some("name = \"beta\""),
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].consumer_path, "beta");
+        assert_eq!(deltas[0].change, ContractChangeKind::Upgraded);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::High));
+    }
+
+    #[test]
+    fn workspace_alias_transition_is_typed_for_cargo() {
+        let deltas = dependency_deltas(&[changed(
+            "crates/app/Cargo.toml",
+            &["shared = { workspace = true }"],
+            &["shared = { version = \"1.0\" }"],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::AliasChanged);
+        assert!(deltas[0].evidence.contains("Workspace dependency alias"));
+    }
+
+    #[test]
+    fn workspace_alias_transition_is_typed_for_npm() {
+        let deltas = dependency_deltas(&[changed(
+            "packages/app/package.json",
+            &["    \"shared\": \"workspace:^\","],
+            &["    \"shared\": \"workspace:*\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::AliasChanged);
     }
 }

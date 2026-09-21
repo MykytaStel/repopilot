@@ -18,6 +18,7 @@ pub enum OutputFormatArg {
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum CompareOutputFormatArg {
     Console,
+    Html,
     Json,
     Markdown,
 }
@@ -107,6 +108,7 @@ impl From<CompareOutputFormatArg> for OutputFormat {
     fn from(format: CompareOutputFormatArg) -> Self {
         match format {
             CompareOutputFormatArg::Console => OutputFormat::Console,
+            CompareOutputFormatArg::Html => OutputFormat::Html,
             CompareOutputFormatArg::Json => OutputFormat::Json,
             CompareOutputFormatArg::Markdown => OutputFormat::Markdown,
         }

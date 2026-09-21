@@ -129,6 +129,25 @@ jobs:
           echo "ASSET=dist/${AssetName}.zip" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "CHECKSUM=dist/${AssetName}.zip.sha256" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      - name: Smoke packaged archive (Unix)
+        if: matrix.archive == 'tar.gz' && matrix.target != 'aarch64-unknown-linux-gnu'
+        run: |
+          mkdir -p packaged-smoke
+          tar -xzf "$ASSET" -C packaged-smoke
+          ./packaged-smoke/repopilot --version
+
+      - name: Smoke packaged archive (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $SmokeDir = "packaged-smoke"
+          Expand-Archive -Path $env:ASSET -DestinationPath $SmokeDir
+          & ".\$SmokeDir\repopilot.exe" --version
+
+      - name: Record cross-compiled smoke boundary
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: echo "::notice::packaged archive smoke is unavailable for the cross-compiled Linux ARM target on this runner"
+
       - name: Generate artifact attestations
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
@@ -375,7 +394,7 @@ jobs:
             fi
             test -f "$verify_tmp/$archive"
             test -f "$verify_tmp/$archive.sha256"
-            (cd "$verify_tmp" && sha256sum -c "$archive.sha256")
+            (cd "$verify_tmp" && tr -d '\r' < "$archive.sha256" | sha256sum -c -)
           done
 
           cargo package --allow-dirty --no-verify >/dev/null
@@ -427,6 +446,21 @@ jobs:
             rm -f "$error_file"
           }
 
+          check_homebrew_digests() {
+            local formula="$1" target expected
+            for target in \
+              aarch64-apple-darwin \
+              x86_64-apple-darwin \
+              aarch64-unknown-linux-gnu \
+              x86_64-unknown-linux-gnu; do
+              expected="$(awk '{print $1}' "$verify_tmp/repopilot-${VERSION}-${target}.tar.gz.sha256")"
+              if [[ -z "$expected" ]] || ! grep -Fq "sha256 \"$expected\"" <<<"$formula"; then
+                echo "::error::published-mismatch; Homebrew formula digest does not match ${target}"
+                exit 1
+              fi
+            done
+          }
+
           for attempt in {1..20}; do
             echo "Publication verification attempt ${attempt}/20"
             retry_needed=false
@@ -459,6 +493,7 @@ jobs:
             if formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" 2>"$verify_tmp/formula.err")"; then
               formula_version="$(sed -nE 's/^version "([^"]+)".*/\1/p' <<<"$formula" | head -n 1)"
               if [[ "$formula_version" == "$VERSION_NUMBER" ]]; then
+                check_homebrew_digests "$formula"
                 record_state --channel homebrew --expected-version "$VERSION_NUMBER" --observed-version "$formula_version"
               elif [[ -z "$formula_version" ]]; then
                 record_state --channel homebrew --expected-version "$VERSION_NUMBER"

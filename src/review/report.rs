@@ -15,6 +15,7 @@ use crate::review::model::{ReviewFindingStatus, ReviewReport};
 use crate::review::ownership::{OwnershipIndex, OwnershipSummary};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, tiered};
+use crate::review::verification::VerificationPolicy;
 use crate::risk::{apply_blast_radius_overlay, apply_review_overlay};
 use crate::scan::session::AnalysisSession;
 use crate::scan::types::ScanSummary;
@@ -94,7 +95,10 @@ pub fn build_review_report_from_session(
     baseline: Option<(&Baseline, PathBuf)>,
     session: &AnalysisSession,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
-    build_review_report_from_input(summary, input, baseline, session.repo_config())
+    let mut report =
+        build_review_report_from_input(summary, input, baseline, session.repo_config())?;
+    report.analysis_revision = Some(session.revision().id().to_string());
+    Ok(report)
 }
 
 pub fn build_review_report_from_input(
@@ -129,14 +133,17 @@ pub fn build_review_report_from_input(
         None => all_findings_new(summary),
     };
 
-    Ok(classify_findings(
+    let mut report = classify_findings(
         baseline_report,
         repo_root,
         changed_files,
         boundary_signals,
         content_signals,
         config.review.impact_path_depth,
-    ))
+    );
+    report.intent.critical_paths = config.review.critical_paths.clone();
+    report.verification_policy = VerificationPolicy::from_configs(&config.verification.checks);
+    Ok(report)
 }
 
 fn classify_findings(
@@ -203,6 +210,7 @@ fn classify_findings(
     sort_findings_with_review_status(&mut summary.artifacts.findings, &mut findings);
 
     ReviewReport {
+        analysis_revision: None,
         summary,
         repo_root,
         baseline_path: baseline_report.baseline_path,
@@ -215,7 +223,9 @@ fn classify_findings(
         boundary_missing_test,
         tiered_signals,
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings,
     }
 }

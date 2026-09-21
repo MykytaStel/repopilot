@@ -9,6 +9,7 @@ mod file_pipeline;
 mod finalize;
 mod full;
 mod summary;
+mod syntax_diagnostics;
 mod walker;
 
 pub use changed::{

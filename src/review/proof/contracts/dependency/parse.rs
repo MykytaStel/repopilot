@@ -176,6 +176,15 @@ pub(super) fn classify_pair(old: &str, new: &str) -> ContractChangeKind {
     }
 }
 
+pub(super) fn is_workspace_alias(specification: &str) -> bool {
+    let normalized = specification
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    normalized.contains("workspace=true") || normalized.starts_with("workspace:")
+}
+
 fn source_part(specification: &str) -> String {
     specification
         .split([',', '}'])

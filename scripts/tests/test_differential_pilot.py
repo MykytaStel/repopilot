@@ -14,6 +14,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 from differential_artifact import validate_artifact  # noqa: E402
 from differential_pilot import load_pilot, render_pilot_template, validate_pilot  # noqa: E402
 from differential_pilot_metrics import build_pilot_metrics  # noqa: E402
+from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
@@ -71,6 +72,156 @@ class DifferentialPilotTests(unittest.TestCase):
         self.assertEqual(output["counts"], {"tp": 0, "fn": 0, "tn": 0, "fp": 1, "excluded": 1})
         self.assertIsNone(output["metrics"]["recall"]["value"])
         self.assertEqual(output["measurements"]["deterministic_cases"], 2)
+
+    def test_metrics_use_recorded_telemetry_and_baseline_overlap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inputs = self._write_inputs(root, include_novel=True)
+            data = json.loads(inputs["artifact"].read_text(encoding="utf-8"))
+            for case in data["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(run["wall_ms"])
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": ["security.secret-candidate"],
+                            "comparison": {
+                                "status": "measured",
+                                "keys": ["security.secret-candidate"],
+                                "scheme": "review-exact-v1",
+                            },
+                        }
+                for index, review in enumerate(case["reviews"]):
+                    review["in_diff_comparison_keys"] = []
+                    review["resource_status"] = "available"
+                    review["resource_source"] = "posix-time-v1"
+                    review["resource_phase"] = "cold" if index == 0 else "warm"
+                    review["child_max_rss_kb"] = 100 + index * 10
+                    review["telemetry"] = {
+                        "schema_version": 1,
+                        "events": [
+                            {"name": "process_started", "elapsed_ms": 0.0},
+                            {"name": "evidence_ready", "elapsed_ms": 5.0},
+                            {"name": "decision_ready", "elapsed_ms": 10.0},
+                            {"name": "process_finished", "elapsed_ms": review["wall_ms"]},
+                        ],
+                    }
+            inputs["artifact"].write_text(json.dumps(data), encoding="utf-8")
+            pilot = root / "pilot.toml"
+            pilot.write_text(
+                render_pilot_template(
+                    inputs["artifact"], inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"], "expert"
+                )
+                .replace('label = ""', 'label = "no-defect"', 1)
+                .replace('rationale = ""', 'rationale = "reviewed first case"', 1)
+                .replace('label = ""', 'label = "uncertain"', 1)
+                .replace('rationale = ""', 'rationale = "insufficient context"', 1),
+                encoding="utf-8",
+            )
+            output = build_pilot_metrics(
+                inputs["artifact"], pilot, inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"]
+            )
+        self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["status"], "measured")
+        self.assertEqual(output["measurements"]["time_to_first_useful_evidence"]["median_ms"], 5.0)
+        self.assertEqual(output["measurements"]["decision_latency"]["median_ms"], 10.0)
+        self.assertEqual(output["measurements"]["duplicate_work"]["overlap_count"], 0)
+        self.assertEqual(
+            output["measurements"]["median_review_child_max_rss_kb_by_phase"],
+            {"cold": 100.0, "warm": 115.0},
+        )
+
+    def test_metrics_do_not_infer_overlap_from_unmapped_baseline_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inputs = self._write_inputs(root, include_novel=True)
+            data = json.loads(inputs["artifact"].read_text(encoding="utf-8"))
+            for case in data["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": ["python.tests:tests/test_api.py::test_create:failed"],
+                            "comparison": {
+                                "status": "unavailable",
+                                "reason": "baseline evidence has no review-comparable identity mapping",
+                                "scheme": "review-exact-v1",
+                            },
+                        }
+            inputs["artifact"].write_text(json.dumps(data), encoding="utf-8")
+            pilot = root / "pilot.toml"
+            pilot.write_text(
+                render_pilot_template(
+                    inputs["artifact"], inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"], "expert"
+                )
+                .replace('label = ""', 'label = "no-defect"', 1)
+                .replace('rationale = ""', 'rationale = "reviewed first case"', 1)
+                .replace('label = ""', 'label = "uncertain"', 1)
+                .replace('rationale = ""', 'rationale = "insufficient context"', 1),
+                encoding="utf-8",
+            )
+            output = build_pilot_metrics(
+                inputs["artifact"], pilot, inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"]
+            )
+        self.assertEqual(output["measurements"]["duplicate_work"]["status"], "unavailable")
+        self.assertEqual(
+            output["measurements"]["duplicate_work"]["reason"],
+            "baseline evidence has no review-comparable identity mapping",
+        )
+
+    def test_metrics_use_explicit_review_verification_for_pytest_overlap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inputs = self._write_inputs(root, include_novel=True)
+            data = json.loads(inputs["artifact"].read_text(encoding="utf-8"))
+            for case in data["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": [
+                                "python.tests:tests/test_api.py::test_create:failed"
+                            ]
+                            if case["id"] == "case-two"
+                            else ["python.compile:pkg/api.py:4:SyntaxError"],
+                            "comparison": {
+                                "status": "unavailable",
+                                "reason": "baseline evidence has no review-comparable identity mapping",
+                                "scheme": "review-exact-v1",
+                            }
+                            if case["id"] == "case-two"
+                            else {
+                                "status": "measured",
+                                "keys": ["python.compile:pkg/api.py:4:SyntaxError"],
+                                "scheme": "review-exact-v1",
+                            },
+                        }
+                if case["id"] == "case-two":
+                    for review in case["reviews"]:
+                        review["verification_comparison"] = {
+                            "status": "measured",
+                            "keys": [
+                                "python.tests:tests/test_api.py::test_create:failed"
+                            ],
+                            "scheme": "review-verification-v1",
+                        }
+            inputs["artifact"].write_text(json.dumps(data), encoding="utf-8")
+            pilot = root / "pilot.toml"
+            pilot.write_text(
+                render_pilot_template(
+                    inputs["artifact"], inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"], "expert"
+                )
+                .replace('label = ""', 'label = "no-defect"', 1)
+                .replace('rationale = ""', 'rationale = "reviewed first case"', 1)
+                .replace('label = ""', 'label = "uncertain"', 1)
+                .replace('rationale = ""', 'rationale = "verification evidence"', 1),
+                encoding="utf-8",
+            )
+            output = build_pilot_metrics(
+                inputs["artifact"], pilot, inputs["manifest"], inputs["differential"], inputs["rules"], inputs["zoo"]
+            )
+        duplicate = output["measurements"]["duplicate_work"]
+        self.assertEqual(duplicate["status"], "measured")
+        self.assertEqual(duplicate["overlap_count"], 1)
 
     @staticmethod
     def _write_inputs(root: Path, include_novel: bool = False) -> dict[str, Path]:

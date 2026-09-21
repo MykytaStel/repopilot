@@ -176,6 +176,15 @@ fn review_flags_code_boundary_without_a_test_change() {
 
     let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
     assert_eq!(json["review"]["boundary_missing_test"], true);
+    assert!(
+        json["change_proof"]["contract_deltas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|delta| {
+                delta["family"] == "test-coverage" && delta["change"] == "test-missing"
+            })
+    );
 }
 
 #[test]
@@ -198,6 +207,73 @@ fn review_silent_when_boundary_change_includes_a_test() {
 
     let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
     assert_eq!(json["review"]["boundary_missing_test"], false);
+    assert!(
+        json["change_proof"]["contract_deltas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|delta| {
+                delta["family"] == "test-coverage" && delta["change"] == "test-changed"
+            })
+    );
+}
+
+#[test]
+fn review_connects_security_boundary_to_bounded_entrypoint_and_related_test() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    write(
+        temp.path(),
+        "src/auth/policy.ts",
+        "export const policy = () => true;\n",
+    );
+    write(
+        temp.path(),
+        "src/routes/users.ts",
+        "import { policy } from \"../auth/policy\";\nexport const users = () => policy();\n",
+    );
+    write(
+        temp.path(),
+        "tests/auth.test.ts",
+        "test('auth', () => {});\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write(
+        temp.path(),
+        "src/auth/policy.ts",
+        "export const policy = () => false;\n",
+    );
+    write(
+        temp.path(),
+        "tests/auth.test.ts",
+        "test('auth', () => expect(true).toBe(true));\n",
+    );
+
+    let json = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    let deltas = json["change_proof"]["contract_deltas"]
+        .as_array()
+        .expect("contract delta array");
+    assert!(deltas.iter().any(|delta| {
+        delta["family"] == "security-boundary" && delta["change"] == "boundary-changed"
+    }));
+    assert!(deltas.iter().any(|delta| {
+        delta["family"] == "security-boundary"
+            && delta["change"] == "entry-point-impacted"
+            && delta["consumer_path"] == "src/routes/users.ts"
+    }));
+    assert!(deltas.iter().any(|delta| {
+        delta["family"] == "test-coverage"
+            && delta["change"] == "test-changed"
+            && delta["consumer_path"] == "tests/auth.test.ts"
+    }));
+    assert!(
+        deltas
+            .iter()
+            .filter(|delta| delta["family"] == "security-boundary")
+            .all(|delta| delta["confidence"] == "limited")
+    );
 }
 
 fn run_review_json(root: &Path, args: &[&str]) -> Value {

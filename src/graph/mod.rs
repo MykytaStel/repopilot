@@ -180,7 +180,7 @@ fn process_import(
             source,
             repo_jvm_packages,
             repo_dirs,
-        ) =>
+        ) || resolution_stats::is_unresolved_go_module_import(raw.trim(), source, root) =>
         {
             resolution.record_classified(source, raw.trim(), root)
         }

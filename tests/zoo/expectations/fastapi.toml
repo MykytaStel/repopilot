@@ -37,3 +37,13 @@ line = 1221
 evidence = "sample"
 disposition = "valid-but-accepted"
 reason = "A 59-line route-registration signature, nine lines over the threshold. Almost all of it is the documented FastAPI parameter list, not logic."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-file:scripts/label_approved.py:0817bda7890a6b73"
+rule_id = "code-quality.complex-file"
+path = "scripts/label_approved.py"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The 51-line automation script combines review aggregation, label policy, and guarded GitHub mutations; the branch density is real but localized to a small integration script with straightforward control flow."

@@ -50,6 +50,61 @@ pub(super) fn resolve_go(
     None
 }
 
+/// Enumerates source files for an import inside the module declared by the
+/// repository's `go.mod`.
+///
+/// Go packages are directories rather than one conventionally named file, so
+/// the candidate set is the package's non-test `.go` files. A `replace`
+/// directive can redirect even an otherwise local-looking module path outside
+/// this repository; those imports remain limited instead of becoming a false
+/// missing-package finding.
+pub(super) fn definitive_local_candidates(raw: &str, root: &Path) -> Option<Vec<PathBuf>> {
+    let module_name = read_go_module_name(root)?;
+    let rest = strip_go_module_prefix(raw, &module_name)?;
+    if go_mod_has_replace(root) || rest == "/" || rest.contains('\\') || rest.contains('\0') {
+        return None;
+    }
+
+    let relative = rest.trim_start_matches('/');
+    let relative_path = Path::new(relative);
+    if relative_path
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return None;
+    }
+    let package_dir = normalize_path(&root.join(relative_path));
+    let root = normalize_path(root);
+    if !package_dir.starts_with(&root) {
+        return None;
+    }
+
+    let mut candidates = std::fs::read_dir(&package_dir)
+        .ok()
+        .into_iter()
+        .flat_map(|entries| entries.filter_map(Result::ok))
+        .filter_map(|entry| {
+            let file_type = entry.file_type().ok()?;
+            if !file_type.is_file() {
+                return None;
+            }
+            let path = entry.path();
+            let name = path.file_name()?.to_str()?;
+            (path.extension().and_then(|extension| extension.to_str()) == Some("go")
+                && !name.ends_with("_test.go"))
+            .then_some(path)
+        })
+        .collect::<Vec<_>>();
+    candidates.sort();
+    Some(candidates)
+}
+
+pub(super) fn is_local_module_import(raw: &str, root: &Path) -> bool {
+    read_go_module_name(root)
+        .and_then(|module| strip_go_module_prefix(raw, &module))
+        .is_some()
+}
+
 fn strip_go_module_prefix<'a>(raw: &'a str, module_name: &str) -> Option<&'a str> {
     raw.strip_prefix(module_name)
         .filter(|rest| rest.is_empty() || rest.starts_with('/'))
@@ -94,4 +149,13 @@ fn read_go_module_name(root: &Path) -> Option<String> {
         .unwrap()
         .insert(root.to_path_buf(), module.clone());
     module
+}
+
+fn go_mod_has_replace(root: &Path) -> bool {
+    std::fs::read_to_string(root.join("go.mod")).is_ok_and(|content| {
+        content.lines().any(|line| {
+            let trimmed = line.trim();
+            trimmed.split_whitespace().next() == Some("replace")
+        })
+    })
 }

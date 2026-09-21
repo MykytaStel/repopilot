@@ -95,9 +95,11 @@ steps:
       upload-sarif: "true"
 ```
 
-Review SARIF contains in-diff scan findings and concrete taint issues.
-Boundary and algorithmic facts remain workflow annotations rather than Code
-Scanning alerts.
+Review SARIF contains in-diff scan findings and concrete taint issues. Its run
+properties also carry the gated canonical `changeProof` and, when checks ran,
+the raw `verification` outcomes, so machine consumers can inspect proof scope
+and limitations without inferring them from alert counts. Boundary and
+algorithmic facts remain workflow annotations rather than Code Scanning alerts.
 
 Generate the same artifacts locally:
 

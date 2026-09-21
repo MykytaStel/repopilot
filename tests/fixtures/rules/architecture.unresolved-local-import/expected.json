@@ -13,6 +13,18 @@
       ]
     },
     {
+      "path": "true_positive_rust",
+      "expected_rule_ids": [
+        "architecture.unresolved-local-import"
+      ]
+    },
+    {
+      "path": "true_positive_go",
+      "expected_rule_ids": [
+        "architecture.unresolved-local-import"
+      ]
+    },
+    {
       "path": "false_positive_existing",
       "expected_rule_ids": []
     },
@@ -22,6 +34,22 @@
     },
     {
       "path": "false_positive_package_member",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_rust_existing",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_go_existing",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_go_external",
+      "expected_rule_ids": []
+    },
+    {
+      "path": "false_positive_go_replace",
       "expected_rule_ids": []
     }
   ]

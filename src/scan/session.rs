@@ -9,6 +9,7 @@ use std::process::Command;
 
 const REVISION_SCHEMA: &str = "analysis-session-v1";
 const CACHE_DIR: &str = ".repopilot/cache";
+const MAX_REVISION_FILE_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Immutable inputs shared by one RepoPilot analysis pass.
 ///
@@ -145,12 +146,7 @@ fn hash_status_entries(hasher: &mut Sha256, workspace_root: &Path, entries: Vec<
             hasher.update(old_path.as_bytes());
         }
 
-        if let Ok(bytes) = fs::read(workspace_root.join(&entry.path)) {
-            hasher.update(b"\nfile:");
-            hasher.update(entry.path.as_bytes());
-            hasher.update(b"\n");
-            hasher.update(bytes);
-        }
+        hash_workspace_path(hasher, workspace_root, &entry.path);
     }
 }
 
@@ -166,19 +162,52 @@ fn hash_filesystem(hasher: &mut Sha256, workspace_root: &Path) {
     let mut files = builder
         .build()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
+        .filter(|entry| {
+            entry
+                .file_type()
+                .is_some_and(|kind| kind.is_file() || kind.is_symlink())
+        })
         .map(|entry| entry.into_path())
         .collect::<Vec<_>>();
     files.sort();
 
     for path in files {
         let relative = path.strip_prefix(workspace_root).unwrap_or(&path);
-        hasher.update(b"\nfile:");
-        hasher.update(relative.to_string_lossy().as_bytes());
-        if let Ok(bytes) = fs::read(&path) {
-            hasher.update(b"\n");
-            hasher.update(bytes);
+        hash_workspace_path(hasher, workspace_root, &relative.to_string_lossy());
+    }
+}
+
+fn hash_workspace_path(hasher: &mut Sha256, workspace_root: &Path, relative: &str) {
+    let path = workspace_root.join(relative);
+    let Ok(metadata) = fs::symlink_metadata(&path) else {
+        return;
+    };
+
+    if metadata.file_type().is_symlink() {
+        hasher.update(b"\nsymlink:");
+        hasher.update(relative.as_bytes());
+        if let Ok(target) = fs::read_link(&path) {
+            hasher.update(b" -> ");
+            hasher.update(target.to_string_lossy().as_bytes());
         }
+        return;
+    }
+
+    if !metadata.is_file() {
+        return;
+    }
+
+    hasher.update(b"\nfile:");
+    hasher.update(relative.as_bytes());
+    hasher.update(b"\nsize:");
+    hasher.update(metadata.len().to_string().as_bytes());
+    if metadata.len() > MAX_REVISION_FILE_BYTES {
+        hasher.update(b"\ncontent:omitted-too-large");
+        return;
+    }
+    if let Ok(bytes) = fs::read(&path) {
+        hasher.update(b"\n");
+        hasher.update(bytes);
     }
 }
 
@@ -322,6 +351,24 @@ mod tests {
         assert_ne!(first.revision(), second.revision());
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn git_revision_does_not_follow_untracked_symlink_targets() {
+        use std::os::unix::fs::symlink;
+
+        let repo = initialized_git_repo();
+        let external = tempdir().expect("external tempdir");
+        let target = external.path().join("secret.txt");
+        std::fs::write(&target, "before\n").expect("write external target");
+        symlink(&target, repo.path().join("external-link.txt")).expect("create symlink");
+
+        let first = default_session(repo.path());
+        std::fs::write(&target, "after\n").expect("change external target");
+        let second = default_session(repo.path());
+
+        assert_eq!(first.revision(), second.revision());
+    }
+
     #[test]
     fn cache_files_do_not_change_the_workspace_revision() {
         let temp = initialized_git_repo();
@@ -351,6 +398,24 @@ mod tests {
         std::fs::write(&source, "pub fn after() {}\n").expect("edit source");
         let after_edit = WorkspaceRevision::capture(temp.path());
         assert_ne!(first, after_edit);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_git_revision_does_not_follow_symlink_targets() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempdir().expect("workspace tempdir");
+        let external = tempdir().expect("external tempdir");
+        let target = external.path().join("secret.txt");
+        std::fs::write(&target, "before\n").expect("write external target");
+        symlink(&target, root.path().join("external-link.txt")).expect("create symlink");
+
+        let first = WorkspaceRevision::capture(root.path());
+        std::fs::write(&target, "after\n").expect("change external target");
+        let second = WorkspaceRevision::capture(root.path());
+
+        assert_eq!(first, second);
     }
 
     fn default_session(path: &Path) -> AnalysisSession {

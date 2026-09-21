@@ -11,11 +11,130 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from differential_artifact import validate_data  # noqa: E402
-from differential_runner import run_timed_command  # noqa: E402
+from differential_runner import (  # noqa: E402
+    _build_review_result,
+    _resource_phase,
+    _review_command,
+    run_timed_command,
+)
+from differential_telemetry import build_command_telemetry  # noqa: E402
 from real_history_runner import BASELINE_COMMANDS  # noqa: E402
 
 
 class DifferentialRunnerTests(unittest.TestCase):
+    def test_review_command_can_pin_explicit_verification_config_and_checks(self) -> None:
+        command = _review_command(
+            ("repopilot",),
+            "base-sha",
+            "head-sha",
+            Path("/tmp/worktree"),
+            Path("/tmp/review.toml"),
+            ("python.tests",),
+        )
+
+        self.assertEqual(
+            command,
+            (
+                "repopilot",
+                "review",
+                "/tmp/worktree",
+                "--base",
+                "base-sha",
+                "--head",
+                "head-sha",
+                "--format",
+                "json",
+                "--profile",
+                "default",
+                "--no-progress",
+                "--config",
+                "/tmp/review.toml",
+                "--verify",
+                "python.tests",
+            ),
+        )
+
+    def test_repeated_runs_have_explicit_cold_and_warm_phases(self) -> None:
+        self.assertEqual(_resource_phase(1), "cold")
+        self.assertEqual(_resource_phase(2), "warm")
+
+    def test_review_result_keeps_comparable_diagnostic_keys_separate(self) -> None:
+        report = {
+            "root_path": "/worktree",
+            "changed_files": [
+                {"path": "pkg/bad.py", "ranges": [{"start": 7, "end": 7}]},
+            ],
+            "diagnostics": [
+                {
+                    "code": "python.syntax-error",
+                    "path": "/worktree/pkg/bad.py",
+                    "line": 7,
+                },
+            ],
+            "findings": [],
+            "schema_version": "0.26",
+            "repopilot_version": "0.23.0",
+            "change_proof": {"contract_deltas": []},
+        }
+
+        result = _build_review_result(
+            report,
+            b"report",
+            0,
+            set(),
+            1.0,
+            Path("/worktree"),
+        )
+
+        self.assertEqual(result["in_diff_evidence_keys"], [])
+        self.assertEqual(
+            result["in_diff_comparison_keys"],
+            ["python.compile:pkg/bad.py:7:SyntaxError"],
+        )
+
+    def test_review_result_records_exact_verification_comparison_keys(self) -> None:
+        report = {
+            "root_path": "/worktree",
+            "changed_files": [],
+            "diagnostics": [],
+            "merge_readiness": {
+                "verification": [
+                    {
+                        "check_id": "python.tests",
+                        "role": "test",
+                        "status": "failed",
+                        "revision_compatible": True,
+                        "stdout_excerpt": "FAILED tests/test_api.py::test_create - AssertionError\n",
+                        "stderr_excerpt": "",
+                        "stdout_truncated": False,
+                        "stderr_truncated": False,
+                    }
+                ]
+            },
+            "findings": [],
+            "schema_version": "0.26",
+            "repopilot_version": "0.23.0",
+            "change_proof": {"contract_deltas": []},
+        }
+
+        result = _build_review_result(
+            report,
+            b"report",
+            0,
+            set(),
+            1.0,
+            Path("/worktree"),
+        )
+
+        self.assertEqual(
+            result["verification_comparison"],
+            {
+                "status": "measured",
+                "keys": ["python.tests:tests/test_api.py::test_create:failed"],
+                "scheme": "review-verification-v1",
+            },
+        )
+
     def test_timed_command_records_pass_and_hashes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = run_timed_command((sys.executable, "-c", "print('ok')"), Path(tmp), 5)
@@ -23,12 +142,41 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["returncode"], 0)
         self.assertGreaterEqual(result["wall_ms"], 0)
         self.assertEqual(len(result["stdout_sha256"]), 64)
+        self.assertEqual(result["telemetry"]["events"][0]["name"], "process_started")
+        self.assertEqual(result["telemetry"]["events"][-1]["name"], "process_finished")
+        self.assertIn(result["resource_status"], {"available", "unavailable"})
+        if result["resource_status"] == "available":
+            self.assertGreater(result["child_max_rss_kb"], 0)
+            self.assertEqual(result["resource_source"], "posix-time-v1")
+        else:
+            self.assertTrue(result["resource_reason"])
 
     def test_timed_command_records_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = run_timed_command((sys.executable, "-c", "raise SystemExit(3)"), Path(tmp), 5)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["returncode"], 3)
+
+    def test_timed_baseline_command_records_normalized_evidence(self) -> None:
+        diagnostic = (
+            "*** Error compiling '/workspace/pkg/bad.py'...\n"
+            "  File '/workspace/pkg/bad.py', line 4\n"
+            "SyntaxError: invalid syntax\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_timed_command(
+                (
+                    sys.executable,
+                    "-c",
+                    "import sys; print(sys.argv[1], file=sys.stderr); raise SystemExit(1)",
+                    diagnostic,
+                ),
+                Path(tmp),
+                5,
+                "python.compile",
+            )
+        self.assertEqual(result["evidence"]["status"], "measured")
+        self.assertEqual(result["evidence"]["keys"], ["python.compile:bad.py:4:SyntaxError"])
 
     def test_artifact_validator_accepts_complete_pending_observations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -86,6 +234,55 @@ class DifferentialRunnerTests(unittest.TestCase):
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["baseline_observations"], 6)
         self.assertEqual(result["review_observations"], 6)
+        self.assertEqual(
+            result["baseline_evidence"],
+            {
+                "total": 6,
+                "tracked": 0,
+                "measured": 0,
+                "unavailable": 0,
+                "untracked": 6,
+                "tracked_rate": 0.0,
+                "measurement_rate": None,
+                "keys": 0,
+                "sources": {},
+                "comparison": {
+                    "measured": 0,
+                    "unavailable": 0,
+                    "untracked": 6,
+                    "keys": 0,
+                    "measurement_rate": None,
+                    "by_baseline": {
+                        "python.compile": {
+                            "total": 3,
+                            "measured": 0,
+                            "unavailable": 0,
+                            "untracked": 3,
+                            "keys": 0,
+                            "unavailable_reasons": {},
+                            "measurement_rate": None,
+                        },
+                        "python.tests": {
+                            "total": 3,
+                            "measured": 0,
+                            "unavailable": 0,
+                            "untracked": 3,
+                            "keys": 0,
+                            "unavailable_reasons": {},
+                            "measurement_rate": None,
+                        },
+                    },
+                    "unavailable_reasons": {},
+                },
+                "review_verification": {
+                    "measured": 0,
+                    "unavailable": 0,
+                    "untracked": 6,
+                    "keys": 0,
+                    "unavailable_reasons": {},
+                },
+            },
+        )
 
     def test_artifact_validator_requires_base_scan_for_novelty(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -94,6 +291,160 @@ class DifferentialRunnerTests(unittest.TestCase):
             artifact = self._valid_artifact(holdout, differential)
             artifact["cases"][0].pop("base_scan")
             with self.assertRaisesRegex(ValueError, "base scan"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_requires_telemetry_for_every_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            with self.assertRaisesRegex(ValueError, "telemetry"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_accepts_valid_telemetry_and_baseline_evidence_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            result = validate_data(artifact, holdout, differential, rules, zoo)
+        self.assertEqual(result["status"], "valid")
+        self.assertEqual(result["baseline_evidence"]["unavailable"], 6)
+        self.assertEqual(result["baseline_evidence"]["measurement_rate"], 0.0)
+
+    def test_artifact_rejects_available_resource_without_a_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                        run["resource_status"] = "available"
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "available resource sample"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_unknown_resource_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                        run["resource_phase"] = "invalid"
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "resource phase"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_requires_provenance_for_measured_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {"status": "measured", "keys": []}
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "evidence source"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+            for case in artifact["cases"]:
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["evidence"]["source"] = "unrelated-adapter-v1"
+            with self.assertRaisesRegex(ValueError, "source drift"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_schema_two_requires_review_comparison_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for baseline_id, runs in case["baselines"].items():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "measured",
+                            "keys": [],
+                            "source": f"{baseline_id}-v1",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+            with self.assertRaisesRegex(ValueError, "comparison"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_invalid_review_verification_comparison(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["schema_version"] = 2
+            for case in artifact["cases"]:
+                case["base_scan"]["telemetry"] = build_command_telemetry(1.0)
+                for runs in case["baselines"].values():
+                    for run in runs:
+                        run["telemetry"] = build_command_telemetry(1.0)
+                        run["evidence"] = {
+                            "status": "unavailable",
+                            "reason": "fixture has no baseline adapter",
+                        }
+                for review in case["reviews"]:
+                    review["telemetry"] = build_command_telemetry(1.0)
+                    review["verification_comparison"] = {
+                        "status": "measured",
+                        "keys": [],
+                        "scheme": "wrong-scheme",
+                    }
+            with self.assertRaisesRegex(ValueError, "verification comparison scheme"):
+                validate_data(artifact, holdout, differential, rules, zoo)
+
+    def test_artifact_rejects_unpinned_review_verification_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            holdout, differential, rules, zoo = self._write_manifests(root)
+            artifact = self._valid_artifact(holdout, differential)
+            artifact["review_verification"] = {
+                "checks": ["python.tests"],
+                "config_sha256": None,
+            }
+            with self.assertRaisesRegex(ValueError, "config hash is missing"):
                 validate_data(artifact, holdout, differential, rules, zoo)
 
     @staticmethod

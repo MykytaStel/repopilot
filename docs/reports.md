@@ -9,6 +9,18 @@ read scan output.
 repopilot scan . --format json --output repopilot-report.json
 ```
 
+## Human-readable scan decisions
+
+Console, Markdown, and HTML scan reports begin with the same decision summary.
+It states the `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED` result, explains why
+it was selected, names the evidence limits, and gives a next action. The
+decision covers only analyzed files and the selected visibility profile; it is
+not a runtime or human-usability guarantee. Hidden strict-only suggestions are
+called out with a command to inspect them.
+
+The decision is a presentation of existing scan evidence. JSON, SARIF, MCP,
+exit codes, and finding semantics remain unchanged.
+
 ## JSON report schema
 
 JSON scan, baseline-scan, and review reports share schema `0.26`. This is
@@ -82,7 +94,7 @@ output excerpts, not complete input fixtures for a report reader.
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
-| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its assessment in `merge_readiness`. |
+| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its canonical proof in `change_proof` and its compatibility readiness record in `merge_readiness`. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `health_score` | number | Visible health after the selected profile and explicit filters; retained for compatibility. |
 | `maintainability_score` | number | Stable score for findings hidden by the default visibility policy, computed before explicit filters. |
@@ -268,6 +280,15 @@ suppression state, and gate eligibility. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.
 
+When supplied, a review also carries `change_proof.intent_drift` with the
+bounded declared scope, observed changed/impacted paths, canonical contract
+families, configured critical-path intersections, and missing selected
+verification IDs. Its status is `not-supplied`, `within-scope`, or `drifted`.
+`not-supplied` is informational; `drifted` adds an additive `intent-drift`
+proof reason and never suppresses findings or failed verification. The same
+record is returned by the MCP review tool and retained in stored MCP analysis
+handles.
+
 For `behavioral.removed-export-still-imported`, B2.1 adds the optional
 `target_path` field to the canonical review signal. `path` and its line range
 remain the direct named-import evidence in the surviving caller, while
@@ -288,6 +309,42 @@ This optional field is backward-compatible in serialized review JSON: existing
 signals continue to omit it. It is nevertheless a source compatibility change
 for Rust users that construct the public `ReviewSignal` with a struct literal;
 those literals must now provide `target_path`, normally as `None`.
+
+Review JSON also carries an additive top-level `evidence` object. It contains
+the evidence class (`observation`, `supported-proof`, `suspicion`, or
+`unknown`), coverage status and scope counts, plus analyzer/schema provenance,
+selected checks, unavailable inputs, and a canonical projection hash. The
+object is derived from the same `change_proof` used by the human renderers;
+older readers may ignore it without changing existing fields or exit codes.
+
+## Review HTML reports
+
+`repopilot review --format html --output review.html` writes a self-contained
+local report. Its first screen is the canonical Proof Card: Change Proof
+verdict, evidence class, meaning, reasons, one next action, legacy merge
+readiness, proof policy, analyzed scope, verification evidence, provenance
+inputs, and separate CI/review gates. `SUPPORTED PROOF` is emitted only for a
+complete supported scope; limited coverage is shown as `SUSPICION`, while an
+unavailable scope is `UNKNOWN`.
+The Change Map then links changed files to
+typed contract/consumer deltas and bounded impact paths, followed by review
+signals, verification outcomes, and findings.
+
+The report embeds its CSS and small navigation script. It does not load remote
+fonts, scripts, source files, or repository data. Repository-controlled paths,
+evidence, signal details, and finding text are HTML-escaped before rendering;
+large signal and finding lists remain bounded in the human report while JSON
+retains the complete machine-readable record.
+
+### MCP ChangeProof parity
+
+When an MCP review returns an `analysisHandle`, pass that handle to
+`repopilot_context`, `repopilot_explain_finding`, or
+`repopilot_explain_review_signal`. The returned structured content includes the
+same canonical `change_proof` and additive `evidence` objects that were emitted
+by the review. The `repopilot://analyses` resource exposes both objects in its
+stored-analysis summary as well. Context content remains Markdown, while the
+proof and evidence stay machine-readable in `structuredContent`.
 
 ## Audit receipt JSON
 
@@ -424,6 +481,14 @@ calibration policy.
 
 SARIF output carries the same category, recommendation, confidence, baseline
 status, and workspace package metadata in result properties when available.
+Review SARIF additionally carries optional run-level `changeProof` and
+`evidence` and `verification` properties. `changeProof` and `evidence` are the
+same gated canonical records used by review JSON/Markdown/HTML projections;
+`changeProof` is the canonical proof and `evidence` records its claim strength,
+coverage, and provenance. The Action summary reads this object when present and
+keeps a compatible fallback for older review JSON. `verification` preserves
+the recorded check outcomes, including skipped and revision-incompatible states.
+Scan and baseline SARIF omit these review-only properties.
 
 ## Recommended usage
 

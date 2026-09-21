@@ -101,7 +101,7 @@ A strict entry declares *why* it exists through the optional `evidence` field:
   nothing about how often the rule is right.
 - **`sample`** — drawn by `zoo.py sample`, which selects by position in a sorted
   population without looking at the finding. Only these feed the scorecard's
-  strict precision estimate.
+  strict validity estimate and Wilson interval.
 
 `sample` is strict-only: the default profile is already exhaustive, so a sample
 of it would be a coverage regression rather than new evidence.

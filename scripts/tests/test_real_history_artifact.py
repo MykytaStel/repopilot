@@ -76,11 +76,16 @@ label_state = "pending"
                     "merge_sha": case.merge_sha,
                     "label_state": case.label_state,
                     "baselines": {"python.compile": {"status": "passed", "command": command}},
-                    "review": {"status": "collected"},
+                    "review": {
+                        "status": "collected",
+                        "contract_delta_ids": [],
+                        "contract_delta_count": 0,
+                        "contract_evidence_sha256": hashlib.sha256(b"[]").hexdigest(),
+                    },
                 }
             )
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "corpus": corpus,
             "protocol": protocol,
             "manifest_sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest(),
@@ -98,6 +103,7 @@ label_state = "pending"
         result = validate_collection_data(self.artifact(), self.manifest, self.rules, self.zoo)
         self.assertEqual(result["status"], "valid")
         self.assertEqual(result["cases"], 2)
+        self.assertEqual(result["contract_id_counts"], {})
 
     def test_rejects_manifest_hash_drift(self) -> None:
         artifact = self.artifact()
@@ -109,6 +115,12 @@ label_state = "pending"
         artifact = self.artifact()
         artifact["cases"][0]["baselines"]["python.compile"]["command"] = ["sh", "-c", "unsafe"]
         with self.assertRaisesRegex(ValueError, "baseline command drift"):
+            validate_collection_data(artifact, self.manifest, self.rules, self.zoo)
+
+    def test_rejects_contract_evidence_hash_drift(self) -> None:
+        artifact = self.artifact()
+        artifact["cases"][0]["review"]["contract_evidence_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "contract evidence hash drift"):
             validate_collection_data(artifact, self.manifest, self.rules, self.zoo)
 
 

@@ -125,13 +125,18 @@ fn rust_mod_path_attr(stmt: &str) -> Option<String> {
 fn rust_include_path(stmt: &str) -> Option<String> {
     let rest = stmt.trim_start().strip_prefix("include")?;
     let rest = rest.trim_start().strip_prefix('!')?;
+    let rest = rest.trim_start().strip_prefix('(')?;
     first_string_literal(rest)
 }
 
-/// Returns the contents of the first double-quoted string literal in `input`.
+/// Returns a direct double-quoted string literal at the start of `input`.
+///
+/// Rust permits expressions such as `concat!(...)` in both `include!` and
+/// `#[path]`; taking the first nested literal would invent a file edge for a
+/// path that is not statically known.
 fn first_string_literal(input: &str) -> Option<String> {
-    let open = input.find('"')?;
-    let rest = &input[open + 1..];
+    let input = input.trim_start();
+    let rest = input.strip_prefix('"')?;
     let close = rest.find('"')?;
     Some(rest[..close].to_string())
 }
@@ -330,6 +335,18 @@ mod tests {
     #[test]
     fn include_str_is_not_a_module_edge() {
         let got = imports("const D: &str = include_str!(\"data.txt\");\n");
+        assert!(got.iter().all(|i| !i.starts_with("relfile::")), "{got:?}");
+    }
+
+    #[test]
+    fn computed_include_path_is_not_a_module_edge() {
+        let got = imports("include!(concat!(env!(\"MODULE_DIR\"), \"/header.rs\"));\n");
+        assert!(got.iter().all(|i| !i.starts_with("relfile::")), "{got:?}");
+    }
+
+    #[test]
+    fn computed_path_attribute_is_not_a_module_edge() {
+        let got = imports("#[path = concat!(\"parts\", \"/header.rs\")]\nmod header;\n");
         assert!(got.iter().all(|i| !i.starts_with("relfile::")), "{got:?}");
     }
 

@@ -7,17 +7,26 @@
 //! weakens absence-based claims (dead modules, fan-in-derived instability).
 //! Genuine third-party packages (`react`, `numpy`) are real external
 //! dependencies and are not recorded; only imports that *should* have resolved
-//! to a scanned file are — relative imports, recognized local path aliases, and
-//! bare imports whose leading segment names a directory that exists in the
-//! repository (a monorepo/workspace package the resolver did not wire up).
+//! to a scanned file are — relative imports, recognized local path aliases,
+//! Rust file-backed module references, Go module paths declared by the
+//! repository's `go.mod`, and bare imports whose leading segment names a
+//! directory that exists in the repository (a monorepo/workspace package the
+//! resolver did not wire up).
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnresolvedImportKind {
+    /// A `.`/`..` relative module or path import.
     RelativePath,
+    /// A configured local path alias such as `@/` or `~/`.
     LocalAlias,
+    /// A Rust `mod`/`#[path]`/`include!` reference represented by the parser.
+    RustFileBacked,
+    /// A Go module-path import mapped to a package directory inside `go.mod`.
+    GoFileBacked,
+    /// A bare import that resembles a workspace package.
     WorkspacePackage,
 }
 
@@ -69,7 +78,7 @@ impl ImportResolutionStats {
         self.insert(UnresolvedImportEvidence {
             source: source.to_path_buf(),
             raw_import: raw_import.to_string(),
-            kind: unresolved_import_kind(raw_import),
+            kind: unresolved_import_kind_for_source(source, raw_import, root),
             proof,
         });
     }
@@ -142,8 +151,22 @@ fn unresolved_import_kind(raw_import: &str) -> UnresolvedImportKind {
         UnresolvedImportKind::RelativePath
     } else if raw_import.starts_with("@/") || raw_import.starts_with("~/") || raw_import == "~" {
         UnresolvedImportKind::LocalAlias
+    } else if raw_import.starts_with("mod::") || raw_import.starts_with("relfile::") {
+        UnresolvedImportKind::RustFileBacked
     } else {
         UnresolvedImportKind::WorkspacePackage
+    }
+}
+
+fn unresolved_import_kind_for_source(
+    source: &Path,
+    raw_import: &str,
+    root: &Path,
+) -> UnresolvedImportKind {
+    if is_unresolved_go_module_import(raw_import, source, root) {
+        UnresolvedImportKind::GoFileBacked
+    } else {
+        unresolved_import_kind(raw_import)
     }
 }
 
@@ -181,10 +204,19 @@ pub(crate) fn is_relative_import(import: &str) -> bool {
     import.starts_with('.')
 }
 
+pub(crate) fn is_unresolved_go_module_import(import: &str, source: &Path, root: &Path) -> bool {
+    source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "go")
+        && crate::graph::resolver::is_local_go_module_import(import, root)
+}
+
 /// Whether an unresolved import should weaken absence claims (dead module,
-/// instability). Relative imports and recognizable local path aliases always
-/// count. JVM imports require a matching local package; other bare imports count
-/// when their leading segment names a repository directory.
+/// instability). Relative imports, recognizable local path aliases, file-backed
+/// Rust references, and local Go module paths always count. JVM imports require
+/// a matching local package; other bare imports count when their leading segment
+/// names a repository directory.
 pub(crate) fn is_unresolved_internal_import(
     import: &str,
     source: &Path,
@@ -200,6 +232,14 @@ pub(crate) fn is_unresolved_internal_import(
     }
     // Common bundler/tsconfig path aliases for the project's own source root.
     if import.starts_with("@/") || import.starts_with("~/") || import == "~" {
+        return true;
+    }
+    if source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "rs")
+        && (import.starts_with("mod::") || import.starts_with("relfile::"))
+    {
         return true;
     }
     if source

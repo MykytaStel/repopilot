@@ -87,10 +87,110 @@ write_review_summary() {
     else
       echo "- **In-diff findings:** $(jq -r '.review.in_diff_findings' "$review_json")"
     fi
-    echo "- **Merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
+    jq -r '
+      def verification_revision:
+        ([.merge_readiness.verification[]?] | length) as $outcomes
+        | if $outcomes > 0
+          and ([.merge_readiness.verification[]? | select(.revision_compatible != true)] | length) == 0
+          then "revision-compatible"
+          else "revision-incompatible"
+          end;
+      def evidence_coverage_complete($proof):
+        (($proof.coverage.requested_files // 0) > 0)
+        and (($proof.coverage.analyzed_files // 0) == ($proof.coverage.requested_files // 0))
+        and (($proof.coverage.excluded_files // 0) == 0)
+        and (($proof.coverage.unsupported_files // 0) == 0)
+        and (([$proof.capability_coverage[]?
+          | select((.count // 0) > 0 and (.status == "limited" or .status == "unavailable"))]
+          | length) == 0)
+        and ((($proof.obligations.satisfied // 0)
+          + ($proof.obligations.failed // 0)
+          + ($proof.obligations.unavailable // 0)
+          + ($proof.obligations.unselected // 0)
+          + ($proof.obligations.stale // 0)) == ($proof.obligations.applicable // 0));
+      def evidence_class($proof):
+        if ($proof.coverage.analyzed_files // 0) == 0 or $proof.verdict == "NOT ASSESSED" then
+          "UNKNOWN"
+        elif evidence_coverage_complete($proof) and ($proof.verdict == "BROKEN" or $proof.verdict == "VERIFIED") then
+          "SUPPORTED PROOF"
+        else
+          "SUSPICION"
+        end;
+      def evidence_class_label($proof; $evidence):
+        if $evidence.class == "observation" then "OBSERVATION"
+        elif $evidence.class == "supported-proof" then "SUPPORTED PROOF"
+        elif $evidence.class == "suspicion" then "SUSPICION"
+        elif $evidence.class == "unknown" then "UNKNOWN"
+        else evidence_class($proof)
+        end;
+      def evidence_scope_line($proof; $evidence):
+        if ($evidence.scope | type) == "object" then
+          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported (\($evidence.coverage_status // "unavailable"))"
+        else
+          "\($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))"
+        end;
+      def evidence_provenance($report; $proof; $evidence):
+        if ($evidence.provenance | type) == "object" then
+          "RepoPilot \($evidence.provenance.analyzer_version // "unknown"), schema \($evidence.provenance.report_schema // "unknown"); unavailable: \((($evidence.provenance.unavailable_inputs // []) | join(", ")))"
+        else
+          "RepoPilot \($report.repopilot_version // "unknown"), schema \($report.schema_version // "unknown"); unavailable: \(if (($proof.coverage.scope // "changed") == "changed") then "base revision, " else "" end)current revision, head revision, scanner configuration, toolchain"
+        end;
+      . as $report
+      | .change_proof as $proof
+      | (.evidence // {}) as $evidence
+      | "- **Change proof:** \($proof.verdict // "unavailable")",
+        "- **Evidence class:** \(evidence_class_label($proof; $evidence))",
+        "- **Evidence scope:** \(evidence_scope_line($proof; $evidence))",
+        "- **Evidence provenance:** \(evidence_provenance($report; $proof; $evidence))",
+        (if ($proof.coverage.requested_files // 0) == 0 then
+          "- **Why:** No changed files were available for assessment."
+        elif $proof.verdict == "BROKEN" then
+          "- **Why:** A supported contract appears broken in the changed scope."
+        elif $proof.verdict == "VERIFIED" then
+          "- **Why:** The assessed scope satisfies the selected proof policy."
+        else
+          "- **Why:** Review the listed evidence, coverage limits, and required checks."
+        end),
+        (if (($proof.reasons // []) | length) > 0 then
+          "- **Reasons:**\n" + ([ $proof.reasons[]?.message ] | map("  - " + .) | join("\n"))
+        else empty end),
+        (if $proof.verdict == "BROKEN" then
+          "- **Next action:** Inspect the broken contract and its listed consumer before merge."
+        elif $proof.verdict == "NOT ASSESSED" then
+          "- **Next action:** Expand the analyzable scope before treating this review as evidence."
+        elif $proof.verdict == "VERIFIED" then
+          "- **Next action:** Proceed with the normal merge review; the reported scope has compatible proof."
+        else
+          "- **Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+        end),
+        "- **Proof scope:** \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed",
+        "- **Proof policy:** \($proof.obligations.applicable // 0) applicable obligation(s)",
+        (if ($proof.obligations.applicable // 0) == 0 then
+          "- **Verification proof:** none selected; no verification evidence"
+        else
+          "- **Verification proof:** \($proof.obligations.satisfied // 0) passed, \($proof.obligations.failed // 0) failed, \($proof.obligations.unavailable // 0) unavailable, \($proof.obligations.unselected // 0) unselected, \($proof.obligations.stale // 0) stale (\(verification_revision))"
+        end),
+        (if (($proof.coverage.excluded_files // 0) > 0 or ($proof.coverage.unsupported_files // 0) > 0) then
+          "- **Proof limits:** \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported file(s)"
+        else empty end)
+    ' "$review_json"
+    echo "- **Legacy merge readiness:** $(jq -r '.merge_readiness.verdict // "unavailable"' "$review_json")"
+    jq -r '
+      if .ci_gate then
+        "- **CI gate:** \(.ci_gate.status // "unknown") (\(.ci_gate.fail_on // "unknown"))"
+      else
+        "- **CI gate:** not configured"
+      end
+    ' "$review_json"
     echo "- **Definitely-sensitive signals:** $(jq -r '.review.tiered_signals.definitely' "$review_json")"
     echo "- **Maybe-sensitive signals:** $(jq -r '.review.tiered_signals.maybe' "$review_json")"
-    echo "- **Review gate:** $(jq -r '.review_gate.status // "not-configured"' "$review_json")"
+    jq -r '
+      if .review_gate then
+        "- **Review gate:** \(.review_gate.status // "unknown")"
+      else
+        "- **Review gate:** not configured"
+      end
+    ' "$review_json"
     echo
     jq -r '
       [.tiered_signals.definitely[], .tiered_signals.maybe[]]

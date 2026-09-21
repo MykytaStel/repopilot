@@ -1,19 +1,48 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+use crate::review::intent::{IntentDrift, evaluate_intent};
 use crate::review::model::ReviewReport;
 use crate::review::readiness::{MergeReadinessRecord, ReadinessReasonCode};
 use crate::scan::types::ScanMode;
-use crate::verification::VerificationStatus;
 
 mod capabilities;
 mod contracts;
-use capabilities::capability_coverage;
-pub use capabilities::{ProofCapability, ProofCapabilityStatus};
-pub use contracts::{
+mod evidence;
+mod obligations;
+mod receipt;
+#[cfg(test)]
+#[path = "proof/receipt_tests.rs"]
+mod receipt_tests;
+pub use crate::review::contract::{
     ChangeProofContractDelta, ContractChangeKind, ContractConfidence, ContractFamily,
 };
+use capabilities::capability_coverage;
+pub use capabilities::{ProofCapability, ProofCapabilityStatus};
+pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
+use obligations::derive_verification_obligations;
+pub use receipt::{
+    ProofReceipt, ReceiptReplayContext, ReceiptReplayDiagnostic, ReceiptReplayState,
+    build_proof_receipt, replay_receipt, replay_receipt_with_reason, replay_serialized_receipt,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
+    match proof.verdict {
+        ChangeProofVerdict::Broken => {
+            "Inspect the broken contract and its listed consumer before merge."
+        }
+        ChangeProofVerdict::Review => {
+            "Review the listed evidence, close the proof limits, or run the required checks."
+        }
+        ChangeProofVerdict::Verified => {
+            "Proceed with the normal merge review; the reported scope has compatible proof."
+        }
+        ChangeProofVerdict::NotAssessed => {
+            "Expand the analyzable scope before treating this review as evidence."
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ChangeProofVerdict {
     Broken,
@@ -33,7 +62,7 @@ impl ChangeProofVerdict {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ChangeProofReasonCode {
     BrokenContract,
@@ -44,6 +73,7 @@ pub enum ChangeProofReasonCode {
     RequiredVerificationUnselected,
     RequiredVerificationStale,
     RequiredVerificationCoverageIncomplete,
+    UnsupportedContractCoverage,
     InsufficientPolicy,
     AnalysisError,
     FindingGateFailed,
@@ -55,9 +85,10 @@ pub enum ChangeProofReasonCode {
     BoundaryMissingTest,
     VisibleFinding,
     UnownedSurface,
+    IntentDrift,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProofReason {
     pub code: ChangeProofReasonCode,
     pub count: usize,
@@ -74,14 +105,14 @@ impl ChangeProofReason {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProofScope {
     Changed,
     Full,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofCoverage {
     pub scope: ProofScope,
     pub requested_files: usize,
@@ -96,7 +127,7 @@ impl ProofCoverage {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProofObligations {
     pub applicable: usize,
     pub satisfied: usize,
@@ -115,7 +146,7 @@ pub struct ChangeProofInput {
     pub reasons: Vec<ChangeProofReason>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeProof {
     pub verdict: ChangeProofVerdict,
     pub reasons: Vec<ChangeProofReason>,
@@ -123,6 +154,7 @@ pub struct ChangeProof {
     pub obligations: ProofObligations,
     pub contract_deltas: Vec<ChangeProofContractDelta>,
     pub capability_coverage: Vec<ProofCapability>,
+    pub intent_drift: IntentDrift,
 }
 
 pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
@@ -186,6 +218,7 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
         obligations: input.obligations,
         contract_deltas: Vec::new(),
         capability_coverage,
+        intent_drift: IntentDrift::default(),
     }
 }
 
@@ -204,14 +237,29 @@ pub fn derive_change_proof_from_review(
     let excluded_files = known_excluded_files(report, requested_files);
     let unsupported_files =
         requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
-    let (satisfied, failed, unavailable, unselected, stale) = verification_counts(report);
-    let reasons = readiness
+    let contract_deltas = contracts::from_review(report);
+    let limited_contract_deltas = contract_deltas
+        .iter()
+        .filter(|delta| {
+            delta.family == ContractFamily::Delivery
+                || delta.confidence == Some(ContractConfidence::Limited)
+        })
+        .count();
+    let (obligations, sufficient_policy) =
+        derive_verification_obligations(report, &contract_deltas);
+    let mut reasons = readiness
         .reasons
         .iter()
         .filter_map(map_readiness_reason)
-        .collect();
+        .collect::<Vec<_>>();
+    if limited_contract_deltas > 0 {
+        reasons.push(ChangeProofReason::new(
+            ChangeProofReasonCode::UnsupportedContractCoverage,
+            limited_contract_deltas,
+            "Some detected contract changes have limited semantic proof coverage.",
+        ));
+    }
 
-    let contract_deltas = contracts::from_review(report);
     let mut proof = derive_change_proof(ChangeProofInput {
         coverage: ProofCoverage {
             scope: match report.summary.mode {
@@ -223,15 +271,8 @@ pub fn derive_change_proof_from_review(
             excluded_files,
             unsupported_files,
         },
-        obligations: ProofObligations {
-            applicable: report.verification.len(),
-            satisfied,
-            failed,
-            unavailable,
-            unselected,
-            stale,
-        },
-        sufficient_policy: !report.verification.is_empty(),
+        obligations,
+        sufficient_policy,
         broken_contracts: contract_deltas
             .iter()
             .filter(|delta| delta.is_broken())
@@ -239,11 +280,65 @@ pub fn derive_change_proof_from_review(
         reasons,
     });
     proof.contract_deltas = contract_deltas;
+    let mut actual_paths = report
+        .changed_files
+        .iter()
+        .map(|file| file.path_string())
+        .collect::<Vec<_>>();
+    for impact in &report.impact_paths.files {
+        actual_paths.push(impact.path.to_string_lossy().replace('\\', "/"));
+        actual_paths.extend(
+            impact
+                .direct_dependents
+                .iter()
+                .chain(impact.transitive_dependents.iter())
+                .map(|path| path.to_string_lossy().replace('\\', "/")),
+        );
+    }
+    proof.intent_drift = evaluate_intent(
+        report.intent.contract.as_ref(),
+        &actual_paths,
+        &proof
+            .contract_deltas
+            .iter()
+            .map(|delta| delta.family)
+            .collect::<Vec<_>>(),
+        &report.intent.critical_paths,
+        &report.verification_policy.selected,
+    );
+    if proof.intent_drift.is_drifted() {
+        add_reason(
+            &mut proof.reasons,
+            ChangeProofReason::new(
+                ChangeProofReasonCode::IntentDrift,
+                proof.intent_drift.unexpected_paths.len()
+                    + proof.intent_drift.unexpected_contract_families.len()
+                    + proof.intent_drift.unexpected_critical_paths.len()
+                    + proof.intent_drift.missing_verification.len(),
+                "Observed change impact exceeds the supplied intent contract.",
+            ),
+        );
+        if proof.verdict == ChangeProofVerdict::Verified {
+            proof.verdict = ChangeProofVerdict::Review;
+        }
+    }
+    proof.reasons.sort_by_key(|reason| reason.code);
     proof.capability_coverage.push(ProofCapability {
         id: "contract-deltas".to_string(),
-        status: ProofCapabilityStatus::Assessed,
+        status: if limited_contract_deltas > 0 {
+            ProofCapabilityStatus::Limited
+        } else {
+            ProofCapabilityStatus::Assessed
+        },
         count: proof.contract_deltas.len(),
-        message: "Supported semantic contract changes detected in the review.".to_string(),
+        message: if limited_contract_deltas > 0 {
+            format!(
+                "{} detected contract change(s) have limited semantic proof coverage.",
+                limited_contract_deltas
+            )
+        } else {
+            "Supported semantic contract changes detected in the review.".to_string()
+        },
     });
     proof
 }
@@ -257,22 +352,6 @@ fn known_excluded_files(report: &ReviewReport, requested_files: usize) -> usize 
         .saturating_add(metrics.files_skipped_by_limit)
         .saturating_add(metrics.files_skipped_repopilotignore)
         .min(requested_files)
-}
-
-fn verification_counts(report: &ReviewReport) -> (usize, usize, usize, usize, usize) {
-    let mut counts = (0, 0, 0, 0, 0);
-    for outcome in &report.verification {
-        match outcome.status {
-            VerificationStatus::Passed if outcome.revision_compatible => counts.0 += 1,
-            VerificationStatus::Passed => counts.4 += 1,
-            VerificationStatus::Failed => counts.1 += 1,
-            VerificationStatus::TimedOut
-            | VerificationStatus::Unavailable
-            | VerificationStatus::Cancelled => counts.2 += 1,
-            VerificationStatus::Skipped => counts.3 += 1,
-        }
-    }
-    counts
 }
 
 fn map_readiness_reason(

@@ -14,7 +14,7 @@ pub(super) static RULES: &[RuleMetadata] = &[
         signal_source: SignalSource::TextHeuristic,
 
         requirements: RuleRequirements::file_text(RuleLifecycle::Preview),
-        docs_url: None,
+        docs_url: Some("https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md"),
         description: "The file's branch count density exceeds the complexity threshold, indicating too many execution paths. High complexity increases the defect rate and testing burden.",
         recommendation: Some(
             "Extract conditionals into well-named helper functions. Prefer early returns to deeply nested if/else chains.",

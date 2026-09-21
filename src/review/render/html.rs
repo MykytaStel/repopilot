@@ -1,0 +1,184 @@
+use super::helpers::{
+    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
+    legacy_readiness_summary, verification_proof_summary,
+};
+use super::html_assets::{SCRIPT, STYLE};
+use crate::baseline::gate::CiGateResult;
+use crate::review::ReviewSignalGateResult;
+use crate::review::model::ReviewReport;
+use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_from_review};
+use crate::review::readiness::{MergeReadinessRecord, derive_readiness};
+#[path = "html_sections.rs"]
+mod html_sections;
+
+pub fn render_review_html(
+    report: &ReviewReport,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> String {
+    let readiness = derive_readiness(
+        report,
+        ci_gate,
+        review_gate,
+        report.summary.artifacts.risk_delta.as_ref(),
+    );
+    let proof = derive_change_proof_from_review(report, &readiness);
+    let evidence = EvidenceSummary::from_review(report, &proof);
+    let verdict_class = proof.verdict.label().to_ascii_lowercase().replace(' ', "-");
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RepoPilot Review Report</title><style>{STYLE}</style></head>
+<body><main>
+<header>
+  <h1>RepoPilot Review Report</h1>
+  <p class="meta">Path: <code>{path}</code></p>
+  <p class="meta">Git root: <code>{root}</code></p>
+</header>
+{proof_card}
+{change_map}
+{impact}
+{signals}
+{verification}
+{findings}
+<script>{SCRIPT}</script>
+</main></body></html>"#,
+        path = escape(&report.summary.root_path.to_string_lossy()),
+        root = escape(&report.repo_root.to_string_lossy()),
+        proof_card = render_proof_card(
+            report,
+            &readiness,
+            &proof,
+            &evidence,
+            verdict_class,
+            ci_gate,
+            review_gate,
+        ),
+        change_map = html_sections::render_change_map(report, &proof),
+        impact = html_sections::render_impact(report),
+        signals = html_sections::render_signals(&report.tiered_signals),
+        verification = html_sections::render_verification(report, &proof),
+        findings = html_sections::render_findings(report),
+    )
+}
+
+fn render_proof_card(
+    report: &ReviewReport,
+    readiness: &MergeReadinessRecord,
+    proof: &ChangeProof,
+    evidence: &EvidenceSummary,
+    verdict_class: String,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> String {
+    let limits = if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
+        format!(
+            "<ul class=\"limits\"><li>{} excluded, {} unsupported file(s)</li></ul>",
+            proof.coverage.excluded_files, proof.coverage.unsupported_files
+        )
+    } else {
+        String::new()
+    };
+    let readiness_limits = readiness
+        .limitations
+        .iter()
+        .take(5)
+        .map(|limitation| format!("<li>{}</li>", escape(limitation)))
+        .collect::<Vec<_>>()
+        .join("");
+    let readiness_limits = if readiness_limits.is_empty() {
+        String::new()
+    } else {
+        format!("<h3>Limitations</h3><ul class=\"limits\">{readiness_limits}</ul>")
+    };
+    let reasons = proof
+        .reasons
+        .iter()
+        .take(5)
+        .map(|reason| format!("<li>{}</li>", escape(&reason.message)))
+        .collect::<Vec<_>>()
+        .join("");
+    let reasons = if reasons.is_empty() {
+        String::new()
+    } else {
+        format!("<h3>Why this verdict</h3><ul class=\"reasons\">{reasons}</ul>")
+    };
+    let next_action = change_proof_next_action(proof);
+    let readiness_text = legacy_readiness_summary(report, readiness);
+    let (ci_gate, review_gate) = gate_labels(ci_gate, review_gate);
+    format!(
+        r#"<section class="proof-card verdict-{verdict_class}" id="proof-card" aria-labelledby="proof-heading">
+  <div class="proof-header"><h2 id="proof-heading">Proof Card</h2><span class="badge {verdict_class}">{verdict}</span></div>
+  <p class="verdict-headline"><strong>Why:</strong> {headline}</p>
+  <div class="next-action"><strong>Next action:</strong> {next_action}</div>
+  {reasons}
+  <div class="proof-grid">
+    <dl class="metric"><dt>Change proof</dt><dd><span class="badge {verdict_class}">{verdict}</span></dd></dl>
+    <dl class="metric"><dt>Evidence class</dt><dd>{evidence_class}</dd></dl>
+    <dl class="metric"><dt>Evidence scope</dt><dd>{evidence_scope}</dd></dl>
+    <dl class="metric"><dt>Evidence provenance</dt><dd>{evidence_provenance}</dd></dl>
+    <dl class="metric"><dt>Intent drift</dt><dd>{intent_status}</dd></dl>
+    <dl class="metric"><dt>Legacy merge readiness</dt><dd><span class="badge {readiness_class}">{readiness}</span></dd></dl>
+    <dl class="metric"><dt>Proof scope</dt><dd>{analyzed}/{requested} file(s) analyzed</dd></dl>
+    <dl class="metric"><dt>Proof policy</dt><dd>{policy}</dd></dl>
+    <dl class="metric"><dt>Verification proof</dt><dd>{verification}</dd></dl>
+    <dl class="metric"><dt>CI gate</dt><dd>{ci_gate}</dd></dl>
+    <dl class="metric"><dt>Review gate</dt><dd>{review_gate}</dd></dl>
+  </div>
+  {limits}{readiness_limits}
+</section>"#,
+        verdict = proof.verdict.label(),
+        evidence_class = evidence.class.label(),
+        evidence_scope = escape(&evidence.scope_line()),
+        evidence_provenance = escape(&evidence.provenance_line()),
+        intent_status = escape(proof.intent_drift.status.label()),
+        readiness = escape(&readiness_text),
+        readiness_class = readiness.verdict.label(),
+        analyzed = proof.coverage.analyzed_files,
+        requested = proof.coverage.requested_files,
+        policy = escape(&change_proof_policy_summary(report)),
+        verification = escape(&verification_proof_summary(report, proof.obligations)),
+        headline = escape(change_proof_headline(report, proof)),
+        ci_gate = escape(&ci_gate),
+        review_gate = escape(&review_gate),
+        next_action = escape(next_action),
+        reasons = reasons,
+    )
+}
+
+fn gate_labels(
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> (String, String) {
+    let finding_gate = ci_gate.map_or_else(
+        || "finding gate not configured".to_string(),
+        |gate| {
+            format!(
+                "finding gate {} ({})",
+                if gate.passed() { "passed" } else { "failed" },
+                gate.label()
+            )
+        },
+    );
+    let review_gate = match review_gate {
+        Some(gate) if gate.enabled() => format!(
+            "review gate {} ({}, {} failed)",
+            if gate.passed() { "passed" } else { "failed" },
+            gate.label(),
+            gate.failed_signals
+        ),
+        Some(_) => "review gate disabled".to_string(),
+        None => "review gate not configured".to_string(),
+    };
+    (finding_gate, review_gate)
+}
+
+fn escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}

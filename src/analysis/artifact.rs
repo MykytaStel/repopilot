@@ -14,6 +14,7 @@ pub struct SyntaxSummary {
     pub parsed: bool,
     pub root_kind: Option<String>,
     pub has_errors: bool,
+    pub first_error_line: Option<usize>,
     pub named_child_count: usize,
 }
 
@@ -196,6 +197,7 @@ mod tests {
                 parsed: true,
                 root_kind: Some("source_file".to_string()),
                 has_errors: false,
+                first_error_line: None,
                 named_child_count: 2,
             },
         );
@@ -221,6 +223,7 @@ mod tests {
                 parsed: true,
                 root_kind: Some("source_file".to_string()),
                 has_errors: false,
+                first_error_line: None,
                 named_child_count: 2,
             },
         );

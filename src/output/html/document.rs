@@ -6,6 +6,7 @@ pub(super) struct DocumentParts<'a> {
     pub(super) path: &'a str,
     pub(super) scan_meta: &'a str,
     pub(super) baseline_meta: &'a str,
+    pub(super) decision_section: &'a str,
     pub(super) cards: &'a str,
     pub(super) risk_section: &'a str,
     pub(super) top_rules_section: &'a str,
@@ -20,6 +21,7 @@ pub(super) fn render_document(p: DocumentParts<'_>) -> String {
         path,
         scan_meta,
         baseline_meta,
+        decision_section,
         cards,
         risk_section,
         top_rules_section,
@@ -47,6 +49,8 @@ pub(super) fn render_document(p: DocumentParts<'_>) -> String {
   {scan_meta}
   {baseline_meta}
 </header>
+
+{decision_section}
 
 <section class="cards">
   {cards}

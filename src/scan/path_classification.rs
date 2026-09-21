@@ -4,6 +4,31 @@ pub(crate) fn is_low_signal_audit_path(path: &Path) -> bool {
     has_low_signal_component(path) || has_test_like_file_name(path)
 }
 
+/// Test-support modules are not valid candidates for absence-based production
+/// claims. This classification is intentionally separate from the scanner's
+/// global low-signal policy so other audits still see the source file.
+pub(crate) fn is_test_support_path(path: &Path) -> bool {
+    if path.extension().and_then(|extension| extension.to_str()) == Some("rs") {
+        return false;
+    }
+    let has_support_component = path.components().any(|component| {
+        matches!(
+            component.as_os_str().to_string_lossy().as_ref(),
+            "test-utils" | "test_utils" | "test-support" | "test_support"
+        )
+    });
+    let support_stem = path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .is_some_and(|stem| {
+            matches!(
+                stem,
+                "test-utils" | "test_utils" | "test-support" | "test_support"
+            )
+        });
+    has_support_component || support_stem
+}
+
 fn has_low_signal_component(path: &Path) -> bool {
     path.components().any(|component| {
         let name = component.as_os_str().to_string_lossy();
@@ -64,7 +89,7 @@ fn has_test_like_file_name(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_low_signal_audit_path;
+    use super::{is_low_signal_audit_path, is_test_support_path};
     use std::path::Path;
 
     #[test]
@@ -128,6 +153,38 @@ mod tests {
             assert!(
                 is_low_signal_audit_path(Path::new(path)),
                 "{path} follows a non-Rust test convention and should stay low-signal"
+            );
+        }
+    }
+
+    #[test]
+    fn test_support_paths_are_dead_module_exemptions_only() {
+        for path in [
+            "packages/apply-release-plan/src/test-utils/failing-functions.ts",
+            "packages/assemble-release-plan/src/test-utils.ts",
+            "src/test_support/helpers.py",
+        ] {
+            assert!(
+                is_test_support_path(Path::new(path)),
+                "{path} is test support and should be exempt from dead-module claims"
+            );
+            assert!(
+                !is_low_signal_audit_path(Path::new(path)),
+                "{path} should remain available to non-graph audits"
+            );
+        }
+    }
+
+    #[test]
+    fn ordinary_support_named_production_paths_remain_scannable() {
+        for path in [
+            "src/testament.ts",
+            "src/testing/runtime.ts",
+            "src/test_helpers/build.rs",
+        ] {
+            assert!(
+                !is_low_signal_audit_path(Path::new(path)),
+                "{path} is production code, not a test-support convention"
             );
         }
     }

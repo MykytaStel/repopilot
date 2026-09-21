@@ -94,6 +94,7 @@ repopilot s <PATH> [OPTIONS]
 | `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
 | `--record-history` | flag | — | Record this analysis in the bounded local risk-history ledger |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--intent` | path | — | Optional repository-rooted bounded TOML intent contract |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Finding gate by severity/status; exit code 1 on a breach (see [Gates](#gates)) |
 | `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority; mutually exclusive with `--fail-on` |
@@ -247,6 +248,20 @@ They compose: either one failing exits non-zero.
 When the review-signal policy is `none`, human output says
 `Review gate: disabled`; passed/failed is reserved for an enabled policy.
 
+Human review output leads with the canonical `Change Proof` verdict (`NOT
+ASSESSED`, `BROKEN`, `REVIEW`, or `VERIFIED`). It also reports an evidence class:
+`SUPPORTED PROOF` is reserved for a complete supported scope, `SUSPICION`
+requires follow-up, and `UNKNOWN` means the property could not be assessed. The
+summary includes analyzed, excluded, and unsupported files plus provenance
+inputs that are unavailable in the current review record. It follows the
+verdict with its meaning, proof policy, scope, reasons, and next action; legacy
+merge readiness, the finding CI gate, and the review-signal gate are separate
+fields. A review with no changed files is `NOT ASSESSED` and says that no
+changed files were available for assessment.
+Review JSON exposes the same evidence class, coverage scope, provenance inputs,
+and canonical projection hash in its additive top-level `evidence` object;
+review SARIF and MCP projections carry that object as well.
+
 ### Synopsis
 
 ```
@@ -313,6 +328,9 @@ repopilot review . --base origin/main --no-progress
 # Save a Markdown review report
 repopilot review . --base origin/main --format markdown --output review.md
 
+# Save a self-contained HTML Change Map
+repopilot review . --base origin/main --format html --output review.html
+
 # Preserve the previous full-repository strict review
 repopilot review . --scope full --profile strict
 
@@ -335,6 +353,9 @@ repopilot review . --min-severity high
 
 # Run only explicitly selected repository checks
 repopilot review . --verify unit --verify lint
+
+# Compare observed impact with a private, reviewed intent contract
+repopilot review . --intent .repopilot/intent.toml --format json
 ```
 
 ### Explicit local verification
@@ -517,6 +538,7 @@ repopilot init [OPTIONS]
 |------|------|---------|-------------|
 | `--force` | flag | — | Overwrite an existing config file |
 | `--path` | path | Git root `repopilot.toml` | Explicit config path; relative paths stay relative to the invocation directory |
+| `--suggestions-output` | path | — | Write a reviewable TOML suggestion snippet; existing output is preserved unless `--force` is passed |
 
 ### Examples
 
@@ -524,6 +546,7 @@ repopilot init [OPTIONS]
 repopilot init
 repopilot init --force
 repopilot init --path ./config/repopilot.toml
+repopilot init --suggestions-output .repopilot/init-suggestions.toml
 repopilot init --github-action
 repopilot init --mcp-client claude
 repopilot init --mcp-client cursor
@@ -536,6 +559,14 @@ unless `--force` is passed. MCP bootstrap output is written under
 When invoked below a Git worktree root, the default config, Action workflow, and
 MCP bootstrap are created at that root. Outside Git they remain rooted at the
 current directory.
+
+After the bootstrap steps, `init` reports the detected stack, declared
+verification commands, and critical-path candidates such as existing workflow,
+authentication, migration, or deployment directories. These are deterministic
+proposals only: commands are not run and existing config is not overwritten.
+Each proposal includes a source marker for the file, directory, or declared
+script that triggered it. A source marker explains the suggestion; it is not
+proof that the check passes or that the path is exhaustive.
 
 ---
 
@@ -623,7 +654,7 @@ The `--min-severity` flag filters rendered findings before gate evaluation, and 
 | `console` | `scan`, `review` | Versioned terminal report with risk summary, top risk clusters, and grouped findings |
 | `json` | `scan`, `review` | Machine consumption, piping to scripts |
 | `markdown` | `scan`, `review` | Versioned human-readable report with top rules and findings index |
-| `html` | `scan` | Standalone visual report with severity, category, and rule filters |
+| `html` | `scan`, `review` | Standalone local report; review HTML adds the Proof Card and contract/consumer Change Map |
 | `sarif` | `scan` | GitHub Code Scanning, CI security tooling |
 
 See [docs/integrations/github-code-scanning.md](integrations/github-code-scanning.md) for the SARIF upload workflow.

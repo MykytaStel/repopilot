@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
-use tree_sitter::{Language, Parser, Tree};
+use tree_sitter::{Language, Node, Parser, Tree};
 
 /// Process-global accumulator of time spent inside tree-sitter parsing, in
 /// nanoseconds. Summed across every [`parse`] call on every worker thread, so it
@@ -173,9 +173,18 @@ impl<'a> ParsedFile<'a> {
             parsed: true,
             root_kind: Some(root.kind().to_string()),
             has_errors: root.has_error(),
+            first_error_line: first_error_line(root),
             named_child_count: root.named_child_count(),
         }
     }
+}
+
+fn first_error_line(node: Node<'_>) -> Option<usize> {
+    if node.is_error() || node.is_missing() {
+        return Some(node.start_position().row + 1);
+    }
+    let mut cursor = node.walk();
+    node.children(&mut cursor).find_map(first_error_line)
 }
 
 #[cfg(test)]
@@ -282,6 +291,16 @@ fn main() {}",
         assert_eq!(first, second);
         assert!(summary.parsed);
         assert_eq!(summary.root_kind.as_deref(), Some("source_file"));
+    }
+
+    #[test]
+    fn syntax_summary_records_first_error_line() {
+        let parsed = ParsedFile::new("def broken(:\n    return 1\n", Some("Python"));
+
+        let summary = parsed.syntax_summary();
+
+        assert!(summary.has_errors);
+        assert_eq!(summary.first_error_line, Some(1));
     }
 
     #[test]

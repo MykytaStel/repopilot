@@ -108,6 +108,29 @@ as a practical proxy. Record the result alongside the benchmark run. A hard
 memory budget should be set only after baseline data from the pinned environment
 is available.
 
+### v0.23 scan resource matrix
+
+The release binary can run the synthetic medium matrix with one cold and three
+warm samples for full scans, plus one cold and three warm samples for changed
+scans:
+
+```bash
+npm run scan:resource
+```
+
+The command writes `/tmp/repopilot-scan-resource-matrix.json` and records the
+host profile, sampler source, workload, medians, maxima, and ceilings. The
+checked-in `tests/benchmarks/scan-resource.toml` policy uses 65,536 KiB for
+full cold, full warm, and changed cold, and 49,152 KiB for changed warm. The
+gate runs on the Ubuntu CI job; unsupported samplers or missing samples fail
+the command instead of becoming zeroes.
+
+The reference local run on `darwin-arm64` (2026-09-08, 250 files per language)
+reported maxima of 40,240 KiB full cold, 41,664 KiB full warm, 45,664 KiB
+changed cold, and 38,400 KiB changed warm. These numbers describe this host
+and fixture; changing either requires a new measurement before changing a
+ceiling.
+
 ### Thread determinism
 
 Output determinism must be verified for 1-thread and multi-thread runs. The

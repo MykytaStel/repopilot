@@ -1,6 +1,7 @@
 use repopilot::baseline::diff::{BaselineScanReport, BaselineStatus, FindingBaselineStatus};
 use repopilot::findings::types::{Confidence, Evidence, Finding, FindingCategory, Severity};
 use repopilot::output::{OutputFormat, render_baseline_scan_report, render_scan_summary};
+use repopilot::risk::RiskPriority;
 use repopilot::scan::types::{
     HiddenSuggestionSummary, ScanArtifacts, ScanMetadata, ScanMetrics, ScanSummary,
 };
@@ -22,6 +23,8 @@ fn html_does_not_render_health_scores_without_an_assessment() {
     assert!(html.contains(
         "<div class=\"num\">not assessed</div><div class=\"label\">Visible health</div>"
     ));
+    assert!(html.contains("<h2 id=\"decision-heading\">Decision: NOT ASSESSED</h2>"));
+    assert!(html.contains("<strong>Next action:</strong> Expand the analyzable scope"));
     assert!(html.contains(
         "<div class=\"num\">not assessed</div><div class=\"label\">Maintainability</div>"
     ));
@@ -76,6 +79,10 @@ fn html_output_redacts_sensitive_snippets_and_renders_summary() {
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");
 
     assert!(html.contains("RepoPilot Scan Report"));
+    assert!(html.contains("<h2 id=\"decision-heading\">Decision: REVIEW</h2>"));
+    assert!(html.contains("<strong>Why:</strong> Review the prioritized findings"));
+    assert!(html.contains("<strong>Limits:</strong> Static evidence covers only analyzed files"));
+    assert!(html.contains("<strong>Next action:</strong> Review the visible findings"));
     assert!(html.contains(&format!(
         "RepoPilot version: <strong>{}</strong>",
         env!("CARGO_PKG_VERSION")
@@ -107,6 +114,7 @@ fn html_output_includes_hidden_suggestion_breakdown() {
             ..Default::default()
         },
         metrics: ScanMetrics {
+            files_analyzed: 1,
             hidden_suggestions_count: 1,
             ..Default::default()
         },
@@ -126,8 +134,37 @@ fn html_output_includes_hidden_suggestion_breakdown() {
     let html = render_scan_summary(&summary, OutputFormat::Html).expect("failed to render html");
 
     assert!(html.contains("Top Hidden Suggestions"));
+    assert!(html.contains("<h2 id=\"decision-heading\">Decision: PASS</h2>"));
+    assert!(html.contains("<strong>Next action:</strong> Run with --profile strict"));
     assert!(html.contains("language.javascript.runtime-exit-risk"));
     assert!(html.contains("code-quality"));
+}
+
+#[test]
+fn html_blocking_decision_stays_explicit() {
+    let mut finding = duplicate_finding("blocked", 1);
+    finding.risk.priority = RiskPriority::P0;
+    let summary = ScanSummary {
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("blocked-project"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_analyzed: 1,
+            ..Default::default()
+        },
+        artifacts: ScanArtifacts {
+            findings: vec![finding],
+            ..Default::default()
+        },
+    };
+
+    let html = render_scan_summary(&summary, OutputFormat::Html)
+        .expect("failed to render blocked html summary");
+
+    assert!(html.contains("<h2 id=\"decision-heading\">Decision: BLOCK</h2>"));
+    assert!(html.contains("<strong>Why:</strong> Resolve scan errors or P0 evidence"));
+    assert!(html.contains("<strong>Next action:</strong> Resolve the blocking evidence"));
 }
 
 #[test]

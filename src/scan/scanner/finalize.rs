@@ -1,4 +1,5 @@
 use super::summary::{ScanSummaryParts, build_scan_summary};
+use super::syntax_diagnostics::python_syntax_diagnostics;
 use super::{full::ProjectAnalysisStage, full::ScanEngine, summary};
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::{
@@ -28,6 +29,7 @@ impl<'a> ScanEngine<'a> {
         let finalization_start = Instant::now();
         let context_state = prepare_findings_and_context_state(&mut project_stage);
         let mut diagnostics = diagnostics;
+        diagnostics.extend(python_syntax_diagnostics(&project_stage.facts));
         if crate::graph::was_cycle_detection_depth_exceeded() {
             diagnostics.push(ScanDiagnostic::warning(
                 "graph.cycle-depth-exceeded",

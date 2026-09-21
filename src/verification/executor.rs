@@ -237,6 +237,7 @@ fn skipped_outcome(
     check: &ValidatedCheck,
     revision: &WorkspaceRevision,
     limitation: &str,
+    revision_compatible: bool,
 ) -> VerificationOutcome {
     VerificationOutcome {
         check_id: check.id().to_string(),
@@ -251,7 +252,7 @@ fn skipped_outcome(
         stderr_truncated: false,
         revision_before: revision.id().to_string(),
         revision_after: revision.id().to_string(),
-        revision_compatible: true,
+        revision_compatible,
         limitations: vec![limitation.to_string()],
         reused: false,
     }

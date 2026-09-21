@@ -1,11 +1,17 @@
 use repopilot::baseline::gate::{CiGateResult, FailOn};
+use repopilot::findings::provenance::AnalysisScope;
 use repopilot::findings::types::Severity;
 use repopilot::review::diff::{ChangeStatus, ChangedFile};
 use repopilot::review::model::ReviewReport;
+use repopilot::review::signals::tiered::{
+    ConfidenceTier, ReviewSignal, ReviewSignalProvenance, ReviewSignalVerificationPlan,
+    SignalFamily,
+};
 use repopilot::review::{
     MergeReadinessRecord, OwnershipAssessment, OwnershipSummary, ReadinessReasonCode,
     ReadinessVerdict, derive_readiness,
 };
+use repopilot::rules::{RuleLifecycle, SignalSource};
 use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
 use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::path::PathBuf;
@@ -145,16 +151,81 @@ fn human_reports_project_readiness_and_owners() {
 
     let console = repopilot::review::render::render_console(&report, None);
     let markdown = repopilot::review::render::render_markdown(&report, None);
-    assert!(console.contains("Merge readiness: READY"));
+    assert!(console.contains("Legacy merge readiness: READY"));
     assert!(console.contains("Change Proof: REVIEW"));
+    assert!(!console.contains("Decision: PASS"));
+    assert!(
+        console.find("Change Proof: REVIEW").unwrap()
+            < console.find("Legacy merge readiness: READY").unwrap()
+    );
     assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
+    assert!(console.contains("Evidence class: SUSPICION"));
+    assert!(console.contains(
+        "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+    ));
+    assert!(console.contains("Evidence provenance: RepoPilot 0.22.0, schema 0.26"));
+    assert!(console.contains("Proof policy: none selected (0 configured)"));
+    assert!(console.contains("Reasons:"));
+    assert!(console.contains("Next action: Review the listed evidence"));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
-    assert!(markdown.contains("**Merge readiness:** `ready`"));
+    assert!(console.contains("CI gate: not configured"));
+    assert!(console.contains("Review gate: not configured"));
+    assert!(markdown.contains("**Legacy merge readiness:** `ready`"));
     assert!(markdown.contains("**Change proof:** `REVIEW`"));
+    assert!(
+        markdown.find("**Change proof:** `REVIEW`").unwrap()
+            < markdown
+                .find("**Legacy merge readiness:** `ready`")
+                .unwrap()
+    );
     assert!(markdown.contains("**Proof scope:** 1/1 file(s) analyzed"));
+    assert!(markdown.contains("**Evidence class:** `SUSPICION`"));
+    assert!(markdown.contains(
+        "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+    ));
+    assert!(markdown.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
+    assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
+    assert!(markdown.contains("**Reasons:**"));
+    assert!(markdown.contains("**Next action:** Review the listed evidence"));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
+    assert!(markdown.contains("**CI gate:** not configured"));
+    assert!(markdown.contains("**Review gate:** not configured"));
+}
+
+#[test]
+fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.changed_files.clear();
+    report.summary.metrics.files_discovered = 0;
+    report.summary.metrics.files_analyzed = 0;
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    assert!(console.contains("Change Proof: NOT ASSESSED"));
+    assert!(console.contains("Evidence class: UNKNOWN"));
+    assert!(console.contains(
+        "Evidence scope: changed; 0/0 file(s) analyzed; 0 excluded, 0 unsupported (unavailable)"
+    ));
+    assert!(console.contains("Why: No changed files were available for assessment."));
+    assert!(console.contains(
+        "Next action: Expand the analyzable scope before treating this review as evidence."
+    ));
+    assert!(console.contains(
+        "Legacy merge readiness: READY (COMPATIBILITY FIELD; NO CHANGED SCOPE ASSESSED)"
+    ));
+    assert!(!console.contains("Decision: PASS"));
+    assert!(markdown.contains("**Change proof:** `NOT ASSESSED`"));
+    assert!(markdown.contains("**Evidence class:** `UNKNOWN`"));
+    assert!(markdown.contains("**Why:** No changed files were available for assessment."));
+    assert!(markdown.contains(
+        "**Next action:** Expand the analyzable scope before treating this review as evidence."
+    ));
+    assert!(markdown.contains(
+        "**Legacy merge readiness:** `ready (compatibility field; no changed scope assessed)`"
+    ));
 }
 
 #[test]
@@ -179,6 +250,118 @@ fn human_reports_show_when_verification_was_reused() {
     assert!(!console.contains("unit: PASSED (10 ms, cached)"));
     assert!(markdown.contains("| Check | Status | Source | Duration evidence | Exit |"));
     assert!(markdown.contains("| `unit` | `Passed` | cached | original run 10 ms | 1 |"));
+}
+
+#[test]
+fn human_summary_discloses_when_no_verification_was_selected() {
+    let report = report_with_ownership(OwnershipSummary::default());
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    assert!(console.contains("Verification proof: none selected; no verification evidence"));
+    assert!(markdown.contains("- **Verification proof:** none selected; no verification evidence"));
+}
+
+#[test]
+fn readiness_includes_visible_signal_verification_guidance() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.tiered_signals.definitely.push(ReviewSignal {
+        signal_id: "signal-1".to_string(),
+        kind: "boundary.access-control".to_string(),
+        family: SignalFamily::Boundary,
+        tier: ConfidenceTier::DefinitelySensitive,
+        confidence: repopilot::findings::types::Confidence::High,
+        path: "src/auth.rs".to_string(),
+        target_path: None,
+        line: Some(4),
+        line_start: Some(4),
+        line_end: Some(4),
+        evidence_lines: vec![4],
+        headline: "access control changed".to_string(),
+        detail: None,
+        blast_radius: 0,
+        provenance: ReviewSignalProvenance {
+            detector: "boundary.access-control".to_string(),
+            lifecycle: RuleLifecycle::Preview,
+            signal_source: SignalSource::GitDiff,
+            analysis_scope: AnalysisScope::GitDiff,
+        },
+        suppressed: false,
+        suppression_reason: None,
+        gate_eligible: true,
+        verification_plan: Some(ReviewSignalVerificationPlan {
+            steps: vec!["confirm access behavior".to_string()],
+        }),
+    });
+
+    let readiness = derive_readiness(&report, None, None, None);
+
+    assert_eq!(
+        readiness.verification_steps,
+        vec!["confirm access behavior".to_string()]
+    );
+    let rendered = repopilot::review::render::render_json(&report, None).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+    assert_eq!(
+        json["merge_readiness"]["verification_steps"][0],
+        "confirm access behavior"
+    );
+    assert_eq!(json["change_proof"]["obligations"]["applicable"], 1);
+    assert_eq!(json["change_proof"]["obligations"]["unavailable"], 1);
+}
+
+#[test]
+fn human_summary_reports_revision_compatible_passed_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_failed_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "0 passed, 1 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_unavailable_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Unavailable, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary = "0 passed, 0 failed, 1 unavailable, 0 unselected, 0 stale (revision-compatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
+fn human_summary_reports_revision_incompatible_verification() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, false)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+
+    let summary =
+        "0 passed, 0 failed, 0 unavailable, 0 unselected, 1 stale (revision-incompatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
 }
 
 #[test]
@@ -236,6 +419,7 @@ fn verification_outcome(
 
 fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -264,7 +448,9 @@ fn report_with_ownership(ownership: OwnershipSummary) -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     }
 }

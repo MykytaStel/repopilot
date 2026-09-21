@@ -193,6 +193,16 @@ fn verification_steps(report: &ReviewReport) -> Vec<String> {
             steps.insert(human_verification_step(finding, &step).into_owned());
         }
     }
+    for signal in report
+        .tiered_signals
+        .definitely
+        .iter()
+        .filter(|signal| !signal.suppressed)
+    {
+        if let Some(plan) = &signal.verification_plan {
+            steps.extend(plan.steps.iter().cloned());
+        }
+    }
     steps.into_iter().collect()
 }
 

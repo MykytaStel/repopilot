@@ -59,6 +59,9 @@ struct ImportScan {
 
 fn visit(node: Node<'_>, content: &str, in_function: bool, scan: &mut ImportScan) {
     let span = (node.start_position().row + 1, node.end_position().row + 1);
+    for module in dotted_viewset_modules(node, content) {
+        scan.eager.entry(module).or_insert(span);
+    }
     let modules = match node.kind() {
         "import_statement" => node
             .utf8_text(content.as_bytes())
@@ -160,5 +163,103 @@ fn join_python_module(module: &str, name: &str) -> String {
         format!("{module}{name}")
     } else {
         format!("{module}.{name}")
+    }
+}
+
+/// Wagtail and compatible Django integrations can register a viewset on an
+/// app config with a dotted class path instead of a Python import. The loader
+/// resolves the module portion at runtime, so retain the full dotted path and
+/// let the Python resolver choose the longest local module candidate.
+fn dotted_viewset_modules(node: Node<'_>, content: &str) -> Vec<String> {
+    if node.kind() != "assignment" {
+        return Vec::new();
+    }
+    let Some(left) = node.child_by_field_name("left") else {
+        return Vec::new();
+    };
+    let Some(right) = node.child_by_field_name("right") else {
+        return Vec::new();
+    };
+    let Some(name) = left.utf8_text(content.as_bytes()).ok() else {
+        return Vec::new();
+    };
+    if left.kind() != "identifier" || !name.ends_with("_viewset") || right.kind() != "string" {
+        return Vec::new();
+    }
+    let Some(value) = right
+        .utf8_text(content.as_bytes())
+        .ok()
+        .and_then(python_string_value)
+    else {
+        return Vec::new();
+    };
+    looks_like_dotted_class_path(value)
+        .then(|| value.to_string())
+        .into_iter()
+        .collect()
+}
+
+fn python_string_value(raw: &str) -> Option<&str> {
+    let raw = raw.trim();
+    let quote = raw.chars().next()?;
+    if !matches!(quote, '\'' | '"') || raw.chars().last()? != quote || raw.len() < 2 {
+        return None;
+    }
+    Some(&raw[1..raw.len() - 1])
+}
+
+fn looks_like_dotted_class_path(value: &str) -> bool {
+    let mut segments = value.split('.');
+    let Some(last) = segments.next_back() else {
+        return false;
+    };
+    last.chars()
+        .next()
+        .is_some_and(|character| character.is_uppercase())
+        && segments.count() >= 2
+        && value.split('.').all(valid_python_identifier)
+}
+
+fn valid_python_identifier(value: &str) -> bool {
+    let mut characters = value.chars();
+    characters
+        .next()
+        .is_some_and(|character| character == '_' || character.is_ascii_alphabetic())
+        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::eager;
+    use crate::analysis::parse::ParsedFile;
+
+    fn imports(content: &str) -> Vec<String> {
+        let parsed = ParsedFile::new(content, Some("Python"));
+        let mut imports = eager(&parsed).into_iter().collect::<Vec<_>>();
+        imports.sort();
+        imports
+    }
+
+    #[test]
+    fn captures_dotted_viewset_loader_references() {
+        let content = concat!(
+            "from django.apps import AppConfig\n",
+            "\n",
+            "class UsersConfig(AppConfig):\n",
+            "    group_viewset = \"wagtail.users.views.groups.GroupViewSet\"\n",
+        );
+
+        assert!(imports(content).contains(&"wagtail.users.views.groups.GroupViewSet".to_string()));
+    }
+
+    #[test]
+    fn does_not_treat_arbitrary_dotted_strings_as_imports() {
+        let content = concat!(
+            "class Settings:\n",
+            "    template_name = \"wagtail.users.views.groups.GroupViewSet\"\n",
+            "    viewset = \"wagtail.users.views.groups.GroupViewSet\"\n",
+        );
+
+        assert!(imports(content).is_empty());
     }
 }

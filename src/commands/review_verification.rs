@@ -47,6 +47,7 @@ pub(super) fn run_selected_with_context(
     cancellation: &CancellationToken,
     observer: &mut dyn FnMut(ReviewVerificationEvent),
 ) -> Result<(), Box<dyn std::error::Error>> {
+    report.verification_policy.set_selected(selected);
     if selected.is_empty() {
         return Ok(());
     }

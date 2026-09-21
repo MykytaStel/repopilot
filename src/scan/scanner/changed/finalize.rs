@@ -7,6 +7,7 @@ use super::{
 use crate::findings::quality::SignalQualitySummary;
 use crate::graph::context::summarize_repository_context_state;
 use crate::scan::facts::ScanFacts;
+use crate::scan::scanner::syntax_diagnostics::python_syntax_diagnostics;
 use crate::scan::types::{ScanMode, ScanSummary, ScanTimings};
 use std::io;
 use std::time::Instant;
@@ -30,6 +31,7 @@ impl<'a> ChangedScanEngine<'a> {
         );
         let mut diagnostics = repo_stage.diagnostics;
         diagnostics.extend(finding_pipeline.diagnostics);
+        diagnostics.extend(python_syntax_diagnostics(&file_stage.facts));
 
         let cache_write_start = Instant::now();
         file_stage.cache.write(&discovery.repo_root)?;

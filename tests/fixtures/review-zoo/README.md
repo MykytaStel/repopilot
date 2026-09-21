@@ -16,7 +16,7 @@ tests/fixtures/review-zoo/<family>/<scenario>/{safe,unsafe}/
   patch/
     rationale.md   required, non-empty — names the exact edit and why it is/isn't expected to signal
   after/           file tree overlaid on top, left uncommitted (== the diff)
-  expected.json    { description, expect[] }   (expect[] only required for unsafe/)
+  expected.json    { description, expect[], contract_expect[] }
 ```
 
 The harness commits `before/`, overlays `after/` uncommitted (exactly like the
@@ -27,6 +27,11 @@ fixtures are asserted against `expected.json`'s `expect` array using the same
 partial-match contract as the golden harness (see
 [`tests/fixtures/review/README.md`](../review/README.md#expectedjson-contract)):
 match only on stable fields (`bucket`, `family`, `kind`, `path`, `headline`).
+
+Unsafe fixtures may also declare `contract_expect[]`. Each entry is a partial
+match against `change_proof.contract_deltas`, so a semantic contract claim is
+required to survive the same real CLI fixture that proves its review signal.
+Safe fixtures require zero contract deltas as well as zero review signals.
 
 `patch/rationale.md` is the fixture's documentation — why this exact edit is
 safe or unsafe for this delta family, and (for `safe/`) why no *other* family
@@ -40,9 +45,15 @@ diff, exactly as in the golden-fixture harness).
 | Family | Scenario | Safe reaches | Unsafe reaches |
 |--------|----------|--------------|-----------------|
 | `boundary` | `access-control` | new file at an ordinary path (`src/utils/format.ts`) | new file under `src/auth/**` |
+| `boundary` | `access-control-with-test` | related utility and test change | changed access-control boundary plus related test |
 | `behavioral` | `network-call` | a pure helper with no I/O | an added `fetch()` call |
 | `taint` | `sql-injection` | tainted input reaches a safe ORM call | tainted input reaches raw SQL via string concatenation |
 
 New fixtures are discovered automatically — drop a `<family>/<scenario>/{safe,unsafe}/`
 directory in and it's picked up, no registration needed. A dedicated test
 asserts the family set stays a superset of `{boundary, behavioral, taint}`.
+
+The generated [review contract evidence scorecard](../../../docs/engineering/review-contract-evidence.md)
+counts contract expectations separately from real-repository rule labels. It is
+fixture protocol evidence only; `cargo test --test review_zoo` is required to
+prove the current binary satisfies the expectations.

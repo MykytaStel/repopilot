@@ -75,6 +75,7 @@ fn report_with_changed_files() -> ReviewReport {
         .chain(["README.md".to_string(), "tools/check.rs".to_string()]);
 
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 root_path: PathBuf::from("."),
@@ -106,7 +107,9 @@ fn report_with_changed_files() -> ReviewReport {
         boundary_missing_test: false,
         tiered_signals: Default::default(),
         timings: Default::default(),
+        verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     }
 }

@@ -127,6 +127,14 @@ fn tools_list_advertises_all_tools_with_schemas() {
         review["inputSchema"]["properties"]["verify"]["uniqueItems"],
         true
     );
+    assert_eq!(
+        review["inputSchema"]["properties"]["intent_path"]["type"],
+        "string"
+    );
+    assert_eq!(
+        review["inputSchema"]["properties"]["intent"]["additionalProperties"],
+        false
+    );
     assert_eq!(review["annotations"]["readOnlyHint"], false);
     assert_eq!(review["annotations"]["destructiveHint"], true);
     assert_eq!(review["annotations"]["idempotentHint"], false);
@@ -690,6 +698,7 @@ fn oversized_tool_result_is_replaced_by_a_bounded_error() {
         Some("scan-handle"),
         None,
         1024,
+        None,
     );
 
     assert_eq!(result["isError"], true);

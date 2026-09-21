@@ -20,26 +20,6 @@ disposition = "actionable"
 reason = "Real two-node eager import cycle between npm-utils.ts and publishPackages.ts inside the publish command."
 [[finding]]
 profile = "strict"
-finding_id = "architecture.dead-module:packages/apply-release-plan/src/test-utils/failing-functions.ts:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "packages/apply-release-plan/src/test-utils/failing-functions.ts"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Imported by packages/apply-release-plan/src/index.test.ts through an extensionless specifier the resolver does not map to this file, so the edge exists in source but not in the graph."
-
-[[finding]]
-profile = "strict"
-finding_id = "architecture.dead-module:packages/assemble-release-plan/src/test-utils.ts:b022a3e6e8b8daf1"
-rule_id = "architecture.dead-module"
-path = "packages/assemble-release-plan/src/test-utils.ts"
-line = 1
-evidence = "sample"
-disposition = "false-positive"
-reason = "Test helper imported by sibling test files through an extensionless specifier the resolver does not map, so the edge exists in source but not in the graph."
-
-[[finding]]
-profile = "strict"
 finding_id = "architecture.large-file:packages/assemble-release-plan/src/index.ts:a3d04d5868a74ae9"
 rule_id = "architecture.large-file"
 path = "packages/assemble-release-plan/src/index.ts"
@@ -67,3 +47,13 @@ line = 23
 evidence = "sample"
 disposition = "actionable"
 reason = "Complexity 41 against a threshold of 15 — nearly three times over. Branch density this high is what the rule exists to surface."
+
+[[finding]]
+profile = "strict"
+finding_id = "code-quality.complex-file:packages/config/src/utils.ts:0817bda7890a6b73"
+rule_id = "code-quality.complex-file"
+path = "packages/config/src/utils.ts"
+line = 1
+evidence = "sample"
+disposition = "valid-but-accepted"
+reason = "The 37-line utility implements ordered positive/negative glob matching with nine branches; the density is real, but the logic is localized and intentionally kept as one matcher."

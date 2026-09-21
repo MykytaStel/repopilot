@@ -102,6 +102,15 @@ fn direct_state_mutation_severity_is_high() {
     assert_eq!(meta.default_severity, Severity::High);
 }
 
+#[test]
+fn complex_file_has_docs_url_for_high_severity_emissions() {
+    let meta = lookup_rule_metadata("code-quality.complex-file").unwrap();
+    assert_eq!(
+        meta.docs_url,
+        Some("https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md")
+    );
+}
+
 // ── SARIF integration ─────────────────────────────────────────────────────────
 
 fn make_finding(rule_id: &str) -> Finding {

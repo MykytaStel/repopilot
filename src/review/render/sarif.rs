@@ -1,11 +1,23 @@
+use crate::baseline::gate::CiGateResult;
 use crate::findings::provenance::FindingProvenance;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::output::sarif::findings_to_sarif;
+use crate::review::ReviewSignalGateResult;
+use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
+use crate::review::proof::{build_proof_receipt, derive_change_proof_from_review};
 use crate::review::signals::tiered::{ConfidenceTier, SignalFamily};
 use std::path::PathBuf;
 
 pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::Error> {
+    render_review_sarif_with_gates(report, None, None)
+}
+
+pub fn render_review_sarif_with_gates(
+    report: &ReviewReport,
+    ci_gate: Option<&CiGateResult>,
+    review_gate: Option<&ReviewSignalGateResult>,
+) -> Result<String, serde_json::Error> {
     let mut findings = report
         .in_diff_findings()
         .into_iter()
@@ -64,7 +76,26 @@ pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::
         });
     }
 
-    serde_json::to_string_pretty(&findings_to_sarif(&findings, &report.repo_root))
+    let readiness = derive_readiness(
+        report,
+        ci_gate,
+        review_gate,
+        report.summary.artifacts.risk_delta.as_ref(),
+    );
+    let derived_proof = derive_change_proof_from_review(report, &readiness);
+    let proof_receipt = build_proof_receipt(report, &derived_proof);
+    let proof = proof_receipt.proof.clone();
+    let evidence = proof_receipt.evidence.clone();
+    let mut sarif = findings_to_sarif(&findings, &report.repo_root);
+    if let Some(run) = sarif.runs.first_mut() {
+        run.properties.change_proof = Some(serde_json::to_value(proof)?);
+        run.properties.evidence = Some(serde_json::to_value(evidence)?);
+        run.properties.proof_receipt = Some(serde_json::to_value(proof_receipt)?);
+        if !report.verification.is_empty() {
+            run.properties.verification = Some(report.verification.clone());
+        }
+    }
+    serde_json::to_string_pretty(&sarif)
 }
 
 /// Exhaustive so a new `ConfidenceTier` variant fails to compile here instead

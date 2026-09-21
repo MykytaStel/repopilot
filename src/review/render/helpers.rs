@@ -2,6 +2,8 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
+use crate::review::proof::{ChangeProof, ChangeProofVerdict, ProofObligations};
+use crate::review::readiness::MergeReadinessRecord;
 use crate::verification::VerificationOutcome;
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
@@ -9,6 +11,80 @@ pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> S
         format!("original run {} ms", outcome.duration_ms)
     } else {
         format!("{} ms", outcome.duration_ms)
+    }
+}
+
+pub(super) fn verification_proof_summary(
+    report: &ReviewReport,
+    obligations: ProofObligations,
+) -> String {
+    if report.verification.is_empty() && obligations.applicable == 0 {
+        return "none selected; no verification evidence".to_string();
+    }
+
+    let revision = if report
+        .verification
+        .iter()
+        .all(|outcome| outcome.revision_compatible)
+    {
+        "revision-compatible"
+    } else {
+        "revision-incompatible"
+    };
+    format!(
+        "{} passed, {} failed, {} unavailable, {} unselected, {} stale ({revision})",
+        obligations.satisfied,
+        obligations.failed,
+        obligations.unavailable,
+        obligations.unselected,
+        obligations.stale,
+    )
+}
+
+pub(super) fn change_proof_headline(report: &ReviewReport, proof: &ChangeProof) -> &'static str {
+    match proof.verdict {
+        ChangeProofVerdict::Broken => "A supported contract appears broken in the changed scope.",
+        ChangeProofVerdict::Review => {
+            "Review the listed evidence, coverage limits, and required checks."
+        }
+        ChangeProofVerdict::Verified => "The assessed scope satisfies the selected proof policy.",
+        ChangeProofVerdict::NotAssessed if report.changed_files.is_empty() => {
+            "No changed files were available for assessment."
+        }
+        ChangeProofVerdict::NotAssessed => "No analyzable files were available for assessment.",
+    }
+}
+
+pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
+    let configured = report.verification_policy.configured.len();
+    let selected = report.verification_policy.selected.len();
+    if selected == 0 {
+        if report.verification.is_empty() {
+            format!("none selected ({configured} configured)")
+        } else {
+            format!(
+                "recorded outcomes ({} check(s); no configured policy)",
+                report.verification.len()
+            )
+        }
+    } else {
+        format!("{selected} selected ({configured} configured)")
+    }
+}
+
+pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
+    crate::review::proof::next_action_for(proof)
+}
+
+pub(super) fn legacy_readiness_summary(
+    report: &ReviewReport,
+    readiness: &MergeReadinessRecord,
+) -> String {
+    let label = readiness.verdict.label();
+    if report.changed_files.is_empty() {
+        format!("{label} (compatibility field; no changed scope assessed)")
+    } else {
+        label.to_string()
     }
 }
 

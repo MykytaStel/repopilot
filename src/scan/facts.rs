@@ -124,6 +124,7 @@ mod tests {
                 parsed: true,
                 root_kind: Some("source_file".to_string()),
                 has_errors: false,
+                first_error_line: None,
                 named_child_count: 2,
             },
         );
