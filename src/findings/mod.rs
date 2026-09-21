@@ -2,6 +2,7 @@ pub mod aggregation;
 pub mod contract;
 pub mod decision;
 pub mod enrichment;
+pub mod explanation;
 pub mod feedback;
 pub mod filter;
 pub mod occurrence;

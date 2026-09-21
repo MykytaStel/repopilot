@@ -14,7 +14,10 @@ pub mod findings {
         FindingContractReport, FindingContractViolation, FindingContractViolationKind,
         validate_finding_contract, validate_findings_contract,
     };
-    pub use crate::findings::decision::{DecisionRecord, VerificationPlan, build_decision_record};
+    pub use crate::findings::decision::{
+        DecisionRecord, FindingEvidenceBasis, FindingExplanation, VerificationPlan,
+        build_decision_record, build_finding_explanation,
+    };
     pub use crate::findings::feedback::{
         LocalFeedbackReport, LocalFeedbackValidation, LocalSuppression, apply_local_feedback,
         validate_local_feedback,

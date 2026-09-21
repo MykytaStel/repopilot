@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added canonical finding evidence cards. Each finding now carries a
+  deterministic explanation of its claim, signal source, analysis scope,
+  lifecycle, evidence-location count, conservative limitations, and next action in
+  the shared decision record. Console, Markdown, HTML, JSON, SARIF, AI context,
+  and MCP reuse the same card while preserving existing fields and exit codes.
 - Added an additive replayable Proof Receipt to review JSON and SARIF. It is
   derived from the canonical ChangeProof, records scope/provenance hashes and
   next action, and fails closed with explicit matched/stale/unsupported/

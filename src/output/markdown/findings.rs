@@ -1,4 +1,5 @@
 use crate::baseline::diff::BaselineScanReport;
+use crate::findings::decision::build_finding_explanation;
 use crate::findings::types::{Finding, Severity};
 use crate::output::FindingRenderLimit;
 use crate::output::render_helpers::escape_table_cell;
@@ -111,6 +112,7 @@ pub(crate) fn render_grouped_findings<F>(
 }
 
 fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<&str>) {
+    let explanation = build_finding_explanation(finding);
     writeln!(
         output,
         "- **[{}] {}**",
@@ -164,8 +166,24 @@ fn render_finding_detail(output: &mut String, finding: &Finding, status: Option<
     }
     writeln!(
         output,
+        "  - Evidence basis: {}",
+        escape_table_cell(&explanation.evidence_basis.summary())
+    )
+    .unwrap();
+    writeln!(output, "  - Limits:").unwrap();
+    for limitation in &explanation.limitations {
+        writeln!(output, "    - {}", first_sentence(limitation, 220)).unwrap();
+    }
+    writeln!(
+        output,
         "  - Recommendation: {}",
         first_sentence(finding.recommendation_or_default(), 220)
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "  - Next action: {}",
+        first_sentence(&explanation.next_action, 220)
     )
     .unwrap();
     if let Some(plan) = crate::findings::verification::build_verification_plan(finding) {

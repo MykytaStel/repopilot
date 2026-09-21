@@ -100,6 +100,12 @@ fn html_output_redacts_sensitive_snippets_and_renders_summary() {
     assert!(html.contains("security.secret-candidate"));
     assert!(html.contains("<strong>Context:</strong> description"));
     assert!(html.contains("<strong>Recommendation:</strong>"));
+    assert!(html.contains(
+        "<strong>Evidence basis:</strong> mixed source; file scope; preview rule; 1 location"
+    ));
+    assert!(html.contains("<strong>Limits:</strong>"));
+    assert!(html.contains("runtime behavior or user impact"));
+    assert!(html.contains("<strong>Next action:</strong>"));
     assert!(html.contains("<strong>Verification:</strong>"));
     assert!(html.contains("[sensitive evidence redacted]"));
     assert!(!html.contains("abc&lt;123&gt;"));

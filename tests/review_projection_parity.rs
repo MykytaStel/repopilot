@@ -1,3 +1,7 @@
+use repopilot::baseline::diff::BaselineStatus;
+use repopilot::findings::record::FindingRecord;
+use repopilot::findings::types::{Evidence, Finding, FindingCategory, Severity};
+use repopilot::report::schema::ReviewJsonFinding;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
@@ -6,6 +10,42 @@ use tempfile::tempdir;
 
 fn repopilot() -> Command {
     Command::new(env!("CARGO_BIN_EXE_repopilot"))
+}
+
+#[test]
+fn review_json_finding_uses_the_shared_explanation_card() {
+    let finding = Finding {
+        id: "rule.example:src/lib.rs:1".to_string(),
+        rule_id: "rule.example".to_string(),
+        title: "Example".to_string(),
+        description: "An example structural signal.".to_string(),
+        recommendation: "Review the example.".to_string(),
+        category: FindingCategory::Architecture,
+        severity: Severity::Medium,
+        confidence: Default::default(),
+        evidence: vec![Evidence {
+            path: "src/lib.rs".into(),
+            line_start: 1,
+            line_end: None,
+            snippet: "pub fn example() {}".to_string(),
+        }],
+        ..Default::default()
+    };
+    let projected = ReviewJsonFinding {
+        record: FindingRecord::new(&finding),
+        in_diff: true,
+        baseline_status: Some(BaselineStatus::New),
+    };
+    let value = serde_json::to_value(projected).expect("review finding JSON");
+
+    assert_eq!(
+        value["decision"]["explanation"]["claim"],
+        "An example structural signal."
+    );
+    assert_eq!(
+        value["decision"]["explanation"]["evidence_basis"]["scope"],
+        "file"
+    );
 }
 
 #[test]

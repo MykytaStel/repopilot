@@ -118,6 +118,10 @@ fn renders_markdown_scan_summary() {
     assert!(output.contains("Evidence: `src/main.rs:7` - // TODO: improve architecture"));
     assert!(output.contains("Recommendation:"));
     assert!(output.contains("Convert the TODO into a tracked issue"));
+    assert!(output.contains("Evidence basis: mixed source; file scope; preview rule; 1 location"));
+    assert!(output.contains("Limits:"));
+    assert!(output.contains("runtime behavior or user impact"));
+    assert!(output.contains("Next action:"));
 }
 
 #[test]
