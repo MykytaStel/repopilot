@@ -78,6 +78,7 @@ fn render_proof_card(
     review_gate: Option<&ReviewSignalGateResult>,
 ) -> String {
     let decision = derive_review_decision(report, proof, readiness, ci_gate, review_gate);
+    let proof_class = proof.verdict.label().to_ascii_lowercase().replace(' ', "-");
     let limits = if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
         format!(
             "<ul class=\"limits\"><li>{} excluded, {} unsupported file(s)</li></ul>",
@@ -135,7 +136,7 @@ fn render_proof_card(
   <p class="decision-gates"><strong>Decision gates:</strong> CI {decision_ci}, review {decision_review}</p>
   {reasons}
   <div class="proof-grid">
-    <dl class="metric"><dt>Change proof</dt><dd><span class="badge {verdict_class}">{verdict}</span></dd></dl>
+    <dl class="metric"><dt>Change proof</dt><dd><span class="badge {proof_class}">{proof_verdict}</span></dd></dl>
     <dl class="metric"><dt>Evidence class</dt><dd>{evidence_class}</dd></dl>
     <dl class="metric"><dt>Evidence scope</dt><dd>{evidence_scope}</dd></dl>
     <dl class="metric"><dt>Evidence provenance</dt><dd>{evidence_provenance}</dd></dl>
@@ -150,6 +151,8 @@ fn render_proof_card(
   {limits}{decision_limitations}{readiness_limits}
 </section>"#,
         verdict = decision.verdict.label(),
+        proof_class = proof_class,
+        proof_verdict = proof.verdict.label(),
         meaning = escape(&decision.meaning),
         evidence_class = evidence.class.label(),
         evidence_scope = escape(&evidence.scope_line()),
