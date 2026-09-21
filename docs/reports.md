@@ -429,6 +429,40 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
 
+### Canonical finding explanation
+
+Machine reports include an additive `decision.explanation` object alongside
+the existing finding fields. It is built once from finding provenance and
+reused by JSON, review, baseline, AI-context, SARIF, and MCP projections:
+
+```json
+{
+  "decision": {
+    "explanation": {
+      "claim": "The example contract is indicated by this signal.",
+      "evidence_basis": {
+        "source": "ast",
+        "scope": "file",
+        "lifecycle": "stable",
+        "location_count": 1
+      },
+      "limitations": [
+        "Static evidence describes a structural signal; it does not by itself prove runtime behavior or user impact."
+      ],
+      "next_action": "Confirm the cited evidence, then apply the recommendation."
+    }
+  }
+}
+```
+
+`claim` is the rule description, while `evidence_basis` states how the
+finding was produced. `limitations` are conservative boundaries: they do not
+turn static evidence into proof of runtime reachability, exploitability, test
+execution, or user impact. Heuristic, preview/experimental, non-file-scope,
+import-graph, and missing-location cases receive additional limits. The
+existing `occurrence_key`, evidence locations, recommendation, and verification
+plan remain authoritative and unchanged.
+
 ### Knowledge-decision provenance
 
 Knowledge-aware findings may include:

@@ -80,7 +80,13 @@
   - Location: `src/config.ts:3`
   - Evidence: `src/config.ts:3` - [sensitive evidence redacted]
   - Context: A high-entropy string or a pattern matching a known secret format was found in source code
+  - Evidence basis: text-heuristic source; file scope; preview rule; 1 location
+  - Limits:
+    - Static evidence describes a structural signal; it does not by itself prove runtime behavior or user impact.
+    - The signal is heuristic or mixed; review the cited context before changing code.
+    - This preview rule is still being calibrated; treat it as a review input, not an automatic merge decision.
   - Recommendation: Move the value to an environment variable or secrets manager
+  - Next action: Confirm the cited evidence, then apply the recommendation.
   - Verification:
     - Open src/config.ts:3 and confirm the flagged code shown is still present: `[sensitive evidence redacted]`.
     - Confirm the flagged input reaches this code without validation or sanitization, and check for an existing test covering this path.

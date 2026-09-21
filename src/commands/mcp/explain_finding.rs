@@ -284,6 +284,11 @@ mod tests {
         assert_eq!(value["source_report"], "last-scan");
         assert_eq!(value["replay"]["status"], "matched");
         assert!(value["explanation"]["decision"]["trace"].is_array());
+        assert_eq!(
+            value["decision"]["explanation"]["evidence_basis"]["source"],
+            "ast"
+        );
+        assert!(value["decision"]["explanation"]["limitations"].is_array());
     }
 
     #[test]

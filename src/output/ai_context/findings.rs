@@ -1,3 +1,4 @@
+use crate::findings::decision::build_finding_explanation;
 use crate::findings::types::{Finding, FindingCategory, Severity};
 use crate::output::ai_context::budget::{CategoryAllocation, allocate_categories, category_weight};
 use crate::output::finding_helpers::{
@@ -158,6 +159,7 @@ pub(super) fn render_finding_entry(
     index: usize,
     snippet_lines: usize,
 ) {
+    let explanation = build_finding_explanation(finding);
     let sev = finding.severity.label();
     let location = finding_location(finding);
     let loc_str = location
@@ -189,7 +191,15 @@ pub(super) fn render_finding_entry(
         );
     }
 
+    let _ = writeln!(
+        out,
+        "> **Evidence basis:** {}",
+        explanation.evidence_basis.summary()
+    );
+    let _ = writeln!(out, "> **Limits:** {}", explanation.limitations.join(" "));
+
     let _ = writeln!(out, "> **Fix:** {}", finding_recommendation(finding));
+    let _ = writeln!(out, "> **Next action:** {}", explanation.next_action);
 
     if let Some(url) = &finding.docs_url {
         let _ = writeln!(out, "> **Docs:** {url}");

@@ -1,3 +1,4 @@
+use crate::findings::decision::build_finding_explanation;
 use crate::findings::types::Finding;
 use crate::output::FindingRenderLimit;
 use crate::output::color;
@@ -61,6 +62,7 @@ pub(crate) fn render_grouped_findings<F>(
 }
 
 fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) {
+    let explanation = build_finding_explanation(finding);
     let severity = color::severity_label(finding.severity_label());
     writeln!(output, "      [{}] {}", severity, finding.title).unwrap();
     writeln!(output, "        Confidence: {}", finding.confidence_label()).unwrap();
@@ -104,8 +106,24 @@ fn render_finding(output: &mut String, finding: &Finding, status: Option<&str>) 
     }
     writeln!(
         output,
+        "        Evidence basis: {}",
+        explanation.evidence_basis.summary()
+    )
+    .unwrap();
+    writeln!(output, "        Limits:").unwrap();
+    for limitation in &explanation.limitations {
+        writeln!(output, "          - {limitation}").unwrap();
+    }
+    writeln!(
+        output,
         "        Recommendation: {}",
         first_sentence(finding.recommendation_or_default(), 180)
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "        Next action: {}",
+        first_sentence(&explanation.next_action, 180)
     )
     .unwrap();
     if let Some(plan) = crate::findings::verification::build_verification_plan(finding) {
