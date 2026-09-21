@@ -2,6 +2,7 @@ use super::*;
 use crate::review::ImpactPaths;
 use crate::review::MergeReadinessRecord;
 use crate::review::ReviewSignalGateResult;
+use crate::review::decision::{ReviewDecision, derive_review_decision};
 use crate::review::derive_readiness;
 use crate::review::proof::{
     ChangeProof, EvidenceSummary, ProofReceipt, build_proof_receipt,
@@ -25,6 +26,8 @@ pub struct ReviewJsonReport<'a> {
     pub impact_paths: &'a ImpactPaths,
     pub merge_readiness: MergeReadinessRecord,
     pub change_proof: ChangeProof,
+    /// Additive primary assessment shared by human and machine projections.
+    pub decision: ReviewDecision,
     /// Additive evidence contract shared by machine and human projections.
     pub evidence: EvidenceSummary,
     /// Replayable proof receipt built from the same canonical ChangeProof.
@@ -74,6 +77,8 @@ impl<'a> ReviewJsonReport<'a> {
         let proof_receipt = build_proof_receipt(report, &derived_proof);
         let change_proof = proof_receipt.proof.clone();
         let evidence = proof_receipt.evidence.clone();
+        let decision =
+            derive_review_decision(report, &change_proof, &readiness, ci_gate, review_gate);
         Self {
             schema_version: SCAN_REPORT_SCHEMA_VERSION,
             repopilot_version: REPOPILOT_VERSION,
@@ -92,6 +97,7 @@ impl<'a> ReviewJsonReport<'a> {
             impact_paths: &report.impact_paths,
             merge_readiness: readiness,
             change_proof,
+            decision,
             evidence,
             proof_receipt,
             boundary_signals: &report.boundary_signals,

@@ -322,13 +322,24 @@ selected checks, unavailable inputs, and a canonical projection hash. The
 object is derived from the same `change_proof` used by the human renderers;
 older readers may ignore it without changing existing fields or exit codes.
 
+Review JSON also carries an additive top-level `decision` object. It is the
+single primary assessment for the review and contains `verdict` (`PASS`,
+`REVIEW`, `BLOCK`, or `NOT_ASSESSED`), `meaning`, `why`, `limitations`, one
+`next_action`, and independent `gates.ci` / `gates.review` states. The
+decision is derived from `change_proof`; it does not replace `change_proof`,
+`merge_readiness`, or their exit-code semantics. A failed CI gate remains a
+separate gate result rather than silently changing a static proof verdict.
+Empty, unsupported, or partially analyzed scopes remain `NOT_ASSESSED` or
+`REVIEW` and are never promoted to `PASS`.
+
 ## Review HTML reports
 
 `repopilot review --format html --output review.html` writes a self-contained
-local report. Its first screen is the canonical Proof Card: Change Proof
-verdict, evidence class, meaning, reasons, one next action, legacy merge
-readiness, proof policy, analyzed scope, verification evidence, provenance
-inputs, and separate CI/review gates. `SUPPORTED PROOF` is emitted only for a
+local report. Its first screen is the canonical decision block and Proof Card:
+one primary decision, meaning, reasons, one next action, independent CI/review
+gate states, Change Proof verdict, evidence class, legacy merge readiness,
+proof policy, analyzed scope, verification evidence, and provenance inputs.
+`SUPPORTED PROOF` is emitted only for a
 complete supported scope; limited coverage is shown as `SUSPICION`, while an
 unavailable scope is `UNKNOWN`.
 The Change Map then links changed files to
@@ -346,10 +357,13 @@ retains the complete machine-readable record.
 When an MCP review returns an `analysisHandle`, pass that handle to
 `repopilot_context`, `repopilot_explain_finding`, or
 `repopilot_explain_review_signal`. The returned structured content includes the
-same canonical `change_proof` and additive `evidence` objects that were emitted
-by the review. The `repopilot://analyses` resource exposes both objects in its
-stored-analysis summary as well. Context content remains Markdown, while the
-proof and evidence stay machine-readable in `structuredContent`.
+same canonical `change_proof`, `evidence`, and additive `decision` objects that
+were emitted by the review. The `repopilot://analyses` resource exposes all
+three objects in its stored-analysis summary as well. Context content remains
+Markdown, while the proof, evidence, and decision stay machine-readable in
+`structuredContent`. Finding explanations retain their finding-level
+`decision` field and expose the review-level object as `review_decision` to
+avoid a name collision.
 
 ## Audit receipt JSON
 

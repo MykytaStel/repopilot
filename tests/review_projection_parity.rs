@@ -89,8 +89,14 @@ fn review_projections_share_canonical_proof_and_evidence() {
         .expect("valid review JSON");
     let proof = json["change_proof"].clone();
     let evidence = json["evidence"].clone();
+    let decision = json["decision"].clone();
     let proof_receipt = json["proof_receipt"].clone();
     assert!(proof.is_object(), "review JSON keeps change_proof");
+    assert!(
+        decision.is_object(),
+        "review JSON exposes canonical decision"
+    );
+    assert!(decision["next_action"].is_string());
     assert!(
         evidence.is_object(),
         "review JSON exposes canonical evidence"
@@ -107,6 +113,7 @@ fn review_projections_share_canonical_proof_and_evidence() {
     let sarif: Value =
         serde_json::from_slice(&fs::read(&sarif_path).expect("read SARIF")).expect("valid SARIF");
     assert_eq!(sarif["runs"][0]["properties"]["changeProof"], proof);
+    assert_eq!(sarif["runs"][0]["properties"]["decision"], decision);
     assert_eq!(sarif["runs"][0]["properties"]["evidence"], evidence);
     assert_eq!(
         sarif["runs"][0]["properties"]["proofReceipt"],
@@ -117,6 +124,8 @@ fn review_projections_share_canonical_proof_and_evidence() {
     let html = run_text_review(temp.path(), "html");
     let console = run_text_review(temp.path(), "console");
     let class = human_evidence_class(&evidence);
+    let decision_label = decision["verdict"].as_str().expect("decision verdict");
+    let decision_action = decision["next_action"].as_str().expect("decision action");
     let scope = evidence_scope_line(&evidence);
     let provenance = evidence["provenance"]
         .as_object()
@@ -126,12 +135,19 @@ fn review_projections_share_canonical_proof_and_evidence() {
         provenance["analyzer_version"].as_str().expect("version"),
         provenance["report_schema"].as_str().expect("schema")
     );
+    assert!(markdown.contains(&format!("**Decision:** `{decision_label}`")));
+    assert!(markdown.contains(decision_action));
     assert!(markdown.contains(&format!("**Evidence class:** `{class}`")));
     assert!(markdown.contains(&format!("**Evidence scope:** {scope}")));
     assert!(markdown.contains(&format!("**Evidence provenance:** {provenance_prefix}")));
+    assert!(html.contains("<strong>Decision:</strong>"));
+    assert!(html.contains(decision_label));
+    assert!(html.contains(decision_action));
     assert!(html.contains(&format!("<dt>Evidence class</dt><dd>{class}</dd>")));
     assert!(html.contains(&format!("<dt>Evidence scope</dt><dd>{scope}</dd>")));
     assert!(html.contains(&provenance_prefix));
+    assert!(console.contains(&format!("Decision: {decision_label}")));
+    assert!(console.contains(decision_action));
     assert!(console.contains(&format!("Evidence class: {class}")));
     assert!(console.contains(&format!("Evidence scope: {scope}")));
     assert!(console.contains(&format!("Evidence provenance: {provenance_prefix}")));

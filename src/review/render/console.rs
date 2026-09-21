@@ -3,14 +3,15 @@ use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
+use crate::review::decision::derive_review_decision;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::{
-    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
-    legacy_readiness_summary, verification_duration_evidence, verification_proof_summary,
+    change_proof_headline, change_proof_policy_summary, legacy_readiness_summary,
+    verification_duration_evidence, verification_proof_summary,
 };
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
@@ -55,6 +56,19 @@ fn render_console_header(
     );
     let proof = derive_change_proof_from_review(report, &readiness);
     let evidence = EvidenceSummary::from_review(report, &proof);
+    let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
+    output.push_str(&format!("Decision: {}\n", decision.verdict.label()));
+    output.push_str(&format!("Decision meaning: {}\n", decision.meaning));
+    output.push_str(&format!("Decision why: {}\n", decision.why));
+    for limitation in decision.limitations.iter().take(3) {
+        output.push_str(&format!("Decision limitation: {limitation}\n"));
+    }
+    output.push_str(&format!("Next action: {}\n", decision.next_action));
+    output.push_str(&format!(
+        "Decision gates: CI {}, review {}\n",
+        decision.gates.ci.label(),
+        decision.gates.review.label()
+    ));
     output.push_str(&format!("Change Proof: {}\n", proof.verdict.label()));
     output.push_str(&format!("Evidence class: {}\n", evidence.class.label()));
     output.push_str(&format!("Evidence scope: {}\n", evidence.scope_line()));
@@ -72,10 +86,6 @@ fn render_console_header(
         for reason in proof.reasons.iter().take(5) {
             output.push_str(&format!("  - {}\n", reason.message));
         }
-        output.push_str(&format!(
-            "Next action: {}\n",
-            change_proof_next_action(&proof)
-        ));
     }
     output.push_str(&format!(
         "Intent drift: {}\n",

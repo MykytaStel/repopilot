@@ -161,6 +161,11 @@ fn with_change_proof(rendered: &str, report: &str) -> Result<String, String> {
     {
         object.insert("evidence".to_string(), evidence.clone());
     }
+    if let Some(review_decision) = report.get("decision")
+        && let Some(object) = explanation.as_object_mut()
+    {
+        object.insert("review_decision".to_string(), review_decision.clone());
+    }
     serde_json::to_string_pretty(&explanation)
         .map_err(|error| format!("render finding explanation failed: {error}"))
 }

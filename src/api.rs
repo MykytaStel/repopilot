@@ -57,6 +57,10 @@ pub mod graph {
 }
 
 pub mod review {
+    pub use crate::review::decision::{
+        ReviewDecision, ReviewDecisionGates, ReviewDecisionVerdict, ReviewGateState,
+        derive_review_decision,
+    };
     pub use crate::review::diff::{ChangeStatus, ChangedFile};
     pub use crate::review::model::{ReviewFindingStatus, ReviewReport};
     pub use crate::review::{build_review_report, build_review_report_since, review_report_for_ci};
