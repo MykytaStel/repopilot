@@ -414,6 +414,7 @@ fn verification_outcome(
         revision_compatible,
         limitations: Vec::new(),
         reused: false,
+        diagnostics: None,
     }
 }
 

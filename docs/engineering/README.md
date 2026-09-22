@@ -19,6 +19,7 @@ documentation](../README.md) instead.
 - [Graph and scan hardening notes](graph-scan-hardening.md)
 - [Performance budgets](performance-budgets.md)
 - [Signal contract](signal-contract.md)
+- [Verification provenance v1](verification-provenance-v1.md)
 
 ## Generated evidence and quality measurements
 

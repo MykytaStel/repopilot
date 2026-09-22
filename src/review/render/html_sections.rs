@@ -1,5 +1,6 @@
 use super::super::helpers::{
-    render_ranges, verification_duration_evidence, verification_proof_summary,
+    render_ranges, verification_diagnostics_evidence, verification_duration_evidence,
+    verification_proof_summary,
 };
 use super::escape;
 use crate::review::model::ReviewReport;
@@ -238,8 +239,11 @@ pub(super) fn render_verification(report: &ReviewReport, proof: &ChangeProof) ->
         .iter()
         .map(|outcome| {
             let source = if outcome.reused { "cached" } else { "executed" };
+            let diagnostics = verification_diagnostics_evidence(outcome)
+                .map(|value| escape(&value))
+                .unwrap_or_else(|| "-".to_string());
             format!(
-                "<tr><td><code>{}</code></td><td>{:?}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td><code>{}</code></td><td>{:?}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{diagnostics}</td></tr>",
                 escape(&outcome.check_id),
                 outcome.status,
                 source,
@@ -251,7 +255,7 @@ pub(super) fn render_verification(report: &ReviewReport, proof: &ChangeProof) ->
         .collect::<Vec<_>>()
         .join("");
     format!(
-        "<section class=\"panel\" id=\"verification\"><h2>Verification</h2><p class=\"muted\">{}</p><table><thead><tr><th>Check</th><th>Status</th><th>Source</th><th>Duration</th><th>Exit</th><th>Revision</th></tr></thead><tbody>{rows}</tbody></table></section>",
+        "<section class=\"panel\" id=\"verification\"><h2>Verification</h2><p class=\"muted\">{}</p><table><thead><tr><th>Check</th><th>Status</th><th>Source</th><th>Duration</th><th>Exit</th><th>Revision</th><th>Diagnostics</th></tr></thead><tbody>{rows}</tbody></table></section>",
         escape(&verification_proof_summary(report, proof.obligations))
     )
 }

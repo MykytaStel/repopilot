@@ -11,7 +11,7 @@ use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_policy_summary, legacy_readiness_summary,
-    verification_duration_evidence, verification_proof_summary,
+    verification_diagnostics_evidence, verification_duration_evidence, verification_proof_summary,
 };
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
@@ -271,6 +271,9 @@ fn render_verification(output: &mut String, report: &ReviewReport) {
                 "    stderr: {}\n",
                 outcome.stderr_excerpt.trim_end()
             ));
+        }
+        if let Some(diagnostics) = verification_diagnostics_evidence(outcome) {
+            output.push_str(&format!("    diagnostics: {diagnostics}\n"));
         }
         if !outcome.revision_compatible {
             output.push_str("    workspace revision changed; evidence is incompatible\n");

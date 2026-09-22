@@ -91,6 +91,7 @@ fn outcome(status: VerificationStatus, revision_compatible: bool) -> Verificatio
         revision_compatible,
         limitations: Vec::new(),
         reused: false,
+        diagnostics: None,
     }
 }
 

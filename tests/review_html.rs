@@ -1,8 +1,11 @@
 use repopilot::review::diff::{ChangeStatus, ChangedFile, ChangedRange, DiffHunk};
 use repopilot::review::model::ReviewReport;
-use repopilot::review::render::render_review_html;
+use repopilot::review::render::{render_console, render_markdown, render_review_html};
 use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
-use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
+use repopilot::verification::{
+    VerificationDiagnostic, VerificationDiagnosticKind, VerificationDiagnostics,
+    VerificationOutcome, VerificationRole, VerificationStatus,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -186,15 +189,29 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
         revision_compatible: true,
         limitations: Vec::new(),
         reused: true,
+        diagnostics: Some(VerificationDiagnostics {
+            adapter: "pytest-node-v1".to_string(),
+            complete: true,
+            entries: vec![VerificationDiagnostic {
+                kind: VerificationDiagnosticKind::FailedTestNode,
+                key: "python.tests:tests/test_api.py::test_create:failed".to_string(),
+            }],
+            limitation: None,
+        }),
     });
 
     let html = render_review_html(&report, None, None);
+    let console = render_console(&report, None);
+    let markdown = render_markdown(&report, None);
 
     assert!(html.contains("<h2>Verification</h2>"));
     assert!(html.contains("<code>unit</code>"));
     assert!(html.contains("Passed"));
     assert!(html.contains("cached"));
     assert!(html.contains("compatible"));
+    assert!(html.contains("python.tests:tests/test_api.py::test_create:failed"));
+    assert!(console.contains("diagnostics: python.tests:tests/test_api.py::test_create:failed"));
+    assert!(markdown.contains("python.tests:tests/test_api.py::test_create:failed"));
     assert!(html.contains("1 passed, 0 failed"));
 }
 

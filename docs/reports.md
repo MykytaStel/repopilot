@@ -167,7 +167,10 @@ findings. Schema `0.21` adds occurrence identity and canonical decision records;
 schema `0.22` adds bounded dependency impact paths; schema `0.23` adds
 deterministic verification plans for review signals; schema `0.24` adds the
 stable `maintainability_score` alongside the compatible visible `health_score`.
-Schema `0.25` adds explicit local verification outcomes to review. Schema `0.26`
+Schema `0.25` adds explicit local verification outcomes to review. Verification
+outcomes may additionally carry the additive `diagnostics` record described in
+[`verification-provenance-v1.md`](engineering/verification-provenance-v1.md);
+this does not change the schema version or existing fields. Schema `0.26`
 adds `assessment_status` to scan and baseline-scan. Review also uses `0.26`
 because all three DTOs share the schema version; it does not gain that top-level
 field.
@@ -540,7 +543,9 @@ same gated canonical records used by review JSON/Markdown/HTML projections;
 `changeProof` is the canonical proof and `evidence` records its claim strength,
 coverage, and provenance. The Action summary reads this object when present and
 keeps a compatible fallback for older review JSON. `verification` preserves
-the recorded check outcomes, including skipped and revision-incompatible states.
+the recorded check outcomes, including skipped and revision-incompatible states,
+and may include complete normalized test-node diagnostics or an explicit
+unavailable limitation.
 Scan and baseline SARIF omit these review-only properties.
 
 ## Recommended usage

@@ -14,6 +14,24 @@ pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> S
     }
 }
 
+pub(super) fn verification_diagnostics_evidence(outcome: &VerificationOutcome) -> Option<String> {
+    let diagnostics = outcome.diagnostics.as_ref()?;
+    if diagnostics.complete && !diagnostics.entries.is_empty() {
+        return Some(
+            diagnostics
+                .entries
+                .iter()
+                .map(|entry| entry.key.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+    }
+    diagnostics
+        .limitation
+        .as_deref()
+        .map(|limitation| format!("unavailable: {limitation}"))
+}
+
 pub(super) fn verification_proof_summary(
     report: &ReviewReport,
     obligations: ProofObligations,
