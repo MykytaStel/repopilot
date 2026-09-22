@@ -226,6 +226,7 @@ fn failed_outcome() -> VerificationOutcome {
         revision_compatible: true,
         limitations: Vec::new(),
         reused: false,
+        diagnostics: None,
     }
 }
 

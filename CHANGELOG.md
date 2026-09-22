@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added additive verification provenance for explicit `python.tests` checks.
+  Complete, revision-compatible pytest output now carries normalized failed
+  test-node or collection-error identities through JSON, Markdown, HTML,
+  SARIF, MCP, cache, and differential evidence. Unsupported output, truncation,
+  timeout, cancellation, and unavailable programs remain explicitly
+  unavailable; existing fields and exit codes are unchanged.
 - Added a canonical review decision summary. Review reports now expose one
   additive `PASS`, `REVIEW`, `BLOCK`, or `NOT_ASSESSED` decision with its
   meaning, limitations, next action, and separate CI/review gate states across

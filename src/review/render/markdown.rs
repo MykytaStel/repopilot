@@ -9,10 +9,12 @@ use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
 use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
-use crate::review::render::helpers::verification_duration_evidence;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_policy_summary, legacy_readiness_summary, render_ranges,
     status_for_finding, verification_proof_summary,
+};
+use crate::review::render::helpers::{
+    verification_diagnostics_evidence, verification_duration_evidence,
 };
 use crate::review::signals::tiered::ReviewSignal;
 
@@ -247,20 +249,24 @@ fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("## Verification\n\n");
     output.push_str(
-        "| Check | Status | Source | Duration evidence | Exit |\n| --- | --- | --- | --- | ---: |\n",
+        "| Check | Status | Source | Duration evidence | Exit | Diagnostics |\n| --- | --- | --- | --- | ---: | --- |\n",
     );
     for outcome in &report.verification {
         let source = if outcome.reused { "cached" } else { "executed" };
         let duration = verification_duration_evidence(outcome);
+        let diagnostics = verification_diagnostics_evidence(outcome)
+            .map(|value| escape_table_cell(&value))
+            .unwrap_or_else(|| "-".to_string());
         output.push_str(&format!(
-            "| `{}` | `{:?}` | {} | {} | {} |\n",
-            outcome.check_id,
+            "| `{}` | `{:?}` | {} | {} | {} | {} |\n",
+            escape_table_cell(&outcome.check_id),
             outcome.status,
             source,
             duration,
             outcome
                 .exit_code
-                .map_or_else(|| "-".to_string(), |code| code.to_string())
+                .map_or_else(|| "-".to_string(), |code| code.to_string()),
+            diagnostics
         ));
     }
     output.push('\n');

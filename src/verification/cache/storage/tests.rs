@@ -1,7 +1,9 @@
 use super::{CacheEntry, MAX_VALID_ENTRIES, VerificationCache, cache_file, valid_entry};
 use crate::scan::session::WorkspaceRevision;
 use crate::verification::cache::key::VerificationCacheKey;
-use crate::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
+use crate::verification::{
+    VerificationDiagnostics, VerificationOutcome, VerificationRole, VerificationStatus,
+};
 use serde_json::Value;
 use std::fs;
 use std::sync::Arc;
@@ -14,7 +16,7 @@ fn key(value: usize) -> VerificationCacheKey {
 
 fn outcome(revision: &WorkspaceRevision) -> VerificationOutcome {
     VerificationOutcome {
-        check_id: "unit".into(),
+        check_id: "python.tests".into(),
         role: VerificationRole::Test,
         status: VerificationStatus::Passed,
         duration_ms: 25,
@@ -29,6 +31,12 @@ fn outcome(revision: &WorkspaceRevision) -> VerificationOutcome {
         revision_compatible: true,
         limitations: Vec::new(),
         reused: false,
+        diagnostics: Some(VerificationDiagnostics {
+            adapter: "pytest-node-v1".into(),
+            complete: true,
+            entries: Vec::new(),
+            limitation: None,
+        }),
     }
 }
 
@@ -46,6 +54,11 @@ fn passed_compatible_outcome_round_trips_as_reused_evidence() {
     let hit = cache.load(&key(1), &revision).expect("cache hit");
 
     assert_eq!(hit.status, VerificationStatus::Passed);
+    assert_eq!(
+        hit.diagnostics.as_ref().expect("diagnostics").adapter,
+        "pytest-node-v1"
+    );
+    assert!(hit.diagnostics.expect("diagnostics").complete);
     assert!(hit.reused);
     assert!(stored.contains("[REDACTED]"));
     assert!(!stored.contains("original-secret"));

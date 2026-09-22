@@ -9,6 +9,10 @@ use crate::review::signals::tiered::{
 use crate::review::{ReviewSignalGatePolicy, ReviewSignalGateResult};
 use crate::rules::{RuleLifecycle, SignalSource};
 use crate::scan::types::ScanSummary;
+use crate::verification::{
+    VerificationDiagnostic, VerificationDiagnosticKind, VerificationDiagnostics,
+    VerificationOutcome, VerificationRole, VerificationStatus,
+};
 use std::path::{Path, PathBuf};
 
 fn taint_signal(kind: &str, tier: ConfidenceTier) -> ReviewSignal {
@@ -150,4 +154,45 @@ fn review_sarif_proof_uses_the_review_gate() {
             .iter()
             .any(|reason| reason["code"] == "review-signal-gate-failed")
     }));
+}
+
+#[test]
+fn review_sarif_carries_verification_diagnostics() {
+    let mut report = report_with_signal(taint_signal(
+        "taint.deserialize",
+        ConfidenceTier::DefinitelySensitive,
+    ));
+    report.verification.push(VerificationOutcome {
+        check_id: "python.tests".to_string(),
+        role: VerificationRole::Test,
+        status: VerificationStatus::Failed,
+        duration_ms: 10,
+        exit_code: Some(1),
+        working_directory: ".".to_string(),
+        stdout_excerpt: String::new(),
+        stderr_excerpt: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        revision_before: "same".to_string(),
+        revision_after: "same".to_string(),
+        revision_compatible: true,
+        limitations: Vec::new(),
+        reused: false,
+        diagnostics: Some(VerificationDiagnostics {
+            adapter: "pytest-node-v1".to_string(),
+            complete: true,
+            entries: vec![VerificationDiagnostic {
+                kind: VerificationDiagnosticKind::FailedTestNode,
+                key: "python.tests:tests/test_api.py::test_create:failed".to_string(),
+            }],
+            limitation: None,
+        }),
+    });
+
+    let rendered = render_review_sarif(&report).expect("sarif renders");
+    let value: serde_json::Value = serde_json::from_str(&rendered).expect("valid json");
+    assert_eq!(
+        value["runs"][0]["properties"]["verification"][0]["diagnostics"]["entries"][0]["key"],
+        "python.tests:tests/test_api.py::test_create:failed"
+    );
 }
