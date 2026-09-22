@@ -231,6 +231,8 @@ fn failed_check_writes_report_before_exit_one() {
 #[cfg(unix)]
 #[test]
 fn python_tests_verification_emits_structured_failure_node() {
+    use std::os::unix::fs::PermissionsExt;
+
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());
     fs::create_dir_all(temp.path().join("tests")).expect("tests");
@@ -240,8 +242,18 @@ fn python_tests_verification_emits_structured_failure_node() {
     )
     .expect("test source");
     fs::write(
+        temp.path().join("python3"),
+        "#!/bin/sh\nprintf '%s\\n' 'FAILED tests/test_api.py::test_create - AssertionError'\nexit 1\n",
+    )
+    .expect("python fixture");
+    let mut permissions = fs::metadata(temp.path().join("python3"))
+        .expect("python fixture metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(temp.path().join("python3"), permissions).expect("python fixture mode");
+    fs::write(
         temp.path().join("repopilot.toml"),
-        "[[verification.checks]]\nid = \"python.tests\"\nrole = \"test\"\nprogram = \"python3\"\nargs = [\"-m\", \"pytest\", \"-q\"]\n",
+        "[[verification.checks]]\nid = \"python.tests\"\nrole = \"test\"\nprogram = \"./python3\"\nargs = [\"-m\", \"pytest\", \"-q\"]\n",
     )
     .expect("config");
     commit_all(temp.path(), "initial");
