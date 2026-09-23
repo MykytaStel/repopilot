@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added a versioned, fail-closed controlled ChangeProof benchmark. It reuses
+  review-zoo fixtures for repeated cold/warm proof observations, validates an
+  exact artifact schema plus manifest/source/oracle/proof hashes before
+  reporting, and keeps unavailable dimensions and false certainty explicit
+  rather than emitting a vanity score.
 - Added additive verification provenance for explicit `python.tests` checks.
   Complete, revision-compatible pytest output now carries normalized failed
   test-node or collection-error identities through JSON, Markdown, HTML,
