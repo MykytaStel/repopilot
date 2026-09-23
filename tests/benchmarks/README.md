@@ -1,5 +1,42 @@
 # Independent real-history holdout
 
+## Controlled ChangeProof Benchmark v1
+
+`changeproof.toml` is a small committed corpus over existing review-zoo
+safe/unsafe fixtures. It evaluates the canonical `change_proof`, not merely
+rule IDs. Every case is confined under `tests/fixtures/review-zoo`, identifies
+its expected decision and any independently known dimensions, and hashes both
+the materialized before/after source tree and the fixture's non-empty mutation
+rationale. Fixture paths must be relative regular files beneath the committed
+root: symlinks and `.git` metadata are rejected. `unknown`,
+`unsupported`, and `unavailable` are not empty positives and never become a
+precision or recall denominator.
+
+```bash
+python3 scripts/changeproof_benchmark.py check
+python3 scripts/changeproof_benchmark.py collect --scanner target/release/repopilot \
+  --output /tmp/changeproof-benchmark.json
+python3 scripts/changeproof_benchmark.py validate-result \
+  --artifact /tmp/changeproof-benchmark.json
+python3 scripts/changeproof_benchmark.py report \
+  --artifact /tmp/changeproof-benchmark.json --output /tmp/changeproof-benchmark.md
+```
+
+`--scanner` is required: collection never builds a binary and therefore never
+downloads dependencies. Collection runs one cold and two warm reviews of every
+fixture. It retains only
+the canonical proof projection, semantic SHA-256, bounded timing/RSS metadata,
+and oracle hash; raw review output and command logs are discarded. Validation
+uses an exact schema, recomputes all hashes and dimensions, and rejects a
+nondeterministic case from every measured denominator. Claims remain
+unavailable in v1 because RepoPilot has no canonical observed-claims projection;
+an expected empty claim set is not fabricated as a pass. The first eight cases
+cover authorization, behavioural network-call, and SQL-taint safe/unsafe
+changes. Delivery `LIMITED`, verification stale/unavailable, and no-op cases
+need a confined policy-aware adapter and remain explicit gaps, not green
+coverage claims. The pinned real-history corpus below remains a separate,
+pending independent-adjudication protocol.
+
 `manifest.toml` defines a future evidence corpus from immutable merged pull
 requests. Its repositories are outside the precision zoo, and each case pins
 base, head, and merge SHAs rather than a mutable branch.
