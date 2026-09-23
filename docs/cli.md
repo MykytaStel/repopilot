@@ -94,6 +94,7 @@ repopilot s <PATH> [OPTIONS]
 | `--receipt` | path | — | Write a compact audit receipt JSON file with tool, git, scope, finding, language, and health metadata |
 | `--record-history` | flag | — | Record this analysis in the bounded local risk-history ledger |
 | `--config` | path | auto-detected | Path to a `repopilot.toml` config file |
+| `--intent` | path | — | Optional repository-rooted bounded TOML intent contract |
 | `--baseline` | path | — | Path to a baseline file; marks findings as new or existing |
 | `--fail-on` | threshold | — | Finding gate by severity/status; exit code 1 on a breach (see [Gates](#gates)) |
 | `--fail-on-priority` | `p0\|p1\|p2\|p3` | — | Finding gate by risk priority; mutually exclusive with `--fail-on` |
@@ -247,6 +248,20 @@ They compose: either one failing exits non-zero.
 When the review-signal policy is `none`, human output says
 `Review gate: disabled`; passed/failed is reserved for an enabled policy.
 
+Human review output leads with the canonical `Change Proof` verdict (`NOT
+ASSESSED`, `BROKEN`, `REVIEW`, or `VERIFIED`). It also reports an evidence class:
+`SUPPORTED PROOF` is reserved for a complete supported scope, `SUSPICION`
+requires follow-up, and `UNKNOWN` means the property could not be assessed. The
+summary includes analyzed, excluded, and unsupported files plus provenance
+inputs that are unavailable in the current review record. It follows the
+verdict with its meaning, proof policy, scope, reasons, and next action; legacy
+merge readiness, the finding CI gate, and the review-signal gate are separate
+fields. A review with no changed files is `NOT ASSESSED` and says that no
+changed files were available for assessment.
+Review JSON exposes the same evidence class, coverage scope, provenance inputs,
+and canonical projection hash in its additive top-level `evidence` object;
+review SARIF and MCP projections carry that object as well.
+
 ### Synopsis
 
 ```
@@ -338,6 +353,9 @@ repopilot review . --min-severity high
 
 # Run only explicitly selected repository checks
 repopilot review . --verify unit --verify lint
+
+# Compare observed impact with a private, reviewed intent contract
+repopilot review . --intent .repopilot/intent.toml --format json
 ```
 
 ### Explicit local verification

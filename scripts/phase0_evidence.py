@@ -9,16 +9,38 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from phase0_evidence_decision import action_lines, coverage_line, decision_summary
 from phase0_evidence_model import Phase0Paths
 from phase0_evidence_tracks import differential_track, real_history_track
+from phase0_rule_quality import rule_quality_track
 
 
 REPORT_SCHEMA_VERSION = 1
-REPORT_PROTOCOL = "phase0-evidence-closure-v1"
+REPORT_PROTOCOL = "phase0-evidence-closure-v2"
+
+
+def _observation_counts(observation: dict[str, Any]) -> list[str]:
+    keys = (
+        "cases",
+        "baseline_observations",
+        "review_observations",
+        "rules_total",
+        "default_rules_measured",
+        "default_rules_unmeasured",
+        "labeled_default_findings",
+        "strict_sampled_rules",
+        "strict_sampled_findings",
+        "snapshot_repositories",
+    )
+    return [f"{key}={observation[key]}" for key in keys if key in observation]
 
 
 def build_report(paths: Phase0Paths) -> dict[str, Any]:
-    tracks = [real_history_track(paths), differential_track(paths)]
+    tracks = [
+        real_history_track(paths),
+        differential_track(paths),
+        rule_quality_track(paths),
+    ]
     closure_eligible = all(
         track["evidence_status"] == "valid" and track["scope"] == "independent-adjudication"
         for track in tracks
@@ -26,7 +48,7 @@ def build_report(paths: Phase0Paths) -> dict[str, Any]:
     invalid = any(
         track["evidence_status"] in {"invalid", "protocol-invalid"} for track in tracks
     )
-    return {
+    report = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "protocol": REPORT_PROTOCOL,
         "status": "invalid" if invalid else ("complete" if closure_eligible else "open"),
@@ -38,6 +60,8 @@ def build_report(paths: Phase0Paths) -> dict[str, Any]:
             "Hosted publication/install proof and human review remain separate gates when applicable.",
         ],
     }
+    report.update(decision_summary(tracks))
+    return report
 
 
 def render_json(report: dict[str, Any]) -> str:
@@ -45,15 +69,35 @@ def render_json(report: dict[str, Any]) -> str:
 
 
 def render_text(report: dict[str, Any]) -> str:
-    lines = [f"Phase 0 evidence: {report['status']} (closure: {report['closure']})"]
+    lines = [
+        f"Phase 0 evidence: {report['status']} (closure: {report['closure']})",
+        f"Decision: {report['decision']}",
+        coverage_line(report["coverage"]),
+        "",
+        "Blocking reasons:",
+    ]
+    if report["blocking_reasons"]:
+        lines.extend(
+            f"- {item['track']}: {item['status']} — {item['reason']}"
+            for item in report["blocking_reasons"]
+        )
+    else:
+        lines.append("- none")
+    lines.extend(["", "Next actions:"])
+    lines.extend(action_lines(report["next_actions"]))
+    lines.extend(["", "Track details:"])
     for track in report["tracks"]:
         lines.append(
             f"- {track['id']}: protocol={track['protocol_status']}; "
             f"evidence={track['evidence_status']}; scope={track['scope']}"
         )
-        lines.append(f"  next: {track['next_action']}")
-        if "reason" in track:
-            lines.append(f"  reason: {track['reason']}")
+        if track.get("artifact"):
+            lines.append(f"  artifact: {track['artifact']}")
+        observation = track.get("observation")
+        if isinstance(observation, dict):
+            counts = _observation_counts(observation)
+            if counts:
+                lines.append(f"  observations: {', '.join(counts)}")
     lines.append(report["claim_boundary"])
     return "\n".join(lines) + "\n"
 
@@ -65,6 +109,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Status: `{report['status']}`",
         f"- Closure: `{report['closure']}`",
         "",
+        "## Decision",
+        "",
+        f"`{report['decision']}`",
+        "",
+        f"{coverage_line(report['coverage'])}",
+        "",
         "| Track | Protocol | Evidence | Scope |",
         "| --- | --- | --- | --- |",
     ]
@@ -73,11 +123,23 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| `{track['id']}` | `{track['protocol_status']}` | "
             f"`{track['evidence_status']}` | `{track['scope']}` |"
         )
+        observation = track.get("observation")
+        if track.get("artifact"):
+            lines.append(f"|  | artifact | `{track['artifact']}` |  |")
+        if isinstance(observation, dict):
+            counts = _observation_counts(observation)
+            if counts:
+                lines.append(f"|  | observations | `{', '.join(counts)}` |  |")
+    lines.extend(["", "## Blocking reasons", ""])
+    if report["blocking_reasons"]:
+        lines.extend(
+            f"- `{item['track']}` (`{item['status']}`): {item['reason']}"
+            for item in report["blocking_reasons"]
+        )
+    else:
+        lines.append("- None")
     lines.extend(["", "## Next actions", ""])
-    for track in report["tracks"]:
-        lines.append(f"- `{track['id']}`: {track['next_action']}")
-        if "reason" in track:
-            lines.append(f"  - Reason: {track['reason']}")
+    lines.extend(action_lines(report["next_actions"]))
     lines.extend(["", f"> {report['claim_boundary']}", ""])
     return "\n".join(lines)
 
@@ -101,10 +163,18 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--format", choices=("text", "markdown", "json"), default="text")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument(
+        "--evidence-dir",
+        type=Path,
+        help="discover only fresh *-current evidence packets from this directory",
+    )
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--differential-manifest", type=Path)
     parser.add_argument("--rules-reference", type=Path)
     parser.add_argument("--zoo-manifest", type=Path)
+    parser.add_argument("--rule-scorecard", type=Path)
+    parser.add_argument("--zoo-expectation-dir", type=Path)
+    parser.add_argument("--zoo-snapshot-dir", type=Path)
     for flag, destination in (
         ("real-history-artifact", "real_history_artifact"),
         ("annotation-a", "annotation_a"),
@@ -134,8 +204,24 @@ def main(argv: list[str] | None = None) -> int:
         differential_manifest=_resolve(root, args.differential_manifest) or defaults.differential_manifest,
         rules_reference=_resolve(root, args.rules_reference) or defaults.rules_reference,
         zoo_manifest=_resolve(root, args.zoo_manifest) or defaults.zoo_manifest,
+        rule_scorecard=_resolve(root, args.rule_scorecard) or defaults.rule_scorecard,
+        zoo_expectation_dir=(
+            _resolve(root, args.zoo_expectation_dir) or defaults.zoo_expectation_dir
+        ),
+        zoo_snapshot_dir=(
+            _resolve(root, args.zoo_snapshot_dir) or defaults.zoo_snapshot_dir
+        ),
         **{name: _resolve(root, getattr(args, name)) for name in optional_names},
     )
+    if args.evidence_dir is not None:
+        paths = paths.with_evidence_dir(_resolve(root, args.evidence_dir) or args.evidence_dir)
+        paths = replace(
+            paths,
+            **{
+                name: _resolve(root, getattr(args, name)) or getattr(paths, name)
+                for name in optional_names
+            },
+        )
     report = build_report(paths)
     rendered = {"text": render_text, "markdown": render_markdown, "json": render_json}[args.format](report)
     if args.output is None:

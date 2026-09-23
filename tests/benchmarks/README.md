@@ -109,6 +109,131 @@ ID is not automatically comparable to a RepoPilot finding ID: static
 duplicate-work requires an explicit `review-exact-v1` comparison mapping,
 otherwise that measurement remains unavailable.
 
+## Local real-project sandbox
+
+The B5 runner is intentionally separate from the differential and real-history
+collectors. It consumes a pinned TOML manifest and writes only to the ignored
+`.zoo/repopilot-validation/` directory:
+
+```bash
+python3 scripts/sandbox.py check \
+  --manifest .zoo/repopilot-validation/manifest.toml
+python3 scripts/sandbox.py run \
+  --manifest .zoo/repopilot-validation/manifest.toml \
+  --case ripgrep-control \
+  --source .zoo/ripgrep \
+  --scanner target/release/repopilot \
+  --output .zoo/repopilot-validation/runs/ripgrep-control.json
+python3 scripts/sandbox.py validate-artifact \
+  --manifest .zoo/repopilot-validation/manifest.toml \
+  --artifact .zoo/repopilot-validation/runs/ripgrep-control.json
+python3 scripts/sandbox.py pilot \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --source-root .zoo \
+  --scanner target/release/repopilot \
+  --repeats 3 \
+  --output .zoo/repopilot-validation/runs/technical-pilot-summary.json
+python3 scripts/sandbox.py validate-pilot \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --artifact .zoo/repopilot-validation/runs/technical-pilot-summary.json
+python3 scripts/sandbox.py mutation \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --source-root .zoo \
+  --scanner target/release/repopilot \
+  --output .zoo/repopilot-validation/runs/express-mutation-summary.json
+python3 scripts/sandbox.py validate-mutation \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json
+python3 scripts/sandbox.py report \
+  --manifest .zoo/repopilot-validation/manifest-pilot.toml \
+  --artifact .zoo/repopilot-validation/runs/technical-pilot-summary.json \
+  --format markdown
+python3 scripts/sandbox.py report \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --format markdown --output .zoo/repopilot-validation/runs/express-mutation-report.md
+python3 scripts/sandbox.py metrics \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --output .zoo/repopilot-validation/runs/express-mutation-metrics.json
+python3 scripts/sandbox.py validate-metrics \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --metrics .zoo/repopilot-validation/runs/express-mutation-metrics.json
+python3 scripts/sandbox.py metrics-report \
+  --manifest .zoo/repopilot-validation/manifest-mutation.toml \
+  --artifact .zoo/repopilot-validation/runs/express-mutation-summary.json \
+  --metrics .zoo/repopilot-validation/runs/express-mutation-metrics.json \
+  --output .zoo/repopilot-validation/runs/express-mutation-metrics.md
+```
+
+The manifest requires a full source SHA, a content-addressed image, an
+allowlisted argument-vector command, and `network = "none"` for measured
+commands. The runner copies a verified source into a run-owned case directory;
+it never mutates an existing zoo clone. Build/test oracles run only through the
+Docker adapter (`--pull=never`, one workspace mount, 2 CPU, 4 GiB, bounded
+timeouts). Scanner JSON is written to a run-owned report file and normalized
+before the smaller stdout/stderr log bound is applied; reports above the
+8 MiB normalization limit remain explicitly unavailable. If Docker or the
+scanner is unavailable, the result remains `unavailable` and retains a cleanup
+receipt. Command output is hashed and
+bounded; raw stdout/stderr and finding snippets are not persisted. On Linux and
+macOS, command artifacts now record positive peak RSS through the shared
+`posix-time-v1` `/usr/bin/time` sampler. Unsupported platforms, malformed
+sampler output, and timeouts remain `unavailable`; a missing sample never
+becomes a zero-memory claim.
+
+`pilot` writes one artifact per case and repetition plus a summary. A case is
+`passed` only when every oracle passes and every normalized scan hash is stable;
+otherwise the summary reports `drift` or `unavailable`. This is a technical
+reproducibility result, separate from mutation and human-usability metrics.
+
+`mutation` consumes cases with `mutation_kind = "violation"` or
+`"negative-control"`. A violation may expect an oracle failure; that is a
+passing mutation case only when baseline/setup and reverse patch pass as well.
+The summary keeps the independent oracle state visible and remains separate
+from production recall or precision.
+
+Mutation cases may declare `expected_rule_ids`. For a `violation`, every
+declared rule must be observed in the mutated scan; for a `negative-control`,
+declared rules must not be introduced by the patch. The runner therefore makes
+a separate baseline scan and compares stable normalized rule/path/evidence
+identities. Evidence uses a digest of the reported snippet and the finding ID,
+with a line fallback when those fields are unavailable, so line shifts and
+pre-existing findings do not invalidate a clean negative control. The receipt
+records expected, observed-new, and all observed rule IDs, and metrics expose
+exact violation and negative-control rates. Cases without this field retain
+lifecycle-only semantics and cannot support an exact rule-signal claim.
+Mutation metrics also keep `tuning` and `evaluation` cases separate; tuning
+results must not be presented as held-out evaluation.
+
+Cases may set `analysis_mode = "changed"` when the mutation is intended to
+exercise changed-scan semantics; the default is `"default"`. The selected mode
+is recorded in the artifact and report so a full scan cannot be mistaken for a
+change-review measurement.
+
+`report` validates a pilot or mutation summary against its manifest before
+rendering a deterministic human-readable Markdown or text report. It shows the
+overall status, per-case status, oracle states, normalized finding counts and
+hashes when available, the mutation lifecycle, limits, and a next action. An
+expected oracle failure for a `violation` is explained as a successful mutation
+case; `unavailable` remains an explicit missing-evidence state. The report does
+not include raw command output or finding snippets. It includes a resource
+evidence table per case with median analyzed-command peak RSS, the available
+sample count, and sampler source. Unavailable samples remain visible and are
+never treated as zero memory use. Without `--output` it is printed to the
+terminal; with `--output` it is saved under the ignored sandbox directory.
+
+`metrics` recomputes a JSON artifact from the validated summary and its child
+artifacts. It records numerator/denominator pairs, 95% Wilson intervals,
+coverage, lifecycle, determinism or mutation scan observations, analyze wall
+time, and peak RSS availability. `validate-metrics` rejects edited or stale
+metrics by recomputing the artifact. The current mutation manifest does not
+declare exact expected rule IDs or a baseline scan, so TP/FN/TN/FP and exact
+additional value remain `unavailable`; this is a protocol boundary, not a
+zero-quality result. `metrics-report` validates before rendering the bounded
+Markdown report.
+
 `coverage-audit` renders the same validated denominators by baseline ID. It
 keeps unavailable reasons visible and points to the next adapter work without
 scoring precision, recall, utility, or overlap.
@@ -241,9 +366,10 @@ allowlist, and one review observation per case.
 Collection schema 2 also records the stable `change_proof.contract_deltas`
 family/change IDs and a hash over those IDs. The collector preserves all
 currently emitted contract identities, while the first independent labeling
-metric is intentionally limited to the security and test IDs. Paths, evidence
-prose, and runtime semantics are not treated as independently validated by
-this family/change measurement.
+metric is intentionally limited to the measured delivery action-reference,
+security-boundary, and test-coverage IDs. Paths, evidence prose, and runtime
+semantics are not treated as independently validated by this family/change
+measurement.
 
 When only one expert is available for the contract surface, use the separate
 exploratory pilot. It is blinded and hash-pinned, but it does not weaken the
@@ -267,9 +393,9 @@ python3 scripts/real_history.py validate-contract-pilot-metrics \
 The pilot reports case outcomes and per-ID confusion counts with Wilson
 intervals. The final validation command recomputes the score from the pinned
 inputs and rejects edited or stale metrics. Its scope is explicitly
-single-expert exploratory evidence over the measured security/test subset; it
-is not independent validation, a production estimate, or evidence for the
-unmeasured contract families.
+single-expert exploratory evidence over the measured delivery action-reference,
+security-boundary, and test-coverage subset; it is not independent validation,
+a production estimate, or evidence for the unmeasured contract families.
 
 The differential pilot follows the same integrity rule. Run
 `pilot-validate-metrics` before circulating `pilot-metrics.json`; it rejects

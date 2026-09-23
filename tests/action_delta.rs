@@ -144,8 +144,22 @@ fi
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**New findings:** 1"));
     assert!(summary.contains("**Resolved findings:** 1"));
-    assert!(summary.contains("**Merge readiness:** ready"));
+    assert!(summary.contains("**Legacy merge readiness:** ready"));
     assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(
+        summary
+            .contains("**Why:** Review the listed evidence, coverage limits, and required checks.")
+    );
+    assert!(summary.contains(
+        "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+    ));
+    assert!(summary.contains("**Proof policy:** 0 applicable obligation(s)"));
+    assert!(summary.contains("**CI gate:** not configured"));
+    assert!(summary.contains("**Review gate:** not configured"));
+    assert!(
+        summary.find("**Change proof:** REVIEW").unwrap()
+            < summary.find("**Legacy merge readiness:** ready").unwrap()
+    );
     assert!(summary.contains("**Proof scope:** 1/1 file(s) analyzed"));
     assert!(summary.contains("**Verification proof:** none selected; no verification evidence"));
     assert!(
@@ -165,6 +179,8 @@ fn review_action_summary_projects_verification_proof_card() {
     fs::write(
         root.join("review.json"),
         r#"{
+          "schema_version": "0.26",
+          "repopilot_version": "0.22.0",
           "merge_readiness": {
             "verdict": "blocked",
             "verification": [{"revision_compatible": true}]
@@ -184,6 +200,24 @@ fn review_action_summary_projects_verification_proof_card() {
               "unavailable": 0,
               "unselected": 0,
               "stale": 0
+            }
+          },
+          "evidence": {
+            "class": "suspicion",
+            "coverage_status": "limited",
+            "scope": {
+              "scope": "changed",
+              "requested_files": 4,
+              "analyzed_files": 3,
+              "excluded_files": 1,
+              "unsupported_files": 0
+            },
+            "provenance": {
+              "analyzer_version": "fixture-analyzer",
+              "report_schema": "fixture-schema",
+              "selected_checks": [],
+              "canonical_projection_hash": "sha256:fixture",
+              "unavailable_inputs": ["current revision"]
             }
           },
           "review": {
@@ -216,6 +250,17 @@ fn review_action_summary_projects_verification_proof_card() {
     let summary =
         fs::read_to_string(root.join("repopilot-review-summary.md")).expect("read review summary");
     assert!(summary.contains("**Change proof:** REVIEW"));
+    assert!(summary.contains("**Evidence class:** SUSPICION"));
+    assert!(summary.contains(
+        "**Evidence scope:** changed; 3/4 file(s) analyzed; 1 excluded, 0 unsupported (limited)"
+    ));
+    assert!(
+        summary
+            .contains("**Evidence provenance:** RepoPilot fixture-analyzer, schema fixture-schema")
+    );
+    assert!(summary.contains(
+        "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+    ));
     assert!(summary.contains("**Proof scope:** 3/4 file(s) analyzed"));
     assert!(summary.contains(
         "**Verification proof:** 1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)"

@@ -6,9 +6,13 @@ use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_pro
 use crate::commands::review_verification::{ReviewVerificationEvent, run_selected_with_context};
 use crate::commands::scan_config::ScanConfigOverrides;
 use repopilot::baseline::reader::read_baseline;
+use repopilot::config::loader::{discover_config_path, load_default_config, load_optional_config};
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::output::OutputFormat;
+use repopilot::review::intent::{
+    IntentContext, load_intent_file, parse_intent_json, validate_critical_paths, validate_intent,
+};
 use repopilot::review::render::render;
 use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
@@ -75,6 +79,20 @@ pub fn definition() -> Value {
                     "description": "Head Git ref. Optional and only valid together with \"base\"."
                 },
                 "config": { "type": "string", "description": "Optional repopilot.toml path." },
+                "intent_path": { "type": "string", "description": "Optional repository-rooted bounded TOML intent file." },
+                "intent": {
+                    "type": "object",
+                    "description": "Optional bounded intent data. It is metadata only and cannot execute commands.",
+                    "properties": {
+                        "version": { "type": "integer", "const": 1 },
+                        "summary": { "type": "string", "maxLength": 256 },
+                        "paths": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 },
+                        "contract_families": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
+                        "critical_paths": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 },
+                        "verification": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 }
+                    },
+                    "additionalProperties": false
+                },
                 "baseline": { "type": "string", "description": "Optional baseline path." },
                 "scope": { "type": "string", "enum": ["changed", "full"], "default": "changed" },
                 "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" },
@@ -132,6 +150,15 @@ pub(super) fn call_with_context(
         .get("baseline")
         .and_then(Value::as_str)
         .map(PathBuf::from);
+    let intent_path = arguments
+        .get("intent_path")
+        .and_then(Value::as_str)
+        .map(PathBuf::from);
+    if intent_path.is_some() && arguments.get("intent").is_some() {
+        return Err(ReviewCallError::Message(
+            "`intent` and `intent_path` cannot be used together".to_string(),
+        ));
+    }
 
     if base.is_none() && head.is_some() {
         return Err(ReviewCallError::Message(
@@ -143,6 +170,27 @@ pub(super) fn call_with_context(
     let input =
         load_review_input(&path, base, head).map_err(|error| format!("review failed: {error}"))?;
     let review_target = input.target.clone();
+    let configured = match config_path.as_deref() {
+        Some(path) => load_optional_config(path).map_err(|error| error.to_string())?,
+        None => match discover_config_path(&input.repo_root) {
+            Some(path) => load_optional_config(&path).map_err(|error| error.to_string())?,
+            None => load_default_config().map_err(|error| error.to_string())?,
+        },
+    };
+    validate_critical_paths(&configured).map_err(|error| error.to_string())?;
+    let intent = match (arguments.get("intent"), intent_path.as_deref()) {
+        (Some(value), None) => {
+            let intent = parse_intent_json(value).map_err(|error| error.to_string())?;
+            validate_intent(&intent, &configured).map_err(|error| error.to_string())?;
+            Some(intent)
+        }
+        (None, Some(path)) => Some(
+            load_intent_file(&input.repo_root, path, &configured)
+                .map_err(|error| error.to_string())?,
+        ),
+        (None, None) => None,
+        (Some(_), Some(_)) => unreachable!("intent paths were rejected above"),
+    };
     let diff_loading_us = duration_us(diff_started.elapsed());
     let scope = arguments
         .get("scope")
@@ -199,6 +247,10 @@ pub(super) fn call_with_context(
         &scan_result.session,
     )
     .map_err(|error| format!("review failed: {error}"))?;
+    review_report.intent = IntentContext {
+        contract: intent,
+        critical_paths: configured.review.critical_paths.clone(),
+    };
     let analysis_revision = scan_result.session.revision().id().to_string();
     review_report.timings.diff_loading_us = diff_loading_us;
     review_report.timings.review_signals_us = duration_us(review_started.elapsed());

@@ -42,6 +42,24 @@ fn runtime_deltas_with_root(
         })
         .collect::<Vec<_>>();
     let mut deltas = Vec::new();
+    for file in changed_files
+        .iter()
+        .filter(|file| is_runtime_config_path(&file.path_string()))
+    {
+        for hunk in &file.hunks {
+            let line_start = hunk.new_range.or(hunk.old_range).map(|range| range.start);
+            if hunk
+                .added_lines
+                .iter()
+                .chain(&hunk.removed_lines)
+                .any(|line| {
+                    is_meaningful_change(line) && parse_runtime_edit(line, line_start).is_none()
+                })
+            {
+                deltas.push(unknown_runtime_delta(&file.path_string(), line_start));
+            }
+        }
+    }
     let mut consumed = Vec::new();
     for (index, (path, added, edit)) in config_edits.iter().enumerate() {
         if *added || consumed.contains(&index) {
@@ -166,6 +184,24 @@ fn is_runtime_key(key: &str) -> bool {
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
         && key.chars().any(|character| character.is_ascii_uppercase())
+}
+
+fn is_meaningful_change(line: &str) -> bool {
+    let trimmed = line.trim();
+    !trimmed.is_empty() && !trimmed.starts_with('#') && !trimmed.starts_with("//")
+}
+
+fn unknown_runtime_delta(path: &str, line: Option<usize>) -> ChangeProofContractDelta {
+    ChangeProofContractDelta {
+        family: ContractFamily::RuntimeConfiguration,
+        change: ContractChangeKind::Unknown,
+        exporter_path: path.to_string(),
+        consumer_path: "runtime configuration".to_string(),
+        line_start: line,
+        line_end: line,
+        evidence: "Runtime configuration change could not be mapped to a supported key/value form; exact consumer impact is unavailable.".to_string(),
+        confidence: Some(ContractConfidence::Limited),
+    }
 }
 
 fn runtime_delta(
@@ -296,5 +332,18 @@ mod tests {
         assert_eq!(deltas.len(), 1);
         assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
         assert!(deltas[0].evidence.contains("multiple consumers"));
+    }
+
+    #[test]
+    fn unknown_runtime_config_change_is_limited() {
+        let deltas = runtime_deltas(&[changed(
+            "config/production.yaml",
+            &["database: primary"],
+            &["database: replica"],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
     }
 }

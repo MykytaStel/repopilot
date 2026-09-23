@@ -2,8 +2,12 @@ use super::*;
 use crate::review::ImpactPaths;
 use crate::review::MergeReadinessRecord;
 use crate::review::ReviewSignalGateResult;
+use crate::review::decision::{ReviewDecision, derive_review_decision};
 use crate::review::derive_readiness;
-use crate::review::proof::{ChangeProof, derive_change_proof_from_review};
+use crate::review::proof::{
+    ChangeProof, EvidenceSummary, ProofReceipt, build_proof_receipt,
+    derive_change_proof_from_review,
+};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
 
@@ -22,6 +26,12 @@ pub struct ReviewJsonReport<'a> {
     pub impact_paths: &'a ImpactPaths,
     pub merge_readiness: MergeReadinessRecord,
     pub change_proof: ChangeProof,
+    /// Additive primary assessment shared by human and machine projections.
+    pub decision: ReviewDecision,
+    /// Additive evidence contract shared by machine and human projections.
+    pub evidence: EvidenceSummary,
+    /// Replayable proof receipt built from the same canonical ChangeProof.
+    pub proof_receipt: ProofReceipt,
     pub boundary_signals: &'a [BoundarySignal],
     /// Boundary, behavioral, algorithmic, and taint signals grouped by tier.
     /// `boundary_signals` remains as a compatibility view and feeds the
@@ -63,7 +73,12 @@ impl<'a> ReviewJsonReport<'a> {
             review_gate,
             report.summary.artifacts.risk_delta.as_ref(),
         );
-        let change_proof = derive_change_proof_from_review(report, &readiness);
+        let derived_proof = derive_change_proof_from_review(report, &readiness);
+        let proof_receipt = build_proof_receipt(report, &derived_proof);
+        let change_proof = proof_receipt.proof.clone();
+        let evidence = proof_receipt.evidence.clone();
+        let decision =
+            derive_review_decision(report, &change_proof, &readiness, ci_gate, review_gate);
         Self {
             schema_version: SCAN_REPORT_SCHEMA_VERSION,
             repopilot_version: REPOPILOT_VERSION,
@@ -82,6 +97,9 @@ impl<'a> ReviewJsonReport<'a> {
             impact_paths: &report.impact_paths,
             merge_readiness: readiness,
             change_proof,
+            decision,
+            evidence,
+            proof_receipt,
             boundary_signals: &report.boundary_signals,
             tiered_signals: &report.tiered_signals,
             review_timings: report.timings,

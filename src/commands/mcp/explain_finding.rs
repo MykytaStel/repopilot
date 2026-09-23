@@ -135,6 +135,7 @@ fn stored_fallback(
         "replay": { "status": "unavailable", "reason": reason },
         "finding": finding,
         "change_proof": report.get("change_proof").cloned().unwrap_or(Value::Null),
+        "evidence": report.get("evidence").cloned().unwrap_or(Value::Null),
         "decision": finding.get("decision").cloned().unwrap_or(Value::Null),
         "limitations": [
             "This fallback preserves stored analysis evidence and does not claim a live replay.",
@@ -154,6 +155,16 @@ fn with_change_proof(rendered: &str, report: &str) -> Result<String, String> {
         && let Some(object) = explanation.as_object_mut()
     {
         object.insert("change_proof".to_string(), change_proof.clone());
+    }
+    if let Some(evidence) = report.get("evidence")
+        && let Some(object) = explanation.as_object_mut()
+    {
+        object.insert("evidence".to_string(), evidence.clone());
+    }
+    if let Some(review_decision) = report.get("decision")
+        && let Some(object) = explanation.as_object_mut()
+    {
+        object.insert("review_decision".to_string(), review_decision.clone());
     }
     serde_json::to_string_pretty(&explanation)
         .map_err(|error| format!("render finding explanation failed: {error}"))
@@ -278,6 +289,11 @@ mod tests {
         assert_eq!(value["source_report"], "last-scan");
         assert_eq!(value["replay"]["status"], "matched");
         assert!(value["explanation"]["decision"]["trace"].is_array());
+        assert_eq!(
+            value["decision"]["explanation"]["evidence_basis"]["source"],
+            "ast"
+        );
+        assert!(value["decision"]["explanation"]["limitations"].is_array());
     }
 
     #[test]
@@ -331,6 +347,11 @@ mod tests {
             "verdict": "REVIEW",
             "coverage": { "scope": "full" }
         });
+        report_value["evidence"] = json!({
+            "class": "suspicion",
+            "coverage_status": "limited",
+            "provenance": { "canonical_projection_hash": "sha256:test" }
+        });
 
         let rendered = call(
             &json!({ "finding_id": finding_id, "source": "last-scan" }),
@@ -341,6 +362,10 @@ mod tests {
         .expect("explain finding");
         let value: Value = serde_json::from_str(&rendered).expect("valid JSON");
         assert_eq!(value["change_proof"]["verdict"], "REVIEW");
+        assert_eq!(
+            value["evidence"]["provenance"]["canonical_projection_hash"],
+            "sha256:test"
+        );
     }
 
     fn duplicate_report(report: &str) -> String {

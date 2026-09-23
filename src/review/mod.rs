@@ -1,10 +1,13 @@
 mod blast_radius;
 mod ci;
 mod content_signals;
+pub mod contract;
+pub mod decision;
 pub mod diff;
 mod feedback;
 mod gate;
 mod impact;
+pub mod intent;
 pub mod model;
 mod ownership;
 pub(crate) mod paths;

@@ -185,7 +185,7 @@ label_state = "pending"
         self.assertIn("not independent validation", result["limitation"])
         self.assertEqual(result["metrics"]["case_coverage"]["value"], 1.0)
 
-    def test_pilot_rejects_unmeasured_contract(self) -> None:
+    def test_pilot_accepts_measured_delivery_contract(self) -> None:
         pilot = self.root / "pilot.toml"
         rendered = render_contract_pilot_template(
             self.collection, self.manifest, self.rules, self.zoo, "expert"
@@ -195,10 +195,12 @@ label_state = "pending"
             'expected_contract_ids = ["delivery/action-reference-changed"]',
             1,
         )
-        rendered = rendered.replace('rationale = ""', 'rationale = "unsupported"', 1)
+        rendered = rendered.replace('rationale = ""', 'rationale = "reviewed delivery action reference"', 1)
+        rendered = rendered.replace('contract_label = ""', 'contract_label = "no-contract"', 1)
+        rendered = rendered.replace('rationale = ""', 'rationale = "no measured contract"', 1)
         pilot.write_text(rendered, encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "unknown contract ID"):
-            validate_contract_pilot(pilot, self.collection, self.manifest, self.rules, self.zoo)
+        result = validate_contract_pilot(pilot, self.collection, self.manifest, self.rules, self.zoo)
+        self.assertEqual(result["status"], "valid")
 
     def test_metrics_artifact_round_trips_through_validator(self) -> None:
         pilot = self._completed_pilot()

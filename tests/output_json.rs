@@ -130,6 +130,14 @@ fn json_findings_include_confidence() {
         parsed["findings"][0]["recommendation"],
         Finding::recommendation_for_rule_id("code-quality.long-function")
     );
+    assert_eq!(
+        parsed["findings"][0]["decision"]["explanation"]["claim"],
+        "Function spans more lines than the configured threshold."
+    );
+    assert_eq!(
+        parsed["findings"][0]["decision"]["explanation"]["evidence_basis"]["location_count"],
+        1
+    );
 }
 
 #[test]

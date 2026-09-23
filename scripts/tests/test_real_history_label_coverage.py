@@ -52,15 +52,16 @@ class LabelCoverageTests(unittest.TestCase):
 
         self.assertEqual(result["label_source"], "pending")
         self.assertEqual(result["cases_labeled"], 0)
-        self.assertEqual(result["unmeasured_observed_contract_ids"], ["delivery/action-reference-changed"])
+        self.assertEqual(result["unmeasured_observed_contract_ids"], [])
         self.assertEqual(result["unreviewed_observations"], [
             {"case_id": "case-one", "contract_ids": ["security-boundary/boundary-changed"]},
+            {"case_id": "case-two", "contract_ids": ["delivery/action-reference-changed"]},
         ])
         self.assertEqual(
             result["contract_coverage"]["security-boundary/boundary-changed"]["observed_cases"],
             1,
         )
-        self.assertTrue(result["contract_coverage"]["delivery/action-reference-changed"]["unmeasured"])
+        self.assertFalse(result["contract_coverage"]["delivery/action-reference-changed"]["unmeasured"])
 
     def test_dual_audit_reports_expected_and_observed_contract_gaps(self) -> None:
         self._add_observations()
@@ -113,7 +114,11 @@ class LabelCoverageTests(unittest.TestCase):
         self.assertEqual(result["cases_labeled"], 2)
         self.assertEqual(result["unreviewed_observations"], [])
         self.assertEqual(result["cases"][0]["unmeasured_observed_contract_ids"], [])
-        self.assertIn("delivery/action-reference-changed", result["cases"][1]["unmeasured_observed_contract_ids"])
+        self.assertEqual(result["cases"][1]["unmeasured_observed_contract_ids"], [])
+        self.assertEqual(
+            result["cases"][1]["observed_without_expected_ids"],
+            ["delivery/action-reference-changed"],
+        )
 
     def test_pilot_audit_is_explicitly_single_expert(self) -> None:
         pilot = self.fixture.root / "pilot.toml"

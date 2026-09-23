@@ -3,6 +3,7 @@ use crate::findings::filter::{FindingFilter, recompute_summary_metrics};
 use crate::findings::types::{Finding, Severity};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::impact::ImpactPaths;
+use crate::review::intent::IntentContext;
 use crate::review::ownership::{OwnershipDiagnostic, OwnershipSummary};
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::tiered::TieredSignals;
@@ -23,6 +24,9 @@ pub struct ReviewTimings {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ReviewReport {
+    /// Workspace revision captured with the analysis session. Renderers reuse
+    /// this value so later output writes cannot change receipt provenance.
+    pub analysis_revision: Option<String>,
     pub summary: ScanSummary,
     pub repo_root: PathBuf,
     pub baseline_path: Option<PathBuf>,
@@ -39,6 +43,7 @@ pub struct ReviewReport {
     pub timings: ReviewTimings,
     pub verification_policy: VerificationPolicy,
     pub verification: Vec<VerificationOutcome>,
+    pub intent: IntentContext,
     pub findings: Vec<ReviewFindingStatus>,
 }
 

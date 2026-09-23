@@ -147,6 +147,7 @@ fn shared_adapter_reuses_enabled_cache_for_cli_and_mcp_callers() {
 
 fn empty_report(root: &std::path::Path) -> ReviewReport {
     ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary::default(),
         repo_root: root.to_path_buf(),
         baseline_path: None,
@@ -161,6 +162,7 @@ fn empty_report(root: &std::path::Path) -> ReviewReport {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     }
 }

@@ -35,7 +35,7 @@ non-destructive, idempotent, and closed-world.
 
 | Tool | Purpose | Additional inputs |
 |---|---|---|
-| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, and gate result | `base`, `head`, `config`, `baseline`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit` |
+| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, gate result, and optional intent drift | `base`, `head`, `config`, `baseline`, `intent`, `intent_path`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit` |
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base`, `offset`, `limit` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget`, `analysis_handle` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
@@ -50,6 +50,14 @@ or to `repopilot_context` to require that the generated context still belongs
 to the same workspace revision. Unknown, expired, or stale handles fail
 explicitly and report the current revision. Handles are session-local and are
 not persisted to disk.
+
+`repopilot_review_change` accepts either an inline bounded `intent` object or a
+repository-rooted `intent_path`, never both. The object uses `version = 1`, an
+optional display-only `summary`, repository-relative `paths`, canonical
+`contract_families`, configured `critical_paths`, and configured verification
+IDs. Input is limited to 16 KiB and cannot execute commands. The returned
+`change_proof.intent_drift` is `not-supplied`, `within-scope`, or `drifted`;
+drift is evidence, not a suppression mechanism.
 
 `repopilot_explain_file` returns additive JSON fields for explicit scope,
 role evidence, applicability checks, every ordered override, severity

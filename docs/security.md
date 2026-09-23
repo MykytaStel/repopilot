@@ -20,7 +20,9 @@ It generates local Markdown from local scan findings. It does not call an LLM AP
 MCP tool paths and finding replay are confined to the configured MCP root.
 RepoPilot canonicalizes existing paths, checks the nearest existing ancestor for
 missing outputs, and rejects lexical traversal and symlink escapes before an
-analysis command runs.
+analysis command runs. Dangling symlink ancestors are unavailable rather than
+treated as safe lexical paths. Malformed TOML errors omit quoted values because
+configuration files may contain credentials.
 
 ## Installation security
 

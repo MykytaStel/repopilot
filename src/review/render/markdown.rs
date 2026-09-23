@@ -4,13 +4,17 @@ use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::render_helpers::escape_table_cell;
 use crate::review::ReviewSignalGateResult;
+use crate::review::decision::derive_review_decision;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
-use crate::review::proof::derive_change_proof_from_review;
-use crate::review::render::helpers::verification_duration_evidence;
+use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::helpers::{
-    render_ranges, status_for_finding, verification_proof_summary,
+    change_proof_headline, change_proof_policy_summary, legacy_readiness_summary, render_ranges,
+    status_for_finding, verification_proof_summary,
+};
+use crate::review::render::helpers::{
+    verification_diagnostics_evidence, verification_duration_evidence,
 };
 use crate::review::signals::tiered::ReviewSignal;
 
@@ -36,14 +40,63 @@ pub fn render_markdown_with_gates(
         report.summary.artifacts.risk_delta.as_ref(),
     );
     let proof = derive_change_proof_from_review(report, &readiness);
+    let evidence = EvidenceSummary::from_review(report, &proof);
+    let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
+    output.push_str(&format!("- **Decision:** `{}`\n", decision.verdict.label()));
+    output.push_str(&format!("- **Decision meaning:** {}\n", decision.meaning));
+    output.push_str(&format!("- **Decision why:** {}\n", decision.why));
+    for limitation in decision.limitations.iter().take(3) {
+        output.push_str(&format!("- **Decision limitation:** {limitation}\n"));
+    }
+    output.push_str(&format!("- **Next action:** {}\n", decision.next_action));
     output.push_str(&format!(
-        "- **Merge readiness:** `{}`\n",
-        readiness.verdict.label()
+        "- **Decision gates:** CI `{}`, review `{}`\n",
+        decision.gates.ci.label(),
+        decision.gates.review.label()
     ));
     output.push_str(&format!(
         "- **Change proof:** `{}`\n",
         proof.verdict.label()
     ));
+    output.push_str(&format!(
+        "- **Evidence class:** `{}`\n",
+        evidence.class.label()
+    ));
+    output.push_str(&format!(
+        "- **Evidence scope:** {}\n",
+        evidence.scope_line()
+    ));
+    output.push_str(&format!(
+        "- **Evidence provenance:** {}\n",
+        evidence.provenance_line()
+    ));
+    output.push_str(&format!(
+        "- **Intent drift:** `{}`\n",
+        proof.intent_drift.status.label()
+    ));
+    if proof.intent_drift.is_drifted() {
+        output.push_str(&format!(
+            "- **Intent limits:** {} unexpected path(s), {} unexpected contract family(ies), {} critical-path mismatch(es), {} unselected check(s)\n",
+            proof.intent_drift.unexpected_paths.len(),
+            proof.intent_drift.unexpected_contract_families.len(),
+            proof.intent_drift.unexpected_critical_paths.len(),
+            proof.intent_drift.missing_verification.len(),
+        ));
+    }
+    output.push_str(&format!(
+        "- **Why:** {}\n",
+        change_proof_headline(report, &proof)
+    ));
+    output.push_str(&format!(
+        "- **Proof policy:** {}\n",
+        change_proof_policy_summary(report)
+    ));
+    if !proof.reasons.is_empty() {
+        output.push_str("- **Reasons:**\n");
+        for reason in proof.reasons.iter().take(5) {
+            output.push_str(&format!("  - {}\n", reason.message));
+        }
+    }
     output.push_str(&format!(
         "- **Proof scope:** {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
         proof.coverage.analyzed_files,
@@ -60,6 +113,10 @@ pub fn render_markdown_with_gates(
     output.push_str(&format!(
         "- **Verification proof:** {}\n",
         verification_proof_summary(report, proof.obligations)
+    ));
+    output.push_str(&format!(
+        "- **Legacy merge readiness:** `{}`\n",
+        legacy_readiness_summary(report, &readiness)
     ));
     let ownership_status = match readiness.ownership.assessment {
         OwnershipAssessment::Resolved => "resolved".to_string(),
@@ -119,6 +176,8 @@ pub fn render_markdown_with_gates(
             "- **CI gate:** {status} (`{}`)\n",
             ci_gate.label()
         ));
+    } else {
+        output.push_str("- **CI gate:** not configured\n");
     }
     if let Some(review_gate) = review_gate {
         if review_gate.enabled() {
@@ -135,6 +194,8 @@ pub fn render_markdown_with_gates(
         } else {
             output.push_str("- **Review gate:** disabled\n");
         }
+    } else {
+        output.push_str("- **Review gate:** not configured\n");
     }
 
     output.push_str("\n## Changed Files\n\n");
@@ -188,20 +249,24 @@ fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("## Verification\n\n");
     output.push_str(
-        "| Check | Status | Source | Duration evidence | Exit |\n| --- | --- | --- | --- | ---: |\n",
+        "| Check | Status | Source | Duration evidence | Exit | Diagnostics |\n| --- | --- | --- | --- | ---: | --- |\n",
     );
     for outcome in &report.verification {
         let source = if outcome.reused { "cached" } else { "executed" };
         let duration = verification_duration_evidence(outcome);
+        let diagnostics = verification_diagnostics_evidence(outcome)
+            .map(|value| escape_table_cell(&value))
+            .unwrap_or_else(|| "-".to_string());
         output.push_str(&format!(
-            "| `{}` | `{:?}` | {} | {} | {} |\n",
-            outcome.check_id,
+            "| `{}` | `{:?}` | {} | {} | {} | {} |\n",
+            escape_table_cell(&outcome.check_id),
             outcome.status,
             source,
             duration,
             outcome
                 .exit_code
-                .map_or_else(|| "-".to_string(), |code| code.to_string())
+                .map_or_else(|| "-".to_string(), |code| code.to_string()),
+            diagnostics
         ));
     }
     output.push('\n');

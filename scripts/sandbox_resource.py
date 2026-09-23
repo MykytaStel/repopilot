@@ -1,0 +1,112 @@
+"""Bounded peak RSS sampling for sandbox commands."""
+
+from __future__ import annotations
+
+import math
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from differential_resource import (
+    RESOURCE_SOURCE,
+    resource_command,
+    resource_sample_from_file,
+    unavailable_resource,
+)
+from sandbox_contract import SandboxManifestError
+
+
+_RESOURCE_STATUSES = {"available", "unavailable"}
+_RESOURCE_SOURCES = {RESOURCE_SOURCE, "unavailable"}
+
+
+def validate_resource_observation(value: Any, context: str) -> None:
+    """Validate the optional resource receipt embedded in a phase result."""
+
+    if not isinstance(value, dict):
+        raise SandboxManifestError(f"{context} resource must be an object")
+    status = value.get("status")
+    if not isinstance(status, str) or status not in _RESOURCE_STATUSES:
+        raise SandboxManifestError(f"{context} resource status is unsupported")
+    source = value.get("source")
+    if source is not None and (
+        not isinstance(source, str) or source not in _RESOURCE_SOURCES
+    ):
+        raise SandboxManifestError(f"{context} resource source is unsupported")
+    sample = value.get("peak_rss_kb")
+    if status == "available":
+        if source != RESOURCE_SOURCE or not _positive_finite_number(sample):
+            raise SandboxManifestError(
+                f"{context} available resource requires a positive finite sample"
+            )
+    elif sample is not None:
+        raise SandboxManifestError(
+            f"{context} unavailable resource must not contain a sample"
+        )
+
+
+def _positive_finite_number(value: Any) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(float(value)) and value > 0
+    except (OverflowError, ValueError):
+        return False
+
+
+@dataclass
+class ResourceProbe:
+    command: tuple[str, ...]
+    output_path: Path | None
+    unavailable_reason: str | None = None
+
+    def sample(self, status: str, reason: str | None = None) -> dict[str, Any]:
+        if status == "timeout":
+            return unavailable_resource(
+                "command timed out before peak RSS sampling completed"
+            )
+        if reason is not None:
+            return unavailable_resource(reason)
+        if self.output_path is None:
+            return unavailable_resource(
+                reason
+                or self.unavailable_reason
+                or "sandbox RSS sampler is unavailable"
+            )
+        return resource_sample_from_file(self.output_path)
+
+    def cleanup(self) -> None:
+        if self.output_path is not None:
+            try:
+                self.output_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def prepare_resource_probe(command: tuple[str, ...]) -> ResourceProbe:
+    """Wrap a command when the host exposes the portable RSS sampler."""
+
+    output_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            prefix="repopilot-sandbox-rss-", suffix=".txt", delete=False
+        ) as handle:
+            output_path = Path(handle.name)
+        sampled = resource_command(command, output_path)
+        if sampled is None:
+            output_path.unlink(missing_ok=True)
+            return ResourceProbe(
+                command,
+                None,
+                "sandbox RSS sampler is unavailable on this platform",
+            )
+        return ResourceProbe(tuple(sampled), output_path)
+    except OSError:
+        if output_path is not None:
+            output_path.unlink(missing_ok=True)
+        return ResourceProbe(
+            command,
+            None,
+            "sandbox RSS sampler could not be initialized",
+        )

@@ -89,6 +89,60 @@ jobs:
           path: /tmp/repopilot-ci.md
           if-no-files-found: ignore
 
+      - name: RepoPilot CI shadow policy
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          scripts/repopilot-shadow.sh \
+            --output-dir /tmp/repopilot-shadow \
+            --repo . \
+            --binary "$PWD/target/debug/repopilot" \
+            --profile strict \
+            --fail-on-priority p1
+
+      - name: Upload RepoPilot CI shadow
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repopilot-shadow
+          path: /tmp/repopilot-shadow
+          if-no-files-found: warn
+
+      - name: RepoPilot scoped policy (opt-in)
+        if: ${{ always() && vars.REPOPILOT_SCOPED_BLOCKING == 'true' }}
+        shell: bash
+        run: |
+          set +e
+          cargo run -- scan . --profile default --format json \
+            --output /tmp/repopilot-scoped-policy-report.json \
+            --quiet --no-progress
+          scan_status=$?
+
+          set +e
+          python3 scripts/repopilot-scoped-policy.py evaluate \
+            --report /tmp/repopilot-scoped-policy-report.json \
+            --policy .github/repopilot-scoped-policy.toml \
+            --output /tmp/repopilot-scoped-policy.json \
+            --repo . \
+            --mode blocking
+          policy_status=$?
+          set -e
+          if ((scan_status != 0)); then
+            exit "$scan_status"
+          fi
+          exit "$policy_status"
+
+      - name: Upload RepoPilot scoped policy
+        if: ${{ always() && vars.REPOPILOT_SCOPED_BLOCKING == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repopilot-scoped-policy
+          path: |
+            /tmp/repopilot-scoped-policy-report.json
+            /tmp/repopilot-scoped-policy.json
+          if-no-files-found: warn
+
       - name: CLI release smoke tests
         run: cargo test --test cli_release_smoke
       - name: Install Node.js

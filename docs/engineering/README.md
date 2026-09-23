@@ -19,6 +19,7 @@ documentation](../README.md) instead.
 - [Graph and scan hardening notes](graph-scan-hardening.md)
 - [Performance budgets](performance-budgets.md)
 - [Signal contract](signal-contract.md)
+- [Verification provenance v1](verification-provenance-v1.md)
 
 ## Generated evidence and quality measurements
 
@@ -34,6 +35,8 @@ documentation](../README.md) instead.
 - [Phase 0A evidence baseline plan](v0.23-phase-0a-plan.md)
 - [Phase 0B2 compatibility evidence plan](v0.23-phase-0b-compatibility-plan.md)
 - [Recoverable publication plan](v0.23-0c-publication-recovery-plan.md)
+- [Phase C intent drift specification](v0.23-phase-c-intent-drift-spec.md)
+- [Phase C intent drift implementation plan](v0.23-phase-c-intent-drift-plan.md)
 
 <details>
 <summary>Historical release records (v0.20–v0.22)</summary>

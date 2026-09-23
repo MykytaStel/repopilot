@@ -9,6 +9,23 @@ read scan output.
 repopilot scan . --format json --output repopilot-report.json
 ```
 
+## Human-readable scan decisions
+
+Console, Markdown, and HTML scan reports begin with the same decision summary.
+It states the `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED` result, explains why
+it was selected, names the evidence limits, and gives a next action. The
+decision covers only analyzed files and the selected visibility profile; it is
+not a runtime or human-usability guarantee. Hidden strict-only suggestions are
+called out with a command to inspect them.
+
+The decision is a presentation of existing scan evidence. JSON, SARIF, MCP,
+exit codes, and finding semantics remain unchanged.
+
+Review Proof Cards choose the next action from the proof state. Failed,
+unavailable, stale, or unselected required checks, incomplete file coverage,
+and a missing proof policy receive different remediation guidance; the same
+wording is carried by the proof receipt used by JSON and SARIF readers.
+
 ## JSON report schema
 
 JSON scan, baseline-scan, and review reports share schema `0.26`. This is
@@ -82,7 +99,7 @@ output excerpts, not complete input fixtures for a report reader.
 | `schema_version` | string | RepoPilot JSON report schema version. |
 | `repopilot_version` | string | RepoPilot binary version that produced the report. |
 | `report` | object | Versioned report envelope for consumers that prefer metadata under one stable object. |
-| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its assessment in `merge_readiness`. |
+| `assessment_status` | string | Scan and baseline-scan scope: `assessed` when at least one file was analyzed, otherwise `not_assessed`. This is not a safety verdict; review carries its canonical proof in `change_proof` and its compatibility readiness record in `merge_readiness`. |
 | `risk_summary` | object | Aggregate priority counts and average risk score derived from finding risk assessments. |
 | `health_score` | number | Visible health after the selected profile and explicit filters; retained for compatibility. |
 | `maintainability_score` | number | Stable score for findings hidden by the default visibility policy, computed before explicit filters. |
@@ -150,7 +167,10 @@ findings. Schema `0.21` adds occurrence identity and canonical decision records;
 schema `0.22` adds bounded dependency impact paths; schema `0.23` adds
 deterministic verification plans for review signals; schema `0.24` adds the
 stable `maintainability_score` alongside the compatible visible `health_score`.
-Schema `0.25` adds explicit local verification outcomes to review. Schema `0.26`
+Schema `0.25` adds explicit local verification outcomes to review. Verification
+outcomes may additionally carry the additive `diagnostics` record described in
+[`verification-provenance-v1.md`](engineering/verification-provenance-v1.md);
+this does not change the schema version or existing fields. Schema `0.26`
 adds `assessment_status` to scan and baseline-scan. Review also uses `0.26`
 because all three DTOs share the schema version; it does not gain that top-level
 field.
@@ -268,6 +288,15 @@ suppression state, and gate eligibility. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.
 
+When supplied, a review also carries `change_proof.intent_drift` with the
+bounded declared scope, observed changed/impacted paths, canonical contract
+families, configured critical-path intersections, and missing selected
+verification IDs. Its status is `not-supplied`, `within-scope`, or `drifted`.
+`not-supplied` is informational; `drifted` adds an additive `intent-drift`
+proof reason and never suppresses findings or failed verification. The same
+record is returned by the MCP review tool and retained in stored MCP analysis
+handles.
+
 For `behavioral.removed-export-still-imported`, B2.1 adds the optional
 `target_path` field to the canonical review signal. `path` and its line range
 remain the direct named-import evidence in the surviving caller, while
@@ -289,12 +318,34 @@ signals continue to omit it. It is nevertheless a source compatibility change
 for Rust users that construct the public `ReviewSignal` with a struct literal;
 those literals must now provide `target_path`, normally as `None`.
 
+Review JSON also carries an additive top-level `evidence` object. It contains
+the evidence class (`observation`, `supported-proof`, `suspicion`, or
+`unknown`), coverage status and scope counts, plus analyzer/schema provenance,
+selected checks, unavailable inputs, and a canonical projection hash. The
+object is derived from the same `change_proof` used by the human renderers;
+older readers may ignore it without changing existing fields or exit codes.
+
+Review JSON also carries an additive top-level `decision` object. It is the
+single primary assessment for the review and contains `verdict` (`PASS`,
+`REVIEW`, `BLOCK`, or `NOT_ASSESSED`), `meaning`, `why`, `limitations`, one
+`next_action`, and independent `gates.ci` / `gates.review` states. The
+decision is derived from `change_proof`; it does not replace `change_proof`,
+`merge_readiness`, or their exit-code semantics. A failed CI gate remains a
+separate gate result rather than silently changing a static proof verdict.
+Empty, unsupported, or partially analyzed scopes remain `NOT_ASSESSED` or
+`REVIEW` and are never promoted to `PASS`.
+
 ## Review HTML reports
 
 `repopilot review --format html --output review.html` writes a self-contained
-local report. Its first screen is the canonical Proof Card: Change Proof
-verdict, legacy merge readiness, analyzed scope, verification evidence, gates,
-proof limits, and one next action. The Change Map then links changed files to
+local report. Its first screen is the canonical decision block and Proof Card:
+one primary decision, meaning, reasons, one next action, independent CI/review
+gate states, Change Proof verdict, evidence class, legacy merge readiness,
+proof policy, analyzed scope, verification evidence, and provenance inputs.
+`SUPPORTED PROOF` is emitted only for a
+complete supported scope; limited coverage is shown as `SUSPICION`, while an
+unavailable scope is `UNKNOWN`.
+The Change Map then links changed files to
 typed contract/consumer deltas and bounded impact paths, followed by review
 signals, verification outcomes, and findings.
 
@@ -309,10 +360,13 @@ retains the complete machine-readable record.
 When an MCP review returns an `analysisHandle`, pass that handle to
 `repopilot_context`, `repopilot_explain_finding`, or
 `repopilot_explain_review_signal`. The returned structured content includes the
-same canonical `change_proof` object that was emitted by the review. The
-`repopilot://analyses` resource exposes that object in its stored-analysis
-summary as well. Context content remains Markdown, while the proof stays
-machine-readable in `structuredContent`.
+same canonical `change_proof`, `evidence`, and additive `decision` objects that
+were emitted by the review. The `repopilot://analyses` resource exposes all
+three objects in its stored-analysis summary as well. Context content remains
+Markdown, while the proof, evidence, and decision stay machine-readable in
+`structuredContent`. Finding explanations retain their finding-level
+`decision` field and expose the review-level object as `review_decision` to
+avoid a name collision.
 
 ## Audit receipt JSON
 
@@ -392,6 +446,40 @@ Every finding includes stable fields documented in [rulesets.md](rulesets.md):
 | `workspace_package` | string? | Optional monorepo package name. |
 | `evidence` | array | One or more evidence locations. |
 
+### Canonical finding explanation
+
+Machine reports include an additive `decision.explanation` object alongside
+the existing finding fields. It is built once from finding provenance and
+reused by JSON, review, baseline, AI-context, SARIF, and MCP projections:
+
+```json
+{
+  "decision": {
+    "explanation": {
+      "claim": "The example contract is indicated by this signal.",
+      "evidence_basis": {
+        "source": "ast",
+        "scope": "file",
+        "lifecycle": "stable",
+        "location_count": 1
+      },
+      "limitations": [
+        "Static evidence describes a structural signal; it does not by itself prove runtime behavior or user impact."
+      ],
+      "next_action": "Confirm the cited evidence, then apply the recommendation."
+    }
+  }
+}
+```
+
+`claim` is the rule description, while `evidence_basis` states how the
+finding was produced. `limitations` are conservative boundaries: they do not
+turn static evidence into proof of runtime reachability, exploitability, test
+execution, or user impact. Heuristic, preview/experimental, non-file-scope,
+import-graph, and missing-location cases receive additional limits. The
+existing `occurrence_key`, evidence locations, recommendation, and verification
+plan remain authoritative and unchanged.
+
 ### Knowledge-decision provenance
 
 Knowledge-aware findings may include:
@@ -450,9 +538,14 @@ calibration policy.
 SARIF output carries the same category, recommendation, confidence, baseline
 status, and workspace package metadata in result properties when available.
 Review SARIF additionally carries optional run-level `changeProof` and
-`verification` properties. `changeProof` is the same gated canonical proof
-used by review JSON/Markdown/HTML projections; `verification` preserves the
-recorded check outcomes, including skipped and revision-incompatible states.
+`evidence` and `verification` properties. `changeProof` and `evidence` are the
+same gated canonical records used by review JSON/Markdown/HTML projections;
+`changeProof` is the canonical proof and `evidence` records its claim strength,
+coverage, and provenance. The Action summary reads this object when present and
+keeps a compatible fallback for older review JSON. `verification` preserves
+the recorded check outcomes, including skipped and revision-incompatible states,
+and may include complete normalized test-node diagnostics or an explicit
+unavailable limitation.
 Scan and baseline SARIF omit these review-only properties.
 
 ## Recommended usage

@@ -13,6 +13,139 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   exact artifact schema plus manifest/source/oracle/proof hashes before
   reporting, and keeps unavailable dimensions and false certainty explicit
   rather than emitting a vanity score.
+- Added additive verification provenance for explicit `python.tests` checks.
+  Complete, revision-compatible pytest output now carries normalized failed
+  test-node or collection-error identities through JSON, Markdown, HTML,
+  SARIF, MCP, cache, and differential evidence. Unsupported output, truncation,
+  timeout, cancellation, and unavailable programs remain explicitly
+  unavailable; existing fields and exit codes are unchanged.
+- Added a canonical review decision summary. Review reports now expose one
+  additive `PASS`, `REVIEW`, `BLOCK`, or `NOT_ASSESSED` decision with its
+  meaning, limitations, next action, and separate CI/review gate states across
+  console, Markdown, HTML, JSON, SARIF, and MCP, while preserving existing
+  proof, readiness, fields, and exit codes.
+- Added canonical finding evidence cards. Each finding now carries a
+  deterministic explanation of its claim, signal source, analysis scope,
+  lifecycle, evidence-location count, conservative limitations, and next action in
+  the shared decision record. Console, Markdown, HTML, JSON, SARIF, AI context,
+  and MCP reuse the same card while preserving existing fields and exit codes.
+- Added an additive replayable Proof Receipt to review JSON and SARIF. It is
+  derived from the canonical ChangeProof, records scope/provenance hashes and
+  next action, and fails closed with explicit matched/stale/unsupported/
+  invalid/unavailable replay states while preserving legacy fields and exit
+  codes.
+- Added an advisory CI shadow policy runner that records policy, analyzer and
+  revision provenance, bounded redacted logs, report hashes, and explicit
+  passed/failed/unavailable/invalid statuses without changing the blocking CI
+  gate.
+- Added the local validation sandbox contract and artifact-first runner. A
+  pinned manifest can drive isolated copies, Docker-only oracle commands with
+  `--network none` and resource limits, optional static analysis, bounded
+  redacted command records, and crash-safe result artifacts under the ignored
+  `.zoo/repopilot-validation/` path.
+- Added the local technical-pilot batch command. It runs manifest cases
+  sequentially with one cold and two warm repetitions, validates each result,
+  compares normalized outputs, and keeps missing images, oracles, and bounded
+  scanner output explicitly `unavailable`.
+- Added the controlled mutation packet command. Mutation cases declare a
+  violation or negative-control role and tuning/evaluation split; the runner
+  verifies baseline, patch, expected independent oracle state, reverse patch,
+  and an artifact-backed summary without treating unavailable evidence as pass.
+- Mutation cases can now declare exact `expected_rule_ids`. Receipts record
+  observed rule IDs and distinguish exact violation signals from negative
+  controls; expected-rule cases compare a separate baseline scan by stable
+  rule/path/evidence identity (snippet digests and finding IDs, with a line
+  fallback) so line shifts and pre-existing findings do not poison negative
+  controls. Metrics keep lifecycle-only cases separate from this stronger
+  rule-level evidence and report tuning and evaluation splits independently.
+- Added `sandbox.py report`, which validates pilot and mutation summaries before
+  rendering a deterministic local report with per-case status, oracle/lifecycle
+  explanations, normalized scan counts and hashes, explicit limits, and next
+  actions. Reports omit raw command output and finding snippets.
+- Added sandbox metrics and validation commands. Metrics are recomputed from
+  validated child artifacts with explicit numerators/denominators, 95% Wilson
+  intervals, coverage, lifecycle/determinism or mutation scan observations,
+  analyze wall time, and explicit unavailable TP/FN/TN/FP or RSS measurements
+  when the protocol lacks the required identities or sampler.
+- Sandbox cases can declare `analysis_mode = "changed"` for mutations that
+  require changed-scan semantics; the mode is recorded in artifacts and local
+  reports.
+- Added automatic discovery of fresh `*-current` Phase 0 evidence packets and
+  artifact/observation counts in the local text and Markdown audit, so the
+  sandbox can show its current state without treating historical packets as
+  fresh evidence.
+- Added an opt-in scoped CI policy evaluator. An explicit policy can block only
+  allowlisted stable rules at a selected profile and priority; advisory mode,
+  unavailable evidence, provenance, hashes, and a documented rollback remain
+  separate from the existing CI gate.
+- Added an additive decision projection to the Phase 0 evidence audit. CLI,
+  JSON, and Markdown reports now show `verified`, `blocked`, or `invalid`,
+  structured coverage counts, blocking reasons, and the exact next actions
+  without changing legacy fields or exit codes.
+- Added a required `rule-quality` track to the Phase 0 evidence audit. It
+  validates the committed scorecard, snapshot/label denominators, and rule
+  registry coverage, while keeping unmeasured rules explicitly pending rather
+  than treating them as clean or as a production precision/recall estimate;
+  the additive audit protocol is versioned as `phase0-evidence-closure-v2`.
+- Sandbox scanner reports now use a run-owned JSON file with a bounded 8 MiB
+  report limit, so large real-project outputs are normalized before the
+  separate command-log limit is applied; the report hash and byte count remain
+  in the artifact.
+- Sandbox command artifacts now record bounded peak RSS when the host provides
+  the shared `posix-time-v1` sampler. Unsupported platforms, malformed samples,
+  and timeouts remain explicit `unavailable` resource observations instead of
+  being treated as zero memory use.
+- Sandbox artifact validation now requires available RSS observations to carry a
+  positive finite sample from `posix-time-v1`; invalid, stale, or contradictory
+  resource fields are rejected before metrics and reports consume them.
+- Sandbox pilot and mutation summaries now retain analyzed-command resource
+  receipts, and human-facing reports show per-case median peak RSS, sample
+  availability, and sampler source without exposing raw command output.
+
+### Fixed
+
+- Review Proof Cards now choose a next action from the recorded proof state:
+  failed, unavailable, stale, and unselected checks, incomplete scope, and a
+  missing proof policy each receive distinct remediation guidance across the
+  console, Markdown, HTML, and proof receipt projections.
+- Empty reviews now explain that the legacy `READY` readiness value is a
+  compatibility field and that no changed scope was assessed in console,
+  Markdown, and HTML output.
+- Release publication verification now accepts checksum files with Windows
+  CRLF line endings while still failing closed on a digest mismatch.
+- Release builds now smoke-test the packaged archive on native Unix and
+  Windows runners before publishing; cross-compiled Linux ARM remains an
+  explicit unavailable runtime check.
+- Markdown and HTML scan reports now lead with the same decision summary as the
+  console: decision, why, evidence limits, decision inputs, and the next action.
+
+- Phase C adds bounded optional intent contracts and repository-configured
+  critical paths. `review --intent` and MCP intent inputs compare declared
+  scope with canonical changed/impacted contracts without executing commands;
+  drift is explicit in ChangeProof and missing intent is informational.
+- Release verification now checks Homebrew formula SHA-256 values against all
+  published platform archives. `install.sh` accepts an exact
+  `REPOPILOT_VERSION` pin for reproducible installation smoke tests while
+  retaining latest-release behavior by default.
+- ChangeProof now emits explicit `unknown`/`limited` contract deltas for
+  unclassified dependency manifest and lockfile, workflow, and runtime-config
+  changes. Any limited semantic contract keeps the verdict at `REVIEW`, even
+  when configured verification checks pass.
+- Human review summaries now lead with the canonical ChangeProof verdict,
+  explain its reasons and next action, show proof policy and scope, and keep
+  CI, review-gate, and legacy readiness statuses separate across console,
+  Markdown, HTML, and GitHub Action output.
+- Human review summaries now disclose an evidence class (`SUPPORTED PROOF`,
+  `SUSPICION`, or `UNKNOWN`), explicit analyzed/excluded/unsupported scope, and
+  provenance inputs that are unavailable in the current review record. An
+  internal canonical projection hash is normalized over evidence collections;
+  existing JSON fields and exit codes remain unchanged.
+- Review JSON and review SARIF now carry the additive `evidence` projection;
+  MCP stored analyses, explain/context tools, and the GitHub Action summary use
+  that same record while retaining a fallback for older review artifacts.
+- Resilience hardening rejects dangling symlink ancestors during root-confined
+  path resolution, and malformed TOML errors no longer echo quoted
+  configuration values into CLI/MCP surfaces.
 - Hardened canonical ChangeProof coverage: unsupported delivery deltas now
   remain `REVIEW` with an explicit limited capability, selected skipped checks
   distinguish unavailable from stale revision state, and review SARIF carries
@@ -78,9 +211,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   covering the limited `test-changed` contract alongside `test-missing`.
 - Extended the real-history holdout collector to retain stable contract
   family/change IDs and an evidence hash, and extended blinded worksheets and
-  adjudicated metrics with bounded security/test contract labels. Unmeasured
-  current contract families remain visible in observations rather than being
-  silently dropped.
+  adjudicated metrics with bounded delivery/security/test contract labels.
+  Unmeasured current contract families remain visible in observations rather
+  than being silently dropped.
 - Added a separate single-expert exploratory contract pilot with blinded,
   hash-pinned worksheets and per-contract TP/FN/TN/FP metrics plus Wilson
   intervals. The pilot is explicitly not independent validation, does not
@@ -237,6 +370,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   warm-cache, and explicit base/head review paths.
 
 ### Fixed
+
+- Calibrated `architecture.dead-module` for test-support files skipped from the
+  default graph and Python `*_viewset` dotted-path loaders, and made
+  `framework.js.var-declaration` ignore CSS `var(...)` inside JavaScript and
+  TypeScript strings. Regression coverage protects these false-positive fixes
+  while keeping ordinary dotted strings, real `var` declarations, and Rust
+  production test-support modules eligible for their existing rules.
 
 - Added rule-reference documentation metadata for high-severity
   `code-quality.complex-file` findings, removing the self-scan contract warning

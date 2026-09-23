@@ -22,6 +22,9 @@ fn markdown_does_not_render_health_scores_without_an_assessment() {
         .expect("failed to render markdown report");
 
     assert!(output.contains("- **Assessment:** not assessed"));
+    assert!(output.contains("## Decision"));
+    assert!(output.contains("- **Decision:** `NOT ASSESSED`"));
+    assert!(output.contains("- **Next action:** Expand the analyzable scope"));
     assert!(output.contains("- **Visible health:** not assessed"));
     assert!(output.contains("- **Maintainability:** not assessed"));
     assert!(!output.contains("- **Visible health:** 0/100"));
@@ -85,6 +88,11 @@ fn renders_markdown_scan_summary() {
         .expect("failed to render markdown summary");
 
     assert!(output.contains("# RepoPilot Scan Report"));
+    assert!(output.contains("## Decision"));
+    assert!(output.contains("- **Decision:** `REVIEW`"));
+    assert!(output.contains("- **Why:** Review the prioritized findings"));
+    assert!(output.contains("- **Limits:** Static evidence covers only analyzed files"));
+    assert!(output.contains("- **Next action:** Review the visible findings"));
     assert!(output.contains(&format!(
         "- **RepoPilot version:** {}",
         env!("CARGO_PKG_VERSION")
@@ -110,6 +118,10 @@ fn renders_markdown_scan_summary() {
     assert!(output.contains("Evidence: `src/main.rs:7` - // TODO: improve architecture"));
     assert!(output.contains("Recommendation:"));
     assert!(output.contains("Convert the TODO into a tracked issue"));
+    assert!(output.contains("Evidence basis: mixed source; file scope; preview rule; 1 location"));
+    assert!(output.contains("Limits:"));
+    assert!(output.contains("runtime behavior or user impact"));
+    assert!(output.contains("Next action:"));
 }
 
 #[test]
@@ -130,6 +142,28 @@ fn renders_empty_markdown_sections() {
     assert!(output.contains("No rules triggered."));
     // Non-RN project must not render the React Native architecture section
     assert!(!output.contains("### React Native"));
+}
+
+#[test]
+fn markdown_clean_decision_is_pass_with_a_direct_next_action() {
+    let summary = ScanSummary {
+        metadata: ScanMetadata {
+            root_path: PathBuf::from("clean-project"),
+            ..Default::default()
+        },
+        metrics: ScanMetrics {
+            files_analyzed: 1,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let output = render_scan_summary(&summary, OutputFormat::Markdown)
+        .expect("failed to render clean markdown summary");
+
+    assert!(output.contains("- **Decision:** `PASS`"));
+    assert!(output.contains("- **Why:** No visible findings require action"));
+    assert!(output.contains("- **Next action:** Proceed with the normal review"));
 }
 
 #[test]
@@ -202,6 +236,7 @@ fn markdown_output_includes_hidden_suggestion_breakdown() {
             ..Default::default()
         },
         metrics: ScanMetrics {
+            files_analyzed: 1,
             hidden_suggestions_count: 2,
             ..Default::default()
         },
@@ -221,6 +256,9 @@ fn markdown_output_includes_hidden_suggestion_breakdown() {
         .expect("failed to render markdown summary");
 
     assert!(output.contains("- **Top hidden suggestions:**"));
+    assert!(output.contains("- **Decision:** `PASS`"));
+    assert!(output.contains("- **Limits:** Static evidence covers only analyzed files"));
+    assert!(output.contains("- **Next action:** Run with `--profile strict`"));
     assert!(output.contains("`testing` / `testing-gap` / `testing.source-without-test`: 2"));
 }
 

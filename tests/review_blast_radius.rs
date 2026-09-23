@@ -131,6 +131,7 @@ fn render_console_includes_blast_radius_section_when_present() {
     );
 
     let report = ReviewReport {
+        analysis_revision: None,
         summary: ScanSummary {
             metadata: ScanMetadata {
                 root_path: temp.path().to_path_buf(),
@@ -159,6 +160,7 @@ fn render_console_includes_blast_radius_section_when_present() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: vec![],
     };
 

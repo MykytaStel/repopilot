@@ -1,4 +1,5 @@
-use repopilot::config::model::RepoPilotConfig;
+use repopilot::config::model::{CriticalPathRule, RepoPilotConfig};
+use repopilot::review::intent::{IntentContract, IntentStatus};
 use repopilot::review::model::ReviewReport;
 use repopilot::review::proof::{
     ChangeProofReasonCode, ChangeProofVerdict, derive_change_proof_from_review,
@@ -116,6 +117,65 @@ fn real_empty_changed_scope_is_not_assessed() {
     );
 }
 
+#[test]
+fn intent_drift_is_projected_into_canonical_change_proof_without_hiding_evidence() {
+    let temp = prepared_repo();
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn answer() -> u8 { 42 }\n",
+    )
+    .unwrap();
+    let mut report = review_report(&temp);
+    report.intent.contract = Some(IntentContract {
+        version: 1,
+        summary: Some("Auth-only change".to_string()),
+        paths: vec!["src/auth/**".to_string()],
+        contract_families: Vec::new(),
+        critical_paths: Vec::new(),
+        verification: Vec::new(),
+    });
+    let readiness = derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.intent_drift.status, IntentStatus::Drifted);
+    assert_eq!(proof.intent_drift.unexpected_paths, vec!["src/lib.rs"]);
+    assert!(
+        proof
+            .reasons
+            .iter()
+            .any(|reason| { reason.code == ChangeProofReasonCode::IntentDrift })
+    );
+}
+
+#[test]
+fn library_review_builder_preserves_configured_critical_paths() {
+    let temp = prepared_repo();
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn answer() -> u8 { 42 }\n",
+    )
+    .unwrap();
+    let summary = scan_changed_with_config(temp.path(), &ScanConfig::default(), None).unwrap();
+    let mut config = RepoPilotConfig::default();
+    config.review.critical_paths = vec![CriticalPathRule {
+        name: "core".to_string(),
+        paths: vec!["src/**".to_string()],
+    }];
+
+    let report = build_review_report(summary, temp.path(), None, None, None, &config).unwrap();
+    let readiness = derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+
+    assert_eq!(report.intent.critical_paths, config.review.critical_paths);
+    assert_eq!(proof.intent_drift.status, IntentStatus::NotSupplied);
+    assert_eq!(proof.intent_drift.critical_path_matches[0].name, "core");
+    assert_eq!(
+        proof.intent_drift.critical_path_matches[0].paths,
+        ["src/lib.rs"]
+    );
+}
+
 fn prepared_repo() -> TempDir {
     let temp = tempdir().unwrap();
     git(temp.path(), &["init"]);
@@ -166,6 +226,7 @@ fn failed_outcome() -> VerificationOutcome {
         revision_compatible: true,
         limitations: Vec::new(),
         reused: false,
+        diagnostics: None,
     }
 }
 

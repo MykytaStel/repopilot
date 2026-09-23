@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -27,6 +27,9 @@ class Phase0Paths:
     differential_artifact: Path | None = None
     differential_pilot: Path | None = None
     differential_metrics: Path | None = None
+    rule_scorecard: Path | None = None
+    zoo_expectation_dir: Path | None = None
+    zoo_snapshot_dir: Path | None = None
 
     @classmethod
     def defaults(cls, root: Path) -> "Phase0Paths":
@@ -37,7 +40,35 @@ class Phase0Paths:
             differential_manifest=base / "tests/benchmarks/differential.toml",
             rules_reference=base / "docs/rules-reference.md",
             zoo_manifest=base / "tests/zoo/manifest.toml",
+            rule_scorecard=base / "docs/engineering/rule-scorecard.md",
+            zoo_expectation_dir=base / "tests/zoo/expectations",
+            zoo_snapshot_dir=base / "tests/zoo/snapshots",
         )
+
+    def with_evidence_dir(self, evidence_dir: Path) -> "Phase0Paths":
+        """Attach only explicitly current, local evidence packets.
+
+        Historical packets use different schemas and must not silently become
+        the input to the current Phase 0 audit.  The ``*-current`` naming is a
+        deliberate freshness boundary for the local sandbox.
+        """
+        directory = evidence_dir.resolve()
+        names = {
+            "real_history_artifact": "real-history-run-current.json",
+            "annotation_a": "annotation-a-current.toml",
+            "annotation_b": "annotation-b-current.toml",
+            "adjudication": "adjudication-current.toml",
+            "real_history_metrics": "real-history-metrics-current.json",
+            "differential_artifact": "differential-run-current.json",
+            "differential_pilot": "differential-pilot-current.toml",
+            "differential_metrics": "differential-metrics-current.json",
+        }
+        discovered = {
+            field: directory / name
+            for field, name in names.items()
+            if (directory / name).is_file()
+        }
+        return replace(self, **discovered)
 
 
 def short_error(source: str, error: Exception) -> str:

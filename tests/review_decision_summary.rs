@@ -17,6 +17,7 @@ fn definitely_sensitive_signal_plan_counts_as_decision_input() {
     summary.metadata.mode = ScanMode::Changed;
     summary.metrics.files_analyzed = 1;
     let report = ReviewReport {
+        analysis_revision: None,
         summary,
         repo_root: PathBuf::from("/repo"),
         baseline_path: None,
@@ -67,6 +68,7 @@ fn definitely_sensitive_signal_plan_counts_as_decision_input() {
         timings: Default::default(),
         verification_policy: Default::default(),
         verification: Vec::new(),
+        intent: Default::default(),
         findings: Vec::new(),
     };
 

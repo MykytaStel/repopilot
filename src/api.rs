@@ -14,7 +14,10 @@ pub mod findings {
         FindingContractReport, FindingContractViolation, FindingContractViolationKind,
         validate_finding_contract, validate_findings_contract,
     };
-    pub use crate::findings::decision::{DecisionRecord, VerificationPlan, build_decision_record};
+    pub use crate::findings::decision::{
+        DecisionRecord, FindingEvidenceBasis, FindingExplanation, VerificationPlan,
+        build_decision_record, build_finding_explanation,
+    };
     pub use crate::findings::feedback::{
         LocalFeedbackReport, LocalFeedbackValidation, LocalSuppression, apply_local_feedback,
         validate_local_feedback,
@@ -54,6 +57,10 @@ pub mod graph {
 }
 
 pub mod review {
+    pub use crate::review::decision::{
+        ReviewDecision, ReviewDecisionGates, ReviewDecisionVerdict, ReviewGateState,
+        derive_review_decision,
+    };
     pub use crate::review::diff::{ChangeStatus, ChangedFile};
     pub use crate::review::model::{ReviewFindingStatus, ReviewReport};
     pub use crate::review::{build_review_report, build_review_report_since, review_report_for_ci};

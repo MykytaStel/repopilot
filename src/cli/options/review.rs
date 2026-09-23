@@ -40,6 +40,10 @@ pub struct ReviewOptions {
     #[arg(long)]
     pub config: Option<PathBuf>,
 
+    /// Path to a bounded repository-rooted intent contract (TOML)
+    #[arg(long)]
+    pub intent: Option<PathBuf>,
+
     /// Path to a baseline file for new/existing finding status
     #[arg(long)]
     pub baseline: Option<PathBuf>,

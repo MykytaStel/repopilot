@@ -152,11 +152,15 @@ fn dispatch_tool(
                     let context::ContextCallResult {
                         markdown,
                         change_proof,
+                        evidence,
+                        decision,
                     } = result;
                     let structured_content = change_proof.map(|change_proof| {
                         json!({
                             "markdown": markdown.clone(),
-                            "change_proof": change_proof
+                            "change_proof": change_proof,
+                            "evidence": evidence,
+                            "decision": decision
                         })
                     });
                     ToolExecution::with_structured(markdown, structured_content)

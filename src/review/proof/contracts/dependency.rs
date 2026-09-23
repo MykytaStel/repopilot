@@ -21,6 +21,7 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
         }
 
         for hunk in &file.hunks {
+            let delta_count_before_hunk = deltas.len();
             let removed = hunk
                 .removed_lines
                 .iter()
@@ -121,6 +122,22 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
                     ContractConfidence::High,
                 ));
             }
+            if deltas.len() == delta_count_before_hunk
+                && hunk
+                    .added_lines
+                    .iter()
+                    .chain(&hunk.removed_lines)
+                    .any(|line| is_meaningful_change(line))
+            {
+                deltas.push(delta(
+                    &path,
+                    "manifest dependency resolution",
+                    ContractChangeKind::Unknown,
+                    hunk.new_range.or(hunk.old_range).map(|range| range.start),
+                    "Manifest dependency change could not be classified with supported package specification evidence.",
+                    ContractConfidence::Limited,
+                ));
+            }
         }
     }
     deltas.sort_by(|left, right| {
@@ -131,6 +148,19 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
             .then(left.change.cmp(&right.change))
     });
     deltas
+}
+
+fn is_meaningful_change(line: &str) -> bool {
+    let trimmed = line.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with("//")
+        || (trimmed.starts_with('[') && trimmed.ends_with(']'))
+        || matches!(trimmed, "{" | "}" | "[" | "]" | ",")
+    {
+        return false;
+    }
+    true
 }
 
 #[cfg(test)]
@@ -233,6 +263,32 @@ mod tests {
         )]);
         assert_eq!(npm_deltas.len(), 1);
         assert_eq!(npm_deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn unclassified_lockfile_change_is_unknown_and_limited() {
+        let deltas = dependency_deltas(&[changed(
+            "package-lock.json",
+            &["    \"integrity\": \"sha512-new\","],
+            &["    \"integrity\": \"sha512-old\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
+    }
+
+    #[test]
+    fn dynamic_manifest_specification_is_unknown_and_limited() {
+        let deltas = dependency_deltas(&[changed(
+            "package.json",
+            &["    \"react\": \"${REACT_VERSION}\","],
+            &["    \"react\": \"${OLD_REACT_VERSION}\","],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
     }
 
     #[test]

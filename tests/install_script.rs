@@ -50,6 +50,9 @@ done
 
 case "$url" in
   *api.github.com*)
+    if [ "${REPOPILOT_EXPECT_NO_LATEST:-}" = "1" ]; then
+      exit 99
+    fi
     printf '{"tag_name":"v0.9.0"}\n'
     ;;
   *.sha256)
@@ -218,6 +221,40 @@ fn install_script_installs_when_checksum_verification_succeeds() {
         install_dir.join("repopilot").is_file(),
         "installer should place repopilot in INSTALL_DIR"
     );
+}
+
+#[test]
+fn install_script_uses_explicit_version_without_latest_lookup() {
+    let temp = tempfile::tempdir().expect("failed to create temp dir");
+    let fake_bin = temp.path().join("bin");
+    let install_dir = temp.path().join("install");
+    let archive = create_release_archive(temp.path());
+    let fake_sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    fs::create_dir(&fake_bin).expect("failed to create fake bin");
+    write_executable(&fake_bin.join("curl"), fake_curl_script());
+    write_executable(&fake_bin.join("sha256sum"), fake_sha256sum_script());
+
+    let output = Command::new(find_executable("bash"))
+        .arg(install_script())
+        .env("PATH", path_with_fake_tools(&fake_bin))
+        .env("INSTALL_DIR", &install_dir)
+        .env("REPOPILOT_VERSION", "0.9.0")
+        .env("REPOPILOT_EXPECT_NO_LATEST", "1")
+        .env("REPOPILOT_FAKE_CURL_MODE", "success")
+        .env("REPOPILOT_FAKE_ARCHIVE", archive)
+        .env("REPOPILOT_FAKE_EXPECTED_SHA", fake_sha)
+        .env("REPOPILOT_FAKE_ACTUAL_SHA", fake_sha)
+        .output()
+        .expect("failed to run install.sh");
+
+    assert!(
+        output.status.success(),
+        "pinned install should not query latest\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(install_dir.join("repopilot").is_file());
 }
 
 #[test]

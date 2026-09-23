@@ -423,12 +423,18 @@ def check_publication_recovery_contract() -> None:
     required_release = (
         'VERSION_NUMBER="${VERSION#v}"',
         "scripts/publication_state.py classify",
+        'tr -d \'\\r\' < "$archive.sha256" | sha256sum -c -',
+        'tar -xzf "$ASSET" -C packaged-smoke',
+        './packaged-smoke/repopilot --version',
+        'Expand-Archive -Path $env:ASSET -DestinationPath $SmokeDir',
+        '& ".\\$SmokeDir\\repopilot.exe" --version',
         'npm view "${package}@${VERSION_NUMBER}" version dist.integrity --json',
         "cargo package --allow-dirty --no-verify",
         "version.checksum",
         "404",
         "rate-limit-failure",
         "published-mismatch",
+        "check_homebrew_digests",
     )
     required_npm = (
         'ref: ${{ inputs.tag || github.ref }}',

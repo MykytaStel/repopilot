@@ -66,6 +66,8 @@ fn canonical_artifact_uses_shared_finding_and_decision_records() {
     assert!(finding["occurrence_key"].is_string());
     assert_eq!(finding["decision"]["severity"], "HIGH");
     assert_eq!(finding["decision"]["confidence"], "HIGH");
+    assert!(finding["decision"]["explanation"]["claim"].is_string());
+    assert!(finding["decision"]["explanation"]["limitations"].is_array());
     assert!(
         finding["decision"]["verification_plan"]["steps"]
             .as_array()

@@ -198,6 +198,28 @@ def normalize_review_verification(report: dict[str, Any], cwd: Path) -> dict[str
     if outcome.get("stdout_truncated") is not False or outcome.get("stderr_truncated") is not False:
         return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
     status = outcome.get("status")
+    structured = outcome.get("diagnostics")
+    if structured is not None:
+        keys, reason = _structured_pytest_diagnostics(structured)
+        if reason is not None:
+            return _unavailable(reason)
+        if status == "passed":
+            if keys:
+                return _unavailable("python.tests diagnostics contradict a passed check")
+            return {
+                "status": "measured",
+                "keys": [],
+                "scheme": _REVIEW_VERIFICATION_SCHEME,
+            }
+        if status != "failed":
+            return _unavailable(_PYTEST_VERIFICATION_UNAVAILABLE)
+        if not keys:
+            return _unavailable("python.tests diagnostics did not contain a supported diagnostic")
+        return {
+            "status": "measured",
+            "keys": keys,
+            "scheme": _REVIEW_VERIFICATION_SCHEME,
+        }
     if status == "passed":
         return {
             "status": "measured",
@@ -218,6 +240,27 @@ def normalize_review_verification(report: dict[str, Any], cwd: Path) -> dict[str
         "keys": sorted(keys),
         "scheme": _REVIEW_VERIFICATION_SCHEME,
     }
+
+
+def _structured_pytest_diagnostics(value: Any) -> tuple[list[str], str | None]:
+    if not isinstance(value, dict):
+        return [], "python.tests verification diagnostics have an invalid shape"
+    if value.get("adapter") != "pytest-node-v1":
+        return [], "python.tests verification diagnostics use an unsupported adapter"
+    if value.get("complete") is not True:
+        return [], str(value.get("limitation") or _PYTEST_VERIFICATION_UNAVAILABLE)
+    entries = value.get("entries", [])
+    if not isinstance(entries, list):
+        return [], "python.tests verification diagnostics have an invalid entries list"
+    keys: list[str] = []
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("key"), str):
+            return [], "python.tests verification diagnostics have an invalid entry"
+        key = entry["key"]
+        if not key.startswith("python.tests:"):
+            return [], "python.tests verification diagnostics contain an unsupported key"
+        keys.append(key)
+    return sorted(set(keys)), None
 
 
 def normalize_baseline_evidence(

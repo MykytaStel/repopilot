@@ -1,3 +1,6 @@
+pub use crate::findings::explanation::{
+    FindingEvidenceBasis, FindingExplanation, build_finding_explanation,
+};
 use crate::findings::severity::Severity;
 use crate::findings::types::{Confidence, Evidence, Finding};
 use serde::{Deserialize, Serialize};
@@ -18,6 +21,10 @@ pub struct DecisionRecord {
     pub confidence: Confidence,
     pub evidence: Vec<Evidence>,
     pub recommendation: String,
+    /// A deterministic explanation of the claim, evidence basis, limits, and
+    /// next action. This is additive so older decision records remain readable.
+    #[serde(default)]
+    pub explanation: FindingExplanation,
     /// Present for high-confidence findings (see
     /// [`crate::findings::verification::build_verification_plan`]); absent
     /// otherwise, since a low/medium-confidence finding is already flagged as
@@ -40,6 +47,7 @@ pub fn build_decision_record(finding: &Finding) -> DecisionRecord {
         confidence: finding.confidence,
         evidence: finding.evidence.clone(),
         recommendation: finding.recommendation_or_default().to_string(),
+        explanation: build_finding_explanation(finding),
         verification_plan: crate::findings::verification::build_verification_plan(finding),
     }
 }
@@ -79,6 +87,10 @@ mod tests {
         assert_eq!(decision.confidence, Confidence::High);
         assert_eq!(decision.recommendation, "fix it");
         assert_eq!(decision.evidence, finding.evidence);
+        assert_eq!(
+            decision.explanation.next_action,
+            "Confirm the cited evidence, then apply the recommendation."
+        );
         assert!(
             decision.verification_plan.is_some(),
             "high-confidence findings should get a verification plan"
@@ -106,5 +118,18 @@ mod tests {
         let decision = build_decision_record(&finding);
         assert_eq!(decision.recommendation, Finding::GENERIC_RECOMMENDATION);
         assert!(decision.verification_plan.is_none());
+    }
+
+    #[test]
+    fn decision_record_deserializes_without_the_additive_explanation() {
+        let decision: DecisionRecord = serde_json::from_value(serde_json::json!({
+            "severity": "HIGH",
+            "confidence": "HIGH",
+            "evidence": [],
+            "recommendation": "fix it"
+        }))
+        .expect("legacy decision records should remain readable");
+
+        assert_eq!(decision.explanation, FindingExplanation::default());
     }
 }

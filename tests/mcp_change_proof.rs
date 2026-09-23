@@ -89,7 +89,7 @@ fn removed_export_signal(report: &Value) -> &Value {
 }
 
 #[test]
-fn stored_mcp_projections_share_the_canonical_change_proof() {
+fn stored_mcp_projections_share_the_canonical_review_records() {
     let temp = tempfile::tempdir().expect("temp dir");
     setup_removed_export_change(temp.path());
     let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
@@ -110,7 +110,11 @@ fn stored_mcp_projections_share_the_canonical_change_proof() {
     let review = receive(&mut stdout);
     let report = &review["result"]["structuredContent"];
     let proof = report["change_proof"].clone();
+    let evidence = report["evidence"].clone();
+    let decision = report["decision"].clone();
     assert!(proof.is_object(), "review publishes ChangeProof");
+    assert!(decision.is_object(), "review publishes decision");
+    assert!(evidence.is_object(), "review publishes evidence contract");
     let handle = review["result"]["analysisHandle"]
         .as_str()
         .expect("review analysis handle");
@@ -133,6 +137,7 @@ fn stored_mcp_projections_share_the_canonical_change_proof() {
         context["result"]["structuredContent"]["change_proof"],
         proof
     );
+    assert_eq!(context["result"]["structuredContent"]["evidence"], evidence);
     assert!(
         context["result"]["content"][0]["text"]
             .as_str()
@@ -160,6 +165,10 @@ fn stored_mcp_projections_share_the_canonical_change_proof() {
         explanation["result"]["structuredContent"]["change_proof"],
         proof
     );
+    assert_eq!(
+        explanation["result"]["structuredContent"]["evidence"],
+        evidence
+    );
 
     send(
         &mut stdin,
@@ -178,6 +187,8 @@ fn stored_mcp_projections_share_the_canonical_change_proof() {
     )
     .expect("analysis summary JSON");
     assert_eq!(summary[0]["change_proof"], proof);
+    assert_eq!(summary[0]["decision"], decision);
+    assert_eq!(summary[0]["evidence"], evidence);
 
     drop(stdin);
     assert!(child.wait().expect("wait for MCP server").success());

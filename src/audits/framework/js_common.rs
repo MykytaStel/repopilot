@@ -162,14 +162,63 @@ pub fn is_comment_line(trimmed: &str) -> bool {
 }
 
 fn has_var_declaration(trimmed: &str) -> bool {
-    if trimmed.starts_with("var ") {
-        return true;
+    let code = mask_js_strings_and_line_comments(trimmed);
+    let mut search_from = 0;
+    while let Some(relative_start) = code[search_from..].find("var") {
+        let start = search_from + relative_start;
+        let end = start + 3;
+        let preceding = code[..start].chars().next_back();
+        let following = code[end..].chars().next();
+        let binding = code[end..].trim_start();
+        if preceding.is_none_or(|character| !is_js_identifier_character(character))
+            && following.is_some_and(char::is_whitespace)
+            && binding.chars().next().is_some_and(is_js_identifier_start)
+        {
+            return true;
+        }
+        search_from = end;
     }
-    // Token-based: split on whitespace/punctuation and check for exact "var" token.
-    // This avoids false positives on identifiers like `typeVar` or `varName`.
-    trimmed
-        .split(|c: char| c.is_whitespace() || matches!(c, ';' | '(' | ',' | '{' | '}' | '='))
-        .any(|token| token == "var")
+    false
+}
+
+fn mask_js_strings_and_line_comments(line: &str) -> String {
+    let mut masked = String::with_capacity(line.len());
+    let mut quote = None;
+    let mut characters = line.chars().peekable();
+    while let Some(character) = characters.next() {
+        if let Some(delimiter) = quote {
+            if character == '\\' {
+                masked.push(' ');
+                if characters.next().is_some() {
+                    masked.push(' ');
+                }
+            } else if character == delimiter {
+                quote = None;
+                masked.push(' ');
+            } else {
+                masked.push(' ');
+            }
+            continue;
+        }
+        if character == '/' && characters.peek() == Some(&'/') {
+            break;
+        }
+        if matches!(character, '\'' | '"' | '`') {
+            quote = Some(character);
+            masked.push(' ');
+        } else {
+            masked.push(character);
+        }
+    }
+    masked
+}
+
+fn is_js_identifier_start(character: char) -> bool {
+    character == '_' || character == '$' || character.is_ascii_alphabetic()
+}
+
+fn is_js_identifier_character(character: char) -> bool {
+    is_js_identifier_start(character) || character.is_ascii_digit()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

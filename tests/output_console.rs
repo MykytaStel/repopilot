@@ -84,6 +84,10 @@ fn console_output_includes_versioned_summary_and_grouped_findings() {
     assert!(output.contains("[sensitive evidence redacted]"));
     assert!(!output.contains("abc123xyz987"));
     assert!(output.contains("Recommendation:"));
+    assert!(output.contains("Evidence basis: mixed source; file scope; preview rule; 1 location"));
+    assert!(output.contains("Limits:"));
+    assert!(output.contains("runtime behavior or user impact"));
+    assert!(output.contains("Next action:"));
 }
 
 #[test]

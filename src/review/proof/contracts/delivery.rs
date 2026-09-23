@@ -20,6 +20,7 @@ pub(super) fn delivery_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofC
                 .iter()
                 .filter_map(|line| classify_line(line))
                 .collect::<Vec<_>>();
+            let mut classified = false;
             for kind in [
                 DeliveryChange::Trigger,
                 DeliveryChange::Permission,
@@ -33,6 +34,7 @@ pub(super) fn delivery_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofC
                 let Some(current) = new.or(old) else {
                     continue;
                 };
+                classified = true;
                 let evidence = match (old, new) {
                     (Some(old), Some(new)) => format!(
                         "Delivery {} changed from `{}` to `{}`.",
@@ -54,6 +56,18 @@ pub(super) fn delivery_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProofC
                     kind.change_kind(),
                     hunk.new_range.or(hunk.old_range).map(|range| range.start),
                     &evidence,
+                ));
+            }
+            if !classified
+                && hunk
+                    .added_lines
+                    .iter()
+                    .chain(&hunk.removed_lines)
+                    .any(|line| is_meaningful_change(line))
+            {
+                deltas.push(unknown_delta(
+                    &path,
+                    hunk.new_range.or(hunk.old_range).map(|range| range.start),
                 ));
             }
         }
@@ -159,6 +173,24 @@ fn classify_line(line: &str) -> Option<DeliveryEdit> {
     Some(DeliveryEdit { kind, subject })
 }
 
+fn is_meaningful_change(line: &str) -> bool {
+    let trimmed = line.trim();
+    !trimmed.is_empty() && !trimmed.starts_with('#')
+}
+
+fn unknown_delta(path: &str, line: Option<usize>) -> ChangeProofContractDelta {
+    ChangeProofContractDelta {
+        family: ContractFamily::Delivery,
+        change: ContractChangeKind::Unknown,
+        exporter_path: path.to_string(),
+        consumer_path: "workflow semantics".to_string(),
+        line_start: line,
+        line_end: line,
+        evidence: "Workflow change could not be classified into a supported delivery contract category; exact impact is unavailable.".to_string(),
+        confidence: Some(ContractConfidence::Limited),
+    }
+}
+
 fn delta(
     path: &str,
     subject: &str,
@@ -227,5 +259,18 @@ mod tests {
 
         assert_eq!(action[0].change, ContractChangeKind::ActionReferenceChanged);
         assert_eq!(trigger[0].change, ContractChangeKind::TriggerChanged);
+    }
+
+    #[test]
+    fn unknown_workflow_change_is_limited() {
+        let deltas = delivery_deltas(&[changed(
+            ".github/workflows/ci.yml",
+            &["timeout-minutes: 15"],
+            &["timeout-minutes: 10"],
+        )]);
+
+        assert_eq!(deltas.len(), 1);
+        assert_eq!(deltas[0].change, ContractChangeKind::Unknown);
+        assert_eq!(deltas[0].confidence, Some(ContractConfidence::Limited));
     }
 }

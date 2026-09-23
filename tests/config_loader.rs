@@ -33,6 +33,29 @@ fn verification_checks_parse_with_bounded_defaults() {
 }
 
 #[test]
+fn named_critical_paths_parse_as_repository_policy() {
+    let config = parse_config(
+        r#"
+        [review]
+        impact_path_depth = 2
+
+        [[review.critical_paths]]
+        name = "authentication"
+        paths = ["src/auth/**", "tests/auth/**"]
+        "#,
+        None,
+    )
+    .expect("critical path policy should parse");
+
+    assert_eq!(config.review.impact_path_depth, 2);
+    assert_eq!(config.review.critical_paths[0].name, "authentication");
+    assert_eq!(
+        config.review.critical_paths[0].paths,
+        ["src/auth/**", "tests/auth/**"]
+    );
+}
+
+#[test]
 fn verification_cache_is_disabled_by_default_and_requires_explicit_opt_in() {
     let default = parse_config(
         "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\n",

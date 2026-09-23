@@ -14,6 +14,7 @@ use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::history::{AnalysisScope, ReceiptContext, record_session};
 use repopilot::output::{DetailLevel, FindingRenderLimit, OutputFormat};
 use repopilot::report::writer::write_report;
+use repopilot::review::intent::{IntentContext, load_intent_file, validate_critical_paths};
 use repopilot::review::render::{
     ReviewRenderOptions, render_review_sarif_with_gates, render_with_options,
 };
@@ -54,6 +55,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         Some(path) => load_optional_config(path)?,
         None => load_default_config()?,
     };
+    validate_critical_paths(&configured)?;
     let scope = match options.scope {
         Some(ReviewScopeArg::Changed) => ReviewScope::Changed,
         Some(ReviewScopeArg::Full) => ReviewScope::Full,
@@ -85,6 +87,11 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         )?
     };
     let diff_loading_us = duration_us(diff_started.elapsed());
+    let intent = options
+        .intent
+        .as_deref()
+        .map(|path| load_intent_file(&review_input.repo_root, path, &configured))
+        .transpose()?;
     let history_target = review_input.target.clone();
     let scan_mode = match scope {
         ReviewScope::Changed => ProductScanMode::ResolvedChanged {
@@ -126,6 +133,10 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         baseline_ref,
         &scan_result.session,
     )?;
+    review_report.intent = IntentContext {
+        contract: intent,
+        critical_paths: configured.review.critical_paths.clone(),
+    };
     review_report.timings.diff_loading_us = diff_loading_us;
     review_report.timings.review_signals_us = duration_us(review_started.elapsed());
     if scope == ReviewScope::Changed {
