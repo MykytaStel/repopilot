@@ -1,4 +1,5 @@
 use super::escape::escape_html;
+use crate::findings::decision::build_finding_explanation;
 use crate::findings::types::{Finding, FindingCategory};
 use crate::output::report_stats::{
     category_order, first_location, indexed_findings_for_category, indexed_findings_for_rule,
@@ -49,6 +50,7 @@ where
 }
 
 fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
+    let explanation = build_finding_explanation(finding);
     let location = first_location(finding)
         .map(|location| {
             format!(
@@ -92,6 +94,22 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
     let recommendation = format!(
         r#"<p class="finding-meta"><strong>Recommendation:</strong> {}</p>"#,
         escape_html(finding.recommendation_or_default())
+    );
+    let evidence_basis = format!(
+        r#"<p class="finding-meta"><strong>Evidence basis:</strong> {}</p>"#,
+        escape_html(&explanation.evidence_basis.summary())
+    );
+    let limits = format!(
+        r#"<div class="finding-meta"><strong>Limits:</strong><ul>{}</ul></div>"#,
+        explanation
+            .limitations
+            .iter()
+            .map(|limit| format!("<li>{}</li>", escape_html(limit)))
+            .collect::<String>()
+    );
+    let next_action = format!(
+        r#"<p class="finding-meta"><strong>Next action:</strong> {}</p>"#,
+        escape_html(&explanation.next_action)
     );
     let verification = crate::findings::verification::build_verification_plan(finding)
         .map(|plan| {
@@ -139,6 +157,9 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
   {}
   {}
   {}
+  {}
+  {}
+  {}
 </article>"#,
         finding.severity.lowercase_label(),
         finding.confidence.lowercase_label(),
@@ -155,6 +176,9 @@ fn render_finding_card(finding: &Finding, status: Option<&str>) -> String {
         location,
         evidence,
         context,
+        evidence_basis,
+        limits,
+        next_action,
         recommendation,
         verification,
         risk,

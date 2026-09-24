@@ -22,6 +22,29 @@ pub enum VerificationStatus {
     Skipped,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum VerificationDiagnosticKind {
+    FailedTestNode,
+    CollectionError,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct VerificationDiagnostic {
+    pub kind: VerificationDiagnosticKind,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub struct VerificationDiagnostics {
+    pub adapter: String,
+    pub complete: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<VerificationDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limitation: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerificationExecutionEvent {
     Started {
@@ -57,6 +80,8 @@ pub struct VerificationOutcome {
     pub limitations: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub reused: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<VerificationDiagnostics>,
 }
 
 fn is_false(value: &bool) -> bool {

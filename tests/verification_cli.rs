@@ -230,6 +230,65 @@ fn failed_check_writes_report_before_exit_one() {
 
 #[cfg(unix)]
 #[test]
+fn python_tests_verification_emits_structured_failure_node() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    fs::create_dir_all(temp.path().join("tests")).expect("tests");
+    fs::write(
+        temp.path().join("tests/test_api.py"),
+        "def test_create():\n    assert True\n",
+    )
+    .expect("test source");
+    fs::write(
+        temp.path().join("python3"),
+        "#!/bin/sh\nprintf '%s\\n' 'FAILED tests/test_api.py::test_create - AssertionError'\nexit 1\n",
+    )
+    .expect("python fixture");
+    let mut permissions = fs::metadata(temp.path().join("python3"))
+        .expect("python fixture metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(temp.path().join("python3"), permissions).expect("python fixture mode");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[[verification.checks]]\nid = \"python.tests\"\nrole = \"test\"\nprogram = \"./python3\"\nargs = [\"-m\", \"pytest\", \"-q\"]\n",
+    )
+    .expect("config");
+    commit_all(temp.path(), "initial");
+    fs::write(
+        temp.path().join("tests/test_api.py"),
+        "def test_create():\n    assert False\n",
+    )
+    .expect("failing test source");
+
+    let output = repopilot()
+        .args([
+            "review",
+            ".",
+            "--format",
+            "json",
+            "--verify",
+            "python.tests",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("review");
+    assert_eq!(output.status.code(), Some(1));
+    let json: Value = serde_json::from_slice(&output.stdout).expect("review JSON");
+    let outcome = &json["merge_readiness"]["verification"][0];
+    assert_eq!(outcome["status"], "failed");
+    assert_eq!(outcome["diagnostics"]["adapter"], "pytest-node-v1");
+    assert_eq!(outcome["diagnostics"]["complete"], true);
+    assert_eq!(
+        outcome["diagnostics"]["entries"][0]["key"],
+        "python.tests:tests/test_api.py::test_create:failed"
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn opted_in_cache_reuses_across_cli_processes_and_invalidates_on_edit() {
     let temp = tempdir().expect("temp dir");
     init_repo(temp.path());

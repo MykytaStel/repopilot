@@ -111,7 +111,9 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     let report = &review["result"]["structuredContent"];
     let proof = report["change_proof"].clone();
     let evidence = report["evidence"].clone();
+    let decision = report["decision"].clone();
     assert!(proof.is_object(), "review publishes ChangeProof");
+    assert!(decision.is_object(), "review publishes decision");
     assert!(evidence.is_object(), "review publishes evidence contract");
     let handle = review["result"]["analysisHandle"]
         .as_str()
@@ -185,6 +187,7 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     )
     .expect("analysis summary JSON");
     assert_eq!(summary[0]["change_proof"], proof);
+    assert_eq!(summary[0]["decision"], decision);
     assert_eq!(summary[0]["evidence"], evidence);
 
     drop(stdin);

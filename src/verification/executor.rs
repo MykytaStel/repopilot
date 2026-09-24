@@ -1,4 +1,5 @@
 use crate::scan::session::WorkspaceRevision;
+use crate::verification::diagnostics::diagnostics_for_check;
 use crate::verification::model::{
     CancellationToken, VerificationExecutionEvent, VerificationOutcome, VerificationStatus,
 };
@@ -111,6 +112,13 @@ pub fn execute_check(
             VerificationStatus::Failed
         }
     });
+    let diagnostics = diagnostics_for_check(
+        check,
+        status,
+        &stdout.excerpt,
+        &stderr.excerpt,
+        stdout.truncated || stderr.truncated,
+    );
     VerificationOutcome {
         check_id: check.id().to_string(),
         role: check.role,
@@ -127,6 +135,7 @@ pub fn execute_check(
         revision_compatible: revision_before == &revision_after,
         limitations: Vec::new(),
         reused: false,
+        diagnostics,
     }
 }
 
@@ -190,6 +199,13 @@ fn unavailable_outcome(
     error: String,
 ) -> VerificationOutcome {
     let error = capture_and_redact(error.as_bytes(), false);
+    let diagnostics = diagnostics_for_check(
+        check,
+        VerificationStatus::Unavailable,
+        "",
+        &error.excerpt,
+        error.truncated,
+    );
     VerificationOutcome {
         check_id: check.id().to_string(),
         role: check.role,
@@ -206,6 +222,7 @@ fn unavailable_outcome(
         revision_compatible: true,
         limitations: vec!["configured program could not be started".to_string()],
         reused: false,
+        diagnostics,
     }
 }
 
@@ -230,6 +247,7 @@ fn cancelled_outcome(
         revision_compatible: true,
         limitations: vec!["verification was cancelled before the check started".to_string()],
         reused: false,
+        diagnostics: diagnostics_for_check(check, VerificationStatus::Cancelled, "", "", false),
     }
 }
 
@@ -255,6 +273,7 @@ fn skipped_outcome(
         revision_compatible,
         limitations: vec![limitation.to_string()],
         reused: false,
+        diagnostics: diagnostics_for_check(check, VerificationStatus::Skipped, "", "", false),
     }
 }
 

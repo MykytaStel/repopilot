@@ -106,6 +106,9 @@ impl AnalysisStore {
                 if let Some(evidence) = report.as_ref().and_then(|value| value.get("evidence")) {
                     summary["evidence"] = evidence.clone();
                 }
+                if let Some(decision) = report.as_ref().and_then(|value| value.get("decision")) {
+                    summary["decision"] = decision.clone();
+                }
                 Some(summary)
             })
             .collect()

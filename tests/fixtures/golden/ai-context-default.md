@@ -26,7 +26,10 @@ DEBUG = True
 ```
 > **Confidence:** HIGH
 > **Context:** Django's `DEBUG = True` mode exposes detailed error pages with stack traces, local variables, and settings values to anyone who triggers an exception
+> **Evidence basis:** config-file source; framework-project scope; preview rule; 1 location
+> **Limits:** Static evidence describes a structural signal; it does not by itself prove runtime behavior or user impact. This preview rule is still being calibrated; treat it as a review input, not an automatic merge decision. The evidence was collected at framework-project scope; files or runtime state outside that scope may not be covered.
 > **Fix:** Set DEBUG = False for deployed environments and load debug mode only from local development configuration.
+> **Next action:** Confirm the cited evidence, then apply the recommendation.
 > **Docs:** https://docs.djangoproject.com/en/stable/ref/settings/#debug
 
 **2. [HIGH] ALLOWED_HOSTS is empty in Django settings** — `tests/fixtures/projects/ai-context-sample/config/settings.py:2`
@@ -35,7 +38,10 @@ ALLOWED_HOSTS = []
 ```
 > **Confidence:** HIGH
 > **Context:** `ALLOWED_HOSTS = []` permits any host header when `DEBUG = False`, making the application vulnerable to HTTP Host header attacks
+> **Evidence basis:** config-file source; framework-project scope; preview rule; 1 location
+> **Limits:** Static evidence describes a structural signal; it does not by itself prove runtime behavior or user impact. This preview rule is still being calibrated; treat it as a review input, not an automatic merge decision. The evidence was collected at framework-project scope; files or runtime state outside that scope may not be covered.
 > **Fix:** Set ALLOWED_HOSTS to the explicit domain names and IP addresses the service should accept.
+> **Next action:** Confirm the cited evidence, then apply the recommendation.
 > **Docs:** https://docs.djangoproject.com/en/stable/ref/settings/#allowed-hosts
 
 ## Context Risk Graph
