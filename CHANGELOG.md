@@ -131,9 +131,10 @@ this release.
 - Review provenance records the resolved `base_commit`/`head_commit` and stops
   listing base, head, and current revisions as unavailable when they were
   captured.
-- The proof next action now points to human review first when signals or
-  findings need it, and otherwise to `repopilot init --suggestions-output`
-  before coverage limits, so a new user can see how to reach `VERIFIED`.
+- The proof next action now ranks failed checks, then P0/P1 findings and
+  definitely-sensitive signals, then missing checks. Missing checks and a
+  missing proof policy point to `repopilot init --suggestions-output`, ahead of
+  coverage limits, so a new user can see how to reach `VERIFIED`.
 - The GitHub Action summary reads the canonical `decision.next_action` and
   mirrors the new scope and provenance lines instead of re-deriving them.
 - Review Proof Cards now choose a next action from the recorded proof state:
