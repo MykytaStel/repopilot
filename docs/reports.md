@@ -35,11 +35,11 @@ output excerpts, not complete input fixtures for a report reader.
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.22.0",
+  "repopilot_version": "0.23.0",
   "report": {
     "kind": "scan",
     "schema_version": "0.26",
-    "repopilot_version": "0.22.0"
+    "repopilot_version": "0.23.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -124,7 +124,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.22.0` emits schema `0.26` for scan, baseline-scan, and review.
+Binary `0.23.0` emits schema `0.26` for scan, baseline-scan, and review; 0.23 changes to that schema are additive.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -195,7 +195,7 @@ policy; they are not baseline-scan output reports.
 The [version-provenanced compatibility matrix](engineering/v0.23-compatibility-matrix.md)
 separates released-producer support, old-reader rejection, synthetic transition
 fixtures, and surfaces that do not ingest scan JSON. In particular, released
-0.20.0 and 0.21.0 Rust readers reject schema 0.26 by design; 0.22.0 accepts it.
+0.20.0 and 0.21.0 Rust readers reject schema 0.26 by design; 0.22.0 and later accept it.
 
 When a stored history receipt cannot be compared with the current run,
 RepoPilot emits warning `history.comparison-unavailable` with a stable mismatch
@@ -220,11 +220,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.22.0",
+  "repopilot_version": "0.23.0",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.26",
-    "repopilot_version": "0.22.0"
+    "repopilot_version": "0.23.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -268,11 +268,11 @@ Envelope excerpt (the remaining review fields are omitted here):
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.22.0",
+  "repopilot_version": "0.23.0",
   "report": {
     "kind": "review",
     "schema_version": "0.26",
-    "repopilot_version": "0.22.0"
+    "repopilot_version": "0.23.0"
   }
 }
 ```
@@ -397,10 +397,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "6",
-    "repopilot_version": "0.22.0"
+    "repopilot_version": "0.23.0"
   },
   "tool": "repopilot",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

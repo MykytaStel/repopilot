@@ -536,12 +536,12 @@ def _check_v023_doc_links(engineering_index: str) -> None:
 def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]]:
     return {
         files["roadmap"]: (
-            "Status: Phase 0 implementation in progress",
+            "Status: 0.23.0 release prepared",
             "## Phase 0 — Truth Foundation and Bug Burn-down",
             "## Phase A — Canonical ChangeProof",
         ),
         files["phase specification"]: (
-            "Status: in-progress",
+            "Status: release-candidate",
             "Progress source:",
             "Statuses: `open`, `in-progress`, `verified`, and `accepted`.",
             "#### 0B1 — Schema Truth (PR 1)",
@@ -549,12 +549,12 @@ def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]
             "#### 0B2 — Released Compatibility Evidence (PR 2)",
             "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;",
             "### 0C — Recoverable Publication",
-            "### 0C — Recoverable Publication\n\nStatus: in-progress;",
+            "### 0C — Recoverable Publication\n\nStatus: release-candidate;",
             "### 0D — Documentation and Current UX Truth",
-            "### 0D — Documentation and Current UX Truth\n\nStatus: in-progress;",
+            "### 0D — Documentation and Current UX Truth\n\nStatus: verified;",
         ),
         files["evidence ledger"]: (
-            "Status: open;",
+            "Status: release-candidate;",
             "## Tracked Items",
             "closure criterion",
         ),

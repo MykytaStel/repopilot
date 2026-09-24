@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-24
+
+RepoPilot 0.23 turns `review` into one bounded Change Proof: a single verdict
+with its reasons, typed contract changes (dependency, delivery workflow,
+runtime configuration, security and test boundaries) linked to their local
+consumers, proof obligations satisfied by explicitly selected checks, optional
+intent drift and critical paths, and one next action — shared across console,
+Markdown, JSON, SARIF, HTML Change Map, MCP, and the GitHub Action. Report
+schema stays `0.26` with additive fields; `excluded_files` no longer counts
+test/fixture/generated files skipped by policy. Quality evidence remains scoped
+to what was measured: no broad precision, recall, or utility claim ships with
+this release.
+
 ### Added
 
 - Added a versioned, fail-closed controlled ChangeProof benchmark. It reuses
@@ -387,8 +400,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `ChangeProof` deltas, safe fixtures require zero deltas, and a parity fixture
   proves security evidence is stable across working-tree, snapshot, cold-cache,
   warm-cache, and explicit base/head review paths.
-
-### Fixed
 
 - Calibrated `architecture.dead-module` for test-support files skipped from the
   default graph and Python `*_viewset` dotted-path loaders, and made

@@ -375,23 +375,23 @@ class ReleaseContractTests(unittest.TestCase):
         )
         self.write(
             "docs/roadmap/v0.23.md",
-            "Status: Phase 0 implementation in progress; ChangeProof runtime implementation has not started.\n"
+            "Status: 0.23.0 release prepared; RP23-001 closes after publication.\n"
             "## Phase 0 — Truth Foundation and Bug Burn-down\n"
             "## Phase A — Canonical ChangeProof\n",
         )
         self.write(
             "docs/engineering/v0.23-phase-0-spec.md",
-            "Status: in-progress; release direction approved.\n"
+            "Status: release-candidate; Phase 0 closed except 0C.\n"
             "Progress source: release evidence ledger\n"
             "Statuses: `open`, `in-progress`, `verified`, and `accepted`.\n"
             "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;\n"
             "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;\n"
-            "### 0C — Recoverable Publication\n\nStatus: in-progress;\n"
-            "### 0D — Documentation and Current UX Truth\n\nStatus: in-progress;\n",
+            "### 0C — Recoverable Publication\n\nStatus: release-candidate;\n"
+            "### 0D — Documentation and Current UX Truth\n\nStatus: verified;\n",
         )
         self.write(
             "docs/engineering/v0.23-evidence-ledger.md",
-            "Status: open; initial evidence baseline, not a completed Phase 0 scorecard.\n"
+            "Status: release-candidate; RP23-001 closes after publication.\n"
             "## Tracked Items\n"
             "Each closure criterion remains explicit.\n",
         )
