@@ -269,7 +269,12 @@ fn is_file_level_architecture_evidence(finding: &Finding, evidence: &Evidence) -
 }
 
 fn pathspec_for_scan_path(scan_path: &Path, repo_root: &Path) -> Option<String> {
-    let relative = normalized_review_path(scan_path, repo_root)
+    // A relative scan path is relative to the working directory, not to the
+    // repository root (e.g. `review checkout` run from the checkout's parent).
+    let scan_path = scan_path
+        .canonicalize()
+        .unwrap_or_else(|_| scan_path.to_path_buf());
+    let relative = normalized_review_path(&scan_path, repo_root)
         .to_string_lossy()
         .to_string();
 

@@ -117,6 +117,12 @@ this release.
 
 ### Fixed
 
+- `repopilot review <path>` with a relative path now resolves it from the
+  working directory. Reviewing a nested checkout from its parent (for example
+  `repopilot review .zoo/wagtail`, as the README demo does) previously matched
+  no changed files and reported an empty review, and `review .` from a
+  repository subdirectory now scopes the review to that subdirectory, matching
+  `scan`.
 - The default `repopilot review` console now leads with one conclusion —
   `Decision: REVIEW (Change Proof: REVIEW)` — followed by the reasons and one
   next action. Duplicated decision why/limitation/gate lines are gone; evidence
