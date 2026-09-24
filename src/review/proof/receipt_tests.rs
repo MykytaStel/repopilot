@@ -323,6 +323,7 @@ fn serialized_replay_rejects_oversized_input_before_parsing() {
 fn review_and_proof(verdict: ChangeProofVerdict) -> (ReviewReport, ChangeProof) {
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -360,6 +361,7 @@ fn review_and_proof(verdict: ChangeProofVerdict) -> (ReviewReport, ChangeProof) 
             analyzed_files: 2,
             excluded_files: 0,
             unsupported_files: 0,
+            policy_skipped_files: 0,
         },
         obligations: ProofObligations {
             applicable: 0,

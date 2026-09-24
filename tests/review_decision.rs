@@ -16,6 +16,7 @@ fn proof(verdict: ChangeProofVerdict) -> ChangeProof {
             analyzed_files: 1,
             excluded_files: 0,
             unsupported_files: 0,
+            policy_skipped_files: 0,
         },
         obligations: ProofObligations {
             applicable: 0,

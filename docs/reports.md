@@ -321,9 +321,18 @@ those literals must now provide `target_path`, normally as `None`.
 Review JSON also carries an additive top-level `evidence` object. It contains
 the evidence class (`observation`, `supported-proof`, `suspicion`, or
 `unknown`), coverage status and scope counts, plus analyzer/schema provenance,
-selected checks, unavailable inputs, and a canonical projection hash. The
-object is derived from the same `change_proof` used by the human renderers;
-older readers may ignore it without changing existing fields or exit codes.
+selected checks, unavailable inputs, and a canonical projection hash. When Git
+resolves the reviewed refs, `provenance.base_commit` and `provenance.head_commit`
+record the exact commits and those revisions are no longer listed as
+unavailable; a working-tree review identifies its head by the workspace
+revision instead. The object is derived from the same `change_proof` used by
+the human renderers; older readers may ignore it without changing existing
+fields or exit codes.
+
+`change_proof.coverage.policy_skipped_files` (omitted when zero) counts test,
+fixture, example, and generated files the scanner skips by audit policy. They
+are disclosed but do not reduce coverage: `excluded_files` counts only
+size-limit, binary, file-limit, and `.repopilotignore` exclusions.
 
 Review JSON also carries an additive top-level `decision` object. It is the
 single primary assessment for the review and contains `verdict` (`PASS`,
