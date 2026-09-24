@@ -13,6 +13,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # crates.io rejects API requests without a descriptive User-Agent (HTTP 403).
+  CRATES_USER_AGENT: repopilot-release (https://github.com/MykytaStel/repopilot)
   RUST_STABLE: "1.95.0"
 
 jobs:
@@ -243,7 +245,7 @@ jobs:
           cargo package --allow-dirty --no-verify
           LOCAL_CHECKSUM="$(sha256sum "$CRATE_PATH" | awk '{print $1}')"
           metadata_file="$(mktemp)"
-          if ! status="$(curl -sS -o "$metadata_file" -w '%{http_code}' "https://crates.io/api/v1/crates/repopilot/${VERSION}")"; then
+          if ! status="$(curl -sS -A "$CRATES_USER_AGENT" -o "$metadata_file" -w '%{http_code}' "https://crates.io/api/v1/crates/repopilot/${VERSION}")"; then
             echo "::error::network-failure while checking crates.io repopilot@${VERSION}"
             exit 1
           fi
@@ -464,7 +466,7 @@ jobs:
           for attempt in {1..20}; do
             echo "Publication verification attempt ${attempt}/20"
             retry_needed=false
-            if crate_metadata="$(curl -fsSL "https://crates.io/api/v1/crates/repopilot/${VERSION_NUMBER}" 2>"$verify_tmp/crates.err")"; then
+            if crate_metadata="$(curl -fsSL -A "$CRATES_USER_AGENT" "https://crates.io/api/v1/crates/repopilot/${VERSION_NUMBER}" 2>"$verify_tmp/crates.err")"; then
               record_state \
                 --channel crates \
                 --expected-version "$VERSION_NUMBER" \

@@ -1,0 +1,87 @@
+name: Publish crates.io
+
+# Manual recovery for a tag whose Release run could not publish to crates.io.
+# Idempotent: publishes only when the version is absent and refuses to touch a
+# published version whose checksum differs from the tagged package.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v0.23.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-crates-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  # crates.io rejects API requests without a descriptive User-Agent (HTTP 403).
+  CRATES_USER_AGENT: repopilot-release (https://github.com/MykytaStel/repopilot)
+  RUST_STABLE: "1.95.0"
+
+jobs:
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          toolchain: ${{ env.RUST_STABLE }}
+
+      - name: Publish or verify crates.io package
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          if [[ "v${VERSION}" != "$RELEASE_TAG" ]]; then
+            echo "::error::Cargo.toml version $VERSION does not match release tag $RELEASE_TAG"
+            exit 1
+          fi
+          CRATE_PATH="target/package/repopilot-${VERSION}.crate"
+          cargo package --allow-dirty --no-verify
+          LOCAL_CHECKSUM="$(sha256sum "$CRATE_PATH" | awk '{print $1}')"
+          metadata_file="$(mktemp)"
+          if ! status="$(curl -sS -A "$CRATES_USER_AGENT" -o "$metadata_file" -w '%{http_code}' "https://crates.io/api/v1/crates/repopilot/${VERSION}")"; then
+            echo "::error::network-failure while checking crates.io repopilot@${VERSION}"
+            exit 1
+          fi
+          case "$status" in
+            200)
+              REMOTE_CHECKSUM="$(jq -r '.version.checksum // empty' "$metadata_file")"
+              if [[ -z "$REMOTE_CHECKSUM" || "$REMOTE_CHECKSUM" != "$LOCAL_CHECKSUM" ]]; then
+                echo "::error::published-mismatch for crates.io repopilot@${VERSION}; refusing to overwrite an immutable package"
+                exit 1
+              fi
+              echo "Skipping crates.io repopilot@${VERSION}: version.checksum matches."
+              ;;
+            404)
+              echo "Publishing crates.io repopilot@${VERSION}: package is absent."
+              cargo publish
+              ;;
+            401|403)
+              echo "::error::auth-failure while checking crates.io repopilot@${VERSION}"
+              exit 1
+              ;;
+            429)
+              echo "::error::rate-limit-failure while checking crates.io repopilot@${VERSION}"
+              exit 1
+              ;;
+            *)
+              echo "::error::service-failure while checking crates.io repopilot@${VERSION} (HTTP ${status})"
+              exit 1
+              ;;
+          esac
+          rm -f "$metadata_file"

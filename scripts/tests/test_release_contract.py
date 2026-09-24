@@ -242,6 +242,27 @@ class ReleaseContractTests(unittest.TestCase):
         ):
             release_contract.check_publication_recovery_contract()
 
+    def test_publication_recovery_requires_crates_user_agent(self) -> None:
+        self.write(
+            ".github/workflows/release.yml",
+            'status="$(curl -sS -o out -w \'%{http_code}\' "https://crates.io/api/v1/crates/repopilot/1.0.0")"\n',
+        )
+        self.write(".github/workflows/publish-npm.yml", "")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "User-Agent"):
+            release_contract.check_publication_recovery_contract()
+
+    def test_release_workflow_sends_crates_user_agent(self) -> None:
+        workflow = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (self.original_root / ".github/workflows").glob("*.yml")
+        )
+        crates_calls = [line for line in workflow.splitlines() if "crates.io/api" in line]
+
+        self.assertTrue(crates_calls)
+        for line in crates_calls:
+            self.assertIn('-A "$CRATES_USER_AGENT"', line)
+
     def test_cargo_package_rejects_files_outside_allowlist(self) -> None:
         result = subprocess.CompletedProcess(
             args=["cargo", "package"],
