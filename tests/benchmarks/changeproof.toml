@@ -1,0 +1,158 @@
+schema_version = 1
+corpus = "changeproof-v1-controlled"
+protocol = "changeproof-benchmark-v1"
+
+[[case]]
+id = "access-control-safe"
+fixture = "boundary/access-control"
+variant = "safe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "negative-control"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "known-empty"
+contracts = []
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "access-control-with-test-safe"
+fixture = "boundary/access-control-with-test"
+variant = "safe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "negative-control"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "known-empty"
+contracts = []
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 1, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "access-control-with-test-unsafe"
+fixture = "boundary/access-control-with-test"
+variant = "unsafe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "authorization"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "unknown"
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 1, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "network-call-safe"
+fixture = "behavioral/network-call"
+variant = "safe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "negative-control"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "known-empty"
+contracts = []
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "network-call-unsafe"
+fixture = "behavioral/network-call"
+variant = "unsafe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "behavioral"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "unknown"
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "sql-injection-safe"
+fixture = "taint/sql-injection"
+variant = "safe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "negative-control"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "known-empty"
+contracts = []
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "sql-injection-unsafe"
+fixture = "taint/sql-injection"
+variant = "unsafe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "taint"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "unknown"
+contracts_state = "unknown"
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"
+
+[[case]]
+id = "access-control-unsafe"
+fixture = "boundary/access-control"
+variant = "unsafe"
+split = "evaluation"
+profile = "default"
+mutation_kind = "authorization"
+expected_verdict = "REVIEW"
+claims_state = "unknown"
+reason_codes_state = "known"
+reason_codes = [
+  "boundary-missing-test",
+  "definitely-sensitive",
+  "insufficient-policy",
+  "required-verification-unavailable",
+]
+contracts_state = "known"
+contracts = ["security-boundary/boundary-changed", "test-coverage/test-missing"]
+capabilities_state = "unknown"
+coverage_state = "known"
+coverage = { scope = "changed", requested_files = 1, analyzed_files = 1, excluded_files = 0, unsupported_files = 0 }
+obligations_state = "unknown"
+oracle = "mutation-rationale-v1"
+oracle_state = "known"

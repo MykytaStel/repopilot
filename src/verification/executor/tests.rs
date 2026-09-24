@@ -4,7 +4,10 @@ use super::{
 };
 use crate::config::loader::parse_config;
 use crate::scan::session::WorkspaceRevision;
-use crate::verification::{CancellationToken, VerificationStatus, select_checks};
+use crate::verification::diagnostics::diagnostics_for_check;
+use crate::verification::{
+    CancellationToken, VerificationDiagnosticKind, VerificationStatus, select_checks,
+};
 use tempfile::tempdir;
 
 #[cfg(unix)]
@@ -170,6 +173,97 @@ max_output_bytes = 20
     assert!(!outcome.stdout_excerpt.contains("fake-secret"));
     assert_eq!(outcome.stderr_excerpt, "err");
     assert!(outcome.stdout_truncated);
+}
+
+#[test]
+fn explicit_python_tests_check_exposes_exact_node_diagnostics() {
+    let temp = tempdir().expect("temp dir");
+    let check = check(
+        temp.path(),
+        r#"[[verification.checks]]
+id = "python.tests"
+role = "test"
+program = "python3"
+args = ["-m", "pytest", "-q"]
+"#,
+        "python.tests",
+    );
+    let diagnostics = diagnostics_for_check(
+        &check,
+        VerificationStatus::Failed,
+        "",
+        "FAILED tests/test_api.py::test_create[param] - AssertionError\n",
+        false,
+    )
+    .expect("pytest adapter should be selected");
+
+    assert!(diagnostics.complete);
+    assert_eq!(diagnostics.adapter, "pytest-node-v1");
+    assert_eq!(
+        diagnostics.entries[0].kind,
+        VerificationDiagnosticKind::FailedTestNode
+    );
+    assert_eq!(
+        diagnostics.entries[0].key,
+        "python.tests:tests/test_api.py::test_create[param]:failed"
+    );
+}
+
+#[test]
+fn successful_python_tests_check_has_complete_empty_diagnostics() {
+    let temp = tempdir().expect("temp dir");
+    let check = check(
+        temp.path(),
+        r#"[[verification.checks]]
+id = "python.tests"
+role = "test"
+program = "python3"
+args = ["-m", "pytest", "-q"]
+"#,
+        "python.tests",
+    );
+    let diagnostics = diagnostics_for_check(
+        &check,
+        VerificationStatus::Passed,
+        "3 passed in 0.01s\n",
+        "",
+        false,
+    )
+    .expect("pytest adapter should be selected");
+
+    assert!(diagnostics.complete);
+    assert!(diagnostics.entries.is_empty());
+    assert!(diagnostics.limitation.is_none());
+}
+
+#[test]
+fn unrecognized_python_tests_failure_remains_unavailable() {
+    let temp = tempdir().expect("temp dir");
+    let check = check(
+        temp.path(),
+        r#"[[verification.checks]]
+id = "python.tests"
+role = "test"
+program = "python3"
+args = ["-m", "pytest", "-q"]
+"#,
+        "python.tests",
+    );
+    let diagnostics = diagnostics_for_check(
+        &check,
+        VerificationStatus::Failed,
+        "pytest crashed",
+        "",
+        false,
+    )
+    .expect("pytest adapter should be selected");
+
+    assert!(!diagnostics.complete);
+    assert!(diagnostics.entries.is_empty());
+    assert_eq!(
+        diagnostics.limitation.as_deref(),
+        Some("pytest output did not contain a supported diagnostic")
+    );
 }
 
 #[test]

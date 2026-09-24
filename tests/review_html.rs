@@ -1,8 +1,11 @@
 use repopilot::review::diff::{ChangeStatus, ChangedFile, ChangedRange, DiffHunk};
 use repopilot::review::model::ReviewReport;
-use repopilot::review::render::render_review_html;
+use repopilot::review::render::{render_console, render_markdown, render_review_html};
 use repopilot::scan::types::{ScanMetadata, ScanMetrics, ScanMode, ScanSummary};
-use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
+use repopilot::verification::{
+    VerificationDiagnostic, VerificationDiagnosticKind, VerificationDiagnostics,
+    VerificationOutcome, VerificationRole, VerificationStatus,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -12,6 +15,7 @@ use tempfile::TempDir;
 fn review_html_renders_proof_card_change_map_and_escaped_scope() {
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -63,7 +67,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         "Why:</strong> Review the listed evidence, coverage limits, and required checks."
     ));
     assert!(html.contains(
-        "Next action:</strong> Review the listed evidence, close the proof limits, or run the required checks."
+        "Next action:</strong> Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
     ));
     assert!(html.contains("Why this verdict"));
     assert!(html.contains("Legacy merge readiness"));
@@ -137,6 +141,7 @@ fn review_cli_writes_html_contract_consumer_map() {
 fn review_html_renders_verification_outcomes_and_revision_state() {
     let mut report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -186,15 +191,29 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
         revision_compatible: true,
         limitations: Vec::new(),
         reused: true,
+        diagnostics: Some(VerificationDiagnostics {
+            adapter: "pytest-node-v1".to_string(),
+            complete: true,
+            entries: vec![VerificationDiagnostic {
+                kind: VerificationDiagnosticKind::FailedTestNode,
+                key: "python.tests:tests/test_api.py::test_create:failed".to_string(),
+            }],
+            limitation: None,
+        }),
     });
 
     let html = render_review_html(&report, None, None);
+    let console = render_console(&report, None);
+    let markdown = render_markdown(&report, None);
 
     assert!(html.contains("<h2>Verification</h2>"));
     assert!(html.contains("<code>unit</code>"));
     assert!(html.contains("Passed"));
     assert!(html.contains("cached"));
     assert!(html.contains("compatible"));
+    assert!(html.contains("python.tests:tests/test_api.py::test_create:failed"));
+    assert!(console.contains("diagnostics: python.tests:tests/test_api.py::test_create:failed"));
+    assert!(markdown.contains("python.tests:tests/test_api.py::test_create:failed"));
     assert!(html.contains("1 passed, 0 failed"));
 }
 
@@ -202,6 +221,7 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
 fn review_html_explains_legacy_readiness_for_empty_scope() {
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

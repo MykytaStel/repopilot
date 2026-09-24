@@ -53,6 +53,30 @@ local policy afterwards, so the finding-level `severity` remains authoritative.
 Suppressed decisions do not emit findings and remain available through explicit
 decision traces.
 
+## Finding Evidence Cards
+
+Every emitted finding also gets a deterministic explanation card in its
+canonical decision record. The card contains the rule claim, signal source,
+analysis scope, rule lifecycle, evidence-location count, conservative
+limitations, and deterministic next-action guidance. Output
+surfaces reuse this card instead of deriving different explanations.
+
+The card is explanatory metadata, not a stronger verdict. Static evidence does
+not prove runtime reachability, exploitability, test execution, or user impact;
+heuristic and preview/experimental signals retain explicit uncertainty, and
+missing evidence locations require manual confirmation.
+
+## Review Decision Summary
+
+Review projections also expose one additive `decision` record derived from the
+canonical `ChangeProof`. Its verdict is `PASS`, `REVIEW`, `BLOCK`, or
+`NOT_ASSESSED`, with a deterministic meaning, why/limitations, one next action,
+and separate CI/review gate states. The record is shared by console, Markdown,
+HTML, JSON, SARIF, and MCP. It is a navigation aid for the assessed static
+evidence, not a claim that runtime behavior is correct or that a person will
+understand the report without training. Existing proof, readiness, fields, and
+exit codes remain authoritative and compatible.
+
 ## Finding Contract
 
 Every rendered finding must have:

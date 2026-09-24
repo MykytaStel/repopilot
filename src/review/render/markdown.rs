@@ -1,19 +1,16 @@
-use super::diagnostics;
 use crate::baseline::diff::BaselineStatus;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::render_helpers::escape_table_cell;
 use crate::review::ReviewSignalGateResult;
-use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
-use crate::review::ownership::OwnershipAssessment;
-use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
-use crate::review::render::helpers::verification_duration_evidence;
+use crate::review::render::helpers::{render_ranges, status_for_finding};
 use crate::review::render::helpers::{
-    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
-    legacy_readiness_summary, render_ranges, status_for_finding, verification_proof_summary,
+    verification_diagnostics_evidence, verification_duration_evidence,
 };
 use crate::review::signals::tiered::ReviewSignal;
+
+mod summary;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
 
@@ -29,162 +26,7 @@ pub fn render_markdown_with_gates(
     let mut output = String::new();
 
     output.push_str("# RepoPilot Review Report\n\n");
-    output.push_str("## Summary\n\n");
-    let readiness = derive_readiness(
-        report,
-        ci_gate,
-        review_gate,
-        report.summary.artifacts.risk_delta.as_ref(),
-    );
-    let proof = derive_change_proof_from_review(report, &readiness);
-    let evidence = EvidenceSummary::from_review(report, &proof);
-    output.push_str(&format!(
-        "- **Change proof:** `{}`\n",
-        proof.verdict.label()
-    ));
-    output.push_str(&format!(
-        "- **Evidence class:** `{}`\n",
-        evidence.class.label()
-    ));
-    output.push_str(&format!(
-        "- **Evidence scope:** {}\n",
-        evidence.scope_line()
-    ));
-    output.push_str(&format!(
-        "- **Evidence provenance:** {}\n",
-        evidence.provenance_line()
-    ));
-    output.push_str(&format!(
-        "- **Intent drift:** `{}`\n",
-        proof.intent_drift.status.label()
-    ));
-    if proof.intent_drift.is_drifted() {
-        output.push_str(&format!(
-            "- **Intent limits:** {} unexpected path(s), {} unexpected contract family(ies), {} critical-path mismatch(es), {} unselected check(s)\n",
-            proof.intent_drift.unexpected_paths.len(),
-            proof.intent_drift.unexpected_contract_families.len(),
-            proof.intent_drift.unexpected_critical_paths.len(),
-            proof.intent_drift.missing_verification.len(),
-        ));
-    }
-    output.push_str(&format!(
-        "- **Why:** {}\n",
-        change_proof_headline(report, &proof)
-    ));
-    output.push_str(&format!(
-        "- **Proof policy:** {}\n",
-        change_proof_policy_summary(report)
-    ));
-    if !proof.reasons.is_empty() {
-        output.push_str("- **Reasons:**\n");
-        for reason in proof.reasons.iter().take(5) {
-            output.push_str(&format!("  - {}\n", reason.message));
-        }
-        output.push_str(&format!(
-            "- **Next action:** {}\n",
-            change_proof_next_action(&proof)
-        ));
-    }
-    output.push_str(&format!(
-        "- **Proof scope:** {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
-        proof.coverage.analyzed_files,
-        proof.coverage.requested_files,
-        proof.obligations.satisfied,
-        proof.obligations.applicable,
-    ));
-    if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
-        output.push_str(&format!(
-            "- **Proof limits:** {} excluded, {} unsupported file(s)\n",
-            proof.coverage.excluded_files, proof.coverage.unsupported_files
-        ));
-    }
-    output.push_str(&format!(
-        "- **Verification proof:** {}\n",
-        verification_proof_summary(report, proof.obligations)
-    ));
-    output.push_str(&format!(
-        "- **Legacy merge readiness:** `{}`\n",
-        legacy_readiness_summary(report, &readiness)
-    ));
-    let ownership_status = match readiness.ownership.assessment {
-        OwnershipAssessment::Resolved => "resolved".to_string(),
-        OwnershipAssessment::ConfiguredButUnmatched => format!(
-            "configured, {} path(s) unmatched",
-            readiness.ownership.unowned_paths.len()
-        ),
-        OwnershipAssessment::NotConfigured => "not configured (not assessed)".to_string(),
-    };
-    output.push_str(&format!("- **Ownership:** `{ownership_status}`\n"));
-    if !readiness.ownership.suggested_owners.is_empty() {
-        output.push_str(&format!(
-            "- **Suggested owners:** {}\n",
-            readiness
-                .ownership
-                .suggested_owners
-                .iter()
-                .map(|owner| format!("`{}`", owner.value))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
-    output.push_str(&format!(
-        "- **Path:** `{}`\n",
-        report.summary.root_path.display()
-    ));
-    output.push_str(&format!(
-        "- **Git root:** `{}`\n",
-        report.repo_root.display()
-    ));
-    output.push_str(&format!(
-        "- **Changed files:** {}\n",
-        report.changed_files.len()
-    ));
-    output.push_str(&format!(
-        "- **In-diff findings:** {}\n",
-        report.in_diff_count()
-    ));
-    output.push_str(&format!(
-        "- **Out-of-diff findings:** {}\n",
-        report.out_of_diff_count()
-    ));
-    if let Some(feedback) = &report.summary.local_feedback {
-        output.push_str(&format!(
-            "- **Local feedback:** {} finding + {} review suppression(s) loaded, {} finding(s) + {} review signal(s) suppressed\n",
-            feedback.suppressions_loaded,
-            feedback.review_suppressions_loaded,
-            feedback.suppressed_findings_count,
-            feedback.suppressed_review_signals_count,
-        ));
-    }
-    diagnostics::render_markdown(&mut output, &report.summary);
-
-    if let Some(ci_gate) = ci_gate {
-        let status = if ci_gate.passed() { "passed" } else { "failed" };
-        output.push_str(&format!(
-            "- **CI gate:** {status} (`{}`)\n",
-            ci_gate.label()
-        ));
-    } else {
-        output.push_str("- **CI gate:** not configured\n");
-    }
-    if let Some(review_gate) = review_gate {
-        if review_gate.enabled() {
-            let status = if review_gate.passed() {
-                "passed"
-            } else {
-                "failed"
-            };
-            output.push_str(&format!(
-                "- **Review gate:** {status} (`{}`, {} signal(s))\n",
-                review_gate.label(),
-                review_gate.failed_signals
-            ));
-        } else {
-            output.push_str("- **Review gate:** disabled\n");
-        }
-    } else {
-        output.push_str("- **Review gate:** not configured\n");
-    }
+    summary::render(&mut output, report, ci_gate, review_gate);
 
     output.push_str("\n## Changed Files\n\n");
     if report.changed_files.is_empty() {
@@ -237,20 +79,24 @@ fn render_markdown_verification(output: &mut String, report: &ReviewReport) {
     }
     output.push_str("## Verification\n\n");
     output.push_str(
-        "| Check | Status | Source | Duration evidence | Exit |\n| --- | --- | --- | --- | ---: |\n",
+        "| Check | Status | Source | Duration evidence | Exit | Diagnostics |\n| --- | --- | --- | --- | ---: | --- |\n",
     );
     for outcome in &report.verification {
         let source = if outcome.reused { "cached" } else { "executed" };
         let duration = verification_duration_evidence(outcome);
+        let diagnostics = verification_diagnostics_evidence(outcome)
+            .map(|value| escape_table_cell(&value))
+            .unwrap_or_else(|| "-".to_string());
         output.push_str(&format!(
-            "| `{}` | `{:?}` | {} | {} | {} |\n",
-            outcome.check_id,
+            "| `{}` | `{:?}` | {} | {} | {} | {} |\n",
+            escape_table_cell(&outcome.check_id),
             outcome.status,
             source,
             duration,
             outcome
                 .exit_code
-                .map_or_else(|| "-".to_string(), |code| code.to_string())
+                .map_or_else(|| "-".to_string(), |code| code.to_string()),
+            diagnostics
         ));
     }
     output.push('\n');

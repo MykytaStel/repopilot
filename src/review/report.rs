@@ -95,9 +95,11 @@ pub fn build_review_report_from_session(
     baseline: Option<(&Baseline, PathBuf)>,
     session: &AnalysisSession,
 ) -> Result<ReviewReport, crate::review::diff::GitDiffError> {
+    let revisions = crate::review::revisions::resolve_revisions(&input.repo_root, &input.target);
     let mut report =
         build_review_report_from_input(summary, input, baseline, session.repo_config())?;
     report.analysis_revision = Some(session.revision().id().to_string());
+    report.revisions = revisions;
     Ok(report)
 }
 
@@ -211,6 +213,7 @@ fn classify_findings(
 
     ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary,
         repo_root,
         baseline_path: baseline_report.baseline_path,

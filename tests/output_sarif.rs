@@ -199,6 +199,19 @@ fn sarif_result_properties_include_recommendation() {
 }
 
 #[test]
+fn sarif_result_properties_include_canonical_finding_explanation() {
+    let finding = make_finding_with_package("security.secret-candidate", None);
+    let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));
+    let value = serde_json::to_value(&sarif).unwrap();
+
+    let explanation = &value["runs"][0]["results"][0]["properties"]["decision"]["explanation"];
+    assert_eq!(explanation["claim"].as_str(), Some("desc"));
+    assert_eq!(explanation["evidence_basis"]["source"], "mixed");
+    assert!(explanation["limitations"].is_array());
+    assert!(explanation["next_action"].is_string());
+}
+
+#[test]
 fn sarif_result_properties_include_workspace_package() {
     let finding = make_finding_with_package("security.env-file-committed", Some("web"));
     let sarif = findings_to_sarif(&[finding], &PathBuf::from("."));

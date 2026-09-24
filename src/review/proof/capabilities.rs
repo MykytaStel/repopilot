@@ -50,6 +50,15 @@ pub(super) fn capability_coverage(
             message: "Requested files without a supported analysis result.".to_string(),
         },
     ];
+    if coverage.policy_skipped_files > 0 {
+        capabilities.push(ProofCapability {
+            id: "scope.policy-skipped-files".to_string(),
+            status: ProofCapabilityStatus::Assessed,
+            count: coverage.policy_skipped_files,
+            message: "Test, fixture, example, or generated files skipped by audit policy."
+                .to_string(),
+        });
+    }
     let unresolved = obligations
         .failed
         .saturating_add(obligations.unavailable)

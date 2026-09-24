@@ -8,6 +8,27 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- Added a versioned, fail-closed controlled ChangeProof benchmark. It reuses
+  review-zoo fixtures for repeated cold/warm proof observations, validates an
+  exact artifact schema plus manifest/source/oracle/proof hashes before
+  reporting, and keeps unavailable dimensions and false certainty explicit
+  rather than emitting a vanity score.
+- Added additive verification provenance for explicit `python.tests` checks.
+  Complete, revision-compatible pytest output now carries normalized failed
+  test-node or collection-error identities through JSON, Markdown, HTML,
+  SARIF, MCP, cache, and differential evidence. Unsupported output, truncation,
+  timeout, cancellation, and unavailable programs remain explicitly
+  unavailable; existing fields and exit codes are unchanged.
+- Added a canonical review decision summary. Review reports now expose one
+  additive `PASS`, `REVIEW`, `BLOCK`, or `NOT_ASSESSED` decision with its
+  meaning, limitations, next action, and separate CI/review gate states across
+  console, Markdown, HTML, JSON, SARIF, and MCP, while preserving existing
+  proof, readiness, fields, and exit codes.
+- Added canonical finding evidence cards. Each finding now carries a
+  deterministic explanation of its claim, signal source, analysis scope,
+  lifecycle, evidence-location count, conservative limitations, and next action in
+  the shared decision record. Console, Markdown, HTML, JSON, SARIF, AI context,
+  and MCP reuse the same card while preserving existing fields and exit codes.
 - Added an additive replayable Proof Receipt to review JSON and SARIF. It is
   derived from the canonical ChangeProof, records scope/provenance hashes and
   next action, and fails closed with explicit matched/stale/unsupported/
@@ -83,6 +104,29 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- The default `repopilot review` console now leads with one conclusion —
+  `Decision: REVIEW (Change Proof: REVIEW)` — followed by the reasons and one
+  next action. Duplicated decision why/limitation/gate lines are gone; evidence
+  class, provenance, legacy merge readiness, ownership, and location records
+  move to `--detail full`, and informational diagnostics fold into one count.
+  Markdown reports lead with the same summary and keep the rest under a
+  "Proof details" heading.
+- Changed test, fixture, example, and generated files no longer count as proof
+  coverage exclusions. They are reported as `policy_skipped_files`, so adding
+  tests to a change no longer turns its coverage `limited` or its next action
+  into "review the excluded files".
+- Review provenance records the resolved `base_commit`/`head_commit` and stops
+  listing base, head, and current revisions as unavailable when they were
+  captured.
+- The proof next action now points to human review first when signals or
+  findings need it, and otherwise to `repopilot init --suggestions-output`
+  before coverage limits, so a new user can see how to reach `VERIFIED`.
+- The GitHub Action summary reads the canonical `decision.next_action` and
+  mirrors the new scope and provenance lines instead of re-deriving them.
+- Review Proof Cards now choose a next action from the recorded proof state:
+  failed, unavailable, stale, and unselected checks, incomplete scope, and a
+  missing proof policy each receive distinct remediation guidance across the
+  console, Markdown, HTML, and proof receipt projections.
 - Empty reviews now explain that the legacy `READY` readiness value is a
   compatibility field and that no changed scope was assessed in console,
   Markdown, and HTML output.
