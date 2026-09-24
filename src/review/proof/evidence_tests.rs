@@ -68,36 +68,7 @@ fn canonical_hash_ignores_object_and_collection_order() {
 
 #[test]
 fn summary_records_provenance_and_normalizes_collection_order() {
-    let mut report = ReviewReport {
-        analysis_revision: None,
-        summary: ScanSummary {
-            metadata: ScanMetadata {
-                mode: ScanMode::Changed,
-                base_ref: Some("origin/main".to_string()),
-                visibility_profile: Some("default".to_string()),
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        repo_root: PathBuf::from("/repo"),
-        baseline_path: None,
-        changed_files: vec![changed_file("b.rs"), changed_file("a.rs")],
-        blast_radius: Vec::new(),
-        impact_paths: Default::default(),
-        ownership: Default::default(),
-        ownership_diagnostics: Vec::new(),
-        boundary_signals: Vec::new(),
-        boundary_missing_test: false,
-        tiered_signals: Default::default(),
-        timings: Default::default(),
-        verification_policy: VerificationPolicy {
-            configured: Vec::new(),
-            selected: vec!["z".to_string(), "a".to_string()],
-        },
-        verification: Vec::new(),
-        intent: Default::default(),
-        findings: Vec::new(),
-    };
+    let mut report = base_report();
     report.summary.metrics.files_discovered = 2;
     report.summary.metrics.files_analyzed = 2;
     let proof = proof(ChangeProofVerdict::Review, 2, 2, 0, 0, Vec::new());
@@ -128,6 +99,84 @@ fn summary_records_provenance_and_normalizes_collection_order() {
     );
 }
 
+#[test]
+fn recorded_revisions_are_not_reported_unavailable() {
+    let mut report = base_report();
+    report.summary.mode = crate::scan::types::ScanMode::Changed;
+    report.analysis_revision = Some("workspace-rev".to_string());
+    report.revisions = crate::review::model::ReviewRevisions {
+        base_commit: Some("1f17e2c7aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()),
+        head_commit: Some("6a49e4bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string()),
+        head_is_working_tree: false,
+    };
+    let proof = proof(ChangeProofVerdict::Review, 1, 1, 0, 0, Vec::new());
+
+    let evidence = super::EvidenceSummary::from_review(&report, &proof);
+    assert_eq!(
+        evidence.provenance.unavailable_inputs,
+        ["scanner configuration", "toolchain"]
+    );
+    assert_eq!(
+        evidence.provenance_line(),
+        format!(
+            "RepoPilot {}, schema {}; base 1f17e2c7, head 6a49e4bb; unavailable: scanner configuration, toolchain",
+            crate::report::schema::REPOPILOT_VERSION,
+            crate::report::schema::SCAN_REPORT_SCHEMA_VERSION
+        )
+    );
+}
+
+#[test]
+fn unresolved_refs_stay_unavailable() {
+    let mut report = base_report();
+    report.summary.mode = crate::scan::types::ScanMode::Changed;
+    let proof = proof(ChangeProofVerdict::Review, 1, 1, 0, 0, Vec::new());
+
+    let evidence = super::EvidenceSummary::from_review(&report, &proof);
+    for input in ["base revision", "current revision", "head revision"] {
+        assert!(
+            evidence
+                .provenance
+                .unavailable_inputs
+                .contains(&input.to_string())
+        );
+    }
+}
+
+fn base_report() -> ReviewReport {
+    ReviewReport {
+        analysis_revision: None,
+        revisions: Default::default(),
+        summary: ScanSummary {
+            metadata: ScanMetadata {
+                mode: ScanMode::Changed,
+                base_ref: Some("origin/main".to_string()),
+                visibility_profile: Some("default".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        repo_root: PathBuf::from("/repo"),
+        baseline_path: None,
+        changed_files: vec![changed_file("b.rs"), changed_file("a.rs")],
+        blast_radius: Vec::new(),
+        impact_paths: Default::default(),
+        ownership: Default::default(),
+        ownership_diagnostics: Vec::new(),
+        boundary_signals: Vec::new(),
+        boundary_missing_test: false,
+        tiered_signals: Default::default(),
+        timings: Default::default(),
+        verification_policy: VerificationPolicy {
+            configured: Vec::new(),
+            selected: vec!["z".to_string(), "a".to_string()],
+        },
+        verification: Vec::new(),
+        intent: Default::default(),
+        findings: Vec::new(),
+    }
+}
+
 fn changed_file(path: &str) -> ChangedFile {
     ChangedFile {
         path: PathBuf::from(path),
@@ -154,6 +203,7 @@ fn proof(
             analyzed_files,
             excluded_files,
             unsupported_files,
+            policy_skipped_files: 0,
         },
         obligations: ProofObligations {
             applicable: 0,
@@ -176,4 +226,26 @@ fn limited_capability() -> ProofCapability {
         count: 1,
         message: String::new(),
     }
+}
+
+#[test]
+fn windows_separators_do_not_change_evidence_identity() {
+    let proof = proof(ChangeProofVerdict::Review, 1, 1, 0, 0, Vec::new());
+    let mut unix = base_report();
+    unix.changed_files = vec![changed_file("src/auth/session.rs")];
+    let mut windows = base_report();
+    windows.changed_files = vec![changed_file("src\\auth\\session.rs")];
+
+    assert_eq!(
+        windows.changed_files[0].path_string(),
+        "src/auth/session.rs"
+    );
+    assert_eq!(
+        super::EvidenceSummary::from_review(&unix, &proof)
+            .provenance
+            .canonical_projection_hash,
+        super::EvidenceSummary::from_review(&windows, &proof)
+            .provenance
+            .canonical_projection_hash
+    );
 }

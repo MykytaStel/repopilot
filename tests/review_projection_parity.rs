@@ -123,6 +123,7 @@ fn review_projections_share_canonical_proof_and_evidence() {
     let markdown = run_text_review(temp.path(), "markdown");
     let html = run_text_review(temp.path(), "html");
     let console = run_text_review(temp.path(), "console");
+    let console_full = run_text_review_with(temp.path(), "console", &["--detail", "full"]);
     let class = human_evidence_class(&evidence);
     let decision_label = decision["verdict"].as_str().expect("decision verdict");
     let decision_action = decision["next_action"].as_str().expect("decision action");
@@ -148,9 +149,13 @@ fn review_projections_share_canonical_proof_and_evidence() {
     assert!(html.contains(&provenance_prefix));
     assert!(console.contains(&format!("Decision: {decision_label}")));
     assert!(console.contains(decision_action));
-    assert!(console.contains(&format!("Evidence class: {class}")));
     assert!(console.contains(&format!("Evidence scope: {scope}")));
-    assert!(console.contains(&format!("Evidence provenance: {provenance_prefix}")));
+    assert!(!console.contains("Legacy merge readiness"));
+    assert!(console_full.contains(&format!("Decision: {decision_label}")));
+    assert!(console_full.contains(&format!("Evidence class: {class}")));
+    assert!(console_full.contains(&format!("Evidence scope: {scope}")));
+    assert!(console_full.contains(&format!("Evidence provenance: {provenance_prefix}")));
+    assert!(console_full.contains("Legacy merge readiness"));
 }
 
 fn human_evidence_class(evidence: &Value) -> &'static str {
@@ -181,8 +186,13 @@ fn evidence_scope_line(evidence: &Value) -> String {
 }
 
 fn run_text_review(root: &Path, format: &str) -> String {
+    run_text_review_with(root, format, &[])
+}
+
+fn run_text_review_with(root: &Path, format: &str, extra: &[&str]) -> String {
     let output = repopilot()
         .args(["review", ".", "--format", format, "--no-progress"])
+        .args(extra)
         .current_dir(root)
         .output()
         .expect("run text review");

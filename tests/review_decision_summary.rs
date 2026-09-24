@@ -18,6 +18,7 @@ fn definitely_sensitive_signal_plan_counts_as_decision_input() {
     summary.metrics.files_analyzed = 1;
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary,
         repo_root: PathBuf::from("/repo"),
         baseline_path: None,

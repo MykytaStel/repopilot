@@ -15,6 +15,7 @@ use tempfile::TempDir;
 fn review_html_renders_proof_card_change_map_and_escaped_scope() {
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -66,7 +67,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         "Why:</strong> Review the listed evidence, coverage limits, and required checks."
     ));
     assert!(html.contains(
-        "Next action:</strong> Review the excluded or unsupported files before treating this review as verified."
+        "Next action:</strong> Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
     ));
     assert!(html.contains("Why this verdict"));
     assert!(html.contains("Legacy merge readiness"));
@@ -140,6 +141,7 @@ fn review_cli_writes_html_contract_consumer_map() {
 fn review_html_renders_verification_outcomes_and_revision_state() {
     let mut report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,
@@ -219,6 +221,7 @@ fn review_html_renders_verification_outcomes_and_revision_state() {
 fn review_html_explains_legacy_readiness_for_empty_scope() {
     let report = ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 mode: ScanMode::Changed,

@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+#[path = "evidence_inputs.rs"]
+mod inputs;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 /// A claim-strength label; supported static proof does not imply all runtime
@@ -54,6 +57,10 @@ pub struct EvidenceProvenance {
     pub base_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_commit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub head_commit: Option<String>,
     pub selected_checks: Vec<String>,
     pub canonical_projection_hash: String,
     pub unavailable_inputs: Vec<String>,
@@ -72,7 +79,7 @@ impl EvidenceSummary {
         let base_ref = report.summary.base_ref.clone();
         let profile = report.summary.visibility_profile.clone();
         let selected_checks = sorted_unique(report.verification_policy.selected.clone());
-        let unavailable_inputs = unavailable_inputs(report.summary.mode);
+        let unavailable_inputs = inputs::unavailable_inputs(report);
         let canonical_projection_hash = projection_hash(
             report,
             proof,
@@ -89,6 +96,8 @@ impl EvidenceSummary {
                 report_schema: SCAN_REPORT_SCHEMA_VERSION.to_string(),
                 base_ref,
                 profile,
+                base_commit: report.revisions.base_commit.clone(),
+                head_commit: report.revisions.head_commit.clone(),
                 selected_checks,
                 canonical_projection_hash,
                 unavailable_inputs,
@@ -97,24 +106,40 @@ impl EvidenceSummary {
     }
 
     pub fn scope_line(&self) -> String {
+        let policy_skipped = match self.scope.policy_skipped_files {
+            0 => String::new(),
+            count => format!(", {count} test/fixture/generated skipped by policy"),
+        };
         format!(
-            "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported ({})",
+            "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported{} ({})",
             scope_label(self.scope.scope),
             self.scope.analyzed_files,
             self.scope.requested_files,
             self.scope.excluded_files,
             self.scope.unsupported_files,
+            policy_skipped,
             self.coverage_status.label(),
         )
     }
 
     pub fn provenance_line(&self) -> String {
-        format!(
-            "RepoPilot {}, schema {}; unavailable: {}",
-            self.provenance.analyzer_version,
-            self.provenance.report_schema,
-            self.provenance.unavailable_inputs.join(", "),
-        )
+        let mut line = format!(
+            "RepoPilot {}, schema {}",
+            self.provenance.analyzer_version, self.provenance.report_schema,
+        );
+        if let Some(revisions) = inputs::revision_summary(
+            self.provenance.base_commit.as_deref(),
+            self.provenance.head_commit.as_deref(),
+        ) {
+            line.push_str(&format!("; {revisions}"));
+        }
+        if !self.provenance.unavailable_inputs.is_empty() {
+            line.push_str(&format!(
+                "; unavailable: {}",
+                self.provenance.unavailable_inputs.join(", ")
+            ));
+        }
+        line
     }
 }
 
@@ -153,7 +178,8 @@ pub(crate) fn coverage_status(proof: &ChangeProof) -> EvidenceCoverageStatus {
         .coverage
         .analyzed_files
         .saturating_add(proof.coverage.excluded_files)
-        .saturating_add(proof.coverage.unsupported_files);
+        .saturating_add(proof.coverage.unsupported_files)
+        .saturating_add(proof.coverage.policy_skipped_files);
     if proof.coverage.excluded_files > 0
         || proof.coverage.unsupported_files > 0
         || accounted_files != proof.coverage.requested_files
@@ -216,20 +242,6 @@ struct EvidenceFingerprint {
     selected_checks: Vec<String>,
     changed_paths: Vec<String>,
     proof: Value,
-}
-
-fn unavailable_inputs(mode: ScanMode) -> Vec<String> {
-    let mut inputs = vec![
-        "current revision".to_string(),
-        "head revision".to_string(),
-        "scanner configuration".to_string(),
-        "toolchain".to_string(),
-    ];
-    if mode == ScanMode::Changed {
-        inputs.push("base revision".to_string());
-    }
-    inputs.sort();
-    inputs
 }
 
 fn scope_label(scope: ProofScope) -> &'static str {
