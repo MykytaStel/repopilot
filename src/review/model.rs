@@ -22,11 +22,22 @@ pub struct ReviewTimings {
     pub verification_us: u64,
 }
 
+/// Resolved Git commits for the reviewed range. `head_commit` stays `None` for
+/// working-tree reviews, whose head state is identified by `analysis_revision`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ReviewRevisions {
+    pub base_commit: Option<String>,
+    pub head_commit: Option<String>,
+    pub head_is_working_tree: bool,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct ReviewReport {
     /// Workspace revision captured with the analysis session. Renderers reuse
     /// this value so later output writes cannot change receipt provenance.
     pub analysis_revision: Option<String>,
+    /// Commits the reviewed refs resolved to, when Git could resolve them.
+    pub revisions: ReviewRevisions,
     pub summary: ScanSummary,
     pub repo_root: PathBuf,
     pub baseline_path: Option<PathBuf>,

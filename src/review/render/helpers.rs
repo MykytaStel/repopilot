@@ -14,6 +14,24 @@ pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> S
     }
 }
 
+pub(super) fn verification_diagnostics_evidence(outcome: &VerificationOutcome) -> Option<String> {
+    let diagnostics = outcome.diagnostics.as_ref()?;
+    if diagnostics.complete && !diagnostics.entries.is_empty() {
+        return Some(
+            diagnostics
+                .entries
+                .iter()
+                .map(|entry| entry.key.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+    }
+    diagnostics
+        .limitation
+        .as_deref()
+        .map(|limitation| format!("unavailable: {limitation}"))
+}
+
 pub(super) fn verification_proof_summary(
     report: &ReviewReport,
     obligations: ProofObligations,
@@ -70,10 +88,6 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
     } else {
         format!("{selected} selected ({configured} configured)")
     }
-}
-
-pub(super) fn change_proof_next_action(proof: &ChangeProof) -> &'static str {
-    crate::review::proof::next_action_for(proof)
 }
 
 pub(super) fn legacy_readiness_summary(

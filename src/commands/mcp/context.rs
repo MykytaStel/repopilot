@@ -20,6 +20,7 @@ pub struct ContextCallResult {
     pub markdown: String,
     pub change_proof: Option<Value>,
     pub evidence: Option<Value>,
+    pub decision: Option<Value>,
 }
 
 pub fn definition() -> Value {
@@ -61,6 +62,10 @@ pub fn definition() -> Value {
                 "evidence": {
                     "type": "object",
                     "description": "Canonical evidence class, coverage, and provenance from the referenced review handle, when selected."
+                },
+                "decision": {
+                    "type": "object",
+                    "description": "Canonical primary review decision and next action from the referenced review handle, when selected."
                 }
             },
             "required": ["markdown"],
@@ -141,10 +146,18 @@ pub fn call(
         })
         .transpose()?
         .and_then(|report| report.get("evidence").cloned());
+    let decision = stored_review_report
+        .map(|report| {
+            serde_json::from_str::<Value>(report)
+                .map_err(|error| format!("stored review report is invalid: {error}"))
+        })
+        .transpose()?
+        .and_then(|report| report.get("decision").cloned());
 
     Ok(ContextCallResult {
         markdown: content,
         change_proof,
         evidence,
+        decision,
     })
 }

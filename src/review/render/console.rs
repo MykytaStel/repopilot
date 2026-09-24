@@ -1,22 +1,18 @@
-use super::diagnostics;
 use crate::baseline::gate::CiGateResult;
 use crate::findings::types::Finding;
 use crate::output::{DetailLevel, FindingRenderLimit};
 use crate::review::ReviewSignalGateResult;
-use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
-use crate::review::ownership::OwnershipAssessment;
-use crate::review::proof::{EvidenceSummary, derive_change_proof_from_review};
 use crate::review::render::ReviewRenderOptions;
 use crate::review::render::helpers::{
-    change_proof_headline, change_proof_next_action, change_proof_policy_summary,
-    legacy_readiness_summary, verification_duration_evidence, verification_proof_summary,
+    verification_diagnostics_evidence, verification_duration_evidence,
 };
 use crate::review::signals::tiered::ReviewSignal;
 use crate::verification::VerificationStatus;
 
 const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
 
+mod header;
 mod inventory;
 
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
@@ -30,7 +26,13 @@ pub fn render_console_with_options(
     options: ReviewRenderOptions,
 ) -> String {
     let mut output = String::new();
-    render_console_header(&mut output, report, ci_gate, review_gate);
+    header::render(
+        &mut output,
+        report,
+        ci_gate,
+        review_gate,
+        options.detail == DetailLevel::Full,
+    );
 
     if options.detail == DetailLevel::Summary {
         return output;
@@ -38,164 +40,6 @@ pub fn render_console_with_options(
 
     render_console_details(&mut output, report, options);
     output
-}
-
-fn render_console_header(
-    output: &mut String,
-    report: &ReviewReport,
-    ci_gate: Option<&CiGateResult>,
-    review_gate: Option<&ReviewSignalGateResult>,
-) {
-    output.push_str("RepoPilot Review\n\n");
-    let readiness = derive_readiness(
-        report,
-        ci_gate,
-        review_gate,
-        report.summary.artifacts.risk_delta.as_ref(),
-    );
-    let proof = derive_change_proof_from_review(report, &readiness);
-    let evidence = EvidenceSummary::from_review(report, &proof);
-    output.push_str(&format!("Change Proof: {}\n", proof.verdict.label()));
-    output.push_str(&format!("Evidence class: {}\n", evidence.class.label()));
-    output.push_str(&format!("Evidence scope: {}\n", evidence.scope_line()));
-    output.push_str(&format!(
-        "Evidence provenance: {}\n",
-        evidence.provenance_line()
-    ));
-    output.push_str(&format!("Why: {}\n", change_proof_headline(report, &proof)));
-    output.push_str(&format!(
-        "Proof policy: {}\n",
-        change_proof_policy_summary(report)
-    ));
-    if !proof.reasons.is_empty() {
-        output.push_str("Reasons:\n");
-        for reason in proof.reasons.iter().take(5) {
-            output.push_str(&format!("  - {}\n", reason.message));
-        }
-        output.push_str(&format!(
-            "Next action: {}\n",
-            change_proof_next_action(&proof)
-        ));
-    }
-    output.push_str(&format!(
-        "Intent drift: {}\n",
-        proof.intent_drift.status.label()
-    ));
-    if proof.intent_drift.is_drifted() {
-        output.push_str(&format!(
-            "Intent limits: {} unexpected path(s), {} unexpected contract family(ies), {} critical-path mismatch(es), {} unselected check(s)\n",
-            proof.intent_drift.unexpected_paths.len(),
-            proof.intent_drift.unexpected_contract_families.len(),
-            proof.intent_drift.unexpected_critical_paths.len(),
-            proof.intent_drift.missing_verification.len(),
-        ));
-    }
-    output.push_str(&format!(
-        "Proof scope: {}/{} file(s) analyzed; obligations: {}/{} satisfied\n",
-        proof.coverage.analyzed_files,
-        proof.coverage.requested_files,
-        proof.obligations.satisfied,
-        proof.obligations.applicable,
-    ));
-    if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
-        output.push_str(&format!(
-            "Proof limits: {} excluded, {} unsupported file(s)\n",
-            proof.coverage.excluded_files, proof.coverage.unsupported_files
-        ));
-    }
-    output.push_str(&format!(
-        "Verification proof: {}\n",
-        verification_proof_summary(report, proof.obligations)
-    ));
-    output.push_str(&format!(
-        "Legacy merge readiness: {}\n",
-        legacy_readiness_summary(report, &readiness).to_uppercase()
-    ));
-    match readiness.ownership.assessment {
-        OwnershipAssessment::Resolved => output.push_str("Ownership: resolved\n"),
-        OwnershipAssessment::ConfiguredButUnmatched => output.push_str(&format!(
-            "Ownership: configured, {} path(s) unmatched\n",
-            readiness.ownership.unowned_paths.len()
-        )),
-        OwnershipAssessment::NotConfigured => {
-            output.push_str("Ownership: not configured (not assessed)\n")
-        }
-    }
-    if !readiness.ownership.suggested_owners.is_empty() {
-        output.push_str(&format!(
-            "Suggested owners: {}\n",
-            readiness
-                .ownership
-                .suggested_owners
-                .iter()
-                .map(|owner| owner.value.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
-    if !readiness.ownership.unowned_paths.is_empty() {
-        output.push_str(&format!(
-            "Unowned changed/impacted paths: {}\n",
-            readiness.ownership.unowned_paths.len()
-        ));
-    }
-    output.push_str(&format!("Path: {}\n", report.summary.root_path.display()));
-    output.push_str(&format!("Git root: {}\n", report.repo_root.display()));
-    match &report.baseline_path {
-        Some(path) => output.push_str(&format!("Baseline: {}\n", path.display())),
-        None => output.push_str("Baseline: none (all findings treated as new)\n"),
-    }
-    if let Some(feedback) = &report.summary.local_feedback {
-        output.push_str(&format!(
-            "Local feedback: {} finding + {} review suppression(s) loaded, {} finding(s) + {} review signal(s) suppressed\n",
-            feedback.suppressions_loaded,
-            feedback.review_suppressions_loaded,
-            feedback.suppressed_findings_count,
-            feedback.suppressed_review_signals_count,
-        ));
-    }
-    diagnostics::render_console(output, &report.summary);
-    output.push('\n');
-
-    output.push_str(&format!("Changed files: {}\n", report.changed_files.len()));
-    output.push_str(&format!("In-diff findings: {}\n", report.in_diff_count()));
-    output.push_str(&format!(
-        "Out-of-diff findings: {}\n",
-        report.out_of_diff_count()
-    ));
-    output.push_str(&format!(
-        "New in-diff findings: {}\n",
-        report.new_in_diff_count()
-    ));
-    output.push_str(&format!(
-        "Existing in-diff findings: {}\n",
-        report.existing_in_diff_count()
-    ));
-
-    if let Some(ci_gate) = ci_gate {
-        let status = if ci_gate.passed() { "passed" } else { "failed" };
-        output.push_str(&format!("CI gate: {status} ({})\n", ci_gate.label()));
-    } else {
-        output.push_str("CI gate: not configured\n");
-    }
-    if let Some(review_gate) = review_gate {
-        if review_gate.enabled() {
-            let status = if review_gate.passed() {
-                "passed"
-            } else {
-                "failed"
-            };
-            output.push_str(&format!(
-                "Review gate: {status} ({}, {} signal(s))\n",
-                review_gate.label(),
-                review_gate.failed_signals
-            ));
-        } else {
-            output.push_str("Review gate: disabled\n");
-        }
-    } else {
-        output.push_str("Review gate: not configured\n");
-    }
 }
 
 fn render_console_details(
@@ -261,6 +105,9 @@ fn render_verification(output: &mut String, report: &ReviewReport) {
                 "    stderr: {}\n",
                 outcome.stderr_excerpt.trim_end()
             ));
+        }
+        if let Some(diagnostics) = verification_diagnostics_evidence(outcome) {
+            output.push_str(&format!("    diagnostics: {diagnostics}\n"));
         }
         if !outcome.revision_compatible {
             output.push_str("    workspace revision changed; evidence is incompatible\n");

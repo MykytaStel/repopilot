@@ -54,6 +54,7 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         "signal": signal,
         "change_proof": report.get("change_proof").cloned().unwrap_or(Value::Null),
         "evidence": report.get("evidence").cloned().unwrap_or(Value::Null),
+        "decision": report.get("decision").cloned().unwrap_or(Value::Null),
         "why_it_matters": why_it_matters(signal),
         "impact": impact_for_path(&report, impact_path),
         "gate": {

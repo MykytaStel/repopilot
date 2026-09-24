@@ -118,7 +118,10 @@ fn finding_entries_include_context_confidence_and_fix() {
 
     assert!(output.contains("> **Confidence:** MEDIUM"));
     assert!(output.contains("> **Context:** Description for Long React component"));
+    assert!(output.contains("> **Evidence basis:**"));
+    assert!(output.contains("> **Limits:**"));
     assert!(output.contains("> **Fix:**"));
+    assert!(output.contains("> **Next action:**"));
 }
 
 

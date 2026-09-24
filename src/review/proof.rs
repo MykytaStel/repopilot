@@ -8,6 +8,7 @@ use crate::scan::types::ScanMode;
 mod capabilities;
 mod contracts;
 mod evidence;
+mod next_action;
 mod obligations;
 mod receipt;
 #[cfg(test)]
@@ -19,28 +20,12 @@ pub use crate::review::contract::{
 use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
 pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
+pub(crate) use next_action::next_action_for;
 use obligations::derive_verification_obligations;
 pub use receipt::{
     ProofReceipt, ReceiptReplayContext, ReceiptReplayDiagnostic, ReceiptReplayState,
     build_proof_receipt, replay_receipt, replay_receipt_with_reason, replay_serialized_receipt,
 };
-
-pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
-    match proof.verdict {
-        ChangeProofVerdict::Broken => {
-            "Inspect the broken contract and its listed consumer before merge."
-        }
-        ChangeProofVerdict::Review => {
-            "Review the listed evidence, close the proof limits, or run the required checks."
-        }
-        ChangeProofVerdict::Verified => {
-            "Proceed with the normal merge review; the reported scope has compatible proof."
-        }
-        ChangeProofVerdict::NotAssessed => {
-            "Expand the analyzable scope before treating this review as evidence."
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -119,6 +104,15 @@ pub struct ProofCoverage {
     pub analyzed_files: usize,
     pub excluded_files: usize,
     pub unsupported_files: usize,
+    /// Test, fixture, example, and generated files the scanner skips by audit
+    /// policy. Disclosed, but not a coverage limit: the policy is deliberate,
+    /// and diff-based review signals still see these files.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub policy_skipped_files: usize,
+}
+
+fn is_zero(value: &usize) -> bool {
+    *value == 0
 }
 
 impl ProofCoverage {
@@ -235,8 +229,13 @@ pub fn derive_change_proof_from_review(
     };
     let analyzed_files = report.summary.metrics.files_analyzed;
     let excluded_files = known_excluded_files(report, requested_files);
+    let policy_skipped_files = report
+        .summary
+        .metrics
+        .files_skipped_low_signal
+        .min(requested_files.saturating_sub(analyzed_files + excluded_files));
     let unsupported_files =
-        requested_files.saturating_sub(analyzed_files.saturating_add(excluded_files));
+        requested_files.saturating_sub(analyzed_files + excluded_files + policy_skipped_files);
     let contract_deltas = contracts::from_review(report);
     let limited_contract_deltas = contract_deltas
         .iter()
@@ -270,6 +269,7 @@ pub fn derive_change_proof_from_review(
             analyzed_files,
             excluded_files,
             unsupported_files,
+            policy_skipped_files,
         },
         obligations,
         sufficient_policy,
@@ -347,7 +347,6 @@ fn known_excluded_files(report: &ReviewReport, requested_files: usize) -> usize 
     let metrics = &report.summary.metrics;
     metrics
         .large_files_skipped
-        .saturating_add(metrics.files_skipped_low_signal)
         .saturating_add(metrics.binary_files_skipped)
         .saturating_add(metrics.files_skipped_by_limit)
         .saturating_add(metrics.files_skipped_repopilotignore)

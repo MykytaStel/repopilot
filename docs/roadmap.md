@@ -18,14 +18,20 @@ the change:
   verification, intent drift, limitations, gate behavior, and the next action;
 - **truth and release confidence** close known compatibility, quality,
   documentation, performance, and publication gaps before release claims ship.
-- **scientific product evidence** measures detector precision, held-out recall,
-  and decision value against existing checks instead of treating unmeasured
-  rules or extra findings as proof of quality;
 
 The release deepens the existing commands and MCP tools. It does not add a new
 top-level command, hosted service, source upload, telemetry, implicit LLM,
 autofix, or automatic repository command execution. Details:
 [v0.23 roadmap and release contract](roadmap/v0.23.md).
+
+## Next: 0.24 — Independent Evidence
+
+- independent two-reviewer precision labels for more default-visible rules and
+  held-out recall cases, so quality claims have a real denominator;
+- a pre-registered benchmark of RepoPilot's decision value against existing
+  repository checks;
+- public-symbol contracts beyond removed exports and broader semantic
+  contract coverage validated on real repositories.
 
 ## Shipped: 0.22
 

@@ -3,6 +3,7 @@ use crate::findings::provenance::FindingProvenance;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::output::sarif::findings_to_sarif;
 use crate::review::ReviewSignalGateResult;
+use crate::review::decision::derive_review_decision;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::proof::{build_proof_receipt, derive_change_proof_from_review};
@@ -86,9 +87,11 @@ pub fn render_review_sarif_with_gates(
     let proof_receipt = build_proof_receipt(report, &derived_proof);
     let proof = proof_receipt.proof.clone();
     let evidence = proof_receipt.evidence.clone();
+    let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
     let mut sarif = findings_to_sarif(&findings, &report.repo_root);
     if let Some(run) = sarif.runs.first_mut() {
         run.properties.change_proof = Some(serde_json::to_value(proof)?);
+        run.properties.decision = Some(serde_json::to_value(decision)?);
         run.properties.evidence = Some(serde_json::to_value(evidence)?);
         run.properties.proof_receipt = Some(serde_json::to_value(proof_receipt)?);
         if !report.verification.is_empty() {

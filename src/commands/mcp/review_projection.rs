@@ -20,3 +20,30 @@ pub(super) fn compact_review_json(rendered: &str) -> Result<String, String> {
     }
     serde_json::to_string_pretty(&value).map_err(|error| format!("compact failed: {error}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::compact_review_json;
+
+    #[test]
+    fn compact_projection_preserves_verification_diagnostics() {
+        let rendered = r#"{
+            "merge_readiness": {
+                "verification": [{
+                    "check_id": "python.tests",
+                    "diagnostics": {
+                        "adapter": "pytest-node-v1",
+                        "complete": true,
+                        "entries": [{"kind": "failed-test-node", "key": "python.tests:tests/test_api.py::test_create:failed"}]
+                    }
+                }]
+            },
+            "findings": [],
+            "tiered_signals": {"definitely": [], "maybe": [], "noise": []}
+        }"#;
+
+        let compacted = compact_review_json(rendered).expect("compact review");
+        assert!(compacted.contains("pytest-node-v1"));
+        assert!(compacted.contains("python.tests:tests/test_api.py::test_create:failed"));
+    }
+}

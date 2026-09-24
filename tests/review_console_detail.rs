@@ -76,6 +76,7 @@ fn report_with_changed_files() -> ReviewReport {
 
     ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary {
             metadata: ScanMetadata {
                 root_path: PathBuf::from("."),

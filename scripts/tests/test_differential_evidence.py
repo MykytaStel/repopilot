@@ -159,6 +159,67 @@ ERROR collecting tests/test_import.py
         self.assertEqual(result["status"], "unavailable")
         self.assertIn("revision-compatible", result["reason"])
 
+    def test_review_verification_uses_complete_structured_diagnostics(self) -> None:
+        report = {
+            "verification": [
+                {
+                    "check_id": "python.tests",
+                    "role": "test",
+                    "status": "failed",
+                    "revision_compatible": True,
+                    "stdout_excerpt": "pytest crashed\n",
+                    "stderr_excerpt": "",
+                    "stdout_truncated": False,
+                    "stderr_truncated": False,
+                    "diagnostics": {
+                        "adapter": "pytest-node-v1",
+                        "complete": True,
+                        "entries": [
+                            {
+                                "kind": "failed-test-node",
+                                "key": "python.tests:tests/test_api.py::test_create:failed",
+                            }
+                        ],
+                    },
+                }
+            ]
+        }
+
+        self.assertEqual(
+            normalize_review_verification(report, Path("/workspace")),
+            {
+                "status": "measured",
+                "keys": ["python.tests:tests/test_api.py::test_create:failed"],
+                "scheme": "review-verification-v1",
+            },
+        )
+
+    def test_incomplete_structured_diagnostics_stays_unavailable(self) -> None:
+        report = {
+            "verification": [
+                {
+                    "check_id": "python.tests",
+                    "role": "test",
+                    "status": "failed",
+                    "revision_compatible": True,
+                    "stdout_excerpt": "FAILED tests/test_api.py::test_create - AssertionError\n",
+                    "stderr_excerpt": "",
+                    "stdout_truncated": False,
+                    "stderr_truncated": False,
+                    "diagnostics": {
+                        "adapter": "pytest-node-v1",
+                        "complete": False,
+                        "entries": [],
+                        "limitation": "pytest output was truncated",
+                    },
+                }
+            ]
+        }
+
+        result = normalize_review_verification(report, Path("/workspace"))
+        self.assertEqual(result["status"], "unavailable")
+        self.assertIn("pytest output was truncated", result["reason"])
+
     def test_review_verification_pass_is_measured_with_empty_failure_set(self) -> None:
         report = {
             "merge_readiness": {
