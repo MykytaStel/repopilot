@@ -253,8 +253,9 @@ class ReleaseContractTests(unittest.TestCase):
             release_contract.check_publication_recovery_contract()
 
     def test_release_workflow_sends_crates_user_agent(self) -> None:
-        workflow = (self.original_root / ".github/workflows/release.yml").read_text(
-            encoding="utf-8"
+        workflow = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (self.original_root / ".github/workflows").glob("*.yml")
         )
         crates_calls = [line for line in workflow.splitlines() if "crates.io/api" in line]
 

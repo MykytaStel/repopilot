@@ -419,9 +419,12 @@ def check_publication_recovery_contract() -> None:
         raise ContractError("publication recovery contains a mutable npm query")
     if re.search(r'\.dist\.integrity\b', release) or re.search(r'\.dist\.integrity\b', npm):
         raise ContractError("publication recovery must read the literal dist.integrity key")
+    workflow_text = "\n".join(
+        read_text(path) for path in sorted((ROOT / ".github/workflows").glob("*.yml"))
+    )
     anonymous_crates_calls = [
         line.strip()
-        for line in release.splitlines()
+        for line in workflow_text.splitlines()
         if "crates.io/api" in line
         and "curl" in line
         and not re.search(r"(?:\s-A\s|--user-agent\b)", line)

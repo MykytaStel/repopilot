@@ -117,6 +117,19 @@ and updates the Homebrew tap. The npm workflow publishes checksum-verified
 platform packages before the root package through Trusted Publishing. Missing
 Cargo or Homebrew credentials fail the release before packaging.
 
+### Recover a partial publication
+
+If the tag's Release run publishes some channels but not others, rerun only the
+missing channel from `main`; both workflows check out the tag, skip a version
+that is already published with a matching digest, and refuse a mismatch:
+
+```bash
+gh workflow run publish-crates.yml -f tag=vX.Y.Z
+gh workflow run publish-npm.yml -f tag=vX.Y.Z
+```
+
+The npm workflow runs in the `npm` environment and waits for approval.
+
 ## Verify Public Channels
 
 After the workflows finish:
