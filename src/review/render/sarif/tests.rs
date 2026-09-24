@@ -53,6 +53,7 @@ fn report_with_signal(signal: ReviewSignal) -> ReviewReport {
     }
     ReviewReport {
         analysis_revision: None,
+        revisions: Default::default(),
         summary: ScanSummary::default(),
         repo_root: Path::new("/repo").to_path_buf(),
         baseline_path: None,

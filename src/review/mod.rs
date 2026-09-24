@@ -18,6 +18,7 @@ mod proof_adapter_tests;
 mod readiness;
 pub mod render;
 mod report;
+pub(crate) mod revisions;
 mod signal_pass;
 pub mod signals;
 pub mod verification;

@@ -104,6 +104,25 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- The default `repopilot review` console now leads with one conclusion —
+  `Decision: REVIEW (Change Proof: REVIEW)` — followed by the reasons and one
+  next action. Duplicated decision why/limitation/gate lines are gone; evidence
+  class, provenance, legacy merge readiness, ownership, and location records
+  move to `--detail full`, and informational diagnostics fold into one count.
+  Markdown reports lead with the same summary and keep the rest under a
+  "Proof details" heading.
+- Changed test, fixture, example, and generated files no longer count as proof
+  coverage exclusions. They are reported as `policy_skipped_files`, so adding
+  tests to a change no longer turns its coverage `limited` or its next action
+  into "review the excluded files".
+- Review provenance records the resolved `base_commit`/`head_commit` and stops
+  listing base, head, and current revisions as unavailable when they were
+  captured.
+- The proof next action now points to human review first when signals or
+  findings need it, and otherwise to `repopilot init --suggestions-output`
+  before coverage limits, so a new user can see how to reach `VERIFIED`.
+- The GitHub Action summary reads the canonical `decision.next_action` and
+  mirrors the new scope and provenance lines instead of re-deriving them.
 - Review Proof Cards now choose a next action from the recorded proof state:
   failed, unavailable, stale, and unselected checks, incomplete scope, and a
   missing proof policy each receive distinct remediation guidance across the

@@ -7,6 +7,7 @@ fn coverage(analyzed_files: usize) -> ProofCoverage {
         analyzed_files,
         excluded_files: 0,
         unsupported_files: 0,
+        policy_skipped_files: 0,
     }
 }
 
@@ -180,8 +181,81 @@ fn next_action_explains_missing_policy_when_no_checks_apply() {
 
     assert_eq!(
         next_action_for(&proof),
-        "Configure or select a proof policy, then run the review again."
+        "Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
     );
+}
+
+#[test]
+fn missing_policy_outranks_coverage_limits_in_next_action() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: ProofCoverage {
+            excluded_files: 1,
+            requested_files: 2,
+            ..coverage(1)
+        },
+        obligations: ProofObligations {
+            applicable: 0,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: false,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert!(next_action_for(&proof).starts_with("Configure or select a proof policy"));
+}
+
+#[test]
+fn human_review_evidence_outranks_policy_setup_in_next_action() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            applicable: 0,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: false,
+        broken_contracts: 0,
+        reasons: vec![ChangeProofReason::new(
+            ChangeProofReasonCode::MaybeSensitive,
+            1,
+            "Maybe-sensitive review signal(s) are visible.",
+        )],
+    });
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Inspect the review signals and findings listed below before merge."
+    );
+}
+
+#[test]
+fn policy_skipped_files_do_not_limit_coverage() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: ProofCoverage {
+            requested_files: 3,
+            policy_skipped_files: 2,
+            ..coverage(1)
+        },
+        obligations: obligations(),
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Verified);
+    assert!(
+        !proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::ScopeCoverageIncomplete)
+    );
+    assert!(proof.capability_coverage.iter().any(|item| {
+        item.id == "scope.policy-skipped-files"
+            && item.status == ProofCapabilityStatus::Assessed
+            && item.count == 2
+    }));
 }
 
 #[test]
@@ -217,6 +291,7 @@ fn incomplete_scope_coverage_keeps_proof_at_review() {
             analyzed_files: 2,
             excluded_files: 1,
             unsupported_files: 0,
+            policy_skipped_files: 0,
         },
         obligations: obligations(),
         sufficient_policy: true,

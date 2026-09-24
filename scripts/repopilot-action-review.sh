@@ -125,13 +125,17 @@ write_review_summary() {
         end;
       def evidence_scope_line($proof; $evidence):
         if ($evidence.scope | type) == "object" then
-          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported (\($evidence.coverage_status // "unavailable"))"
+          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported\(if ($evidence.scope.policy_skipped_files // 0) > 0 then ", \($evidence.scope.policy_skipped_files) test/fixture/generated skipped by policy" else "" end) (\($evidence.coverage_status // "unavailable"))"
         else
           "\($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))"
         end;
       def evidence_provenance($report; $proof; $evidence):
         if ($evidence.provenance | type) == "object" then
-          "RepoPilot \($evidence.provenance.analyzer_version // "unknown"), schema \($evidence.provenance.report_schema // "unknown"); unavailable: \((($evidence.provenance.unavailable_inputs // []) | join(", ")))"
+          "RepoPilot \($evidence.provenance.analyzer_version // "unknown"), schema \($evidence.provenance.report_schema // "unknown")"
+          + ([ (if $evidence.provenance.base_commit then "base \($evidence.provenance.base_commit[0:8])" else empty end),
+               (if $evidence.provenance.head_commit then "head \($evidence.provenance.head_commit[0:8])" else empty end) ]
+             | if length > 0 then "; " + join(", ") else "" end)
+          + (($evidence.provenance.unavailable_inputs // []) | if length > 0 then "; unavailable: " + join(", ") else "" end)
         else
           "RepoPilot \($report.repopilot_version // "unknown"), schema \($report.schema_version // "unknown"); unavailable: \(if (($proof.coverage.scope // "changed") == "changed") then "base revision, " else "" end)current revision, head revision, scanner configuration, toolchain"
         end;
@@ -154,7 +158,9 @@ write_review_summary() {
         (if (($proof.reasons // []) | length) > 0 then
           "- **Reasons:**\n" + ([ $proof.reasons[]?.message ] | map("  - " + .) | join("\n"))
         else empty end),
-        (if $proof.verdict == "BROKEN" then
+        (if ($report.decision.next_action // "") != "" then
+          "- **Next action:** \($report.decision.next_action)"
+        elif $proof.verdict == "BROKEN" then
           "- **Next action:** Inspect the broken contract and its listed consumer before merge."
         elif $proof.verdict == "NOT ASSESSED" then
           "- **Next action:** Expand the analyzable scope before treating this review as evidence."
