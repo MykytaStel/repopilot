@@ -419,6 +419,20 @@ def check_publication_recovery_contract() -> None:
         raise ContractError("publication recovery contains a mutable npm query")
     if re.search(r'\.dist\.integrity\b', release) or re.search(r'\.dist\.integrity\b', npm):
         raise ContractError("publication recovery must read the literal dist.integrity key")
+    anonymous_crates_calls = [
+        line.strip()
+        for line in release.splitlines()
+        if "crates.io/api" in line
+        and "curl" in line
+        and not re.search(r"(?:\s-A\s|--user-agent\b)", line)
+    ]
+    if anonymous_crates_calls:
+        # crates.io answers 403 to API requests without a User-Agent, which the
+        # recovery path would misreport as an auth failure.
+        raise ContractError(
+            "crates.io API calls must send a User-Agent: "
+            + "; ".join(anonymous_crates_calls)
+        )
 
     required_release = (
         'VERSION_NUMBER="${VERSION#v}"',
