@@ -119,9 +119,35 @@ fn next_action_names_unavailable_required_checks() {
         reasons: Vec::new(),
     });
 
+    assert!(
+        next_action_for(&proof).starts_with("Configure or install the required checks"),
+        "{}",
+        next_action_for(&proof)
+    );
+    assert!(next_action_for(&proof).contains("repopilot init --suggestions-output"));
+}
+
+#[test]
+fn high_priority_evidence_outranks_unavailable_checks_in_next_action() {
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            unavailable: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: false,
+        broken_contracts: 0,
+        reasons: vec![ChangeProofReason::new(
+            ChangeProofReasonCode::PriorityP0,
+            1,
+            "P0 finding occurrence(s) affect changed code.",
+        )],
+    });
+
     assert_eq!(
         next_action_for(&proof),
-        "Make the required checks available, then run the review again."
+        "Resolve or confirm the high-priority findings and sensitive signals listed below before merge."
     );
 }
 

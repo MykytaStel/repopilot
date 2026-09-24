@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-24
+
+RepoPilot 0.23 turns `review` into one bounded Change Proof: a single verdict
+with its reasons, typed contract changes (dependency, delivery workflow,
+runtime configuration, security and test boundaries) linked to their local
+consumers, proof obligations satisfied by explicitly selected checks, optional
+intent drift and critical paths, and one next action — shared across console,
+Markdown, JSON, SARIF, HTML Change Map, MCP, and the GitHub Action. Report
+schema stays `0.26` with additive fields; `excluded_files` no longer counts
+test/fixture/generated files skipped by policy. Quality evidence remains scoped
+to what was measured: no broad precision, recall, or utility claim ships with
+this release.
+
 ### Added
 
 - Added a versioned, fail-closed controlled ChangeProof benchmark. It reuses
@@ -104,6 +117,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- `repopilot review <path>` with a relative path now resolves it from the
+  working directory. Reviewing a nested checkout from its parent (for example
+  `repopilot review .zoo/wagtail`, as the README demo does) previously matched
+  no changed files and reported an empty review, and `review .` from a
+  repository subdirectory now scopes the review to that subdirectory, matching
+  `scan`.
 - The default `repopilot review` console now leads with one conclusion —
   `Decision: REVIEW (Change Proof: REVIEW)` — followed by the reasons and one
   next action. Duplicated decision why/limitation/gate lines are gone; evidence
@@ -118,9 +137,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Review provenance records the resolved `base_commit`/`head_commit` and stops
   listing base, head, and current revisions as unavailable when they were
   captured.
-- The proof next action now points to human review first when signals or
-  findings need it, and otherwise to `repopilot init --suggestions-output`
-  before coverage limits, so a new user can see how to reach `VERIFIED`.
+- The proof next action now ranks failed checks, then P0/P1 findings and
+  definitely-sensitive signals, then missing checks. Missing checks and a
+  missing proof policy point to `repopilot init --suggestions-output`, ahead of
+  coverage limits, so a new user can see how to reach `VERIFIED`.
 - The GitHub Action summary reads the canonical `decision.next_action` and
   mirrors the new scope and provenance lines instead of re-deriving them.
 - Review Proof Cards now choose a next action from the recorded proof state:
@@ -387,8 +407,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `ChangeProof` deltas, safe fixtures require zero deltas, and a parity fixture
   proves security evidence is stable across working-tree, snapshot, cold-cache,
   warm-cache, and explicit base/head review paths.
-
-### Fixed
 
 - Calibrated `architecture.dead-module` for test-support files skipped from the
   default graph and Python `*_viewset` dotted-path loaders, and made

@@ -163,7 +163,10 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains(
         "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
     ));
-    assert!(console.contains("Evidence provenance: RepoPilot 0.22.0, schema 0.26"));
+    assert!(console.contains(&format!(
+        "Evidence provenance: RepoPilot {}, schema 0.26",
+        env!("CARGO_PKG_VERSION")
+    )));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
     assert!(console.contains("Reasons:"));
     assert!(console.contains("Next action: Configure or select a proof policy"));
@@ -184,7 +187,10 @@ fn human_reports_project_readiness_and_owners() {
     assert!(markdown.contains(
         "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
     ));
-    assert!(markdown.contains("**Evidence provenance:** RepoPilot 0.22.0, schema 0.26"));
+    assert!(markdown.contains(&format!(
+        "**Evidence provenance:** RepoPilot {}, schema 0.26",
+        env!("CARGO_PKG_VERSION")
+    )));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
     assert!(markdown.contains("**Reasons:**"));
     assert!(markdown.contains("**Next action:** Configure or select a proof policy"));

@@ -141,6 +141,34 @@ fn html_report_keeps_basic_accessibility_landmarks() {
     assert!(!html.contains("<script src="), "no remote scripts");
 }
 
+#[test]
+fn reviewing_a_nested_repository_from_its_parent_sees_the_change() {
+    let outer = tempdir().expect("outer dir");
+    let inner = outer.path().join("checkout");
+    fs::create_dir_all(&inner).expect("inner dir");
+    init(&inner);
+    write(&inner, "src/lib.rs", "pub fn value() -> u32 {\n    1\n}\n");
+    git(&inner, &["add", "."]);
+    git(&inner, &["commit", "-q", "-m", "base"]);
+    write(&inner, "src/lib.rs", "pub fn value() -> u32 {\n    2\n}\n");
+
+    let output = repopilot()
+        .args(["review", "checkout", "--format", "json", "--no-progress"])
+        .current_dir(outer.path())
+        .output()
+        .expect("run review");
+    assert!(output.status.success());
+    let json: Value = serde_json::from_slice(&output.stdout).expect("review JSON");
+
+    assert_eq!(
+        json["changed_files"].as_array().map(Vec::len),
+        Some(1),
+        "{}",
+        json["changed_files"]
+    );
+    assert_ne!(json["change_proof"]["verdict"], "NOT_ASSESSED");
+}
+
 fn init(root: &Path) {
     git(root, &["init", "-q"]);
     git(root, &["config", "user.email", "test@repopilot.local"]);

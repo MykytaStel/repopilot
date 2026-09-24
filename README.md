@@ -24,9 +24,17 @@ drops a permission check and pipes request input into a shell.
   <img src="https://raw.githubusercontent.com/MykytaStel/repopilot/main/docs/demos/03-agent-review.gif" alt="repopilot review flagging a removed auth check and a request-to-shell taint flow in a one-file diff" width="800">
 </p>
 
-One command, `repopilot review .`, and the diff answers for itself:
+One command, `repopilot review .`, and the diff answers for itself — one
+verdict, the reasons behind it, and one next action, then the evidence:
 
 ```text
+Decision: REVIEW (Change Proof: REVIEW)
+Reasons:
+  - Definitely-sensitive review signal(s) require confirmation.
+  - A changed boundary has no corresponding test change.
+  …
+Next action: Resolve or confirm the high-priority findings and sensitive signals listed below before merge.
+
 ⚑ access control changed — wagtail/images/views/images.py
 ⚑ auth check removed — wagtail/images/views/images.py:264
     Authentication/authorization check removed (auth calls: 1 -> 0)
@@ -53,6 +61,11 @@ checkout) is caught the same way.
 > RepoPilot reports structural evidence, not a security verdict. A flagged
 > flow is a path to verify, not a confirmed vulnerability. Use it beside
 > tests, linters, and dedicated security tools.
+
+`VERIFIED` is only awarded when checks you configure and select with
+`--verify` pass on the reviewed revision; `repopilot init --suggestions-output
+repopilot-suggestions.toml` proposes them for your stack without applying
+anything. Add `--detail full` for provenance, legacy readiness, and ownership.
 
 ## Catch broken code, not just risky code
 
