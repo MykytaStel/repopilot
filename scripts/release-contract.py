@@ -88,11 +88,24 @@ def yaml_default_version(path: str, key: str) -> str:
     return match.group("value")
 
 
+PRERELEASE_VERSION = re.compile(r"\d+\.\d+\.\d+-rc\.\d+")
+
+
 def version_from_tag(tag: str) -> str:
     version = tag.removeprefix("v")
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\.\d+)?", version):
         raise ContractError(f"Invalid release tag: {tag}")
     return version
+
+
+def is_prerelease(version: str) -> bool:
+    """Release candidates (`X.Y.Z-rc.N`) rehearse the pipeline without moving
+    any channel's `latest` pointer."""
+    return PRERELEASE_VERSION.fullmatch(version) is not None
+
+
+def base_version(version: str) -> str:
+    return version.split("-", 1)[0]
 
 
 def expected_version(tag: str | None) -> str:
@@ -107,6 +120,8 @@ def expected_version(tag: str | None) -> str:
 
 
 def release_section(version: str) -> str:
+    if is_prerelease(version):
+        return unreleased_section()
     changelog = read_text(CHANGELOG)
     headings = list(RELEASE_HEADING.finditer(changelog))
     match = next(
@@ -124,6 +139,46 @@ def release_section(version: str) -> str:
     return body
 
 
+def unreleased_section() -> str:
+    changelog = read_text(CHANGELOG)
+    match = re.search(r"^## \[Unreleased\]\s*$", changelog, re.MULTILINE)
+    if match is None:
+        raise ContractError("CHANGELOG.md has no [Unreleased] section")
+    next_heading = re.search(r"^## ", changelog[match.end() :], re.MULTILINE)
+    end = match.end() + next_heading.start() if next_heading else len(changelog)
+    body = changelog[match.end() : end].strip()
+    if not re.search(r"^### ", body, re.MULTILINE):
+        raise ContractError(
+            "A release candidate needs technical entries under CHANGELOG.md [Unreleased]"
+        )
+    return body
+
+
+def prerelease_document(version: str) -> tuple[str, str, str]:
+    """Synthesized notes for a release candidate without curated notes."""
+    base = base_version(version)
+    title = f"Release candidate for {base}"
+    description = (
+        f"Pre-release rehearsal of RepoPilot {base}. It is published under the "
+        "npm `next` dist-tag and as a crates.io prerelease, and does not replace "
+        "the latest stable release."
+    )
+    body = (
+        "## Highlights\n\n"
+        f"- Rehearses the {base} release pipeline end to end.\n"
+        "- Changes are listed under `[Unreleased]` in the tagged changelog.\n"
+        "- Not recommended for production use.\n\n"
+        "## Compatibility\n\n"
+        "Prerelease; the stable channels (`latest` on npm, Homebrew) are unchanged.\n\n"
+        "## Upgrade\n\n"
+        "```bash\n"
+        f"cargo install repopilot --version {version} --force\n"
+        f"npm install -g repopilot@{version}\n"
+        "```"
+    )
+    return title, description, body
+
+
 def release_notes(version: str) -> str:
     title, description, body = release_document(version)
     if not title:
@@ -138,6 +193,8 @@ def release_title(version: str) -> str:
 
 def release_document(version: str) -> tuple[str, str, str]:
     curated = ROOT / "docs" / "releases" / f"v{version}.md"
+    if not curated.exists() and is_prerelease(version):
+        return prerelease_document(version)
     if not curated.exists():
         raise ContractError(f"Missing curated GitHub release notes for {version}")
 
@@ -486,6 +543,43 @@ def check_publication_recovery_contract() -> None:
         raise ContractError("publication verifier must read an indented Homebrew version")
 
 
+def check_prerelease_channels() -> None:
+    """A release candidate must never move a stable channel's `latest` pointer."""
+    release = read_text(ROOT / ".github/workflows/release.yml")
+    npm = read_text(ROOT / ".github/workflows/publish-npm.yml")
+    verifier_path = ROOT / "scripts/verify-publication.sh"
+    verifier = read_text(verifier_path) if verifier_path.exists() else ""
+    required = {
+        "release.yml GitHub prerelease flag": (
+            release,
+            "prerelease: ${{ contains(github.ref_name, '-') }}",
+        ),
+        "release.yml latest-release guard": (
+            release,
+            "make_latest: ${{ !contains(github.ref_name, '-') }}",
+        ),
+        "release.yml Homebrew skip": (
+            release,
+            "if: ${{ !contains(github.ref_name, '-') }}",
+        ),
+        "publish-npm.yml next dist-tag": (npm, 'NPM_DIST_TAG="next"'),
+        "publish-npm.yml platform dist-tag": (
+            npm,
+            'npm publish "$package_dir" --access public --tag "$NPM_DIST_TAG"',
+        ),
+        "publish-npm.yml root dist-tag": (
+            npm,
+            'npm publish --access public --tag "$NPM_DIST_TAG"',
+        ),
+        "verify-publication.sh latest guard": (verifier, "dist-tags.latest"),
+    }
+    missing = [name for name, (text, marker) in required.items() if marker not in text]
+    if missing:
+        raise ContractError(
+            "prerelease channel contract is incomplete: " + ", ".join(missing)
+        )
+
+
 def check_removed_vscode_surface() -> None:
     stale_paths = [
         ROOT / "editors/vscode/package.json",
@@ -758,6 +852,7 @@ def check_contract(tag: str | None) -> None:
     check_action_pins()
     check_release_orchestration()
     check_publication_recovery_contract()
+    check_prerelease_channels()
     check_removed_vscode_surface()
     check_roadmap_docs()
     check_v023_docs()

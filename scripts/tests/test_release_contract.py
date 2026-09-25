@@ -152,7 +152,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_version_from_tag_rejects_non_release_refs(self) -> None:
         self.assertEqual(release_contract.version_from_tag("v0.17.0"), "0.17.0")
-        for invalid in ("0.17", "release/v0.17.0", "v0.17.0-rc.1"):
+        for invalid in ("0.17", "release/v0.17.0", "v0.17.0-beta.1"):
             with self.subTest(invalid=invalid):
                 with self.assertRaises(release_contract.ContractError):
                     release_contract.version_from_tag(invalid)
@@ -317,6 +317,68 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn("Full technical changelog:", notes)
         self.assertIn("/blob/v0.17.0/CHANGELOG.md", notes)
         self.assertNotIn("0.16.0", notes)
+
+    def test_release_candidate_tags_are_prereleases(self) -> None:
+        self.assertEqual(release_contract.version_from_tag("v0.24.0-rc.1"), "0.24.0-rc.1")
+        self.assertTrue(release_contract.is_prerelease("0.24.0-rc.1"))
+        self.assertFalse(release_contract.is_prerelease("0.24.0"))
+        for invalid in ("v0.24.0-beta", "v0.24.0-rc", "v0.24.0-rc.1.2", "0.24"):
+            with self.assertRaises(release_contract.ContractError):
+                release_contract.version_from_tag(invalid)
+
+    def test_release_candidate_uses_unreleased_changelog_and_synthesized_notes(self) -> None:
+        self.write(
+            "CHANGELOG.md",
+            "## [Unreleased]\n\n### Changed\n\n- Calibrated priority.\n\n"
+            "## [0.23.0] - 2026-09-24\n\n### Fixed\n\n- Shipped.\n",
+        )
+        output = release_contract.ROOT / "dist/notes.md"
+
+        self.assertEqual(
+            release_contract.release_section("0.24.0-rc.1"),
+            "### Changed\n\n- Calibrated priority.",
+        )
+        release_contract.write_notes("v0.24.0-rc.1", output)
+
+        notes = output.read_text(encoding="utf-8")
+        self.assertIn("Pre-release rehearsal of RepoPilot 0.24.0", notes)
+        self.assertIn("npm install -g repopilot@0.24.0-rc.1", notes)
+        self.assertIn("/blob/v0.24.0-rc.1/CHANGELOG.md", notes)
+        self.assertEqual(
+            release_contract.release_title("0.24.0-rc.1"),
+            "RepoPilot v0.24.0-rc.1: Release candidate for 0.24.0",
+        )
+
+    def test_release_candidate_requires_unreleased_entries(self) -> None:
+        self.write(
+            "CHANGELOG.md",
+            "## [Unreleased]\n\n## [0.23.0] - 2026-09-24\n\n### Fixed\n\n- Shipped.\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "Unreleased"):
+            release_contract.release_section("0.24.0-rc.1")
+
+    def test_prerelease_channels_pass_for_current_workflows(self) -> None:
+        release_contract.ROOT = self.original_root
+        release_contract.check_prerelease_channels()
+
+    def test_prerelease_channels_reject_npm_publish_without_dist_tag(self) -> None:
+        self.write(
+            ".github/workflows/release.yml",
+            "prerelease: ${{ contains(github.ref_name, '-') }}\n"
+            "make_latest: ${{ !contains(github.ref_name, '-') }}\n"
+            "if: ${{ !contains(github.ref_name, '-') }}\n",
+        )
+        self.write(
+            ".github/workflows/publish-npm.yml",
+            'NPM_DIST_TAG="next"\nnpm publish "$package_dir" --access public\nnpm publish --access public\n',
+        )
+        self.write("scripts/verify-publication.sh", "npm view repopilot dist-tags.latest\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "prerelease channel contract"
+        ):
+            release_contract.check_prerelease_channels()
 
     def test_removed_vscode_surface_fails_when_directory_returns(self) -> None:
         self.write("editors/vscode/package.json", json.dumps({"name": "preview"}))
