@@ -102,14 +102,22 @@ Editor extensions and PyPI packages are not supported distribution channels.
 The release workflow runs `cargo publish --dry-run` for release tags. An
 official release is complete only when all four channels publish successfully:
 
-- `CRATES_IO_TOKEN` publishes the crate to crates.io.
+- crates.io publishes through Trusted Publishing / GitHub OIDC from the
+  `release` environment (`rust-lang/crates-io-auth-action`); the crate requires
+  trusted publishing, so API tokens are rejected.
 - `publish-npm.yml` publishes the platform npm packages first, then the root npm package, through npm Trusted Publishing / GitHub OIDC, without an npm token secret.
 - `HOMEBREW_TAP_TOKEN` updates the Homebrew tap formula.
 
-`CRATES_IO_TOKEN` and `HOMEBREW_TAP_TOKEN` are required release credentials.
-The release fails before packaging if either is missing. npm publishing is
-called directly by the tag workflow; manual dispatch remains available only for
-recovery.
+`HOMEBREW_TAP_TOKEN` is the only required release secret; the release fails
+before packaging if it is missing. npm and crates.io publishing are called
+directly by the tag workflow; `publish-npm.yml` and `publish-crates.yml` manual
+dispatch remain available only for recovery.
+
+Trusted Publisher registrations must name the **calling** workflow:
+
+- crates.io `repopilot`: `release.yml` and `publish-crates.yml`, environment
+  `release`;
+- npm (all six packages): `release.yml` and `publish-npm.yml`, environment `npm`.
 
 Before publishing:
 

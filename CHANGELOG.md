@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- crates.io publishing now uses Trusted Publishing (GitHub OIDC via
+  `rust-lang/crates-io-auth-action`) from the `release` environment in both the
+  tag workflow and the manual `publish-crates.yml` recovery; the
+  `CRATES_IO_TOKEN` secret is no longer used or required.
+
 ## [0.23.0] - 2026-09-24
 
 RepoPilot 0.23 turns `review` into one bounded Change Proof: a single verdict

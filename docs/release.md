@@ -115,7 +115,9 @@ build. It renders the GitHub Release title and body from
 builds and attests platform archives, publishes crates.io, calls npm publishing,
 and updates the Homebrew tap. The npm workflow publishes checksum-verified
 platform packages before the root package through Trusted Publishing. Missing
-Cargo or Homebrew credentials fail the release before packaging.
+Homebrew credentials fail the release before packaging. crates.io publishes
+through Trusted Publishing (OIDC) from the `release` environment; the crate
+rejects API-token publishes.
 
 ### Recover a partial publication
 
