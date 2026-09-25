@@ -115,7 +115,9 @@ build. It renders the GitHub Release title and body from
 builds and attests platform archives, publishes crates.io, calls npm publishing,
 and updates the Homebrew tap. The npm workflow publishes checksum-verified
 platform packages before the root package through Trusted Publishing. Missing
-Cargo or Homebrew credentials fail the release before packaging.
+Homebrew credentials fail the release before packaging. crates.io publishes
+through Trusted Publishing (OIDC) from the `release` environment; the crate
+rejects API-token publishes.
 
 ### Recover a partial publication
 
@@ -128,7 +130,19 @@ gh workflow run publish-crates.yml -f tag=vX.Y.Z
 gh workflow run publish-npm.yml -f tag=vX.Y.Z
 ```
 
-The npm workflow runs in the `npm` environment and waits for approval.
+Both run in protected environments (`release` for crates.io, `npm` for npm)
+and wait for a reviewer's approval. Then confirm every channel serves the exact
+tagged artifacts:
+
+```bash
+gh workflow run verify-publication.yml -f tag=vX.Y.Z
+```
+
+The same check runs locally against a checkout of the tag:
+
+```bash
+VERSION=vX.Y.Z SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
+```
 
 ## Verify Public Channels
 
