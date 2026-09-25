@@ -19,7 +19,10 @@ pub use crate::review::contract::{
 };
 use capabilities::capability_coverage;
 pub use capabilities::{ProofCapability, ProofCapabilityStatus};
-pub use evidence::{EvidenceClass, EvidenceCoverageStatus, EvidenceProvenance, EvidenceSummary};
+pub use evidence::{
+    EvidenceClass, EvidenceCoverageLimit, EvidenceCoverageStatus, EvidenceProvenance,
+    EvidenceSummary,
+};
 pub(crate) use next_action::next_action_for;
 use obligations::derive_verification_obligations;
 pub use receipt::{
@@ -223,10 +226,7 @@ pub fn derive_change_proof_from_review(
     report: &ReviewReport,
     readiness: &MergeReadinessRecord,
 ) -> ChangeProof {
-    let requested_files = match report.summary.mode {
-        ScanMode::Changed => report.changed_files.len(),
-        ScanMode::Full => report.summary.metrics.files_discovered,
-    };
+    let requested_files = requested_file_count(report);
     let analyzed_files = report.summary.metrics.files_analyzed;
     let excluded_files = known_excluded_files(report, requested_files);
     let policy_skipped_files = report
@@ -341,6 +341,17 @@ pub fn derive_change_proof_from_review(
         },
     });
     proof
+}
+
+fn requested_file_count(report: &ReviewReport) -> usize {
+    match report.summary.mode {
+        ScanMode::Changed => report.changed_files.len(),
+        ScanMode::Full => report
+            .summary
+            .metrics
+            .files_discovered
+            .saturating_add(report.summary.metrics.files_skipped_repopilotignore),
+    }
 }
 
 fn known_excluded_files(report: &ReviewReport, requested_files: usize) -> usize {

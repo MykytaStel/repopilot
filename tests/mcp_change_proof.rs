@@ -115,6 +115,18 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     assert!(proof.is_object(), "review publishes ChangeProof");
     assert!(decision.is_object(), "review publishes decision");
     assert!(evidence.is_object(), "review publishes evidence contract");
+    assert!(
+        evidence["coverage_limits"]
+            .as_array()
+            .is_some_and(|limits| {
+                limits.iter().any(|limit| {
+                    limit["code"] == "verification-not-configured"
+                        || limit["code"] == "verification-unselected"
+                        || limit["code"] == "verification-unavailable"
+                })
+            }),
+        "MCP exposes the reason verification coverage is limited: evidence={evidence:#}; proof={proof:#}"
+    );
     let handle = review["result"]["analysisHandle"]
         .as_str()
         .expect("review analysis handle");

@@ -1,11 +1,12 @@
 use super::super::{
-    ChangeProof, ChangeProofVerdict, ProofCapability, ProofCapabilityStatus, ProofCoverage,
-    ProofObligations, ProofScope,
+    ChangeProof, ChangeProofReason, ChangeProofReasonCode, ChangeProofVerdict, ProofCapability,
+    ProofCapabilityStatus, ProofCoverage, ProofObligations, ProofScope,
 };
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::model::ReviewReport;
-use crate::review::verification::VerificationPolicy;
+use crate::review::verification::{VerificationPolicy, VerificationPolicyCheck};
 use crate::scan::types::{ScanMetadata, ScanMode, ScanSummary};
+use crate::verification::VerificationRole;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -49,6 +50,203 @@ fn coverage_status_exposes_limits_and_unavailable_scope() {
     assert_eq!(
         super::coverage_status(&proof(ChangeProofVerdict::NotAssessed, 0, 0, 0, 0, vec![])),
         super::EvidenceCoverageStatus::Unavailable
+    );
+}
+
+#[test]
+fn coverage_limits_name_file_and_verification_gaps() {
+    let mut report = base_report();
+    report.summary.metrics.large_files_skipped = 1;
+    report.verification_policy.selected.clear();
+    let mut proof = proof(ChangeProofVerdict::Review, 4, 2, 1, 1, Vec::new());
+    proof.reasons.push(ChangeProofReason::new(
+        ChangeProofReasonCode::InsufficientPolicy,
+        1,
+        "No sufficient proof policy was selected for this assessment.",
+    ));
+
+    let summary = super::EvidenceSummary::from_review(&report, &proof);
+
+    assert_eq!(
+        summary.coverage_status,
+        super::EvidenceCoverageStatus::Limited
+    );
+    assert_eq!(
+        summary
+            .coverage_limits
+            .iter()
+            .map(|limit| (limit.code.as_str(), limit.count))
+            .collect::<Vec<_>>(),
+        [
+            ("files-over-size-limit", 1),
+            ("unsupported-files", 1),
+            ("verification-not-configured", 1),
+        ]
+    );
+    assert!(
+        summary
+            .scope_line()
+            .contains("1 file exceeded the configured size limit")
+    );
+    assert!(
+        summary
+            .scope_line()
+            .contains("1 file received no supported analysis result")
+    );
+    assert!(
+        summary
+            .scope_line()
+            .contains("Verification checks are not configured")
+    );
+
+    let value = serde_json::to_value(summary).expect("evidence summary JSON");
+    assert_eq!(value["coverage_limits"][0]["code"], "files-over-size-limit");
+    assert_eq!(value["coverage_limits"][0]["count"], 1);
+}
+
+#[test]
+fn older_evidence_payloads_decode_without_coverage_limits() {
+    let report = base_report();
+    let proof = proof(ChangeProofVerdict::Verified, 1, 1, 0, 0, Vec::new());
+    let mut value = serde_json::to_value(super::EvidenceSummary::from_review(&report, &proof))
+        .expect("evidence summary JSON");
+    value
+        .as_object_mut()
+        .expect("evidence summary object")
+        .remove("coverage_limits");
+
+    let decoded: super::EvidenceSummary =
+        serde_json::from_value(value).expect("older evidence summary decodes");
+
+    assert!(decoded.coverage_limits.is_empty());
+}
+
+#[test]
+fn coverage_limits_keep_each_recorded_exclusion_cause() {
+    let mut report = base_report();
+    report.summary.metrics.large_files_skipped = 1;
+    report.summary.metrics.binary_files_skipped = 1;
+    report.summary.metrics.files_skipped_by_limit = 1;
+    report.summary.metrics.files_skipped_repopilotignore = 1;
+    let proof = proof(ChangeProofVerdict::Review, 5, 1, 4, 0, Vec::new());
+
+    let summary = super::EvidenceSummary::from_review(&report, &proof);
+    let reasons = summary
+        .coverage_limits
+        .iter()
+        .map(|limit| limit.code.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        reasons,
+        [
+            "binary-files-skipped",
+            "files-over-max-files-limit",
+            "files-over-size-limit",
+            "files-repopilotignore",
+        ]
+    );
+    assert_eq!(
+        summary
+            .coverage_limits
+            .iter()
+            .map(|limit| limit.message.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "1 file was identified as binary.",
+            "1 file was omitted by the max-files limit.",
+            "1 file exceeded the configured size limit.",
+            "1 file was excluded by .repopilotignore.",
+        ]
+    );
+}
+
+#[test]
+fn coverage_limits_do_not_guess_when_exclusion_cause_is_missing() {
+    let report = base_report();
+    let proof = proof(ChangeProofVerdict::Review, 3, 1, 1, 1, Vec::new());
+
+    let summary = super::EvidenceSummary::from_review(&report, &proof);
+
+    assert!(
+        summary.coverage_limits.iter().any(|limit| {
+            limit.code == "excluded-files-unclassified"
+                && limit.message == "1 excluded file has no recorded skip reason."
+        }),
+        "limits: {:?}",
+        summary.coverage_limits
+    );
+}
+
+#[test]
+fn coverage_limits_distinguish_configured_but_unselected_checks() {
+    let mut report = base_report();
+    report.verification_policy.configured = vec![VerificationPolicyCheck {
+        id: "ci-tests".to_string(),
+        role: VerificationRole::Test,
+        paths: Vec::new(),
+    }];
+    report.verification_policy.selected.clear();
+    let mut proof = proof(ChangeProofVerdict::Review, 1, 1, 0, 0, Vec::new());
+    proof.reasons.push(ChangeProofReason::new(
+        ChangeProofReasonCode::InsufficientPolicy,
+        1,
+        "No sufficient proof policy was selected for this assessment.",
+    ));
+
+    let summary = super::EvidenceSummary::from_review(&report, &proof);
+
+    assert!(summary.coverage_limits.iter().any(|limit| {
+        limit.code == "verification-not-selected"
+            && limit.message == "No verification checks are selected."
+    }));
+}
+
+#[test]
+fn canonical_hash_tracks_the_reason_coverage_is_limited() {
+    let mut unconfigured = base_report();
+    unconfigured.verification_policy.selected.clear();
+    let mut configured = base_report();
+    configured.verification_policy.selected.clear();
+    configured.verification_policy.configured = vec![VerificationPolicyCheck {
+        id: "ci-tests".to_string(),
+        role: VerificationRole::Test,
+        paths: Vec::new(),
+    }];
+    let mut proof = proof(ChangeProofVerdict::Review, 1, 1, 0, 0, Vec::new());
+    proof.reasons.push(ChangeProofReason::new(
+        ChangeProofReasonCode::InsufficientPolicy,
+        1,
+        "No sufficient proof policy was selected for this assessment.",
+    ));
+
+    let unconfigured_hash = super::EvidenceSummary::from_review(&unconfigured, &proof)
+        .provenance
+        .canonical_projection_hash;
+    let configured_hash = super::EvidenceSummary::from_review(&configured, &proof)
+        .provenance
+        .canonical_projection_hash;
+
+    assert_ne!(unconfigured_hash, configured_hash);
+}
+
+#[test]
+fn deliberate_policy_skips_are_disclosed_without_becoming_coverage_limits() {
+    let report = base_report();
+    let mut proof = proof(ChangeProofVerdict::Verified, 2, 1, 0, 0, Vec::new());
+    proof.coverage.policy_skipped_files = 1;
+
+    let summary = super::EvidenceSummary::from_review(&report, &proof);
+
+    assert_eq!(
+        summary.coverage_status,
+        super::EvidenceCoverageStatus::Complete
+    );
+    assert!(summary.coverage_limits.is_empty());
+    assert!(
+        summary
+            .scope_line()
+            .contains("1 test/fixture/generated skipped by policy")
     );
 }
 
