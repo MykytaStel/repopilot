@@ -1,3 +1,4 @@
+mod ceiling;
 mod context;
 mod model;
 mod overlays;
@@ -8,6 +9,7 @@ mod summary;
 #[cfg(test)]
 mod tests;
 
+pub use ceiling::{PRIORITY_CEILING_SIGNAL, priority_for, severity_priority_ceiling};
 pub use model::{
     FORMULA_VERSION, GraphImpact, RiskAssessment, RiskFormula, RiskInputs, RiskPriority,
     RiskSignal, RiskSignalSource, priority_for_score,

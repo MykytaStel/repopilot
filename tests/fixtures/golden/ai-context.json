@@ -96,7 +96,7 @@
             "source": "visibility"
           }
         ],
-        "formula_version": "risk-v3"
+        "formula_version": "risk-v4"
       },
       "occurrence_key": "6c2e52992ddbb355",
       "decision": {
@@ -198,7 +198,7 @@
             "source": "visibility"
           }
         ],
-        "formula_version": "risk-v3"
+        "formula_version": "risk-v4"
       },
       "occurrence_key": "f6cc610b5adb870a",
       "decision": {
