@@ -1,7 +1,7 @@
 use crate::baseline::diff::BaselineStatus;
 use serde::{Deserialize, Serialize};
 
-pub const FORMULA_VERSION: &str = "risk-v3";
+pub const FORMULA_VERSION: &str = "risk-v4";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RiskFormula {

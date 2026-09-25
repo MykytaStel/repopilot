@@ -511,13 +511,15 @@ decision. `decided_severity` is the Knowledge Engine output; the finding-level
 
 ### Risk object
 
-RepoPilot uses `risk-v3` for deterministic, explainable prioritization:
+RepoPilot uses `risk-v4` for deterministic, explainable prioritization. Priority is
+derived from the score and capped by the finding's severity (see the
+[risk engine](risk-engine.md)):
 
 ```json
 {
   "score": 67,
   "priority": "P2",
-  "formula_version": "risk-v3",
+  "formula_version": "risk-v4",
   "signals": [
     {
       "id": "severity.medium",

@@ -5,9 +5,7 @@ use crate::graph::CouplingGraph;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use super::model::{
-    FORMULA_VERSION, GraphImpact, RiskInputs, RiskSignal, clamp_score, priority_for_score, signal,
-};
+use super::model::{FORMULA_VERSION, GraphImpact, RiskInputs, RiskSignal, clamp_score, signal};
 
 mod support;
 
@@ -214,7 +212,7 @@ fn apply_overlay_signal(finding: &mut Finding, signal: RiskSignal, _inputs: Risk
     let score = finding.risk.score as i16 + signal.weight;
     finding.risk.signals.push(signal);
     finding.risk.score = clamp_score(score);
-    finding.risk.priority = priority_for_score(finding.risk.score);
+    super::ceiling::apply_priority(&mut finding.risk, finding.severity);
     finding.risk.formula_version = FORMULA_VERSION.to_string();
 }
 

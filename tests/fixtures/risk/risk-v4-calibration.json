@@ -1,5 +1,5 @@
 {
-  "formula_version": "risk-v3",
+  "formula_version": "risk-v4",
   "cases": [
     {
       "name": "p3_info_floor",
@@ -9,7 +9,9 @@
       "confidence": "MEDIUM",
       "expected_score": 5,
       "expected_priority": "P3",
-      "expected_signals": ["severity.info"]
+      "expected_signals": [
+        "severity.info"
+      ]
     },
     {
       "name": "p3_low_default",
@@ -19,7 +21,9 @@
       "confidence": "MEDIUM",
       "expected_score": 20,
       "expected_priority": "P3",
-      "expected_signals": ["severity.low"]
+      "expected_signals": [
+        "severity.low"
+      ]
     },
     {
       "name": "p3_medium_maintainability_default",
@@ -29,7 +33,10 @@
       "confidence": "MEDIUM",
       "expected_score": 33,
       "expected_priority": "P3",
-      "expected_signals": ["severity.medium", "knowledge.broad-maintainability"]
+      "expected_signals": [
+        "severity.medium",
+        "knowledge.broad-maintainability"
+      ]
     },
     {
       "name": "p2_high_maintainability_default",
@@ -39,7 +46,10 @@
       "confidence": "MEDIUM",
       "expected_score": 63,
       "expected_priority": "P2",
-      "expected_signals": ["severity.high", "knowledge.broad-maintainability"]
+      "expected_signals": [
+        "severity.high",
+        "knowledge.broad-maintainability"
+      ]
     },
     {
       "name": "p0_critical_default",
@@ -49,7 +59,10 @@
       "confidence": "MEDIUM",
       "expected_score": 100,
       "expected_priority": "P0",
-      "expected_signals": ["severity.critical", "category.security"]
+      "expected_signals": [
+        "severity.critical",
+        "category.security"
+      ]
     },
     {
       "name": "low_confidence_can_demote_high_severity",
@@ -73,7 +86,10 @@
       "confidence": "MEDIUM",
       "expected_score": 87,
       "expected_priority": "P1",
-      "expected_signals": ["severity.high", "category.security"]
+      "expected_signals": [
+        "severity.high",
+        "category.security"
+      ]
     },
     {
       "name": "review_diff_medium_boost",
@@ -114,7 +130,10 @@
       "cluster_size": 16,
       "expected_score": 52,
       "expected_priority": "P2",
-      "expected_signals": ["severity.medium", "cluster.repeated"]
+      "expected_signals": [
+        "severity.medium",
+        "cluster.repeated"
+      ]
     },
     {
       "name": "stacked_security_diff_blast_radius_clamps_to_p0",
@@ -131,6 +150,43 @@
         "category.security",
         "review.in-diff",
         "review.blast-radius"
+      ]
+    },
+    {
+      "name": "p1_medium_ceiling_blocks_context_only_p0",
+      "rule_id": "architecture.excessive-fan-out",
+      "category": "ARCHITECTURE",
+      "severity": "MEDIUM",
+      "confidence": "HIGH",
+      "in_diff": true,
+      "blast_radius": true,
+      "cluster_size": 8,
+      "graph_impact": "hub",
+      "new_finding": true,
+      "expected_score": 91,
+      "expected_priority": "P1",
+      "expected_signals": [
+        "severity.medium",
+        "review.in-diff",
+        "baseline.new",
+        "graph.hub",
+        "severity.priority-ceiling"
+      ]
+    },
+    {
+      "name": "p0_high_security_in_diff_is_not_capped",
+      "rule_id": "security.secret-candidate",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "confidence": "HIGH",
+      "in_diff": true,
+      "new_finding": true,
+      "expected_score": 100,
+      "expected_priority": "P0",
+      "expected_signals": [
+        "severity.high",
+        "category.security",
+        "review.in-diff"
       ]
     }
   ]
