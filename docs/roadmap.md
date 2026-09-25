@@ -4,34 +4,31 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Now: 0.23 — Change Proof
+## Now: 0.24 — Calibrated Trust
 
-RepoPilot 0.23 turns the evidence-driven review core into one bounded proof of
-the change:
+RepoPilot 0.24 makes the 0.23 Change Proof mean what it says:
 
-- **typed contract changes** explain what changed across public symbols,
-  dependencies, delivery workflows, runtime configuration, security boundaries,
-  and tests;
-- **consumer proof chains** connect each contract delta to resolved direct and
-  bounded transitive impact;
-- **one canonical ChangeProof** combines evidence, coverage, ownership,
-  verification, intent drift, limitations, gate behavior, and the next action;
-- **truth and release confidence** close known compatibility, quality,
-  documentation, performance, and publication gaps before release claims ship.
+- **calibrated priority** — a finding's priority is capped by its severity, so a
+  `P0`/`P1` gate fails for the reasons a maintainer expects;
+- **explained proof** — every `limited` result and unmet obligation names its
+  cause and one fix, grouped so large changes stay readable;
+- **deeper semantic contracts** — typed public API changes for TypeScript,
+  JavaScript, and Rust, and contract families validated on real repositories;
+- **measured quality** — more rules with labeled real-repository evidence, each
+  stating its reviewer model and statistical power;
+- **a release that publishes itself** — every channel through Trusted
+  Publishing, verified by digest, with a rehearsal path before the final tag.
 
-The release deepens the existing commands and MCP tools. It does not add a new
-top-level command, hosted service, source upload, telemetry, implicit LLM,
-autofix, or automatic repository command execution. Details:
-[v0.23 roadmap and release contract](roadmap/v0.23.md).
+Details: [v0.24 roadmap and release contract](roadmap/v0.24.md).
 
-## Next: 0.24 — Independent Evidence
+## Shipped: 0.23 — Change Proof
 
-- independent two-reviewer precision labels for more default-visible rules and
-  held-out recall cases, so quality claims have a real denominator;
-- a pre-registered benchmark of RepoPilot's decision value against existing
-  repository checks;
-- public-symbol contracts beyond removed exports and broader semantic
-  contract coverage validated on real repositories.
+One canonical Change Proof per review — a single verdict with reasons, typed
+dependency, delivery, runtime-configuration, and security/test contract
+changes, proof obligations satisfied only by explicitly selected checks,
+optional intent drift and critical paths, and one next action across console,
+Markdown, JSON, SARIF, the HTML Change Map, MCP, and the GitHub Action. Details:
+[v0.23 release contract](roadmap/v0.23.md).
 
 ## Shipped: 0.22
 
