@@ -11,6 +11,7 @@ documentation](../README.md) instead.
 - [Distribution](../distribution.md)
 - [GitHub ruleset](../github-ruleset.md)
 - [Roadmap](../roadmap.md)
+- [v0.24 roadmap and release contract](../roadmap/v0.24.md)
 - [v0.23 roadmap and release contract](../roadmap/v0.23.md)
 - [Add a language](add-a-language.md)
 - [Analysis platform state](analysis-platform-state.md)
@@ -27,6 +28,7 @@ documentation](../README.md) instead.
 - [Review contract evidence](review-contract-evidence.md)
 - [Language surface inventory](language-surface-inventory.md)
 - [v0.23 report compatibility matrix](v0.23-compatibility-matrix.md)
+- [v0.24 release evidence ledger](v0.24-evidence-ledger.md)
 - [v0.23 release evidence ledger](v0.23-evidence-ledger.md)
 
 ## v0.23 current implementation records
