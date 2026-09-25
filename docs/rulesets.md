@@ -31,7 +31,7 @@ certain RepoPilot is that the finding is a real problem in this context.
 ## Risk Prioritization
 
 Severity is not the final sort key. RepoPilot also assigns each finding an
-explainable `risk-v3` score and P0/P1/P2/P3 priority from severity, confidence,
+explainable `risk-v4` score and P0/P1/P2/P3 priority from severity, confidence,
 Knowledge Engine rule calibration, file role, baseline status, review diff,
 dependency graph impact, workspace hotspots, and repeated-pattern clusters.
 

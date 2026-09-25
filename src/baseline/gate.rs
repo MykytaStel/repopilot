@@ -222,6 +222,32 @@ mod tests {
     }
 
     #[test]
+    fn risk_v4_ceiling_keeps_context_heavy_medium_findings_out_of_p0_gates() {
+        let mut finding = make_finding(Severity::Medium);
+        finding.confidence = crate::findings::types::Confidence::High;
+        finding.risk = crate::risk::assess_finding(
+            &finding,
+            None,
+            crate::risk::RiskInputs {
+                baseline_status: Some(BaselineStatus::New),
+                in_diff: true,
+                graph_impact: Some(crate::risk::GraphImpact::Hub),
+                blast_radius: true,
+                cluster_size: 8,
+                ..Default::default()
+            },
+        );
+        assert!(
+            finding.risk.score >= 90,
+            "context alone must reach a P0 score"
+        );
+        let report = make_report(vec![finding], vec![BaselineStatus::New]);
+
+        assert!(evaluate_ci_gate(&report, FailOn::Priority(RiskPriority::P0)).passed());
+        assert!(!evaluate_ci_gate(&report, FailOn::Priority(RiskPriority::P1)).passed());
+    }
+
+    #[test]
     fn gate_passes_with_no_findings() {
         let report = make_report(vec![], vec![]);
 

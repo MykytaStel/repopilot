@@ -4,13 +4,13 @@ RepoPilot risk scoring is local, deterministic, and explainable. It does not use
 telemetry, hosted analysis, or machine learning. The goal is to rank review work
 better than severity alone while keeping every score auditable.
 
-The current model is `risk-v3`. It combines severity, confidence, category,
+The current model is `risk-v4`. It combines severity, confidence, category,
 Knowledge Engine calibration, file role, baseline and review status, workspace
 hotspots, import-graph impact, and repeated-rule clusters.
 
-## Formula v3
+## Formula v4
 
-`risk-v3` scores each finding on a 0-100 scale:
+`risk-v4` scores each finding on a 0-100 scale:
 
 ```text
 base impact
@@ -29,6 +29,25 @@ Priority buckets are stable:
 | P1 | 70-89 | High-impact hardening; should be reviewed soon. |
 | P2 | 40-69 | Maintainability, architecture, or moderate runtime risk. |
 | P3 | 0-39 | Backlog cleanup or low-urgency review signal. |
+
+### Severity ceiling (new in `risk-v4`)
+
+Context signals raise the score and reorder findings, but a finding's priority
+never exceeds the ceiling of its severity:
+
+| Severity | Highest priority |
+|---|---|
+| critical, high | P0 |
+| medium | P1 |
+| low | P2 |
+| info | P3 |
+
+So a medium-severity structural finding that is new, in the diff, and in an
+import hub can score 90+ yet stays P1; it is sorted first among P1 findings.
+When the ceiling applies, the finding carries a zero-weight
+`severity.priority-ceiling` signal such as
+`medium severity caps priority at P1`. `risk-v3` differed only by this
+ceiling; see the [calibration evidence](engineering/risk-v4-calibration.md).
 
 ## Signals
 

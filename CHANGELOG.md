@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Risk formula `risk-v4`: severity caps priority.** Context signals (new
+  finding, in the review diff, import hub, blast radius, clusters) still raise the
+  score and ordering, but a finding's priority can no longer exceed its
+  severity's ceiling: critical/high → P0, medium → P1, low → P2, info → P3.
+  Capped findings carry a zero-weight `severity.priority-ceiling` signal.
+  *Migration:* `--fail-on-priority p0` and the Action's P0 gate no longer fail on
+  medium-severity findings that only reached P0 through review context; `p1`
+  gates are unchanged. Scores, finding IDs, and baseline keys are unchanged, and
+  reports now record `formula_version: "risk-v4"`. On the calibration corpus
+  (11 zoo repositories, the self-scan, and four real reviews) exactly four
+  medium findings moved from P0 to P1 and nothing else changed; see
+  `docs/engineering/risk-v4-calibration.md`.
 - crates.io publishing now uses Trusted Publishing (GitHub OIDC via
   `rust-lang/crates-io-auth-action`) from the `release` environment in both the
   tag workflow and the manual `publish-crates.yml` recovery; the
