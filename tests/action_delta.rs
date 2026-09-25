@@ -212,6 +212,11 @@ fn review_action_summary_projects_verification_proof_card() {
               "excluded_files": 1,
               "unsupported_files": 0
             },
+            "coverage_limits": [{
+              "code": "files-over-size-limit",
+              "count": 1,
+              "message": "1 file exceeded the configured size limit."
+            }],
             "provenance": {
               "analyzer_version": "fixture-analyzer",
               "report_schema": "fixture-schema",
@@ -252,8 +257,9 @@ fn review_action_summary_projects_verification_proof_card() {
     assert!(summary.contains("**Change proof:** REVIEW"));
     assert!(summary.contains("**Evidence class:** SUSPICION"));
     assert!(summary.contains(
-        "**Evidence scope:** changed; 3/4 file(s) analyzed; 1 excluded, 0 unsupported (limited)"
+        "**Evidence scope:** changed; 3/4 file(s) analyzed; 1 excluded, 0 unsupported (limited: 1 file exceeded the configured size limit.)"
     ));
+    assert!(summary.contains("1 file exceeded the configured size limit."));
     assert!(
         summary
             .contains("**Evidence provenance:** RepoPilot fixture-analyzer, schema fixture-schema")

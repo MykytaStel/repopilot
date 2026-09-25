@@ -105,6 +105,13 @@ fn review_projections_share_canonical_proof_and_evidence() {
         proof_receipt.is_object(),
         "review JSON exposes replayable proof receipt"
     );
+    let coverage_limits = evidence["coverage_limits"]
+        .as_array()
+        .expect("review JSON exposes structured coverage limits");
+    assert!(coverage_limits.iter().any(|limit| {
+        limit["code"] == "verification-not-configured"
+            && limit["message"] == "Verification checks are not configured."
+    }));
     assert_eq!(json["schema_version"], "0.26");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["merge_readiness"].is_object());
@@ -170,8 +177,22 @@ fn human_evidence_class(evidence: &Value) -> &'static str {
 
 fn evidence_scope_line(evidence: &Value) -> String {
     let scope = &evidence["scope"];
+    let status = evidence["coverage_status"]
+        .as_str()
+        .expect("coverage status");
+    let limits = evidence["coverage_limits"]
+        .as_array()
+        .expect("coverage limits")
+        .iter()
+        .filter_map(|limit| limit["message"].as_str())
+        .collect::<Vec<_>>();
+    let status = if limits.is_empty() {
+        status.to_string()
+    } else {
+        format!("{status}: {}", limits.join("; "))
+    };
     format!(
-        "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported ({})",
+        "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported ({status})",
         scope["scope"].as_str().expect("scope label"),
         scope["analyzed_files"].as_u64().expect("analyzed files"),
         scope["requested_files"].as_u64().expect("requested files"),
@@ -179,9 +200,6 @@ fn evidence_scope_line(evidence: &Value) -> String {
         scope["unsupported_files"]
             .as_u64()
             .expect("unsupported files"),
-        evidence["coverage_status"]
-            .as_str()
-            .expect("coverage status")
     )
 }
 
