@@ -22,6 +22,12 @@ CRATES_USER_AGENT="${CRATES_USER_AGENT:-repopilot-release (https://github.com/My
 VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-20}"
 VERIFY_SLEEP_SECONDS="${VERIFY_SLEEP_SECONDS:-15}"
 VERSION_NUMBER="${VERSION#v}"
+# Release candidates (vX.Y.Z-rc.N) publish under npm `next`, skip Homebrew, and
+# must never move npm `latest`.
+PRERELEASE=false
+if [[ "$VERSION_NUMBER" == *-* ]]; then
+  PRERELEASE=true
+fi
 
 verify_tmp="$(mktemp -d)"
 trap 'rm -rf "$verify_tmp"' EXIT
@@ -111,6 +117,27 @@ check_homebrew_digests() {
   done
 }
 
+check_npm_dist_tags() {
+  local latest next
+  latest="$(npm view repopilot dist-tags.latest 2>/dev/null || true)"
+  if [[ "$PRERELEASE" == true ]]; then
+    if [[ "$latest" == "$VERSION_NUMBER" ]]; then
+      echo "::error::published-mismatch; release candidate ${VERSION_NUMBER} moved npm dist-tags.latest"
+      exit 1
+    fi
+    next="$(npm view repopilot dist-tags.next 2>/dev/null || true)"
+    if [[ "$next" == "$VERSION_NUMBER" ]]; then
+      echo '{"action": "skip", "channel": "npm dist-tag next", "state": "published-matching"}'
+    else
+      echo "npm dist-tags.next is '${next}', expected ${VERSION_NUMBER}"
+      retry_needed=true
+    fi
+  elif [[ "$latest" == *-* ]]; then
+    echo "::error::published-mismatch; npm dist-tags.latest points at prerelease ${latest}"
+    exit 1
+  fi
+}
+
 # The formula indents its `version` line inside the class body.
 formula_version_of() {
   sed -nE 's/^[[:space:]]*version "([^"]+)".*/\1/p' <<<"$1" | head -n 1
@@ -145,7 +172,11 @@ for attempt in $(seq 1 "$VERIFY_ATTEMPTS"); do
     check_npm "$package" "$package_integrity"
   done < <(node -e 'const fs=require("node:fs"); for (const pkg of JSON.parse(fs.readFileSync(process.argv[1], "utf8"))) console.log(`${pkg.packageName}\t${pkg.directory}`)' "$verify_tmp/npm-platform-packages.json")
 
-  if formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" 2>"$verify_tmp/formula.err")"; then
+  check_npm_dist_tags
+
+  if [[ "$PRERELEASE" == true ]]; then
+    echo '{"action": "skip", "channel": "homebrew", "state": "not-applicable-prerelease"}'
+  elif formula="$(curl -fsSL "https://raw.githubusercontent.com/MykytaStel/homebrew-repopilot/main/Formula/repopilot.rb" 2>"$verify_tmp/formula.err")"; then
     formula_version="$(formula_version_of "$formula")"
     if [[ "$formula_version" == "$VERSION_NUMBER" ]]; then
       check_homebrew_digests "$formula"

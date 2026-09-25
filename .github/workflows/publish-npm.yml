@@ -50,8 +50,17 @@ jobs:
             TAG="v$(node -p 'require("./package.json").version')"
           fi
           VERSION_NUMBER="${TAG#v}"
-          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
-          echo "VERSION_NUMBER=$VERSION_NUMBER" >> "$GITHUB_ENV"
+          # Release candidates publish under `next` so `latest` stays stable.
+          if [[ "$VERSION_NUMBER" == *-* ]]; then
+            NPM_DIST_TAG="next"
+          else
+            NPM_DIST_TAG="latest"
+          fi
+          {
+            echo "RELEASE_TAG=$TAG"
+            echo "VERSION_NUMBER=$VERSION_NUMBER"
+            echo "NPM_DIST_TAG=$NPM_DIST_TAG"
+          } >> "$GITHUB_ENV"
 
       - name: Verify package version matches release tag
         run: |
@@ -130,7 +139,7 @@ jobs:
                 ;;
               absent)
                 echo "Publishing $package_name@$VERSION_NUMBER: package is absent."
-                npm publish "$package_dir" --access public
+                npm publish "$package_dir" --access public --tag "$NPM_DIST_TAG"
                 ;;
               published-mismatch)
                 echo "::error::published-mismatch for $package_name@$VERSION_NUMBER; refusing to overwrite an immutable package"
@@ -179,7 +188,7 @@ jobs:
               echo "Skipping $package_name@$VERSION_NUMBER: immutable identity matches."
               ;;
             absent)
-              npm publish --access public
+              npm publish --access public --tag "$NPM_DIST_TAG"
               ;;
             published-mismatch)
               echo "::error::published-mismatch for $package_name@$VERSION_NUMBER; refusing to overwrite an immutable package"

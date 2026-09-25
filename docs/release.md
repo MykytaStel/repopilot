@@ -119,6 +119,37 @@ Homebrew credentials fail the release before packaging. crates.io publishes
 through Trusted Publishing (OIDC) from the `release` environment; the crate
 rejects API-token publishes.
 
+### Rehearse with a release candidate
+
+Before a stable tag, rehearse the whole pipeline with a release candidate
+(`vX.Y.Z-rc.N`). Cut it from a short-lived branch so `main` never carries a
+prerelease version:
+
+```bash
+git switch -c release/vX.Y.Z-rc.N origin/main
+# bump every version pin to X.Y.Z-rc.N (Cargo, Cargo.lock, package.json and its
+# five platform pins, action.yml, the reusable workflow), then:
+python3 scripts/release-contract.py check --tag vX.Y.Z-rc.N
+git commit -am "chore: rehearse vX.Y.Z-rc.N"
+git tag vX.Y.Z-rc.N
+git push origin vX.Y.Z-rc.N
+```
+
+A release candidate needs technical entries under `[Unreleased]` in
+`CHANGELOG.md`; curated notes are optional and synthesized when absent. The tag
+workflow then:
+
+- creates a GitHub prerelease that is never marked latest;
+- publishes npm packages under the `next` dist-tag, leaving `latest` on the
+  stable release;
+- publishes a crates.io prerelease version, which `cargo install` does not pick
+  by default;
+- skips the Homebrew tap;
+- verifies every channel and fails if npm `latest` moved.
+
+The release contract rejects workflow changes that would let a release
+candidate move a stable channel.
+
 ### Recover a partial publication
 
 If the tag's Release run publishes some channels but not others, rerun only the
@@ -143,6 +174,16 @@ The same check runs locally against a checkout of the tag:
 ```bash
 VERSION=vX.Y.Z SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
 ```
+
+## Release Checklist
+
+- `HOMEBREW_TAP_TOKEN` is the only required release secret. Check its expiry at
+  <https://github.com/settings/tokens> before tagging and rotate it with
+  `gh secret set HOMEBREW_TAP_TOKEN` when it is close to expiring.
+- Trusted Publishing registrations must name the calling workflow; see
+  [distribution](distribution.md).
+- Approve the `release` (crates.io) and `npm` environment deployments when the
+  tag workflow requests them.
 
 ## Verify Public Channels
 

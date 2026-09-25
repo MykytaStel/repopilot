@@ -12,6 +12,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `rust-lang/crates-io-auth-action`) from the `release` environment in both the
   tag workflow and the manual `publish-crates.yml` recovery; the
   `CRATES_IO_TOKEN` secret is no longer used or required.
+- The release pipeline supports release candidates (`vX.Y.Z-rc.N`): a GitHub
+  prerelease that is never marked latest, npm packages under the `next`
+  dist-tag, a crates.io prerelease, and no Homebrew update. Publication
+  verification fails if a release candidate moves npm `latest` or a stable
+  release leaves `latest` on a prerelease, and the release contract guards the
+  workflow markers.
 - Publication verification moved into `scripts/verify-publication.sh`, shared by
   the tag workflow, a new manual `verify-publication.yml` workflow, and local
   runs, so a release recovered by hand can still be verified end to end.
