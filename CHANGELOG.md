@@ -18,6 +18,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   verification fails if a release candidate moves npm `latest` or a stable
   release leaves `latest` on a prerelease, and the release contract guards the
   workflow markers.
+- Upgraded `tree-sitter` to 0.27.0. Parsing output is unchanged: the real-repo
+  zoo snapshots and the full test suite are identical before and after.
 - Publication verification moved into `scripts/verify-publication.sh`, shared by
   the tag workflow, a new manual `verify-publication.yml` workflow, and local
   runs, so a release recovered by hand can still be verified end to end.
