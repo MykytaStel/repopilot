@@ -12,6 +12,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `rust-lang/crates-io-auth-action`) from the `release` environment in both the
   tag workflow and the manual `publish-crates.yml` recovery; the
   `CRATES_IO_TOKEN` secret is no longer used or required.
+- Publication verification moved into `scripts/verify-publication.sh`, shared by
+  the tag workflow, a new manual `verify-publication.yml` workflow, and local
+  runs, so a release recovered by hand can still be verified end to end.
+
+### Fixed
+
+- The release verifier read the Homebrew formula version with an anchored
+  pattern, but the formula indents `version`, so the final channel check could
+  never converge and always failed after its retries.
 
 ## [0.23.0] - 2026-09-24
 

@@ -130,7 +130,19 @@ gh workflow run publish-crates.yml -f tag=vX.Y.Z
 gh workflow run publish-npm.yml -f tag=vX.Y.Z
 ```
 
-The npm workflow runs in the `npm` environment and waits for approval.
+Both run in protected environments (`release` for crates.io, `npm` for npm)
+and wait for a reviewer's approval. Then confirm every channel serves the exact
+tagged artifacts:
+
+```bash
+gh workflow run verify-publication.yml -f tag=vX.Y.Z
+```
+
+The same check runs locally against a checkout of the tag:
+
+```bash
+VERSION=vX.Y.Z SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
+```
 
 ## Verify Public Channels
 

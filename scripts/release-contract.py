@@ -412,7 +412,10 @@ def check_release_orchestration() -> None:
 
 
 def check_publication_recovery_contract() -> None:
-    release = read_text(ROOT / ".github/workflows/release.yml")
+    release_workflow = read_text(ROOT / ".github/workflows/release.yml")
+    verifier_path = ROOT / "scripts/verify-publication.sh"
+    verifier = read_text(verifier_path) if verifier_path.exists() else ""
+    release = release_workflow + "\n" + verifier
     npm = read_text(ROOT / ".github/workflows/publish-npm.yml")
     mutable_query = re.compile(r'npm view\s+"?(?:repopilot|\$package)"?\s+version')
     if mutable_query.search(release) or mutable_query.search(npm):
@@ -420,7 +423,10 @@ def check_publication_recovery_contract() -> None:
     if re.search(r'\.dist\.integrity\b', release) or re.search(r'\.dist\.integrity\b', npm):
         raise ContractError("publication recovery must read the literal dist.integrity key")
     workflow_text = "\n".join(
-        read_text(path) for path in sorted((ROOT / ".github/workflows").glob("*.yml"))
+        read_text(path)
+        for path in sorted(
+            [*(ROOT / ".github/workflows").glob("*.yml"), *(ROOT / "scripts").glob("*.sh")]
+        )
     )
     anonymous_crates_calls = [
         line.strip()
@@ -439,7 +445,7 @@ def check_publication_recovery_contract() -> None:
 
     required_release = (
         'VERSION_NUMBER="${VERSION#v}"',
-        "scripts/publication_state.py classify",
+        'scripts/publication_state.py" classify',
         'tr -d \'\\r\' < "$archive.sha256" | sha256sum -c -',
         'tar -xzf "$ASSET" -C packaged-smoke',
         './packaged-smoke/repopilot --version',
@@ -472,6 +478,12 @@ def check_publication_recovery_contract() -> None:
     root_publish = npm.find("npm publish", platform_publish + 1)
     if platform_publish == -1 or root_publish == -1 or platform_publish > root_publish:
         raise ContractError("npm platform packages must publish before the root package")
+
+    if "scripts/verify-publication.sh" not in release_workflow:
+        raise ContractError("release workflow must run scripts/verify-publication.sh")
+    if 's/^[[:space:]]*version "' not in verifier:
+        # The formula indents `version`; an anchored match never converges.
+        raise ContractError("publication verifier must read an indented Homebrew version")
 
 
 def check_removed_vscode_surface() -> None:
@@ -553,12 +565,12 @@ def _check_v023_doc_links(engineering_index: str) -> None:
 def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]]:
     return {
         files["roadmap"]: (
-            "Status: 0.23.0 release prepared",
+            "Status: 0.23.0 released",
             "## Phase 0 — Truth Foundation and Bug Burn-down",
             "## Phase A — Canonical ChangeProof",
         ),
         files["phase specification"]: (
-            "Status: release-candidate",
+            "Status: released",
             "Progress source:",
             "Statuses: `open`, `in-progress`, `verified`, and `accepted`.",
             "#### 0B1 — Schema Truth (PR 1)",
@@ -566,12 +578,12 @@ def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]
             "#### 0B2 — Released Compatibility Evidence (PR 2)",
             "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;",
             "### 0C — Recoverable Publication",
-            "### 0C — Recoverable Publication\n\nStatus: release-candidate;",
+            "### 0C — Recoverable Publication\n\nStatus: verified;",
             "### 0D — Documentation and Current UX Truth",
             "### 0D — Documentation and Current UX Truth\n\nStatus: verified;",
         ),
         files["evidence ledger"]: (
-            "Status: release-candidate;",
+            "Status: released;",
             "## Tracked Items",
             "closure criterion",
         ),

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -188,7 +189,7 @@ class ReleaseContractTests(unittest.TestCase):
             release_contract.check_publication_recovery_contract()
 
     def test_release_verifier_normalizes_crlf_checksum_files(self) -> None:
-        workflow = (self.original_root / ".github/workflows/release.yml").read_text(
+        workflow = (self.original_root / "scripts/verify-publication.sh").read_text(
             encoding="utf-8"
         )
 
@@ -255,13 +256,32 @@ class ReleaseContractTests(unittest.TestCase):
     def test_release_workflow_sends_crates_user_agent(self) -> None:
         workflow = "\n".join(
             path.read_text(encoding="utf-8")
-            for path in (self.original_root / ".github/workflows").glob("*.yml")
+            for path in [
+                *(self.original_root / ".github/workflows").glob("*.yml"),
+                *(self.original_root / "scripts").glob("*.sh"),
+            ]
         )
         crates_calls = [line for line in workflow.splitlines() if "crates.io/api" in line]
 
         self.assertTrue(crates_calls)
         for line in crates_calls:
-            self.assertIn('-A "$CRATES_USER_AGENT"', line)
+            if "curl" in line:
+                self.assertIn('-A "$CRATES_USER_AGENT"', line)
+
+    def test_publication_verifier_reads_indented_homebrew_version(self) -> None:
+        verifier = (self.original_root / "scripts/verify-publication.sh").read_text(
+            encoding="utf-8"
+        )
+        formula = 'class Repopilot < Formula\n  version "1.2.3"\nend\n'
+        pattern = re.search(r"sed -nE '([^']+)'", verifier).group(1)
+        result = subprocess.run(
+            ["sed", "-nE", pattern],
+            input=formula,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.strip(), "1.2.3")
 
     def test_cargo_package_rejects_files_outside_allowlist(self) -> None:
         result = subprocess.CompletedProcess(
@@ -396,23 +416,23 @@ class ReleaseContractTests(unittest.TestCase):
         )
         self.write(
             "docs/roadmap/v0.23.md",
-            "Status: 0.23.0 release prepared; RP23-001 closes after publication.\n"
+            "Status: 0.23.0 released on 2026-09-24.\n"
             "## Phase 0 — Truth Foundation and Bug Burn-down\n"
             "## Phase A — Canonical ChangeProof\n",
         )
         self.write(
             "docs/engineering/v0.23-phase-0-spec.md",
-            "Status: release-candidate; Phase 0 closed except 0C.\n"
+            "Status: released; Phase 0 is closed.\n"
             "Progress source: release evidence ledger\n"
             "Statuses: `open`, `in-progress`, `verified`, and `accepted`.\n"
             "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;\n"
             "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;\n"
-            "### 0C — Recoverable Publication\n\nStatus: release-candidate;\n"
+            "### 0C — Recoverable Publication\n\nStatus: verified;\n"
             "### 0D — Documentation and Current UX Truth\n\nStatus: verified;\n",
         )
         self.write(
             "docs/engineering/v0.23-evidence-ledger.md",
-            "Status: release-candidate; RP23-001 closes after publication.\n"
+            "Status: released; v0.23.0 verified on every channel.\n"
             "## Tracked Items\n"
             "Each closure criterion remains explicit.\n",
         )
