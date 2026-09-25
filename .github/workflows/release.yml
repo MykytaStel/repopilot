@@ -217,6 +217,9 @@ jobs:
             dist/*.sha256
           body_path: dist/release-notes.md
           generate_release_notes: false
+          # Release candidates (vX.Y.Z-rc.N) are prereleases and never "latest".
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}
 
   publish-crates:
     name: Publish to crates.io
@@ -299,6 +302,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - release
+    # The tap serves stable releases only; release candidates skip it.
+    if: ${{ !contains(github.ref_name, '-') }}
     env:
       HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
     steps:
