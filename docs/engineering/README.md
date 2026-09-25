@@ -25,6 +25,7 @@ documentation](../README.md) instead.
 ## Generated evidence and quality measurements
 
 - [Rule scorecard](rule-scorecard.md)
+- [risk-v4 calibration](risk-v4-calibration.md)
 - [Review contract evidence](review-contract-evidence.md)
 - [Language surface inventory](language-surface-inventory.md)
 - [v0.23 report compatibility matrix](v0.23-compatibility-matrix.md)

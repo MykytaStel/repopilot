@@ -125,7 +125,9 @@ pub fn assess_finding(
         );
     }
 
-    RiskAssessment::new(clamp_score(score), signals)
+    let mut assessment = RiskAssessment::new(clamp_score(score), signals);
+    super::ceiling::apply_priority(&mut assessment, finding.severity);
+    assessment
 }
 
 fn is_broad_maintainability_heuristic(rule_id: &str) -> bool {

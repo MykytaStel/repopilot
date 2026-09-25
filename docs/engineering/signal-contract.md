@@ -84,7 +84,7 @@ Every rendered finding must have:
 - non-empty stable `id`, `rule_id`, title, description, and recommendation;
 - concrete evidence with a path and valid line range;
 - provenance with lifecycle, detector, source, and analysis scope;
-- explainable `risk-v3` signals;
+- explainable `risk-v4` signals;
 - documentation for high/critical findings.
 
 The pipeline validates this contract after enrichment and risk scoring:

@@ -133,17 +133,17 @@ export function App() {
         "framework.react-native.inline-style",
     );
 
-    assert_eq!(inline_style.risk.formula_version, "risk-v3");
+    assert_eq!(inline_style.risk.formula_version, "risk-v4");
     assert_ne!(inline_style.risk.priority, RiskPriority::P0);
 }
 
 #[test]
-fn risk_v3_calibration_fixture_matches_snapshot_expectations() {
+fn risk_v4_calibration_fixture_matches_snapshot_expectations() {
     let fixture: RiskCalibrationFixture =
-        serde_json::from_str(include_str!("fixtures/risk/risk-v3-calibration.json"))
+        serde_json::from_str(include_str!("fixtures/risk/risk-v4-calibration.json"))
             .expect("risk calibration fixture should parse");
 
-    assert_eq!(fixture.formula_version, "risk-v3");
+    assert_eq!(fixture.formula_version, "risk-v4");
 
     for case in fixture.cases {
         let finding = calibration_finding(&case);
@@ -164,6 +164,13 @@ fn risk_v3_calibration_fixture_matches_snapshot_expectations() {
             "unexpected priority for {} with signals {:?}",
             case.name, signal_ids
         );
+        if case.expected_priority == RiskPriority::P0 {
+            assert!(
+                !signal_ids.contains(&"severity.priority-ceiling"),
+                "{} must not be capped",
+                case.name
+            );
+        }
         for expected_signal in &case.expected_signals {
             assert!(
                 signal_ids.contains(&expected_signal.as_str()),
@@ -217,6 +224,8 @@ struct RiskCalibrationCase {
     blast_radius: bool,
     #[serde(default)]
     cluster_size: usize,
+    #[serde(default)]
+    new_finding: bool,
     graph_impact: Option<String>,
     expected_score: u8,
     expected_priority: RiskPriority,
@@ -229,6 +238,9 @@ impl RiskCalibrationCase {
             in_diff: self.in_diff,
             blast_radius: self.blast_radius,
             cluster_size: self.cluster_size,
+            baseline_status: self
+                .new_finding
+                .then_some(repopilot::baseline::diff::BaselineStatus::New),
             graph_impact: self.graph_impact.as_deref().map(|value| match value {
                 "hub" => GraphImpact::Hub,
                 "dependency" => GraphImpact::Dependency,
