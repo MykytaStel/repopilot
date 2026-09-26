@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Review proof groups verification obligations by role.** Console, Markdown,
+  HTML, and GitHub Action summaries show per-role counts with one next action;
+  JSON keeps each obligation's applicable path, state, and check IDs inside its
+  role group.
 - **Review coverage names its limits.** Evidence now carries stable reason codes,
   affected counts, and plain-language causes for excluded/unsupported files,
   verification gaps, and limited capabilities. Console, Markdown, HTML, JSON,

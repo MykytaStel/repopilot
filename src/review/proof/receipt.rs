@@ -101,6 +101,14 @@ fn canonicalize_proof(mut proof: ChangeProof) -> ChangeProof {
     sort_serialized(&mut proof.reasons);
     sort_serialized(&mut proof.contract_deltas);
     sort_serialized(&mut proof.capability_coverage);
+    for group in &mut proof.obligation_groups {
+        for obligation in &mut group.obligations {
+            obligation.check_ids.sort();
+            obligation.check_ids.dedup();
+        }
+        sort_serialized(&mut group.obligations);
+    }
+    sort_serialized(&mut proof.obligation_groups);
     canonicalize_intent(&mut proof.intent_drift);
     proof
 }

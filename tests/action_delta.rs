@@ -200,7 +200,24 @@ fn review_action_summary_projects_verification_proof_card() {
               "unavailable": 0,
               "unselected": 0,
               "stale": 0
-            }
+            },
+            "obligation_groups": [{
+              "role": "test",
+              "counts": {
+                "applicable": 1,
+                "satisfied": 1,
+                "failed": 0,
+                "unavailable": 0,
+                "unselected": 0,
+                "stale": 0
+              },
+              "obligations": [{
+                "path": "src/lib.rs",
+                "check_ids": ["unit"],
+                "status": "satisfied"
+              }],
+              "next_action": "No action needed; all test obligations are satisfied."
+            }]
           },
           "evidence": {
             "class": "suspicion",
@@ -271,5 +288,8 @@ fn review_action_summary_projects_verification_proof_card() {
     assert!(summary.contains(
         "**Verification proof:** 1 passed, 0 failed, 0 unavailable, 0 unselected, 0 stale (revision-compatible)"
     ));
+    assert!(summary.contains("**Verification obligations by role:**"));
+    assert!(summary.contains("test: 1 obligation(s) (1 satisfied"));
+    assert!(summary.contains("next action: No action needed; all test obligations are satisfied."));
     assert!(summary.contains("**Proof limits:** 1 excluded, 0 unsupported file(s)"));
 }

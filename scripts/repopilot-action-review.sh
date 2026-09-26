@@ -95,6 +95,15 @@ write_review_summary() {
           then "revision-compatible"
           else "revision-incompatible"
           end;
+      def obligation_group_summary($group):
+        "  - " + ($group.role // "unspecified")
+        + ": " + (($group.counts.applicable // 0) | tostring) + " obligation(s) ("
+        + (($group.counts.satisfied // 0) | tostring) + " satisfied, "
+        + (($group.counts.failed // 0) | tostring) + " failed, "
+        + (($group.counts.unavailable // 0) | tostring) + " unavailable, "
+        + (($group.counts.unselected // 0) | tostring) + " unselected, "
+        + (($group.counts.stale // 0) | tostring) + " stale); next action: "
+        + ($group.next_action // "Review this obligation group.");
       def evidence_coverage_complete($proof):
         (($proof.coverage.requested_files // 0) > 0)
         and (($proof.coverage.analyzed_files // 0) == ($proof.coverage.requested_files // 0))
@@ -180,6 +189,12 @@ write_review_summary() {
         else
           "- **Verification proof:** \($proof.obligations.satisfied // 0) passed, \($proof.obligations.failed // 0) failed, \($proof.obligations.unavailable // 0) unavailable, \($proof.obligations.unselected // 0) unselected, \($proof.obligations.stale // 0) stale (\(verification_revision))"
         end),
+        (if (($proof.obligation_groups // []) | length) > 0 then
+          "- **Verification obligations by role:**\n"
+          + ([$proof.obligation_groups[]
+             | obligation_group_summary(.)]
+             | join("\n"))
+        else empty end),
         (if (($proof.coverage.excluded_files // 0) > 0 or ($proof.coverage.unsupported_files // 0) > 0) then
           "- **Proof limits:** \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported file(s)"
         else empty end)

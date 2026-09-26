@@ -369,6 +369,117 @@ fn signal_role_requirement_is_satisfied_by_selected_matching_check() {
 }
 
 #[test]
+fn proof_groups_each_path_scoped_obligation_by_role_across_projections() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    let test_signal = access_control_signal();
+    let mut second_test_signal = access_control_signal();
+    second_test_signal.signal_id = "boundary:src/routes.rs:access-control".to_string();
+    second_test_signal.path = "src/routes.rs".to_string();
+    let mut type_signal = access_control_signal();
+    type_signal.signal_id = "behavioral:src/api.ts:removed-export".to_string();
+    type_signal.kind = "behavioral.removed-export-still-imported".to_string();
+    type_signal.family = SignalFamily::Behavioral;
+    type_signal.path = "src/api.ts".to_string();
+    report.tiered_signals.definitely = vec![test_signal, second_test_signal, type_signal];
+    report.verification_policy = VerificationPolicy {
+        configured: vec![
+            VerificationPolicyCheck {
+                id: "unit".to_string(),
+                role: VerificationRole::Test,
+                paths: Vec::new(),
+            },
+            VerificationPolicyCheck {
+                id: "types".to_string(),
+                role: VerificationRole::TypeCheck,
+                paths: Vec::new(),
+            },
+        ],
+        selected: vec!["unit".to_string(), "types".to_string()],
+    };
+    let mut type_outcome = outcome(VerificationStatus::Failed, true);
+    type_outcome.check_id = "types".to_string();
+    type_outcome.role = VerificationRole::TypeCheck;
+    report.verification = vec![outcome(VerificationStatus::Passed, true), type_outcome];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.obligations.applicable, 3);
+    assert_eq!(proof.obligations.satisfied, 2);
+    assert_eq!(proof.obligations.failed, 1);
+    assert_eq!(proof.obligation_groups.len(), 2);
+    assert_eq!(
+        proof.obligation_groups[0].role,
+        Some(VerificationRole::Test)
+    );
+    assert_eq!(proof.obligation_groups[0].counts.applicable, 2);
+    assert_eq!(proof.obligation_groups[0].counts.satisfied, 2);
+    assert_eq!(proof.obligation_groups[0].obligations.len(), 2);
+    assert_eq!(
+        proof.obligation_groups[0].obligations[0].path.as_deref(),
+        Some("src/lib.rs")
+    );
+    assert_eq!(
+        proof.obligation_groups[0].obligations[1].path.as_deref(),
+        Some("src/routes.rs")
+    );
+    assert_eq!(
+        proof.obligation_groups[0].obligations[0].check_ids,
+        ["unit"]
+    );
+    assert_eq!(
+        proof.obligation_groups[0].obligations[0].status,
+        super::proof::ProofObligationStatus::Satisfied
+    );
+    assert_eq!(
+        proof.obligation_groups[1].role,
+        Some(VerificationRole::TypeCheck)
+    );
+    assert_eq!(proof.obligation_groups[1].counts.failed, 1);
+    assert_eq!(
+        proof.obligation_groups[1].obligations[0].path.as_deref(),
+        Some("src/api.ts")
+    );
+    assert_eq!(
+        proof.obligation_groups[1].next_action,
+        "Fix the failed type-check checks first, then rerun the review."
+    );
+
+    let console = crate::review::render::render_console(&report, None);
+    let markdown = crate::review::render::render_markdown(&report, None);
+    let html = crate::review::render::render_review_html(&report, None, None);
+    assert!(console.contains("Verification obligations by role:"));
+    assert!(markdown.contains("Verification obligations by role:"));
+    assert!(html.contains("Verification obligations by role"));
+    assert!(console.contains("test: 2 obligation(s) (2 satisfied"));
+    assert!(markdown.contains("test: 2 obligation(s) (2 satisfied"));
+    assert!(html.contains("test: 2 obligation(s) (2 satisfied"));
+    assert!(console.contains("Fix the failed type-check checks first"));
+    assert!(markdown.contains("Fix the failed type-check checks first"));
+    assert!(html.contains("Fix the failed type-check checks first"));
+
+    let json: serde_json::Value = serde_json::from_str(
+        &crate::review::render::render_json(&report, None).expect("review JSON renders"),
+    )
+    .expect("review JSON parses");
+    let json_groups = &json["change_proof"]["obligation_groups"];
+    assert_eq!(json_groups.as_array().unwrap().len(), 2);
+    assert_eq!(json_groups[0]["obligations"].as_array().unwrap().len(), 2);
+    assert_eq!(json_groups[1]["obligations"][0]["path"], "src/api.ts");
+    assert_eq!(json_groups[1]["obligations"][0]["status"], "failed");
+    assert_eq!(json_groups[1]["obligations"][0]["check_ids"][0], "types");
+
+    let sarif: serde_json::Value = serde_json::from_str(
+        &crate::review::render::render_review_sarif(&report).expect("review SARIF renders"),
+    )
+    .expect("review SARIF parses");
+    assert_eq!(
+        sarif["runs"][0]["properties"]["changeProof"]["obligation_groups"][1]["obligations"][0]["path"],
+        "src/api.ts"
+    );
+}
+
+#[test]
 fn signal_role_requirement_is_unavailable_without_matching_capability() {
     let mut report = report(ScanMode::Changed, 1, 1);
     report

@@ -113,6 +113,21 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     let evidence = report["evidence"].clone();
     let decision = report["decision"].clone();
     assert!(proof.is_object(), "review publishes ChangeProof");
+    let obligation_groups = proof["obligation_groups"]
+        .as_array()
+        .expect("MCP publishes grouped verification obligations");
+    assert!(
+        obligation_groups.iter().any(|group| {
+            group["role"] == "type-check"
+                && group["obligations"].as_array().is_some_and(|obligations| {
+                    obligations.iter().any(|obligation| {
+                        obligation["path"] == "src/caller.ts"
+                            && obligation["status"] == "unavailable"
+                    })
+                })
+        }),
+        "MCP keeps the path-scoped type-check obligation: {obligation_groups:#?}"
+    );
     assert!(decision.is_object(), "review publishes decision");
     assert!(evidence.is_object(), "review publishes evidence contract");
     assert!(

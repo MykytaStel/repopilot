@@ -1,5 +1,6 @@
 use super::helpers::{
-    change_proof_policy_summary, legacy_readiness_summary, verification_proof_summary,
+    change_proof_policy_summary, legacy_readiness_summary, verification_obligation_group_summary,
+    verification_proof_summary,
 };
 use super::html_assets::{SCRIPT, STYLE};
 use crate::baseline::gate::CiGateResult;
@@ -148,7 +149,7 @@ fn render_proof_card(
     <dl class="metric"><dt>CI gate</dt><dd>{ci_gate}</dd></dl>
     <dl class="metric"><dt>Review gate</dt><dd>{review_gate}</dd></dl>
   </div>
-  {limits}{decision_limitations}{readiness_limits}
+  {limits}{obligation_groups}{decision_limitations}{readiness_limits}
 </section>"#,
         verdict = decision.verdict.label(),
         proof_class = proof_class,
@@ -168,10 +169,31 @@ fn render_proof_card(
         ci_gate = escape(&ci_gate),
         review_gate = escape(&review_gate),
         next_action = escape(next_action),
+        obligation_groups = render_obligation_groups(proof),
         decision_ci = decision.gates.ci.label(),
         decision_review = decision.gates.review.label(),
         decision_limitations = decision_limitations,
         reasons = reasons,
+    )
+}
+
+fn render_obligation_groups(proof: &ChangeProof) -> String {
+    if proof.obligation_groups.is_empty() {
+        return String::new();
+    }
+    let groups = proof
+        .obligation_groups
+        .iter()
+        .map(|group| {
+            format!(
+                "<li>{}</li>",
+                escape(&verification_obligation_group_summary(group))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        "<div class=\"verification-groups\"><h3>Verification obligations by role</h3><ul>{groups}</ul></div>"
     )
 }
 
