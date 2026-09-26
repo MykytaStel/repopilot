@@ -161,7 +161,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains("Proof scope: 1/1 file(s) analyzed"));
     assert!(console.contains("Evidence class: SUSPICION"));
     assert!(console.contains(
-        "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+        "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (limited: Verification checks are not configured.)"
     ));
     assert!(console.contains(&format!(
         "Evidence provenance: RepoPilot {}, schema 0.26",
@@ -185,7 +185,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(markdown.contains("**Proof scope:** 1/1 file(s) analyzed"));
     assert!(markdown.contains("**Evidence class:** `SUSPICION`"));
     assert!(markdown.contains(
-        "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (complete)"
+        "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (limited: Verification checks are not configured.)"
     ));
     assert!(markdown.contains(&format!(
         "**Evidence provenance:** RepoPilot {}, schema 0.26",
@@ -213,7 +213,7 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     assert!(console.contains("Change Proof: NOT ASSESSED"));
     assert!(console.contains("Evidence class: UNKNOWN"));
     assert!(console.contains(
-        "Evidence scope: changed; 0/0 file(s) analyzed; 0 excluded, 0 unsupported (unavailable)"
+        "Evidence scope: changed; 0/0 file(s) analyzed; 0 excluded, 0 unsupported (unavailable: No files were in the requested scope.)"
     ));
     assert!(console.contains("Why: No changed files were available for assessment."));
     assert!(console.contains(

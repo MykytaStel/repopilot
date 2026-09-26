@@ -123,9 +123,13 @@ write_review_summary() {
         elif $evidence.class == "unknown" then "UNKNOWN"
         else evidence_class($proof)
         end;
+      def coverage_limit_suffix($evidence):
+        [$evidence.coverage_limits[]?.message // empty]
+        | map(select(length > 0))
+        | if length == 0 then "" else ": " + join("; ") end;
       def evidence_scope_line($proof; $evidence):
         if ($evidence.scope | type) == "object" then
-          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported\(if ($evidence.scope.policy_skipped_files // 0) > 0 then ", \($evidence.scope.policy_skipped_files) test/fixture/generated skipped by policy" else "" end) (\($evidence.coverage_status // "unavailable"))"
+          "\($evidence.scope.scope // "changed"); \($evidence.scope.analyzed_files // 0)/\($evidence.scope.requested_files // 0) file(s) analyzed; \($evidence.scope.excluded_files // 0) excluded, \($evidence.scope.unsupported_files // 0) unsupported\(if ($evidence.scope.policy_skipped_files // 0) > 0 then ", \($evidence.scope.policy_skipped_files) test/fixture/generated skipped by policy" else "" end) (\($evidence.coverage_status // "unavailable")\(coverage_limit_suffix($evidence)))"
         else
           "\($proof.coverage.scope // "changed"); \($proof.coverage.analyzed_files // 0)/\($proof.coverage.requested_files // 0) file(s) analyzed; \($proof.coverage.excluded_files // 0) excluded, \($proof.coverage.unsupported_files // 0) unsupported (\(if evidence_coverage_complete($proof) then "complete" elif ($proof.coverage.analyzed_files // 0) == 0 then "unavailable" else "limited" end))"
         end;

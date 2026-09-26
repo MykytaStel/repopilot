@@ -1,4 +1,4 @@
-use super::{ChangeProof, ChangeProofVerdict, ProofCapabilityStatus, ProofCoverage, ProofScope};
+use super::{ChangeProof, ProofCoverage, ProofScope};
 use crate::report::schema::{REPOPILOT_VERSION, SCAN_REPORT_SCHEMA_VERSION};
 use crate::review::model::ReviewReport;
 use crate::scan::types::ScanMode;
@@ -6,8 +6,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+#[path = "evidence/coverage.rs"]
+mod coverage;
 #[path = "evidence_inputs.rs"]
 mod inputs;
+pub use coverage::EvidenceCoverageLimit;
+use coverage::coverage_limits;
+pub(crate) use coverage::{classify, coverage_status};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -71,6 +76,8 @@ pub struct EvidenceSummary {
     pub class: EvidenceClass,
     pub coverage_status: EvidenceCoverageStatus,
     pub scope: ProofCoverage,
+    #[serde(default)]
+    pub coverage_limits: Vec<EvidenceCoverageLimit>,
     pub provenance: EvidenceProvenance,
 }
 
@@ -80,17 +87,20 @@ impl EvidenceSummary {
         let profile = report.summary.visibility_profile.clone();
         let selected_checks = sorted_unique(report.verification_policy.selected.clone());
         let unavailable_inputs = inputs::unavailable_inputs(report);
+        let coverage_limits = coverage_limits(report, proof);
         let canonical_projection_hash = projection_hash(
             report,
             proof,
             base_ref.clone(),
             profile.clone(),
             selected_checks.clone(),
+            coverage_limits.clone(),
         );
         Self {
             class: classify(proof),
             coverage_status: coverage_status(proof),
             scope: proof.coverage.clone(),
+            coverage_limits,
             provenance: EvidenceProvenance {
                 analyzer_version: REPOPILOT_VERSION.to_string(),
                 report_schema: SCAN_REPORT_SCHEMA_VERSION.to_string(),
@@ -110,15 +120,27 @@ impl EvidenceSummary {
             0 => String::new(),
             count => format!(", {count} test/fixture/generated skipped by policy"),
         };
+        let status = if self.coverage_limits.is_empty() {
+            self.coverage_status.label().to_string()
+        } else {
+            format!(
+                "{}: {}",
+                self.coverage_status.label(),
+                self.coverage_limits
+                    .iter()
+                    .map(|limit| limit.message.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            )
+        };
         format!(
-            "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported{} ({})",
+            "{}; {}/{} file(s) analyzed; {} excluded, {} unsupported{} ({status})",
             scope_label(self.scope.scope),
             self.scope.analyzed_files,
             self.scope.requested_files,
             self.scope.excluded_files,
             self.scope.unsupported_files,
             policy_skipped,
-            self.coverage_status.label(),
         )
     }
 
@@ -143,55 +165,6 @@ impl EvidenceSummary {
     }
 }
 
-pub(crate) fn classify(proof: &ChangeProof) -> EvidenceClass {
-    match coverage_status(proof) {
-        EvidenceCoverageStatus::Unavailable => EvidenceClass::Unknown,
-        EvidenceCoverageStatus::Limited => {
-            if proof.coverage.analyzed_files > 0 {
-                EvidenceClass::Suspicion
-            } else {
-                EvidenceClass::Unknown
-            }
-        }
-        EvidenceCoverageStatus::Complete => match proof.verdict {
-            ChangeProofVerdict::Broken | ChangeProofVerdict::Verified => {
-                EvidenceClass::SupportedProof
-            }
-            ChangeProofVerdict::Review => EvidenceClass::Suspicion,
-            ChangeProofVerdict::NotAssessed => EvidenceClass::Unknown,
-        },
-    }
-}
-
-pub(crate) fn coverage_status(proof: &ChangeProof) -> EvidenceCoverageStatus {
-    if proof.coverage.analyzed_files == 0 {
-        return EvidenceCoverageStatus::Unavailable;
-    }
-    let capability_gap = proof.capability_coverage.iter().any(|capability| {
-        capability.count > 0
-            && matches!(
-                capability.status,
-                ProofCapabilityStatus::Limited | ProofCapabilityStatus::Unavailable
-            )
-    });
-    let accounted_files = proof
-        .coverage
-        .analyzed_files
-        .saturating_add(proof.coverage.excluded_files)
-        .saturating_add(proof.coverage.unsupported_files)
-        .saturating_add(proof.coverage.policy_skipped_files);
-    if proof.coverage.excluded_files > 0
-        || proof.coverage.unsupported_files > 0
-        || accounted_files != proof.coverage.requested_files
-        || !proof.obligations.accounted_for()
-        || capability_gap
-    {
-        EvidenceCoverageStatus::Limited
-    } else {
-        EvidenceCoverageStatus::Complete
-    }
-}
-
 pub(crate) fn canonical_json_hash<T: Serialize>(value: &T) -> String {
     let value = serde_json::to_value(value).unwrap_or(Value::Null);
     let mut canonical = String::new();
@@ -210,6 +183,7 @@ fn projection_hash(
     base_ref: Option<String>,
     profile: Option<String>,
     selected_checks: Vec<String>,
+    coverage_limits: Vec<EvidenceCoverageLimit>,
 ) -> String {
     let changed_paths = sorted_unique(
         report
@@ -226,6 +200,7 @@ fn projection_hash(
         profile,
         coverage: proof.coverage.clone(),
         selected_checks,
+        coverage_limits,
         changed_paths,
         proof: serde_json::to_value(proof).unwrap_or(Value::Null),
     })
@@ -240,6 +215,7 @@ struct EvidenceFingerprint {
     profile: Option<String>,
     coverage: ProofCoverage,
     selected_checks: Vec<String>,
+    coverage_limits: Vec<EvidenceCoverageLimit>,
     changed_paths: Vec<String>,
     proof: Value,
 }

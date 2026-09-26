@@ -2,11 +2,11 @@ use repopilot::config::model::{CriticalPathRule, RepoPilotConfig};
 use repopilot::review::intent::{IntentContract, IntentStatus};
 use repopilot::review::model::ReviewReport;
 use repopilot::review::proof::{
-    ChangeProofReasonCode, ChangeProofVerdict, derive_change_proof_from_review,
+    ChangeProofReasonCode, ChangeProofVerdict, EvidenceSummary, derive_change_proof_from_review,
 };
 use repopilot::review::{ReadinessVerdict, build_review_report, derive_readiness};
 use repopilot::scan::config::ScanConfig;
-use repopilot::scan::scanner::scan_changed_with_config;
+use repopilot::scan::scanner::{scan_changed_with_config, scan_path_with_config};
 use repopilot::verification::{VerificationOutcome, VerificationRole, VerificationStatus};
 use std::fs;
 use std::path::Path;
@@ -67,6 +67,56 @@ fn partial_scope_is_review_with_explicit_coverage_limits() {
     }));
     let console = repopilot::review::render::render_console(&report, None);
     assert!(console.contains("Proof limits: 1 excluded, 0 unsupported file(s)"));
+}
+
+#[test]
+fn full_review_counts_repopilotignore_files_in_the_requested_scope() {
+    let temp = prepared_repo();
+    fs::write(temp.path().join(".repopilotignore"), "ignored.rs\n").unwrap();
+    fs::write(temp.path().join("ignored.rs"), "fn ignored() {}\n").unwrap();
+
+    let summary = scan_path_with_config(temp.path(), &ScanConfig::default()).unwrap();
+    let expected_requested =
+        summary.metrics.files_discovered + summary.metrics.files_skipped_repopilotignore;
+    let report = build_review_report(
+        summary,
+        temp.path(),
+        None,
+        None,
+        None,
+        &RepoPilotConfig::default(),
+    )
+    .unwrap();
+    let readiness = derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+    let evidence = EvidenceSummary::from_review(&report, &proof);
+
+    assert_eq!(expected_requested, 3);
+    assert_eq!(proof.coverage.requested_files, expected_requested);
+    assert_eq!(proof.coverage.excluded_files, 1);
+    assert_eq!(
+        proof.coverage.analyzed_files
+            + proof.coverage.excluded_files
+            + proof.coverage.unsupported_files
+            + proof.coverage.policy_skipped_files,
+        proof.coverage.requested_files
+    );
+    assert!(evidence.coverage_limits.iter().any(|limit| {
+        limit.code == "files-repopilotignore"
+            && limit.count == 1
+            && limit.message == "1 file was excluded by .repopilotignore."
+    }));
+    assert!(
+        !evidence
+            .coverage_limits
+            .iter()
+            .any(|limit| limit.code == "unaccounted-files")
+    );
+    assert!(
+        evidence
+            .scope_line()
+            .contains("full; 2/3 file(s) analyzed; 1 excluded, 0 unsupported")
+    );
 }
 
 #[test]

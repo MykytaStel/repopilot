@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Review coverage names its limits.** Evidence now carries stable reason codes,
+  affected counts, and plain-language causes for excluded/unsupported files,
+  verification gaps, and limited capabilities. Console, Markdown, HTML, JSON,
+  SARIF, MCP, and GitHub Action summaries reuse the same scope explanation;
+  full-scope denominators include files excluded by `.repopilotignore`, and older
+  evidence payloads still decode without the additive field.
 - **Risk formula `risk-v4`: severity caps priority.** Context signals (new
   finding, in the review diff, import hub, blast radius, clusters) still raise the
   score and ordering, but a finding's priority can no longer exceed its
