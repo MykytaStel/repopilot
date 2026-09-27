@@ -15,7 +15,9 @@ use crate::scan::cache::{config_fingerprint, relative_cache_path};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::parsed_cache::ParsedFactsCache;
 use crate::scan::types::cache_diagnostic;
-use repo_context_facts::{absolutize_scan_fact_paths, apply_changed_context_facts};
+use repo_context_facts::{
+    absolutize_scan_fact_paths, apply_changed_context_facts, has_unpatched_modified_file,
+};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -37,6 +39,16 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
+            if has_unpatched_modified_file(repo_root, &discovery.changed_files, graph_patch_files) {
+                return self.cold_repo_context(
+                    discovery,
+                    facts,
+                    graph_patch_files,
+                    parsed_cache,
+                    start,
+                    fingerprint,
+                );
+            }
             return Ok(self.cached_repo_context(
                 discovery,
                 facts,

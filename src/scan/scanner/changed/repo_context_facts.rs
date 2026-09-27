@@ -45,6 +45,18 @@ pub(super) fn apply_changed_context_facts(
     );
 }
 
+pub(super) fn has_unpatched_modified_file(
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+    patch_files: &[FileFacts],
+) -> bool {
+    let patched_paths = patch_file_paths(repo_root, patch_files);
+    changed_files.iter().any(|file| {
+        file.status == ChangeStatus::Modified
+            && !patched_paths.contains(&repository_relative_path(repo_root, &file.path))
+    })
+}
+
 fn changed_paths(repo_root: &Path, changed_files: &[ChangedFile]) -> HashSet<PathBuf> {
     changed_files
         .iter()

@@ -61,6 +61,78 @@ fn changed_context_graph_is_stable_between_cold_and_cached_scans() {
     assert_eq!(cold_hubs.len(), 1);
 }
 
+#[test]
+fn oversized_modified_file_is_removed_from_cold_and_cached_context_graphs() {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    write(root, "src/lib.rs", "pub mod target;\n");
+    write(root, "src/target.rs", "pub fn target() {}\n");
+    write(
+        root,
+        "src/large.rs",
+        "use crate::target;\npub fn before() {}\n",
+    );
+    let changed = vec![ChangedFile {
+        path: "src/large.rs".into(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let config = ScanConfig {
+        max_file_bytes: 64,
+        ..ScanConfig::default()
+    };
+
+    scan_resolved_changed_with_config(
+        root,
+        &config,
+        root.to_path_buf(),
+        changed.clone(),
+        Some("HEAD"),
+    )
+    .expect("seed repository context cache");
+    write(root, "src/large.rs", &format!("{}\n", "x".repeat(128)));
+
+    let cached = scan_resolved_changed_with_config(
+        root,
+        &config,
+        root.to_path_buf(),
+        changed.clone(),
+        Some("HEAD"),
+    )
+    .expect("cached scan after file exceeds size limit");
+    fs::remove_file(crate::graph::context::context_graph_cache_path(root))
+        .expect("clear context cache to force cold scan");
+    let cold =
+        scan_resolved_changed_with_config(root, &config, root.to_path_buf(), changed, Some("HEAD"))
+            .expect("cold scan after file exceeds size limit");
+
+    let cached_graph = cached
+        .artifacts
+        .coupling_graph
+        .as_ref()
+        .expect("cached context graph");
+    let cold_graph = cold
+        .artifacts
+        .coupling_graph
+        .as_ref()
+        .expect("cold context graph");
+    assert_eq!(
+        cold_graph,
+        cached_graph,
+        "cold cache={:?}, cached cache={:?}, cached nodes={:?}",
+        cold.artifacts.context_graph_cache,
+        cached.artifacts.context_graph_cache,
+        cached_graph.nodes,
+    );
+    assert!(
+        !cached_graph
+            .edges
+            .get(Path::new("src/large.rs"))
+            .is_some_and(|targets| targets.contains(Path::new("src/target.rs")))
+    );
+}
+
 fn changed_file_hub_findings(
     summary: &crate::scan::types::ScanSummary,
 ) -> Vec<crate::findings::types::Finding> {

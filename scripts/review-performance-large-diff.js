@@ -8,6 +8,13 @@ const workload = {
   iterations: 5,
   budgetMs: 2_100,
 };
+const volatileReportFields = new Set([
+  "cache_telemetry",
+  "context_graph_cache",
+  "review_timings",
+  "scan_duration_us",
+  "scan_timings",
+]);
 
 function stableJson(value) {
   if (Array.isArray(value)) return value.map(stableJson);
@@ -16,6 +23,18 @@ function stableJson(value) {
       Object.keys(value)
         .sort()
         .map((key) => [key, stableJson(value[key])]),
+    );
+  }
+  return value;
+}
+
+function semanticReport(value) {
+  if (Array.isArray(value)) return value.map(semanticReport);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !volatileReportFields.has(key))
+        .map(([key, child]) => [key, semanticReport(child)]),
     );
   }
   return value;
@@ -90,15 +109,7 @@ function validateReport(output, expectedPaths, elapsedMs) {
 }
 
 function semanticResult(report, elapsedMs, reviewSignalsUs) {
-  const semantic = stableJson({
-    change_proof: report.change_proof,
-    changed_files: report.changed_files,
-    decision: report.decision,
-    findings: report.findings,
-    files_analyzed: report.files_analyzed,
-    boundary_signals: report.boundary_signals,
-    tiered_signals: report.tiered_signals,
-  });
+  const semantic = stableJson(semanticReport(report));
   return { elapsedMs, reviewSignalsUs, semantic, signature: JSON.stringify(semantic) };
 }
 
@@ -198,4 +209,4 @@ function createLargeDiffBenchmark({ binary, repository, root, results, runAt }) 
   };
 }
 
-module.exports = { createLargeDiffBenchmark };
+module.exports = { createLargeDiffBenchmark, semanticReport };

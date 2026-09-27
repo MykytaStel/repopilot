@@ -101,18 +101,22 @@ fn read_batch_entry(
     }
 
     let mut fields = std::str::from_utf8(&header).ok()?.split_ascii_whitespace();
-    fields.next()?;
+    let object_id = fields.next()?;
+    if !matches!(object_id.len(), 40 | 64)
+        || !object_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
     let object_type = fields.next()?;
+    if object_type != "blob" {
+        return None;
+    }
     let size = fields.next()?.parse::<usize>().ok()?;
     if fields.next().is_some() {
         return None;
     }
     let content = read_batch_content(reader, size)?;
-    if object_type == "blob" {
-        Some(Some(String::from_utf8_lossy(&content).into_owned()))
-    } else {
-        Some(None)
-    }
+    Some(Some(String::from_utf8_lossy(&content).into_owned()))
 }
 
 fn read_batch_content(reader: &mut impl BufRead, size: usize) -> Option<Vec<u8>> {
@@ -126,7 +130,7 @@ fn read_batch_content(reader: &mut impl BufRead, size: usize) -> Option<Vec<u8>>
     }
     let mut separator = [0; 1];
     reader.read_exact(&mut separator).ok()?;
-    (separator == [b'\n']).then_some(content)
+    (separator == *b"\n").then_some(content)
 }
 
 #[cfg(test)]
@@ -149,6 +153,61 @@ mod tests {
             "git {args:?}: {}",
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[test]
+    fn malformed_object_id_rejects_the_batch_for_fallback() {
+        let result = parse_batch_output(
+            std::io::Cursor::new(b"not-a-hash blob 3\nabc\n"),
+            "HEAD",
+            &["src/file.rs".to_string()],
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn non_blob_object_rejects_the_batch_for_fallback() {
+        let hash = "a".repeat(40);
+        let response = format!("{hash} commit 3\nabc\n");
+        let result = parse_batch_output(
+            std::io::Cursor::new(response),
+            "HEAD",
+            &["submodule".to_string()],
+        );
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn malformed_batch_content_rejects_truncation_separator_and_trailing_bytes() {
+        let hash = "a".repeat(40);
+        let responses = [
+            format!("{hash} blob 4\nabc\n"),
+            format!("{hash} blob 3\nabcx"),
+            format!("{hash} blob 3\nabc\ntrailing"),
+        ];
+        for response in responses {
+            let result = parse_batch_output(
+                std::io::Cursor::new(&response),
+                "HEAD",
+                &["src/file.rs".to_string()],
+            );
+            assert!(
+                result.is_none(),
+                "malformed response accepted: {response:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parser_accepts_sha256_object_ids() {
+        let hash = "a".repeat(64);
+        let response = format!("{hash} blob 3\nabc\n");
+        let result = parse_batch_output(
+            std::io::Cursor::new(response),
+            "HEAD",
+            &["src/file.rs".to_string()],
+        );
+        assert_eq!(result, Some(vec![Some("abc".to_string())]));
     }
 
     #[test]
