@@ -76,50 +76,57 @@ fn parse_batch_output(
     paths: &[String],
 ) -> Option<Vec<Option<String>>> {
     let mut results = Vec::with_capacity(paths.len());
-    let mut header = Vec::new();
-
     for path in paths {
-        header.clear();
-        if reader.read_until(b'\n', &mut header).ok()? == 0 || header.pop() != Some(b'\n') {
-            return None;
-        }
-        let query = format!("{reference}:{path}");
-        if let Some(missing) = header.strip_suffix(b" missing")
-            && missing == query.as_bytes()
-        {
-            results.push(None);
-            continue;
-        }
-
-        let mut fields = std::str::from_utf8(&header).ok()?.split_ascii_whitespace();
-        fields.next()?;
-        let object_type = fields.next()?;
-        let size = fields.next()?.parse::<usize>().ok()?;
-        if fields.next().is_some() {
-            return None;
-        }
-        let mut content = Vec::with_capacity(size);
-        let bytes_read = (&mut reader)
-            .take(u64::try_from(size).ok()?)
-            .read_to_end(&mut content)
-            .ok()?;
-        if bytes_read != size {
-            return None;
-        }
-        let mut separator = [0; 1];
-        reader.read_exact(&mut separator).ok()?;
-        if separator != [b'\n'] {
-            return None;
-        }
-        if object_type == "blob" {
-            results.push(Some(String::from_utf8_lossy(&content).into_owned()));
-        } else {
-            results.push(None);
-        }
+        results.push(read_batch_entry(&mut reader, reference, path)?);
     }
 
     let mut trailing = [0; 1];
     (reader.read(&mut trailing).ok()? == 0).then_some(results)
+}
+
+fn read_batch_entry(
+    reader: &mut impl BufRead,
+    reference: &str,
+    path: &str,
+) -> Option<Option<String>> {
+    let mut header = Vec::new();
+    if reader.read_until(b'\n', &mut header).ok()? == 0 || header.pop() != Some(b'\n') {
+        return None;
+    }
+    let query = format!("{reference}:{path}");
+    if let Some(missing) = header.strip_suffix(b" missing")
+        && missing == query.as_bytes()
+    {
+        return Some(None);
+    }
+
+    let mut fields = std::str::from_utf8(&header).ok()?.split_ascii_whitespace();
+    fields.next()?;
+    let object_type = fields.next()?;
+    let size = fields.next()?.parse::<usize>().ok()?;
+    if fields.next().is_some() {
+        return None;
+    }
+    let content = read_batch_content(reader, size)?;
+    if object_type == "blob" {
+        Some(Some(String::from_utf8_lossy(&content).into_owned()))
+    } else {
+        Some(None)
+    }
+}
+
+fn read_batch_content(reader: &mut impl BufRead, size: usize) -> Option<Vec<u8>> {
+    let mut content = Vec::with_capacity(size);
+    let bytes_read = reader
+        .take(u64::try_from(size).ok()?)
+        .read_to_end(&mut content)
+        .ok()?;
+    if bytes_read != size {
+        return None;
+    }
+    let mut separator = [0; 1];
+    reader.read_exact(&mut separator).ok()?;
+    (separator == [b'\n']).then_some(content)
 }
 
 #[cfg(test)]
