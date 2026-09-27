@@ -6,8 +6,8 @@ use crate::frameworks::{
     detect_react_native_architecture,
 };
 use crate::graph::context::{
-    RepositoryContextState, context_graph_cache_miss, load_repository_context_state,
-    write_repository_context_state,
+    RepositoryContextState, RepositoryContextStateLoad, context_graph_cache_miss,
+    load_repository_context_state, write_repository_context_state,
 };
 use crate::graph::{CouplingGraph, build_coupling_graph};
 use crate::risk::{apply_cluster_overlay, apply_graph_overlay, assess_findings};
@@ -33,92 +33,89 @@ impl<'a> ChangedScanEngine<'a> {
         parsed_cache: &mut ParsedFactsCache,
     ) -> io::Result<ChangedRepoContextStage> {
         let start = Instant::now();
-        let mut diagnostics = Vec::new();
         let repo_root = &discovery.repo_root;
         let fingerprint = config_fingerprint(self.config);
 
-        if let Some(mut load) = load_repository_context_state(repo_root, &fingerprint) {
-            load.state.apply_changed_facts_with_spans(
-                repo_root,
-                &discovery.changed_files,
+        if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
+            return Ok(self.cached_repo_context(
+                discovery,
+                facts,
                 graph_patch_files,
-                &facts.import_spans_by_file,
-                &facts.parsed_content_hashes,
-                &facts.guarded_optional_imports_by_file,
-            );
-            if let Err(error) = write_repository_context_state(repo_root, &fingerprint, &load.state)
-            {
-                diagnostics.push(cache_diagnostic(&error));
-            }
-
-            let mut repo_context = load.state.to_scan_facts();
-            absolutize_scan_fact_paths(&mut repo_context, repo_root);
-            let coupling_graph = load.state.coupling_graph();
-
-            facts.detected_frameworks = repo_context.detected_frameworks.clone();
-            facts.framework_projects = repo_context.framework_projects.clone();
-            facts.react_native = repo_context.react_native.clone();
-
-            return Ok(ChangedRepoContextStage {
-                repo_context,
-                coupling_graph,
-                context_state: load.state,
-                cache_info: load.cache_info,
-                diagnostics,
-                elapsed_us: start.elapsed().as_micros() as u64,
-            });
+                &fingerprint,
+                start,
+                load,
+            ));
         }
 
+        self.cold_repo_context(
+            discovery,
+            facts,
+            graph_patch_files,
+            parsed_cache,
+            start,
+            fingerprint,
+        )
+    }
+
+    fn cached_repo_context(
+        &self,
+        discovery: &ChangedDiscoveryStage,
+        facts: &mut ScanFacts,
+        graph_patch_files: &[FileFacts],
+        fingerprint: &str,
+        start: Instant,
+        mut load: RepositoryContextStateLoad,
+    ) -> ChangedRepoContextStage {
+        let repo_root = &discovery.repo_root;
+        load.state.apply_changed_facts_with_spans(
+            repo_root,
+            &discovery.changed_files,
+            graph_patch_files,
+            &facts.import_spans_by_file,
+            &facts.parsed_content_hashes,
+            &facts.guarded_optional_imports_by_file,
+        );
+        let diagnostics = write_repository_context_state(repo_root, fingerprint, &load.state)
+            .err()
+            .map(|error| vec![cache_diagnostic(&error)])
+            .unwrap_or_default();
+        cached_stage(load, repo_root, facts, diagnostics, start)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn cold_repo_context(
+        &self,
+        discovery: &ChangedDiscoveryStage,
+        facts: &mut ScanFacts,
+        graph_patch_files: &[FileFacts],
+        parsed_cache: &mut ParsedFactsCache,
+        start: Instant,
+        fingerprint: String,
+    ) -> io::Result<ChangedRepoContextStage> {
+        let repo_root = &discovery.repo_root;
         let mut repo_context = collection::collect_scan_facts_without_content_with_parsed_cache(
             repo_root,
             self.config,
             parsed_cache,
         )?;
         parsed_cache.retain_referenced_current_scan();
-
-        repo_context.detected_frameworks = detect_frameworks(repo_root);
-        repo_context.framework_projects = detect_framework_projects(repo_root);
-        repo_context.react_native = detect_react_native_profile(&repo_context);
+        detect_repo_frameworks(&mut repo_context, repo_root);
 
         let coupling_graph =
             relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
-        let mut context_state = RepositoryContextState::from_scan_facts(
-            &repo_context,
-            repo_root,
-            coupling_graph.clone(),
-        );
-        context_state.apply_changed_facts_with_spans(
-            repo_root,
-            &discovery.changed_files,
-            graph_patch_files,
-            &facts.import_spans_by_file,
-            &facts.parsed_content_hashes,
-            &facts.guarded_optional_imports_by_file,
-        );
+        let mut context_state =
+            RepositoryContextState::from_scan_facts(&repo_context, repo_root, coupling_graph);
+        apply_stage_changes(&mut context_state, discovery, facts, graph_patch_files);
         let coupling_graph = context_state.coupling_graph();
-        let mut cache_info =
-            context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
-        match write_repository_context_state(repo_root, &fingerprint, &context_state) {
-            Ok(_) => {
-                cache_info.reason.push_str("; cache-updated");
-            }
-            Err(error) => diagnostics.push(cache_diagnostic(&error)),
-        }
-
-        // Keep the full cold-scan facts for audits; the persisted state is summary-only.
-        apply_changed_context_facts(
+        let (cache_info, diagnostics) =
+            persist_cold_context(repo_root, &fingerprint, &context_state);
+        prepare_cold_audit_facts(
             &mut repo_context,
-            repo_root,
-            &discovery.changed_files,
+            discovery,
+            facts,
             graph_patch_files,
-            &facts.import_spans_by_file,
-            &facts.parsed_content_hashes,
-            &facts.guarded_optional_imports_by_file,
+            repo_root,
         );
-        absolutize_scan_fact_paths(&mut repo_context, repo_root);
-        facts.detected_frameworks = repo_context.detected_frameworks.clone();
-        facts.framework_projects = repo_context.framework_projects.clone();
-        facts.react_native = repo_context.react_native.clone();
 
         Ok(ChangedRepoContextStage {
             repo_context,
@@ -140,6 +137,94 @@ impl<'a> ChangedScanEngine<'a> {
         apply_graph_overlay(findings, &repo_stage.coupling_graph);
         apply_cluster_overlay(findings);
         start.elapsed().as_micros() as u64
+    }
+}
+
+fn detect_repo_frameworks(repo_context: &mut ScanFacts, repo_root: &Path) {
+    repo_context.detected_frameworks = detect_frameworks(repo_root);
+    repo_context.framework_projects = detect_framework_projects(repo_root);
+    repo_context.react_native = detect_react_native_profile(repo_context);
+}
+
+fn apply_stage_changes(
+    context_state: &mut RepositoryContextState,
+    discovery: &ChangedDiscoveryStage,
+    facts: &ScanFacts,
+    graph_patch_files: &[FileFacts],
+) {
+    context_state.apply_changed_facts_with_spans(
+        &discovery.repo_root,
+        &discovery.changed_files,
+        graph_patch_files,
+        &facts.import_spans_by_file,
+        &facts.parsed_content_hashes,
+        &facts.guarded_optional_imports_by_file,
+    );
+}
+
+fn persist_cold_context(
+    repo_root: &Path,
+    fingerprint: &str,
+    context_state: &RepositoryContextState,
+) -> (
+    crate::scan::types::ContextGraphCacheInfo,
+    Vec<crate::scan::types::ScanDiagnostic>,
+) {
+    let mut cache_info =
+        context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
+    let mut diagnostics = Vec::new();
+    match write_repository_context_state(repo_root, fingerprint, context_state) {
+        Ok(_) => cache_info.reason.push_str("; cache-updated"),
+        Err(error) => diagnostics.push(cache_diagnostic(&error)),
+    }
+    (cache_info, diagnostics)
+}
+
+fn prepare_cold_audit_facts(
+    repo_context: &mut ScanFacts,
+    discovery: &ChangedDiscoveryStage,
+    facts: &mut ScanFacts,
+    graph_patch_files: &[FileFacts],
+    repo_root: &Path,
+) {
+    // Keep the full cold-scan facts for audits; the persisted state is summary-only.
+    apply_changed_context_facts(
+        repo_context,
+        repo_root,
+        &discovery.changed_files,
+        graph_patch_files,
+        &facts.import_spans_by_file,
+        &facts.parsed_content_hashes,
+        &facts.guarded_optional_imports_by_file,
+    );
+    absolutize_scan_fact_paths(repo_context, repo_root);
+    copy_framework_facts(repo_context, facts);
+}
+
+fn copy_framework_facts(repo_context: &ScanFacts, facts: &mut ScanFacts) {
+    facts.detected_frameworks = repo_context.detected_frameworks.clone();
+    facts.framework_projects = repo_context.framework_projects.clone();
+    facts.react_native = repo_context.react_native.clone();
+}
+
+fn cached_stage(
+    load: RepositoryContextStateLoad,
+    repo_root: &Path,
+    facts: &mut ScanFacts,
+    diagnostics: Vec<crate::scan::types::ScanDiagnostic>,
+    start: Instant,
+) -> ChangedRepoContextStage {
+    let mut repo_context = load.state.to_scan_facts();
+    absolutize_scan_fact_paths(&mut repo_context, repo_root);
+    let coupling_graph = load.state.coupling_graph();
+    copy_framework_facts(&repo_context, facts);
+    ChangedRepoContextStage {
+        repo_context,
+        coupling_graph,
+        context_state: load.state,
+        cache_info: load.cache_info,
+        diagnostics,
+        elapsed_us: start.elapsed().as_micros() as u64,
     }
 }
 

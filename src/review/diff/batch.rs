@@ -26,6 +26,18 @@ pub(crate) fn git_show_many(
         return Some(results);
     }
 
+    let contents = read_batch(repo_root, reference, &batch_paths)?;
+    for ((index, _), content) in batch_paths.into_iter().zip(contents) {
+        results[index] = BatchedContent::Loaded(content);
+    }
+    Some(results)
+}
+
+fn read_batch(
+    repo_root: &Path,
+    reference: &str,
+    batch_paths: &[(usize, &String)],
+) -> Option<Vec<Option<String>>> {
     let input = batch_paths
         .iter()
         .map(|(_, path)| format!("{reference}:{path}\n"))
@@ -55,11 +67,7 @@ pub(crate) fn git_show_many(
     if !status.success() || write_result.is_err() {
         return None;
     }
-
-    for ((index, _), content) in batch_paths.into_iter().zip(parsed?) {
-        results[index] = BatchedContent::Loaded(content);
-    }
-    Some(results)
+    parsed
 }
 
 fn parse_batch_output(
