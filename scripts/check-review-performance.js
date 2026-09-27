@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { createLargeDiffBenchmark } = require("./review-performance-large-diff");
 
 const binary = path.resolve(
   process.argv[2] ||
@@ -15,12 +16,13 @@ const binary = path.resolve(
       process.platform === "win32" ? "repopilot.exe" : "repopilot",
     ),
 );
+const repository = path.resolve(__dirname, "..");
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-review-bench-"));
 const results = fs.mkdtempSync(path.join(os.tmpdir(), "repopilot-review-results-"));
 
-function run(command, args, options = {}) {
+function runAt(cwd, command, args, options = {}) {
   const result = spawnSync(command, args, {
-    cwd: root,
+    cwd,
     encoding: "utf8",
     ...options,
   });
@@ -29,7 +31,20 @@ function run(command, args, options = {}) {
       `${command} ${args.join(" ")} failed (${result.status}): ${result.stderr}`,
     );
   }
+  return result.stdout;
 }
+
+function run(command, args, options = {}) {
+  return runAt(root, command, args, options);
+}
+
+const largeDiffBenchmark = createLargeDiffBenchmark({
+  binary,
+  repository,
+  root,
+  results,
+  runAt,
+});
 
 function review(scope, output) {
   const started = process.hrtime.bigint();
@@ -109,6 +124,7 @@ try {
   );
   const reportFinalizationUs =
     changedReport.scan_timings?.report_finalization_us ?? Number.MAX_SAFE_INTEGER;
+  const largeDiffReport = largeDiffBenchmark.run();
   console.log(
     JSON.stringify(
       {
@@ -118,6 +134,7 @@ try {
         required_max_ratio: 0.6,
         report_finalization_us: reportFinalizationUs,
         report_finalization_budget_us: 100_000,
+        large_diff_review: largeDiffReport,
       },
       null,
       2,
@@ -133,7 +150,13 @@ try {
       `report finalization exceeded 100 ms (${reportFinalizationUs} us)`,
     );
   }
+  if (largeDiffReport.wall_median_ms > largeDiffReport.required_max_median_ms) {
+    throw new Error(
+      `123-file real-repository review exceeded ${largeDiffReport.required_max_median_ms} ms (${largeDiffReport.wall_median_ms} ms median)`,
+    );
+  }
 } finally {
+  largeDiffBenchmark.cleanup();
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(results, { recursive: true, force: true });
 }

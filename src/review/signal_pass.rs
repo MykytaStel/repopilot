@@ -15,19 +15,11 @@ use crate::config::model::SecurityBoundarySection;
 use crate::review::diff::{ChangedFile, DiffTarget};
 use crate::review::signals::api_contract::{self, ChangedReviewSources};
 use crate::review::signals::behavioral::{self, DependencyContext};
-use crate::review::signals::content::ReviewSource;
-use crate::review::signals::{
-    BoundaryCategory, BoundarySignal, algorithmic, classify, content, taint,
-};
+use crate::review::signals::{BoundarySignal, algorithmic, classify, taint};
 use crate::scan::types::CouplingGraph;
 use std::path::Path;
-
-struct LoadedReviewSources {
-    boundary_category: Option<BoundaryCategory>,
-    needs_ast_fallback: bool,
-    pre: Option<ReviewSource>,
-    post: Option<ReviewSource>,
-}
+mod source_loading;
+use source_loading::{LoadedReviewSources, load_review_sources};
 
 /// Runs the review detectors over `changed_files` in one pass, sharing each
 /// file's pre/post `ReviewSource` (and its memoized parse) across boundary's
@@ -92,39 +84,6 @@ pub(super) fn detect_review_signals(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn load_review_sources(
-    repo_root: &Path,
-    target: DiffTarget<'_>,
-    changed_files: &[ChangedFile],
-    boundary_enabled: bool,
-    any_content: bool,
-    custom: Option<&globset::GlobSet>,
-    toggles: &ContentToggles,
-) -> Vec<LoadedReviewSources> {
-    changed_files
-        .iter()
-        .map(|file| {
-            let is_test = crate::audits::context::classify::helpers::is_test_file(&file.path);
-            let boundary_category = (boundary_enabled && !is_test)
-                .then(|| classify::classify_boundary(&file.path_string(), custom))
-                .flatten();
-            let needs_ast_fallback = boundary_enabled && !is_test && boundary_category.is_none();
-            let post = (any_content || needs_ast_fallback)
-                .then(|| content::post_change_source(repo_root, file, target))
-                .flatten();
-            let pre = (toggles.behavioral || toggles.algorithmic)
-                .then(|| content::pre_change_source(repo_root, file, target))
-                .flatten();
-            LoadedReviewSources {
-                boundary_category,
-                needs_ast_fallback,
-                pre,
-                post,
-            }
-        })
-        .collect()
-}
-
 fn detect_file_signals(
     file: &ChangedFile,
     sources: &LoadedReviewSources,

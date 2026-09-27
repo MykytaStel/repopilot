@@ -15,10 +15,14 @@ use crate::scan::cache::{config_fingerprint, relative_cache_path};
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::parsed_cache::ParsedFactsCache;
 use crate::scan::types::cache_diagnostic;
+use repo_context_facts::{absolutize_scan_fact_paths, apply_changed_context_facts};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+
+#[path = "repo_context_facts.rs"]
+mod repo_context_facts;
 
 impl<'a> ChangedScanEngine<'a> {
     pub(super) fn run_repo_context(
@@ -47,7 +51,8 @@ impl<'a> ChangedScanEngine<'a> {
                 diagnostics.push(cache_diagnostic(&error));
             }
 
-            let repo_context = load.state.to_scan_facts();
+            let mut repo_context = load.state.to_scan_facts();
+            absolutize_scan_fact_paths(&mut repo_context, repo_root);
             let coupling_graph = load.state.coupling_graph();
 
             facts.detected_frameworks = repo_context.detected_frameworks.clone();
@@ -77,11 +82,20 @@ impl<'a> ChangedScanEngine<'a> {
 
         let coupling_graph =
             relative_coupling_graph(build_coupling_graph(&repo_context, repo_root), repo_root);
-        let context_state = RepositoryContextState::from_scan_facts(
+        let mut context_state = RepositoryContextState::from_scan_facts(
             &repo_context,
             repo_root,
             coupling_graph.clone(),
         );
+        context_state.apply_changed_facts_with_spans(
+            repo_root,
+            &discovery.changed_files,
+            graph_patch_files,
+            &facts.import_spans_by_file,
+            &facts.parsed_content_hashes,
+            &facts.guarded_optional_imports_by_file,
+        );
+        let coupling_graph = context_state.coupling_graph();
         let mut cache_info =
             context_graph_cache_miss(repo_root, "missing-or-invalid-context-graph-cache");
         match write_repository_context_state(repo_root, &fingerprint, &context_state) {
@@ -91,6 +105,17 @@ impl<'a> ChangedScanEngine<'a> {
             Err(error) => diagnostics.push(cache_diagnostic(&error)),
         }
 
+        // Keep the full cold-scan facts for audits; the persisted state is summary-only.
+        apply_changed_context_facts(
+            &mut repo_context,
+            repo_root,
+            &discovery.changed_files,
+            graph_patch_files,
+            &facts.import_spans_by_file,
+            &facts.parsed_content_hashes,
+            &facts.guarded_optional_imports_by_file,
+        );
+        absolutize_scan_fact_paths(&mut repo_context, repo_root);
         facts.detected_frameworks = repo_context.detected_frameworks.clone();
         facts.framework_projects = repo_context.framework_projects.clone();
         facts.react_native = repo_context.react_native.clone();
@@ -160,3 +185,7 @@ fn relative_coupling_graph(graph: CouplingGraph, repo_root: &Path) -> CouplingGr
             .collect(),
     }
 }
+
+#[cfg(test)]
+#[path = "repo_context_tests.rs"]
+mod tests;
