@@ -14,7 +14,7 @@ use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_fro
 use crate::review::readiness::MergeReadinessRecord;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_policy_summary, legacy_readiness_summary,
-    verification_proof_summary,
+    verification_obligation_group_summary, verification_proof_summary,
 };
 use std::fmt::Write;
 
@@ -92,6 +92,21 @@ fn render_proof_summary(
         "Proof policy: {}",
         change_proof_policy_summary(report)
     );
+    render_obligation_groups(output, proof);
+}
+
+fn render_obligation_groups(output: &mut String, proof: &ChangeProof) {
+    if proof.obligation_groups.is_empty() {
+        return;
+    }
+    output.push_str("Verification obligations by role:\n");
+    for group in &proof.obligation_groups {
+        let _ = writeln!(
+            output,
+            "  - {}",
+            verification_obligation_group_summary(group)
+        );
+    }
 }
 
 /// Compact output only mentions intent and ownership when they carry signal.

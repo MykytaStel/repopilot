@@ -2,9 +2,11 @@ use crate::baseline::diff::BaselineStatus;
 use crate::findings::types::Finding;
 use crate::review::diff::ChangedFile;
 use crate::review::model::ReviewReport;
-use crate::review::proof::{ChangeProof, ChangeProofVerdict, ProofObligations};
+use crate::review::proof::{
+    ChangeProof, ChangeProofVerdict, ProofObligationGroup, ProofObligations,
+};
 use crate::review::readiness::MergeReadinessRecord;
-use crate::verification::VerificationOutcome;
+use crate::verification::{VerificationOutcome, VerificationRole};
 
 pub(super) fn verification_duration_evidence(outcome: &VerificationOutcome) -> String {
     if outcome.reused {
@@ -57,6 +59,30 @@ pub(super) fn verification_proof_summary(
         obligations.unselected,
         obligations.stale,
     )
+}
+
+pub(super) fn verification_obligation_group_summary(group: &ProofObligationGroup) -> String {
+    let role = group.role.map_or("unspecified", verification_role_label);
+    let counts = group.counts;
+    format!(
+        "{role}: {} obligation(s) ({} satisfied, {} failed, {} unavailable, {} unselected, {} stale); next action: {}",
+        counts.applicable,
+        counts.satisfied,
+        counts.failed,
+        counts.unavailable,
+        counts.unselected,
+        counts.stale,
+        group.next_action,
+    )
+}
+
+fn verification_role_label(role: VerificationRole) -> &'static str {
+    match role {
+        VerificationRole::Test => "test",
+        VerificationRole::Build => "build",
+        VerificationRole::TypeCheck => "type-check",
+        VerificationRole::Lint => "lint",
+    }
 }
 
 pub(super) fn change_proof_headline(report: &ReviewReport, proof: &ChangeProof) -> &'static str {

@@ -371,6 +371,7 @@ fn review_and_proof(verdict: ChangeProofVerdict) -> (ReviewReport, ChangeProof) 
             unselected: 0,
             stale: 0,
         },
+        obligation_groups: Vec::new(),
         contract_deltas: Vec::new(),
         capability_coverage: Vec::new(),
         intent_drift: Default::default(),

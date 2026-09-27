@@ -8,6 +8,7 @@ use crate::scan::types::ScanMode;
 mod capabilities;
 mod contracts;
 mod evidence;
+mod groups;
 mod next_action;
 mod obligations;
 mod receipt;
@@ -23,6 +24,7 @@ pub use evidence::{
     EvidenceClass, EvidenceCoverageLimit, EvidenceCoverageStatus, EvidenceProvenance,
     EvidenceSummary,
 };
+pub use groups::{ProofObligation, ProofObligationGroup, ProofObligationStatus};
 pub(crate) use next_action::next_action_for;
 use obligations::derive_verification_obligations;
 pub use receipt::{
@@ -149,6 +151,8 @@ pub struct ChangeProof {
     pub reasons: Vec<ChangeProofReason>,
     pub coverage: ProofCoverage,
     pub obligations: ProofObligations,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub obligation_groups: Vec<ProofObligationGroup>,
     pub contract_deltas: Vec<ChangeProofContractDelta>,
     pub capability_coverage: Vec<ProofCapability>,
     pub intent_drift: IntentDrift,
@@ -213,6 +217,7 @@ pub fn derive_change_proof(input: ChangeProofInput) -> ChangeProof {
         reasons,
         coverage: input.coverage,
         obligations: input.obligations,
+        obligation_groups: Vec::new(),
         contract_deltas: Vec::new(),
         capability_coverage,
         intent_drift: IntentDrift::default(),
@@ -244,7 +249,7 @@ pub fn derive_change_proof_from_review(
                 || delta.confidence == Some(ContractConfidence::Limited)
         })
         .count();
-    let (obligations, sufficient_policy) =
+    let (obligations, sufficient_policy, obligation_groups) =
         derive_verification_obligations(report, &contract_deltas);
     let mut reasons = readiness
         .reasons
@@ -279,6 +284,7 @@ pub fn derive_change_proof_from_review(
             .count(),
         reasons,
     });
+    proof.obligation_groups = obligation_groups;
     proof.contract_deltas = contract_deltas;
     let mut actual_paths = report
         .changed_files

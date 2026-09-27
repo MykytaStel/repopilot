@@ -12,7 +12,7 @@ use crate::review::proof::{ChangeProof, EvidenceSummary, derive_change_proof_fro
 use crate::review::readiness::MergeReadinessRecord;
 use crate::review::render::helpers::{
     change_proof_headline, change_proof_policy_summary, legacy_readiness_summary,
-    verification_proof_summary,
+    verification_obligation_group_summary, verification_proof_summary,
 };
 use std::fmt::Write;
 
@@ -42,6 +42,7 @@ pub(super) fn render(
         "- **Verification proof:** {}",
         verification_proof_summary(report, proof.obligations)
     );
+    render_obligation_groups(output, &proof);
     let _ = writeln!(
         output,
         "- **Proof policy:** {}",
@@ -62,6 +63,20 @@ pub(super) fn render(
 
     output.push_str("\n### Proof details\n\n");
     render_details(output, report, &proof, &evidence, &readiness);
+}
+
+fn render_obligation_groups(output: &mut String, proof: &ChangeProof) {
+    if proof.obligation_groups.is_empty() {
+        return;
+    }
+    output.push_str("- **Verification obligations by role:**\n");
+    for group in &proof.obligation_groups {
+        let _ = writeln!(
+            output,
+            "  - {}",
+            verification_obligation_group_summary(group)
+        );
+    }
 }
 
 fn render_verdict(output: &mut String, decision: &ReviewDecision, proof: &ChangeProof) {
