@@ -10,7 +10,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - **Large-diff review reads both Git revisions in batches.** The pinned 123-file
   historical review now has a 2.1 s CI median budget; the local release median
-  fell from 4.46 s to 1.22 s (3.7× faster).
+  fell from 4.46 s to 1.31 s (3.4× faster).
 - **Review proof groups verification obligations by role.** Console, Markdown,
   HTML, and GitHub Action summaries show per-role counts with one next action;
   JSON keeps each obligation's applicable path, state, and check IDs inside its

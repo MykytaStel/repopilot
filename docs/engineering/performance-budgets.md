@@ -209,9 +209,9 @@ report and its requested-file coverage, and enforces a median wall-clock budget
 of 2,100 ms. CI fetches full Git history so both pinned commits are available.
 
 On the same local `darwin-arm64` host, the pre-change release binary measured
-4,461 ms median and the batched implementation measured 1,219.8 ms median
-(3.7× faster); its review-signal timing fell from 3,976 ms to 705.91 ms
-(5.6× faster). The
+4,461 ms median and the batched implementation measured 1,310.72 ms median
+(3.4× faster); its review-signal timing fell from 3,976 ms to 745.95 ms
+(5.3× faster). The
 earlier 9.4 s / 122-file observation remains the roadmap motivation; the pinned
 range and same-harness comparison provide the reproducible baseline for this
 gate.
