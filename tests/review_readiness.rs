@@ -169,7 +169,9 @@ fn human_reports_project_readiness_and_owners() {
     )));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
     assert!(console.contains("Reasons:"));
-    assert!(console.contains("Next action: Configure or select a proof policy"));
+    assert!(console.contains(
+        "Next action: Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
+    ));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
     assert!(console.contains("CI gate: not configured"));
@@ -193,7 +195,9 @@ fn human_reports_project_readiness_and_owners() {
     )));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
     assert!(markdown.contains("**Reasons:**"));
-    assert!(markdown.contains("**Next action:** Configure or select a proof policy"));
+    assert!(markdown.contains(
+        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
+    ));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));
     assert!(markdown.contains("**CI gate:** not configured"));

@@ -144,22 +144,38 @@ fn init_exports_reviewable_toml_without_applying_it_to_config() {
     )
     .expect("Cargo.toml");
     fs::create_dir_all(temp.path().join("src/auth")).expect("auth directory");
-    let output = run_init_with_args(temp.path(), &["--suggestions-output", "suggestions.toml"]);
+    let output = run_init_with_args(
+        temp.path(),
+        &["--suggestions-output", ".repopilot/init-suggestions.toml"],
+    );
 
-    let suggestions_path = temp.path().join("suggestions.toml");
+    let suggestions_path = temp.path().join(".repopilot/init-suggestions.toml");
     let rendered = fs::read_to_string(&suggestions_path).expect("suggestions file");
     let parsed: toml::Value = toml::from_str(&rendered).expect("valid suggestions TOML");
     repopilot::config::loader::parse_config(&rendered, Some(&suggestions_path))
         .expect("suggestions are valid RepoPilot config");
+    let active_config_path = temp.path().join("repopilot.toml");
+    let active_config = fs::read_to_string(&active_config_path).expect("active config file");
+    let active: toml::Value = toml::from_str(&active_config).expect("valid active config TOML");
+    let active_checks = active
+        .get("verification")
+        .and_then(|verification| verification.get("checks"))
+        .and_then(toml::Value::as_array);
 
     assert!(output.contains("Created init suggestions"), "{output}");
+    assert!(output.contains("No commands were run"), "{output}");
     assert_eq!(
         parsed["verification"]["checks"][0]["id"].as_str(),
         Some("rust.test")
     );
     assert!(rendered.contains("# source: \"Cargo.toml\""));
     assert!(rendered.contains("# - src/auth/** (source: src/auth)"));
-    assert!(temp.path().join("repopilot.toml").is_file());
+    assert!(
+        active_checks.is_none_or(|checks| checks
+            .iter()
+            .all(|check| check["id"].as_str() != Some("rust.test"))),
+        "suggested rust.test became active without review: {active_config}"
+    );
 }
 
 #[test]

@@ -134,6 +134,14 @@ fn review_projections_share_canonical_proof_and_evidence() {
     let class = human_evidence_class(&evidence);
     let decision_label = decision["verdict"].as_str().expect("decision verdict");
     let decision_action = decision["next_action"].as_str().expect("decision action");
+    for step in [
+        "repopilot init --suggestions-output .repopilot/init-suggestions.toml",
+        "add only missing accepted checks",
+        "--verify CHECK_ID",
+        "original path, revision, scope, and config",
+    ] {
+        assert!(decision_action.contains(step), "{step}: {decision_action}");
+    }
     let scope = evidence_scope_line(&evidence);
     let provenance = evidence["provenance"]
         .as_object()
@@ -145,17 +153,20 @@ fn review_projections_share_canonical_proof_and_evidence() {
     );
     assert!(markdown.contains(&format!("**Decision:** `{decision_label}`")));
     assert!(markdown.contains(decision_action));
+    assert!(markdown.contains("--verify CHECK_ID"));
     assert!(markdown.contains(&format!("**Evidence class:** `{class}`")));
     assert!(markdown.contains(&format!("**Evidence scope:** {scope}")));
     assert!(markdown.contains(&format!("**Evidence provenance:** {provenance_prefix}")));
     assert!(html.contains("<strong>Decision:</strong>"));
     assert!(html.contains(decision_label));
     assert!(html.contains(decision_action));
+    assert!(html.contains("--verify CHECK_ID"));
     assert!(html.contains(&format!("<dt>Evidence class</dt><dd>{class}</dd>")));
     assert!(html.contains(&format!("<dt>Evidence scope</dt><dd>{scope}</dd>")));
     assert!(html.contains(&provenance_prefix));
     assert!(console.contains(&format!("Decision: {decision_label}")));
     assert!(console.contains(decision_action));
+    assert!(console.contains("--verify CHECK_ID"));
     assert!(console.contains(&format!("Evidence scope: {scope}")));
     assert!(!console.contains("Legacy merge readiness"));
     assert!(console_full.contains(&format!("Decision: {decision_label}")));

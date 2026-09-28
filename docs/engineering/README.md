@@ -22,6 +22,10 @@ documentation](../README.md) instead.
 - [Signal contract](signal-contract.md)
 - [Verification provenance v1](verification-provenance-v1.md)
 
+## v0.24 design specifications
+
+- [Phase B review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
+
 ## Generated evidence and quality measurements
 
 - [Rule scorecard](rule-scorecard.md)

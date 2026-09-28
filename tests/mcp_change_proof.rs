@@ -129,6 +129,11 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
         "MCP keeps the path-scoped type-check obligation: {obligation_groups:#?}"
     );
     assert!(decision.is_object(), "review publishes decision");
+    let next_action = decision["next_action"].as_str().expect("next action");
+    assert_eq!(
+        next_action,
+        "Inspect the broken contract and its listed consumer before merge."
+    );
     assert!(evidence.is_object(), "review publishes evidence contract");
     assert!(
         evidence["coverage_limits"]
@@ -215,6 +220,7 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     .expect("analysis summary JSON");
     assert_eq!(summary[0]["change_proof"], proof);
     assert_eq!(summary[0]["decision"], decision);
+    assert_eq!(summary[0]["decision"]["next_action"], next_action);
     assert_eq!(summary[0]["evidence"], evidence);
 
     drop(stdin);
