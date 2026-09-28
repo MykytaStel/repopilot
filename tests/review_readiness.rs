@@ -170,7 +170,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(console.contains("Proof policy: none selected (0 configured)"));
     assert!(console.contains("Reasons:"));
     assert!(console.contains(
-        "Next action: Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "Next action: Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
     ));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
@@ -196,7 +196,7 @@ fn human_reports_project_readiness_and_owners() {
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
     assert!(markdown.contains("**Reasons:**"));
     assert!(markdown.contains(
-        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
     ));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));

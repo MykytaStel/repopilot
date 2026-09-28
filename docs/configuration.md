@@ -24,9 +24,9 @@ repopilot init --path ./config/repopilot.toml
 `init` also inspects local marker files and declared package scripts to print
 stack-specific verification proposals and existing critical-path candidates.
 It does not execute those commands, access the network, or write the
-suggestions into `repopilot.toml`; review them before turning an accepted check
-into a bounded `[[verification.checks]]` entry. Existing config files remain
-unchanged unless `--force` is passed.
+suggestions into active config; review them and add only accepted checks that
+are not already configured as bounded `[[verification.checks]]` entries.
+Existing config files remain unchanged unless `--force` is passed.
 Each proposal includes a source marker such as `Cargo.toml`,
 `package.json:scripts.test`, or `src/auth`, so the heuristic can be reviewed
 against repository evidence before it becomes policy.
@@ -51,28 +51,33 @@ Start with a local review:
 repopilot review .
 ```
 
-If the review says checks are unavailable or no proof policy is configured,
-export suggestions and inspect their source comments and commands:
+If no proof policy or no matching check is configured, export suggestions and
+inspect their source comments and commands:
 
 ```bash
 repopilot init --suggestions-output .repopilot/init-suggestions.toml
 cat .repopilot/init-suggestions.toml
 ```
 
-The command does not run the suggested programs. Copy an accepted
-`[[verification.checks]]` entry into `repopilot.toml` and review its command,
-working directory, and scope. For the Rust `rust.test` suggestion, run the
-selected check explicitly:
+The command does not run the suggested programs. Add only missing accepted
+`[[verification.checks]]` entries to the active config and review each command,
+working directory, and scope. For the Rust `rust.test` suggestion, add the
+check to the same review command you started with:
 
 ```bash
 repopilot review . --verify rust.test
 ```
 
-`--verify` takes the ID from the accepted config entry. An unavailable or
-failing required check cannot produce `VERIFIED`; a passing selected check is
-necessary, and other proof limits or review findings can still require action.
-In a Node.js repository, choose the ID for an accepted declared script; for
-example, use `node.test` when that entry appears in the suggestions file:
+`--verify` takes the ID from the accepted config entry. Keep the original
+review path, revisions (`--base`/`--head` or `--since-snapshot`), scope, and
+`--config` arguments when adding it. An unavailable or failing required check
+cannot produce `VERIFIED`; a passing selected check is necessary, and other
+proof limits or review findings can still require action. If an already
+configured check is unavailable, repair its command or prerequisites and
+rerun the original review with its configured `--verify` ID; do not copy a
+duplicate entry from suggestions. In a Node.js repository, choose the ID for
+an accepted declared script; for example, use `node.test` when that entry
+appears in the suggestions file:
 
 ```bash
 repopilot review . --verify node.test

@@ -136,8 +136,9 @@ fn review_projections_share_canonical_proof_and_evidence() {
     let decision_action = decision["next_action"].as_str().expect("decision action");
     for step in [
         "repopilot init --suggestions-output .repopilot/init-suggestions.toml",
-        "copy accepted checks into repopilot.toml",
-        "repopilot review . --verify CHECK_ID",
+        "add only missing accepted checks",
+        "--verify CHECK_ID",
+        "original path, revision, scope, and config",
     ] {
         assert!(decision_action.contains(step), "{step}: {decision_action}");
     }

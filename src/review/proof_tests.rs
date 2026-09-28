@@ -121,7 +121,44 @@ fn next_action_names_unavailable_required_checks() {
 
     assert_eq!(
         next_action_for(&proof),
-        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
+    );
+}
+
+#[test]
+fn configured_unavailable_check_action_repairs_the_existing_check_and_keeps_scope() {
+    let mut proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            unavailable: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+    proof.obligation_groups = vec![ProofObligationGroup {
+        role: Some(crate::verification::VerificationRole::Test),
+        counts: ProofObligations {
+            applicable: 1,
+            unavailable: 1,
+            satisfied: 0,
+            failed: 0,
+            unselected: 0,
+            stale: 0,
+        },
+        obligations: vec![ProofObligation {
+            path: Some("src/lib.rs".to_string()),
+            check_ids: vec!["rust.test".to_string()],
+            status: ProofObligationStatus::Unavailable,
+        }],
+        next_action: String::new(),
+    }];
+
+    assert_eq!(
+        next_action_for(&proof),
+        "Resolve why configured checks are unavailable, then rerun this same review with its original path, revision, scope, and config options, including --verify CHECK_ID."
     );
 }
 
@@ -205,7 +242,7 @@ fn next_action_explains_missing_policy_when_no_checks_apply() {
 
     assert_eq!(
         next_action_for(&proof),
-        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
     );
 }
 
@@ -260,7 +297,7 @@ fn missing_policy_outranks_coverage_limits_in_next_action() {
 
     assert_eq!(
         next_action_for(&proof),
-        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
     );
 }
 

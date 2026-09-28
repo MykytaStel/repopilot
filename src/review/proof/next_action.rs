@@ -4,7 +4,8 @@
 
 use super::{ChangeProof, ChangeProofReasonCode, ChangeProofVerdict};
 
-const VERIFICATION_SETUP_ACTION: &str = "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID).";
+const VERIFICATION_SETUP_ACTION: &str = "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config.";
+const VERIFICATION_UNAVAILABLE_ACTION: &str = "Resolve why configured checks are unavailable, then rerun this same review with its original path, revision, scope, and config options, including --verify CHECK_ID.";
 
 pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
     match proof.verdict {
@@ -28,7 +29,7 @@ fn review_next_action(proof: &ChangeProof) -> &'static str {
     } else if has_reason(proof, is_high_priority) {
         "Resolve or confirm the high-priority findings and sensitive signals listed below before merge."
     } else if obligations.unavailable > 0 {
-        VERIFICATION_SETUP_ACTION
+        unavailable_verification_action(proof)
     } else if obligations.stale > 0 {
         "Run the required checks against the current revision, then run the review again."
     } else if obligations.unselected > 0 {
@@ -45,6 +46,25 @@ fn review_next_action(proof: &ChangeProof) -> &'static str {
         "Review the excluded or unsupported files before treating this review as verified."
     } else {
         "Review the listed evidence, close the proof limits, or run the required checks."
+    }
+}
+
+fn unavailable_verification_action(proof: &ChangeProof) -> &'static str {
+    let mut has_unavailable = false;
+    let mut has_unconfigured = false;
+    for obligation in proof
+        .obligation_groups
+        .iter()
+        .flat_map(|group| &group.obligations)
+        .filter(|obligation| obligation.status == super::ProofObligationStatus::Unavailable)
+    {
+        has_unavailable = true;
+        has_unconfigured |= obligation.check_ids.is_empty();
+    }
+    if !has_unavailable || has_unconfigured {
+        VERIFICATION_SETUP_ACTION
+    } else {
+        VERIFICATION_UNAVAILABLE_ACTION
     }
 }
 

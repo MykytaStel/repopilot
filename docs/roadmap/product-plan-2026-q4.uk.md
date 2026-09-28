@@ -69,8 +69,10 @@ RepoPilot і швидко отримує чотири відповіді:
 2. У локальному Git-репозиторії з доступною базовою ревізією запустити `repopilot review .`.
 3. Побачити обсяг аналізу, конкретний висновок і одну наступну дію.
 4. Якщо потрібне налаштування перевірок — виконати `repopilot init --suggestions-output .repopilot/init-suggestions.toml`.
-5. Переглянути пропозиції, перенести прийнятий запис у `repopilot.toml` і вибрати його ID.
-6. Запустити, наприклад, `repopilot review . --verify rust.test`, якщо саме такий ID прийнято.
+5. Переглянути пропозиції та додати до active config лише прийняті записи,
+   яких там ще немає; використати їхній ID.
+6. Додати, наприклад, `--verify rust.test` до тієї самої review-команди,
+   якщо саме такий ID прийнято, зберігши її початкові шлях, revision, scope і config.
 7. Побачити справжній результат перевірки й решту обмежень. До `VERIFIED` можна дійти лише за відповідних доказів та політики.
 
 Час конфігурації вимірюємо окремо від завантаження пакета, залежностей і
@@ -104,12 +106,15 @@ snapshot записує HEAD та ознаку dirty; він не зберіга
 
 ## 4. Що вже маємо і що ще не доведено
 
-| Частина | Стан на дату плану | Наступний результат |
+Ця таблиця — початковий зріз перед виконанням плану, а не поточний статус.
+Поточний стан P01 і докази виконання ведуться у [evidence ledger](../engineering/v0.24-evidence-ledger.md).
+
+| Частина | Початкова база перед планом | Наступний результат |
 | --- | --- | --- |
 | Локальний Rust CLI, структурний аналіз, Git review, MCP | Реалізовано; архітектура не потребує LLM/API для аналізу | Перевірка процесу аналізатора під реальною забороною мережі |
 | Єдиний proof/decision і формати звіту | Реалізовано; відмінність decision/proof має зберігатися | Користувач правильно пояснює висновок і його межі |
 | Risk-v4, named limits, grouped obligations, batching великого diff | Код на `main`; PR #527–#529 присутні в історії | Завершити залишкові критерії ledger, не перестворювати вже зроблене |
-| Setup path | Spec погоджено, implementation plan підготовлено; коду цього slice ще немає | Працюючий шлях із конкретним ID перевірки |
+| Setup path | На старті погоджено spec та підготовлено implementation plan; коду цього slice ще не було | Працюючий шлях із конкретним ID перевірки |
 | Технічний sandbox | Runner, manifests, Docker oracle, validation і reports існують | Актуальні узгоджені пакети з відомими передумовами |
 | Pilot sandbox на чотирьох проєктах | Збережений `after-images` пакет valid і recorded passed | Новий запуск із поточною обраною версією binary |
 | Контрольовані mutation-пакети | Є lifecycle-успіхи та пізніші exact-rule сценарії | Довести очікувану реакцію аналізатора; усунути unavailable/identity gaps |
@@ -171,11 +176,11 @@ sandbox тут є середовищем інженерних експериме
 **Результат:** розробник із підтримуваним підготовленим репозиторієм самостійно
 отримує корисний review і розуміє, як запустити прийняту перевірку.
 
-- [ ] A1. Реалізувати погоджений setup slice через canonical `next_action_for`.
-- [ ] A2. Показати точний шлях `.repopilot/init-suggestions.toml`, явне перенесення прийнятих entries і `--verify <check-id>`.
-- [ ] A3. Зберегти пріоритет failed checks і важливих human-review сигналів.
-- [ ] A4. Додати walkthrough для простого Rust прикладу та пояснити вибір ID в Node.js репозиторії.
-- [ ] A5. Перевірити, що сам `init` не запускає запропоновані команди й не активує snippet автоматично.
+- [x] A1. Реалізувати погоджений setup slice через canonical `next_action_for`.
+- [x] A2. Показати точний шлях `.repopilot/init-suggestions.toml`, явне додавання лише відсутніх accepted entries і `--verify <check-id>`.
+- [x] A3. Зберегти пріоритет failed checks і важливих human-review сигналів.
+- [x] A4. Додати walkthrough для простого Rust прикладу та пояснити вибір ID в Node.js репозиторії.
+- [x] A5. Перевірити, що сам `init` не запускає запропоновані команди й не активує snippet автоматично.
 - [ ] A6. Пройти сценарії existing config, existing suggestions, unknown stack, missing executable та порожній diff; зафіксувати конкретну причину й наступну дію.
 - [ ] A7. Записати перший прохід користувача: скільки часу, де потрібна підказка, чи правильно він зрозумів висновок.
 
@@ -366,7 +371,7 @@ ledger при фактичному початку, не створюючи ду�
 | ID | Пріоритет / стан | Завершений результат | Повторне використання / основні файли | Залежність / ledger |
 | --- | --- | --- | --- | --- |
 | P00 | P1 / виконано як аудит і план | Карта вже наявного sandbox та реальних прогалин | Baseline record, цей план, roadmap navigation | Цей planning slice; без нового product gate |
-| P01 | P1 / наступний code slice | Точний setup next action і walkthrough до explicit verification | `src/review/proof/next_action.rs`, `docs/configuration.md`, current spec/plan | RP24-008; spec погоджено |
+| P01 | P1 / code slice implemented on feature branch; hosted CI pending | Точний setup next action і walkthrough до explicit verification; рекомендація відрізняє missing policy від наявного недоступного check-а та зберігає аргументи review | `src/review/proof/next_action.rs`, `docs/configuration.md`, current spec/plan | RP24-008; spec погоджено |
 | P02 | P1 / заплановано | Переносний asset inventory, узгоджені manifests/artifacts | `scripts/sandbox.py`, existing local assets; tracked recipe/templates за потреби | P00; підтримує RP24-012/014 |
 | P03 | P1 / заплановано | Свіжий control + exact-rule packet, відомі prerequisites | Existing sandbox runner, mutation packets, report validators | P02; RP24-012/013 |
 | P04 | P1 / заплановано | Мінімальний офлайн-доказ для встановленого binary | Existing Docker adapter/product smoke, install docs | P02; почати з одного підготовленого прикладу |
@@ -384,9 +389,9 @@ ledger при фактичному початку, не створюючи ду�
 | P16 | P2 / умовний наступний горизонт | Покращення HTML-навігації або командної конфігурації | Existing renderers/config/overlays | Лише за конкретною повторюваною проблемою pilot |
 | P17 | P2 / умовний наступний горизонт | Наступний обраний semantic сценарій | Existing language/rule/contract infrastructure | Корисні novel cases + оцінка підтримки й шуму |
 
-**Найближчий фокус:** P01 завершити; P02 підготувати без руйнування старих
-пакетів; P03/P04 отримати по одному конкретному результату; P05/P06 завершити
-до рішення про широке розширення функцій. P08–P12 залишаються частинами
+**Найближчий фокус:** P01 має реалізацію в feature branch; P02 підготувати без
+руйнування старих пакетів; P03/P04 отримати по одному конкретному результату;
+P05/P06 завершити до рішення про широке розширення функцій. P08–P12 залишаються частинами
 наявного v0.24 scope; збір доказів і user observations можна почати раніше,
 оскільки вони не залежать від завершення всіх нових контрактів.
 
@@ -508,7 +513,9 @@ labels мають відповідати заявленому протоколу
 - [x] Знайти реальні sandbox/evidence assets поза поточним worktree.
 - [x] Звірити manifests і вибрані артефакти, повторно запустити evidence audit.
 - [x] Записати reusable baseline та прив'язати його до продуктового плану.
-- [ ] Завершити P01 за вже підготовленим setup plan; показати конкретний before/after першого екрана.
+- [x] Реалізувати P01 setup path і перевірити post-commit first screen через dogfood; hosted CI ще очікує.
+- [ ] Пройти сценарії A6 (existing config/suggestions, unknown stack, недоступна команда, порожній diff) та записати before/after першого екрана.
+- [ ] Пройти A7: власний user walkthrough із часом, труднощами та розумінням висновку.
 - [ ] Завершити P02: обрати й зафіксувати правильні asset identities та місце нових runs.
 - [ ] Запустити один свіжий контрольний і один exact-rule violation/negative-control сценарій; не розширювати corpus до розбору їх результатів.
 - [ ] Пройти один network-denied runtime сценарій на підготовленому прикладі.

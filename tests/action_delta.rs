@@ -182,7 +182,7 @@ fn review_action_summary_projects_verification_proof_card() {
           "schema_version": "0.26",
           "repopilot_version": "0.22.0",
           "decision": {
-            "next_action": "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+            "next_action": "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
           },
           "merge_readiness": {
             "verdict": "blocked",
@@ -285,7 +285,7 @@ fn review_action_summary_projects_verification_proof_card() {
             .contains("**Evidence provenance:** RepoPilot fixture-analyzer, schema fixture-schema")
     );
     assert!(summary.contains(
-        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
     ));
     assert!(summary.contains("**Proof scope:** 3/4 file(s) analyzed"));
     assert!(summary.contains(
