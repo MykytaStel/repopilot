@@ -6,6 +6,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod batch;
+pub(crate) use batch::{BatchedContent, git_show_many};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffTarget<'a> {
     WorkingTree,

@@ -18,6 +18,9 @@ use std::path::Path;
 use std::sync::OnceLock;
 use tree_sitter::Tree;
 
+mod source_batch;
+pub(in crate::review) use source_batch::{post_change_sources, pre_change_sources};
+
 /// One side (pre- or post-change) of a changed file's source. Owns the content
 /// and detected language label, and memoizes its own tree-sitter parse so every
 /// delta detector that borrows the same `ReviewSource` (boundary, behavioral,

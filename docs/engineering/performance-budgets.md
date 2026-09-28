@@ -199,13 +199,32 @@ Criterion stores results under `target/criterion` and reports the delta. The
 baseline measurement must be on the same machine profile as the change
 measurement.
 
+### v0.24 large-diff changed review
+
+`npm run review:performance` includes a real historical review of the pinned
+123-file range `b2ec92e731f1035461e20871086f88aa04e315ce` to
+`c6656898cd706b5e4759e6727c50f2fa2c6ef2ca`. It performs one warm-up, checks
+that the full normalized JSON reports agree across five measured runs, verifies
+all 123 paths appear in the report and its requested-file coverage, and enforces
+a median wall-clock budget of 2,100 ms. Normalization omits only scan/review
+timings and cache telemetry. CI fetches full Git history so both pinned commits
+are available.
+
+On the same local `darwin-arm64` host, the pre-change release binary measured
+4,461 ms median and the batched implementation measured 1,649.37 ms median
+(2.7× faster); its review-signal timing fell from 3,976 ms to 707.37 ms
+(5.6× faster). The
+earlier 9.4 s / 122-file observation remains the roadmap motivation; the pinned
+range and same-harness comparison provide the reproducible baseline for this
+gate.
+
 ## Fixture Direction
 
 Small, medium, and large synthetic repositories now exist
 (`tests/support/synthetic_repo.rs`, shared by `benches/scan_bench.rs`,
 `tests/perf_matrix.rs`, and `scripts/check-scan-performance.js`). Determinism
 and cache behavior are hard CI gates today via `tests/perf_matrix.rs`
-(`cargo test --all`). Wall-clock timing regressions remain release-only
-(`scripts/check-scan-performance.js`, `verify-release.sh`) until fixture timing
-is proven stable enough on the project CI runners to justify a hard per-PR
-timing gate.
+(`cargo test --all`). Scan wall-clock timing remains release-only
+(`scripts/check-scan-performance.js`, `verify-release.sh`); changed-review
+wall-clock timing also has a pinned real-diff CI budget through
+`scripts/check-review-performance.js`.
