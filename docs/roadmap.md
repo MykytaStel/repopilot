@@ -4,14 +4,6 @@ RepoPilot is a review-first, local CLI for maintainers and coding agents. The
 product should help answer: what changed, which boundaries moved, and how far
 the change reaches before merge.
 
-## Product direction and validation
-
-The [Q4 product plan (Ukrainian)](roadmap/product-plan-2026-q4.uk.md) connects
-first use, offline operation, existing sandbox and differential evidence,
-agent workflows, and observed user value to a prioritized execution queue.
-It includes near-term work and conditional future directions. Versioned
-roadmaps remain the release contracts; evidence ledgers record completion.
-
 ## Now: 0.24 — Calibrated Trust
 
 RepoPilot 0.24 makes the 0.23 Change Proof mean what it says:

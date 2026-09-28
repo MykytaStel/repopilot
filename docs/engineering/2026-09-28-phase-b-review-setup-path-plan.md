@@ -10,10 +10,10 @@
 
 **Spec:** `docs/engineering/v0.24-phase-b-review-setup-path-spec.md`
 
-**Product context:** P01 in the [Q4 product plan](../roadmap/product-plan-2026-q4.uk.md).
-The [sandbox baseline](2026-09-28-sandbox-product-baseline.md) identifies the
-existing validation assets for subsequent slices. This implementation plan
-continues to cover the bounded setup path.
+**Product context:** P01 in `docs/roadmap/v0.24.md`, Phase B — Explained Proof
+at Real Scale, “Setup path.” The [sandbox baseline](2026-09-28-sandbox-product-baseline.md)
+identifies the existing validation assets for subsequent slices. This
+implementation plan continues to cover the bounded setup path.
 
 ## Global Constraints
 

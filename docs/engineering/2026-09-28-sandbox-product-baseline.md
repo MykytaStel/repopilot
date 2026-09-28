@@ -3,17 +3,15 @@
 Status: inspected; existing artifact validation only, no fresh workload execution.
 Code baseline: `origin/main` and the planning branch both resolve to `5ff7cf2a`.
 
-This record supports the [product plan](../roadmap/product-plan-2026-q4.uk.md).
-It distinguishes existing engineering capability, reusable local assets, and
-measurements still needed to establish everyday product usefulness.
+This record inventories existing engineering capability, reusable local
+assets, and measurements still needed to establish everyday product usefulness.
 
 ## Asset locations
 
-The primary checkout at `/Users/mykyta/Documents/projects/repopilot` contains
-`.zoo/repopilot-validation/` and `.repopilot/evidence/v0.23/`. The active planning
-worktree at `/Users/mykyta/.codex/worktrees/rp24-review-performance/repopilot`
-contains neither directory. Earlier worktree-specific statements that `.zoo/`
-was unavailable do not establish that the assets are absent from the machine.
+The primary checkout contains `.zoo/repopilot-validation/` and
+`.repopilot/evidence/v0.23/`. The active planning worktree contains neither
+directory. Earlier worktree-specific statements that `.zoo/` was unavailable
+do not establish that the assets are absent from the machine.
 
 The local asset directories are ignored by Git. Their presence is not a
 portable test setup. Future work must record source and scanner identities,

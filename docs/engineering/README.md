@@ -11,7 +11,6 @@ documentation](../README.md) instead.
 - [Distribution](../distribution.md)
 - [GitHub ruleset](../github-ruleset.md)
 - [Roadmap](../roadmap.md)
-- [Q4 product plan and sandbox reuse (Ukrainian)](../roadmap/product-plan-2026-q4.uk.md)
 - [v0.24 roadmap and release contract](../roadmap/v0.24.md)
 - [v0.23 roadmap and release contract](../roadmap/v0.23.md)
 - [Add a language](add-a-language.md)
