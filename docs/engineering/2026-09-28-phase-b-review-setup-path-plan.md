@@ -82,4 +82,4 @@ continues to cover the bounded setup path.
 
 - [x] **Step 1: Review the diff against the spec.** Confirm no policy/verdict behavior changed and failed checks/high-priority evidence retain precedence.
 - [x] **Step 2: Run the RepoPilot local pre-handoff gate.** Report local gate results separately from hosted CI and zoo evidence; `.zoo/` availability must be checked before making any zoo claim.
-- [ ] **Step 3: Commit the verified feature-branch diff, then run `cargo run --release -- review . --base origin/main`.** Ref-based dogfood ignores the uncommitted working tree, so run it after the patch is committed. Read the first screen; confirm the command uses the exact suggestions path when setup guidance applies and never promises `VERIFIED` before a selected check passes.
+- [x] **Step 3: Commit the verified feature-branch diff, then run `cargo run --release -- review . --base origin/main`.** Ref-based dogfood ignores the uncommitted working tree, so run it after the patch is committed. Read the first screen; confirm the command uses the exact suggestions path when setup guidance applies and never promises `VERIFIED` before a selected check passes.
