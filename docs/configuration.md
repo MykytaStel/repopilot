@@ -31,7 +31,7 @@ Each proposal includes a source marker such as `Cargo.toml`,
 `package.json:scripts.test`, or `src/auth`, so the heuristic can be reviewed
 against repository evidence before it becomes policy.
 
-To create a reviewable snippet without changing the active config:
+To export a reviewable snippet separately from the active config:
 
 ```bash
 repopilot init --suggestions-output .repopilot/init-suggestions.toml
@@ -40,7 +40,43 @@ repopilot init --suggestions-output .repopilot/init-suggestions.toml
 The snippet contains explicit verification entries and keeps critical-path
 candidates as comments. RepoPilot never loads it automatically; copy reviewed
 entries into `repopilot.toml` deliberately. The output path cannot be the active
-config path.
+config path. If `repopilot.toml` does not exist, `init` creates its default
+template; it does not copy the suggested checks into that template.
+
+## First review: choose and run a check
+
+Start with a local review:
+
+```bash
+repopilot review .
+```
+
+If the review says checks are unavailable or no proof policy is configured,
+export suggestions and inspect their source comments and commands:
+
+```bash
+repopilot init --suggestions-output .repopilot/init-suggestions.toml
+cat .repopilot/init-suggestions.toml
+```
+
+The command does not run the suggested programs. Copy an accepted
+`[[verification.checks]]` entry into `repopilot.toml` and review its command,
+working directory, and scope. For the Rust `rust.test` suggestion, run the
+selected check explicitly:
+
+```bash
+repopilot review . --verify rust.test
+```
+
+`--verify` takes the ID from the accepted config entry. An unavailable or
+failing required check cannot produce `VERIFIED`; a passing selected check is
+necessary, and other proof limits or review findings can still require action.
+In a Node.js repository, choose the ID for an accepted declared script; for
+example, use `node.test` when that entry appears in the suggestions file:
+
+```bash
+repopilot review . --verify node.test
+```
 
 ## Precedence
 

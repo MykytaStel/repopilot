@@ -108,9 +108,9 @@ fn configured_passing_check_reaches_verified() {
     let next_action = unverified["decision"]["next_action"]
         .as_str()
         .expect("next action");
-    assert!(
-        next_action.contains("repopilot init --suggestions-output"),
-        "{next_action}"
+    assert_eq!(
+        next_action,
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
     );
 
     let verified = review_json(root, &["--verify", "unit"]);
@@ -118,6 +118,13 @@ fn configured_passing_check_reaches_verified() {
         verified["change_proof"]["verdict"], "VERIFIED",
         "{}",
         verified["change_proof"]
+    );
+    assert!(
+        verified["evidence"]["provenance"]["selected_checks"]
+            .as_array()
+            .is_some_and(|checks| checks.iter().any(|check| check == "unit")),
+        "the accepted check ID is explicit in verification evidence: {}",
+        verified["evidence"]
     );
 }
 

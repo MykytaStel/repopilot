@@ -4,6 +4,8 @@
 
 use super::{ChangeProof, ChangeProofReasonCode, ChangeProofVerdict};
 
+const VERIFICATION_SETUP_ACTION: &str = "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID).";
+
 pub(crate) fn next_action_for(proof: &ChangeProof) -> &'static str {
     match proof.verdict {
         ChangeProofVerdict::Broken => {
@@ -26,7 +28,7 @@ fn review_next_action(proof: &ChangeProof) -> &'static str {
     } else if has_reason(proof, is_high_priority) {
         "Resolve or confirm the high-priority findings and sensitive signals listed below before merge."
     } else if obligations.unavailable > 0 {
-        "Configure or install the required checks (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
+        VERIFICATION_SETUP_ACTION
     } else if obligations.stale > 0 {
         "Run the required checks against the current revision, then run the review again."
     } else if obligations.unselected > 0 {
@@ -38,7 +40,7 @@ fn review_next_action(proof: &ChangeProof) -> &'static str {
             code == ChangeProofReasonCode::InsufficientPolicy
         })
     {
-        "Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
+        VERIFICATION_SETUP_ACTION
     } else if proof.coverage.excluded_files > 0 || proof.coverage.unsupported_files > 0 {
         "Review the excluded or unsupported files before treating this review as verified."
     } else {

@@ -119,12 +119,10 @@ fn next_action_names_unavailable_required_checks() {
         reasons: Vec::new(),
     });
 
-    assert!(
-        next_action_for(&proof).starts_with("Configure or install the required checks"),
-        "{}",
-        next_action_for(&proof)
+    assert_eq!(
+        next_action_for(&proof),
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
     );
-    assert!(next_action_for(&proof).contains("repopilot init --suggestions-output"));
 }
 
 #[test]
@@ -207,7 +205,38 @@ fn next_action_explains_missing_policy_when_no_checks_apply() {
 
     assert_eq!(
         next_action_for(&proof),
-        "Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+    );
+}
+
+#[test]
+fn unavailable_checks_and_missing_policy_share_the_setup_action() {
+    let unavailable = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            unavailable: 1,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+    let missing_policy = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: ProofObligations {
+            applicable: 0,
+            satisfied: 0,
+            ..obligations()
+        },
+        sufficient_policy: false,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+
+    assert_eq!(
+        next_action_for(&unavailable),
+        next_action_for(&missing_policy)
     );
 }
 
@@ -229,7 +258,10 @@ fn missing_policy_outranks_coverage_limits_in_next_action() {
         reasons: Vec::new(),
     });
 
-    assert!(next_action_for(&proof).starts_with("Configure or select a proof policy"));
+    assert_eq!(
+        next_action_for(&proof),
+        "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+    );
 }
 
 #[test]

@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Verification setup now has a runnable review path.** The next action names
+  the separate suggestions file, asks you to copy accepted checks into
+  `repopilot.toml`, and shows the explicit `--verify CHECK_ID` step. A selected
+  required check must pass before verification can be considered complete.
 - **Large-diff review reads both Git revisions in batches.** The pinned 123-file
   historical review now has a 2.1 s CI median budget; the local release median
   fell from 4.46 s to 1.65 s (2.7× faster).

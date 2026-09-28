@@ -181,6 +181,9 @@ fn review_action_summary_projects_verification_proof_card() {
         r#"{
           "schema_version": "0.26",
           "repopilot_version": "0.22.0",
+          "decision": {
+            "next_action": "Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
+          },
           "merge_readiness": {
             "verdict": "blocked",
             "verification": [{"revision_compatible": true}]
@@ -282,7 +285,7 @@ fn review_action_summary_projects_verification_proof_card() {
             .contains("**Evidence provenance:** RepoPilot fixture-analyzer, schema fixture-schema")
     );
     assert!(summary.contains(
-        "**Next action:** Review the listed evidence, close the proof limits, or run the required checks."
+        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
     ));
     assert!(summary.contains("**Proof scope:** 3/4 file(s) analyzed"));
     assert!(summary.contains(

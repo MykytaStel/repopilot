@@ -11,6 +11,7 @@ documentation](../README.md) instead.
 - [Distribution](../distribution.md)
 - [GitHub ruleset](../github-ruleset.md)
 - [Roadmap](../roadmap.md)
+- [Q4 product plan and sandbox reuse (Ukrainian)](../roadmap/product-plan-2026-q4.uk.md)
 - [v0.24 roadmap and release contract](../roadmap/v0.24.md)
 - [v0.23 roadmap and release contract](../roadmap/v0.23.md)
 - [Add a language](add-a-language.md)
@@ -21,6 +22,12 @@ documentation](../README.md) instead.
 - [Performance budgets](performance-budgets.md)
 - [Signal contract](signal-contract.md)
 - [Verification provenance v1](verification-provenance-v1.md)
+
+## v0.24 planning and validation context
+
+- [Sandbox and product validation baseline — 2026-09-28](2026-09-28-sandbox-product-baseline.md)
+- [Phase B review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
+- [Phase B review setup path implementation plan](2026-09-28-phase-b-review-setup-path-plan.md)
 
 ## Generated evidence and quality measurements
 

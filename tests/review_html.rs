@@ -67,7 +67,7 @@ fn review_html_renders_proof_card_change_map_and_escaped_scope() {
         "Why:</strong> Review the listed evidence, coverage limits, and required checks."
     ));
     assert!(html.contains(
-        "Next action:</strong> Configure or select a proof policy (start with repopilot init --suggestions-output repopilot-suggestions.toml), then run the review again with --verify for the chosen checks."
+        "Next action:</strong> Run repopilot init --suggestions-output .repopilot/init-suggestions.toml, review its suggestions, copy accepted checks into repopilot.toml, then run repopilot review . --verify CHECK_ID (replace CHECK_ID with an accepted ID)."
     ));
     assert!(html.contains("Why this verdict"));
     assert!(html.contains("Legacy merge readiness"));
