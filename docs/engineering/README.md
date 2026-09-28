@@ -22,11 +22,9 @@ documentation](../README.md) instead.
 - [Signal contract](signal-contract.md)
 - [Verification provenance v1](verification-provenance-v1.md)
 
-## v0.24 planning and validation context
+## v0.24 design specifications
 
-- [Sandbox and product validation baseline — 2026-09-28](2026-09-28-sandbox-product-baseline.md)
 - [Phase B review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
-- [Phase B review setup path implementation plan](2026-09-28-phase-b-review-setup-path-plan.md)
 
 ## Generated evidence and quality measurements
 
