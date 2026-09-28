@@ -371,7 +371,7 @@ ledger при фактичному початку, не створюючи ду�
 | ID | Пріоритет / стан | Завершений результат | Повторне використання / основні файли | Залежність / ledger |
 | --- | --- | --- | --- | --- |
 | P00 | P1 / виконано як аудит і план | Карта вже наявного sandbox та реальних прогалин | Baseline record, цей план, roadmap navigation | Цей planning slice; без нового product gate |
-| P01 | P1 / code slice implemented on feature branch; hosted CI pending | Точний setup next action і walkthrough до explicit verification; рекомендація відрізняє missing policy від наявного недоступного check-а та зберігає аргументи review | `src/review/proof/next_action.rs`, `docs/configuration.md`, current spec/plan | RP24-008; spec погоджено |
+| P01 | P1 / draft PR #532; active hosted checks passed; release verification skipped | Точний setup next action і walkthrough до explicit verification; рекомендація відрізняє missing policy від наявного недоступного check-а та зберігає аргументи review | `src/review/proof/next_action.rs`, `docs/configuration.md`, current spec/plan | RP24-008; spec погоджено |
 | P02 | P1 / заплановано | Переносний asset inventory, узгоджені manifests/artifacts | `scripts/sandbox.py`, existing local assets; tracked recipe/templates за потреби | P00; підтримує RP24-012/014 |
 | P03 | P1 / заплановано | Свіжий control + exact-rule packet, відомі prerequisites | Existing sandbox runner, mutation packets, report validators | P02; RP24-012/013 |
 | P04 | P1 / заплановано | Мінімальний офлайн-доказ для встановленого binary | Existing Docker adapter/product smoke, install docs | P02; почати з одного підготовленого прикладу |
@@ -389,8 +389,8 @@ ledger при фактичному початку, не створюючи ду�
 | P16 | P2 / умовний наступний горизонт | Покращення HTML-навігації або командної конфігурації | Existing renderers/config/overlays | Лише за конкретною повторюваною проблемою pilot |
 | P17 | P2 / умовний наступний горизонт | Наступний обраний semantic сценарій | Existing language/rule/contract infrastructure | Корисні novel cases + оцінка підтримки й шуму |
 
-**Найближчий фокус:** P01 має реалізацію в feature branch; P02 підготувати без
-руйнування старих пакетів; P03/P04 отримати по одному конкретному результату;
+**Найближчий фокус:** P01 у draft PR #532, активні hosted checks пройшли; P02
+підготувати без руйнування старих пакетів; P03/P04 отримати по одному конкретному результату;
 P05/P06 завершити до рішення про широке розширення функцій. P08–P12 залишаються частинами
 наявного v0.24 scope; збір доказів і user observations можна почати раніше,
 оскільки вони не залежать від завершення всіх нових контрактів.
@@ -513,7 +513,7 @@ labels мають відповідати заявленому протоколу
 - [x] Знайти реальні sandbox/evidence assets поза поточним worktree.
 - [x] Звірити manifests і вибрані артефакти, повторно запустити evidence audit.
 - [x] Записати reusable baseline та прив'язати його до продуктового плану.
-- [x] Реалізувати P01 setup path і перевірити post-commit first screen через dogfood; hosted CI ще очікує.
+- [x] Реалізувати P01 setup path, перевірити post-commit first screen через dogfood і пройти активні hosted checks у draft PR #532; release verification skipped.
 - [ ] Пройти сценарії A6 (existing config/suggestions, unknown stack, недоступна команда, порожній diff) та записати before/after першого екрана.
 - [ ] Пройти A7: власний user walkthrough із часом, труднощами та розумінням висновку.
 - [ ] Завершити P02: обрати й зафіксувати правильні asset identities та місце нових runs.
