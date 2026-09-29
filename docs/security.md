@@ -9,6 +9,12 @@ RepoPilot commands analyze files on disk and write reports to stdout or explicit
 output paths. Runtime commands do not upload source code, call AI providers, send
 telemetry, or contact RepoPilot servers.
 
+This describes RepoPilot's local processing and no-upload behavior; it is not a
+claim that installation or every repository workflow has been verified under a
+network-deny policy. A fully offline run requires the binary, repository data,
+Git objects, and any check dependencies to be available locally. A partial Git
+clone or missing objects may require Git to fetch data.
+
 The AI handoff command is a formatting command:
 
 ```bash
@@ -23,6 +29,17 @@ missing outputs, and rejects lexical traversal and symlink escapes before an
 analysis command runs. Dangling symlink ancestors are unavailable rather than
 treated as safe lexical paths. Malformed TOML errors omit quoted values because
 configuration files may contain credentials.
+
+### Explicit verification commands
+
+RepoPilot runs a configured check only when the user explicitly selects its ID
+with CLI `--verify` or the `verify` parameter to MCP
+`repopilot_review_change`. The configured program runs on the host with the
+user's filesystem and network permissions. RepoPilot does not sandbox that
+process; it may access files or services independently of RepoPilot's own
+analysis. If checks must run offline, prepare their dependencies and apply
+network restrictions outside RepoPilot. See [verification configuration](configuration.md#explicit-local-verification)
+and the [MCP tool contract](mcp.md#tool-contract).
 
 ## Installation security
 
@@ -162,5 +179,5 @@ RepoPilot is not a replacement for:
 - secret scanners;
 - manual security review.
 
-It is a repository-level audit and AI-remediation context layer that complements
+It provides local evidence about repository structure and Git changes alongside
 those tools.

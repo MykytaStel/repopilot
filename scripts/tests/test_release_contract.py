@@ -36,6 +36,43 @@ class ReleaseContractTests(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def write_product_workflow_docs(self) -> None:
+        self.write(
+            "README.md",
+            "RepoPilot supports developers and teams.\n"
+            "## Agent and CI integrations\n"
+            "The same review can check work from a human or a coding agent.\n",
+        )
+        self.write(
+            "docs/README.md",
+            "[Common workflows](commands.md)\n"
+            "[First-run configuration and verification](configuration.md)\n",
+        )
+        self.write(
+            "docs/commands.md",
+            "Decision, Change Proof, and `merge_readiness` are different records. "
+            "`VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`, "
+            "and `NOT ASSESSED` → `NOT ASSESSED`. `merge_readiness` can be "
+            "`ready` while Change Proof is `REVIEW` when no sufficient proof policy "
+            "is selected. A failed configured gate also appears as a proof reason. "
+            "The `--fail-on-priority` CI threshold is shown separately. Snapshot "
+            "stores `HEAD` and `dirty`; it does not preserve a copy of pre-existing "
+            "changes and cannot establish who authored each change. "
+            "configuration.md#first-review-choose-and-run-a-check\n",
+        )
+        self.write(
+            "docs/security.md",
+            "An explicitly selected `--verify` or `repopilot_review_change` "
+            "`verify` check runs on the host with filesystem and network access. "
+            "RepoPilot does not sandbox that process.\n",
+        )
+        self.write(
+            "docs/roadmap/v0.24.md",
+            "## Phase E — Agent Integration Workflow\n\n"
+            "This optional integration extends the developer review workflow to\n"
+            "coding agents.\n",
+        )
+
     def release_note(self, version: str = "0.17.0") -> str:
         return (
             "---\n"
@@ -388,138 +425,172 @@ class ReleaseContractTests(unittest.TestCase):
         ):
             release_contract.check_removed_vscode_surface()
 
-    def test_roadmap_docs_require_v020_roadmap_file(self) -> None:
-        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
-        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
-
-        with self.assertRaisesRegex(
-            release_contract.ContractError, "Missing release documentation"
-        ):
-            release_contract.check_roadmap_docs()
-
-    def test_roadmap_docs_require_v020_scorecard_file(self) -> None:
-        self.write(
-            "docs/roadmap/v0.20.md",
-            "# v0.20\n## Problem Statement\n## Product Promise\n"
-            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
-            "## Release Gates\n## Definition of Done\n",
-        )
-        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
-
-        with self.assertRaisesRegex(
-            release_contract.ContractError, "Missing release documentation"
-        ):
-            release_contract.check_roadmap_docs()
-
-    def test_roadmap_docs_require_headings(self) -> None:
-        self.write("docs/roadmap/v0.20.md", "# v0.20\n## Problem Statement\n")
-        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
-        self.write("docs/README.md", "- [r](roadmap/v0.20.md)\n- [s](engineering/v0.20-release-scorecard.md)\n")
-
-        with self.assertRaisesRegex(
-            release_contract.ContractError, "missing required headings"
-        ):
-            release_contract.check_roadmap_docs()
-
-    def test_roadmap_docs_require_index_links(self) -> None:
-        self.write(
-            "docs/roadmap/v0.20.md",
-            "# v0.20\n## Problem Statement\n## Product Promise\n"
-            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
-            "## Release Gates\n## Definition of Done\n",
-        )
-        self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
-        self.write("docs/engineering/README.md", "- [r](../roadmap/v0.20.md)\n")
-        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
-
-        with self.assertRaisesRegex(
-            release_contract.ContractError, "does not link"
-        ):
-            release_contract.check_roadmap_docs()
-
-    def test_roadmap_docs_pass_when_complete(self) -> None:
-        self.write(
-            "docs/roadmap/v0.20.md",
-            "# v0.20\n## Problem Statement\n## Product Promise\n"
-            "## Non-Goals\n## Compatibility Contract\n## Planned PR Sequence\n"
-            "## Release Gates\n## Definition of Done\n",
-        )
+    def test_roadmap_docs_require_archived_release_note(self) -> None:
+        self.write("docs/roadmap/v0.20.md", "# RepoPilot 0.20\nStatus: released.\n")
         self.write("docs/engineering/v0.20-release-scorecard.md", "# Scorecard\n")
         self.write(
             "docs/engineering/README.md",
-            "- [r](../roadmap/v0.20.md)\n- [s](v0.20-release-scorecard.md)\n",
+            "- [v0.20 scorecard](v0.20-release-scorecard.md)\n",
         )
-        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "Missing release documentation"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_reject_detailed_internal_release_plan(self) -> None:
+        self.write("docs/releases/v0.20.0.md", "# v0.20.0\n## Highlights\n")
+        self.write(
+            "docs/engineering/v0.20-release-scorecard.md",
+            "# v0.20 release record\n\n"
+            "Recorded peak memory: 41,157,112 bytes.\n"
+            "The remaining checklist is not a complete release assessment.\n"
+            "[Release notes](../releases/v0.20.0.md)\n",
+        )
+        self.write(
+            "docs/engineering/README.md",
+            "- [v0.20 release record](v0.20-release-scorecard.md)\n",
+        )
+        for version in ("0.20", "0.21", "0.22", "0.23"):
+            self.write(
+                f"docs/roadmap/v{version}.md",
+                f"# RepoPilot {version}\nStatus: released.\n"
+                f"[Release notes](../releases/v{version}.0.md)\n",
+            )
+            self.write(f"docs/releases/v{version}.0.md", f"# v{version}.0\n")
+        self.write(
+            "docs/roadmap/v0.20.md",
+            "# RepoPilot 0.20\nStatus: released.\n"
+            "[Release notes](../releases/v0.20.0.md)\n"
+            "## Planned PR Sequence\n",
+        )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "internal planning material"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_roadmap_docs_pass_when_public_history_is_concise(self) -> None:
+        self.write(
+            "docs/engineering/v0.20-release-scorecard.md",
+            "# v0.20 release record\n\n"
+            "Status: historical summary.\n"
+            "Recorded peak memory: 41,157,112 bytes.\n"
+            "The remaining checklist is not a complete release assessment.\n"
+            "See [release notes](../releases/v0.20.0.md).\n",
+        )
+        self.write(
+            "docs/engineering/README.md",
+            "- [v0.20 release record](v0.20-release-scorecard.md)\n",
+        )
+        for version in ("0.20", "0.21", "0.22", "0.23"):
+            self.write(
+                f"docs/roadmap/v{version}.md",
+                f"# RepoPilot {version}\nStatus: released.\n"
+                f"See [release notes](../releases/v{version}.0.md).\n",
+            )
+            self.write(
+                f"docs/releases/v{version}.0.md",
+                f"# RepoPilot {version}.0\n\n## Highlights\n",
+            )
 
         release_contract.check_roadmap_docs()
 
-    def test_v023_docs_require_index_links_and_evidence_files(self) -> None:
-        self.write("docs/README.md", "- [roadmap](roadmap/v0.23.md)\n")
-
-        with self.assertRaisesRegex(
-            release_contract.ContractError, "v0.23 documentation"
-        ):
-            release_contract.check_v023_docs()
-
-    def test_v023_docs_require_current_lifecycle_and_scope_boundaries(self) -> None:
+    def test_roadmap_docs_reject_unverified_v020_checklist(self) -> None:
         self.write(
-            "docs/README.md",
-            "\n".join(
-                [
-                    "engineering/README.md",
-                ]
-            ),
+            "docs/engineering/v0.20-release-scorecard.md",
+            "# v0.20 Release Scorecard\n\n"
+            "Use this checklist during every 0.20 PR and at release time.\n"
+            "- [ ] Install workflow verified\n",
         )
         self.write(
             "docs/engineering/README.md",
-            "../roadmap/v0.23.md\n"
-            "v0.23-phase-0-spec.md\n"
-            "v0.23-evidence-ledger.md\n",
+            "- [v0.20 scorecard](v0.20-release-scorecard.md)\n",
         )
+        for version in ("0.20", "0.21", "0.22", "0.23"):
+            self.write(
+                f"docs/roadmap/v{version}.md",
+                f"# RepoPilot {version}\nStatus: released.\n"
+                f"[Release notes](../releases/v{version}.0.md)\n",
+            )
+            self.write(
+                f"docs/releases/v{version}.0.md",
+                f"# RepoPilot {version}.0\n## Highlights\n",
+            )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "historical release record"
+        ):
+            release_contract.check_roadmap_docs()
+
+    def test_v023_docs_require_release_summary_and_report_limitations(self) -> None:
         self.write(
-            "docs/roadmap/v0.23.md",
-            "Status: 0.23.0 released on 2026-09-24.\n"
-            "## Phase 0 — Truth Foundation and Bug Burn-down\n"
-            "## Phase A — Canonical ChangeProof\n",
-        )
-        self.write(
-            "docs/engineering/v0.23-phase-0-spec.md",
-            "Status: released; Phase 0 is closed.\n"
-            "Progress source: release evidence ledger\n"
-            "Statuses: `open`, `in-progress`, `verified`, and `accepted`.\n"
-            "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;\n"
-            "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;\n"
-            "### 0C — Recoverable Publication\n\nStatus: verified;\n"
-            "### 0D — Documentation and Current UX Truth\n\nStatus: verified;\n",
-        )
-        self.write(
-            "docs/engineering/v0.23-evidence-ledger.md",
-            "Status: released; v0.23.0 verified on every channel.\n"
-            "## Tracked Items\n"
-            "Each closure criterion remains explicit.\n",
+            "docs/releases/v0.23.0.md",
+            "# RepoPilot 0.23.0\n\n## Highlights\n\nChange Proof.\n\n"
+            "## Compatibility\n\nAdditive.\n\n## Upgrade\n",
         )
         self.write(
             "docs/reports.md",
-            "`assessment_status` is not a safety verdict. Unsupported scope and excluded files remain disclosed.\n",
+            "`assessment_status` is not a safety verdict. Unsupported scope and "
+            "excluded files remain disclosed.\n",
         )
 
         release_contract.check_v023_docs()
-        self.write(
-            "docs/roadmap/v0.23.md",
-            "Status: approved product direction; implementation has not started.\n"
-            "## Phase 0 — Truth Foundation and Bug Burn-down\n"
-            "## Phase A — Canonical ChangeProof\n",
-        )
+        self.write("docs/reports.md", "`assessment_status` is a safety verdict.\n")
         with self.assertRaisesRegex(
             release_contract.ContractError, "documentation contract"
         ):
             release_contract.check_v023_docs()
 
-    def test_docs_navigation_rejects_direct_internal_public_link(self) -> None:
+    def test_v023_docs_require_release_note(self) -> None:
+        self.write(
+            "docs/reports.md",
+            "`assessment_status` is not a safety verdict. Unsupported scope and "
+            "excluded files remain disclosed.\n",
+        )
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "Missing v0.23 documentation"
+        ):
+            release_contract.check_v023_docs()
+
+    def test_docs_navigation_requires_architecture_and_release_notes(self) -> None:
+        self.write("docs/architecture.md", "# Current architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
+            "- [Engineering](engineering/README.md)\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "architecture"):
+            release_contract.check_docs_navigation()
+
+        self.write(
+            "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Engineering](engineering/README.md)\n",
+        )
+        with self.assertRaisesRegex(release_contract.ContractError, "release notes"):
+            release_contract.check_docs_navigation()
+
+        self.write(
+            "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
+            "- [Engineering](engineering/README.md)\n",
+        )
+        release_contract.check_docs_navigation()
+
+    def test_docs_navigation_rejects_direct_internal_public_link(self) -> None:
+        self.write("docs/architecture.md", "# Architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
+        self.write("docs/engineering/foo.md", "# Foo\n")
+        self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
+        self.write(
+            "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
             "- [Engineering](engineering/README.md)\n"
             "- [Foo](engineering/foo.md)\n",
         )
@@ -528,10 +599,14 @@ class ReleaseContractTests(unittest.TestCase):
             release_contract.check_docs_navigation()
 
     def test_docs_navigation_rejects_versioned_roadmap_public_link(self) -> None:
+        self.write("docs/architecture.md", "# Architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
             "- [Engineering](engineering/README.md)\n"
             "- [v0.22](roadmap/v0.22.md)\n",
         )
@@ -540,23 +615,152 @@ class ReleaseContractTests(unittest.TestCase):
             release_contract.check_docs_navigation()
 
     def test_docs_navigation_rejects_orphan_engineering_file(self) -> None:
+        self.write("docs/architecture.md", "# Architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/bar.md", "# Bar\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
-        self.write("docs/README.md", "- [Engineering](engineering/README.md)\n")
+        self.write(
+            "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
+            "- [Engineering](engineering/README.md)\n",
+        )
 
         with self.assertRaisesRegex(release_contract.ContractError, "engineering index"):
             release_contract.check_docs_navigation()
 
+    def test_docs_navigation_rejects_stale_language_migration_checklist(self) -> None:
+        self.write("docs/architecture.md", "# Architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
+        self.write(
+            "docs/engineering/language-surface-inventory.md",
+            "# Language Surface Inventory\n"
+            "This is the working checklist for the 0.21 cycle.\n"
+            "- [ ] Migrate function spans in PR-5.\n",
+        )
+        self.write(
+            "docs/engineering/README.md",
+            "- [Language surface inventory](language-surface-inventory.md)\n",
+        )
+        self.write(
+            "docs/README.md",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
+            "- [Engineering](engineering/README.md)\n",
+        )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "historical language page"
+        ):
+            release_contract.check_docs_navigation()
+
+        self.write(
+            "docs/engineering/language-surface-inventory.md",
+            "# 0.21 Language Migration Record\n\n"
+            "The old migration checklist is retained locally.\n\n"
+            "Current capabilities: [language support](../language-support.md).\n"
+            "Contributor workflow: [add a language](add-a-language.md).\n",
+        )
+        release_contract.check_docs_navigation()
+
     def test_docs_navigation_passes_with_single_public_engineering_link(self) -> None:
+        self.write("docs/architecture.md", "# Architecture\n")
+        self.write("docs/releases/v0.23.0.md", "# v0.23.0\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
-            "- [Engineering](engineering/README.md)\n- [Roadmap](roadmap.md)\n",
+            "- [Architecture](architecture.md)\n"
+            "- [Release notes](releases/v0.23.0.md)\n"
+            "- [Engineering](engineering/README.md)\n"
+            "- [Roadmap](roadmap.md)\n",
         )
 
         release_contract.check_docs_navigation()
+
+    def test_user_workflow_docs_explain_review_and_snapshot_boundaries(self) -> None:
+        self.write_product_workflow_docs()
+        release_contract.check_user_workflow_docs()
+
+    def test_user_workflow_docs_reject_agent_only_product_positioning(self) -> None:
+        self.write_product_workflow_docs()
+        self.write(
+            "docs/roadmap/v0.24.md",
+            "## Phase E — Agent Review Workflow\n\n"
+            "Serve the core use case — reviewing changes a coding agent made — end to end.\n",
+        )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "product positioning"
+        ):
+            release_contract.check_user_workflow_docs()
+
+    def test_user_workflow_docs_reject_ai_remediation_product_claim(self) -> None:
+        self.write_product_workflow_docs()
+        self.write(
+            "docs/security.md",
+            "An explicitly selected `--verify` or MCP "
+            "`repopilot_review_change` `verify` check runs on the host with "
+            "filesystem and network access. RepoPilot does not sandbox that process. It is a "
+            "repository-level audit and AI-remediation context layer.\n",
+        )
+
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "product positioning"
+        ):
+            release_contract.check_user_workflow_docs()
+
+    def test_user_workflow_docs_reject_legacy_status_without_proof_mapping(self) -> None:
+        self.write(
+            "docs/README.md",
+            "[Common workflows](commands.md)\n"
+            "[First-run configuration and verification](configuration.md)\n",
+        )
+        self.write(
+            "docs/commands.md",
+            "Review has ready, review, and blocked merge_readiness statuses.\n",
+        )
+        self.write("docs/security.md", "--verify runs on the host, with network access.\n")
+
+        with self.assertRaisesRegex(release_contract.ContractError, "proof mapping"):
+            release_contract.check_user_workflow_docs()
+
+    def test_user_workflow_docs_require_host_verification_boundary(self) -> None:
+        self.write(
+            "docs/README.md",
+            "[Common workflows](commands.md)\n"
+            "[First-run configuration and verification](configuration.md)\n",
+        )
+        self.write(
+            "docs/commands.md",
+            "Decision Change Proof merge_readiness `VERIFIED` → `PASS`, "
+            "`REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`, `NOT ASSESSED` → `NOT ASSESSED`, "
+            "ready while Change Proof is "
+            "REVIEW when no sufficient proof policy is selected; failed configured "
+            "gate also appears as a proof reason; next action --fail-on-priority "
+            "snapshot `HEAD` `dirty` does not preserve a copy of pre-existing changes "
+            "authored each change "
+            "configuration.md#first-review-choose-and-run-a-check\n",
+        )
+        self.write(
+            "docs/security.md",
+            "An explicitly selected `--verify` command runs on the host.\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "network boundary"):
+            release_contract.check_user_workflow_docs()
+
+    def test_user_workflow_docs_include_mcp_verification_boundary(self) -> None:
+        self.write_product_workflow_docs()
+        self.write(
+            "docs/security.md",
+            "A selected `--verify` command runs on the host with filesystem and "
+            "network permissions. RepoPilot does not sandbox that process.\n",
+        )
+
+        with self.assertRaisesRegex(release_contract.ContractError, "network boundary"):
+            release_contract.check_user_workflow_docs()
 
     def test_docs_parity_requires_registry_tools_in_both_guides(self) -> None:
         self.write(
@@ -572,6 +776,42 @@ class ReleaseContractTests(unittest.TestCase):
 
         with self.assertRaisesRegex(release_contract.ContractError, "docs parity"):
             release_contract.check_docs_parity()
+
+    def test_mcp_docs_describe_explicit_verification_side_effects(self) -> None:
+        stale_mcp = (
+            "All tools are annotated as read-only, non-destructive, idempotent, "
+            "and closed-world.\n"
+            "| `repopilot_review_change` | Changed/full review | `base`, `head` |\n"
+        )
+        stale_cli = (
+            "| Give an MCP client direct read-only analysis tools | "
+            "`repopilot mcp --root .` |\n"
+        )
+        with self.assertRaisesRegex(
+            release_contract.ContractError, "MCP verification boundary"
+        ):
+            release_contract.check_mcp_verification_docs(
+                stale_mcp,
+                stale_cli,
+                "| agent workflow | Exposes read-only local MCP tools |",
+            )
+
+        current_mcp = (
+            "The default review analysis does not run configured verification checks. "
+            "Static scan and explanation tools are annotated as read-only. "
+            "The review tool uses conservative annotations: "
+            "`readOnlyHint=false`, `destructiveHint=true`, "
+            "`idempotentHint=false`, `openWorldHint=true`.\n"
+            "| `repopilot_review_change` | Review and optional verification | "
+            "`base`, `head`, `verify` |\n"
+            "A selected configured check runs on the host with the user's "
+            "filesystem and network permissions. RepoPilot does not sandbox it.\n"
+        )
+        release_contract.check_mcp_verification_docs(
+            current_mcp,
+            "| Give an MCP client tools | `repopilot mcp --root .` |",
+            "| Agent workflow | Exposes local MCP analysis tools |",
+        )
 
     def test_docs_parity_requires_current_schema_and_binary_version(self) -> None:
         self.write(

@@ -353,10 +353,24 @@ def check_docs_navigation() -> None:
     if not engineering_index.exists():
         raise ContractError("Missing docs/engineering/README.md engineering index")
 
+    check_public_docs_index(public_index, engineering_index)
+    check_engineering_docs_index(engineering_index)
+    check_language_inventory_landing()
+
+
+def check_public_docs_index(public_index: Path, engineering_index: Path) -> None:
     public_targets = _local_markdown_targets(public_index)
-    expected_index = engineering_index.resolve()
-    if expected_index not in public_targets:
-        raise ContractError("docs/README.md must link to engineering/README.md")
+    required_public_pages = {
+        "architecture": ROOT / "docs" / "architecture.md",
+        "release notes": ROOT / "docs" / "releases" / "v0.23.0.md",
+        "engineering index": engineering_index,
+    }
+    for label, path in required_public_pages.items():
+        if not path.exists():
+            raise ContractError(f"Missing public documentation page: {path.relative_to(ROOT)}")
+        if path.resolve() not in public_targets:
+            relative = path.relative_to(ROOT / "docs")
+            raise ContractError(f"docs/README.md must link to {label}: {relative}")
 
     public_text = read_text(public_index)
     leaked = [
@@ -374,6 +388,8 @@ def check_docs_navigation() -> None:
         details = ", ".join(leaked + historical)
         raise ContractError(f"public docs index links internal/history docs: {details}")
 
+
+def check_engineering_docs_index(engineering_index: Path) -> None:
     indexed = _local_markdown_targets(engineering_index)
     missing = [
         path.relative_to(ROOT)
@@ -384,6 +400,150 @@ def check_docs_navigation() -> None:
         raise ContractError(
             "engineering index is missing links:\n  "
             + "\n  ".join(map(str, missing))
+        )
+
+
+def check_language_inventory_landing() -> None:
+    language_record = ROOT / "docs" / "engineering" / "language-surface-inventory.md"
+    if language_record.exists():
+        language_text = read_text(language_record)
+        normalized_language = " ".join(language_text.casefold().split())
+        current_links = ("../language-support.md", "add-a-language.md")
+        if (
+            len(language_text.splitlines()) > 20
+            or "- [ ]" in language_text
+            or "pr-5" in normalized_language
+            or any(link not in normalized_language for link in current_links)
+        ):
+            raise ContractError(
+                "historical language page must be a concise landing page linked to current support and contributor docs"
+            )
+
+
+def check_user_workflow_docs() -> None:
+    """Keep first-run, review-result, snapshot, and verification guidance explicit."""
+    docs = (
+        ROOT / "docs/README.md",
+        ROOT / "docs/commands.md",
+        ROOT / "docs/security.md",
+    )
+    missing = [
+        path.relative_to(ROOT)
+        for path in docs
+        if not path.exists()
+    ]
+    if missing:
+        raise ContractError(
+            "Missing user workflow documentation: "
+            + ", ".join(map(str, missing))
+        )
+    index_path, commands_path, security_path = docs
+    check_first_run_entrypoint(index_path)
+    check_review_result_docs(commands_path)
+    check_snapshot_docs(commands_path)
+    check_security_workflow_docs(security_path)
+    check_product_positioning_docs()
+
+
+def check_first_run_entrypoint(index_path: Path) -> None:
+    index = " ".join(read_text(index_path).casefold().split())
+    if "[first-run configuration and verification](configuration.md)" not in index:
+        raise ContractError(
+            "docs/README.md must make first-run verification setup visible"
+        )
+
+
+def check_review_result_docs(commands_path: Path) -> None:
+    commands = " ".join(read_text(commands_path).casefold().split())
+    result_markers = (
+        "decision",
+        "change proof",
+        "merge_readiness",
+        "`verified` → `pass`",
+        "`review` → `review`",
+        "`broken` → `block`",
+        "`not assessed` → `not assessed`",
+        "no sufficient proof policy is selected",
+        "failed configured gate also appears as a proof reason",
+        "--fail-on-priority",
+    )
+    if any(marker not in commands for marker in result_markers):
+        raise ContractError(
+            "common workflows must explain the proof mapping, legacy readiness, and gates"
+        )
+
+
+def check_snapshot_docs(commands_path: Path) -> None:
+    commands = " ".join(read_text(commands_path).casefold().split())
+    snapshot_markers = (
+        "snapshot",
+        "`head`",
+        "`dirty`",
+        "does not preserve a copy",
+        "pre-existing changes",
+        "authored each change",
+    )
+    if any(marker not in commands for marker in snapshot_markers):
+        raise ContractError(
+            "common workflows must describe snapshot contents and attribution limits"
+        )
+    if "configuration.md#first-review-choose-and-run-a-check" not in commands:
+        raise ContractError(
+            "common workflows must link to the first verification setup walkthrough"
+        )
+
+
+def check_security_workflow_docs(security_path: Path) -> None:
+    security = " ".join(read_text(security_path).casefold().split())
+    verify_markers = (
+        "`--verify`",
+        "repopilot_review_change",
+        "`verify`",
+        "host",
+        "filesystem",
+        "network",
+        "does not sandbox",
+    )
+    if any(marker not in security for marker in verify_markers):
+        raise ContractError(
+            "security guide must explain the host verification network boundary"
+        )
+
+
+def check_product_positioning_docs() -> None:
+    """Keep the core audience consistent across README, roadmap, and security copy."""
+    readme = " ".join(read_text(ROOT / "README.md").casefold().split())
+    readme_markers = (
+        "developers and teams",
+        "same review can check work from a human or a coding agent",
+        "## agent and ci integrations",
+    )
+    if any(marker not in readme for marker in readme_markers):
+        raise ContractError(
+            "product positioning: README must lead with developers and teams, and present agents as an integration"
+        )
+
+    security = " ".join(read_text(ROOT / "docs/security.md").casefold().split())
+    if "ai-remediation context layer" in security:
+        raise ContractError(
+            "product positioning: security guide contains a stale AI-first claim"
+        )
+
+    roadmap = read_text(ROOT / "docs/roadmap/v0.24.md").casefold()
+    match = re.search(
+        r"(?ms)^## phase e\b(.*?)(?=^## |\Z)",
+        roadmap,
+    )
+    phase_e = " ".join(match.group(1).split()) if match else ""
+    if (
+        not match
+        or "optional" not in phase_e
+        or "developer" not in phase_e
+        or "coding agent" not in phase_e
+        or "serve the core use case — reviewing changes a coding agent made" in phase_e
+    ):
+        raise ContractError(
+            "product positioning: v0.24 Phase E must present agent workflow as optional to the developer review flow"
         )
 
 
@@ -596,104 +756,100 @@ def check_removed_vscode_surface() -> None:
 
 
 def check_roadmap_docs() -> None:
-    roadmap = ROOT / "docs" / "roadmap" / "v0.20.md"
     scorecard = ROOT / "docs" / "engineering" / "v0.20-release-scorecard.md"
-    required_files = {
-        "v0.20 roadmap": roadmap,
-        "v0.20 release scorecard": scorecard,
-    }
+    versions = ("0.20", "0.21", "0.22", "0.23")
+    required_files = {"v0.20 historical release record": scorecard}
+    for version in versions:
+        required_files[f"v{version} roadmap landing page"] = (
+            ROOT / "docs" / "roadmap" / f"v{version}.md"
+        )
+        required_files[f"v{version} release notes"] = (
+            ROOT / "docs" / "releases" / f"v{version}.0.md"
+        )
     missing = [name for name, path in required_files.items() if not path.exists()]
     if missing:
         raise ContractError(
             "Missing release documentation:\n  " + "\n  ".join(missing)
         )
 
-    roadmap_text = read_text(roadmap)
-    required_headings = [
-        "Problem Statement",
-        "Product Promise",
-        "Non-Goals",
-        "Compatibility Contract",
-        "Planned PR Sequence",
-        "Release Gates",
-        "Definition of Done",
-    ]
-    missing_headings = [
-        heading
-        for heading in required_headings
-        if not re.search(rf"^##+ {re.escape(heading)}", roadmap_text, re.MULTILINE)
-    ]
-    if missing_headings:
+    check_v020_release_record(scorecard)
+    check_historical_roadmap_landings(versions)
+    check_engineering_release_index()
+
+
+def check_v020_release_record(scorecard: Path) -> None:
+    release_record = read_text(scorecard)
+    normalized_record = " ".join(release_record.casefold().split())
+    record_markers = (
+        "41,157,112 bytes",
+        "not a complete release assessment",
+        "../releases/v0.20.0.md",
+    )
+    if (
+        len(release_record.splitlines()) > 20
+        or "- [ ]" in release_record
+        or "use this checklist" in normalized_record
+        or any(marker not in normalized_record for marker in record_markers)
+    ):
         raise ContractError(
-            "v0.20 roadmap missing required headings:\n  "
-            + "\n  ".join(missing_headings)
+            "v0.20 historical release record must summarize its verified evidence, "
+            "disclose incomplete checklist coverage, and link the release notes"
         )
 
+
+def check_historical_roadmap_landings(versions: tuple[str, ...]) -> None:
+    internal_markers = (
+        "planned pr sequence",
+        "implementation order and pr queue",
+        "suggested calendar",
+        "for agentic workers",
+    )
+    for version in versions:
+        roadmap = ROOT / "docs" / "roadmap" / f"v{version}.md"
+        roadmap_text = read_text(roadmap)
+        release_link = f"../releases/v{version}.0.md"
+        if "status: released" not in roadmap_text.casefold() or release_link not in roadmap_text:
+            raise ContractError(
+                f"v{version} roadmap landing page must state release status and link to {release_link}"
+            )
+        if len(roadmap_text.splitlines()) > 20 or any(
+            marker in roadmap_text.casefold() for marker in internal_markers
+        ):
+            raise ContractError(
+                f"v{version} roadmap landing page contains internal planning material"
+            )
+
+
+def check_engineering_release_index() -> None:
     engineering_index = read_text(ROOT / "docs" / "engineering" / "README.md")
-    if "../roadmap/v0.20.md" not in engineering_index:
-        raise ContractError("engineering index does not link to v0.20 roadmap")
+    if "../roadmap/v0.20.md" in engineering_index:
+        raise ContractError("engineering index must not link to archived roadmap details")
     if "v0.20-release-scorecard.md" not in engineering_index:
-        raise ContractError("engineering index does not link to v0.20 release scorecard")
+        raise ContractError("engineering index does not link to v0.20 release record")
 
 
-def _v023_doc_files() -> dict[str, Path]:
-    return {
-        "roadmap": ROOT / "docs/roadmap/v0.23.md",
-        "phase specification": ROOT / "docs/engineering/v0.23-phase-0-spec.md",
-        "evidence ledger": ROOT / "docs/engineering/v0.23-evidence-ledger.md",
+def check_v023_docs() -> None:
+    """Keep shipped v0.23 notes and report scope limitations public."""
+    files = {
+        "release notes": ROOT / "docs/releases/v0.23.0.md",
         "reports guide": ROOT / "docs/reports.md",
     }
+    missing = [name for name, path in files.items() if not path.exists()]
+    if missing:
+        raise ContractError("Missing v0.23 documentation:\n  " + "\n  ".join(missing))
 
-
-def _check_v023_doc_links(engineering_index: str) -> None:
-    required_links = (
-        "../roadmap/v0.23.md",
-        "v0.23-phase-0-spec.md",
-        "v0.23-evidence-ledger.md",
-    )
-    missing_links = [link for link in required_links if link not in engineering_index]
-    if missing_links:
-        raise ContractError("engineering index is missing v0.23 links:\n  " + "\n  ".join(missing_links))
-
-
-def _v023_required_markers(files: dict[str, Path]) -> dict[Path, tuple[str, ...]]:
-    return {
-        files["roadmap"]: (
-            "Status: 0.23.0 released",
-            "## Phase 0 — Truth Foundation and Bug Burn-down",
-            "## Phase A — Canonical ChangeProof",
-        ),
-        files["phase specification"]: (
-            "Status: released",
-            "Progress source:",
-            "Statuses: `open`, `in-progress`, `verified`, and `accepted`.",
-            "#### 0B1 — Schema Truth (PR 1)",
-            "#### 0B1 — Schema Truth (PR 1)\n\nStatus: verified;",
-            "#### 0B2 — Released Compatibility Evidence (PR 2)",
-            "#### 0B2 — Released Compatibility Evidence (PR 2)\n\nStatus: verified;",
-            "### 0C — Recoverable Publication",
-            "### 0C — Recoverable Publication\n\nStatus: verified;",
-            "### 0D — Documentation and Current UX Truth",
-            "### 0D — Documentation and Current UX Truth\n\nStatus: verified;",
-        ),
-        files["evidence ledger"]: (
-            "Status: released;",
-            "## Tracked Items",
-            "closure criterion",
-        ),
+    required_markers = {
+        files["release notes"]: ("## Highlights", "## Compatibility", "## Upgrade"),
         files["reports guide"]: (
             "`assessment_status`",
             "not a safety verdict",
-            "Unsupported scope",
+            "unsupported scope",
             "excluded files",
         ),
     }
-
-
-def _check_v023_markers(files: dict[str, Path]) -> None:
     missing_markers = [
         f"{path.relative_to(ROOT)}: {marker}"
-        for path, markers in _v023_required_markers(files).items()
+        for path, markers in required_markers.items()
         for marker in markers
         if marker.casefold() not in read_text(path).casefold()
     ]
@@ -702,17 +858,6 @@ def _check_v023_markers(files: dict[str, Path]) -> None:
             "v0.23 documentation contract is incomplete:\n  "
             + "\n  ".join(missing_markers)
         )
-
-
-def check_v023_docs() -> None:
-    """Keep current v0.23 planning and scope claims discoverable and bounded."""
-    files = _v023_doc_files()
-    missing = [name for name, path in files.items() if not path.exists()]
-    if missing:
-        raise ContractError("Missing v0.23 documentation:\n  " + "\n  ".join(missing))
-
-    _check_v023_doc_links(read_text(ROOT / "docs/engineering" / "README.md"))
-    _check_v023_markers(files)
 
 
 def mcp_tool_names() -> tuple[str, ...]:
@@ -739,6 +884,12 @@ def check_docs_parity() -> None:
     if missing_tools:
         raise ContractError("docs parity is incomplete:\n  " + "\n  ".join(missing_tools))
 
+    check_mcp_verification_docs(
+        mcp_docs,
+        cli_docs,
+        read_text(ROOT / "docs/commands.md"),
+    )
+
     schema_text = read_text(ROOT / "src/report/schema.rs")
     schema_match = re.search(
         r'pub const SCAN_REPORT_SCHEMA_VERSION: &str = "([^"]+)"', schema_text
@@ -750,6 +901,49 @@ def check_docs_parity() -> None:
     expected = f"Binary `{version}` emits schema `{schema}`"
     if expected not in read_text(ROOT / "docs/reports.md"):
         raise ContractError(f"docs parity is incomplete: missing `{expected}`")
+
+
+def check_mcp_verification_docs(
+    mcp_docs: str,
+    cli_docs: str,
+    commands_docs: str,
+) -> None:
+    """Describe the explicit verification side effects in the MCP review tool."""
+    review_rows = [
+        line
+        for line in mcp_docs.splitlines()
+        if line.strip().startswith("|") and "`repopilot_review_change`" in line
+    ]
+    normalized = " ".join(mcp_docs.casefold().split())
+    required = (
+        "default review analysis does not run configured verification checks",
+        "`readonlyhint=false`",
+        "`destructivehint=true`",
+        "`idempotenthint=false`",
+        "`openworldhint=true`",
+        "host with the user's filesystem and network permissions",
+        "filesystem and network permissions",
+        "does not sandbox",
+    )
+    if (
+        len(review_rows) != 1
+        or "`verify`" not in review_rows[0]
+        or any(marker not in normalized for marker in required)
+        or "they are annotated as read-only, non-destructive, idempotent, and closed-world"
+        in normalized
+    ):
+        raise ContractError(
+            "MCP verification boundary must document the review tool's optional verify input, host effects, and annotations"
+        )
+
+    cli_and_workflows = "\n".join((cli_docs, commands_docs))
+    stale_mcp_claim = re.compile(
+        r"(?m)^(?=[^\n]*repopilot mcp --root)(?=[^\n]*read-only)[^\n]*$"
+    )
+    if stale_mcp_claim.search(cli_and_workflows.casefold()):
+        raise ContractError(
+            "MCP verification boundary: CLI and workflow docs must not describe every MCP tool as read-only"
+        )
 
 
 def check_rule_scorecard() -> None:
@@ -848,6 +1042,7 @@ def check_contract(tag: str | None) -> None:
     check_markdown_links()
     check_npm_claims()
     check_docs_navigation()
+    check_user_workflow_docs()
     check_cargo_package()
     check_action_pins()
     check_release_orchestration()

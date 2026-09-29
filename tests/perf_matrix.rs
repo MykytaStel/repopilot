@@ -1,12 +1,9 @@
-//! v0.20 benchmark and determinism matrix (PR #270,
-//! `docs/roadmap/v0.20.md`, `docs/engineering/performance-budgets.md`).
+//! Determinism and cache-regression coverage for scans and changed reviews.
 //!
-//! Covers the deterministic half of the matrix as a CI-gated `cargo test`:
-//! thread-count determinism on small/medium synthetic repos, and parsed-cache
-//! v2 hit/miss/invalidation behavior on the changed-review path (added in
-//! #268). The timing/regression half of the matrix is release-only
-//! (`scripts/check-scan-performance.js`) since Criterion-scale wall-clock
-//! measurements are too noisy for a per-PR CI gate.
+//! CI checks thread-count determinism on small and medium synthetic repositories
+//! and parsed-cache hit, miss, and invalidation behavior. Timing checks use the
+//! separate `npm run scan:performance` command because wall-clock readings vary
+//! by host.
 
 #[path = "support/synthetic_repo.rs"]
 mod synthetic_repo;

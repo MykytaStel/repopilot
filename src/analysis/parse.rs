@@ -1,9 +1,9 @@
 //! Shared tree-sitter parsing.
 //!
-//! Centralizes the tree-sitter parser instances and grammar selection that were
-//! previously duplicated across the AST-based audits and the import graph. Each
-//! thread keeps one reusable parser per grammar via `thread_local!`, so parsing
-//! is cheap to repeat and safe under the parallel file pipeline.
+//! Centralizes the tree-sitter parser instances and grammar selection shared by
+//! AST-based audits and the import graph. Each thread keeps one reusable parser
+//! per grammar via `thread_local!`, so parsing is cheap to repeat and safe under
+//! the parallel file pipeline.
 
 use crate::analysis::SyntaxSummary;
 use crate::scan::facts::FileFacts;

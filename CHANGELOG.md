@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **Public guidance now leads with developer and team workflows.** Agent
+  integrations are presented as one supported path; review-result meanings,
+  snapshot limits, and host permissions for selected verification checks are
+  explicit.
 - **Verification setup now has a runnable review path.** The next action names
   the separate suggestions file, adds only missing accepted checks, or guides
   repair of a configured unavailable check. It preserves the original review

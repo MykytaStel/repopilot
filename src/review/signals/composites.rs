@@ -1,9 +1,9 @@
-//! Composite enrichment for boundary signals — the part that's unique to a tool
-//! sitting on the diff *and* the import graph *and* file classification at once.
+//! Add blast-radius and missing-test context to boundary signals.
 //!
-//! - [`enrich_blast_radius`]: how far does the changed boundary file reach?
-//! - [`missing_test_for_code_boundary`]: did a *code* boundary change while no
-//!   test moved? (The reviewer's instinct: "you changed auth and touched no test.")
+//! - [`enrich_blast_radius`] adds the set of files that import each changed
+//!   boundary file.
+//! - [`missing_test_for_code_boundary`] notes when an access-control or
+//!   request-trust change has no corresponding test change.
 
 use super::BoundarySignal;
 use crate::audits::context::classify::helpers::is_test_file;

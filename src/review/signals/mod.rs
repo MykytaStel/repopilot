@@ -1,20 +1,16 @@
 //! Security-boundary change signals for `repopilot review`.
 //!
-//! These are review-layer signals, not scan-engine rules: they answer a single
-//! question from the diff's changed-file list — *did this change touch a part of
-//! the repo that decides who can do what, or how the app ships?*
+//! For each changed file, classification checks its path and name first. If
+//! those do not match, an AST pass checks supported imports, decorators,
+//! annotations, and macros for access-control or request-trust boundaries.
+//! Other categories include deployment files, dependency manifests, and
+//! committed secret configuration.
 //!
-//! They **flag, they do not prove.** A false positive costs a glance, so the
-//! defaults lean toward surfacing rather than staying silent. This is the
-//! opposite trade-off from a security scanner, where every false alarm is waste.
-//! The detector is purely path/filename classification over `changed_files`;
-//! it never inspects code semantics and never claims a change is safe or unsafe.
-//! Ships at `preview` — the default pattern set will need tuning from real repos.
+//! These signals identify changes for review. They do not decide whether a
+//! change is safe. [`classify`] handles category matching; [`composites`]
+//! adds blast-radius and missing-test context.
 //!
-//! - [`classify`] maps a single path to a [`BoundaryCategory`].
-//! - [`composites`] enriches signals with review context already on hand: the
-//!   blast radius (how far the changed file reaches) and whether the change
-//!   touched a code boundary without touching any test.
+//! They are review-layer signals configured through the review policy.
 
 pub mod algorithmic;
 #[cfg(test)]

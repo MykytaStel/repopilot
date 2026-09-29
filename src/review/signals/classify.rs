@@ -1,8 +1,9 @@
-//! Path/filename classification for security-boundary signals.
+//! Path and AST classification for security-boundary signals.
 //!
-//! Pure functions: given a repo-relative path, decide which [`BoundaryCategory`]
-//! (if any) it belongs to. No file contents are read. See the module docs in
-//! `mod.rs` for the "flag, don't prove" philosophy.
+//! [`classify_boundary`] maps a repo-relative path to a category without reading
+//! file contents. When that finds no category, the production review pass can
+//! use [`classify_boundary_ast_from_source`] to inspect supported imports,
+//! decorators, annotations, and macros.
 
 use super::BoundaryCategory;
 #[cfg(test)]

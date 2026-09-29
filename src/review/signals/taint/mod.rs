@@ -1,24 +1,20 @@
 //! Taint-lite reachability signals for `repopilot review`.
 //!
-//! Intra-procedural by design: within a changed file's post-change source, flag
-//! when a value derived from an untrusted *source* (an HTTP request field, the
-//! process arguments) reaches a dangerous *sink* (a raw SQL query, a
-//! subprocess/exec call, a filesystem write, an outbound network call). It tracks
-//! direct flow and simple local assignment chains (`x = req.query.id; run(x)`),
-//! and stops there — no cross-function, aliasing, or whole-program analysis. That
-//! is the "lite" in taint-lite.
+//! Within each changed file's post-change source, recognize selected untrusted
+//! inputs (such as request fields or process arguments) reaching SQL, process,
+//! filesystem-write, or network sinks. Within one flow scope, it follows local
+//! assignments and selected static property/index paths. It does not follow
+//! values across functions, dynamic indexes, or general heap aliases.
 //!
-//! Consistent with the "flag, don't prove" stance in the parent `mod.rs`: a
-//! signal says a *path exists* from input to a sink, never that it is
-//! exploitable. For SQL we only flag when the tainted value is built *into* the
-//! query string (concatenation / interpolation / format); a parameterized query
-//! that passes the value as a separate bind argument is the safe pattern and is
-//! deliberately not flagged. Test files are skipped. Ships at `preview`.
+//! For SQL, the tainted value must be part of the query string. A value passed
+//! as a separate bind argument is not reported. Test files and languages without
+//! a configured taint frontend are skipped. A signal records a recognized
+//! source-to-sink path; it does not establish exploitability.
 //!
 //! - [`sources`] recognizes untrusted-input access nodes per language.
 //! - [`sinks`] classifies a call node as a dangerous sink and exposes its args.
-//! - [`flow`] seeds tainted locals from sources and reports when one reaches a
-//!   sink, gated to the changed lines so it stays change-scoped.
+//! - [`flow`] tracks local assignments and emits sink lines that overlap the
+//!   changed ranges.
 
 pub(crate) mod ast;
 mod flow;

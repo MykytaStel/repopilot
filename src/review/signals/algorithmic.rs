@@ -1,14 +1,11 @@
 //! Algorithmic change signals — function-level structural deltas.
 //!
-//! For each function the diff touched, compare its shape *before* and *after* the
-//! change and report the structural delta: control-flow nesting got deeper, a
-//! nested loop (a potential O(n^2)) appeared, the function grew past a size
-//! threshold, or it became recursive.
-//!
-//! These are the highest-noise, most-arguable signals, so they stay deliberately
-//! humble: they report the structural fact ("max nesting 2 → 4"), never a verdict
-//! ("too complex"). Consistent with the "flag, don't prove" stance in `mod.rs`,
-//! and gated to the `maybe` tier when surfaced. Ships at `preview`.
+//! For each changed function, compare syntax-derived metrics before and after
+//! the change. Emit a signal when nesting increases past the threshold, a
+//! nested loop appears, the function grows past the size threshold, or
+//! recursion is introduced. The signal reports that structural change; it does
+//! not estimate runtime cost or label the function as too complex. These
+//! signals are assigned to the `maybe` tier.
 
 mod lang;
 

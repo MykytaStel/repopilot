@@ -1,8 +1,7 @@
 //! Unified, confidence-tiered view over the review's change signals.
 //!
-//! Boundary, behavioral, algorithmic, and taint-lite signals converge into one
-//! [`ReviewSignal`] type, grouped into three trust tiers so a reviewer's eye
-//! goes to the right place first:
+//! Boundary, behavioral, algorithmic, and taint-lite detectors produce one
+//! [`ReviewSignal`] type, grouped by confidence tier:
 //!
 //! - **definitely sensitive** — boundary changes and unambiguous behavior
 //!   crossings (env var, migration, subprocess, removed error handling / auth /
@@ -13,9 +12,8 @@
 //! - **large-diff-or-noise** — a big diff with nothing flagged, surfaced once so
 //!   volume is visible without pretending to understand it.
 //!
-//! Humble by construction: every signal carries a structural fact, never a
-//! verdict. The existing `boundary_signals` view is kept untouched; this is an
-//! additive, forward-looking surface.
+//! Signals retain their source and analysis scope. The existing
+//! `boundary_signals` view remains available alongside this grouped view.
 
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::Confidence;
@@ -39,7 +37,7 @@ use std::path::Path;
 const LARGE_DIFF_FILES: usize = 5;
 const LARGE_DIFF_LINES: usize = 200;
 
-/// How much a reviewer should trust that a signal points at something worth a look.
+/// Deterministic attention tier for grouping review signals; it is not a probability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ConfidenceTier {

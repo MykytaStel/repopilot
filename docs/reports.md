@@ -337,10 +337,14 @@ size-limit, binary, file-limit, and `.repopilotignore` exclusions.
 Review JSON also carries an additive top-level `decision` object. It is the
 single primary assessment for the review and contains `verdict` (`PASS`,
 `REVIEW`, `BLOCK`, or `NOT_ASSESSED`), `meaning`, `why`, `limitations`, one
-`next_action`, and independent `gates.ci` / `gates.review` states. The
-decision is derived from `change_proof`; it does not replace `change_proof`,
-`merge_readiness`, or their exit-code semantics. A failed CI gate remains a
-separate gate result rather than silently changing a static proof verdict.
+`next_action`, and separate `gates.ci` / `gates.review` states. The decision
+verdict maps from `change_proof`; a configured gate failure is also recorded as
+a proof reason where applicable, while the gate field reports its threshold
+result separately. `merge_readiness` is a compatibility record with older
+`ready` / `review` / `blocked` semantics and can differ from Change Proof when
+the selected proof policy is insufficient. See
+[Read the review result](commands.md#read-the-review-result) for the user-facing
+mapping and example.
 Empty, unsupported, or partially analyzed scopes remain `NOT_ASSESSED` or
 `REVIEW` and are never promoted to `PASS`.
 

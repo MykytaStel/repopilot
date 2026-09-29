@@ -7,15 +7,12 @@
 //! [`removed`]) the mirror image: error handling, auth checks, or test cases
 //! that disappeared between the pre- and post-change source.
 //!
-//! **Flag, don't prove** — same stance as boundary and algorithmic signals.
-//! Matching is a fixed per-language keyword/call-shape list (see
-//! [`keywords`]), not semantic understanding of *why* a call was added or
-//! removed: a network call wrapped behind a feature flag still counts as
-//! added, and a call renamed rather than removed can read as "removed" if the
-//! new name isn't in the list. The list is necessarily incomplete and will
-//! need tuning from real repos. Falls back to coarse token matching (no AST)
-//! for languages without a tree-sitter grammar — see
-//! [`BehavioralSignalSource::CoarseFallback`]. Ships at `preview`.
+//! Matching uses fixed per-language keyword and call-shape lists (see
+//! [`keywords`]). It does not determine why a call changed. A feature-flagged
+//! network call still counts as added, and a rename can look like a removal
+//! when the new name is not recognized. Languages without a tree-sitter
+//! grammar use coarse token matching; see
+//! [`BehavioralSignalSource::CoarseFallback`].
 
 mod csharp;
 mod dependency;
