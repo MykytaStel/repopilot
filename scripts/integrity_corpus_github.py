@@ -37,13 +37,13 @@ def api(path: str, *fields: str, paginate: bool = False) -> object:
 
 PR_SEARCH = """
 query($q: String!, $after: String) {
-  search(type: ISSUE, query: $q, first: 100, after: $after) {
+  search(type: ISSUE, query: $q, first: 40, after: $after) {
     pageInfo { hasNextPage endCursor }
     nodes { ... on PullRequest {
       number changedFiles baseRefOid headRefOid createdAt body
       author { login __typename }
       repository { nameWithOwner stargazerCount isFork isArchived isPrivate }
-      files(first: 100) { nodes { path changeType } }
+      files(first: 60) { nodes { path changeType } }
     } }
   }
 }
@@ -58,8 +58,9 @@ def graphql(query: str, **variables: str) -> dict:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             return json.loads(result.stdout)["data"]
-        if "rate limit" in result.stderr.lower() or "secondary" in result.stderr.lower():
-            time.sleep(30 * (attempt + 1))
+        error = result.stderr.lower()
+        if "rate limit" in error or "secondary" in error or "http 50" in error:
+            time.sleep(15 * (attempt + 1))
             continue
         raise RuntimeError(f"gh api graphql failed: {result.stderr.strip()}")
     raise RuntimeError("gh api graphql: rate limited")
