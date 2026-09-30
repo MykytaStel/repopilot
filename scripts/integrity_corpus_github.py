@@ -9,7 +9,7 @@ import time
 from datetime import date, timedelta
 from typing import Iterator
 
-SEARCH_PAUSE_SECONDS = 2.2  # search: 30 requests/minute
+SEARCH_PAUSE_SECONDS = 6.0  # stays under GitHub's secondary search limits
 AGENT_MARKER = re.compile(
     r"generated with \[?claude code|co-authored-by: claude|claude\.ai/code|chatgpt\.com/codex"
     r"|\bcodex\b|devin|cursor\.com|jules|copilot",
@@ -54,13 +54,13 @@ def graphql(query: str, **variables: str) -> dict:
     cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
     for key, value in variables.items():
         cmd += ["-f", f"{key}={value}"]
-    for attempt in range(4):
+    for attempt in range(6):
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             return json.loads(result.stdout)["data"]
         error = result.stderr.lower()
         if "rate limit" in error or "secondary" in error or "http 50" in error:
-            time.sleep(15 * (attempt + 1))
+            time.sleep(60 * (attempt + 1))
             continue
         raise RuntimeError(f"gh api graphql failed: {result.stderr.strip()}")
     raise RuntimeError("gh api graphql: rate limited")
@@ -86,15 +86,10 @@ def search_pr_nodes(query: str, pages: int = 1) -> Iterator[dict]:
         after = data["pageInfo"]["endCursor"]
 
 
-def search_prs(qualifier: str, window: tuple[str, str]) -> Iterator[dict]:
-    for span in windows(window, 2):
-        yield from search_pr_nodes(f"is:pr is:merged {qualifier} created:{span}", pages=3)
-
-
 def search_repo_human_prs(repo: str, window: tuple[str, str], agent_qualifiers: list[str]) -> Iterator[dict]:
     excluded = " ".join(f"-{q}" for q in agent_qualifiers if q.startswith(("author:", "label:")))
     query = (
-        f"repo:{repo} is:pr is:merged created:{window[0]}..{window[1]} {excluded} "
+        f"repo:{repo} is:pr is:merged review:approved created:{window[0]}..{window[1]} {excluded} "
         "-author:app/dependabot -author:app/renovate"
     )
     yield from search_pr_nodes(query, pages=2)

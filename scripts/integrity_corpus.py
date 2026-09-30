@@ -92,27 +92,51 @@ def qualifies(node: dict) -> dict | None:
 
 
 def sample(per_agent: int) -> None:
+    """Resumable: progress is appended to the gitignored cache as it is found,
+    so a rate-limit stop loses nothing already sampled."""
+    CACHE.mkdir(exist_ok=True)
+    progress = CACHE / "sample-progress.jsonl"
+    done_windows: set[tuple[str, str]] = set()
     picked: list[dict] = []
-    seen: set[tuple[str, int]] = set()
-    per_repo: dict[tuple[str, str], int] = {}
+    if progress.exists():
+        for line in progress.read_text().splitlines():
+            record = json.loads(line)
+            if record["type"] == "window":
+                done_windows.add((record["agent"], record["span"]))
+            else:
+                picked.append(record["entry"])
+
+    def remember(record: dict) -> None:
+        with progress.open("a") as handle:
+            handle.write(json.dumps(record) + "\n")
+
+    seen = {(e["repo"], e["number"]) for e in picked}
     for agent, qualifier in AGENT_QUERIES.items():
-        count = 0
-        for node in gh.search_prs(qualifier, WINDOW):
+        count = sum(1 for e in picked if e["agent"] == agent)
+        for span in gh.windows(WINDOW, 2):
             if count >= per_agent:
                 break
-            entry = qualifies(node)
-            if entry is None or (entry["repo"], entry["number"]) in seen:
+            if (agent, span) in done_windows:
                 continue
-            if per_repo.get(("agent", entry["repo"]), 0) >= PER_REPO:
-                continue
-            entry.update(group="agent", agent=agent)
-            picked.append(entry)
-            seen.add((entry["repo"], entry["number"]))
-            per_repo[("agent", entry["repo"])] = per_repo.get(("agent", entry["repo"]), 0) + 1
-            count += 1
-            print(f"agent/{agent}: {entry['repo']}#{entry['number']}", file=sys.stderr, flush=True)
-    for repo in sorted({e["repo"] for e in picked}):
-        count = 0
+            for node in gh.search_pr_nodes(f"is:pr is:merged review:approved {qualifier} created:{span}", pages=3):
+                entry = qualifies(node)
+                if entry is None or (entry["repo"], entry["number"]) in seen:
+                    continue
+                if sum(1 for e in picked if e["group"] == "agent" and e["repo"] == entry["repo"]) >= PER_REPO:
+                    continue
+                entry.update(group="agent", agent=agent)
+                picked.append(entry)
+                seen.add((entry["repo"], entry["number"]))
+                remember({"type": "entry", "entry": entry})
+                count += 1
+                print(f"agent/{agent}: {entry['repo']}#{entry['number']}", file=sys.stderr, flush=True)
+                if count >= per_agent:
+                    break
+            remember({"type": "window", "agent": agent, "span": span})
+    for repo in sorted({e["repo"] for e in picked if e["group"] == "agent"}):
+        if (f"human:{repo}", "all") in done_windows:
+            continue
+        count = sum(1 for e in picked if e["group"] == "human" and e["repo"] == repo)
         for node in gh.search_repo_human_prs(repo, WINDOW, list(AGENT_QUERIES.values())):
             if count >= PER_REPO:
                 break
@@ -124,8 +148,10 @@ def sample(per_agent: int) -> None:
             entry.update(group="human", agent="none")
             picked.append(entry)
             seen.add((entry["repo"], entry["number"]))
+            remember({"type": "entry", "entry": entry})
             count += 1
             print(f"human: {repo}#{entry['number']}", file=sys.stderr, flush=True)
+        remember({"type": "window", "agent": f"human:{repo}", "span": "all"})
     picked.sort(key=lambda e: (e["group"], e["repo"], e["number"]))
     for index, entry in enumerate(picked, start=1):
         entry["id"] = f"ic-{index:03d}"
