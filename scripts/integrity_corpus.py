@@ -42,6 +42,7 @@ AGENT_QUERIES = {
 MIN_STARS = 100
 MAX_FILES = 60
 PER_REPO = 2
+STATUS = {"ADDED": "added", "DELETED": "removed", "MODIFIED": "modified", "RENAMED": "renamed", "COPIED": "added", "CHANGED": "modified"}
 
 
 def load_manifest() -> list[dict]:
@@ -68,63 +69,63 @@ def write_manifest(entries: list[dict]) -> None:
     MANIFEST.write_text("\n".join(lines))
 
 
-def qualifies(repo: str, number: int, stars_cache: dict[str, int]) -> dict | None:
-    if repo not in stars_cache:
-        stars_cache[repo] = gh.repo_stars(repo)
-    if stars_cache[repo] < MIN_STARS:
+def qualifies(node: dict) -> dict | None:
+    repo = node["repository"]
+    if repo["isFork"] or repo["isArchived"] or repo["isPrivate"] or repo["stargazerCount"] < MIN_STARS:
         return None
-    files = gh.pr_files(repo, number)
-    if len(files) > MAX_FILES:
+    if not 0 < node["changedFiles"] <= MAX_FILES:
         return None
+    files = [{"filename": f["path"], "status": STATUS[f["changeType"]]} for f in node["files"]["nodes"]]
     touched = [f for f in files if f["status"] in ("modified", "removed", "renamed") and is_test_file(f)]
     if not touched:
         return None
-    exts = sorted({Path(f["filename"]).suffix.lstrip(".") for f in touched})
-    pr = gh.pr_meta(repo, number)
     return {
-        "repo": repo,
-        "number": number,
-        "base_sha": pr["base"]["sha"],
-        "head_sha": pr["head"]["sha"],
-        "language": ",".join(exts),
-        "created": pr["created_at"][:10],
-        "user_type": pr["user"]["type"],
-        "body": pr.get("body") or "",
+        "repo": repo["nameWithOwner"],
+        "number": node["number"],
+        "base_sha": node["baseRefOid"],
+        "head_sha": node["headRefOid"],
+        "language": ",".join(sorted({Path(f["filename"]).suffix.lstrip(".") for f in touched})),
+        "created": node["createdAt"][:10],
+        "user_type": (node.get("author") or {}).get("__typename", ""),
+        "body": node.get("body") or "",
     }
 
 
 def sample(per_agent: int) -> None:
-    stars: dict[str, int] = {}
     picked: list[dict] = []
-    repos_used: dict[tuple[str, str], int] = {}
+    seen: set[tuple[str, int]] = set()
+    per_repo: dict[tuple[str, str], int] = {}
     for agent, qualifier in AGENT_QUERIES.items():
         count = 0
-        for repo, number in gh.search_prs(qualifier, WINDOW):
+        for node in gh.search_prs(qualifier, WINDOW):
             if count >= per_agent:
                 break
-            if repos_used.get(("agent", repo), 0) >= PER_REPO:
+            entry = qualifies(node)
+            if entry is None or (entry["repo"], entry["number"]) in seen:
                 continue
-            entry = qualifies(repo, number, stars)
-            if entry is None:
+            if per_repo.get(("agent", entry["repo"]), 0) >= PER_REPO:
                 continue
             entry.update(group="agent", agent=agent)
             picked.append(entry)
-            repos_used[("agent", repo)] = repos_used.get(("agent", repo), 0) + 1
+            seen.add((entry["repo"], entry["number"]))
+            per_repo[("agent", entry["repo"])] = per_repo.get(("agent", entry["repo"]), 0) + 1
             count += 1
-            print(f"agent/{agent}: {repo}#{number}", file=sys.stderr)
-    agent_repos = sorted({e["repo"] for e in picked})
-    for repo in agent_repos:
+            print(f"agent/{agent}: {entry['repo']}#{entry['number']}", file=sys.stderr, flush=True)
+    for repo in sorted({e["repo"] for e in picked}):
         count = 0
-        for number in gh.search_repo_human_prs(repo, WINDOW, list(AGENT_QUERIES.values())):
+        for node in gh.search_repo_human_prs(repo, WINDOW, list(AGENT_QUERIES.values())):
             if count >= PER_REPO:
                 break
-            entry = qualifies(repo, number, stars)
+            entry = qualifies(node)
             if entry is None or entry["user_type"] != "User" or gh.has_agent_marker(entry["body"]):
+                continue
+            if (entry["repo"], entry["number"]) in seen:
                 continue
             entry.update(group="human", agent="none")
             picked.append(entry)
+            seen.add((entry["repo"], entry["number"]))
             count += 1
-            print(f"human: {repo}#{number}", file=sys.stderr)
+            print(f"human: {repo}#{entry['number']}", file=sys.stderr, flush=True)
     picked.sort(key=lambda e: (e["group"], e["repo"], e["number"]))
     for index, entry in enumerate(picked, start=1):
         entry["id"] = f"ic-{index:03d}"
