@@ -87,8 +87,8 @@ def search_pr_nodes(query: str, pages: int = 1) -> Iterator[dict]:
 
 
 def search_prs(qualifier: str, window: tuple[str, str]) -> Iterator[dict]:
-    for span in windows(window, 3):
-        yield from search_pr_nodes(f"is:pr is:merged {qualifier} created:{span}")
+    for span in windows(window, 2):
+        yield from search_pr_nodes(f"is:pr is:merged {qualifier} created:{span}", pages=3)
 
 
 def search_repo_human_prs(repo: str, window: tuple[str, str], agent_qualifiers: list[str]) -> Iterator[dict]:
