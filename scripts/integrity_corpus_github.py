@@ -59,7 +59,8 @@ def graphql(query: str, **variables: str) -> dict:
         if result.returncode == 0:
             return json.loads(result.stdout)["data"]
         error = result.stderr.lower()
-        if "rate limit" in error or "secondary" in error or "http 50" in error:
+        transient = ("rate limit", "secondary", "http 50", "connection reset", "timeout", "eof")
+        if any(marker in error for marker in transient):
             time.sleep(60 * (attempt + 1))
             continue
         raise RuntimeError(f"gh api graphql failed: {result.stderr.strip()}")
