@@ -5,48 +5,57 @@
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
 [![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
 
-**Deterministic review for code you didn't write.**
+**Local, deterministic review for Git changes.**
 
-Coding agents and busy teams produce more diffs than anyone can carefully
-read. RepoPilot is a local Rust CLI that inspects a Git change and reports,
-with structural evidence, where it crosses security boundaries, changes
-behavior, and how far it reaches through the import graph. There is no LLM
-inside and nothing leaves your machine: the same diff always produces the
-same answer, so you can gate CI on it.
+RepoPilot helps developers and teams inspect a change before merge. It reports
+structural evidence about security boundaries, behavior, local imports and
+exports, and the files affected through the dependency graph. The same review
+can run from a terminal, in CI, or through an agent integration.
 
-## Sixty seconds: an agent "optimizes" image uploads
+The analysis runs on the machine or CI runner that invokes it. It does not send
+source to a hosted service or call an embedded language model. Findings point to
+code and explain what to check; reviewers still decide whether a change is safe
+for their application.
 
-An agent is asked to shell out to `mogrify` after image edits in a Django
-app (Wagtail). The diff is one file, +12 −6, and it works. It also quietly
-drops a permission check and pipes request input into a shell.
+## Install and review
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/MykytaStel/repopilot/main/docs/demos/03-agent-review.gif" alt="repopilot review flagging a removed auth check and a request-to-shell taint flow in a one-file diff" width="800">
-</p>
+```bash
+cargo install repopilot
+# or
+npm install -g repopilot
 
-One command, `repopilot review .`, and the diff answers for itself — one
-verdict, the reasons behind it, and one next action, then the evidence:
-
-```text
-Decision: REVIEW (Change Proof: REVIEW)
-Reasons:
-  - Definitely-sensitive review signal(s) require confirmation.
-  - A changed boundary has no corresponding test change.
-  …
-Next action: Resolve or confirm the high-priority findings and sensitive signals listed below before merge.
-
-⚑ access control changed — wagtail/images/views/images.py
-⚑ auth check removed — wagtail/images/views/images.py:264
-    Authentication/authorization check removed (auth calls: 1 -> 0)
-⚑ subprocess/exec added — wagtail/images/views/images.py:270
-⚑ untrusted input reaches subprocess/exec — wagtail/images/views/images.py:270
-    HTTP request input reaches subprocess/exec: subprocess.run("mogrify -quality " + quality + ...
-⚠ A code boundary changed but no test did — confirm it's still covered.
+repopilot review . --base origin/main
 ```
 
-The edit is scripted so you can replay it on the pinned Wagtail checkout
-RepoPilot uses for regression testing — but it is the kind of diff agents
-ship every day:
+For uncommitted work, run `repopilot review .`. The first screen gives one
+`PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED` decision, its reasons, coverage
+limits, and a next action.
+
+A review can surface:
+
+- changes to authentication, request trust, deployment, dependencies, or secret
+  configuration;
+- added or removed behavior such as network calls, subprocesses, filesystem
+  writes, SQL, or error handling;
+- changed input-to-sink paths, algorithmic structure, or local import/export
+  contracts;
+- direct dependents and the wider impact of changed files.
+
+Signals are advisory evidence. For example, a taint-lite signal shows that a
+recognized input can reach a recognized sink in the changed source. Confirm the
+impact in the context of the application and its configured checks.
+
+## Example: review an image-processing change
+
+The Wagtail example removes an authorization check and passes request data to a
+subprocess in a one-file change. RepoPilot reports both the boundary change and
+the input-to-process flow.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/MykytaStel/repopilot/main/docs/demos/03-agent-review.gif" alt="RepoPilot review showing a removed authorization check and request input reaching a subprocess" width="800">
+</p>
+
+Replay the example on the pinned test repository:
 
 ```bash
 python3 scripts/zoo.py clone --only wagtail
@@ -54,154 +63,67 @@ scripts/demo-agent-edit.sh .zoo/wagtail
 repopilot review .zoo/wagtail
 ```
 
-The same review works across languages — the identical flow in a Spring
-controller (`scripts/demo-java-agent-edit.sh` on the pinned PetClinic
-checkout) is caught the same way.
+> A reported flow is a path to investigate. RepoPilot does not prove that it is
+> exploitable or that the application is safe.
 
-> RepoPilot reports structural evidence, not a security verdict. A flagged
-> flow is a path to verify, not a confirmed vulnerability. Use it beside
-> tests, linters, and dedicated security tools.
+## Use in a team
 
-`VERIFIED` is only awarded when checks you configure and select with
-`--verify` pass on the reviewed revision; `repopilot init --suggestions-output
-repopilot-suggestions.toml` proposes them for your stack without applying
-anything. Add `--detail full` for provenance, legacy readiness, and ownership.
-
-## Catch broken code, not just risky code
-
-A tidy-looking rename and file move — nothing a diff review would flag on its
-own — quietly breaks two callers that still expect the old names. No compiler
-runs; both are AST-plus-resolver proofs.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/MykytaStel/repopilot/main/docs/demos/05-broken-code.gif" alt="repopilot review catching a removed export still imported and an unresolved local import in a tidy-looking rename" width="800">
-</p>
-
-```bash
-scripts/demo-broken-code-review.sh
-```
-
-## Why not an LLM reviewer?
-
-- **Deterministic.** Same diff in, same signals out. You can gate a pipeline
-  on it and reproduce any result; there is no prompt to drift and no model
-  to update under you.
-- **Local.** No source upload, no API key, no per-review cost, no telemetry.
-  It runs offline, including the MCP server.
-- **Evidence, not opinions.** Every signal points at a line and states the
-  structural fact behind it — an auth call count that went down, a request
-  value reaching `subprocess.run`. Nothing "looks fine."
-
-LLM reviewers are useful; a deterministic layer under them is what makes
-their output checkable.
-
-## Install
-
-```bash
-cargo install repopilot
-# or
-npm install -g repopilot
-```
-
-Homebrew, GitHub Releases, and source builds:
-[Installation](https://github.com/MykytaStel/repopilot/blob/main/docs/install.md).
-
-## Review a change
-
-```bash
-repopilot review .                        # working tree vs HEAD
-repopilot review . --base origin/main     # branch vs main
-```
-
-Review groups evidence into tiers: security boundaries (access control,
-request trust, deploy surface, supply chain, secrets), behavioral changes
-(network, subprocess, filesystem, SQL, removed error handling or auth),
-algorithmic shifts, taint-lite flows (changed request/process input reaching
-SQL, exec, filesystem-write, or network sinks), broken local imports and
-exports (a deleted or renamed file still imported, a removed export still
-called under its old name — no compiler required), and blast radius (files
-that import what changed).
-
-Signals are advisory by default. Gate CI on the high-confidence tier:
+Gate a branch review on high-confidence signals:
 
 ```bash
 repopilot review . --base origin/main --fail-on-review definitely
 ```
 
-Every review also resolves to one merge-readiness verdict — `ready`,
-`review`, or `blocked` — built from findings, review signals, CODEOWNERS,
-and blast radius, with deterministic reason codes and suggested owners.
-Console, Markdown, JSON, MCP, and the GitHub Action summary all read the same
-ChangeProof and evidence records; machine projections keep the legacy fields
-for compatibility.
+A review is `VERIFIED` only when checks configured for the repository are
+explicitly selected with `--verify` and pass on the reviewed revision. Generate
+suggestions for a first setup with
+`repopilot init --suggestions-output repopilot-suggestions.toml`; the file is
+separate from active configuration. See [configuration](docs/configuration.md).
 
-## Compare risk across runs
+For a broader repository view, run `repopilot scan .`. Use
+`repopilot baseline create .` to adopt existing findings before gating new work.
 
-History is local, bounded, and off by default. Record two compatible
-analyses to see what's new, persisting, resolved, or changed severity —
-nothing leaves your machine:
+## Agent and CI integrations
 
-```bash
-repopilot review . --record-history
-repopilot scan . --record-history
-```
-
-Receipts live under `.repopilot/history/`.
-
-To calibrate a known rule to your repository instead of silencing it
-project-wide, add a scoped, diffable entry to `.repopilot/overlay.toml`:
-
-```toml
-[[overlay]]
-rule = "behavioral.panic-risk"
-path = "src/cli/**"
-severity = "low"
-reason = "CLI handlers can terminate on unrecoverable input"
-```
-
-Overlay decisions stay visible in `--profile strict` and the decision
-trace — never a silent post-scan filter. Details:
-[Configuration](https://github.com/MykytaStel/repopilot/blob/main/docs/configuration.md).
-
-## Guard an agent run
-
-Take a snapshot before the agent starts, review everything it did — commits
-and uncommitted edits — when it stops:
+The same review can check work from a human or a coding agent. Record a starting
+point and review the changes made since it:
 
 ```bash
 repopilot snapshot
-# ... agent session ...
+# Work happens here.
 repopilot review --since-snapshot
 ```
 
-To wire this in permanently — a Claude Code hook that reviews every agent
-session, an MCP server the agent can query mid-task (`repopilot init
---mcp-client claude|cursor|generic`), or a PR gate via the GitHub Action —
-see [Guard your agent runs](https://github.com/MykytaStel/repopilot/blob/main/docs/agent-guardrail.md).
+The marker stores `HEAD` and a dirty/clean flag, not a copy of existing
+uncommitted files. If the working tree was already dirty, the later review may
+include those earlier changes and cannot attribute every change to that session.
+See [common workflows](docs/commands.md#review-work-since-a-marker).
 
-## Beyond the diff
+RepoPilot also provides a local stdio MCP server and a GitHub Action. The MCP
+server gives an agent access to the local scan and review tools. The Action runs
+RepoPilot on the Actions runner and can publish SARIF or a pull request summary.
+See [Guard your agent runs](docs/agent-guardrail.md), [MCP server](docs/mcp.md),
+and [GitHub integration](docs/integrations/github-code-scanning.md).
 
-- `repopilot scan .` — full-repository audit (architecture, coupling,
-  framework, testing). `repopilot baseline create .` adopts existing debt so
-  only new findings gate.
-- `repopilot ai context .` — one compact Markdown handoff of repository
-  facts, findings, and a prioritized fix plan for an external assistant.
-  Local, no LLM calls.
-- `repopilot mcp --root .` — the same analysis over stdio for coding agents:
-  synchronous, root-confined, offline.
+## More capabilities
 
-Details: [Common workflows](https://github.com/MykytaStel/repopilot/blob/main/docs/commands.md).
+- `repopilot ai context .` creates a local handoff with repository facts,
+  findings, and a prioritized plan. It makes no model calls.
+- `repopilot init` creates configuration or integration files for review.
+- Reports are available as console, Markdown, JSON, HTML, and SARIF.
 
 ## Documentation
 
-- [Documentation index](https://github.com/MykytaStel/repopilot/blob/main/docs/README.md)
-- [Guard your agent runs](https://github.com/MykytaStel/repopilot/blob/main/docs/agent-guardrail.md)
-- [CLI reference](https://github.com/MykytaStel/repopilot/blob/main/docs/cli.md)
-- [Configuration](https://github.com/MykytaStel/repopilot/blob/main/docs/configuration.md)
-- [Reports and schemas](https://github.com/MykytaStel/repopilot/blob/main/docs/reports.md)
-- [GitHub pull request integration](https://github.com/MykytaStel/repopilot/blob/main/docs/integrations/github-code-scanning.md)
+- [Install](docs/install.md) · [Common workflows](docs/commands.md) ·
+  [CLI reference](docs/cli.md)
+- [Current architecture](docs/architecture.md) ·
+  [Reports and schemas](docs/reports.md) · [Security model](docs/security.md)
+- [Language support](docs/language-support.md) ·
+  [Rules reference](docs/rules-reference.md) · [Roadmap](docs/roadmap.md)
+- [Latest release notes](docs/releases/v0.23.0.md) ·
+  [Maintainer documentation](docs/engineering/README.md)
 
-Contributing and development commands: [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributing and development setup: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

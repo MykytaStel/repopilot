@@ -2,7 +2,9 @@
 
 `repopilot mcp --root PATH` runs RepoPilot as a local Model Context Protocol
 server over stdio. It supports protocol versions `2025-11-25` and `2024-11-05`.
-No source, telemetry, or tool result leaves the machine.
+RepoPilot does not upload source or telemetry. MCP responses are returned to the
+configured client over stdio; that client's own processing and data handling
+are outside RepoPilot's control.
 
 All filesystem arguments are resolved under `--root`; paths outside that
 workspace are rejected.
@@ -30,12 +32,22 @@ adapters over the same `repopilot mcp --root .` server command.
 ## Tool Contract
 
 Tools advertise `outputSchema`, return `structuredContent`, and retain text
-content as a fallback for older clients. They are annotated as read-only,
-non-destructive, idempotent, and closed-world.
+content as a fallback for older clients. Scan, context, and explanation tools
+carry MCP annotations for read-only, non-destructive, idempotent, closed-world
+behavior. The review tool's annotations describe its worst case:
+`readOnlyHint=false`, `destructiveHint=true`, `idempotentHint=false`, and
+`openWorldHint=true`, because its optional `verify` input can run configured
+checks.
+
+The default review analysis does not run configured verification checks. When
+the `verify` array names configured check IDs, those checks run on the host with
+the user's filesystem and network permissions. RepoPilot does not sandbox the
+process, and it never accepts a shell command string through MCP. See the
+[security model](security.md#explicit-verification-commands).
 
 | Tool | Purpose | Additional inputs |
 |---|---|---|
-| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, gate result, and optional intent drift | `base`, `head`, `config`, `baseline`, `intent`, `intent_path`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit` |
+| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, gate result, optional intent drift, and explicitly selected verification checks | `base`, `head`, `config`, `baseline`, `intent`, `intent_path`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit`, `verify` |
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base`, `offset`, `limit` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget`, `analysis_handle` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |

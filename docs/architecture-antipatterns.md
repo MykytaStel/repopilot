@@ -1,8 +1,8 @@
-# Architecture Anti-patterns
+# Architecture Audit Policy
 
-RepoPilot architecture checks are designed to catch product structure risks without turning
-rule fixtures, test corpora, docs, examples, generated files, vendor trees, or build output into
-user-facing architecture noise.
+This page defines which repository structures the architecture audit rules
+consider and which paths they exclude. It documents rule policy; the system
+design is described in [RepoPilot architecture](architecture.md).
 
 ## Product policy
 

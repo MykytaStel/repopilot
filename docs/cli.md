@@ -22,9 +22,9 @@ Use `-h` for a short summary or `--help` for the full description and examples.
 | Audit the complete repository | `repopilot scan .` |
 | Show the full recall surface for calibration | `repopilot scan . --profile strict` |
 | Adopt an existing repository without blocking on old debt | `repopilot baseline create .` |
-| Review all work performed after an agent starts | `repopilot snapshot`, then `repopilot review --since-snapshot` |
+| Review changes since a Git marker | `repopilot snapshot`, then `repopilot review --since-snapshot` |
 | Prepare bounded evidence for an external assistant | `repopilot ai context .` |
-| Give an MCP client direct read-only analysis tools | `repopilot mcp --root .` |
+| Give an MCP client access to RepoPilot's local analysis tools | `repopilot mcp --root .` |
 
 `review` is the default daily workflow. `scan` is the authoritative repository-wide
 audit. Changed scans and changed-scope reviews intentionally omit some repository-level
@@ -38,7 +38,7 @@ architecture, framework, testing, and coupling checks.
 |---------|-------|-------------|
 | [`review`](#review) | `r` | Review findings and signals that touch a Git change |
 | [`scan`](#scan) | `s` | Scan a project, folder, or file for repository-wide findings |
-| [`snapshot`](#snapshot) | — | Mark repository state before an agent or manual change |
+| [`snapshot`](#snapshot) | — | Mark Git state before a person or coding agent makes a change |
 | [`ai context`](#ai-context) | — | Generate an LLM-ready handoff (context, plan, and guidance) from a scan |
 | [`cache`](#cache) | — | Manage local changed-scan cache files |
 | [`baseline`](#baseline) | `bl` | Manage accepted baseline findings |
@@ -202,7 +202,7 @@ per-file cache decisions, and cache timing impact.
 
 ## `snapshot`
 
-Marks the current repository state before an AI agent or developer begins a change.
+Marks the Git starting point before a person or coding agent begins a change.
 
 ```bash
 repopilot snapshot
@@ -210,8 +210,11 @@ repopilot snapshot
 repopilot review --since-snapshot
 ```
 
-The snapshot records the starting Git state; it is not a repository backup and does
-not modify commits or working-tree files.
+The snapshot stores the current `HEAD` and whether the working tree is dirty; it
+does not save a copy of uncommitted file contents. `review --since-snapshot`
+compares the current state with that recorded `HEAD`. If the tree was already
+dirty, pre-existing changes may appear too, so the marker does not prove who
+authored each change. It does not modify commits or working-tree files.
 
 ---
 
@@ -258,6 +261,8 @@ verdict with its meaning, proof policy, scope, reasons, and next action; legacy
 merge readiness, the finding CI gate, and the review-signal gate are separate
 fields. A review with no changed files is `NOT ASSESSED` and says that no
 changed files were available for assessment.
+For a compact mapping between `Decision`, Change Proof, CI gates, and legacy
+`merge_readiness`, see [Read the review result](commands.md#read-the-review-result).
 Review JSON exposes the same evidence class, coverage scope, provenance inputs,
 and canonical projection hash in its additive top-level `evidence` object;
 review SARIF and MCP projections carry that object as well.
@@ -572,7 +577,7 @@ proof that the check passes or that the path is exhaustive.
 
 ## `mcp`
 
-Runs a local Model Context Protocol (MCP) server over stdio so AI agents can call RepoPilot as a tool. It speaks JSON-RPC 2.0 on stdin/stdout and is launched by the MCP client, not run interactively. Nothing is uploaded and no AI service is called; each tool runs the same local analysis as the CLI.
+Runs a local Model Context Protocol (MCP) server over stdio so AI agents can call RepoPilot as a tool. It speaks JSON-RPC 2.0 on stdin/stdout and is launched by the MCP client, not run interactively. RepoPilot does not upload source or call an AI service; each tool runs local analysis. By default, MCP review does not run configured verification checks. A client may explicitly select configured check IDs through `repopilot_review_change.verify`; these commands run on the host with its filesystem and network permissions, and RepoPilot does not sandbox them. See the [security model](security.md#explicit-verification-commands).
 
 See [docs/mcp.md](mcp.md) for the tool catalog, schemas, and agent registration.
 

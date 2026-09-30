@@ -7,8 +7,8 @@
 //! for an uncommitted review, or from `git show <ref>:<path>` for a ref range —
 //! and pairs it with the shared tree-sitter parse view.
 //!
-//! Nothing here judges the code. It only makes the before/after source available
-//! to the detectors, consistent with the "flag, don't prove" stance in `mod.rs`.
+//! This module loads and parses source. The detector modules decide how to
+//! classify changes in that source.
 
 use crate::analysis::parse::parse_label;
 use crate::review::diff::{ChangeStatus, ChangedFile, DiffTarget, git_show};

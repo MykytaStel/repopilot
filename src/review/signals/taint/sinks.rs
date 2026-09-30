@@ -3,10 +3,9 @@
 //! The per-language sink classifiers live on the language frontends
 //! (`languages/*/review.rs`, wired through
 //! [`TaintTables::classify_sink`](super::tables::TaintTables)); this module
-//! keeps the shared model — [`SinkKind`], [`Sink`] — and the callee-shape
-//! helpers the classifiers share. Classification stays text/callee-name based
-//! to mirror the behavioral "added X" detectors and stay robust across
-//! grammars.
+//! keeps the shared model — [`SinkKind`], [`Sink`] — and callee-shape helpers.
+//! Language frontends classify sinks by callee text, using the same matching
+//! approach as behavioral change detectors.
 
 use serde::Serialize;
 use tree_sitter::Node;

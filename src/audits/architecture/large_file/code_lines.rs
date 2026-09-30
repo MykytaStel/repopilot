@@ -1,10 +1,8 @@
 //! Counts the lines of a file that are actually code.
 //!
-//! `architecture.large-file` says "this file has N non-empty lines of code",
-//! and it was counting comments as code. ripgrep's `crates/matcher/src/lib.rs`
-//! reports 1269 that way, but 480 of its lines are `///` and `//!` doc comments
-//! on a trait definition: a thoroughly documented file, not a large one.
-//! Splitting it would remove documentation, not responsibilities.
+//! `architecture.large-file` measures implementation size. Comments and
+//! documentation do not add executable code, so they are excluded from the
+//! count.
 //!
 //! Comment syntax is per language, and the same character means opposite things
 //! across them — `#` opens a comment in Python and a preprocessor directive in

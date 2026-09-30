@@ -1,75 +1,48 @@
 # RepoPilot Roadmap
 
-RepoPilot is a review-first, local CLI for maintainers and coding agents. The
-product should help answer: what changed, which boundaries moved, and how far
-the change reaches before merge.
+RepoPilot is a local review tool for understanding Git changes before merge.
+The roadmap records current product outcomes, released milestones, and the
+quality gates that guide each release.
 
-## Now: 0.24 — Calibrated Trust
+## Current: 0.24 — Calibrated Trust
 
-RepoPilot 0.24 makes the 0.23 Change Proof mean what it says:
+RepoPilot 0.24 focuses on making review priorities, proof coverage, and setup
+steps easier to verify:
 
-- **calibrated priority** — a finding's priority is capped by its severity, so a
-  `P0`/`P1` gate fails for the reasons a maintainer expects;
-- **explained proof** — every `limited` result and unmet obligation names its
-  cause and one fix, grouped so large changes stay readable;
-- **deeper semantic contracts** — typed public API changes for TypeScript,
-  JavaScript, and Rust, and contract families validated on real repositories;
-- **measured quality** — more rules with labeled real-repository evidence, each
-  stating its reviewer model and statistical power;
-- **a release that publishes itself** — every channel through Trusted
-  Publishing, verified by digest, with a rehearsal path before the final tag.
+- priorities should reflect finding severity and measured evidence;
+- limited coverage and unmet proof obligations should name their cause and next
+  action;
+- semantic contract analysis should expand where fixture and repository
+  evidence supports it;
+- release claims should follow labeled quality evidence and verified
+  publication.
 
-Details: [v0.24 roadmap and release contract](roadmap/v0.24.md).
+See the [0.24 release contract](roadmap/v0.24.md).
 
-## Shipped: 0.23 — Change Proof
+## Released
 
-One canonical Change Proof per review — a single verdict with reasons, typed
-dependency, delivery, runtime-configuration, and security/test contract
-changes, proof obligations satisfied only by explicitly selected checks,
-optional intent drift and critical paths, and one next action across console,
-Markdown, JSON, SARIF, the HTML Change Map, MCP, and the GitHub Action. Details:
-[v0.23 release contract](roadmap/v0.23.md).
+- **0.23 — Change Proof:** one review verdict, its reasons, proof obligations,
+  and next action across supported outputs. [Release notes](releases/v0.23.0.md)
+- **0.22 — Repository intelligence:** shared graph analysis, broken local
+  import/export evidence, explicit local verification, and resolved baselines.
+  [Release notes](releases/v0.22.0.md)
+- **0.21 — Local risk history:** ownership-aware readiness, repository
+  overlays, and deeper field-sensitive taint analysis.
+  [Release notes](releases/v0.21.0.md)
+- **0.20 — Review workflows:** canonical scan and review decisions, MCP
+  analysis, and GitHub Action integration.
+  [Release notes](releases/v0.20.0.md)
 
-## Shipped: 0.22
+## Longer-term direction
 
-Unified graph-backed repository intelligence, conservative broken import/export
-evidence, explicit allowlisted local verification, resolved baseline findings,
-truthful assessment output, and measured real-repository rule quality. Details:
-[v0.22 release contract](roadmap/v0.22.md).
+- Define a stable `1.0` command, configuration, and report contract.
+- Consider curated knowledge packs after signal quality remains healthy.
+- Expand language and semantic coverage when fixture and repository evidence
+  supports the claims.
 
-## Shipped: 0.21
+## Release gates
 
-Compatible local risk history, ownership-aware merge readiness, repository
-knowledge overlays, unified language frontend contracts, and deeper
-field-sensitive taint-lite precision. Details:
-[v0.21 release contract](roadmap/v0.21.md).
-
-## Shipped: 0.20
-
-Parse-once analysis sessions with a content-addressed cache, unified review
-deltas (boundary, behavior, algorithm, taint-lite) with dependency impact
-paths, a canonical decision record across CLI/JSON/SARIF/MCP/Action surfaces,
-MCP analysis handles with pagination, verdict-first CLI output, and the
-real-repo zoo promoted to release evidence. Details:
-[v0.20 roadmap and release contract](roadmap/v0.20.md).
-
-## Later
-
-- finalize deprecations and compatibility policy before `1.0`;
-- consider curated knowledge packs only after existing signal quality remains
-  healthy;
-- define the smallest stable `1.0` command and schema contract.
-
-## Release Gates
-
-Every release must keep:
-
-- local-only runtime behavior;
-- deterministic findings and review signals;
-- fixture-backed stable rules;
-- transparent suppressions and hidden suggestions;
-- clean self-scan and rule-quality gates;
-- compatible CLI, JSON, SARIF, baseline, receipt, Action, and MCP surfaces;
-- verified official distribution channels.
-
-The goal is a trustworthy product contract, not the largest rule catalog.
+Every release keeps local analysis, deterministic findings, fixture-backed
+rules, visible suppression decisions, clean quality gates, compatible public
+schemas, and verified distribution channels. Release notes describe measured
+behavior and name meaningful limits.

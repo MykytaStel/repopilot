@@ -9,11 +9,16 @@ for every command and flag.
 |---|---|---|
 | I changed code locally | `repopilot review .` | Focuses on the current Git diff |
 | I am reviewing a branch or pull request | `repopilot review . --base origin/main` | Compares the branch against its merge base |
-| An AI agent is about to edit the repository | `repopilot snapshot` | Creates a stable before-marker |
+| I want a before/after review | `repopilot snapshot`, then `repopilot review --since-snapshot` | Uses Git state; it does not establish authorship |
 | I want a complete repository audit | `repopilot scan .` | Includes repository-wide rules |
 | I am adopting RepoPilot in an older repository | `repopilot baseline create .` | Separates accepted debt from new findings |
 | I need evidence for an external assistant | `repopilot ai context .` | Produces a bounded local handoff |
-| I want an agent to call RepoPilot directly | `repopilot mcp --root .` | Exposes read-only local MCP tools |
+| I want an agent to call RepoPilot directly | `repopilot mcp --root .` | Exposes local MCP tools; review can run configured checks only when explicitly selected |
+
+By default, MCP review analyzes and returns evidence without running configured
+checks. An agent can request a check only by supplying its configured ID through
+`repopilot_review_change.verify`; those checks run with host permissions. See
+the [MCP tool contract](mcp.md#tool-contract) and [security model](security.md#explicit-verification-commands).
 
 Do not treat changed-scope analysis as a full repository audit. Do not regenerate a
 baseline merely to make a gate pass: a baseline update records an explicit acceptance
@@ -55,15 +60,31 @@ repopilot review . --fail-on-review definitely
 Use `--scope full --profile strict` only when a change review also needs the
 complete repository audit.
 
-Every review includes a deterministic merge-readiness record:
+### Read the review result
 
-- `ready` means no blocking or review-required evidence was found.
-- `review` identifies findings, signals, ownership gaps, or impacted surfaces
-  that need human attention.
-- `blocked` means an active finding or review gate failed.
+Start with `Decision` for the human action, then use `Change Proof` to inspect
+the evidence and limits behind it. The labels answer related but distinct
+questions:
 
-JSON and MCP review output expose the same `merge_readiness` object used by the
-console and Markdown renderers.
+| Field | What it answers |
+|---|---|
+| `Decision` | What should happen next: `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED`. It maps from the Change Proof verdict. |
+| `Change Proof` | What the analyzed scope and selected proof policy establish: `VERIFIED`, `REVIEW`, `BROKEN`, or `NOT ASSESSED`. `VERIFIED` requires a sufficient policy and no outstanding proof reasons; `BROKEN` means supported evidence shows a changed contract is broken. |
+| CI and review gates | Did the configured finding threshold or review-signal threshold pass? They are shown separately. A failed configured gate also appears as a proof reason and can make the decision `REVIEW`. |
+| `merge_readiness` | A compatibility record with the older `ready`, `review`, and `blocked` values. It is not interchangeable with Change Proof. |
+
+The mapping is `VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`,
+and `NOT ASSESSED` → `NOT ASSESSED`.
+
+For example, a review can report `merge_readiness: ready` and Change Proof
+`REVIEW` when no sufficient proof policy is selected. The legacy record does not
+include that proof-policy reason. Do not treat `ready` as equivalent to
+`VERIFIED`.
+
+Use [`--fail-on` or `--fail-on-priority`](cli.md#gates) to set a finding
+threshold, and `--fail-on-review` to enable the review-signal gate. The
+[configuration walkthrough](configuration.md#first-review-choose-and-run-a-check)
+shows how to select a repository verification check.
 
 ## Compare Risk Across Runs
 
@@ -89,19 +110,25 @@ workflow — reading the delta, pairing it with baseline resolved-tracking, and
 wiring a periodic health scan — see
 [Track repository health over time](repository-health.md).
 
-## Review An Agent Run
+## Review Work Since a Marker
 
-Create a marker before an agent starts editing:
+Create a marker before a person or coding agent starts editing:
 
 ```bash
 repopilot snapshot
 ```
 
-Review every commit and working-tree change made after the marker:
+Review changes since the recorded Git starting point:
 
 ```bash
 repopilot review --since-snapshot
 ```
+
+The marker stores `HEAD` and whether the working tree was `dirty`; it does not
+preserve a copy of the initial uncommitted files. If the tree was already dirty,
+the review can include those pre-existing changes, so `--since-snapshot` cannot
+establish which actor authored each change. See the
+[snapshot reference](cli.md#snapshot).
 
 ## Adopt The Full Scan
 

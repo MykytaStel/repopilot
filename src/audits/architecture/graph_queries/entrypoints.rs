@@ -1,21 +1,7 @@
-//! Files nothing imports *by design*, so zero fan-in is not evidence of death.
-//!
-//! `architecture.dead-module` reasons from an absence: no file imports this one.
-//! That inference only holds when being imported is how the file was ever meant
-//! to be reached. A large class of real files is reached another way — a tool
-//! reads them by name, a build system executes them, a framework discovers them
-//! by convention, a router maps them from their path — and their fan-in is zero
-//! in every healthy repository.
-//!
-//! Sampled zoo evidence put the rule at 0.00 precision, and every sampled
-//! finding was one of these: an ESLint flat config, a Gradle settings script, a
-//! Django management command, a Wagtail hooks module, and a documentation
-//! example. This module names those shapes so the rule stops claiming them.
-//!
-//! The recognizers are deliberately structural — a path convention a tool or
-//! framework actually implements — rather than a list of well-known filenames.
-//! A missed convention costs one false positive; an over-broad rule silently
-//! hides real dead code, so each entry below names the loader that reads it.
+//! Files with no static import can still be loaded by build tools, frameworks,
+//! routers, or package conventions. `architecture.dead-module` excludes the
+//! recognized entry-point paths listed below. Each recognizer corresponds to a
+//! specific loader or convention; unknown paths remain candidates for the rule.
 
 use crate::audits::context::classify::helpers::path_contains_component;
 use std::path::Path;
