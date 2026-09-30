@@ -61,3 +61,6 @@ docs/demos/*.log
 
 # Isolated feature workspaces created by local development agents.
 /.worktrees/
+
+# Integrity corpus patch cache (scripts/integrity_corpus.py fetch)
+/.integrity-corpus/
