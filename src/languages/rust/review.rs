@@ -25,6 +25,7 @@ pub(super) static RUST_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_expression"],
     },
     removed: Some(&RUST_REMOVED),
+    integrity: Some(&super::integrity::RUST_INTEGRITY),
 };
 
 pub(super) static RUST_REMOVED: RemovedTables = RemovedTables {

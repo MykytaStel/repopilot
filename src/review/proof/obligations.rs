@@ -160,7 +160,14 @@ fn required_verification_requirements(report: &ReviewReport) -> BTreeSet<Verific
         .tiered_signals
         .definitely
         .iter()
-        .filter(|signal| !signal.suppressed && signal.verification_plan.is_some())
+        // Re-running a suite cannot confirm a test the change stopped running,
+        // so integrity signals never become a check obligation; they keep the
+        // proof at REVIEW until resolved or acknowledged.
+        .filter(|signal| {
+            !signal.suppressed
+                && signal.verification_plan.is_some()
+                && signal.family != SignalFamily::Integrity
+        })
         .map(|signal| VerificationRequirement {
             role: match (signal.family, signal.kind.as_str()) {
                 (SignalFamily::Behavioral, "behavioral.removed-export-still-imported") => {

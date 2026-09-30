@@ -135,6 +135,7 @@ pub(super) static GO_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_statement"],
     },
     removed: Some(&GO_REMOVED),
+    integrity: Some(&super::integrity::GO_INTEGRITY),
 };
 
 pub(super) static GO_REMOVED: RemovedTables = RemovedTables {

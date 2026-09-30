@@ -354,6 +354,35 @@ fn policy_skipped_files_do_not_limit_coverage() {
 }
 
 #[test]
+fn a_test_only_change_is_assessed_by_its_review_signals() {
+    // Test files are skipped by audit policy, but diff-based review signals
+    // (removed, skipped, or focused tests) still read them. A change that only
+    // weakens a test must surface as REVIEW, not as an unassessed scope.
+    let proof = derive_change_proof(ChangeProofInput {
+        coverage: ProofCoverage {
+            policy_skipped_files: 1,
+            ..coverage(0)
+        },
+        obligations: obligations(),
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: vec![ChangeProofReason::new(
+            ChangeProofReasonCode::DefinitelySensitive,
+            1,
+            "Definitely-sensitive review signal(s) require confirmation.",
+        )],
+    });
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert!(
+        !proof
+            .reasons
+            .iter()
+            .any(|reason| reason.code == ChangeProofReasonCode::ScopeNotAssessed)
+    );
+}
+
+#[test]
 fn complete_sufficient_policy_is_verified() {
     let proof = derive_change_proof(ChangeProofInput {
         coverage: coverage(1),
