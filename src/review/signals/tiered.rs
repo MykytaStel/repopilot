@@ -547,6 +547,12 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             "integrity.test-focused" => {
                 "Remove the focus marker before merge; while it is committed, the rest of its suite does not run in CI."
             }
+            "integrity.test-removed" => {
+                "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
+            }
+            "integrity.assertions-removed" => {
+                "Compare the test's assertions before and after; confirm each removed check was redundant or moved, not dropped to make the test pass."
+            }
             _ => {
                 "Confirm why the test no longer runs; restore it, or record the reason and a follow-up before merge. Re-running the suite cannot confirm a skipped test."
             }
@@ -679,15 +685,20 @@ fn integrity_kind(kind: IntegrityKind) -> &'static str {
     match kind {
         IntegrityKind::TestFocused => "integrity.test-focused",
         IntegrityKind::TestSkipped => "integrity.test-skipped",
+        IntegrityKind::TestRemoved => "integrity.test-removed",
+        IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
     }
 }
 
 /// A committed focus marker silently disables the rest of its suite and has
-/// no benign reading; a skip often has a reason, so it asks for a look.
+/// no benign reading. Skips, removed tests, and removed assertions often have
+/// a reason (retired features, rewritten tests), so they ask for a look.
 fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
     match kind {
         IntegrityKind::TestFocused => ConfidenceTier::DefinitelySensitive,
-        IntegrityKind::TestSkipped => ConfidenceTier::MaybeSensitive,
+        IntegrityKind::TestSkipped
+        | IntegrityKind::TestRemoved
+        | IntegrityKind::AssertionsRemoved => ConfidenceTier::MaybeSensitive,
     }
 }
 
@@ -695,6 +706,8 @@ fn integrity_headline(kind: IntegrityKind) -> &'static str {
     match kind {
         IntegrityKind::TestFocused => "focused test committed",
         IntegrityKind::TestSkipped => "test skipped",
+        IntegrityKind::TestRemoved => "test removed",
+        IntegrityKind::AssertionsRemoved => "assertions removed",
     }
 }
 

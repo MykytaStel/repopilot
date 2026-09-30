@@ -1,8 +1,10 @@
-//! Skip markers for pytest and unittest: skip/xfail decorators, runtime
-//! skip calls, and a module-level `pytestmark` skip.
+//! Test-integrity recognizers for pytest and unittest: skip/xfail
+//! decorators, runtime skip calls, a module-level `pytestmark` skip, `test_*`
+//! cases, and `assert` / `self.assert*` / `pytest.raises` assertions.
 
 use crate::review::signals::integrity::syntax::{
-    any_argument_string, bounded, compact_text, enclosing_function_name,
+    all_arguments_literal, any_argument_string, bounded, compact_text, enclosing_function_name,
+    is_literal,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -11,6 +13,8 @@ pub(super) static PYTHON_INTEGRITY: IntegrityTables = IntegrityTables {
     extensions: &["py"],
     applies_outside_test_files: false,
     test_marker,
+    test_case,
+    is_assertion,
 };
 
 const SKIP_DECORATORS: &[&str] = &[
@@ -115,4 +119,56 @@ fn module_mark(node: Node<'_>, content: &str) -> Option<TestMarker> {
         reason: None,
         line: node.start_position().row + 1,
     })
+}
+
+fn test_case<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
+    if node.kind() != "function_definition" {
+        return None;
+    }
+    let name = node
+        .child_by_field_name("name")?
+        .utf8_text(content.as_bytes())
+        .ok()?;
+    if !name.starts_with("test") {
+        return None;
+    }
+    let mut qualified = vec![name.to_string()];
+    let mut current = node.parent();
+    while let Some(candidate) = current {
+        if candidate.kind() == "class_definition"
+            && let Some(class) = candidate
+                .child_by_field_name("name")
+                .and_then(|class| class.utf8_text(content.as_bytes()).ok())
+        {
+            qualified.push(class.to_string());
+        }
+        current = candidate.parent();
+    }
+    qualified.reverse();
+    Some(qualified.join("."))
+}
+
+fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
+    match node.kind() {
+        // `assert True` / `assert 1` cannot fail.
+        "assert_statement" => node
+            .named_child(0)
+            .is_some_and(|condition| !is_literal(condition)),
+        "call" => {
+            let Some(callee) = node
+                .child_by_field_name("function")
+                .and_then(|function| compact_text(function, content))
+            else {
+                return false;
+            };
+            let last = callee.rsplit('.').next().unwrap_or_default();
+            let asserts = last.starts_with("assert")
+                || matches!(callee.as_str(), "pytest.raises" | "pytest.warns");
+            asserts
+                && node
+                    .child_by_field_name("arguments")
+                    .is_none_or(|arguments| !all_arguments_literal(arguments))
+        }
+        _ => false,
+    }
 }

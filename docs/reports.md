@@ -285,8 +285,10 @@ optional `local_feedback`, CI gate metadata when requested, and per-finding
 `signal_id`, namespaced `kind`, `family`, `tier`, `confidence`, path and line
 ranges, merged evidence lines, headline/detail/blast radius, provenance,
 suppression state, and gate eligibility. `family` is one of `boundary`,
-`behavioral`, `algorithmic`, `taint`, `integrity` (tests newly skipped or
-focused: `integrity.test-skipped`, `integrity.test-focused`), or `volume`.
+`behavioral`, `algorithmic`, `taint`, `integrity` (tests newly skipped,
+focused, removed, or stripped of assertions: `integrity.test-skipped`,
+`integrity.test-focused`, `integrity.test-removed`,
+`integrity.assertions-removed`), or `volume`.
 Integrity signals never create a verification obligation. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.

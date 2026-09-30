@@ -84,7 +84,8 @@ pub struct TestMarker {
     pub line: usize,
 }
 
-/// Recognizers for the test-integrity signals (skipped or focused tests).
+/// Recognizers for the test-integrity signals (skipped, focused, or removed
+/// tests and removed assertions).
 pub struct IntegrityTables {
     /// Extensions this table answers for.
     pub(crate) extensions: &'static [&'static str],
@@ -93,4 +94,10 @@ pub struct IntegrityTables {
     pub(crate) applies_outside_test_files: bool,
     /// The skip or focus marker a node introduces, if any.
     pub(crate) test_marker: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> Option<TestMarker>,
+    /// The qualified name of the test case a node declares (`header > renders
+    /// title`, `TestLogin.test_ok`, `tests::adds`), if it declares one.
+    pub(crate) test_case: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> Option<String>,
+    /// Whether a node is an assertion that can fail. Constant-only forms such
+    /// as `expect(true).toBe(true)` or `assert True` do not count.
+    pub(crate) is_assertion: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
 }

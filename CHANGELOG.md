@@ -22,6 +22,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   confirm a test that no longer runs.
   **Migration:** `--fail-on-review definitely` now also fails on a committed
   focused test.
+- **Review accounts for tests and assertions a change removed.**
+  `integrity.test-removed` names test cases that disappeared (by qualified name
+  such as `cart > applies the discount`, `TestInvoice.test_total`,
+  `tests::adds`) and any new tests in the same file, so a substituted test is
+  visible; `integrity.assertions-removed` reports a test that kept its name but
+  lost assertions (`assertions 2 → 1`). Constant-only assertions such as
+  `expect(true).toBe(true)`, `assert True`, or `assert!(true)` do not count, so
+  trivializing a check reads as removing it. Tests moved between changed files
+  are matched and not reported; emptying a whole test file stays with
+  `behavioral.test-deleted-or-emptied`. Both signals are maybe sensitive.
 
 ### Changed
 
@@ -85,6 +95,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   runs, so a release recovered by hand can still be verified end to end.
 
 ### Fixed
+
+- **Rust test files emptied of their tests are reported again.** The Rust test
+  recognizer looked for `#[test]` inside the function node, but tree-sitter
+  places attributes beside it, so `behavioral.test-deleted-or-emptied` never
+  counted Rust tests in a modified file.
 
 - The release verifier read the Homebrew formula version with an anchored
   pattern, but the formula indents `version`, so the final channel check could
