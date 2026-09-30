@@ -4,18 +4,20 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.24 — Calibrated Trust
+## Current: 0.24 — Honest Green
 
-RepoPilot 0.24 focuses on making review priorities, proof coverage, and setup
-steps easier to verify:
+RepoPilot 0.24 reports when a change turns CI green by weakening the checks
+that judge it:
 
-- priorities should reflect finding severity and measured evidence;
-- limited coverage and unmet proof obligations should name their cause and next
-  action;
-- semantic contract analysis should expand where fixture and repository
-  evidence supports it;
-- release claims should follow labeled quality evidence and verified
-  publication.
+- skipped or focused tests, removed test cases or assertions, and expected
+  values rewritten together with the code they test;
+- added suppressions and relaxed CI, coverage, or type-checking gates;
+- a labeled corpus of real pull requests that measures how often this happens
+  and what RepoPilot catches, with its limits stated;
+- optional snapshot, stop-hook, commit-hook, and CI integrations that run the
+  same check before review;
+- severity-capped priorities, named coverage limits, and grouped proof
+  obligations, already on `main`.
 
 See the [0.24 release contract](roadmap/v0.24.md).
 
