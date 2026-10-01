@@ -124,10 +124,14 @@ Review changes since the recorded Git starting point:
 repopilot review --since-snapshot
 ```
 
-The marker stores `HEAD` and whether the working tree was `dirty`; it does not
-preserve a copy of the initial uncommitted files. If the tree was already dirty,
-the review can include those pre-existing changes, so `--since-snapshot` cannot
-establish which actor authored each change. See the
+The marker stores `HEAD` and whether the working tree was `dirty`. When it was,
+the snapshot also records a baseline commit holding those uncommitted files,
+including untracked ones that are not ignored, and pins it as
+`refs/repopilot/snapshot`; the index, working tree, and branches are untouched.
+The review then diffs from the baseline, so pre-existing changes stay out.
+Snapshots written before 0.24 have no baseline and can include pre-existing
+changes. Either way, `--since-snapshot` shows what changed since the marker; it
+cannot establish which actor authored each change. See the
 [snapshot reference](cli.md#snapshot).
 
 ## Adopt The Full Scan

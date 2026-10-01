@@ -1,0 +1,8 @@
+{
+  "description": "An already-skipped test moved from one test file to another. Nothing that ran before stopped running, so no integrity signal fires.",
+  "label": "expected_false_positive",
+  "expect": [],
+  "forbid": [
+    { "family": "integrity" }
+  ]
+}

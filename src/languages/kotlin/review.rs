@@ -135,6 +135,7 @@ pub(super) static KOTLIN_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_expression"],
     },
     removed: Some(&KOTLIN_REMOVED),
+    integrity: None,
 };
 
 pub(super) static KOTLIN_REMOVED: RemovedTables = RemovedTables {

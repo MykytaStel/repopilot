@@ -108,6 +108,107 @@ fn review_since_snapshot_covers_committed_and_uncommitted_changes() {
 }
 
 #[test]
+fn dirty_snapshot_pins_a_baseline_without_touching_the_index() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// before\n",
+    )
+    .expect("failed to dirty source");
+    fs::write(temp.path().join("notes.txt"), "draft\n").expect("failed to add untracked file");
+    let status_before = git_output(temp.path(), &["status", "--porcelain"]);
+
+    let output = run_ok(temp.path(), &["snapshot"]);
+
+    let snapshot: Value = serde_json::from_str(
+        &fs::read_to_string(temp.path().join(".repopilot/snapshot.json"))
+            .expect("failed to read snapshot"),
+    )
+    .expect("snapshot should be valid JSON");
+    let baseline = snapshot["baseline"]
+        .as_str()
+        .expect("dirty snapshot records a baseline");
+    assert_eq!(
+        git_output(temp.path(), &["rev-parse", "refs/repopilot/snapshot"]).trim(),
+        baseline
+    );
+    assert_eq!(
+        git_output(temp.path(), &["show", &format!("{baseline}:notes.txt")]),
+        "draft\n"
+    );
+    let status_after = git_output(temp.path(), &["status", "--porcelain"]);
+    assert_eq!(
+        status_after.replace("?? .repopilot/\n", ""),
+        status_before,
+        "snapshot must not stage or change files"
+    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Baseline:"));
+}
+
+#[test]
+fn review_since_dirty_snapshot_covers_only_the_session() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    write_covered_source(temp.path(), "util", "pub fn util() {}\n");
+    commit_all(temp.path(), "initial");
+    // Work in progress before the session: a tracked edit and untracked files.
+    fs::write(
+        temp.path().join("src/lib.rs"),
+        "pub fn live() {}\n// TODO: earlier work\n",
+    )
+    .expect("failed to dirty source");
+    fs::write(temp.path().join("untouched.txt"), "kept\n").expect("failed to write untracked");
+    fs::write(temp.path().join("edited.txt"), "first\n").expect("failed to write untracked");
+    run_ok(temp.path(), &["snapshot"]);
+
+    // The session.
+    fs::write(
+        temp.path().join("src/util.rs"),
+        "pub fn util() {}\n// FIXME: session\n",
+    )
+    .expect("failed to write session change");
+    fs::write(temp.path().join("edited.txt"), "first\nsecond\n").expect("failed to edit untracked");
+
+    let output = run_ok(
+        temp.path(),
+        &["review", "--since-snapshot", "--format", "json"],
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("review should render JSON");
+    let changed: Vec<(String, String)> = json["changed_files"]
+        .as_array()
+        .expect("changed files")
+        .iter()
+        .map(|file| {
+            (
+                file["path"].as_str().unwrap_or_default().to_string(),
+                file["status"].as_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect();
+    let paths: Vec<&str> = changed.iter().map(|(path, _)| path.as_str()).collect();
+    assert!(paths.contains(&"src/util.rs"), "{changed:?}");
+    assert!(paths.contains(&"edited.txt"), "{changed:?}");
+    assert!(
+        !paths.contains(&"src/lib.rs"),
+        "pre-session edit leaked in: {changed:?}"
+    );
+    assert!(
+        !paths.contains(&"untouched.txt"),
+        "pre-session file leaked in: {changed:?}"
+    );
+    assert!(
+        changed
+            .iter()
+            .any(|(path, status)| path == "edited.txt" && status == "modified"),
+        "{changed:?}"
+    );
+}
+
+#[test]
 fn review_since_snapshot_reports_missing_marker() {
     let temp = tempdir().expect("failed to create temp dir");
     init_repo(temp.path());

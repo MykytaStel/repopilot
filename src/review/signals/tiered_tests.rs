@@ -355,13 +355,14 @@ fn removed_export_occurrences_keep_distinct_stable_ids() {
         removed_export("src/api.ts", "src/caller.ts", "loadUser", "load", 10, 10),
         removed_export("src/api.ts", "src/caller.ts", "saveUser", "save", 12, 12),
     ];
-    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[]);
+    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[], &[]);
     let reversed = build_tiered_with_api_contract(
         &[],
         &[],
         &[],
         &[],
         &occurrences.iter().cloned().rev().collect::<Vec<_>>(),
+        &[],
         &[],
     );
 
@@ -414,7 +415,7 @@ fn same_symbol_same_line_occurrences_use_exact_spans_for_identity() {
     second.byte_start = 28;
     second.byte_end = 46;
 
-    let tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[first, second], &[]);
+    let tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[first, second], &[], &[]);
     assert_eq!(tiered.definitely.len(), 2);
     assert_ne!(
         tiered.definitely[0].signal_id,
@@ -436,7 +437,7 @@ fn removed_export_impact_uses_exporter_target() {
         10,
         10,
     );
-    let mut tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[occurrence], &[]);
+    let mut tiered = build_tiered_with_api_contract(&[], &[], &[], &[], &[occurrence], &[], &[]);
     let mut graph = CouplingGraph::default();
     graph
         .edges
@@ -469,13 +470,14 @@ fn removed_export_callers_keep_distinct_stable_ids() {
         ),
         removed_export("src/api.ts", "src/other.ts", "loadUser", "load", 4, 5),
     ];
-    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[]);
+    let forward = build_tiered_with_api_contract(&[], &[], &[], &[], &occurrences, &[], &[]);
     let reversed = build_tiered_with_api_contract(
         &[],
         &[],
         &[],
         &[],
         &occurrences.iter().cloned().rev().collect::<Vec<_>>(),
+        &[],
         &[],
     );
 

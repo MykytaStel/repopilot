@@ -284,9 +284,16 @@ optional `local_feedback`, CI gate metadata when requested, and per-finding
 `in_diff` / `baseline_status` classification. `tiered_signals` entries include
 `signal_id`, namespaced `kind`, `family`, `tier`, `confidence`, path and line
 ranges, merged evidence lines, headline/detail/blast radius, provenance,
-suppression state, and gate eligibility. `review_gate` is independent from the
+suppression state, and gate eligibility. `family` is one of `boundary`,
+`behavioral`, `algorithmic`, `taint`, `integrity` (tests newly skipped,
+focused, removed, or stripped of assertions: `integrity.test-skipped`,
+`integrity.test-focused`, `integrity.test-removed`,
+`integrity.assertions-removed`, `integrity.suppression-added`,
+`integrity.gate-relaxed`, `integrity.review-suppression-added`), or `volume`.
+Integrity signals never create a verification obligation. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
-`review_signals_us`, `gating_us`, and `rendering_us`.
+`review_signals_us`, `gating_us`, `rendering_us`, and `integrity_us` (the integrity
+analysis share of `review_signals_us`).
 
 When supplied, a review also carries `change_proof.intent_drift` with the
 bounded declared scope, observed changed/impacted paths, canonical contract

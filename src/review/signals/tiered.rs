@@ -24,6 +24,7 @@ use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
 use crate::review::signals::api_contract::{RemovedExportSignal, SymbolKind};
 use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
 use crate::review::signals::composites;
+use crate::review::signals::integrity::{IntegrityKind, IntegritySignal};
 use crate::review::signals::taint::{SinkKind, TaintSignal};
 use crate::rules::{RuleLifecycle, SignalSource};
 use crate::scan::cache::stable_hash_hex;
@@ -55,6 +56,8 @@ pub enum SignalFamily {
     Algorithmic,
     /// Untrusted input reaching a dangerous sink (taint-lite reachability).
     Taint,
+    /// A change that weakens the checks judging it (skipped or focused tests).
+    Integrity,
     /// The single large-diff/volume note, which belongs to no detector family.
     Volume,
 }
@@ -177,17 +180,26 @@ pub fn build_tiered(
     taint: &[TaintSignal],
     changed_files: &[ChangedFile],
 ) -> TieredSignals {
-    build_tiered_with_api_contract(boundary, behavioral, algorithmic, taint, &[], changed_files)
+    build_tiered_with_api_contract(
+        boundary,
+        behavioral,
+        algorithmic,
+        taint,
+        &[],
+        &[],
+        changed_files,
+    )
 }
 
-/// Fold every review signal family, including API-contract occurrences, into
-/// one canonical tiered view.
+/// Fold every review signal family, including API-contract occurrences and
+/// test-integrity signals, into one canonical tiered view.
 pub(crate) fn build_tiered_with_api_contract(
     boundary: &[BoundarySignal],
     behavioral: &[BehavioralSignal],
     algorithmic: &[AlgorithmicSignal],
     taint: &[TaintSignal],
     api_contract: &[RemovedExportSignal],
+    integrity: &[IntegritySignal],
     changed_files: &[ChangedFile],
 ) -> TieredSignals {
     let mut tiered = TieredSignals::default();
@@ -253,6 +265,19 @@ pub(crate) fn build_tiered_with_api_contract(
     }
     for occurrence in api_contract {
         tiered.push(from_removed_export(occurrence));
+    }
+    for signal in integrity {
+        tiered.push(build_signal(
+            integrity_kind(signal.kind),
+            SignalFamily::Integrity,
+            integrity_tier(signal.kind),
+            Confidence::High,
+            signal.path.clone(),
+            Some(signal.line),
+            integrity_headline(signal.kind),
+            Some(signal.detail.clone()),
+            SignalSource::Ast,
+        ));
     }
 
     // Only call out raw volume when nothing else fired — otherwise the flagged
@@ -456,7 +481,7 @@ fn build_verification_plan(
     Some(ReviewSignalVerificationPlan { steps })
 }
 
-fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
+pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
     match family {
         SignalFamily::Boundary => match kind {
             "boundary.access-control" => {
@@ -516,6 +541,29 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             }
             _ => {
                 "Trace the changed input source to the reported sink and confirm validation, allowlisting, or safe encoding exists on that path."
+            }
+        },
+        SignalFamily::Integrity => match kind {
+            "integrity.test-focused" => {
+                "Remove the focus marker before merge; while it is committed, the rest of its suite does not run in CI."
+            }
+            "integrity.test-removed" => {
+                "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
+            }
+            "integrity.review-suppression-added" => {
+                "Confirm the new overlay entry acknowledges a reviewed signal on purpose, with a reason and an expiry; remove it if it only silences this review."
+            }
+            "integrity.gate-relaxed" => {
+                "Confirm the relaxed CI or tool gate is intended and temporary; restore it, or record why the check may fail and when it will be restored."
+            }
+            "integrity.suppression-added" => {
+                "Confirm the silenced lint, type, or coverage finding is a known false positive; fix the finding instead when it is real."
+            }
+            "integrity.assertions-removed" => {
+                "Compare the test's assertions before and after; confirm each removed check was redundant or moved, not dropped to make the test pass."
+            }
+            _ => {
+                "Confirm why the test no longer runs; restore it, or record the reason and a follow-up before merge. Re-running the suite cannot confirm a skipped test."
             }
         },
         SignalFamily::Algorithmic => {
@@ -639,6 +687,45 @@ fn behavioral_headline(kind: BehavioralKind) -> &'static str {
         ErrorHandlingRemoved => "error handling removed",
         TestDeletedOrEmptied => "test deleted or emptied",
         AuthCheckRemoved => "auth check removed",
+    }
+}
+
+fn integrity_kind(kind: IntegrityKind) -> &'static str {
+    match kind {
+        IntegrityKind::TestFocused => "integrity.test-focused",
+        IntegrityKind::TestSkipped => "integrity.test-skipped",
+        IntegrityKind::TestRemoved => "integrity.test-removed",
+        IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
+        IntegrityKind::SuppressionAdded => "integrity.suppression-added",
+        IntegrityKind::GateRelaxed => "integrity.gate-relaxed",
+        IntegrityKind::ReviewSuppressionAdded => "integrity.review-suppression-added",
+    }
+}
+
+/// A committed focus marker silently disables the rest of its suite and has
+/// no benign reading. Skips, removed tests, and removed assertions often have
+/// a reason (retired features, rewritten tests), so they ask for a look.
+fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
+    match kind {
+        IntegrityKind::TestFocused => ConfidenceTier::DefinitelySensitive,
+        IntegrityKind::TestSkipped
+        | IntegrityKind::TestRemoved
+        | IntegrityKind::AssertionsRemoved
+        | IntegrityKind::SuppressionAdded
+        | IntegrityKind::GateRelaxed
+        | IntegrityKind::ReviewSuppressionAdded => ConfidenceTier::MaybeSensitive,
+    }
+}
+
+fn integrity_headline(kind: IntegrityKind) -> &'static str {
+    match kind {
+        IntegrityKind::TestFocused => "focused test committed",
+        IntegrityKind::TestSkipped => "test skipped",
+        IntegrityKind::TestRemoved => "test removed",
+        IntegrityKind::AssertionsRemoved => "assertions removed",
+        IntegrityKind::SuppressionAdded => "suppression added",
+        IntegrityKind::GateRelaxed => "check gate relaxed",
+        IntegrityKind::ReviewSuppressionAdded => "RepoPilot suppression added",
     }
 }
 

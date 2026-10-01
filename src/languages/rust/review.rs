@@ -25,15 +25,15 @@ pub(super) static RUST_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_expression"],
     },
     removed: Some(&RUST_REMOVED),
+    integrity: Some(&super::integrity::RUST_INTEGRITY),
 };
 
 pub(super) static RUST_REMOVED: RemovedTables = RemovedTables {
     extensions: &["rs"],
+    // `#[test]` is a sibling `attribute_item` in tree-sitter-rust, never part
+    // of the `function_item` text, so the attribute is found by sibling walk.
     is_test_case: |node, content| {
-        node.kind() == "function_item"
-            && node
-                .utf8_text(content.as_bytes())
-                .is_ok_and(|text| text.contains("#[test]"))
+        node.kind() == "function_item" && super::integrity::has_test_attribute(node, content)
     },
     is_error_handling: |node, content| {
         let kind = node.kind();

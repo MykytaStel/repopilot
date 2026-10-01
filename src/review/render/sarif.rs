@@ -7,7 +7,9 @@ use crate::review::decision::derive_review_decision;
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::proof::{build_proof_receipt, derive_change_proof_from_review};
-use crate::review::signals::tiered::{ConfidenceTier, SignalFamily};
+use crate::review::signals::tiered::{
+    ConfidenceTier, SignalFamily, family_specific_verification_step,
+};
 use std::path::PathBuf;
 
 pub fn render_review_sarif(report: &ReviewReport) -> Result<String, serde_json::Error> {
@@ -30,8 +32,24 @@ pub fn render_review_sarif_with_gates(
         .definitely
         .iter()
         .chain(report.tiered_signals.maybe.iter())
-        .filter(|signal| signal.family == SignalFamily::Taint && !signal.suppressed)
+        // Taint flows and test-integrity signals become code-scanning results,
+        // so a skipped test or a relaxed gate is annotated on the PR line.
+        .filter(|signal| {
+            matches!(signal.family, SignalFamily::Taint | SignalFamily::Integrity)
+                && !signal.suppressed
+        })
     {
+        let (recommendation, category) = match signal.family {
+            SignalFamily::Integrity => (
+                family_specific_verification_step(&signal.kind, signal.family).to_string(),
+                FindingCategory::Testing,
+            ),
+            _ => (
+                "Validate the input boundary and use a safe, parameterized or allowlisted sink API."
+                    .to_string(),
+                FindingCategory::Security,
+            ),
+        };
         let Some(line) = signal.line_start else {
             continue;
         };
@@ -43,10 +61,8 @@ pub fn render_review_sarif_with_gates(
                 .detail
                 .clone()
                 .unwrap_or_else(|| signal.headline.clone()),
-            recommendation:
-                "Validate the input boundary and use a safe, parameterized or allowlisted sink API."
-                    .to_string(),
-            category: FindingCategory::Security,
+            recommendation,
+            category,
             // Read off `signal.tier`, the canonical field `taint_tier(SinkKind)`
             // already set when the signal was built — not re-derived from
             // `signal.kind`. A second string match here (`"taint.sql" | "taint.exec"
@@ -107,8 +123,8 @@ fn severity_for_tier(tier: ConfidenceTier) -> Severity {
     match tier {
         ConfidenceTier::DefinitelySensitive => Severity::High,
         ConfidenceTier::MaybeSensitive => Severity::Medium,
-        // Taint signals are only ever bucketed into definitely/maybe; this arm
-        // exists so the match stays exhaustive if that ever changes.
+        // Exported families are only ever bucketed into definitely/maybe; this
+        // arm exists so the match stays exhaustive if that ever changes.
         ConfidenceTier::LargeDiffOrNoise => Severity::Low,
     }
 }

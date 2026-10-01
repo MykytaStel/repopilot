@@ -60,7 +60,7 @@ fn add_empty_scope_limit(limits: &mut Vec<EvidenceCoverageLimit>, scope: &ProofC
             0,
             "No files were in the requested scope.",
         ));
-    } else if scope.analyzed_files == 0 {
+    } else if !scope.is_meaningful() {
         limits.push(limit(
             "no-analyzable-files",
             scope.requested_files,

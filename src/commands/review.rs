@@ -78,7 +78,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     let diff_started = Instant::now();
     let review_input = if options.since_snapshot {
         let snapshot = crate::commands::snapshot::read_snapshot(&options.path)?;
-        load_review_input_since(&options.path, &snapshot.head)?
+        load_review_input_since(&options.path, snapshot.review_base())?
     } else {
         load_review_input(
             &options.path,

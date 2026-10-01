@@ -132,6 +132,7 @@ pub(super) static JAVA_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_statement"],
     },
     removed: Some(&JAVA_REMOVED),
+    integrity: None,
 };
 
 pub(super) static JAVA_REMOVED: RemovedTables = RemovedTables {

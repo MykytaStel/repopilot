@@ -1,0 +1,8 @@
+{
+  "description": "A test is rewritten with different matchers and inputs but keeps its name and its two checks. Nothing that judged the code was weakened, so no integrity signal fires.",
+  "label": "expected_false_positive",
+  "expect": [],
+  "forbid": [
+    { "family": "integrity" }
+  ]
+}

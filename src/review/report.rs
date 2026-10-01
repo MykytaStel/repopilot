@@ -11,7 +11,7 @@ use crate::config::model::RepoPilotConfig;
 use crate::findings::types::{Evidence, Finding, FindingCategory};
 use crate::review::diff::{ChangedFile, OwnedDiffTarget, load_changed_files, resolve_git_root};
 use crate::review::feedback::apply_review_feedback;
-use crate::review::model::{ReviewFindingStatus, ReviewReport};
+use crate::review::model::{ReviewFindingStatus, ReviewReport, ReviewTimings};
 use crate::review::ownership::{OwnershipIndex, OwnershipSummary};
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::{BoundarySignal, composites, tiered};
@@ -177,6 +177,7 @@ fn classify_findings(
         &content_signals.algorithmic,
         &content_signals.taint,
         &content_signals.api_contract,
+        &content_signals.integrity,
         &changed_files,
     );
     tiered::enrich_blast_radius(
@@ -225,7 +226,10 @@ fn classify_findings(
         boundary_signals,
         boundary_missing_test,
         tiered_signals,
-        timings: Default::default(),
+        timings: ReviewTimings {
+            integrity_us: content_signals.integrity_us,
+            ..Default::default()
+        },
         verification_policy: Default::default(),
         verification: Vec::new(),
         intent: Default::default(),

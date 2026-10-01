@@ -1,0 +1,16 @@
+{
+  "description": "A `@ts-ignore` silences the type checker on a changed line, so a type error it would have reported no longer fails the build. Maybe-sensitive: the reviewer decides whether the error is a known false positive.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "maybe",
+      "family": "integrity",
+      "kind": "integrity.suppression-added",
+      "path": "src/pricing.ts",
+      "headline": "suppression added"
+    }
+  ],
+  "forbid": [
+    { "family": "volume" }
+  ]
+}

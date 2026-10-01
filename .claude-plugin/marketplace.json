@@ -1,0 +1,17 @@
+{
+  "name": "repopilot",
+  "owner": {
+    "name": "Mykyta Stelmashenko",
+    "url": "https://github.com/MykytaStel"
+  },
+  "description": "Local, deterministic review of Git changes for Claude Code sessions.",
+  "plugins": [
+    {
+      "name": "repopilot",
+      "source": "./integrations/claude-code/repopilot",
+      "description": "Snapshot each session and, before Claude stops, review what it changed: tests it skipped, focused, removed, or weakened, new suppressions, removed auth or error handling, and risky flows. Requires the repopilot CLI.",
+      "category": "code-review",
+      "tags": ["review", "testing", "security", "deterministic", "local"]
+    }
+  ]
+}

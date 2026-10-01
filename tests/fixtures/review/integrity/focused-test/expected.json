@@ -1,0 +1,17 @@
+{
+  "description": "Committing `it.only` stops every other test in the suite from running while CI stays green — a definitely-sensitive integrity signal.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "definitely",
+      "family": "integrity",
+      "kind": "integrity.test-focused",
+      "path": "src/cart.test.ts",
+      "headline": "focused test committed"
+    }
+  ],
+  "forbid": [
+    { "kind": "integrity.test-skipped" },
+    { "family": "volume" }
+  ]
+}

@@ -6,7 +6,106 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **Review reports tests a change stopped running.** New `integrity` signal
+  family: `integrity.test-focused` (definitely sensitive) when a change commits
+  a focus marker such as `it.only` or `fdescribe`, and
+  `integrity.test-skipped` (maybe sensitive) when a test that ran before is
+  skipped — `it.skip`/`xit`/`test.todo`, `@pytest.mark.skip`/`xfail`,
+  `self.skipTest`, `pytestmark`, Go `t.Skip`, Rust `#[ignore]`. Markers are
+  read from syntax trees and counted before and after the change, so markers
+  in strings or comments, unchanged markers, and a skipped test moved between
+  files are not reported. Covers TypeScript/JavaScript (Jest, Vitest, Mocha,
+  Jasmine, Playwright), Python (pytest, unittest), Go, and Rust. Integrity
+  signals never become a verification obligation — re-running the suite cannot
+  confirm a test that no longer runs. Integrity signals are also exported to SARIF
+  (category `testing`), so GitHub code scanning annotates the PR line.
+  **Migration:** `--fail-on-review definitely` now also fails on a committed
+  focused test.
+- **Review accounts for tests and assertions a change removed.**
+  `integrity.test-removed` names test cases that disappeared (by qualified name
+  such as `cart > applies the discount`, `TestInvoice.test_total`,
+  `tests::adds`) and any new tests in the same file, so a substituted test is
+  visible; `integrity.assertions-removed` reports a test that kept its name but
+  lost assertions (`assertions 2 → 1`). Constant-only assertions such as
+  `expect(true).toBe(true)`, `assert True`, or `assert!(true)` do not count, so
+  trivializing a check reads as removing it. Tests moved between changed files
+  are matched and not reported; emptying a whole test file stays with
+  `behavioral.test-deleted-or-emptied`. A removed test whose body closely
+  matches a new test in the same file is treated as renamed, not removed, and
+  reported only if it lost assertions. Both signals are maybe sensitive.
+- **Review reports new lint, type, and coverage suppressions.**
+  `integrity.suppression-added` (maybe sensitive) names a suppression a change
+  adds anywhere in the code, with its rules and the before/after count in the
+  file: `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `eslint-disable*`,
+  `biome-ignore`, `istanbul`/`c8 ignore`; Python `noqa`, `type: ignore`,
+  `pragma: no cover`, `pylint: disable`, `pyright: ignore`; Go `nolint` and
+  `lint:ignore`; Rust `#[allow(...)]`, `#![allow(...)]`, `#[expect(...)]`.
+  Suppressions are read from comment and attribute nodes, so text in strings is
+  ignored, and a suppression moved with its code to another changed file is
+  not new.
+
+- **Review reports relaxed CI and tool gates.** `integrity.gate-relaxed`
+  (maybe sensitive) parses configuration before and after a change and names
+  what lets a failing check pass: in GitHub Actions a check step or job that
+  gains `continue-on-error: true` or `if: false`, ends with `|| true` or
+  `--passWithNoTests`, or is removed; in GitLab CI `allow_failure: true`,
+  `when: manual`, or a removed check job; npm check scripts removed or turned
+  into no-ops; lowered coverage thresholds (`coverageThreshold`,
+  `fail_under`, Codecov `target`, Codecov `informational: true`); TypeScript
+  strict flags turned off; mypy strictness off or `ignore_errors`; new ruff
+  ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
+  `addopts`. Deleting a workflow or `.gitlab-ci.yml` reports the check jobs it
+  ran. Steps and scripts that run no check (build, docs) are not reported.
+- **Review shows a change that silences RepoPilot itself.**
+  `integrity.review-suppression-added` (maybe sensitive) reports each entry a
+  change adds to `.repopilot/overlay.toml`, with what it suppresses, its path
+  scope, and its reason. `.repopilot/` stays out of the changed-file list, so
+  before this a change could acknowledge its own signals unseen. Acknowledging
+  on purpose still works in the same change; the Claude Code guard blocks on it
+  so an agent cannot silence its own review.
+- **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
+  `/plugin install repopilot@repopilot`: snapshots each session, and when
+  Claude tries to stop, reviews the session and blocks once on a
+  definitely-sensitive signal or any test-integrity signal, handing Claude the
+  file and line of each. Also registers the local MCP server and a
+  `review-session` skill. The hooks do nothing outside a Git repository or
+  without the `repopilot` CLI.
+
+- **The GitHub Action's PR summary lists weakened checks first.** When a change
+  skips, focuses, or removes tests, drops assertions, adds suppressions, or
+  relaxes a gate, a "Checks this change weakened" section opens the summary
+  comment, ahead of the proof details; those signals are not repeated in the
+  general signal list.
+
+- **Cursor hook recipe.** `integrations/cursor/` holds a `.cursor/hooks.json`
+  and two scripts: `sessionStart` takes a snapshot, and `stop` reviews the
+  session and sends the agent one follow-up message listing each
+  definitely-sensitive or test-integrity signal with its file and line. See
+  `docs/agent-guardrail.md`.
+
+- **`review_timings.integrity_us`** reports the time integrity analysis took,
+  as part of `review_signals_us`. The changed-review performance gate now also
+  runs a 20-file change with skipped, renamed, and thinned-out tests and
+  requires a median under 1 s with integrity analysis at most 10% of it. Integrity analysis scans each side of a file in one tree-cursor pass and
+  scans changed files in parallel, which cut its time on that workload from
+  about 27 ms to about 3 ms.
+
 ### Changed
+
+- **`snapshot` keeps pre-existing work out of `review --since-snapshot`.** On
+  a dirty working tree the snapshot now records a baseline commit of the exact
+  tree (tracked edits and untracked, non-ignored files), pinned as
+  `refs/repopilot/snapshot`, and the review diffs from it. An untracked file
+  that existed at snapshot time is reported only if it changed, and then as
+  modified. The index, working tree, and branches are untouched;
+  `review` itself writes nothing. Snapshots written by 0.23 have no
+  `baseline` field and still review from `HEAD`.
+- **A change that touches only test files is assessed, not `NOT ASSESSED`.**
+  Test, fixture, and generated files are skipped by audit policy, but review
+  signals still read them; the decision for such a change is now `REVIEW` or
+  `PASS` on its evidence instead of asking to expand the scope.
 
 - **Public guidance now leads with developer and team workflows.** Agent
   integrations are presented as one supported path; review-result meanings,
@@ -63,6 +162,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   runs, so a release recovered by hand can still be verified end to end.
 
 ### Fixed
+
+- **`integrity.assertions-removed` follows assertions into helpers.** A test
+  that moves its assertions into a helper in the same file, or calls one helper
+  per case, keeps its count: calls to same-file helpers add their assertions,
+  through further helpers. An assertion dropped from a helper is now reported
+  on each test that calls it. A test rewritten as a loop over cases (a
+  table-driven test) is no longer compared statement-for-statement with its
+  loop-free version.
+
+- **Rust test files emptied of their tests are reported again.** The Rust test
+  recognizer looked for `#[test]` inside the function node, but tree-sitter
+  places attributes beside it, so `behavioral.test-deleted-or-emptied` never
+  counted Rust tests in a modified file.
 
 - The release verifier read the Homebrew formula version with an anchored
   pattern, but the formula indents `version`, so the final channel check could

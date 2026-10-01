@@ -121,8 +121,12 @@ fn is_zero(value: &usize) -> bool {
 }
 
 impl ProofCoverage {
-    fn is_meaningful(&self) -> bool {
-        self.requested_files > 0 && self.analyzed_files > 0
+    /// A scope is assessed when a requested file was analyzed or skipped only
+    /// by audit policy: diff-based review signals (removed, skipped, or
+    /// focused tests) still read policy-skipped files, so a test-only change
+    /// is reviewed, not unassessed.
+    pub(crate) fn is_meaningful(&self) -> bool {
+        self.requested_files > 0 && (self.analyzed_files > 0 || self.policy_skipped_files > 0)
     }
 }
 

@@ -210,11 +210,14 @@ repopilot snapshot
 repopilot review --since-snapshot
 ```
 
-The snapshot stores the current `HEAD` and whether the working tree is dirty; it
-does not save a copy of uncommitted file contents. `review --since-snapshot`
-compares the current state with that recorded `HEAD`. If the tree was already
-dirty, pre-existing changes may appear too, so the marker does not prove who
-authored each change. It does not modify commits or working-tree files.
+The snapshot stores the current `HEAD` and whether the working tree is dirty.
+When it is dirty, the snapshot also writes a baseline commit holding the exact
+working tree (tracked edits and untracked, non-ignored files) and pins it as
+`refs/repopilot/snapshot`; `review --since-snapshot` compares the current state
+with that baseline, so edits that predate the snapshot stay out. A clean tree,
+or a snapshot written before 0.24, compares with `HEAD`. The snapshot does not
+change the index, the working tree, or any branch, and it does not prove who
+authored each change.
 
 ---
 
