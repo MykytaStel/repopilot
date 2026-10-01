@@ -73,6 +73,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `review-session` skill. The hooks do nothing outside a Git repository or
   without the `repopilot` CLI.
 
+- **Cursor hook recipe.** `integrations/cursor/` holds a `.cursor/hooks.json`
+  and two scripts: `sessionStart` takes a snapshot, and `stop` reviews the
+  session and sends the agent one follow-up message listing each
+  definitely-sensitive or test-integrity signal with its file and line. See
+  `docs/agent-guardrail.md`.
+
+- **`review_timings.integrity_us`** reports the time integrity analysis took,
+  as part of `review_signals_us`. The changed-review performance gate now also
+  runs a 20-file change with skipped, renamed, and thinned-out tests and
+  requires a median under 1 s with integrity analysis at most 10% of it. Integrity analysis scans each side of a file in one tree-cursor pass and
+  scans changed files in parallel, which cut its time on that workload from
+  about 27 ms to about 3 ms.
+
 ### Changed
 
 - **`snapshot` keeps pre-existing work out of `review --since-snapshot`.** On
@@ -143,6 +156,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   runs, so a release recovered by hand can still be verified end to end.
 
 ### Fixed
+
+- **`integrity.assertions-removed` follows assertions into helpers.** A test
+  that moves its assertions into a helper in the same file, or calls one helper
+  per case, keeps its count: calls to same-file helpers add their assertions,
+  through further helpers. An assertion dropped from a helper is now reported
+  on each test that calls it. A test rewritten as a loop over cases (a
+  table-driven test) is no longer compared statement-for-statement with its
+  loop-free version.
 
 - **Rust test files emptied of their tests are reported again.** The Rust test
   recognizer looked for `#[test]` inside the function node, but tree-sitter

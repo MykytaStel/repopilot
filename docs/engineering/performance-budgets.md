@@ -218,6 +218,25 @@ earlier 9.4 s / 122-file observation remains the roadmap motivation; the pinned
 range and same-harness comparison provide the reproducible baseline for this
 gate.
 
+The same script also runs an integrity workload
+(`scripts/review-performance-integrity.js`): a 20-file working-tree change of
+10 TypeScript test files (40 tests each, with a shared helper) and the 10
+sources they cover, where every test file skips one test, renames one, and
+drops an assertion from a third. After one warm-up it measures seven runs and
+enforces a median under 1,000 ms (RP24-023) and an integrity analysis time
+(`review_timings.integrity_us`) of at most 10% of that median (v0.24 Phase C).
+The first version passed locally (5.4–5.6% on `darwin-arm64`) but failed on the
+Linux CI runner, where the review is faster: 36 ms of a 172 ms median (21%).
+After the first fix, CI measured 9.4–11.8%, still too close to the limit.
+Integrity analysis now walks each side of a file once with a single tree
+cursor and credits assertions to the enclosing test and helper bodies in that
+pass. A `kind_id` lookup skips nodes no recognizer can match, and call chains
+are followed by child position instead of a field-name search (the profile's
+top cost was `strncmp` inside `child_by_field_name`). Rename tokens are
+computed only for removed and new tests, and files are scanned in parallel.
+Locally, integrity analysis went from 26–27 ms to 9.9 ms on one thread and
+2.8 ms on all cores, about 0.7% of a 435 ms median.
+
 ## Fixture Direction
 
 Small, medium, and large synthetic repositories now exist

@@ -81,6 +81,7 @@ fn review_groups_signals_into_tiers_in_json() {
         "review_signals_us",
         "gating_us",
         "rendering_us",
+        "integrity_us",
     ] {
         assert!(
             json["review_timings"][field].is_number(),

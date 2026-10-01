@@ -292,7 +292,8 @@ focused, removed, or stripped of assertions: `integrity.test-skipped`,
 `integrity.gate-relaxed`, `integrity.review-suppression-added`), or `volume`.
 Integrity signals never create a verification obligation. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
-`review_signals_us`, `gating_us`, and `rendering_us`.
+`review_signals_us`, `gating_us`, `rendering_us`, and `integrity_us` (the integrity
+analysis share of `review_signals_us`).
 
 When supplied, a review also carries `change_proof.intent_drift` with the
 bounded declared scope, observed changed/impacted paths, canonical contract

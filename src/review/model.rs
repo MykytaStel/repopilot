@@ -20,6 +20,8 @@ pub struct ReviewTimings {
     pub gating_us: u64,
     pub rendering_us: u64,
     pub verification_us: u64,
+    /// Integrity signal analysis, part of `review_signals_us`.
+    pub integrity_us: u64,
 }
 
 /// Resolved Git commits for the reviewed range. `head_commit` stays `None` for

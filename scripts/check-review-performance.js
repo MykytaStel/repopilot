@@ -5,6 +5,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { createLargeDiffBenchmark } = require("./review-performance-large-diff");
+const { createIntegrityBenchmark } = require("./review-performance-integrity");
 
 const binary = path.resolve(
   process.argv[2] ||
@@ -45,6 +46,8 @@ const largeDiffBenchmark = createLargeDiffBenchmark({
   results,
   runAt,
 });
+
+const integrityBenchmark = createIntegrityBenchmark({ binary, runAt });
 
 function review(scope, output) {
   const started = process.hrtime.bigint();
@@ -125,6 +128,7 @@ try {
   const reportFinalizationUs =
     changedReport.scan_timings?.report_finalization_us ?? Number.MAX_SAFE_INTEGER;
   const largeDiffReport = largeDiffBenchmark.run();
+  const integrityReport = integrityBenchmark.run();
   console.log(
     JSON.stringify(
       {
@@ -135,6 +139,7 @@ try {
         report_finalization_us: reportFinalizationUs,
         report_finalization_budget_us: 100_000,
         large_diff_review: largeDiffReport,
+        integrity_review: integrityReport,
       },
       null,
       2,
@@ -155,8 +160,19 @@ try {
       `123-file real-repository review exceeded ${largeDiffReport.required_max_median_ms} ms (${largeDiffReport.wall_median_ms} ms median)`,
     );
   }
+  if (integrityReport.wall_median_ms > integrityReport.required_max_median_ms) {
+    throw new Error(
+      `20-file integrity review exceeded ${integrityReport.required_max_median_ms} ms (${integrityReport.wall_median_ms} ms median)`,
+    );
+  }
+  if (integrityReport.integrity_share > integrityReport.required_max_integrity_share) {
+    throw new Error(
+      `integrity analysis took ${(integrityReport.integrity_share * 100).toFixed(1)}% of the review median (budget 10%)`,
+    );
+  }
 } finally {
   largeDiffBenchmark.cleanup();
+  integrityBenchmark.cleanup();
   fs.rmSync(root, { recursive: true, force: true });
   fs.rmSync(results, { recursive: true, force: true });
 }

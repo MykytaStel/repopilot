@@ -15,7 +15,11 @@ mod accounting;
 mod accounting_tests;
 mod acknowledgement;
 mod gates;
+mod helpers;
+#[cfg(test)]
+mod helpers_tests;
 mod markers;
+mod scan;
 mod suppressions;
 #[cfg(test)]
 mod suppressions_tests;
@@ -26,11 +30,9 @@ mod tests;
 use crate::languages::integrity_for_extension;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
-use crate::review::signals::tables::{IntegrityTables, TestMarker};
 pub use acknowledgement::detect_review_suppressions;
 pub use gates::detect_gate_relaxation;
 use serde::Serialize;
-use tree_sitter::Node;
 
 /// The category of test-integrity change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -65,19 +67,10 @@ pub struct FileEvidence {
     first_changed_line: usize,
     /// Pre-change text, to tell a skip in an existing test from one in new code.
     pre_text: String,
-    pre: Scan,
-    post: Scan,
+    pre: scan::Scan,
+    post: scan::Scan,
     /// Post-change markers on changed lines, by index into `post.markers`.
     post_marker_in_diff: Vec<bool>,
-}
-
-/// What one side of a changed file contains. Markers and test cases are
-/// collected only in test scope; suppressions everywhere.
-#[derive(Debug, Default)]
-struct Scan {
-    markers: Vec<TestMarker>,
-    tests: Vec<accounting::TestFacts>,
-    suppressions: Vec<(String, usize)>,
 }
 
 /// Collects a changed file's evidence, or `None` when no recognizer applies or
@@ -98,15 +91,15 @@ pub fn collect_file_evidence(
     let (pre, pre_text) = if existed_before {
         let source = pre?;
         (
-            scan(source, tables, test_scope)?,
+            scan::scan(source, tables, test_scope)?,
             source.content().to_string(),
         )
     } else {
-        (Scan::default(), String::new())
+        (scan::Scan::default(), String::new())
     };
     let post = match post {
-        Some(source) => scan(source, tables, test_scope)?,
-        None if file.status == ChangeStatus::Deleted => Scan::default(),
+        Some(source) => scan::scan(source, tables, test_scope)?,
+        None if file.status == ChangeStatus::Deleted => scan::Scan::default(),
         None => return None,
     };
     Some(FileEvidence {
@@ -132,47 +125,6 @@ pub fn detect_integrity(files: &[FileEvidence]) -> Vec<IntegritySignal> {
     signals.extend(suppressions::detect(files));
     signals.sort_by(|left, right| left.path.cmp(&right.path).then(left.line.cmp(&right.line)));
     signals
-}
-
-fn scan(source: &ReviewSource, tables: &IntegrityTables, test_scope: bool) -> Option<Scan> {
-    let tree = source.tree()?;
-    let mut found = Scan::default();
-    walk(
-        tree.root_node(),
-        source.content(),
-        tables,
-        test_scope,
-        &mut found,
-    );
-    Some(found)
-}
-
-fn walk(
-    node: Node<'_>,
-    content: &str,
-    tables: &IntegrityTables,
-    test_scope: bool,
-    found: &mut Scan,
-) {
-    if test_scope {
-        if let Some(marker) = (tables.test_marker)(node, content) {
-            found.markers.push(marker);
-        }
-        if let Some(name) = (tables.test_case)(node, content) {
-            found
-                .tests
-                .push(accounting::TestFacts::of(node, content, tables, name));
-        }
-    }
-    if let Some(label) = (tables.suppression)(node, content) {
-        found
-            .suppressions
-            .push((label, node.start_position().row + 1));
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        walk(child, content, tables, test_scope, found);
-    }
 }
 
 /// Fixture, `testdata`, and snapshot directories hold inputs a test reads, not
