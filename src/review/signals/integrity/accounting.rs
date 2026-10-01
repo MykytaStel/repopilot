@@ -4,12 +4,14 @@
 //! Tests are identified by their qualified name (`header > renders title`,
 //! `TestLogout.test_logout`, `tests::adds`). A name that leaves one changed
 //! file and appears in another is a move. A test that keeps its name is
-//! compared by assertion count; constant-only assertions (`assert True`,
+//! compared by assertion count, including the same-file helpers it calls
+//! (`helpers.rs`); constant-only assertions (`assert True`,
 //! `expect(true).toBe(true)`) never count, so trivializing an assertion reads
 //! as removing it. A removed test whose body closely matches a new test in the
 //! same file was renamed: it is compared by assertion count, not reported as
 //! removed.
 
+use super::helpers::{self, Body};
 use super::{FileEvidence, IntegrityKind, IntegritySignal};
 use crate::review::signals::tables::IntegrityTables;
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,7 +27,10 @@ const RENAME_SIMILARITY: f64 = 0.75;
 pub(super) struct TestFacts {
     name: String,
     line: usize,
+    /// The test's own body, before helpers are folded in.
+    body: Body,
     assertions: usize,
+    looped: bool,
     /// Distinct identifier and literal tokens of the body, without the name.
     tokens: BTreeSet<String>,
 }
@@ -38,29 +43,29 @@ impl TestFacts {
         name: String,
     ) -> Self {
         let text = node.utf8_text(content.as_bytes()).unwrap_or_default();
+        let body = helpers::survey(node, content, tables);
         Self {
             line: node.start_position().row + 1,
-            assertions: count_assertions(node, content, tables),
+            assertions: body.assertions,
+            looped: body.looped,
+            body,
             tokens: body_tokens(text, &name),
             name,
         }
     }
-}
 
-/// Assertions inside one test, not counting nested test cases.
-fn count_assertions(node: Node<'_>, content: &str, tables: &IntegrityTables) -> usize {
-    let mut count = 0;
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        if (tables.test_case)(child, content).is_some() {
-            continue;
-        }
-        if (tables.is_assertion)(child, content) {
-            count += 1;
-        }
-        count += count_assertions(child, content, tables);
+    /// Folds in the assertions of the same-file helpers this test calls.
+    pub(super) fn include_helpers(&mut self, helpers: &BTreeMap<String, Body>) {
+        let resolved = helpers::resolve(&self.body, helpers);
+        self.assertions = resolved.assertions;
+        self.looped = resolved.looped;
     }
-    count
+
+    /// Fewer assertions than `before`, unless the test became a loop over
+    /// cases, where one statement can check what several did.
+    fn checks_less_than(&self, before: &TestFacts) -> bool {
+        self.assertions < before.assertions && (before.looped || !self.looped)
+    }
 }
 
 pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
@@ -87,7 +92,7 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
         }
         let (renamed, removed) = pair_renames(file, &removed);
         for (before, after) in renamed {
-            if after.assertions < before.assertions {
+            if after.checks_less_than(before) {
                 signals.push(IntegritySignal {
                     kind: IntegrityKind::AssertionsRemoved,
                     path: file.path.clone(),
@@ -220,7 +225,7 @@ fn assertion_signals(file: &FileEvidence) -> Vec<IntegritySignal> {
         .iter()
         .filter_map(|(name, pre)| {
             let post = after.get(name)?;
-            (post.assertions < pre.assertions).then(|| IntegritySignal {
+            post.checks_less_than(pre).then(|| IntegritySignal {
                 kind: IntegrityKind::AssertionsRemoved,
                 path: file.path.clone(),
                 line: post.line,

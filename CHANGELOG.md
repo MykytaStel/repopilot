@@ -144,6 +144,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- **`integrity.assertions-removed` follows assertions into helpers.** A test
+  that moves its assertions into a helper in the same file, or calls one helper
+  per case, keeps its count: calls to same-file helpers add their assertions,
+  through further helpers. An assertion dropped from a helper is now reported
+  on each test that calls it. A test rewritten as a loop over cases (a
+  table-driven test) is no longer compared statement-for-statement with its
+  loop-free version.
+
 - **Rust test files emptied of their tests are reported again.** The Rust test
   recognizer looked for `#[test]` inside the function node, but tree-sitter
   places attributes beside it, so `behavioral.test-deleted-or-emptied` never

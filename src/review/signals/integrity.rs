@@ -15,6 +15,9 @@ mod accounting;
 mod accounting_tests;
 mod acknowledgement;
 mod gates;
+mod helpers;
+#[cfg(test)]
+mod helpers_tests;
 mod markers;
 mod suppressions;
 #[cfg(test)]
@@ -30,6 +33,7 @@ use crate::review::signals::tables::{IntegrityTables, TestMarker};
 pub use acknowledgement::detect_review_suppressions;
 pub use gates::detect_gate_relaxation;
 use serde::Serialize;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 /// The category of test-integrity change.
@@ -78,6 +82,8 @@ struct Scan {
     markers: Vec<TestMarker>,
     tests: Vec<accounting::TestFacts>,
     suppressions: Vec<(String, usize)>,
+    /// Same-file functions that are not tests, by name.
+    helpers: BTreeMap<String, helpers::Body>,
 }
 
 /// Collects a changed file's evidence, or `None` when no recognizer applies or
@@ -144,6 +150,9 @@ fn scan(source: &ReviewSource, tables: &IntegrityTables, test_scope: bool) -> Op
         test_scope,
         &mut found,
     );
+    for test in &mut found.tests {
+        test.include_helpers(&found.helpers);
+    }
     Some(found)
 }
 
@@ -162,6 +171,9 @@ fn walk(
             found
                 .tests
                 .push(accounting::TestFacts::of(node, content, tables, name));
+        } else if let Some(name) = helpers::definition_name(node, content) {
+            let body = helpers::survey(node, content, tables);
+            helpers::remember(&mut found.helpers, name, body);
         }
     }
     if let Some(label) = (tables.suppression)(node, content) {
