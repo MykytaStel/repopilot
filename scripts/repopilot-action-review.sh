@@ -81,6 +81,18 @@ write_review_summary() {
   {
     echo "## RepoPilot Review"
     echo
+    # Checks the change weakened come first: they are what a green CI run hides.
+    jq -r '
+      [.tiered_signals.definitely[]?, .tiered_signals.maybe[]?, .tiered_signals.noise[]?]
+      | map(select(.family == "integrity" and .suppressed == false)) as $weakened
+      | if ($weakened | length) > 0 then
+          "### Checks this change weakened",
+          "",
+          ($weakened[0:20][]
+            | "- **\(.headline)** — `\(.path)\(if .line_start then ":\(.line_start)" else "" end)`\(if .detail then ": \(.detail)" else "" end)"),
+          ""
+        else empty end
+    ' "$review_json"
     if [[ -f "$REVIEW_DELTA_FILE" ]]; then
       echo "- **New findings:** $(jq -r '.baseline.new_findings' "$REVIEW_DELTA_FILE")"
       echo "- **Resolved findings:** $(jq -r '.baseline.resolved_findings' "$REVIEW_DELTA_FILE")"
@@ -219,7 +231,7 @@ write_review_summary() {
     echo
     jq -r '
       [.tiered_signals.definitely[], .tiered_signals.maybe[]]
-      | map(select(.suppressed == false))[0:20][]
+      | map(select(.suppressed == false and .family != "integrity"))[0:20][]
       | "- **\(.headline)** — `\(.path)\(if .line_start then ":\(.line_start)" else "" end)`\(if .detail then ": \(.detail)" else "" end)"
     ' "$review_json"
     if [[ -f "$REVIEW_DELTA_FILE" ]]; then

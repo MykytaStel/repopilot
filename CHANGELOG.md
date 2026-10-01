@@ -73,6 +73,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `review-session` skill. The hooks do nothing outside a Git repository or
   without the `repopilot` CLI.
 
+- **The GitHub Action's PR summary lists weakened checks first.** When a change
+  skips, focuses, or removes tests, drops assertions, adds suppressions, or
+  relaxes a gate, a "Checks this change weakened" section opens the summary
+  comment, ahead of the proof details; those signals are not repeated in the
+  general signal list.
+
 - **Cursor hook recipe.** `integrations/cursor/` holds a `.cursor/hooks.json`
   and two scripts: `sessionStart` takes a snapshot, and `stop` reviews the
   session and sends the agent one follow-up message listing each
