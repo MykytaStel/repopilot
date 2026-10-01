@@ -11,7 +11,7 @@ mod config;
 mod parse;
 
 use super::{IntegrityKind, IntegritySignal};
-use crate::review::diff::ChangedFile;
+use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 
 /// One relaxation found in a configuration file.
@@ -44,7 +44,7 @@ pub fn detect_gate_relaxation(
     pre: Option<&ReviewSource>,
     post: Option<&ReviewSource>,
 ) -> Vec<IntegritySignal> {
-    let (Some(pre), Some(post)) = (pre, post) else {
+    let Some(pre) = pre else {
         return Vec::new();
     };
     let path = file.path_string();
@@ -53,10 +53,18 @@ pub fn detect_gate_relaxation(
         .next()
         .unwrap_or(&path)
         .to_ascii_lowercase();
-    let (before, after) = (pre.content(), post.content());
+    let is_gitlab = name == ".gitlab-ci.yml" || name == ".gitlab-ci.yaml";
+    // A deleted pipeline file removes every check job it ran.
+    let after = match post {
+        Some(post) => post.content(),
+        None if file.status == ChangeStatus::Deleted && is_github_workflow(&path) => "jobs: {}\n",
+        None if file.status == ChangeStatus::Deleted && is_gitlab => "{}\n",
+        None => return Vec::new(),
+    };
+    let before = pre.content();
     let found = if is_github_workflow(&path) {
         ci::github_actions(before, after)
-    } else if name == ".gitlab-ci.yml" || name == ".gitlab-ci.yaml" {
+    } else if is_gitlab {
         ci::gitlab(before, after)
     } else if name == "package.json" {
         config::package_json(before, after)

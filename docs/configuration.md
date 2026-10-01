@@ -386,6 +386,11 @@ expires = "2026-12-31"
 
 Use `--ignore-feedback` on `scan` or `review` to bypass overlay rules.
 
+A change that adds an overlay entry is reported by `review` as
+`integrity.review-suppression-added`, naming what the entry suppresses, its
+path, and its reason, so an acknowledgement is visible in the change that
+makes it.
+
 ## Local Feedback (Deprecated)
 
 > [!NOTE]

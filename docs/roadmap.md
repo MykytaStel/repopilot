@@ -9,9 +9,9 @@ quality gates that guide each release.
 RepoPilot 0.24 reports when a change turns CI green by weakening the checks
 that judge it:
 
-- skipped or focused tests, removed test cases or assertions, and expected
-  values rewritten together with the code they test;
-- added suppressions and relaxed CI, coverage, or type-checking gates;
+- skipped or focused tests and removed test cases or assertions;
+- added suppressions, including suppressions of RepoPilot itself, and relaxed
+  CI, coverage, or type-checking gates;
 - a labeled corpus of real pull requests that measures how often this happens
   and what RepoPilot catches, with its limits stated;
 - optional snapshot, stop-hook, commit-hook, and CI integrations that run the

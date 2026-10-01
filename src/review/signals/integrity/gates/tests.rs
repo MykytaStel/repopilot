@@ -18,6 +18,35 @@ fn relaxed(path: &str, before: &str, after: &str) -> Vec<String> {
         .collect()
 }
 
+fn deleted(path: &str, before: &str) -> Vec<String> {
+    let file = ChangedFile {
+        path: PathBuf::from(path),
+        status: ChangeStatus::Deleted,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    };
+    let pre = ReviewSource::new(before.to_string(), None);
+    detect_gate_relaxation(&file, Some(&pre), None)
+        .into_iter()
+        .map(|signal| signal.detail)
+        .collect()
+}
+
+#[test]
+fn a_deleted_workflow_removes_its_check_jobs() {
+    assert_eq!(
+        deleted(".github/workflows/ci.yml", WORKFLOW),
+        vec!["job `test` that ran checks was removed"]
+    );
+    assert!(
+        deleted(
+            ".github/workflows/release.yml",
+            "jobs:\n  publish:\n    steps:\n      - run: npm publish\n"
+        )
+        .is_empty()
+    );
+}
+
 const WORKFLOW: &str = r#"name: ci
 on: [push]
 jobs:

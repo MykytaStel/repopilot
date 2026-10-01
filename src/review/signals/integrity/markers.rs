@@ -30,6 +30,17 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             if added == 0 || (identity.0 == TestMarkerKind::Skip && !file.existed_before) {
                 continue;
             }
+            // A skip inside a test or helper the change adds weakens nothing
+            // that ran before; the name is absent from the pre-change file.
+            // Module-level skips (`<module>`) always count.
+            if identity.0 == TestMarkerKind::Skip
+                && identity
+                    .2
+                    .as_deref()
+                    .is_some_and(|name| !name.starts_with('<') && !file.pre_text.contains(name))
+            {
+                continue;
+            }
             let mut candidates: Vec<(&TestMarker, bool)> = file
                 .post
                 .markers

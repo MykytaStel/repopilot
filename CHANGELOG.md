@@ -19,7 +19,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   files are not reported. Covers TypeScript/JavaScript (Jest, Vitest, Mocha,
   Jasmine, Playwright), Python (pytest, unittest), Go, and Rust. Integrity
   signals never become a verification obligation — re-running the suite cannot
-  confirm a test that no longer runs.
+  confirm a test that no longer runs. Integrity signals are also exported to SARIF
+  (category `testing`), so GitHub code scanning annotates the PR line.
   **Migration:** `--fail-on-review definitely` now also fails on a committed
   focused test.
 - **Review accounts for tests and assertions a change removed.**
@@ -31,7 +32,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `expect(true).toBe(true)`, `assert True`, or `assert!(true)` do not count, so
   trivializing a check reads as removing it. Tests moved between changed files
   are matched and not reported; emptying a whole test file stays with
-  `behavioral.test-deleted-or-emptied`. Both signals are maybe sensitive.
+  `behavioral.test-deleted-or-emptied`. A removed test whose body closely
+  matches a new test in the same file is treated as renamed, not removed, and
+  reported only if it lost assertions. Both signals are maybe sensitive.
 - **Review reports new lint, type, and coverage suppressions.**
   `integrity.suppression-added` (maybe sensitive) names a suppression a change
   adds anywhere in the code, with its rules and the before/after count in the
@@ -53,8 +56,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `fail_under`, Codecov `target`, Codecov `informational: true`); TypeScript
   strict flags turned off; mypy strictness off or `ignore_errors`; new ruff
   ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
-  `addopts`. Steps and scripts that run no check (build, docs) are not
-  reported.
+  `addopts`. Deleting a workflow or `.gitlab-ci.yml` reports the check jobs it
+  ran. Steps and scripts that run no check (build, docs) are not reported.
+- **Review shows a change that silences RepoPilot itself.**
+  `integrity.review-suppression-added` (maybe sensitive) reports each entry a
+  change adds to `.repopilot/overlay.toml`, with what it suppresses, its path
+  scope, and its reason. `.repopilot/` stays out of the changed-file list, so
+  before this a change could acknowledge its own signals unseen. Acknowledging
+  on purpose still works in the same change; the Claude Code guard blocks on it
+  so an agent cannot silence its own review.
 - **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
   `/plugin install repopilot@repopilot`: snapshots each session, and when
   Claude tries to stop, reviews the session and blocks once on a

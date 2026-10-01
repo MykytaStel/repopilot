@@ -481,7 +481,7 @@ fn build_verification_plan(
     Some(ReviewSignalVerificationPlan { steps })
 }
 
-fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
+pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
     match family {
         SignalFamily::Boundary => match kind {
             "boundary.access-control" => {
@@ -549,6 +549,9 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             }
             "integrity.test-removed" => {
                 "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
+            }
+            "integrity.review-suppression-added" => {
+                "Confirm the new overlay entry acknowledges a reviewed signal on purpose, with a reason and an expiry; remove it if it only silences this review."
             }
             "integrity.gate-relaxed" => {
                 "Confirm the relaxed CI or tool gate is intended and temporary; restore it, or record why the check may fail and when it will be restored."
@@ -695,6 +698,7 @@ fn integrity_kind(kind: IntegrityKind) -> &'static str {
         IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
         IntegrityKind::SuppressionAdded => "integrity.suppression-added",
         IntegrityKind::GateRelaxed => "integrity.gate-relaxed",
+        IntegrityKind::ReviewSuppressionAdded => "integrity.review-suppression-added",
     }
 }
 
@@ -708,7 +712,8 @@ fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
         | IntegrityKind::TestRemoved
         | IntegrityKind::AssertionsRemoved
         | IntegrityKind::SuppressionAdded
-        | IntegrityKind::GateRelaxed => ConfidenceTier::MaybeSensitive,
+        | IntegrityKind::GateRelaxed
+        | IntegrityKind::ReviewSuppressionAdded => ConfidenceTier::MaybeSensitive,
     }
 }
 
@@ -720,6 +725,7 @@ fn integrity_headline(kind: IntegrityKind) -> &'static str {
         IntegrityKind::AssertionsRemoved => "assertions removed",
         IntegrityKind::SuppressionAdded => "suppression added",
         IntegrityKind::GateRelaxed => "check gate relaxed",
+        IntegrityKind::ReviewSuppressionAdded => "RepoPilot suppression added",
     }
 }
 
