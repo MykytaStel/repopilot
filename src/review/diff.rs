@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod batch;
+mod since_base;
 pub(crate) use batch::{BatchedContent, git_show_many};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -250,6 +251,10 @@ pub fn load_changed_files(
         DiffTarget::WorkingTree | DiffTarget::SinceRef { .. }
     ) {
         files.extend(load_untracked_files(repo_root, pathspec)?);
+    }
+    // A snapshot baseline can already hold files that are untracked now.
+    if let DiffTarget::SinceRef { base } = target {
+        since_base::reconcile_untracked_with_base(repo_root, base, &mut files)?;
     }
 
     files.retain(|file| !is_repopilot_internal_path(&file.path));

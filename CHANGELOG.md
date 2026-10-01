@@ -43,8 +43,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   ignored, and a suppression moved with its code to another changed file is
   not new.
 
+- **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
+  `/plugin install repopilot@repopilot`: snapshots each session, and when
+  Claude tries to stop, reviews the session and blocks once on a
+  definitely-sensitive signal or any test-integrity signal, handing Claude the
+  file and line of each. Also registers the local MCP server and a
+  `review-session` skill. The hooks do nothing outside a Git repository or
+  without the `repopilot` CLI.
+
 ### Changed
 
+- **`snapshot` keeps pre-existing work out of `review --since-snapshot`.** On
+  a dirty working tree the snapshot now records a baseline commit of the exact
+  tree (tracked edits and untracked, non-ignored files), pinned as
+  `refs/repopilot/snapshot`, and the review diffs from it. An untracked file
+  that existed at snapshot time is reported only if it changed, and then as
+  modified. The index, working tree, and branches are untouched;
+  `review` itself writes nothing. Snapshots written by 0.23 have no
+  `baseline` field and still review from `HEAD`.
 - **A change that touches only test files is assessed, not `NOT ASSESSED`.**
   Test, fixture, and generated files are skipped by audit policy, but review
   signals still read them; the decision for such a change is now `REVIEW` or

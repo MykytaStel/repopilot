@@ -99,10 +99,21 @@ repopilot snapshot
 repopilot review --since-snapshot
 ```
 
-The marker stores `HEAD` and a dirty/clean flag, not a copy of existing
-uncommitted files. If the working tree was already dirty, the later review may
-include those earlier changes and cannot attribute every change to that session.
+When the working tree is already dirty, the marker also records a baseline
+commit of those uncommitted files, so the later review covers only what changed
+after the snapshot. It shows what changed, not who changed it.
 See [common workflows](docs/commands.md#review-work-since-a-marker).
+
+In Claude Code, the RepoPilot plugin runs that loop for every session and
+stops Claude from finishing while a test it skipped, focused, removed, or
+weakened is unexplained:
+
+```text
+/plugin marketplace add MykytaStel/repopilot
+/plugin install repopilot@repopilot
+```
+
+See [Guard your agent runs](docs/agent-guardrail.md).
 
 RepoPilot also provides a local stdio MCP server and a GitHub Action. The MCP
 server gives an agent access to the local scan and review tools. The Action runs

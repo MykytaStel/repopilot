@@ -8,13 +8,16 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod baseline;
+
 /// Current on-disk schema for `.repopilot/snapshot.json`.
 const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
-/// A "before the agent starts" marker: the repository `HEAD` at the moment
-/// `repopilot snapshot` ran, plus whether the working tree was already dirty.
-/// `repopilot review --since-snapshot` diffs this `head` against the current
-/// working tree to review the whole run.
+/// A "before the change starts" marker: the repository `HEAD` at the moment
+/// `repopilot snapshot` ran, whether the working tree was already dirty, and,
+/// when it was, a baseline commit holding that exact working tree.
+/// `repopilot review --since-snapshot` diffs the baseline (or `head`) against
+/// the current working tree, so edits that predate the snapshot stay out.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub schema_version: u32,
@@ -22,6 +25,11 @@ pub struct Snapshot {
     pub head: String,
     /// Whether the working tree already had uncommitted edits at snapshot time.
     pub dirty: bool,
+    /// Commit holding the exact working tree at snapshot time (tracked edits
+    /// and untracked, non-ignored files), recorded when `dirty`. Snapshots
+    /// written before 0.24 lack it and review from `head`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<String>,
     /// RFC 3339 timestamp of when the snapshot was taken.
     pub created_at: String,
 }
@@ -47,6 +55,10 @@ pub enum SnapshotError {
     },
     UnsupportedSchemaVersion {
         found: u32,
+    },
+    Baseline {
+        command: String,
+        stderr: String,
     },
 }
 
@@ -76,6 +88,10 @@ impl fmt::Display for SnapshotError {
                 "invalid snapshot file {}: {reason}",
                 path.display()
             ),
+            SnapshotError::Baseline { command, stderr } => write!(
+                formatter,
+                "failed to record the working-tree baseline (`{command}`): {stderr}"
+            ),
             SnapshotError::UnsupportedSchemaVersion { found } => write!(
                 formatter,
                 "unsupported snapshot schema version: {found}; supported version: {SNAPSHOT_SCHEMA_VERSION}"
@@ -96,10 +112,16 @@ pub fn run(options: SnapshotOptions) -> Result<(), Box<dyn Error>> {
     let repo_root = resolve_git_root(&options.path)?;
     let head = head_sha(&repo_root)?;
     let dirty = is_dirty(&repo_root)?;
+    let baseline = if dirty {
+        Some(baseline::record(&repo_root, &head)?)
+    } else {
+        None
+    };
     let snapshot = Snapshot {
         schema_version: SNAPSHOT_SCHEMA_VERSION,
         head: head.clone(),
         dirty,
+        baseline,
         created_at: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
     };
 
@@ -107,6 +129,14 @@ pub fn run(options: SnapshotOptions) -> Result<(), Box<dyn Error>> {
     write_snapshot(&snapshot, &path)?;
     print_snapshot_summary(&path, &snapshot);
     Ok(())
+}
+
+impl Snapshot {
+    /// The revision `review --since-snapshot` diffs from: the recorded
+    /// working tree when there is one, otherwise `HEAD`.
+    pub fn review_base(&self) -> &str {
+        self.baseline.as_deref().unwrap_or(&self.head)
+    }
 }
 
 /// Read the snapshot recorded for the repository containing `scan_path`.
@@ -217,6 +247,12 @@ fn print_snapshot_summary(path: &Path, snapshot: &Snapshot) {
         "Working tree at snapshot time: {}",
         if snapshot.dirty { "dirty" } else { "clean" }
     );
+    if let Some(baseline) = &snapshot.baseline {
+        println!(
+            "Baseline: {baseline} (pinned as {}; edits made before this snapshot stay out of the review)",
+            baseline::BASELINE_REF
+        );
+    }
     println!();
     println!("Review everything since this point with:");
     println!("  repopilot review --since-snapshot");

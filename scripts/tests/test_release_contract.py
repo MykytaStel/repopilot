@@ -56,8 +56,8 @@ class ReleaseContractTests(unittest.TestCase):
             "`ready` while Change Proof is `REVIEW` when no sufficient proof policy "
             "is selected. A failed configured gate also appears as a proof reason. "
             "The `--fail-on-priority` CI threshold is shown separately. Snapshot "
-            "stores `HEAD` and `dirty`; it does not preserve a copy of pre-existing "
-            "changes and cannot establish who authored each change. "
+            "stores `HEAD` and `dirty`; a dirty snapshot records a baseline that "
+            "keeps pre-existing changes out. It cannot establish who authored each change. "
             "configuration.md#first-review-choose-and-run-a-check\n",
         )
         self.write(
@@ -739,7 +739,7 @@ class ReleaseContractTests(unittest.TestCase):
             "ready while Change Proof is "
             "REVIEW when no sufficient proof policy is selected; failed configured "
             "gate also appears as a proof reason; next action --fail-on-priority "
-            "snapshot `HEAD` `dirty` does not preserve a copy of pre-existing changes "
+            "snapshot `HEAD` `dirty` baseline keeps pre-existing changes out "
             "authored each change "
             "configuration.md#first-review-choose-and-run-a-check\n",
         )

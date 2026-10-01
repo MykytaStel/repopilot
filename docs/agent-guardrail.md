@@ -13,10 +13,11 @@ repopilot snapshot            # before the agent starts
 repopilot review --since-snapshot
 ```
 
-`snapshot` records the current HEAD (and whether the tree was already dirty)
-to `.repopilot/snapshot.json`. `review --since-snapshot` then covers
+`snapshot` records the current HEAD to `.repopilot/snapshot.json`; when the
+tree is already dirty, it also pins a baseline commit of those uncommitted
+files as `refs/repopilot/snapshot`. `review --since-snapshot` then covers
 everything the agent did — commits it made and edits it left uncommitted —
-not just the current working tree.
+and leaves out work that predates the session.
 
 To turn the review into a hard gate, add the review-signal gate. The exit
 code is 1 when definitely-sensitive signals are present:
@@ -25,9 +26,28 @@ code is 1 when definitely-sensitive signals are present:
 repopilot review --since-snapshot --fail-on-review definitely
 ```
 
-## Claude Code: review every session automatically
+## Claude Code: install the plugin
 
-Two hooks make the loop invisible: take a snapshot when a session starts,
+The RepoPilot plugin wires the whole loop into Claude Code. With the
+`repopilot` CLI installed, run inside Claude Code:
+
+```text
+/plugin marketplace add MykytaStel/repopilot
+/plugin install repopilot@repopilot
+```
+
+The plugin snapshots the repository when a session starts. When Claude tries
+to stop, it reviews everything the session changed and blocks the stop once
+if it finds a definitely-sensitive signal or any test-integrity signal: a
+focused, skipped, or removed test, a test that lost assertions, or a new lint,
+type, or coverage suppression. Claude gets the list with file and line and must
+restore each check or explain why the change is intended. It also registers the
+MCP server below and a `review-session` skill. Outside a Git repository, or
+without the CLI, the hooks do nothing.
+
+## Claude Code: wire the hooks by hand
+
+The same loop without the plugin: take a snapshot when a session starts,
 review the session when the agent tries to stop. If the review gate fails,
 the agent sees the signals and must address them (or explain them) before
 finishing.
