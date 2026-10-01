@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -175,19 +176,58 @@ def fetch() -> None:
         print(f"cached {entry['id']}", file=sys.stderr)
 
 
-def show(corpus_id: str) -> None:
+ADDITIVE_VOCABULARY = re.compile(
+    r"skip|\.only|fit\(|fdescribe|xfail|xit\(|todo|ignore|noqa|nolint|eslint-disable|ts-expect|ts-nocheck"
+    r"|allow\(|pragma|continue-on-error|allow_failure|fail_under|threshold|strict|deselect|\|\| true|exit 0",
+    re.IGNORECASE,
+)
+
+
+def show(corpus_id: str, compact: bool = False) -> None:
     entry = next((e for e in load_manifest() if e["id"] == corpus_id), None)
     if entry is None:
         sys.exit(f"unknown corpus id {corpus_id}")
     data = json.loads((CACHE / f"{corpus_id}.json").read_text())
-    print(f"# {corpus_id} {entry['repo']}#{entry['number']} — {data['title']}")
-    print(f"# changed files: {len(data['all_files'])}; non-test: " + ", ".join(f for f in data["all_files"] if not any(f == k["filename"] for k in data["files"]))[:600])
+    print(f"# {corpus_id} [{entry['group']}/{entry['agent']}] {entry['repo']}#{entry['number']} — {data['title']}")
+    others = [f for f in data["all_files"] if not any(f == k["filename"] for k in data["files"])]
+    print(f"# other changed files ({len(others)}): " + ", ".join(others)[:400])
     for f in data["files"]:
-        print(f"\n## {f['status']} {f['filename']} (+{f['additions']} -{f['deletions']})")
+        print(f"## {f['status']} {f['filename']} (+{f['additions']} -{f['deletions']})")
         patch = (f.get("patch") or "(patch unavailable: file too large)").splitlines()
+        if compact:
+            patch = compact_patch(patch)
         print("\n".join(patch[:SHOW_LINES]))
         if len(patch) > SHOW_LINES:
-            print(f"... ({len(patch) - SHOW_LINES} more patch lines not shown)")
+            print(f"... ({len(patch) - SHOW_LINES} more lines not shown)")
+
+
+def compact_patch(lines: list[str]) -> list[str]:
+    """Hunks with removals in full; additive hunks reduced to lines that use
+    skip/focus/suppression/gate vocabulary. Context lines are dropped."""
+    hunks, current = [], []
+    for line in lines:
+        if line.startswith("@@") and current:
+            hunks.append(current)
+            current = []
+        current.append(line)
+    if current:
+        hunks.append(current)
+    out, hidden = [], 0
+    for hunk in hunks:
+        changed = [line for line in hunk[1:] if line.startswith(("+", "-"))]
+        if any(line.startswith("-") for line in changed):
+            out.append(hunk[0])
+            out.extend(changed)
+        else:
+            flagged = [line for line in changed if ADDITIVE_VOCABULARY.search(line)]
+            if flagged:
+                out.append(hunk[0] + " (additive; vocabulary lines only)")
+                out.extend(flagged)
+            else:
+                hidden += 1
+    if hidden:
+        out.append(f"({hidden} purely additive hunk(s) without skip/suppression/gate vocabulary hidden)")
+    return out
 
 
 def main() -> None:
@@ -197,7 +237,8 @@ def main() -> None:
     s.add_argument("--per-agent", type=int, default=20)
     sub.add_parser("fetch")
     sh = sub.add_parser("show")
-    sh.add_argument("id")
+    sh.add_argument("ids", nargs="+")
+    sh.add_argument("--compact", action="store_true")
     sub.add_parser("report")
     ev = sub.add_parser("evaluate")
     ev.add_argument("--bin", type=Path, default=REPO_ROOT / "target" / "release" / "repopilot")
@@ -207,7 +248,9 @@ def main() -> None:
     elif args.cmd == "fetch":
         fetch()
     elif args.cmd == "show":
-        show(args.id)
+        for corpus_id in args.ids:
+            show(corpus_id, compact=args.compact)
+            print()
     elif args.cmd == "evaluate":
         evaluation.evaluate(load_manifest(), CACHE, args.bin)
     else:

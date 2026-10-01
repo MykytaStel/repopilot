@@ -1,0 +1,1193 @@
+# Integrity corpus labels (see README.md). One [[label]] per manifest id.
+[meta]
+labeler = "Claude (Anthropic, Opus 5.5) for the maintainer; same model wrote the detectors"
+status = "single-labeler, exploratory, pending maintainer review"
+method = "compact test/gate diff view (integrity_corpus.py show --compact), labeled before any RepoPilot run"
+
+[[label]]
+id = "ic-001"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-002"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-003"
+kinds = ["test-substituted"]
+verdict = "justified"
+note = "EOL Titan test replaced by Nova Canvas test with the same checks"
+
+[[label]]
+id = "ic-004"
+kinds = []
+verdict = "none"
+note = "assertion added"
+
+[[label]]
+id = "ic-005"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-006"
+kinds = []
+verdict = "none"
+note = "fake load_weights gains a strict parameter"
+
+[[label]]
+id = "ic-007"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-008"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-009"
+kinds = []
+verdict = "none"
+note = "import change and new tests"
+
+[[label]]
+id = "ic-010"
+kinds = []
+verdict = "none"
+note = "tests renamed with the API (ensure -> build_boot_image), same checks"
+
+[[label]]
+id = "ic-011"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-012"
+kinds = []
+verdict = "none"
+note = "dependency pin in pyproject, not a gate"
+
+[[label]]
+id = "ic-013"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-014"
+kinds = []
+verdict = "none"
+note = "import change and new tests"
+
+[[label]]
+id = "ic-015"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-016"
+kinds = []
+verdict = "none"
+note = "flaky hold_timeout raised; assertion unchanged"
+
+[[label]]
+id = "ic-017"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-018"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-019"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "503 description assertion updated with the changed message"
+
+[[label]]
+id = "ic-020"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "guardrail test removed with the guidance and validator it checked"
+
+[[label]]
+id = "ic-021"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-022"
+kinds = []
+verdict = "none"
+note = "version bump and new tests"
+
+[[label]]
+id = "ic-023"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-024"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-025"
+kinds = []
+verdict = "none"
+note = "not.toThrow checks replaced by stronger state assertions; two tests renamed"
+
+[[label]]
+id = "ic-026"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-027"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-028"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-029"
+kinds = []
+verdict = "none"
+note = "new tests and dependencies"
+
+[[label]]
+id = "ic-030"
+kinds = []
+verdict = "none"
+note = "dev-dependency ranges changed, new tests"
+
+[[label]]
+id = "ic-031"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "test for the removed ENABLE_USER_BOOTSTRAP flag removed with the flag"
+
+[[label]]
+id = "ic-032"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-033"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "CleanOnExit default flipped with the code; assertions flipped to match"
+
+[[label]]
+id = "ic-034"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-035"
+kinds = []
+verdict = "none"
+note = "constructor arguments extended in existing tests"
+
+[[label]]
+id = "ic-036"
+kinds = []
+verdict = "none"
+note = "import change and new tests"
+
+[[label]]
+id = "ic-037"
+kinds = ["gate-relaxed"]
+verdict = "justified"
+note = "CI matrix drops Python 3.8/3.9 together with requires-python >=3.10"
+
+[[label]]
+id = "ic-038"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-039"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-040"
+kinds = []
+verdict = "none"
+note = "docstring renames only"
+
+[[label]]
+id = "ic-041"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "HSTS preload+exclude now panics by design; Secure() test widened to a table"
+
+[[label]]
+id = "ic-042"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "trailing-dot hostname case now expected to be rejected"
+
+[[label]]
+id = "ic-043"
+kinds = []
+verdict = "none"
+note = "test made async for testing-library v14"
+
+[[label]]
+id = "ic-044"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "!key filter semantics fixed; renamed test now expects True; many tests added"
+
+[[label]]
+id = "ic-045"
+kinds = []
+verdict = "none"
+note = "flaky-test synchronization added"
+
+[[label]]
+id = "ic-046"
+kinds = []
+verdict = "none"
+note = "equality check wrapped in require.Eventually for a race"
+
+[[label]]
+id = "ic-047"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-048"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "Harness V1 removed; ownerId hash test replaced by projectPath check; expectations follow the new signals API"
+
+[[label]]
+id = "ic-049"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "notification batching behavior changed; expectations updated with it"
+
+[[label]]
+id = "ic-050"
+kinds = []
+verdict = "none"
+note = "import path moves only"
+
+[[label]]
+id = "ic-051"
+kinds = []
+verdict = "none"
+note = "test setup additions"
+
+[[label]]
+id = "ic-052"
+kinds = []
+verdict = "none"
+note = "comment punctuation only"
+
+[[label]]
+id = "ic-053"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "aside component redesigned; render case expectations follow it"
+
+[[label]]
+id = "ic-054"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "expected request JSON extended with the newly preserved empty env var"
+
+[[label]]
+id = "ic-055"
+kinds = []
+verdict = "none"
+note = "removed function dropped from a test list; new tests"
+
+[[label]]
+id = "ic-056"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-057"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "internal modifier no longer experimental; warning expectations removed with it"
+
+[[label]]
+id = "ic-058"
+kinds = []
+verdict = "none"
+note = "spec dependency bump and new tests"
+
+[[label]]
+id = "ic-059"
+kinds = []
+verdict = "none"
+note = "new assertions; mock signature widened"
+
+[[label]]
+id = "ic-060"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "fixture version bumped; expected versions follow"
+
+[[label]]
+id = "ic-061"
+kinds = []
+verdict = "none"
+note = "new test file guarded by describe.skipIf when the CLI is not built"
+
+[[label]]
+id = "ic-062"
+kinds = []
+verdict = "none"
+note = "package test script excludes fewer entrypoints (stricter)"
+
+[[label]]
+id = "ic-063"
+kinds = []
+verdict = "none"
+note = "more CI shards; new tests"
+
+[[label]]
+id = "ic-064"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "error classes replaced across core; expected error types follow; some tests renamed"
+
+[[label]]
+id = "ic-065"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-066"
+kinds = []
+verdict = "none"
+note = "new tests with a version-conditional skipTest"
+
+[[label]]
+id = "ic-067"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-068"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "allowed frame types widened because append_to_context now defaults to True"
+
+[[label]]
+id = "ic-069"
+kinds = ["suppression-added"]
+verdict = "weakened"
+note = "blanket eslint-disable-next-line without rule or reason in new test code"
+
+[[label]]
+id = "ic-070"
+kinds = []
+verdict = "none"
+note = "page-object selector follows the icon rename"
+
+[[label]]
+id = "ic-071"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-072"
+kinds = ["gate-relaxed"]
+verdict = "justified"
+note = "test harness now ignores null and specific CMP unhandled rejections, explained in the PR"
+
+[[label]]
+id = "ic-073"
+kinds = []
+verdict = "none"
+note = "mock reset strategy changed"
+
+[[label]]
+id = "ic-074"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "close failures now recover when results persisted; tests renamed and a failure-path test added"
+
+[[label]]
+id = "ic-075"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-076"
+kinds = []
+verdict = "none"
+note = "parameter function signature extended in tests"
+
+[[label]]
+id = "ic-077"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-078"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-079"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-080"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-081"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-082"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "lockfile round-trip expectations split into wire vs on-disk shapes with the new contract"
+
+[[label]]
+id = "ic-083"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-084"
+kinds = ["test-removed", "expectation-rewritten"]
+verdict = "justified"
+note = "runtime $var interpolation removed by design; its tests removed or flipped to literal pass-through"
+
+[[label]]
+id = "ic-085"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-086"
+kinds = []
+verdict = "none"
+note = "cleanup helper extracted; random suffix"
+
+[[label]]
+id = "ic-087"
+kinds = []
+verdict = "none"
+note = "caller matrix extended with org admins; existing expectations kept"
+
+[[label]]
+id = "ic-088"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-089"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-090"
+kinds = []
+verdict = "none"
+note = "fixture generator switched audio IO helper"
+
+[[label]]
+id = "ic-091"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-092"
+kinds = []
+verdict = "none"
+note = "new tests with importorskip"
+
+[[label]]
+id = "ic-093"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "source-text expectations follow the clearIntent change; one test parametrized"
+
+[[label]]
+id = "ic-094"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "invitation lookup now returns a signed logo; expectations and test name follow"
+
+[[label]]
+id = "ic-095"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-096"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-097"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "oneOf merge now accepts read-only alternatives; failing-case test replaced by acceptance and new failure tests"
+
+[[label]]
+id = "ic-098"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "env-gated Databricks resource removed with its acceptance tests and CI env"
+
+[[label]]
+id = "ic-099"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-100"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-101"
+kinds = []
+verdict = "none"
+note = "new tests and bundler chunks"
+
+[[label]]
+id = "ic-102"
+kinds = []
+verdict = "none"
+note = "new tests, one with a long-wait t.Skip"
+
+[[label]]
+id = "ic-103"
+kinds = []
+verdict = "none"
+note = "fake relay fixture parameterized"
+
+[[label]]
+id = "ic-104"
+kinds = []
+verdict = "none"
+note = "fixture helper extracted; new tests"
+
+[[label]]
+id = "ic-105"
+kinds = []
+verdict = "none"
+note = "type annotation modernization"
+
+[[label]]
+id = "ic-106"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-107"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-108"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "backup CSV now exports assetLocations; expected fields follow"
+
+[[label]]
+id = "ic-109"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-110"
+kinds = ["test-removed", "expectation-rewritten"]
+verdict = "justified"
+note = "Bitbucket sync implemented; \"unsupported\" tests removed or flipped to acceptance"
+
+[[label]]
+id = "ic-111"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "smallest-window failure now transient by design; test renamed; new negative test"
+
+[[label]]
+id = "ic-112"
+kinds = []
+verdict = "none"
+note = "version bump and new tests"
+
+[[label]]
+id = "ic-113"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "//nolint:errcheck on deferred Close in new test code (scoped, idiomatic); CI e2e run widened"
+
+[[label]]
+id = "ic-114"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-115"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-116"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-117"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "empty-tasks test input switched to INLINE because SIMPLE tasks are now extracted"
+
+[[label]]
+id = "ic-118"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-119"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "schema now accepts leafUuid entries; rejecting test flipped and renamed"
+
+[[label]]
+id = "ic-120"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "default permission mode no longer forced; expectation and name follow"
+
+[[label]]
+id = "ic-121"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "service-name exclusion list follows the new search service"
+
+[[label]]
+id = "ic-122"
+kinds = []
+verdict = "none"
+note = "test helper generics"
+
+[[label]]
+id = "ic-123"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "pinned release version replaced by a SemVer shape check, explained in a comment"
+
+[[label]]
+id = "ic-124"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "workflow test expects the new two-platform build; CI timeout raised"
+
+[[label]]
+id = "ic-125"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "subdomain wildcards now accepted by design; new rejection cases added"
+
+[[label]]
+id = "ic-126"
+kinds = ["gate-relaxed", "test-removed"]
+verdict = "justified"
+note = "periodic test workflow and its scripts removed in a chore PR that says so"
+
+[[label]]
+id = "ic-127"
+kinds = []
+verdict = "none"
+note = "new tests, platform-conditional t.Skip in new subtest"
+
+[[label]]
+id = "ic-128"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "//nolint:forbidigo with a stated reason; version filtering refactored"
+
+[[label]]
+id = "ic-129"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "registration call counts 1->2 for the new attachment type"
+
+[[label]]
+id = "ic-130"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "launch-URL rendering redesigned; tests renamed and expectations follow"
+
+[[label]]
+id = "ic-131"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-132"
+kinds = []
+verdict = "none"
+note = "fixture builders parameterized; new tests"
+
+[[label]]
+id = "ic-133"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "noqa E402 after importorskip and a type: ignore in new tests; mypy ignore_missing_imports for the optional asyncclick dependency"
+
+[[label]]
+id = "ic-134"
+kinds = []
+verdict = "none"
+note = "type alias refactor; stricter new test"
+
+[[label]]
+id = "ic-135"
+kinds = []
+verdict = "none"
+note = "formatting and new tests"
+
+[[label]]
+id = "ic-136"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-137"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-138"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "pagination added; ListRuns expectations parametrized with skip"
+
+[[label]]
+id = "ic-139"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "//nolint:errcheck in new benchmark code with a stated reason"
+
+[[label]]
+id = "ic-140"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-141"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-142"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "retry semantics redesigned; old retry-counter tests replaced by parametrized ones; error class renamed"
+
+[[label]]
+id = "ic-143"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "PR removes tests it calls redundant from the concurrent-keys suite"
+
+[[label]]
+id = "ic-144"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "rejected key now retried by design; no-reconnect and status-off tests renamed and flipped"
+
+[[label]]
+id = "ic-145"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "noqa F401 with explanation in a new test file; pytest python_files extended to run it"
+
+[[label]]
+id = "ic-146"
+kinds = []
+verdict = "none"
+note = "language list extended in tests"
+
+[[label]]
+id = "ic-147"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-148"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-149"
+kinds = []
+verdict = "none"
+note = "test setup parameterized"
+
+[[label]]
+id = "ic-150"
+kinds = []
+verdict = "none"
+note = "e2e wait added"
+
+[[label]]
+id = "ic-151"
+kinds = []
+verdict = "none"
+note = "recovery scenario parameterized with a new path"
+
+[[label]]
+id = "ic-152"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-153"
+kinds = ["expectation-rewritten", "suppression-added"]
+verdict = "justified"
+note = "empty-state artwork redesigned; layout bounds follow; @ts-expect-error is a negative type contract test"
+
+[[label]]
+id = "ic-154"
+kinds = []
+verdict = "none"
+note = "test script runs one more file; new tests"
+
+[[label]]
+id = "ic-155"
+kinds = []
+verdict = "none"
+note = "references namespaced in fixtures; new tests"
+
+[[label]]
+id = "ic-156"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "build context now lives in the session folder, so the archive is expected gone rather than removed by the test"
+
+[[label]]
+id = "ic-157"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-158"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-159"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-160"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-161"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-162"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "deprecated-parameter conversion test rewritten with stronger output checks"
+
+[[label]]
+id = "ic-163"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "PR removes redundant fixture tests that were already disabled with test.fixme"
+
+[[label]]
+id = "ic-164"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "Draw animation reimplemented with frame-driven bands; CSS-animation tests replaced"
+
+[[label]]
+id = "ic-165"
+kinds = []
+verdict = "none"
+note = "tmp dependency replaced; same assertions inside try/finally"
+
+[[label]]
+id = "ic-166"
+kinds = []
+verdict = "none"
+note = "dependency split; new test"
+
+[[label]]
+id = "ic-167"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-168"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-169"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "currentUserHasAccess renamed to currentUserCanUse; tests and names follow"
+
+[[label]]
+id = "ic-170"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "expected scopes exclude aiPreference scopes withheld outside the experiment arm"
+
+[[label]]
+id = "ic-171"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-172"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-173"
+kinds = []
+verdict = "none"
+note = "a skipped test is re-enabled; new test"
+
+[[label]]
+id = "ic-174"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-175"
+kinds = []
+verdict = "none"
+note = "new assertion only"
+
+[[label]]
+id = "ic-176"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "v4 model became the default; warning test renamed for non-dialogue models"
+
+[[label]]
+id = "ic-177"
+kinds = []
+verdict = "none"
+note = "helper signature change and new tests"
+
+[[label]]
+id = "ic-178"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "missing integrity is now computed instead of rejected; fixture checksums made real"
+
+[[label]]
+id = "ic-179"
+kinds = []
+verdict = "none"
+note = "cache reset helper renamed; new tests"
+
+[[label]]
+id = "ic-180"
+kinds = []
+verdict = "none"
+note = "Data Connections default flipped; e2e suites opt into the old pane explicitly"
+
+[[label]]
+id = "ic-181"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "fake-server matcher ignores imp ids now generated by the oRTB library"
+
+[[label]]
+id = "ic-182"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "request URL now carries the site parameter"
+
+[[label]]
+id = "ic-183"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "zero sampling test parametrized with stronger parameter checks"
+
+[[label]]
+id = "ic-184"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "negated assertions keep the custom reason by design"
+
+[[label]]
+id = "ic-185"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "deprecated python model format cases dropped from save/load and jax tests"
+
+[[label]]
+id = "ic-186"
+kinds = []
+verdict = "none"
+note = "test helper uses with_mesh()"
+
+[[label]]
+id = "ic-187"
+kinds = []
+verdict = "none"
+note = "new tests; helper threads an image parameter"
+
+[[label]]
+id = "ic-188"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "hardcoded hashes replaced by derived expectations, as the PR title states"
+
+[[label]]
+id = "ic-189"
+kinds = []
+verdict = "none"
+note = "test double records calls; new tests"
+
+[[label]]
+id = "ic-190"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-191"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "noqa ARG005 on a lambda signature in new tests"
+
+[[label]]
+id = "ic-192"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "noqa ARG005 on a lambda signature in a new test"
+
+[[label]]
+id = "ic-193"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-194"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "typecast comparison now takes a per-case ULP tolerance with the rounding fix"
+
+[[label]]
+id = "ic-195"
+kinds = []
+verdict = "none"
+note = "a test.todo is promoted to an active test"
+
+[[label]]
+id = "ic-196"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-197"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ic-198"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "locate result key renamed to bbox_2d; alias tests replaced by parametrized ones"
