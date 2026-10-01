@@ -30,8 +30,9 @@ pub(super) struct TestFacts {
     body: Body,
     assertions: usize,
     looped: bool,
-    /// Distinct identifier and literal tokens of the body, without the name.
-    tokens: BTreeSet<String>,
+    /// The test's source; its tokens are computed only when a removed test
+    /// is matched against new ones (`pair_renames`).
+    text: String,
 }
 
 impl TestFacts {
@@ -43,7 +44,7 @@ impl TestFacts {
             body: Body::default(),
             assertions: 0,
             looped: false,
-            tokens: body_tokens(text, &name),
+            text: text.to_string(),
             name,
         }
     }
@@ -134,11 +135,12 @@ type Renamed<'a> = Vec<(&'a TestFacts, &'a TestFacts)>;
 /// closely matching body) and genuine removals.
 fn pair_renames<'a>(file: &'a FileEvidence, removed: &[&'a str]) -> (Renamed<'a>, Vec<&'a str>) {
     let appeared = difference(&file.post.tests, &file.pre.tests);
-    let mut candidates: Vec<&TestFacts> = file
+    let mut candidates: Vec<(&TestFacts, BTreeSet<String>)> = file
         .post
         .tests
         .iter()
         .filter(|test| appeared.contains_key(test.name.as_str()))
+        .map(|test| (test, body_tokens(&test.text, &test.name)))
         .collect();
     let (mut renamed, mut remaining) = (Vec::new(), Vec::new());
     for name in removed {
@@ -146,14 +148,15 @@ fn pair_renames<'a>(file: &'a FileEvidence, removed: &[&'a str]) -> (Renamed<'a>
             remaining.push(*name);
             continue;
         };
+        let tokens = body_tokens(&before.text, &before.name);
         let best = candidates
             .iter()
             .enumerate()
-            .map(|(index, after)| (index, similarity(&before.tokens, &after.tokens)))
+            .map(|(index, (_, after))| (index, similarity(&tokens, after)))
             .filter(|(_, score)| *score >= RENAME_SIMILARITY)
             .max_by(|left, right| left.1.total_cmp(&right.1));
         match best {
-            Some((index, _)) => renamed.push((before, candidates.remove(index))),
+            Some((index, _)) => renamed.push((before, candidates.remove(index).0)),
             None => remaining.push(*name),
         }
     }

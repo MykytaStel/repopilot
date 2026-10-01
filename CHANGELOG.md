@@ -84,7 +84,7 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   runs a 20-file change with skipped, renamed, and thinned-out tests and
   requires a median under 1 s with integrity analysis at most 10% of it. Integrity analysis scans each side of a file in one tree-cursor pass and
   scans changed files in parallel, which cut its time on that workload from
-  about 27 ms to about 5 ms.
+  about 27 ms to about 3 ms.
 
 ### Changed
 

@@ -40,22 +40,25 @@ pub(super) fn scan(
     let tree = source.tree()?;
     let content = source.content();
     let root = tree.root_node();
-    let known = if test_scope {
-        helpers::definition_names(root, content)
-    } else {
-        BTreeSet::new()
-    };
     let mut found = Scan::default();
     let mut helper_bodies: Vec<(String, Body)> = Vec::new();
     let mut open: Vec<Open> = Vec::new();
     // Depths of the loops enclosing the current node.
     let mut loops: Vec<usize> = Vec::new();
+    let relevant = relevant_kinds(tree);
     for_each_node(root, |node, depth| {
         while open.last().is_some_and(|outer| outer.depth >= depth) {
             open.pop();
         }
         while loops.last().is_some_and(|&start| start >= depth) {
             loops.pop();
+        }
+        if !relevant
+            .get(usize::from(node.kind_id()))
+            .copied()
+            .unwrap_or(false)
+        {
+            return true;
         }
         if let Some(label) = (tables.suppression)(node, content) {
             found
@@ -84,7 +87,13 @@ pub(super) fn scan(
             return true;
         }
         let callee = helpers::callee_name(node, content);
-        let called = callee.filter(|name| known.contains(*name));
+        // Callee names are resolved against the file's helpers after the walk.
+        let called = callee.map(|name| {
+            (
+                name.as_ptr() as usize - content.as_ptr() as usize,
+                name.len(),
+            )
+        });
         let asserts = (tables.is_assertion)(node, content);
         if asserts || called.is_some() {
             for body in open.iter().rev() {
@@ -96,8 +105,8 @@ pub(super) fn scan(
                 if asserts {
                     target.add_assertion(in_loop);
                 }
-                if let Some(name) = called {
-                    target.add_call(name, in_loop);
+                if let Some((start, len)) = called {
+                    target.add_pending_call(start, len, in_loop);
                 }
                 if matches!(body.owner, Owner::Test(_)) {
                     break;
@@ -109,6 +118,13 @@ pub(super) fn scan(
         }
         true
     });
+    let names: BTreeSet<String> = helper_bodies.iter().map(|(name, _)| name.clone()).collect();
+    for (_, body) in &mut helper_bodies {
+        body.settle(content, &names);
+    }
+    for test in &mut found.tests {
+        test.body_mut().settle(content, &names);
+    }
     let mut helper_map: BTreeMap<String, Body> = BTreeMap::new();
     for (name, body) in helper_bodies {
         helpers::remember(&mut helper_map, name, body);
@@ -117,4 +133,48 @@ pub(super) fn scan(
         test.include_helpers(&helper_map);
     }
     Some(found)
+}
+
+/// Every node kind a recognizer, helper, or loop check can match on entry, in
+/// any supported grammar. Other nodes only move the walk along.
+const RELEVANT_KINDS: &[&str] = &[
+    "call_expression",
+    "call",
+    "comment",
+    "line_comment",
+    "block_comment",
+    "decorator",
+    "assignment",
+    "assert_statement",
+    "function_definition",
+    "function_declaration",
+    "generator_function_declaration",
+    "method_definition",
+    "method_declaration",
+    "variable_declarator",
+    "function_item",
+    "attribute_item",
+    "inner_attribute_item",
+    "macro_invocation",
+    "for_statement",
+    "for_in_statement",
+    "while_statement",
+    "do_statement",
+    "for_expression",
+    "while_expression",
+    "loop_expression",
+];
+
+/// A lookup by `kind_id`, so the walk compares a number per node instead of
+/// reading every node's kind name.
+fn relevant_kinds(tree: &tree_sitter::Tree) -> Vec<bool> {
+    let language = tree.language();
+    (0..language.node_kind_count())
+        .map(|id| {
+            u16::try_from(id)
+                .ok()
+                .and_then(|id| language.node_kind_for_id(id))
+                .is_some_and(|name| RELEVANT_KINDS.contains(&name))
+        })
+        .collect()
 }

@@ -194,7 +194,7 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
     if node.kind() != "call_expression" {
         return false;
     }
-    let Some(function) = node.child_by_field_name("function") else {
+    let Some(function) = node.child(0) else {
         return false;
     };
     let may_assert = chain_root(node, content)
@@ -225,12 +225,13 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
 /// `expect(x).toBe(y)`, `describe` in `describe.each(t)(...)`. Recognizers check
 /// it before copying the callee text, which most calls never need.
 fn chain_root<'a>(call: Node<'a>, content: &'a str) -> Option<&'a str> {
-    let mut current = call.child_by_field_name("function")?;
+    // The function of a call and the object of a member access are their first
+    // children; walking by position avoids a field-name search per step.
+    let mut current = call.child(0)?;
     loop {
         match current.kind() {
             "identifier" | "this" => return current.utf8_text(content.as_bytes()).ok(),
-            "member_expression" => current = current.child_by_field_name("object")?,
-            "call_expression" => current = current.child_by_field_name("function")?,
+            "member_expression" | "call_expression" => current = current.child(0)?,
             _ => return None,
         }
     }

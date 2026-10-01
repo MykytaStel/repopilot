@@ -7,7 +7,6 @@
 //! statements, so the accounting does not compare it with its loop-free
 //! version.
 
-use super::syntax::for_each_node;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -42,6 +41,9 @@ pub(super) struct Body {
     pub(super) looped: bool,
     calls: BTreeMap<String, usize>,
     looped_calls: BTreeSet<String>,
+    /// Calls seen during the scan, by byte range of the callee name and
+    /// whether they ran in a loop; `settle` keeps those naming a helper.
+    pending: Vec<(usize, usize, bool)>,
 }
 
 impl Body {
@@ -50,10 +52,26 @@ impl Body {
         self.looped |= in_loop;
     }
 
-    pub(super) fn add_call(&mut self, name: &str, in_loop: bool) {
+    fn add_call(&mut self, name: &str, in_loop: bool) {
         *self.calls.entry(name.to_string()).or_default() += 1;
         if in_loop {
             self.looped_calls.insert(name.to_string());
+        }
+    }
+
+    /// Records a call by the byte range of its callee name in `content`.
+    pub(super) fn add_pending_call(&mut self, start: usize, len: usize, in_loop: bool) {
+        self.pending.push((start, len, in_loop));
+    }
+
+    /// Keeps the pending calls that name a same-file function.
+    pub(super) fn settle(&mut self, content: &str, names: &BTreeSet<String>) {
+        for (start, len, in_loop) in std::mem::take(&mut self.pending) {
+            if let Some(name) = content.get(start..start + len)
+                && names.contains(name)
+            {
+                self.add_call(name, in_loop);
+            }
         }
     }
 }
@@ -69,31 +87,21 @@ pub(super) fn callee_name<'a>(node: Node<'a>, content: &'a str) -> Option<&'a st
     if !CALL_KINDS.contains(&node.kind()) {
         return None;
     }
-    let callee = node.child_by_field_name("function")?;
+    // The callee is the first child of a call in every supported grammar;
+    // `child_by_field_name` would search the field names on each call.
+    let callee = node.child(0)?;
     let text = callee.utf8_text(content.as_bytes()).ok()?;
     let last = text.rsplit(['.', ':']).next()?.trim();
     (!last.is_empty()).then_some(last)
-}
-
-/// Names of every function defined in the tree, so surveys record only calls
-/// that can resolve to a same-file helper.
-pub(super) fn definition_names(root: Node<'_>, content: &str) -> BTreeSet<String> {
-    let mut names = BTreeSet::new();
-    for_each_node(root, |node, _| {
-        if let Some(name) = definition_name(node, content) {
-            names.insert(name);
-        }
-        true
-    });
-    names
 }
 
 /// The name of a function, method, or function-valued variable defined here.
 pub(super) fn definition_name(node: Node<'_>, content: &str) -> Option<String> {
     let defines_function = FUNCTION_KINDS.contains(&node.kind())
         || (node.kind() == "variable_declarator"
+            // The value is the declarator's last named child, when present.
             && node
-                .child_by_field_name("value")
+                .named_child(u32::try_from(node.named_child_count().saturating_sub(1)).unwrap_or(0))
                 .is_some_and(|value| FUNCTION_VALUES.contains(&value.kind())));
     if !defines_function {
         return None;

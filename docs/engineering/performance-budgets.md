@@ -227,11 +227,15 @@ enforces a median under 1,000 ms (RP24-023) and an integrity analysis time
 (`review_timings.integrity_us`) of at most 10% of that median (v0.24 Phase C).
 The first version passed locally (5.4–5.6% on `darwin-arm64`) but failed on the
 Linux CI runner, where the review is faster: 36 ms of a 172 ms median (21%).
+After the first fix, CI measured 9.4–11.8%, still too close to the limit.
 Integrity analysis now walks each side of a file once with a single tree
 cursor and credits assertions to the enclosing test and helper bodies in that
-pass. JS recognizers check the root identifier of a call chain before copying
-its text. Files are scanned in parallel. Locally the integrity share went from
-26–27 ms to 5.4–5.5 ms, about 1% of a 509–535 ms median.
+pass. A `kind_id` lookup skips nodes no recognizer can match, and call chains
+are followed by child position instead of a field-name search (the profile's
+top cost was `strncmp` inside `child_by_field_name`). Rename tokens are
+computed only for removed and new tests, and files are scanned in parallel.
+Locally, integrity analysis went from 26–27 ms to 9.9 ms on one thread and
+2.8 ms on all cores, about 0.7% of a 435 ms median.
 
 ## Fixture Direction
 
