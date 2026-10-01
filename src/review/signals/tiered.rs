@@ -550,6 +550,9 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             "integrity.test-removed" => {
                 "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
             }
+            "integrity.gate-relaxed" => {
+                "Confirm the relaxed CI or tool gate is intended and temporary; restore it, or record why the check may fail and when it will be restored."
+            }
             "integrity.suppression-added" => {
                 "Confirm the silenced lint, type, or coverage finding is a known false positive; fix the finding instead when it is real."
             }
@@ -691,6 +694,7 @@ fn integrity_kind(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestRemoved => "integrity.test-removed",
         IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
         IntegrityKind::SuppressionAdded => "integrity.suppression-added",
+        IntegrityKind::GateRelaxed => "integrity.gate-relaxed",
     }
 }
 
@@ -703,7 +707,8 @@ fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
         IntegrityKind::TestSkipped
         | IntegrityKind::TestRemoved
         | IntegrityKind::AssertionsRemoved
-        | IntegrityKind::SuppressionAdded => ConfidenceTier::MaybeSensitive,
+        | IntegrityKind::SuppressionAdded
+        | IntegrityKind::GateRelaxed => ConfidenceTier::MaybeSensitive,
     }
 }
 
@@ -714,6 +719,7 @@ fn integrity_headline(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestRemoved => "test removed",
         IntegrityKind::AssertionsRemoved => "assertions removed",
         IntegrityKind::SuppressionAdded => "suppression added",
+        IntegrityKind::GateRelaxed => "check gate relaxed",
     }
 }
 

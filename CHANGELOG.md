@@ -43,6 +43,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   ignored, and a suppression moved with its code to another changed file is
   not new.
 
+- **Review reports relaxed CI and tool gates.** `integrity.gate-relaxed`
+  (maybe sensitive) parses configuration before and after a change and names
+  what lets a failing check pass: in GitHub Actions a check step or job that
+  gains `continue-on-error: true` or `if: false`, ends with `|| true` or
+  `--passWithNoTests`, or is removed; in GitLab CI `allow_failure: true`,
+  `when: manual`, or a removed check job; npm check scripts removed or turned
+  into no-ops; lowered coverage thresholds (`coverageThreshold`,
+  `fail_under`, Codecov `target`, Codecov `informational: true`); TypeScript
+  strict flags turned off; mypy strictness off or `ignore_errors`; new ruff
+  ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
+  `addopts`. Steps and scripts that run no check (build, docs) are not
+  reported.
 - **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
   `/plugin install repopilot@repopilot`: snapshots each session, and when
   Claude tries to stop, reviews the session and blocks once on a
