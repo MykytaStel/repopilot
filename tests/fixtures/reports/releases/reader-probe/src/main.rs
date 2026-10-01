@@ -15,6 +15,10 @@ fn main() {
         "0.22.0 {}",
         outcome(repopilot022::api::report::parse_scan_summary_json(&content))
     );
+    println!(
+        "0.23.0 {}",
+        outcome(repopilot023::api::report::parse_scan_summary_json(&content))
+    );
 }
 
 fn outcome<T, E: std::fmt::Display>(result: Result<T, E>) -> String {
