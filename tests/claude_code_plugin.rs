@@ -157,19 +157,31 @@ fn hooks_stay_out_of_the_way_outside_git_and_on_resume() {
 fn silencing_repopilot_from_the_session_still_blocks_the_stop() {
     let temp = repo();
     let root = temp.path();
-    assert!(hook(root, "snapshot.sh", r#"{"source":"startup"}"#).status.success());
+    assert!(
+        hook(root, "snapshot.sh", r#"{"source":"startup"}"#)
+            .status
+            .success()
+    );
 
     // The agent skips a test and then tries to acknowledge its own skip.
-    let weakened = BEFORE.replace("it(\"applies the discount\"", "it.skip(\"applies the discount\"");
+    let weakened = BEFORE.replace(
+        "it(\"applies the discount\"",
+        "it.skip(\"applies the discount\"",
+    );
     fs::write(root.join("src/cart.test.ts"), weakened).expect("weaken");
     fs::create_dir_all(root.join(".repopilot")).expect("overlay dir");
     let mut overlay = fs::read_to_string(root.join(".repopilot/overlay.toml")).unwrap_or_default();
-    overlay.push_str("[[overlay]]\nkind = \"integrity.test-skipped\"\npath = \"src/**\"\nreason = \"flaky\"\n");
+    overlay.push_str(
+        "[[overlay]]\nkind = \"integrity.test-skipped\"\npath = \"src/**\"\nreason = \"flaky\"\n",
+    );
     fs::write(root.join(".repopilot/overlay.toml"), overlay).expect("overlay");
 
     let stop = hook(root, "guard.sh", r#"{"stop_hook_active":false}"#);
     let feedback = String::from_utf8_lossy(&stop.stderr);
     assert_eq!(stop.status.code(), Some(2), "{feedback}");
-    assert!(feedback.contains("RepoPilot suppression added"), "{feedback}");
+    assert!(
+        feedback.contains("RepoPilot suppression added"),
+        "{feedback}"
+    );
     assert!(feedback.contains("integrity.test-skipped"), "{feedback}");
 }
