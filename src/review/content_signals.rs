@@ -16,6 +16,8 @@ pub(super) struct ContentSignals {
     pub taint: Vec<TaintSignal>,
     pub api_contract: Vec<RemovedExportSignal>,
     pub integrity: Vec<IntegritySignal>,
+    /// Time spent on integrity analysis.
+    pub integrity_us: u64,
 }
 
 /// Which content-based detectors to run; each maps to a config toggle.

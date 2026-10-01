@@ -20,17 +20,18 @@ pub fn detect_review_suppressions(
         DiffTarget::WorkingTree => "HEAD",
         DiffTarget::Refs { base, .. } | DiffTarget::SinceRef { base } => base,
     };
-    let before = git_show(repo_root, base, OVERLAY_PATH);
     let after = match target {
         DiffTarget::Refs { head, .. } => git_show(repo_root, head, OVERLAY_PATH),
         DiffTarget::WorkingTree | DiffTarget::SinceRef { .. } => {
             std::fs::read_to_string(repo_root.join(OVERLAY_PATH)).ok()
         }
     };
-    match after {
-        Some(after) => added_entries(before.as_deref(), &after),
-        None => Vec::new(),
-    }
+    // Without an overlay after the change nothing was added; skip reading the base.
+    let Some(after) = after else {
+        return Vec::new();
+    };
+    let before = git_show(repo_root, base, OVERLAY_PATH);
+    added_entries(before.as_deref(), &after)
 }
 
 /// Entries in `after` that `before` does not have, matched by target and path.

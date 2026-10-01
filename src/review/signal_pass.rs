@@ -18,6 +18,7 @@ use crate::review::signals::behavioral::{self, DependencyContext};
 use crate::review::signals::{BoundarySignal, algorithmic, classify, integrity, taint};
 use crate::scan::types::CouplingGraph;
 use std::path::Path;
+use std::time::Instant;
 mod source_loading;
 use source_loading::{LoadedReviewSources, load_review_sources};
 
@@ -72,10 +73,13 @@ pub(super) fn detect_review_signals(
     if toggles.behavioral {
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
+        let integrity_started = Instant::now();
         content_signals.integrity = detect_integrity(changed_files, &loaded_sources);
         content_signals
             .integrity
             .extend(integrity::detect_review_suppressions(repo_root, target));
+        content_signals.integrity_us =
+            u64::try_from(integrity_started.elapsed().as_micros()).unwrap_or(u64::MAX);
     }
 
     boundary_signals.sort_by(|left, right| {

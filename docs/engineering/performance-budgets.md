@@ -218,6 +218,16 @@ earlier 9.4 s / 122-file observation remains the roadmap motivation; the pinned
 range and same-harness comparison provide the reproducible baseline for this
 gate.
 
+The same script also runs an integrity workload
+(`scripts/review-performance-integrity.js`): a 20-file working-tree change of
+10 TypeScript test files (40 tests each, with a shared helper) and the 10
+sources they cover, where every test file skips one test, renames one, and
+drops an assertion from a third. After one warm-up it measures seven runs and
+enforces a median under 1,000 ms (RP24-023) and an integrity analysis time
+(`review_timings.integrity_us`) of at most 10% of that median (v0.24 Phase C).
+On a local `darwin-arm64` host the median was 461–470 ms with integrity
+analysis at 25.5–25.9 ms (5.4–5.6%).
+
 ## Fixture Direction
 
 Small, medium, and large synthetic repositories now exist

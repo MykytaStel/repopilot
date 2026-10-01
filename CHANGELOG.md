@@ -73,6 +73,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `review-session` skill. The hooks do nothing outside a Git repository or
   without the `repopilot` CLI.
 
+- **`review_timings.integrity_us`** reports the time integrity analysis took,
+  as part of `review_signals_us`. The changed-review performance gate now also
+  runs a 20-file change with skipped, renamed, and thinned-out tests and
+  requires a median under 1 s with integrity analysis at most 10% of it.
+
 ### Changed
 
 - **`snapshot` keeps pre-existing work out of `review --since-snapshot`.** On
