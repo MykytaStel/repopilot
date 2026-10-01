@@ -1,0 +1,17 @@
+{
+  "description": "The stock assertion is dropped from a test that still exists, so a regression in stock reservation can no longer fail it. Maybe-sensitive: the reviewer decides whether the check moved elsewhere.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "maybe",
+      "family": "integrity",
+      "kind": "integrity.assertions-removed",
+      "path": "tests/test_orders.py",
+      "headline": "assertions removed"
+    }
+  ],
+  "forbid": [
+    { "kind": "integrity.test-removed" },
+    { "family": "volume" }
+  ]
+}

@@ -1,13 +1,18 @@
 //! Test-integrity signals: a change that weakens the checks judging it.
 //!
-//! This covers skip and focus markers (`it.only`, `@pytest.mark.skip`,
-//! `t.Skip`, `#[ignore]`). Markers are counted over the whole pre- and
-//! post-change file, not only the changed lines, so re-indenting or moving a
-//! marker within a file is not a new marker. A marker that disappears from one
-//! changed file and appears in another is a move and is not reported either.
-//! A skip in a brand-new file weakens nothing that ran before and is not
-//! reported; a focus marker is, because it stops the rest of the suite.
+//! Skip and focus markers (`it.only`, `@pytest.mark.skip`, `t.Skip`,
+//! `#[ignore]`), removed test cases, and removed assertions. Everything is
+//! counted over the whole pre- and post-change file, not only the changed
+//! lines, so re-indenting or moving code within a file is not a change. A
+//! marker or test that disappears from one changed file and appears in another
+//! is a move and is not reported either. A skip in a brand-new file weakens
+//! nothing that ran before and is not reported; a focus marker is, because it
+//! stops the rest of the suite.
 
+mod accounting;
+#[cfg(test)]
+mod accounting_tests;
+mod markers;
 pub(crate) mod syntax;
 #[cfg(test)]
 mod tests;
@@ -15,9 +20,8 @@ mod tests;
 use crate::languages::integrity_for_extension;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
-use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
+use crate::review::signals::tables::{IntegrityTables, TestMarker};
 use serde::Serialize;
-use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 /// The category of test-integrity change.
@@ -26,6 +30,8 @@ use tree_sitter::Node;
 pub enum IntegrityKind {
     TestFocused,
     TestSkipped,
+    TestRemoved,
+    AssertionsRemoved,
 }
 
 /// A test-integrity signal detected in a changed file.
@@ -37,23 +43,29 @@ pub struct IntegritySignal {
     pub detail: String,
 }
 
-/// The skip/focus markers of one changed file, before and after the change.
+/// The integrity evidence of one changed file, before and after the change.
 #[derive(Debug)]
-pub struct FileMarkers {
+pub struct FileEvidence {
     path: String,
     existed_before: bool,
-    pre: Vec<TestMarker>,
+    /// Whole-file test removal (deleted or emptied test file) is reported by
+    /// the behavioral `test-deleted-or-emptied` signal, not here.
+    removal_reported_elsewhere: bool,
+    first_changed_line: usize,
+    pre_markers: Vec<TestMarker>,
     /// Post-change markers, each flagged when it sits on a changed line.
-    post: Vec<(TestMarker, bool)>,
+    post_markers: Vec<(TestMarker, bool)>,
+    pre_tests: Vec<accounting::TestFacts>,
+    post_tests: Vec<accounting::TestFacts>,
 }
 
-/// Collects a changed file's markers, or `None` when no recognizer applies or
+/// Collects a changed file's evidence, or `None` when no recognizer applies or
 /// a side that should exist cannot be parsed (never guess from half a picture).
-pub fn collect_file_markers(
+pub fn collect_file_evidence(
     file: &ChangedFile,
     pre: Option<&ReviewSource>,
     post: Option<&ReviewSource>,
-) -> Option<FileMarkers> {
+) -> Option<FileEvidence> {
     let ext = file.path.extension().and_then(|ext| ext.to_str())?;
     let tables = integrity_for_extension(ext)?;
     if is_test_input_data(&file.path)
@@ -63,28 +75,65 @@ pub fn collect_file_markers(
         return None;
     }
     let existed_before = !matches!(file.status, ChangeStatus::Added | ChangeStatus::Untracked);
-    let pre_markers = if existed_before {
-        markers(pre?, tables)?
+    let (pre_markers, pre_tests) = if existed_before {
+        scan(pre?, tables)?
     } else {
-        Vec::new()
+        Default::default()
     };
-    let post_markers = match post {
-        Some(source) => markers(source, tables)?,
-        None if file.status == ChangeStatus::Deleted => Vec::new(),
+    let (post_markers, post_tests) = match post {
+        Some(source) => scan(source, tables)?,
+        None if file.status == ChangeStatus::Deleted => Default::default(),
         None => return None,
     };
-    Some(FileMarkers {
+    let is_test_file = crate::audits::context::classify::helpers::is_test_file(&file.path);
+    Some(FileEvidence {
         path: file.path_string(),
         existed_before,
-        pre: pre_markers,
-        post: post_markers
+        removal_reported_elsewhere: is_test_file && post_tests.is_empty(),
+        first_changed_line: file.ranges.first().map_or(1, |range| range.start.max(1)),
+        pre_markers,
+        post_markers: post_markers
             .into_iter()
             .map(|marker| {
                 let in_diff = file.contains_line(marker.line);
                 (marker, in_diff)
             })
             .collect(),
+        pre_tests,
+        post_tests,
     })
+}
+
+/// Reports every integrity signal the change produces, in path/line order.
+pub fn detect_integrity(files: &[FileEvidence]) -> Vec<IntegritySignal> {
+    let mut signals = markers::detect(files);
+    signals.extend(accounting::detect(files));
+    signals.sort_by(|left, right| left.path.cmp(&right.path).then(left.line.cmp(&right.line)));
+    signals
+}
+
+type Scan = (Vec<TestMarker>, Vec<accounting::TestFacts>);
+
+fn scan(source: &ReviewSource, tables: &IntegrityTables) -> Option<Scan> {
+    let tree = source.tree()?;
+    let mut found = Scan::default();
+    walk(tree.root_node(), source.content(), tables, &mut found);
+    Some(found)
+}
+
+fn walk(node: Node<'_>, content: &str, tables: &IntegrityTables, found: &mut Scan) {
+    if let Some(marker) = (tables.test_marker)(node, content) {
+        found.0.push(marker);
+    }
+    if let Some(name) = (tables.test_case)(node, content) {
+        found
+            .1
+            .push(accounting::TestFacts::of(node, content, tables, name));
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        walk(child, content, tables, found);
+    }
 }
 
 /// Fixture, `testdata`, and snapshot directories hold inputs a test reads, not
@@ -105,113 +154,4 @@ fn is_test_input_data(path: &std::path::Path) -> bool {
             .to_str()
             .is_some_and(|name| INPUT_DIRECTORIES.contains(&name.to_ascii_lowercase().as_str()))
     })
-}
-
-/// Reports markers added by the change, net of moves between changed files.
-pub fn detect_integrity(files: &[FileMarkers]) -> Vec<IntegritySignal> {
-    let mut moved: BTreeMap<Identity, usize> = BTreeMap::new();
-    for file in files {
-        let post = counts(file.post.iter().map(|(marker, _)| marker));
-        for (identity, count) in counts(file.pre.iter()) {
-            let remaining = count.saturating_sub(post.get(&identity).copied().unwrap_or(0));
-            if remaining > 0 {
-                *moved.entry(identity).or_default() += remaining;
-            }
-        }
-    }
-
-    let mut signals = Vec::new();
-    for file in files {
-        let pre = counts(file.pre.iter());
-        for (identity, count) in counts(file.post.iter().map(|(marker, _)| marker)) {
-            let mut added = count.saturating_sub(pre.get(&identity).copied().unwrap_or(0));
-            if let Some(pool) = moved.get_mut(&identity) {
-                let matched = (*pool).min(added);
-                *pool -= matched;
-                added -= matched;
-            }
-            if added == 0 || (identity.0 == TestMarkerKind::Skip && !file.existed_before) {
-                continue;
-            }
-            let mut candidates: Vec<&(TestMarker, bool)> = file
-                .post
-                .iter()
-                .filter(|(marker, _)| identity_of(marker) == identity)
-                .collect();
-            candidates.sort_by_key(|(marker, in_diff)| (!in_diff, marker.line));
-            for (marker, _) in candidates.into_iter().take(added) {
-                signals.push(signal(&file.path, marker));
-            }
-        }
-    }
-    signals.sort_by(|left, right| left.path.cmp(&right.path).then(left.line.cmp(&right.line)));
-    signals
-}
-
-type Identity = (TestMarkerKind, String, Option<String>);
-
-fn identity_of(marker: &TestMarker) -> Identity {
-    (marker.kind, marker.marker.clone(), marker.test_name.clone())
-}
-
-fn counts<'a>(markers: impl Iterator<Item = &'a TestMarker>) -> BTreeMap<Identity, usize> {
-    let mut counts = BTreeMap::new();
-    for marker in markers {
-        *counts.entry(identity_of(marker)).or_default() += 1;
-    }
-    counts
-}
-
-fn markers(source: &ReviewSource, tables: &IntegrityTables) -> Option<Vec<TestMarker>> {
-    let tree = source.tree()?;
-    let mut found = Vec::new();
-    walk(tree.root_node(), source.content(), tables, &mut found);
-    Some(found)
-}
-
-fn walk(node: Node<'_>, content: &str, tables: &IntegrityTables, found: &mut Vec<TestMarker>) {
-    if let Some(marker) = (tables.test_marker)(node, content) {
-        found.push(marker);
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        walk(child, content, tables, found);
-    }
-}
-
-fn signal(path: &str, marker: &TestMarker) -> IntegritySignal {
-    let on = marker
-        .test_name
-        .as_deref()
-        .map(|name| format!(" on \"{name}\""))
-        .unwrap_or_default();
-    let (kind, detail) = match marker.kind {
-        TestMarkerKind::Focus => (
-            IntegrityKind::TestFocused,
-            format!(
-                "`{}` added{on}; other tests in its scope stop running while it is committed",
-                marker.marker
-            ),
-        ),
-        TestMarkerKind::Skip => {
-            let why = marker
-                .reason
-                .as_deref()
-                .map(|reason| format!(" (reason: \"{reason}\")"))
-                .unwrap_or_default();
-            (
-                IntegrityKind::TestSkipped,
-                format!(
-                    "`{}` added{on}{why}; its result no longer fails the run",
-                    marker.marker
-                ),
-            )
-        }
-    };
-    IntegritySignal {
-        kind,
-        path: path.to_string(),
-        line: marker.line,
-        detail,
-    }
 }

@@ -95,6 +95,59 @@ pub(crate) fn enclosing_function_name(
     None
 }
 
+/// Whether a node is a constant literal in any supported grammar.
+pub(crate) fn is_literal(node: Node<'_>) -> bool {
+    matches!(
+        node.kind(),
+        "true"
+            | "false"
+            | "null"
+            | "undefined"
+            | "none"
+            | "nil"
+            | "number"
+            | "integer"
+            | "float"
+            | "int_literal"
+            | "float_literal"
+            | "integer_literal"
+            | "boolean_literal"
+    ) || (is_string_literal(node)
+        && !has_named_child_of(node, &["template_substitution", "interpolation"]))
+}
+
+/// Whether every argument of a call is a literal — a comparison that cannot
+/// observe the code under test (`assert.equal(1, 1)`, `assertTrue(True)`).
+/// An empty argument list is not constant.
+pub(crate) fn all_arguments_literal(arguments: Node<'_>) -> bool {
+    let mut cursor = arguments.walk();
+    let mut seen = false;
+    for argument in arguments.named_children(&mut cursor) {
+        let value = if argument.kind() == "keyword_argument" {
+            match argument.child_by_field_name("value") {
+                Some(value) => value,
+                None => return false,
+            }
+        } else {
+            argument
+        };
+        if matches!(value.kind(), "comment" | "line_comment" | "block_comment") {
+            continue;
+        }
+        if !is_literal(value) {
+            return false;
+        }
+        seen = true;
+    }
+    seen
+}
+
+fn has_named_child_of(node: Node<'_>, kinds: &[&str]) -> bool {
+    let mut cursor = node.walk();
+    node.named_children(&mut cursor)
+        .any(|child| kinds.contains(&child.kind()))
+}
+
 /// Truncates on a character boundary so reported text stays short.
 pub(crate) fn bounded(text: &str) -> String {
     let text = text.trim().replace('\n', " ");

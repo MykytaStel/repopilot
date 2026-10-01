@@ -174,8 +174,9 @@ including opt-in result caching: [Configuration](configuration.md#explicit-local
 
 Security boundaries (access control, request trust, deploy surface, supply
 chain, secrets), behavioral changes (network, subprocess, filesystem, SQL,
-removed error handling or auth checks), test integrity (tests newly skipped
-or focused), algorithmic shifts, taint-lite flows
+removed error handling or auth checks), test integrity (tests newly skipped,
+focused, removed, or stripped of assertions), algorithmic shifts, taint-lite
+flows
 (changed request/process input reaching SQL, exec, filesystem-write, or
 network sinks), broken local imports/exports (above), and blast radius
 through the import graph. Signals are structural evidence with file:line

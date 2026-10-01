@@ -137,8 +137,8 @@ fn detect_file_signals(
     }
 }
 
-/// Skip/focus markers are compared across the whole change, so a test moved
-/// from one changed file to another is not reported as newly skipped.
+/// Integrity evidence is compared across the whole change, so a test moved
+/// from one changed file to another is not reported as skipped or removed.
 fn detect_integrity(
     changed_files: &[ChangedFile],
     loaded_sources: &[LoadedReviewSources],
@@ -147,7 +147,7 @@ fn detect_integrity(
         .iter()
         .zip(loaded_sources)
         .filter_map(|(file, sources)| {
-            integrity::collect_file_markers(file, sources.pre.as_ref(), sources.post.as_ref())
+            integrity::collect_file_evidence(file, sources.pre.as_ref(), sources.post.as_ref())
         })
         .collect::<Vec<_>>();
     integrity::detect_integrity(&markers)

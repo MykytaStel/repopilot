@@ -467,3 +467,23 @@ fn auth_check_ignores_keyword_in_string_literal() {
         "string-literal keyword must not trigger AuthCheckRemoved: {signals:?}"
     );
 }
+
+#[test]
+fn rust_test_file_emptied_of_attributed_tests_is_reported() {
+    // tree-sitter-rust places `#[test]` in a sibling `attribute_item`, not
+    // inside the `function_item`, so the recognizer must look at siblings.
+    let pre = "#[test]\nfn adds() {\n    assert_eq!(1 + 1, 2);\n}\n";
+    let post = "fn helper() {}\n";
+    let file = file_with_range("tests/math.rs", ChangeStatus::Modified, 1, 1);
+    let pre_source = ReviewSource::new(pre.to_string(), Some("Rust".to_string()));
+    let post_source = ReviewSource::new(post.to_string(), Some("Rust".to_string()));
+
+    let signals = detect_behavioral_removed(&file, Some(&pre_source), Some(&post_source));
+
+    assert!(
+        signals
+            .iter()
+            .any(|signal| signal.kind == BehavioralKind::TestDeletedOrEmptied),
+        "{signals:?}"
+    );
+}

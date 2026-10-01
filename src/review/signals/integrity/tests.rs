@@ -1,9 +1,11 @@
-use super::{FileMarkers, IntegrityKind, IntegritySignal, collect_file_markers, detect_integrity};
+use super::{
+    FileEvidence, IntegrityKind, IntegritySignal, collect_file_evidence, detect_integrity,
+};
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
 use crate::review::signals::content::ReviewSource;
 use std::path::PathBuf;
 
-fn changed(path: &str, status: ChangeStatus) -> ChangedFile {
+pub(super) fn changed(path: &str, status: ChangeStatus) -> ChangedFile {
     ChangedFile {
         path: PathBuf::from(path),
         status,
@@ -15,11 +17,16 @@ fn changed(path: &str, status: ChangeStatus) -> ChangedFile {
     }
 }
 
-fn source(label: &str, content: &str) -> ReviewSource {
+pub(super) fn source(label: &str, content: &str) -> ReviewSource {
     ReviewSource::new(content.to_string(), Some(label.to_string()))
 }
 
-fn markers(path: &str, label: &str, pre: Option<&str>, post: Option<&str>) -> Option<FileMarkers> {
+pub(super) fn markers(
+    path: &str,
+    label: &str,
+    pre: Option<&str>,
+    post: Option<&str>,
+) -> Option<FileEvidence> {
     let status = match (pre, post) {
         (None, Some(_)) => ChangeStatus::Added,
         (Some(_), None) => ChangeStatus::Deleted,
@@ -27,14 +34,19 @@ fn markers(path: &str, label: &str, pre: Option<&str>, post: Option<&str>) -> Op
     };
     let pre = pre.map(|content| source(label, content));
     let post = post.map(|content| source(label, content));
-    collect_file_markers(&changed(path, status), pre.as_ref(), post.as_ref())
+    collect_file_evidence(&changed(path, status), pre.as_ref(), post.as_ref())
 }
 
-fn detect(path: &str, label: &str, pre: Option<&str>, post: Option<&str>) -> Vec<IntegritySignal> {
+pub(super) fn detect(
+    path: &str,
+    label: &str,
+    pre: Option<&str>,
+    post: Option<&str>,
+) -> Vec<IntegritySignal> {
     detect_integrity(&[markers(path, label, pre, post).expect("recognizer applies")])
 }
 
-fn kinds(signals: &[IntegritySignal]) -> Vec<IntegrityKind> {
+pub(super) fn kinds(signals: &[IntegritySignal]) -> Vec<IntegrityKind> {
     signals.iter().map(|signal| signal.kind).collect()
 }
 

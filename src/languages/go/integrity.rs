@@ -1,5 +1,6 @@
-//! Skip markers for Go's `testing` package: `t.Skip`, `t.Skipf`, and
-//! `t.SkipNow` on a test, benchmark, fuzz, or suite handle.
+//! Test-integrity recognizers for Go's `testing` package: `t.Skip*` on a
+//! test, benchmark, fuzz, or suite handle; `Test*` cases; and failure reports
+//! (`t.Error*`, `t.Fatal*`, testify `assert.*` / `require.*`) as assertions.
 
 use crate::review::signals::integrity::syntax::{
     any_argument_string, compact_text, enclosing_function_name,
@@ -11,6 +12,8 @@ pub(super) static GO_INTEGRITY: IntegrityTables = IntegrityTables {
     extensions: &["go"],
     applies_outside_test_files: false,
     test_marker,
+    test_case,
+    is_assertion,
 };
 
 const SKIP_METHODS: &[&str] = &["Skip", "Skipf", "SkipNow"];
@@ -80,4 +83,57 @@ fn is_testing_parameter(node: Node<'_>, content: &str, receiver: &str) -> bool {
         current = candidate.parent();
     }
     false
+}
+
+fn test_case<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
+    if node.kind() != "function_declaration" {
+        return None;
+    }
+    let name = node
+        .child_by_field_name("name")?
+        .utf8_text(content.as_bytes())
+        .ok()?;
+    (name.starts_with("Test") && name != "TestMain").then(|| name.to_string())
+}
+
+const FAILURE_METHODS: &[&str] = &["Error", "Errorf", "Fatal", "Fatalf", "Fail", "FailNow"];
+
+fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
+    if node.kind() != "call_expression" {
+        return false;
+    }
+    let Some(function) = node
+        .child_by_field_name("function")
+        .filter(|function| function.kind() == "selector_expression")
+    else {
+        return false;
+    };
+    let (Some(operand), Some(method)) = (
+        function
+            .child_by_field_name("operand")
+            .and_then(|operand| compact_text(operand, content)),
+        function
+            .child_by_field_name("field")
+            .and_then(|field| field.utf8_text(content.as_bytes()).ok()),
+    ) else {
+        return false;
+    };
+    if operand == "assert" || operand == "require" {
+        // testify: `assert.Equal(t, 1, 1)` compares constants after `t`.
+        return node
+            .child_by_field_name("arguments")
+            .is_none_or(|arguments| {
+                arguments.named_child_count() < 2 || !all_arguments_literal_after_first(arguments)
+            });
+    }
+    FAILURE_METHODS.contains(&method) && is_testing_parameter(node, content, &operand)
+}
+
+fn all_arguments_literal_after_first(arguments: Node<'_>) -> bool {
+    let mut cursor = arguments.walk();
+    let rest: Vec<Node<'_>> = arguments.named_children(&mut cursor).skip(1).collect();
+    !rest.is_empty()
+        && rest
+            .iter()
+            .all(|argument| crate::review::signals::integrity::syntax::is_literal(*argument))
 }
