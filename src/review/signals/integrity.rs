@@ -13,6 +13,7 @@
 mod accounting;
 #[cfg(test)]
 mod accounting_tests;
+mod acknowledgement;
 mod gates;
 mod markers;
 mod suppressions;
@@ -26,6 +27,7 @@ use crate::languages::integrity_for_extension;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 use crate::review::signals::tables::{IntegrityTables, TestMarker};
+pub use acknowledgement::detect_review_suppressions;
 pub use gates::detect_gate_relaxation;
 use serde::Serialize;
 use tree_sitter::Node;
@@ -40,6 +42,7 @@ pub enum IntegrityKind {
     AssertionsRemoved,
     SuppressionAdded,
     GateRelaxed,
+    ReviewSuppressionAdded,
 }
 
 /// A test-integrity signal detected in a changed file.

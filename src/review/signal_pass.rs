@@ -73,6 +73,9 @@ pub(super) fn detect_review_signals(
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
         content_signals.integrity = detect_integrity(changed_files, &loaded_sources);
+        content_signals
+            .integrity
+            .extend(integrity::detect_review_suppressions(repo_root, target));
     }
 
     boundary_signals.sort_by(|left, right| {

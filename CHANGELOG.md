@@ -57,6 +57,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
   `addopts`. Deleting a workflow or `.gitlab-ci.yml` reports the check jobs it
   ran. Steps and scripts that run no check (build, docs) are not reported.
+- **Review shows a change that silences RepoPilot itself.**
+  `integrity.review-suppression-added` (maybe sensitive) reports each entry a
+  change adds to `.repopilot/overlay.toml`, with what it suppresses, its path
+  scope, and its reason. `.repopilot/` stays out of the changed-file list, so
+  before this a change could acknowledge its own signals unseen. Acknowledging
+  on purpose still works in the same change; the Claude Code guard blocks on it
+  so an agent cannot silence its own review.
 - **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
   `/plugin install repopilot@repopilot`: snapshots each session, and when
   Claude tries to stop, reviews the session and blocks once on a
