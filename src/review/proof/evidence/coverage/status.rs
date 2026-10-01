@@ -2,7 +2,7 @@ use super::super::{EvidenceClass, EvidenceCoverageStatus};
 use crate::review::proof::{ChangeProof, ChangeProofReasonCode, ProofCapabilityStatus};
 
 pub(crate) fn coverage_status(proof: &ChangeProof) -> EvidenceCoverageStatus {
-    if proof.coverage.analyzed_files == 0 {
+    if !proof.coverage.is_meaningful() {
         return EvidenceCoverageStatus::Unavailable;
     }
     let capability_gap = proof.capability_coverage.iter().any(|capability| {
@@ -38,7 +38,7 @@ pub(crate) fn classify(proof: &ChangeProof) -> EvidenceClass {
     match coverage_status(proof) {
         EvidenceCoverageStatus::Unavailable => EvidenceClass::Unknown,
         EvidenceCoverageStatus::Limited => {
-            if proof.coverage.analyzed_files > 0 {
+            if proof.coverage.is_meaningful() {
                 EvidenceClass::Suspicion
             } else {
                 EvidenceClass::Unknown

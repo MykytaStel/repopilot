@@ -174,6 +174,7 @@ pub(super) static JS_FAMILY_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_statement"],
     },
     removed: Some(&JS_FAMILY_REMOVED),
+    integrity: Some(&super::integrity::JS_FAMILY_INTEGRITY),
 };
 
 pub(super) static JS_FAMILY_REMOVED: RemovedTables = RemovedTables {

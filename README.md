@@ -39,6 +39,9 @@ A review can surface:
   writes, SQL, or error handling;
 - changed input-to-sink paths, algorithmic structure, or local import/export
   contracts;
+- tests the change stopped running: committed focus markers such as `it.only`
+  and newly skipped tests (`it.skip`, `@pytest.mark.skip`, `t.Skip`,
+  `#[ignore]`), so a green run cannot hide them;
 - direct dependents and the wider impact of changed files.
 
 Signals are advisory evidence. For example, a taint-lite signal shows that a

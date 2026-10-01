@@ -162,6 +162,7 @@ pub(super) static PYTHON_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_statement"],
     },
     removed: Some(&PYTHON_REMOVED),
+    integrity: Some(&super::integrity::PYTHON_INTEGRITY),
 };
 
 pub(super) static PYTHON_REMOVED: RemovedTables = RemovedTables {

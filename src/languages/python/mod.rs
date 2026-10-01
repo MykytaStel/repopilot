@@ -4,6 +4,7 @@ use crate::analysis::parse::ParseLanguage;
 use crate::audits::context::LanguageKind;
 
 mod imports;
+mod integrity;
 mod review;
 mod risk;
 

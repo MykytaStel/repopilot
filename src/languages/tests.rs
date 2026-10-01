@@ -310,6 +310,48 @@ fn removed_recognizer_extensions_are_pinned() {
     }
 }
 
+/// Pins the test-integrity recognizer coverage (skip/focus markers): which
+/// extensions carry one, and that only Rust applies outside test files (its
+/// unit tests live inline in `src/`). Java, Kotlin, and C# follow in 0.25.
+#[test]
+fn integrity_recognizer_extensions_are_pinned() {
+    let expected: BTreeMap<&str, usize> = [
+        ("js", 2),
+        ("mjs", 2),
+        ("cjs", 2),
+        ("ts", 2),
+        ("mts", 2),
+        ("cts", 2),
+        ("tsx", 2),
+        ("jsx", 2),
+        ("py", 1),
+        ("go", 1),
+        ("rs", 1),
+    ]
+    .into_iter()
+    .collect();
+
+    let mut claims: BTreeMap<&str, usize> = BTreeMap::new();
+    for frontend in all_frontends() {
+        let Some(integrity) = frontend.review.and_then(|review| review.integrity) else {
+            continue;
+        };
+        assert_eq!(
+            integrity.applies_outside_test_files,
+            frontend.id == "rust",
+            "integrity test-file scoping changed for frontend '{}'",
+            frontend.id
+        );
+        for ext in integrity.extensions {
+            *claims.entry(ext).or_default() += 1;
+        }
+    }
+    assert_eq!(
+        claims, expected,
+        "integrity-recognizer extension vocabulary drifted"
+    );
+}
+
 /// Pins which frontends carry a shared-engine runtime-risk table, and which
 /// instead satisfy the capability through a dedicated, standalone audit
 /// (Rust's `language.rust.panic-risk` — too contextual for the generic

@@ -55,4 +55,42 @@ pub struct ReviewTables {
     pub(crate) algorithmic: &'static AlgorithmicKinds,
     /// Removed-behavior recognizers; extension-dispatched (legacy).
     pub(crate) removed: Option<&'static RemovedTables>,
+    /// Skip/focus marker recognizers; extension-dispatched like `removed`.
+    pub(crate) integrity: Option<&'static IntegrityTables>,
+}
+
+/// What a test marker does to the suite it sits in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TestMarkerKind {
+    /// Only the marked tests run (`it.only`, `fdescribe`).
+    Focus,
+    /// The marked test does not run, or is expected to fail (`it.skip`,
+    /// `@pytest.mark.skip`, `t.Skip`, `#[ignore]`).
+    Skip,
+}
+
+/// One skip or focus marker found in a test file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TestMarker {
+    pub kind: TestMarkerKind,
+    /// The marker as written, normalized: `it.only`, `@pytest.mark.skip`,
+    /// `t.Skip`, `#[ignore]`.
+    pub marker: String,
+    /// The test the marker applies to, when it can be named.
+    pub test_name: Option<String>,
+    /// The reason string written with the marker, when present.
+    pub reason: Option<String>,
+    /// 1-indexed line of the marker.
+    pub line: usize,
+}
+
+/// Recognizers for the test-integrity signals (skipped or focused tests).
+pub struct IntegrityTables {
+    /// Extensions this table answers for.
+    pub(crate) extensions: &'static [&'static str],
+    /// Whether markers count outside files the conventions classify as tests
+    /// (Rust keeps unit tests inline in `src/`).
+    pub(crate) applies_outside_test_files: bool,
+    /// The skip or focus marker a node introduces, if any.
+    pub(crate) test_marker: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> Option<TestMarker>,
 }

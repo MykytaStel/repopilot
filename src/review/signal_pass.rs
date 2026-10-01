@@ -15,7 +15,7 @@ use crate::config::model::SecurityBoundarySection;
 use crate::review::diff::{ChangedFile, DiffTarget};
 use crate::review::signals::api_contract::{self, ChangedReviewSources};
 use crate::review::signals::behavioral::{self, DependencyContext};
-use crate::review::signals::{BoundarySignal, algorithmic, classify, taint};
+use crate::review::signals::{BoundarySignal, algorithmic, classify, integrity, taint};
 use crate::scan::types::CouplingGraph;
 use std::path::Path;
 mod source_loading;
@@ -72,6 +72,7 @@ pub(super) fn detect_review_signals(
     if toggles.behavioral {
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
+        content_signals.integrity = detect_integrity(changed_files, &loaded_sources);
     }
 
     boundary_signals.sort_by(|left, right| {
@@ -134,6 +135,22 @@ fn detect_file_signals(
             .taint
             .extend(taint::detect_taint(file, sources.post.as_ref()));
     }
+}
+
+/// Skip/focus markers are compared across the whole change, so a test moved
+/// from one changed file to another is not reported as newly skipped.
+fn detect_integrity(
+    changed_files: &[ChangedFile],
+    loaded_sources: &[LoadedReviewSources],
+) -> Vec<integrity::IntegritySignal> {
+    let markers = changed_files
+        .iter()
+        .zip(loaded_sources)
+        .filter_map(|(file, sources)| {
+            integrity::collect_file_markers(file, sources.pre.as_ref(), sources.post.as_ref())
+        })
+        .collect::<Vec<_>>();
+    integrity::detect_integrity(&markers)
 }
 
 fn detect_api_contract(

@@ -232,3 +232,15 @@ pub(crate) fn removed_for_extension(
             .filter(|removed| removed.extensions.contains(&ext))
     })
 }
+
+/// The test-integrity recognizers claiming a file extension, if any.
+pub(crate) fn integrity_for_extension(
+    ext: &str,
+) -> Option<&'static crate::review::signals::tables::IntegrityTables> {
+    all_frontends().iter().find_map(|frontend| {
+        frontend
+            .review
+            .and_then(|review| review.integrity)
+            .filter(|integrity| integrity.extensions.contains(&ext))
+    })
+}

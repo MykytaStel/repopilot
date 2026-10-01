@@ -1,0 +1,17 @@
+{
+  "description": "A skip decorator added to a test that ran before: its result no longer fails the run. Maybe-sensitive — a skip often has a reason, so the reviewer decides.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "bucket": "maybe",
+      "family": "integrity",
+      "kind": "integrity.test-skipped",
+      "path": "tests/test_billing.py",
+      "headline": "test skipped"
+    }
+  ],
+  "forbid": [
+    { "kind": "integrity.test-focused" },
+    { "family": "volume" }
+  ]
+}

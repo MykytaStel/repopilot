@@ -177,6 +177,7 @@ fn classify_findings(
         &content_signals.algorithmic,
         &content_signals.taint,
         &content_signals.api_contract,
+        &content_signals.integrity,
         &changed_files,
     );
     tiered::enrich_blast_radius(

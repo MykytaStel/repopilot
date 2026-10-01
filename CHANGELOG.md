@@ -6,7 +6,29 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- **Review reports tests a change stopped running.** New `integrity` signal
+  family: `integrity.test-focused` (definitely sensitive) when a change commits
+  a focus marker such as `it.only` or `fdescribe`, and
+  `integrity.test-skipped` (maybe sensitive) when a test that ran before is
+  skipped — `it.skip`/`xit`/`test.todo`, `@pytest.mark.skip`/`xfail`,
+  `self.skipTest`, `pytestmark`, Go `t.Skip`, Rust `#[ignore]`. Markers are
+  read from syntax trees and counted before and after the change, so markers
+  in strings or comments, unchanged markers, and a skipped test moved between
+  files are not reported. Covers TypeScript/JavaScript (Jest, Vitest, Mocha,
+  Jasmine, Playwright), Python (pytest, unittest), Go, and Rust. Integrity
+  signals never become a verification obligation — re-running the suite cannot
+  confirm a test that no longer runs.
+  **Migration:** `--fail-on-review definitely` now also fails on a committed
+  focused test.
+
 ### Changed
+
+- **A change that touches only test files is assessed, not `NOT ASSESSED`.**
+  Test, fixture, and generated files are skipped by audit policy, but review
+  signals still read them; the decision for such a change is now `REVIEW` or
+  `PASS` on its evidence instead of asking to expand the scope.
 
 - **Public guidance now leads with developer and team workflows.** Agent
   integrations are presented as one supported path; review-result meanings,

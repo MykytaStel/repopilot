@@ -1,6 +1,7 @@
 use crate::review::signals::algorithmic::AlgorithmicSignal;
 use crate::review::signals::api_contract::RemovedExportSignal;
 use crate::review::signals::behavioral::BehavioralSignal;
+use crate::review::signals::integrity::IntegritySignal;
 use crate::review::signals::taint::TaintSignal;
 
 /// Content-based review signals detected over the changed files' re-read source.
@@ -14,6 +15,7 @@ pub(super) struct ContentSignals {
     pub algorithmic: Vec<AlgorithmicSignal>,
     pub taint: Vec<TaintSignal>,
     pub api_contract: Vec<RemovedExportSignal>,
+    pub integrity: Vec<IntegritySignal>,
 }
 
 /// Which content-based detectors to run; each maps to a config toggle.

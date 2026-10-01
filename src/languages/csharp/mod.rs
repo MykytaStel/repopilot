@@ -77,6 +77,7 @@ static CSHARP_REVIEW: ReviewTables = ReviewTables {
         if_kinds: &["if_statement"],
     },
     removed: Some(&CSHARP_REMOVED),
+    integrity: None,
 };
 
 static CSHARP_REMOVED: RemovedTables = RemovedTables {
