@@ -19,7 +19,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   files are not reported. Covers TypeScript/JavaScript (Jest, Vitest, Mocha,
   Jasmine, Playwright), Python (pytest, unittest), Go, and Rust. Integrity
   signals never become a verification obligation — re-running the suite cannot
-  confirm a test that no longer runs.
+  confirm a test that no longer runs. Integrity signals are also exported to SARIF
+  (category `testing`), so GitHub code scanning annotates the PR line.
   **Migration:** `--fail-on-review definitely` now also fails on a committed
   focused test.
 - **Review accounts for tests and assertions a change removed.**

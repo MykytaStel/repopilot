@@ -197,3 +197,23 @@ fn review_sarif_carries_verification_diagnostics() {
         "python.tests:tests/test_api.py::test_create:failed"
     );
 }
+
+#[test]
+fn integrity_signals_are_exported_as_testing_results() {
+    let mut signal = taint_signal(
+        "integrity.test-focused",
+        ConfidenceTier::DefinitelySensitive,
+    );
+    signal.family = SignalFamily::Integrity;
+    signal.path = "src/cart.test.ts".to_string();
+    signal.headline = "focused test committed".to_string();
+    let sarif: serde_json::Value =
+        serde_json::from_str(&render_review_sarif(&report_with_signal(signal)).unwrap()).unwrap();
+    let results = sarif["runs"][0]["results"].as_array().expect("results");
+    assert!(
+        results
+            .iter()
+            .any(|result| result["ruleId"] == "integrity.test-focused"),
+        "{results:?}"
+    );
+}

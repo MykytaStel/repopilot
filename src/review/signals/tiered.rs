@@ -481,7 +481,7 @@ fn build_verification_plan(
     Some(ReviewSignalVerificationPlan { steps })
 }
 
-fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
+pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
     match family {
         SignalFamily::Boundary => match kind {
             "boundary.access-control" => {
