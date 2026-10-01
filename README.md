@@ -17,6 +17,27 @@ source to a hosted service or call an embedded language model. Findings point to
 code and explain what to check; reviewers still decide whether a change is safe
 for their application.
 
+## Example: a change that weakens its own tests
+
+This change drops a range check from `applyDiscount`. The same change skips the
+test that would now fail, removes an assertion from another test, and lets the
+CI test step fail without failing the job. Every check that still runs passes.
+`repopilot review .` reports each of these with its file and line:
+
+```text
+Review signals [preview]:
+  Definitely sensitive:
+    ⚑ deploy surface changed — .github/workflows/ci.yml
+  Maybe sensitive:
+    ⚑ check gate relaxed — .github/workflows/ci.yml:10  check step `npm test` in job `test` now has `continue-on-error: true`
+    ⚑ assertions removed — src/pricing.test.ts:5  "applyDiscount > takes a percentage off the total": assertions 2 → 1
+    ⚑ test skipped — src/pricing.test.ts:9  `it.skip` added on "rejects a discount above 100%"; its result no longer fails the run
+```
+
+This is an excerpt. The full output starts with a `REVIEW` decision and its
+reasons ([recording](docs/demos/06-weakened-tests.gif)). Replay it with
+`scripts/demo-weakened-tests.sh <empty-dir>`, then run `repopilot review <empty-dir>`.
+
 ## Install and review
 
 ```bash
@@ -114,7 +135,9 @@ weakened is unexplained:
 /plugin install repopilot@repopilot
 ```
 
-See [Guard your agent runs](docs/agent-guardrail.md).
+In Cursor, two project hooks run the same loop and send the agent one
+follow-up message listing what it weakened. See
+[Guard your agent runs](docs/agent-guardrail.md).
 
 RepoPilot also provides a local stdio MCP server and a GitHub Action. The MCP
 server gives an agent access to the local scan and review tools. The Action runs
