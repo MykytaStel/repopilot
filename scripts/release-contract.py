@@ -479,7 +479,7 @@ def check_snapshot_docs(commands_path: Path) -> None:
         "snapshot",
         "`head`",
         "`dirty`",
-        "does not preserve a copy",
+        "baseline",
         "pre-existing changes",
         "authored each change",
     )
