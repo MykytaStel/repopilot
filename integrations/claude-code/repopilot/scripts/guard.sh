@@ -20,7 +20,7 @@ flagged=$(printf '%s\n' "$out" | awk '
   /^  Maybe sensitive:/ { tier = "maybe"; next }
   /^  [A-Z]/ || /^$/ || /^[^ ]/ { tier = "" }
   tier == "definitely" && /⚑/ { print; next }
-  tier == "maybe" && /⚑ (test skipped|test removed|assertions removed|suppression added) — / { print }
+  tier == "maybe" && /⚑ (test skipped|test removed|assertions removed|suppression added|check gate relaxed) — / { print }
 ')
 [ -z "$flagged" ] && exit 0
 {

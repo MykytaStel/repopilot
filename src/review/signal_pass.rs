@@ -150,7 +150,15 @@ fn detect_integrity(
             integrity::collect_file_evidence(file, sources.pre.as_ref(), sources.post.as_ref())
         })
         .collect::<Vec<_>>();
-    integrity::detect_integrity(&markers)
+    let mut signals = integrity::detect_integrity(&markers);
+    for (file, sources) in changed_files.iter().zip(loaded_sources) {
+        signals.extend(integrity::detect_gate_relaxation(
+            file,
+            sources.pre.as_ref(),
+            sources.post.as_ref(),
+        ));
+    }
+    signals
 }
 
 fn detect_api_contract(

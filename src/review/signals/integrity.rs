@@ -1,8 +1,8 @@
 //! Test-integrity signals: a change that weakens the checks judging it.
 //!
 //! Skip and focus markers (`it.only`, `@pytest.mark.skip`, `t.Skip`,
-//! `#[ignore]`), removed test cases, removed assertions, and new lint, type,
-//! or coverage suppressions. Everything is
+//! `#[ignore]`), removed test cases, removed assertions, new lint, type, or
+//! coverage suppressions, and relaxed CI or tool gates. Everything is
 //! counted over the whole pre- and post-change file, not only the changed
 //! lines, so re-indenting or moving code within a file is not a change. A
 //! marker or test that disappears from one changed file and appears in another
@@ -13,6 +13,7 @@
 mod accounting;
 #[cfg(test)]
 mod accounting_tests;
+mod gates;
 mod markers;
 mod suppressions;
 #[cfg(test)]
@@ -25,6 +26,7 @@ use crate::languages::integrity_for_extension;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 use crate::review::signals::tables::{IntegrityTables, TestMarker};
+pub use gates::detect_gate_relaxation;
 use serde::Serialize;
 use tree_sitter::Node;
 
@@ -37,6 +39,7 @@ pub enum IntegrityKind {
     TestRemoved,
     AssertionsRemoved,
     SuppressionAdded,
+    GateRelaxed,
 }
 
 /// A test-integrity signal detected in a changed file.

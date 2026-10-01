@@ -1,0 +1,15 @@
+{
+  "description": "The unit-test step gets `continue-on-error: true`, so failing tests no longer fail the pipeline. Reported as a relaxed gate alongside the deploy-surface boundary signal the workflow file already raises.",
+  "label": "expected_true_positive",
+  "expect": [
+    {
+      "family": "integrity",
+      "kind": "integrity.gate-relaxed",
+      "path": ".github/workflows/ci.yml",
+      "headline": "check gate relaxed"
+    }
+  ],
+  "forbid": [
+    { "kind": "integrity.test-skipped" }
+  ]
+}

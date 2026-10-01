@@ -42,8 +42,9 @@ A review can surface:
 - tests the change stopped running or weakened: committed focus markers such as
   `it.only`, newly skipped tests (`it.skip`, `@pytest.mark.skip`, `t.Skip`,
   `#[ignore]`), removed or substituted test cases, tests that lost assertions,
-  and new lint, type, or coverage suppressions, so a green run cannot hide
-  them;
+  new lint, type, or coverage suppressions, and relaxed CI or tool gates
+  (`continue-on-error`, `|| true`, lowered coverage thresholds, strict mode
+  off), so a green run cannot hide them;
 - direct dependents and the wider impact of changed files.
 
 Signals are advisory evidence. For example, a taint-lite signal shows that a
