@@ -183,6 +183,9 @@ id = "ic-030"
 kinds = []
 verdict = "none"
 note = "dev-dependency ranges changed, new tests"
+reconciled_kinds = ["suppression-added"]
+reconciled_verdict = "justified"
+reconciliation = "`# noqa: PLW0717` added in src/devopness/core/api_error.py, a source file outside the labeling view; confirmed in the PR patch"
 
 [[label]]
 id = "ic-031"
@@ -729,6 +732,9 @@ id = "ic-121"
 kinds = ["expectation-rewritten"]
 verdict = "justified"
 note = "service-name exclusion list follows the new search service"
+reconciled_kinds = ["expectation-rewritten", "suppression-added"]
+reconciled_verdict = "justified"
+reconciliation = "`/* eslint-disable */` added in a generated API source file outside the labeling view; confirmed in the PR patch"
 
 [[label]]
 id = "ic-122"
@@ -855,6 +861,9 @@ id = "ic-142"
 kinds = ["test-substituted", "expectation-rewritten"]
 verdict = "justified"
 note = "retry semantics redesigned; old retry-counter tests replaced by parametrized ones; error class renamed"
+reconciled_kinds = ["expectation-rewritten", "suppression-added", "test-substituted"]
+reconciled_verdict = "justified"
+reconciliation = "`# noqa: BLE001` added in jumpstarter/client/lease.py, a source file outside the labeling view; confirmed in the PR patch"
 
 [[label]]
 id = "ic-143"
@@ -1065,6 +1074,9 @@ id = "ic-177"
 kinds = []
 verdict = "none"
 note = "helper signature change and new tests"
+reconciled_kinds = ["suppression-added"]
+reconciled_verdict = "justified"
+reconciliation = "`// eslint-disable-next-line no-await-in-loop` added in src/checkDepsStatus.ts, outside the labeling view; confirmed in the PR patch"
 
 [[label]]
 id = "ic-178"

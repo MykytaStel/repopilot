@@ -23,6 +23,7 @@ SIGNAL_KINDS = {
     "integrity.test-removed": ("test-removed", "test-substituted"),
     "integrity.assertions-removed": ("assertion-removed", "assertion-trivialized"),
     "integrity.suppression-added": ("suppression-added",),
+    "integrity.gate-relaxed": ("gate-relaxed",),
 }
 
 
@@ -51,39 +52,48 @@ def render(manifest: list[dict], labels: dict, results: dict[str, dict] | None =
         f"Labeler: {meta.get('labeler', 'unrecorded')}. Status: {meta.get('status', 'exploratory')}.",
         "Denominator: labeled merged PRs that modify or remove at least one test file.",
         "",
-        "| Kind | agent | human |",
-        "|---|---|---|",
     ]
-    groups = {g: [e for e in manifest if e["group"] == g and e["id"] in by_id] for g in ("agent", "human")}
+    names = [g for g in ("agent", "human", "agent-closed") if any(e["group"] == g for e in manifest)]
+    lines += ["| Kind | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    groups = {g: [e for e in manifest if e["group"] == g and e["id"] in by_id] for g in names}
     for kind in KINDS:
         cells = []
-        for group in ("agent", "human"):
+        for group in names:
             entries = groups[group]
             hits = sum(1 for e in entries if kind in by_id[e["id"]].get("kinds", []))
             cells.append(fmt(hits, len(entries)))
-        lines.append(f"| `{kind}` | {cells[0]} | {cells[1]} |")
-    lines += ["", "| Verdict | agent | human |", "|---|---|---|"]
+        lines.append(f"| `{kind}` | " + " | ".join(cells) + " |")
+    lines += ["", "| Verdict | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
     for verdict in VERDICTS:
         cells = []
-        for group in ("agent", "human"):
+        for group in names:
             entries = groups[group]
             hits = sum(1 for e in entries if by_id[e["id"]].get("verdict") == verdict)
             cells.append(fmt(hits, len(entries)))
-        lines.append(f"| {verdict} | {cells[0]} | {cells[1]} |")
+        lines.append(f"| {verdict} | " + " | ".join(cells) + " |")
     unlabeled = [e["id"] for e in manifest if e["id"] not in by_id]
     lines += ["", f"Unlabeled: {len(unlabeled)} of {len(manifest)}."]
     if results:
-        lines += catches(manifest, by_id, results)
+        lines += catches(manifest, by_id, results, "blind labels")
+        reconciled = {
+            corpus_id: {**label, "kinds": label.get("reconciled_kinds", label.get("kinds", []))}
+            for corpus_id, label in by_id.items()
+        }
+        changed = [corpus_id for corpus_id, label in by_id.items() if "reconciled_kinds" in label]
+        if changed:
+            lines += catches(manifest, reconciled, results, f"labels with {len(changed)} view-gap reconciliation(s)")
+            lines += ["", "Reconciled after evaluation (labeling view did not show the evidence):"]
+            lines += [f"- {corpus_id}: {by_id[corpus_id].get('reconciliation', '')}" for corpus_id in sorted(changed)]
     return "\n".join(lines)
 
 
-def catches(manifest: list[dict], by_id: dict, results: dict[str, dict]) -> list[str]:
+def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: str) -> list[str]:
     """PR-level agreement between labels and RepoPilot signals."""
     scored = [e for e in manifest if e["id"] in by_id and e["id"] in results]
     binaries = sorted({results[e["id"]].get("binary", "?") for e in scored})
     lines = [
         "",
-        "## RepoPilot catches",
+        f"## RepoPilot catches ({title})",
         "",
         f"PRs with both labels and results: {len(scored)}. Binary: {', '.join(binaries)}.",
         "A PR counts once per signal kind, whatever the number of occurrences.",
