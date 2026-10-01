@@ -3,7 +3,7 @@
 //! (`t.Error*`, `t.Fatal*`, testify `assert.*` / `require.*`) as assertions.
 
 use crate::review::signals::integrity::syntax::{
-    any_argument_string, compact_text, enclosing_function_name,
+    Directive, any_argument_string, comment_suppression, compact_text, enclosing_function_name,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -14,6 +14,7 @@ pub(super) static GO_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    suppression,
 };
 
 const SKIP_METHODS: &[&str] = &["Skip", "Skipf", "SkipNow"];
@@ -136,4 +137,19 @@ fn all_arguments_literal_after_first(arguments: Node<'_>) -> bool {
         && rest
             .iter()
             .all(|argument| crate::review::signals::integrity::syntax::is_literal(*argument))
+}
+
+const SUPPRESSIONS: &[Directive] = &[
+    Directive {
+        text: "nolint",
+        takes_rules: true,
+    },
+    Directive {
+        text: "lint:ignore",
+        takes_rules: true,
+    },
+];
+
+fn suppression<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
+    (node.kind() == "comment").then(|| comment_suppression(node, content, SUPPRESSIONS))?
 }

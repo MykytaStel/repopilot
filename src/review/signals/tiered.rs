@@ -550,6 +550,9 @@ fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'stat
             "integrity.test-removed" => {
                 "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
             }
+            "integrity.suppression-added" => {
+                "Confirm the silenced lint, type, or coverage finding is a known false positive; fix the finding instead when it is real."
+            }
             "integrity.assertions-removed" => {
                 "Compare the test's assertions before and after; confirm each removed check was redundant or moved, not dropped to make the test pass."
             }
@@ -687,6 +690,7 @@ fn integrity_kind(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestSkipped => "integrity.test-skipped",
         IntegrityKind::TestRemoved => "integrity.test-removed",
         IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
+        IntegrityKind::SuppressionAdded => "integrity.suppression-added",
     }
 }
 
@@ -698,7 +702,8 @@ fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
         IntegrityKind::TestFocused => ConfidenceTier::DefinitelySensitive,
         IntegrityKind::TestSkipped
         | IntegrityKind::TestRemoved
-        | IntegrityKind::AssertionsRemoved => ConfidenceTier::MaybeSensitive,
+        | IntegrityKind::AssertionsRemoved
+        | IntegrityKind::SuppressionAdded => ConfidenceTier::MaybeSensitive,
     }
 }
 
@@ -708,6 +713,7 @@ fn integrity_headline(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestSkipped => "test skipped",
         IntegrityKind::TestRemoved => "test removed",
         IntegrityKind::AssertionsRemoved => "assertions removed",
+        IntegrityKind::SuppressionAdded => "suppression added",
     }
 }
 

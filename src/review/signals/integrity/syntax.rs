@@ -148,6 +148,50 @@ fn has_named_child_of(node: Node<'_>, kinds: &[&str]) -> bool {
         .any(|child| kinds.contains(&child.kind()))
 }
 
+/// A suppression directive recognized inside comment text.
+pub(crate) struct Directive {
+    pub(crate) text: &'static str,
+    /// Whether rule names follow the directive (`noqa: E501`) and belong in
+    /// the label, rather than free-text explanation (`@ts-ignore: legacy`).
+    pub(crate) takes_rules: bool,
+}
+
+/// The suppression label a comment carries, if any. Directives are matched in
+/// order, so list longer spellings first (`eslint-disable-next-line` before
+/// `eslint-disable`).
+pub(crate) fn comment_suppression(
+    node: Node<'_>,
+    content: &str,
+    directives: &[Directive],
+) -> Option<String> {
+    let text = node.utf8_text(content.as_bytes()).ok()?;
+    for directive in directives {
+        let Some(start) = text.find(directive.text) else {
+            continue;
+        };
+        if !directive.takes_rules {
+            return Some(directive.text.to_string());
+        }
+        let rest = text[start + directive.text.len()..]
+            .trim_end_matches("*/")
+            .split(" -- ")
+            .next()
+            .unwrap_or_default()
+            .trim();
+        let separator = if rest.starts_with([':', '[', '=', '(']) {
+            ""
+        } else {
+            " "
+        };
+        return Some(if rest.is_empty() {
+            directive.text.to_string()
+        } else {
+            bounded(&format!("{}{separator}{rest}", directive.text))
+        });
+    }
+    None
+}
+
 /// Truncates on a character boundary so reported text stays short.
 pub(crate) fn bounded(text: &str) -> String {
     let text = text.trim().replace('\n', " ");
