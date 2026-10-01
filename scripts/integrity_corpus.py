@@ -10,7 +10,8 @@ from tests/integrity/labels.toml.
     python3 scripts/integrity_corpus.py sample   # needs `gh` auth; writes manifest
     python3 scripts/integrity_corpus.py fetch    # caches patches for the manifest
     python3 scripts/integrity_corpus.py show ID  # test/gate hunks for labeling
-    python3 scripts/integrity_corpus.py report   # prevalence with Wilson intervals
+    python3 scripts/integrity_corpus.py evaluate # run a RepoPilot build per PR
+    python3 scripts/integrity_corpus.py report   # prevalence and catches, Wilson intervals
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import integrity_corpus_eval as evaluation
 import integrity_corpus_github as gh
 import integrity_corpus_report as report
 from integrity_corpus_paths import is_gate_file, is_test_file
@@ -42,6 +44,7 @@ AGENT_QUERIES = {
 MIN_STARS = 100
 MAX_FILES = 60
 PER_REPO = 2
+SHOW_LINES = 160
 STATUS = {"ADDED": "added", "DELETED": "removed", "MODIFIED": "modified", "RENAMED": "renamed", "COPIED": "added", "CHANGED": "modified"}
 
 
@@ -181,7 +184,10 @@ def show(corpus_id: str) -> None:
     print(f"# changed files: {len(data['all_files'])}; non-test: " + ", ".join(f for f in data["all_files"] if not any(f == k["filename"] for k in data["files"]))[:600])
     for f in data["files"]:
         print(f"\n## {f['status']} {f['filename']} (+{f['additions']} -{f['deletions']})")
-        print(f.get("patch") or "(patch unavailable: file too large)")
+        patch = (f.get("patch") or "(patch unavailable: file too large)").splitlines()
+        print("\n".join(patch[:SHOW_LINES]))
+        if len(patch) > SHOW_LINES:
+            print(f"... ({len(patch) - SHOW_LINES} more patch lines not shown)")
 
 
 def main() -> None:
@@ -193,6 +199,8 @@ def main() -> None:
     sh = sub.add_parser("show")
     sh.add_argument("id")
     sub.add_parser("report")
+    ev = sub.add_parser("evaluate")
+    ev.add_argument("--bin", type=Path, default=REPO_ROOT / "target" / "release" / "repopilot")
     args = parser.parse_args()
     if args.cmd == "sample":
         sample(args.per_agent)
@@ -200,8 +208,14 @@ def main() -> None:
         fetch()
     elif args.cmd == "show":
         show(args.id)
+    elif args.cmd == "evaluate":
+        evaluation.evaluate(load_manifest(), CACHE, args.bin)
     else:
-        print(report.render(load_manifest(), tomllib.loads(LABELS.read_text()) if LABELS.exists() else {}))
+        results = {
+            path.stem: json.loads(path.read_text()) for path in sorted((CACHE / "results").glob("*.json"))
+        }
+        labels = tomllib.loads(LABELS.read_text()) if LABELS.exists() else {}
+        print(report.render(load_manifest(), labels, results))
 
 
 if __name__ == "__main__":

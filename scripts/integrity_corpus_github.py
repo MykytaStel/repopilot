@@ -107,5 +107,21 @@ def pr_meta(repo: str, number: int) -> dict:
     return api(f"repos/{repo}/pulls/{number}")
 
 
+def raw_file(repo: str, path: str, ref: str) -> bytes | None:
+    """A file's bytes at `ref`, or `None` when it does not exist there."""
+    for attempt in range(4):
+        result = subprocess.run(
+            ["gh", "api", "-H", "Accept: application/vnd.github.raw", f"repos/{repo}/contents/{path}?ref={ref}"],
+            capture_output=True,
+        )
+        if result.returncode == 0:
+            return result.stdout
+        error = result.stderr.decode(errors="replace").lower()
+        if "404" in error or "not found" in error or "too large" in error:
+            return None
+        time.sleep(15 * (attempt + 1))
+    return None
+
+
 def has_agent_marker(body: str) -> bool:
     return bool(AGENT_MARKER.search(body))

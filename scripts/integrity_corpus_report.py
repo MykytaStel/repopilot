@@ -16,6 +16,14 @@ KINDS = (
     "gate-relaxed",
 )
 VERDICTS = ("weakened", "justified", "none")
+# Which labeled kinds each RepoPilot signal is meant to catch.
+SIGNAL_KINDS = {
+    "integrity.test-focused": ("focus-added",),
+    "integrity.test-skipped": ("skip-added",),
+    "integrity.test-removed": ("test-removed", "test-substituted"),
+    "integrity.assertions-removed": ("assertion-removed", "assertion-trivialized"),
+    "integrity.suppression-added": ("suppression-added",),
+}
 
 
 def wilson(hits: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -34,7 +42,7 @@ def fmt(hits: int, n: int) -> str:
     return f"{hits}/{n} ({pct:.1f}%, 95% CI {100 * lo:.1f}–{100 * hi:.1f}%)"
 
 
-def render(manifest: list[dict], labels: dict) -> str:
+def render(manifest: list[dict], labels: dict, results: dict[str, dict] | None = None) -> str:
     by_id = {entry["id"]: entry for entry in labels.get("label", [])}
     meta = labels.get("meta", {})
     lines = [
@@ -64,4 +72,34 @@ def render(manifest: list[dict], labels: dict) -> str:
         lines.append(f"| {verdict} | {cells[0]} | {cells[1]} |")
     unlabeled = [e["id"] for e in manifest if e["id"] not in by_id]
     lines += ["", f"Unlabeled: {len(unlabeled)} of {len(manifest)}."]
+    if results:
+        lines += catches(manifest, by_id, results)
     return "\n".join(lines)
+
+
+def catches(manifest: list[dict], by_id: dict, results: dict[str, dict]) -> list[str]:
+    """PR-level agreement between labels and RepoPilot signals."""
+    scored = [e for e in manifest if e["id"] in by_id and e["id"] in results]
+    binaries = sorted({results[e["id"]].get("binary", "?") for e in scored})
+    lines = [
+        "",
+        "## RepoPilot catches",
+        "",
+        f"PRs with both labels and results: {len(scored)}. Binary: {', '.join(binaries)}.",
+        "A PR counts once per signal kind, whatever the number of occurrences.",
+        "",
+        "| Signal | caught | missed | false alarm | precision | recall |",
+        "|---|---|---|---|---|---|",
+    ]
+    for signal, kinds in SIGNAL_KINDS.items():
+        tp = fn = fp = 0
+        for entry in scored:
+            labeled = any(kind in by_id[entry["id"]].get("kinds", []) for kind in kinds)
+            fired = any(s["kind"] == signal for s in results[entry["id"]]["signals"])
+            tp += labeled and fired
+            fn += labeled and not fired
+            fp += fired and not labeled
+        precision = fmt(tp, tp + fp) if tp + fp else "n/a"
+        recall = fmt(tp, tp + fn) if tp + fn else "n/a"
+        lines.append(f"| `{signal}` | {tp} | {fn} | {fp} | {precision} | {recall} |")
+    return lines
