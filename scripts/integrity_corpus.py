@@ -285,6 +285,7 @@ def main() -> None:
     sub.add_parser("report")
     ev = sub.add_parser("evaluate")
     ev.add_argument("--bin", type=Path, default=REPO_ROOT / "target" / "release" / "repopilot")
+    ev.add_argument("--prefix", default="", help="only ids starting with this, e.g. ih- (keeps unlabeled splits blind)")
     args = parser.parse_args()
     if args.cmd == "sample" and args.closed:
         import integrity_corpus_closed
@@ -299,7 +300,7 @@ def main() -> None:
             show(corpus_id, compact=args.compact)
             print()
     elif args.cmd == "evaluate":
-        evaluation.evaluate(load_manifest(), CACHE, args.bin)
+        evaluation.evaluate([e for e in load_manifest() if e["id"].startswith(args.prefix)], CACHE, args.bin)
     else:
         results = {
             path.stem: json.loads(path.read_text()) for path in sorted((CACHE / "results").glob("*.json"))

@@ -1791,3 +1791,375 @@ id = "ih-098"
 kinds = []
 verdict = "none"
 note = "keyboard dismiss option passed to the device"
+
+[[label]]
+id = "icc-001"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-002"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-003"
+kinds = []
+verdict = "none"
+note = "new coin package with its own tests and configs"
+
+[[label]]
+id = "icc-004"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "converter output changed for static refs; expected Rust outputs regenerated and the static_mut_refs allowance removed"
+
+[[label]]
+id = "icc-005"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-006"
+kinds = []
+verdict = "none"
+note = "fake module kept patched during the call; same assertions"
+
+[[label]]
+id = "icc-007"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-008"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "weekly usage line added; credits line expectation moves down"
+
+[[label]]
+id = "icc-009"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-010"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "pragma no cover on a defensive return in the perpetual services module"
+
+[[label]]
+id = "icc-011"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "rank headers removed; renamed test checks one client per URL without the header"
+
+[[label]]
+id = "icc-012"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-013"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-014"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-015"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-016"
+kinds = ["test-substituted"]
+verdict = "justified"
+note = "deprecated issue_field_configurations stream removed; its test now covers the field_schemes replacement"
+
+[[label]]
+id = "icc-017"
+kinds = ["test-substituted"]
+verdict = "justified"
+note = "proxy handling moved from env mutation to getproxies(); env-based tests replaced, env-restore test dropped with the mechanism"
+
+[[label]]
+id = "icc-018"
+kinds = ["assertion-trivialized"]
+verdict = "weakened"
+note = "\"run calls addJs and addCss\" test replaces run() with its own implementation, so it no longer exercises the real method; unrelated to the triage title"
+
+[[label]]
+id = "icc-019"
+kinds = ["test-substituted"]
+verdict = "justified"
+note = "not.toThrow snackbar tests replaced by tests that check active-class state, stronger than before"
+
+[[label]]
+id = "icc-020"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "new palette entry raises the count from 14 to 15"
+
+[[label]]
+id = "icc-021"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-022"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-023"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-024"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-025"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-026"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "generated fixture tests carry allow(unused_variables, unreachable_code)"
+
+[[label]]
+id = "icc-027"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "enhanced proxy no longer reported as stealth; helper expectation split"
+
+[[label]]
+id = "icc-028"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-029"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "exact result match loosened to a partial match because a reflect payload was added; specific endpoint checks added"
+
+[[label]]
+id = "icc-030"
+kinds = []
+verdict = "none"
+note = "benchmark workflow gains a credential preflight; runs without credentials are reported as skipped"
+
+[[label]]
+id = "icc-031"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-032"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-033"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-034"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-035"
+kinds = []
+verdict = "none"
+note = "new e2e checks only"
+
+[[label]]
+id = "icc-036"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-037"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-038"
+kinds = []
+verdict = "none"
+note = "new test; formatting"
+
+[[label]]
+id = "icc-039"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-040"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "PR-comment heading drops the commit SHA by design; test inverted accordingly"
+
+[[label]]
+id = "icc-041"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-042"
+kinds = []
+verdict = "none"
+note = "patient setup retried on a known backend error; retries disabled in config"
+
+[[label]]
+id = "icc-043"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "CDP port no longer disclosed without a token; expectations follow the fix"
+
+[[label]]
+id = "icc-044"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-045"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-046"
+kinds = []
+verdict = "none"
+note = "semicolons added"
+
+[[label]]
+id = "icc-047"
+kinds = []
+verdict = "none"
+note = "semicolons added"
+
+[[label]]
+id = "icc-048"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-049"
+kinds = []
+verdict = "none"
+note = "test casts widened for a typed usage field"
+
+[[label]]
+id = "icc-050"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-051"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-052"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-053"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "start_after-before-prefix validation removed by design; renamed test now expects success"
+
+[[label]]
+id = "icc-054"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-055"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-056"
+kinds = []
+verdict = "none"
+note = "prefill perf cases split into 5k and 25k variants with new baselines"
+
+[[label]]
+id = "icc-057"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "legacy packages removed together with their tests and lint config"
+
+[[label]]
+id = "icc-058"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "legacy packages removed together with their tests and lint config; CI workflow and new tests added"
+
+[[label]]
+id = "icc-059"
+kinds = ["test-removed", "test-substituted"]
+verdict = "weakened"
+note = "Alertmanager secret upgrade and ownership tests (including keep-user-modified-config) replaced by webhook rendering checks; the alerts-page title does not explain dropping them"
+
+[[label]]
+id = "icc-060"
+kinds = []
+verdict = "none"
+note = "import path follows a component split"
+
+[[label]]
+id = "icc-061"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "icc-062"
+kinds = []
+verdict = "none"
+note = "new tests only"
