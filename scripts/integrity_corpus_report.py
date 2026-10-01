@@ -43,16 +43,33 @@ def fmt(hits: int, n: int) -> str:
     return f"{hits}/{n} ({pct:.1f}%, 95% CI {100 * lo:.1f}–{100 * hi:.1f}%)"
 
 
+# Corpus splits by id prefix: title and what the denominator is.
+SPLITS = (
+    ("ic-", "Development corpus", "merged, approved PRs (2026-06-01..09-28); detectors were tuned on it after the first evaluation"),
+    ("ih-", "Held-out corpus", "merged, approved PRs (2026-03-01..05-31), sampled and labeled after tuning and evaluated once"),
+    ("icc-", "Closed agent PRs", "agent PRs closed without merge after discussion (2026-06-01..09-28)"),
+)
+
+
 def render(manifest: list[dict], labels: dict, results: dict[str, dict] | None = None) -> str:
     by_id = {entry["id"]: entry for entry in labels.get("label", [])}
     meta = labels.get("meta", {})
     lines = [
-        "# Integrity corpus — prevalence",
+        "# Integrity corpus",
         "",
         f"Labeler: {meta.get('labeler', 'unrecorded')}. Status: {meta.get('status', 'exploratory')}.",
-        "Denominator: labeled merged PRs that modify or remove at least one test file.",
-        "",
+        "Every PR modifies or removes at least one test file.",
     ]
+    for prefix, title, scope in SPLITS:
+        entries = [e for e in manifest if e["id"].startswith(prefix)]
+        if entries:
+            lines += ["", f"## {title}", "", f"Denominator: {scope}."]
+            lines += section(entries, by_id, results)
+    return "\n".join(lines)
+
+
+def section(manifest: list[dict], by_id: dict, results: dict[str, dict] | None) -> list[str]:
+    lines = [""]
     names = [g for g in ("agent", "human", "agent-closed") if any(e["group"] == g for e in manifest)]
     lines += ["| Kind | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
     groups = {g: [e for e in manifest if e["group"] == g and e["id"] in by_id] for g in names}
@@ -73,18 +90,19 @@ def render(manifest: list[dict], labels: dict, results: dict[str, dict] | None =
         lines.append(f"| {verdict} | " + " | ".join(cells) + " |")
     unlabeled = [e["id"] for e in manifest if e["id"] not in by_id]
     lines += ["", f"Unlabeled: {len(unlabeled)} of {len(manifest)}."]
-    if results:
+    if results and any(e["id"] in results for e in manifest):
         lines += catches(manifest, by_id, results, "blind labels")
         reconciled = {
             corpus_id: {**label, "kinds": label.get("reconciled_kinds", label.get("kinds", []))}
             for corpus_id, label in by_id.items()
         }
-        changed = [corpus_id for corpus_id, label in by_id.items() if "reconciled_kinds" in label]
+        ids = {e["id"] for e in manifest}
+        changed = [corpus_id for corpus_id, label in by_id.items() if "reconciled_kinds" in label and corpus_id in ids]
         if changed:
             lines += catches(manifest, reconciled, results, f"labels with {len(changed)} view-gap reconciliation(s)")
             lines += ["", "Reconciled after evaluation (labeling view did not show the evidence):"]
             lines += [f"- {corpus_id}: {by_id[corpus_id].get('reconciliation', '')}" for corpus_id in sorted(changed)]
-    return "\n".join(lines)
+    return lines
 
 
 def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: str) -> list[str]:
@@ -93,7 +111,7 @@ def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: 
     binaries = sorted({results[e["id"]].get("binary", "?") for e in scored})
     lines = [
         "",
-        f"## RepoPilot catches ({title})",
+        f"### RepoPilot catches ({title})",
         "",
         f"PRs with both labels and results: {len(scored)}. Binary: {', '.join(binaries)}.",
         "A PR counts once per signal kind, whatever the number of occurrences.",
