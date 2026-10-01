@@ -1203,3 +1203,591 @@ id = "ic-198"
 kinds = ["test-substituted", "expectation-rewritten"]
 verdict = "justified"
 note = "locate result key renamed to bbox_2d; alias tests replaced by parametrized ones"
+
+[[label]]
+id = "ih-001"
+kinds = []
+verdict = "none"
+note = "stronger alert assertions added for sync errors"
+
+[[label]]
+id = "ih-002"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "DSN query params no longer URL-encoded; expectations follow the fix"
+
+[[label]]
+id = "ih-003"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "loading text replaced by a spinner; renamed test checks the button instead of the text"
+
+[[label]]
+id = "ih-004"
+kinds = []
+verdict = "none"
+note = "assertions decode the new byte format; same expected values plus shape checks"
+
+[[label]]
+id = "ih-005"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "crash-recovery tests moved to test_env_server.py with new cancellation tests; type: ignore on a mocked handler there"
+
+[[label]]
+id = "ih-006"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-007"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-008"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "disjoint cache-token accounting changes prompt token expectations"
+
+[[label]]
+id = "ih-009"
+kinds = []
+verdict = "none"
+note = "new tests; connector version bump"
+
+[[label]]
+id = "ih-010"
+kinds = []
+verdict = "none"
+note = "new tests; connector version bump"
+
+[[label]]
+id = "ih-011"
+kinds = []
+verdict = "none"
+note = "name check strengthened to identity; new regression test"
+
+[[label]]
+id = "ih-012"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "type: ignore on a dynamically built Optional annotation in api base.py"
+
+[[label]]
+id = "ih-013"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-014"
+kinds = []
+verdict = "none"
+note = "domain assertions added"
+
+[[label]]
+id = "ih-015"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-016"
+kinds = []
+verdict = "none"
+note = "test seeder refactor and new CI setup steps"
+
+[[label]]
+id = "ih-017"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-018"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "new warehouse CI jobs; type: ignore in a new seeder helper; dremio test excludes apply to a newly added target"
+
+[[label]]
+id = "ih-019"
+kinds = ["test-substituted", "expectation-rewritten", "suppression-added"]
+verdict = "justified"
+note = "Accept validation relaxed by design with opt-in strict mode; reject tests replaced; eslint bulk suppression count 41 to 42"
+
+[[label]]
+id = "ih-020"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-021"
+kinds = []
+verdict = "none"
+note = "config fixture gains new field"
+
+[[label]]
+id = "ih-022"
+kinds = []
+verdict = "none"
+note = "template notebook tests added; stub refactor"
+
+[[label]]
+id = "ih-023"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-024"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-025"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-026"
+kinds = []
+verdict = "none"
+note = "latency breakdown tests added; existing test kept"
+
+[[label]]
+id = "ih-027"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "flaky headless-Chrome fix: focus preconditions replaced by activeElement stubs, dropping their assertions"
+
+[[label]]
+id = "ih-028"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-029"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-030"
+kinds = []
+verdict = "none"
+note = "Jest 30 upgrade; location mock removed and links checked against the real origin"
+
+[[label]]
+id = "ih-031"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-032"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-033"
+kinds = []
+verdict = "none"
+note = "chunkify parameter passed through"
+
+[[label]]
+id = "ih-034"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-035"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-036"
+kinds = []
+verdict = "none"
+note = "flaky timing test: job sleep and wait bound scaled together"
+
+[[label]]
+id = "ih-037"
+kinds = []
+verdict = "none"
+note = "mock added to stop a CI flake"
+
+[[label]]
+id = "ih-038"
+kinds = []
+verdict = "none"
+note = "experimental frontmatter flag renamed to status; same opt-in rule"
+
+[[label]]
+id = "ih-039"
+kinds = []
+verdict = "none"
+note = "pickle tests opt in to the new insecure-serialization flag"
+
+[[label]]
+id = "ih-040"
+kinds = []
+verdict = "none"
+note = "config field rename"
+
+[[label]]
+id = "ih-041"
+kinds = []
+verdict = "none"
+note = "version tests added"
+
+[[label]]
+id = "ih-042"
+kinds = []
+verdict = "none"
+note = "agent variable extracted; same calls"
+
+[[label]]
+id = "ih-043"
+kinds = ["assertion-removed"]
+verdict = "justified"
+note = "shared auto-test helper drops preview-page checks; grade/save button checks move into grading-method tests, as the title says"
+
+[[label]]
+id = "ih-044"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-045"
+kinds = []
+verdict = "none"
+note = "settings passed by string key"
+
+[[label]]
+id = "ih-046"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-047"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-048"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "shared wandb name now propagates and offline default flips; expectations follow"
+
+[[label]]
+id = "ih-049"
+kinds = []
+verdict = "none"
+note = "endpoint config extracted; MCP setup script checks added"
+
+[[label]]
+id = "ih-050"
+kinds = []
+verdict = "none"
+note = "delete retry tests added; existing failure test kept"
+
+[[label]]
+id = "ih-051"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "duration sync now deferred after commit; callback expectation updated"
+
+[[label]]
+id = "ih-052"
+kinds = ["test-substituted", "assertion-removed"]
+verdict = "justified"
+note = "MCP tool namespaces removed: namespace mapping tests become registration checks and namespace disjointness asserts go"
+
+[[label]]
+id = "ih-053"
+kinds = []
+verdict = "none"
+note = "mock server takes a typed Responses request"
+
+[[label]]
+id = "ih-054"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-055"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "connector now sends a default OAuth scope; renamed test expects it"
+
+[[label]]
+id = "ih-056"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "deferrable timeout handling fixed; test split into with/without-timeout cases with exact deadlines"
+
+[[label]]
+id = "ih-057"
+kinds = []
+verdict = "none"
+note = "log-access tests renamed and parametrized over Airflow versions; same check plus 2.x"
+
+[[label]]
+id = "ih-058"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-059"
+kinds = []
+verdict = "none"
+note = "client option renamed in integration tests"
+
+[[label]]
+id = "ih-060"
+kinds = []
+verdict = "none"
+note = "return type annotations on tests"
+
+[[label]]
+id = "ih-061"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "missing contract now returns 200 with empty schema list instead of 404"
+
+[[label]]
+id = "ih-062"
+kinds = []
+verdict = "none"
+note = "new subtest only"
+
+[[label]]
+id = "ih-063"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-064"
+kinds = []
+verdict = "none"
+note = "table block assertions added"
+
+[[label]]
+id = "ih-065"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-066"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-067"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-068"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-069"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-070"
+kinds = ["gate-relaxed"]
+verdict = "weakened"
+note = "CI restructured into a test matrix; the macOS workflow's only yarn lint step is dropped without a stated reason"
+
+[[label]]
+id = "ih-071"
+kinds = []
+verdict = "none"
+note = "undefined guards added before kit assertions"
+
+[[label]]
+id = "ih-072"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-073"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-074"
+kinds = ["test-removed"]
+verdict = "justified"
+note = "obsolete LongForm renderer removed together with its formatting tests"
+
+[[label]]
+id = "ih-075"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "dumbbell series strategy replaced by a mode; expectation follows"
+
+[[label]]
+id = "ih-076"
+kinds = []
+verdict = "none"
+note = "worker API renamed (add_workers, attach awaited); renamed tests keep their checks"
+
+[[label]]
+id = "ih-077"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "noqa BLE001 with stated best-effort reasons in the new VAD analyzer; noqa E402 on moved mocks import"
+
+[[label]]
+id = "ih-078"
+kinds = ["test-substituted", "expectation-rewritten"]
+verdict = "justified"
+note = "popover width fix: renamed test checks visibility and position reset instead of auto width"
+
+[[label]]
+id = "ih-079"
+kinds = ["test-substituted"]
+verdict = "justified"
+note = "helper pipe replaced by a shared parser; its cases re-tested on the page header, null-content case dropped"
+
+[[label]]
+id = "ih-080"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-081"
+kinds = ["suppression-added"]
+verdict = "justified"
+note = "eslint-disable for an intentional redundant list role"
+
+[[label]]
+id = "ih-082"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "language tag validation per subtag; error message expectation follows"
+
+[[label]]
+id = "ih-083"
+kinds = ["assertion-trivialized"]
+verdict = "weakened"
+note = "modal close test unmounts the component before asserting its text is gone, so the check cannot fail"
+
+[[label]]
+id = "ih-084"
+kinds = ["assertion-removed"]
+verdict = "weakened"
+note = "thank-you link became a button; renamed test says it navigates but no longer checks the destination"
+
+[[label]]
+id = "ih-085"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-086"
+kinds = []
+verdict = "none"
+note = "reasoning effort field added to fixtures and tests"
+
+[[label]]
+id = "ih-087"
+kinds = ["skip-added"]
+verdict = "justified"
+note = "decred signing tests now also skipped on Bitcoin-only builds, as the title says"
+
+[[label]]
+id = "ih-088"
+kinds = []
+verdict = "none"
+note = "new test case only"
+
+[[label]]
+id = "ih-089"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "plugin installs routed through the download proxy; URL expectation follows"
+
+[[label]]
+id = "ih-090"
+kinds = ["expectation-rewritten"]
+verdict = "justified"
+note = "new network metrics topic raises the registered topic count from 4 to 5"
+
+[[label]]
+id = "ih-091"
+kinds = []
+verdict = "none"
+note = "new test cases only"
+
+[[label]]
+id = "ih-092"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-093"
+kinds = []
+verdict = "none"
+note = "new tests only"
+
+[[label]]
+id = "ih-094"
+kinds = []
+verdict = "none"
+note = "fuzzing fixtures use valid structural tags; new validation tests"
+
+[[label]]
+id = "ih-095"
+kinds = []
+verdict = "none"
+note = "JSON parser renamed; new preservation tests"
+
+[[label]]
+id = "ih-096"
+kinds = []
+verdict = "none"
+note = "memory stress tests reformatted with the same assertions"
+
+[[label]]
+id = "ih-097"
+kinds = []
+verdict = "none"
+note = "example test setup moved into a shared context"
+
+[[label]]
+id = "ih-098"
+kinds = []
+verdict = "none"
+note = "keyboard dismiss option passed to the device"

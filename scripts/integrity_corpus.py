@@ -183,9 +183,34 @@ def fetch() -> None:
         files = gh.pr_files(entry["repo"], entry["number"])
         meta = gh.pr_meta(entry["repo"], entry["number"])
         keep = [f for f in files if is_test_file(f) or is_gate_file(f["filename"])]
-        path.write_text(json.dumps({"title": meta["title"], "files": keep, "all_files": [f["filename"] for f in files]}))
+        suppressions = [
+            {"file": f["filename"], "line": line[1:].strip()[:200]}
+            for f in files
+            if f not in keep
+            for line in (f.get("patch") or "").splitlines()
+            if line.startswith("+") and not line.startswith("+++") and SUPPRESSION_VOCABULARY.search(line)
+        ]
+        path.write_text(
+            json.dumps(
+                {
+                    "title": meta["title"],
+                    "files": keep,
+                    "all_files": [f["filename"] for f in files],
+                    "source_suppressions": suppressions,
+                }
+            )
+        )
         print(f"cached {entry['id']}", file=sys.stderr)
 
+
+# Added lines in files outside the labeling view that look like a lint, type,
+# or coverage suppression; shown so suppression-added labels cover every file.
+SUPPRESSION_VOCABULARY = re.compile(
+    r"noqa|nolint|eslint-disable|ts-ignore|ts-expect-error|ts-nocheck|type:\s*ignore|pragma:\s*no cover"
+    r"|pylint:\s*disable|mypy:|pyright:\s*ignore|#!?\[(allow|expect)\(|biome-ignore|tslint:disable"
+    r"|istanbul ignore|c8 ignore|NOSONAR|@SuppressWarnings|nosec|lint:ignore",
+    re.IGNORECASE,
+)
 
 ADDITIVE_VOCABULARY = re.compile(
     r"skip|\.only|fit\(|fdescribe|xfail|xit\(|todo|ignore|noqa|nolint|eslint-disable|ts-expect|ts-nocheck"
@@ -202,6 +227,11 @@ def show(corpus_id: str, compact: bool = False) -> None:
     print(f"# {corpus_id} [{entry['group']}/{entry['agent']}] {entry['repo']}#{entry['number']} — {data['title']}")
     others = [f for f in data["all_files"] if not any(f == k["filename"] for k in data["files"])]
     print(f"# other changed files ({len(others)}): " + ", ".join(others)[:400])
+    if "source_suppressions" in data:
+        found = data["source_suppressions"]
+        print(f"# added suppression-like lines in other files: {len(found)}")
+        for item in found[:20]:
+            print(f"#   {item['file']}: {item['line']}")
     for f in data["files"]:
         print(f"## {f['status']} {f['filename']} (+{f['additions']} -{f['deletions']})")
         patch = (f.get("patch") or "(patch unavailable: file too large)").splitlines()
