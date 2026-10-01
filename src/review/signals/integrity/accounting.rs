@@ -13,7 +13,6 @@
 
 use super::helpers::{self, Body};
 use super::{FileEvidence, IntegrityKind, IntegritySignal};
-use crate::review::signals::tables::IntegrityTables;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -36,22 +35,21 @@ pub(super) struct TestFacts {
 }
 
 impl TestFacts {
-    pub(super) fn of(
-        node: Node<'_>,
-        content: &str,
-        tables: &IntegrityTables,
-        name: String,
-    ) -> Self {
+    /// A test whose body the scan pass fills through `body_mut`.
+    pub(super) fn of(node: Node<'_>, content: &str, name: String) -> Self {
         let text = node.utf8_text(content.as_bytes()).unwrap_or_default();
-        let body = helpers::survey(node, content, tables);
         Self {
             line: node.start_position().row + 1,
-            assertions: body.assertions,
-            looped: body.looped,
-            body,
+            body: Body::default(),
+            assertions: 0,
+            looped: false,
             tokens: body_tokens(text, &name),
             name,
         }
+    }
+
+    pub(super) fn body_mut(&mut self) -> &mut Body {
+        &mut self.body
     }
 
     /// Folds in the assertions of the same-file helpers this test calls.

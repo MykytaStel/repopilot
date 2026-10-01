@@ -3,8 +3,7 @@
 //! the `expect(...)`/`assert(...)` assertion shapes.
 
 use crate::review::signals::integrity::syntax::{
-    Directive, all_arguments_literal, any_argument_string, comment_suppression, compact_text,
-    first_argument_string, is_literal,
+    all_arguments_literal, any_argument_string, compact_text, first_argument_string, is_literal,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -15,7 +14,7 @@ pub(super) static JS_FAMILY_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
-    suppression,
+    suppression: super::integrity_suppressions::suppression,
 };
 
 const TEST_BASES: &[&str] = &["it", "test", "describe", "context", "suite", "specify"];
@@ -36,6 +35,14 @@ const RUNTIME_SKIPS: &[&str] = &["this.skip", "ctx.skip"];
 
 fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
     if node.kind() != "call_expression" {
+        return None;
+    }
+    let root = chain_root(node, content)?;
+    if !(TEST_BASES.contains(&root)
+        || FOCUSED_BASES.contains(&root)
+        || EXCLUDED_BASES.contains(&root)
+        || matches!(root, "this" | "ctx"))
+    {
         return None;
     }
     let callee = node.child_by_field_name("function")?;
@@ -97,6 +104,8 @@ fn enclosing_test_name(node: Node<'_>, content: &str) -> Option<String> {
     let mut current = node.parent();
     while let Some(candidate) = current {
         if candidate.kind() == "call_expression"
+            && chain_root(candidate, content)
+                .is_some_and(|root| TEST_BASES.contains(&root) || FOCUSED_BASES.contains(&root))
             && let Some(callee) = candidate.child_by_field_name("function")
             && let Some(text) = compact_text(callee, content)
             && text
@@ -139,7 +148,9 @@ const CASE_MODIFIERS: &[&str] = &[
 ];
 
 fn test_case<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
-    if node.kind() != "call_expression" {
+    if node.kind() != "call_expression"
+        || !chain_root(node, content).is_some_and(|root| CASE_BASES.contains(&root))
+    {
         return None;
     }
     let callee = compact_text(node.child_by_field_name("function")?, content)?;
@@ -165,6 +176,10 @@ fn test_case<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
 
 /// The title of a `describe`-like group call (`describe`, `test.describe`).
 fn group_name(node: Node<'_>, content: &str) -> Option<String> {
+    if !chain_root(node, content).is_some_and(|root| GROUP_BASES.contains(&root) || root == "test")
+    {
+        return None;
+    }
     let callee = compact_text(node.child_by_field_name("function")?, content)?;
     let mut segments = callee.split('.');
     let base = segments.next()?;
@@ -182,6 +197,14 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
     let Some(function) = node.child_by_field_name("function") else {
         return false;
     };
+    let may_assert = chain_root(node, content)
+        .is_some_and(|root| matches!(root, "expect" | "assert"))
+        || function
+            .utf8_text(content.as_bytes())
+            .is_ok_and(|text| text.contains("should"));
+    if !may_assert {
+        return false;
+    }
     let Some(callee) = compact_text(function, content) else {
         return false;
     };
@@ -196,6 +219,21 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
         return arguments.is_none_or(|arguments| !all_arguments_literal(arguments));
     }
     false
+}
+
+/// The identifier a call chain starts from: `it` in `it.only(...)`, `expect` in
+/// `expect(x).toBe(y)`, `describe` in `describe.each(t)(...)`. Recognizers check
+/// it before copying the callee text, which most calls never need.
+fn chain_root<'a>(call: Node<'a>, content: &'a str) -> Option<&'a str> {
+    let mut current = call.child_by_field_name("function")?;
+    loop {
+        match current.kind() {
+            "identifier" | "this" => return current.utf8_text(content.as_bytes()).ok(),
+            "member_expression" => current = current.child_by_field_name("object")?,
+            "call_expression" => current = current.child_by_field_name("function")?,
+            _ => return None,
+        }
+    }
 }
 
 /// The single argument of the `expect(...)` call at the root of a matcher chain.
@@ -214,51 +252,4 @@ fn expect_subject(function: Node<'_>) -> Option<Node<'_>> {
             _ => return None,
         }
     }
-}
-
-const SUPPRESSIONS: &[Directive] = &[
-    Directive {
-        text: "@ts-ignore",
-        takes_rules: false,
-    },
-    Directive {
-        text: "@ts-expect-error",
-        takes_rules: false,
-    },
-    Directive {
-        text: "@ts-nocheck",
-        takes_rules: false,
-    },
-    Directive {
-        text: "eslint-disable-next-line",
-        takes_rules: true,
-    },
-    Directive {
-        text: "eslint-disable-line",
-        takes_rules: true,
-    },
-    Directive {
-        text: "eslint-disable",
-        takes_rules: true,
-    },
-    Directive {
-        text: "biome-ignore",
-        takes_rules: true,
-    },
-    Directive {
-        text: "tslint:disable",
-        takes_rules: true,
-    },
-    Directive {
-        text: "istanbul ignore",
-        takes_rules: true,
-    },
-    Directive {
-        text: "c8 ignore",
-        takes_rules: true,
-    },
-];
-
-fn suppression<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
-    (node.kind() == "comment").then(|| comment_suppression(node, content, SUPPRESSIONS))?
 }

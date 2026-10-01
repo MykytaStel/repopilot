@@ -7,7 +7,7 @@
 //! statements, so the accounting does not compare it with its loop-free
 //! version.
 
-use crate::review::signals::tables::IntegrityTables;
+use super::syntax::for_each_node;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -33,7 +33,8 @@ const LOOP_KINDS: &[&str] = &[
 /// Methods that run their callback once per element.
 const ITERATING_CALLS: &[&str] = &["forEach", "for_each"];
 
-/// Assertions, loops and calls in one body, not counting nested test cases.
+/// Assertions, loops and calls in one test or helper body, not counting
+/// nested test cases; filled by the scan pass (`scan.rs`).
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(super) struct Body {
     pub(super) assertions: usize,
@@ -43,44 +44,48 @@ pub(super) struct Body {
     looped_calls: BTreeSet<String>,
 }
 
-pub(super) fn survey(node: Node<'_>, content: &str, tables: &IntegrityTables) -> Body {
-    let mut body = Body::default();
-    visit(node, content, tables, false, &mut body);
-    body
-}
+impl Body {
+    pub(super) fn add_assertion(&mut self, in_loop: bool) {
+        self.assertions += 1;
+        self.looped |= in_loop;
+    }
 
-fn visit(node: Node<'_>, content: &str, tables: &IntegrityTables, in_loop: bool, body: &mut Body) {
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        if (tables.test_case)(child, content).is_some() {
-            continue;
+    pub(super) fn add_call(&mut self, name: &str, in_loop: bool) {
+        *self.calls.entry(name.to_string()).or_default() += 1;
+        if in_loop {
+            self.looped_calls.insert(name.to_string());
         }
-        if (tables.is_assertion)(child, content) {
-            body.assertions += 1;
-            body.looped |= in_loop;
-        }
-        let callee = callee_name(child, content);
-        if let Some(name) = &callee {
-            *body.calls.entry(name.clone()).or_default() += 1;
-            if in_loop {
-                body.looped_calls.insert(name.clone());
-            }
-        }
-        let iterates = LOOP_KINDS.contains(&child.kind())
-            || callee.is_some_and(|name| ITERATING_CALLS.contains(&name.as_str()));
-        visit(child, content, tables, in_loop || iterates, body);
     }
 }
 
+/// Whether a node runs its body once per element: a loop statement, or a
+/// `forEach`-style call.
+pub(super) fn iterates(node: Node<'_>, callee: Option<&str>) -> bool {
+    LOOP_KINDS.contains(&node.kind()) || callee.is_some_and(|name| ITERATING_CALLS.contains(&name))
+}
+
 /// The last segment of a call's callee: `helper`, `self.helper`, `mod::helper`.
-fn callee_name(node: Node<'_>, content: &str) -> Option<String> {
+pub(super) fn callee_name<'a>(node: Node<'a>, content: &'a str) -> Option<&'a str> {
     if !CALL_KINDS.contains(&node.kind()) {
         return None;
     }
     let callee = node.child_by_field_name("function")?;
     let text = callee.utf8_text(content.as_bytes()).ok()?;
     let last = text.rsplit(['.', ':']).next()?.trim();
-    (!last.is_empty()).then(|| last.to_string())
+    (!last.is_empty()).then_some(last)
+}
+
+/// Names of every function defined in the tree, so surveys record only calls
+/// that can resolve to a same-file helper.
+pub(super) fn definition_names(root: Node<'_>, content: &str) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    for_each_node(root, |node, _| {
+        if let Some(name) = definition_name(node, content) {
+            names.insert(name);
+        }
+        true
+    });
+    names
 }
 
 /// The name of a function, method, or function-valued variable defined here.

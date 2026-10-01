@@ -203,3 +203,28 @@ pub(crate) fn bounded(text: &str) -> String {
         short
     }
 }
+
+/// Visits `root` and its descendants in preorder with one tree cursor, which
+/// is several times faster than recursing through `Node::children`. `enter`
+/// gets each node with its depth below `root` and returns whether to descend
+/// into it.
+pub(crate) fn for_each_node<'a>(root: Node<'a>, mut enter: impl FnMut(Node<'a>, usize) -> bool) {
+    let mut cursor = root.walk();
+    let mut depth = 0;
+    loop {
+        if enter(cursor.node(), depth) && cursor.goto_first_child() {
+            depth += 1;
+            continue;
+        }
+        loop {
+            if depth == 0 {
+                return;
+            }
+            if cursor.goto_next_sibling() {
+                break;
+            }
+            cursor.goto_parent();
+            depth -= 1;
+        }
+    }
+}

@@ -82,7 +82,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - **`review_timings.integrity_us`** reports the time integrity analysis took,
   as part of `review_signals_us`. The changed-review performance gate now also
   runs a 20-file change with skipped, renamed, and thinned-out tests and
-  requires a median under 1 s with integrity analysis at most 10% of it.
+  requires a median under 1 s with integrity analysis at most 10% of it. Integrity analysis scans each side of a file in one tree-cursor pass and
+  scans changed files in parallel, which cut its time on that workload from
+  about 27 ms to about 5 ms.
 
 ### Changed
 

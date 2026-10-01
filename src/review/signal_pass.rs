@@ -17,6 +17,7 @@ use crate::review::signals::api_contract::{self, ChangedReviewSources};
 use crate::review::signals::behavioral::{self, DependencyContext};
 use crate::review::signals::{BoundarySignal, algorithmic, classify, integrity, taint};
 use crate::scan::types::CouplingGraph;
+use rayon::prelude::*;
 use std::path::Path;
 use std::time::Instant;
 mod source_loading;
@@ -146,13 +147,14 @@ fn detect_file_signals(
 
 /// Integrity evidence is compared across the whole change, so a test moved
 /// from one changed file to another is not reported as skipped or removed.
+/// Files are scanned in parallel; the evidence keeps the changed-file order.
 fn detect_integrity(
     changed_files: &[ChangedFile],
     loaded_sources: &[LoadedReviewSources],
 ) -> Vec<integrity::IntegritySignal> {
     let markers = changed_files
-        .iter()
-        .zip(loaded_sources)
+        .par_iter()
+        .zip(loaded_sources.par_iter())
         .filter_map(|(file, sources)| {
             integrity::collect_file_evidence(file, sources.pre.as_ref(), sources.post.as_ref())
         })
