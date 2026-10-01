@@ -32,11 +32,12 @@ def evaluate(manifest: list[dict], cache: Path, binary: Path) -> None:
         if out.exists():
             continue
         changed = changed_files(cache, entry)
+        fork_point = merge_base(cache, entry)
         repo = cache / "repos" / entry["id"]
         if repo.exists():
             shutil.rmtree(repo)
         repo.mkdir(parents=True)
-        base, head = build_repo(repo, entry, changed)
+        base, head = build_repo(repo, entry, changed, fork_point)
         review = subprocess.run(
             [str(binary), "review", str(repo), "--base", base, "--head", head, "--format", "json"],
             capture_output=True,
@@ -53,9 +54,21 @@ def evaluate(manifest: list[dict], cache: Path, binary: Path) -> None:
             for signal in report.get("tiered_signals", {}).get(tier, [])
             if signal.get("kind", "").startswith(RECORDED)
         ]
-        out.write_text(json.dumps({"binary": version, "files": len(changed), "signals": signals}, indent=1))
+        out.write_text(
+            json.dumps({"binary": version, "base": fork_point, "files": len(changed), "signals": signals}, indent=1)
+        )
         shutil.rmtree(repo)
         print(f"{entry['id']}: {len(signals)} integrity signal(s)", file=sys.stderr, flush=True)
+
+
+def merge_base(cache: Path, entry: dict) -> str:
+    """The commit the PR diff is taken against. `base_sha` is the base branch
+    tip, which may include later upstream work the PR never touched."""
+    path = cache / f"{entry['id']}.merge-base"
+    if not path.exists():
+        compare = gh.api(f"repos/{entry['repo']}/compare/{entry['base_sha']}...{entry['head_sha']}")
+        path.write_text(compare["merge_base_commit"]["sha"])
+    return path.read_text().strip()
 
 
 def changed_files(cache: Path, entry: dict) -> list[dict]:
@@ -71,14 +84,14 @@ def changed_files(cache: Path, entry: dict) -> list[dict]:
     return json.loads(path.read_text())
 
 
-def build_repo(repo: Path, entry: dict, changed: list[dict]) -> tuple[str, str]:
+def build_repo(repo: Path, entry: dict, changed: list[dict], fork_point: str) -> tuple[str, str]:
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "corpus@repopilot.invalid")
     git(repo, "config", "user.name", "Integrity Corpus")
     for file in changed:
         before = file.get("previous_filename") or file["filename"]
         if file["status"] != "added":
-            write(repo / before, gh.raw_file(entry["repo"], before, entry["base_sha"]))
+            write(repo / before, gh.raw_file(entry["repo"], before, fork_point))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "--allow-empty", "-m", "base")
     base = git(repo, "rev-parse", "HEAD")

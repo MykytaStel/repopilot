@@ -63,4 +63,4 @@ docs/demos/*.log
 /.worktrees/
 
 # Integrity corpus patch cache (scripts/integrity_corpus.py fetch)
-/.integrity-corpus/
+/.integrity-corpus

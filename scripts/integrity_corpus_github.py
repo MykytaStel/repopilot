@@ -61,7 +61,7 @@ def graphql(query: str, **variables: str) -> dict:
         error = result.stderr.lower()
         transient = (
             "rate limit", "secondary", "http 50", "connection reset", "timeout", "timed out", "eof",
-            "tls", "no such host", "network is unreachable",
+            "tls", "no such host", "network is unreachable", "something went wrong", "502", "503",
         )
         if any(marker in error for marker in transient):
             time.sleep(60 * (attempt + 1))
