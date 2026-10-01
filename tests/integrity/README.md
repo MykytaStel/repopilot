@@ -73,6 +73,33 @@ avoids that vocabulary would be missed by the labeler as well.
   per agent). This split tests whether weakening is more common in changes
   that reviewers turned down.
 
+## Evaluation and reconciliation
+
+`integrity_corpus.py evaluate` rebuilds each PR as a two-commit repository,
+from the merge base to the head, and runs `repopilot review` on it. `report`
+writes [REPORT.md](REPORT.md) and the per-PR signal kinds in `results.json`, so
+the report regenerates without the gitignored cache. The development split was
+evaluated with commit `5ff13d16`. The held-out and closed splits were evaluated
+once, with commit `b061d06f`. Detection code is the same in both commits.
+
+Blind labels stay the primary table. A second table applies reconciliations.
+Each one is a label that missed evidence which is objectively in the PR, and is
+recorded in `reconciled_kinds` with its reason:
+
+- development: four suppressions in source files that the labeling view did
+  not show;
+- held-out: one suppression that was in the view but past the lines the
+  labeler read. After evaluation, every held-out and closed view was re-read in
+  full for kind vocabulary, not only the PRs where RepoPilot and the label
+  disagree. This was the only label it changed.
+
+Only missed evidence is reconciled. Judgment calls stay as labeled, even where
+the rubric could be read either way.
+
+`behavioral.test-deleted-or-emptied` reports a whole test file that was
+deleted or emptied. `integrity.test-removed` reports test cases removed from a
+file that still has tests. The report has a combined row for either signal.
+
 ## Labeler disclosure
 
 The labels were made by Claude (Anthropic, model Opus 5.5) working for the

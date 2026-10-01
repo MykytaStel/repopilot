@@ -34,6 +34,9 @@ MANIFEST = CORPUS_DIR / "manifest.toml"
 CLOSED_MANIFEST = CORPUS_DIR / "manifest-closed.toml"
 HOLDOUT_MANIFEST = CORPUS_DIR / "manifest-holdout.toml"
 LABELS = CORPUS_DIR / "labels.toml"
+# Signal kinds per PR from the last evaluation, so the report regenerates
+# without the gitignored cache.
+RESULTS = CORPUS_DIR / "results.json"
 CACHE = REPO_ROOT / ".integrity-corpus"
 
 WINDOW = ("2026-06-01", "2026-09-28")
@@ -305,6 +308,23 @@ def main() -> None:
         results = {
             path.stem: json.loads(path.read_text()) for path in sorted((CACHE / "results").glob("*.json"))
         }
+        if results:
+            # Committed summary: per PR, the binary, the base, and the signal kinds.
+            summary = {
+                corpus_id: {
+                    "binary": result.get("binary"),
+                    "base": result.get("base"),
+                    "signals": sorted({signal["kind"] for signal in result["signals"]}),
+                }
+                for corpus_id, result in results.items()
+            }
+            RESULTS.write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
+        elif RESULTS.exists():
+            summary = json.loads(RESULTS.read_text())
+            results = {
+                corpus_id: {**entry, "signals": [{"kind": kind} for kind in entry["signals"]]}
+                for corpus_id, entry in summary.items()
+            }
         labels = tomllib.loads(LABELS.read_text()) if LABELS.exists() else {}
         print(report.render(load_manifest(), labels, results))
 

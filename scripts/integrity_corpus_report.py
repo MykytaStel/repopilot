@@ -24,6 +24,9 @@ SIGNAL_KINDS = {
     "integrity.assertions-removed": ("assertion-removed", "assertion-trivialized"),
     "integrity.suppression-added": ("suppression-added",),
     "integrity.gate-relaxed": ("gate-relaxed",),
+    # Whole-file removal is reported by the behavioral signal by design; this
+    # row counts either signal for a removed test.
+    "integrity.test-removed+behavioral.test-deleted-or-emptied": ("test-removed", "test-substituted"),
 }
 
 
@@ -99,8 +102,8 @@ def section(manifest: list[dict], by_id: dict, results: dict[str, dict] | None) 
         ids = {e["id"] for e in manifest}
         changed = [corpus_id for corpus_id, label in by_id.items() if "reconciled_kinds" in label and corpus_id in ids]
         if changed:
-            lines += catches(manifest, reconciled, results, f"labels with {len(changed)} view-gap reconciliation(s)")
-            lines += ["", "Reconciled after evaluation (labeling view did not show the evidence):"]
+            lines += catches(manifest, reconciled, results, f"labels with {len(changed)} reconciliation(s)")
+            lines += ["", "Reconciled after evaluation (evidence the blind label missed):"]
             lines += [f"- {corpus_id}: {by_id[corpus_id].get('reconciliation', '')}" for corpus_id in sorted(changed)]
     return lines
 
@@ -123,7 +126,7 @@ def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: 
         tp = fn = fp = 0
         for entry in scored:
             labeled = any(kind in by_id[entry["id"]].get("kinds", []) for kind in kinds)
-            fired = any(s["kind"] == signal for s in results[entry["id"]]["signals"])
+            fired = any(s["kind"] in signal.split("+") for s in results[entry["id"]]["signals"])
             tp += labeled and fired
             fn += labeled and not fired
             fp += fired and not labeled

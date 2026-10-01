@@ -1299,6 +1299,9 @@ id = "ih-016"
 kinds = []
 verdict = "none"
 note = "test seeder refactor and new CI setup steps"
+reconciled_kinds = ["suppression-added"]
+reconciled_verdict = "justified"
+reconciliation = "`# noqa: S105` (twice) and `# type: ignore` added in integration_tests/tests/data_seeder.py; in the labeling view (line 148) but past the first 90 lines the labeler read; found by re-reading every held-out and closed view in full after evaluation"
 
 [[label]]
 id = "ih-017"
