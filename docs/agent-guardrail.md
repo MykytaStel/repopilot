@@ -106,6 +106,32 @@ Notes:
 - On repositories with existing debt this stays quiet: review signals are
   computed from the session's diff, not the whole repository.
 
+## Cursor: project hooks
+
+The same loop for Cursor's agent uses its `sessionStart` and `stop` hooks.
+From the repository root, with the `repopilot` CLI installed:
+
+```bash
+mkdir -p .cursor/hooks
+curl -fsSL -o .cursor/hooks.json https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/cursor/hooks.json
+curl -fsSL -o .cursor/hooks/repopilot-snapshot.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/cursor/hooks/repopilot-snapshot.sh
+curl -fsSL -o .cursor/hooks/repopilot-guard.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/cursor/hooks/repopilot-guard.sh
+chmod +x .cursor/hooks/repopilot-*.sh
+```
+
+If `.cursor/hooks.json` already exists, add the two entries from
+[`integrations/cursor/hooks.json`](../integrations/cursor/hooks.json) to it
+instead of overwriting it.
+
+`sessionStart` takes a snapshot. When the agent finishes a turn, `stop`
+reviews everything the session changed. If it finds a definitely-sensitive
+signal or any test-integrity signal, it sends the agent one follow-up message
+listing each signal with its file and line, and asks the agent to restore the
+check or explain why the change is intended. `loop_limit: 1` and the script's
+own `loop_count` check keep it to one follow-up per stop. The hook prints `{}`
+and does nothing when the turn was aborted, outside a Git repository, or when
+the CLI is missing.
+
 ## Let the agent query RepoPilot mid-task (MCP)
 
 Generate a client config — RepoPilot never edits external client settings

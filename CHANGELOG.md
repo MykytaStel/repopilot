@@ -73,6 +73,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `review-session` skill. The hooks do nothing outside a Git repository or
   without the `repopilot` CLI.
 
+- **Cursor hook recipe.** `integrations/cursor/` holds a `.cursor/hooks.json`
+  and two scripts: `sessionStart` takes a snapshot, and `stop` reviews the
+  session and sends the agent one follow-up message listing each
+  definitely-sensitive or test-integrity signal with its file and line. See
+  `docs/agent-guardrail.md`.
+
 - **`review_timings.integrity_us`** reports the time integrity analysis took,
   as part of `review_signals_us`. The changed-review performance gate now also
   runs a 20-file change with skipped, renamed, and thinned-out tests and

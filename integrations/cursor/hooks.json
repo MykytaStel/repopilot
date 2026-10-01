@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "command": ".cursor/hooks/repopilot-snapshot.sh" }
+    ],
+    "stop": [
+      { "command": ".cursor/hooks/repopilot-guard.sh", "loop_limit": 1 }
+    ]
+  }
+}
