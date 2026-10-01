@@ -55,8 +55,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `fail_under`, Codecov `target`, Codecov `informational: true`); TypeScript
   strict flags turned off; mypy strictness off or `ignore_errors`; new ruff
   ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
-  `addopts`. Steps and scripts that run no check (build, docs) are not
-  reported.
+  `addopts`. Deleting a workflow or `.gitlab-ci.yml` reports the check jobs it
+  ran. Steps and scripts that run no check (build, docs) are not reported.
 - **Claude Code plugin.** `/plugin marketplace add MykytaStel/repopilot`, then
   `/plugin install repopilot@repopilot`: snapshots each session, and when
   Claude tries to stop, reviews the session and blocks once on a
