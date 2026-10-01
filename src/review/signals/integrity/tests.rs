@@ -404,3 +404,26 @@ fn rust_ignore_text_in_comments_and_strings_is_not_reported() {
     );
     assert!(detect("src/math.rs", "Rust", Some(RUST_BEFORE), Some(&after)).is_empty());
 }
+
+#[test]
+fn a_skip_inside_a_new_test_or_helper_is_not_a_weakening() {
+    let after = JS_BEFORE.replace(
+        "});\n",
+        "  it(\"renders on mobile\", () => { this.skip(); });\n});\n",
+    );
+    assert!(
+        detect(
+            "src/header.test.ts",
+            "TypeScript",
+            Some(JS_BEFORE),
+            Some(&after)
+        )
+        .is_empty()
+    );
+
+    let go_after = GO_BEFORE.replace(
+        "func TestLogin",
+        "func requireRedis(t *testing.T) {\n\tt.Skip(\"needs redis\")\n}\n\nfunc TestLogin",
+    );
+    assert!(detect("auth/login_test.go", "Go", Some(GO_BEFORE), Some(&go_after)).is_empty());
+}

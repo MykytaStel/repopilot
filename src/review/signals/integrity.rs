@@ -63,6 +63,8 @@ pub struct FileEvidence {
     /// the behavioral `test-deleted-or-emptied` signal, not here.
     removal_reported_elsewhere: bool,
     first_changed_line: usize,
+    /// Pre-change text, to tell a skip in an existing test from one in new code.
+    pre_text: String,
     pre: Scan,
     post: Scan,
     /// Post-change markers on changed lines, by index into `post.markers`.
@@ -93,10 +95,14 @@ pub fn collect_file_evidence(
     let is_test_file = crate::audits::context::classify::helpers::is_test_file(&file.path);
     let test_scope = tables.applies_outside_test_files || is_test_file;
     let existed_before = !matches!(file.status, ChangeStatus::Added | ChangeStatus::Untracked);
-    let pre = if existed_before {
-        scan(pre?, tables, test_scope)?
+    let (pre, pre_text) = if existed_before {
+        let source = pre?;
+        (
+            scan(source, tables, test_scope)?,
+            source.content().to_string(),
+        )
     } else {
-        Scan::default()
+        (Scan::default(), String::new())
     };
     let post = match post {
         Some(source) => scan(source, tables, test_scope)?,
@@ -108,6 +114,7 @@ pub fn collect_file_evidence(
         existed_before,
         removal_reported_elsewhere: is_test_file && post.tests.is_empty(),
         first_changed_line: file.ranges.first().map_or(1, |range| range.start.max(1)),
+        pre_text,
         post_marker_in_diff: post
             .markers
             .iter()
