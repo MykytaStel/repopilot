@@ -81,6 +81,9 @@ writes [REPORT.md](REPORT.md) and the per-PR signal kinds in `results.json`, so
 the report regenerates without the gitignored cache. The development split was
 evaluated with commit `5ff13d16`. The held-out and closed splits were evaluated
 once, with commit `b061d06f`. Detection code is the same in both commits.
+The performance rewrite in `2eb3c459` (single-cursor scan, parallel files) was
+re-run on all 358 PRs. Every signal's kind, path, line, and detail matched the
+earlier results exactly.
 
 Blind labels stay the primary table. A second table applies reconciliations.
 Each one is a label that missed evidence which is objectively in the PR, and is
