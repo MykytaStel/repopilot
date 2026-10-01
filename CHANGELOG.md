@@ -31,7 +31,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `expect(true).toBe(true)`, `assert True`, or `assert!(true)` do not count, so
   trivializing a check reads as removing it. Tests moved between changed files
   are matched and not reported; emptying a whole test file stays with
-  `behavioral.test-deleted-or-emptied`. Both signals are maybe sensitive.
+  `behavioral.test-deleted-or-emptied`. A removed test whose body closely
+  matches a new test in the same file is treated as renamed, not removed, and
+  reported only if it lost assertions. Both signals are maybe sensitive.
 - **Review reports new lint, type, and coverage suppressions.**
   `integrity.suppression-added` (maybe sensitive) names a suppression a change
   adds anywhere in the code, with its rules and the before/after count in the

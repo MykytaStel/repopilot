@@ -6,14 +6,19 @@
 //! file and appears in another is a move. A test that keeps its name is
 //! compared by assertion count; constant-only assertions (`assert True`,
 //! `expect(true).toBe(true)`) never count, so trivializing an assertion reads
-//! as removing it.
+//! as removing it. A removed test whose body closely matches a new test in the
+//! same file was renamed: it is compared by assertion count, not reported as
+//! removed.
 
 use super::{FileEvidence, IntegrityKind, IntegritySignal};
 use crate::review::signals::tables::IntegrityTables;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
 const LISTED_NAMES: usize = 5;
+/// Jaccard similarity of body tokens at which a removed and a new test count
+/// as one renamed test.
+const RENAME_SIMILARITY: f64 = 0.75;
 
 /// One test case as it exists on one side of the change.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +26,8 @@ pub(super) struct TestFacts {
     name: String,
     line: usize,
     assertions: usize,
+    /// Distinct identifier and literal tokens of the body, without the name.
+    tokens: BTreeSet<String>,
 }
 
 impl TestFacts {
@@ -30,10 +37,12 @@ impl TestFacts {
         tables: &IntegrityTables,
         name: String,
     ) -> Self {
+        let text = node.utf8_text(content.as_bytes()).unwrap_or_default();
         Self {
-            name,
             line: node.start_position().row + 1,
             assertions: count_assertions(node, content, tables),
+            tokens: body_tokens(text, &name),
+            name,
         }
     }
 }
@@ -76,6 +85,20 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             });
             removed.extend(std::iter::repeat_n(name, count - moved));
         }
+        let (renamed, removed) = pair_renames(file, &removed);
+        for (before, after) in renamed {
+            if after.assertions < before.assertions {
+                signals.push(IntegritySignal {
+                    kind: IntegrityKind::AssertionsRemoved,
+                    path: file.path.clone(),
+                    line: after.line,
+                    detail: format!(
+                        "\"{}\" renamed to \"{}\": assertions {} → {}",
+                        before.name, after.name, before.assertions, after.assertions
+                    ),
+                });
+            }
+        }
         if !removed.is_empty() {
             signals.push(removed_signal(file, &removed));
         }
@@ -99,6 +122,69 @@ fn difference<'a>(left: &'a [TestFacts], right: &[TestFacts]) -> BTreeMap<&'a st
         .into_iter()
         .filter(|(_, count)| *count > 0)
         .map(|(name, count)| (name, count as usize))
+        .collect()
+}
+
+type Renamed<'a> = Vec<(&'a TestFacts, &'a TestFacts)>;
+
+/// Splits removed names into renames (a new test in the same file with a
+/// closely matching body) and genuine removals.
+fn pair_renames<'a>(file: &'a FileEvidence, removed: &[&'a str]) -> (Renamed<'a>, Vec<&'a str>) {
+    let appeared = difference(&file.post.tests, &file.pre.tests);
+    let mut candidates: Vec<&TestFacts> = file
+        .post
+        .tests
+        .iter()
+        .filter(|test| appeared.contains_key(test.name.as_str()))
+        .collect();
+    let (mut renamed, mut remaining) = (Vec::new(), Vec::new());
+    for name in removed {
+        let Some(before) = file.pre.tests.iter().find(|test| test.name == *name) else {
+            remaining.push(*name);
+            continue;
+        };
+        let best = candidates
+            .iter()
+            .enumerate()
+            .map(|(index, after)| (index, similarity(&before.tokens, &after.tokens)))
+            .filter(|(_, score)| *score >= RENAME_SIMILARITY)
+            .max_by(|left, right| left.1.total_cmp(&right.1));
+        match best {
+            Some((index, _)) => renamed.push((before, candidates.remove(index))),
+            None => remaining.push(*name),
+        }
+    }
+    (renamed, remaining)
+}
+
+fn similarity(left: &BTreeSet<String>, right: &BTreeSet<String>) -> f64 {
+    let union = left.union(right).count();
+    if union == 0 {
+        return 0.0;
+    }
+    left.intersection(right).count() as f64 / union as f64
+}
+
+/// Test-framework words every test shares; they would make any two short
+/// tests look alike. Matchers (`toBe`, `toThrow`) carry meaning and stay.
+const BOILERPLATE: &[&str] = &[
+    "it", "test", "describe", "expect", "assert", "self", "def", "fn", "func", "function", "async",
+    "await", "const", "let", "var", "return", "true", "false", "None", "nil", "null", "t",
+    "require", "mut", "pub",
+];
+
+/// Identifier and literal tokens of a test body, minus framework boilerplate
+/// and the words of its name.
+fn body_tokens(text: &str, name: &str) -> BTreeSet<String> {
+    let name_words: BTreeSet<&str> = name
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|word| !word.is_empty())
+        .collect();
+    text.split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|token| {
+            !token.is_empty() && !name_words.contains(token) && !BOILERPLATE.contains(token)
+        })
+        .map(str::to_string)
         .collect()
 }
 

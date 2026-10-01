@@ -262,3 +262,38 @@ fn rust_inline_tests_are_accounted_by_module_path() {
                 && signal.detail == "1 test removed: \"tests::overflow_wraps\"")
     );
 }
+
+#[test]
+fn a_renamed_test_with_the_same_checks_is_not_removed() {
+    let after = JS_BEFORE.replace(
+        "it(\"rejects negative quantities\"",
+        "it(\"throws on negative quantities\"",
+    );
+    assert!(
+        detect(
+            "src/cart.test.ts",
+            "TypeScript",
+            Some(JS_BEFORE),
+            Some(&after)
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn a_renamed_test_that_lost_assertions_is_reported_as_such() {
+    let after = JS_BEFORE
+        .replace("it(\"sums line items\"", "it(\"adds up line items\"")
+        .replace("    expect(total([])).toBe(0);\n", "");
+    let signals = detect(
+        "src/cart.test.ts",
+        "TypeScript",
+        Some(JS_BEFORE),
+        Some(&after),
+    );
+    assert_eq!(kinds(&signals), vec![IntegrityKind::AssertionsRemoved]);
+    assert_eq!(
+        signals[0].detail,
+        "\"cart > sums line items\" renamed to \"cart > adds up line items\": assertions 2 → 1"
+    );
+}
