@@ -57,7 +57,7 @@ fn count_assertions(node: Node<'_>, content: &str, tables: &IntegrityTables) -> 
 pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
     let mut arrived: BTreeMap<&str, usize> = BTreeMap::new();
     for file in files {
-        for (name, count) in difference(&file.post_tests, &file.pre_tests) {
+        for (name, count) in difference(&file.post.tests, &file.pre.tests) {
             *arrived.entry(name).or_default() += count;
         }
     }
@@ -68,7 +68,7 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             continue;
         }
         let mut removed = Vec::new();
-        for (name, count) in difference(&file.pre_tests, &file.post_tests) {
+        for (name, count) in difference(&file.pre.tests, &file.post.tests) {
             let moved = arrived.get_mut(name).map_or(0, |pool| {
                 let matched = (*pool).min(count);
                 *pool -= matched;
@@ -109,7 +109,7 @@ fn removed_signal(file: &FileEvidence, removed: &[&str]) -> IntegritySignal {
         plural(removed.len()),
         listed(removed.iter().copied())
     );
-    let appeared = difference(&file.post_tests, &file.pre_tests);
+    let appeared = difference(&file.post.tests, &file.pre.tests);
     if !appeared.is_empty() {
         let count: usize = appeared.values().sum();
         detail.push_str(&format!(
@@ -128,8 +128,8 @@ fn removed_signal(file: &FileEvidence, removed: &[&str]) -> IntegritySignal {
 
 /// Tests present once on both sides whose assertion count went down.
 fn assertion_signals(file: &FileEvidence) -> Vec<IntegritySignal> {
-    let before = unique_by_name(&file.pre_tests);
-    let after = unique_by_name(&file.post_tests);
+    let before = unique_by_name(&file.pre.tests);
+    let after = unique_by_name(&file.post.tests);
     before
         .iter()
         .filter_map(|(name, pre)| {

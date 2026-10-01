@@ -239,9 +239,9 @@ fn fixture_and_testdata_inputs_are_not_tests() {
 }
 
 #[test]
-fn non_test_files_are_ignored_outside_rust() {
+fn test_markers_count_only_in_test_files_outside_rust() {
     let after = JS_BEFORE.replace("it(\"renders logo\"", "it.skip(\"renders logo\"");
-    assert!(markers("src/header.ts", "TypeScript", Some(JS_BEFORE), Some(&after)).is_none());
+    assert!(detect("src/header.ts", "TypeScript", Some(JS_BEFORE), Some(&after)).is_empty());
 }
 
 const PY_BEFORE: &str = r#"

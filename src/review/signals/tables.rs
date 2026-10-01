@@ -100,4 +100,8 @@ pub struct IntegrityTables {
     /// Whether a node is an assertion that can fail. Constant-only forms such
     /// as `expect(true).toBe(true)` or `assert True` do not count.
     pub(crate) is_assertion: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
+    /// The lint/type/coverage suppression a comment or attribute node adds,
+    /// labeled with its directive and rules (`eslint-disable-next-line
+    /// no-console`, `type: ignore[attr-defined]`, `#[allow(dead_code)]`).
+    pub(crate) suppression: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> Option<String>,
 }

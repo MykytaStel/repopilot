@@ -13,6 +13,7 @@ pub(super) static RUST_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    suppression,
 };
 
 fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
@@ -153,4 +154,20 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
             || (part.starts_with('"') && part.ends_with('"'))
     };
     !(parts.len() <= 2 && !parts.is_empty() && parts.iter().all(|part| constant(part)))
+}
+
+/// `#[allow(...)]`, `#![allow(...)]`, and `#[expect(...)]` silence lints for
+/// the item or module they sit on.
+fn suppression<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
+    if !matches!(node.kind(), "attribute_item" | "inner_attribute_item") {
+        return None;
+    }
+    let text: String = node
+        .utf8_text(content.as_bytes())
+        .ok()?
+        .split_whitespace()
+        .collect();
+    let inner = text.trim_start_matches("#!").trim_start_matches('#');
+    let inner = inner.strip_prefix('[')?.strip_suffix(']')?;
+    (inner.starts_with("allow(") || inner.starts_with("expect(")).then(|| bounded(&text))
 }

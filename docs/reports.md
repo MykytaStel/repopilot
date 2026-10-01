@@ -288,7 +288,7 @@ suppression state, and gate eligibility. `family` is one of `boundary`,
 `behavioral`, `algorithmic`, `taint`, `integrity` (tests newly skipped,
 focused, removed, or stripped of assertions: `integrity.test-skipped`,
 `integrity.test-focused`, `integrity.test-removed`,
-`integrity.assertions-removed`), or `volume`.
+`integrity.assertions-removed`, `integrity.suppression-added`), or `volume`.
 Integrity signals never create a verification obligation. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, and `rendering_us`.

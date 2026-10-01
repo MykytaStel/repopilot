@@ -3,8 +3,8 @@
 //! cases, and `assert` / `self.assert*` / `pytest.raises` assertions.
 
 use crate::review::signals::integrity::syntax::{
-    all_arguments_literal, any_argument_string, bounded, compact_text, enclosing_function_name,
-    is_literal,
+    Directive, all_arguments_literal, any_argument_string, bounded, comment_suppression,
+    compact_text, enclosing_function_name, is_literal,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -15,6 +15,7 @@ pub(super) static PYTHON_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    suppression,
 };
 
 const SKIP_DECORATORS: &[&str] = &[
@@ -171,4 +172,35 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
         }
         _ => false,
     }
+}
+
+const SUPPRESSIONS: &[Directive] = &[
+    Directive {
+        text: "noqa",
+        takes_rules: true,
+    },
+    Directive {
+        text: "type: ignore",
+        takes_rules: true,
+    },
+    Directive {
+        text: "pragma: no cover",
+        takes_rules: false,
+    },
+    Directive {
+        text: "pylint: disable",
+        takes_rules: true,
+    },
+    Directive {
+        text: "mypy: ignore-errors",
+        takes_rules: false,
+    },
+    Directive {
+        text: "pyright: ignore",
+        takes_rules: true,
+    },
+];
+
+fn suppression<'a>(node: Node<'a>, content: &'a str) -> Option<String> {
+    (node.kind() == "comment").then(|| comment_suppression(node, content, SUPPRESSIONS))?
 }

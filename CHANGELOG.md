@@ -32,6 +32,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   trivializing a check reads as removing it. Tests moved between changed files
   are matched and not reported; emptying a whole test file stays with
   `behavioral.test-deleted-or-emptied`. Both signals are maybe sensitive.
+- **Review reports new lint, type, and coverage suppressions.**
+  `integrity.suppression-added` (maybe sensitive) names a suppression a change
+  adds anywhere in the code, with its rules and the before/after count in the
+  file: `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `eslint-disable*`,
+  `biome-ignore`, `istanbul`/`c8 ignore`; Python `noqa`, `type: ignore`,
+  `pragma: no cover`, `pylint: disable`, `pyright: ignore`; Go `nolint` and
+  `lint:ignore`; Rust `#[allow(...)]`, `#![allow(...)]`, `#[expect(...)]`.
+  Suppressions are read from comment and attribute nodes, so text in strings is
+  ignored, and a suppression moved with its code to another changed file is
+  not new.
 
 ### Changed
 

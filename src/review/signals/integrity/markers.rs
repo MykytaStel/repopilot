@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
     let mut moved: BTreeMap<Identity, usize> = BTreeMap::new();
     for file in files {
-        let post = counts(file.post_markers.iter().map(|(marker, _)| marker));
-        for (identity, count) in counts(file.pre_markers.iter()) {
+        let post = counts(file.post.markers.iter());
+        for (identity, count) in counts(file.pre.markers.iter()) {
             let remaining = count.saturating_sub(post.get(&identity).copied().unwrap_or(0));
             if remaining > 0 {
                 *moved.entry(identity).or_default() += remaining;
@@ -19,8 +19,8 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
 
     let mut signals = Vec::new();
     for file in files {
-        let pre = counts(file.pre_markers.iter());
-        for (identity, count) in counts(file.post_markers.iter().map(|(marker, _)| marker)) {
+        let pre = counts(file.pre.markers.iter());
+        for (identity, count) in counts(file.post.markers.iter()) {
             let mut added = count.saturating_sub(pre.get(&identity).copied().unwrap_or(0));
             if let Some(pool) = moved.get_mut(&identity) {
                 let matched = (*pool).min(added);
@@ -30,9 +30,11 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             if added == 0 || (identity.0 == TestMarkerKind::Skip && !file.existed_before) {
                 continue;
             }
-            let mut candidates: Vec<&(TestMarker, bool)> = file
-                .post_markers
+            let mut candidates: Vec<(&TestMarker, bool)> = file
+                .post
+                .markers
                 .iter()
+                .zip(file.post_marker_in_diff.iter().copied())
                 .filter(|(marker, _)| identity_of(marker) == identity)
                 .collect();
             candidates.sort_by_key(|(marker, in_diff)| (!in_diff, marker.line));
