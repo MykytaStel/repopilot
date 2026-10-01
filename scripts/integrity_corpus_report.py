@@ -1,0 +1,136 @@
+"""Prevalence report for the integrity corpus (Wilson 95% intervals)."""
+
+from __future__ import annotations
+
+import math
+
+KINDS = (
+    "skip-added",
+    "focus-added",
+    "test-removed",
+    "test-substituted",
+    "assertion-removed",
+    "assertion-trivialized",
+    "expectation-rewritten",
+    "suppression-added",
+    "gate-relaxed",
+)
+VERDICTS = ("weakened", "justified", "none")
+# Which labeled kinds each RepoPilot signal is meant to catch.
+SIGNAL_KINDS = {
+    "integrity.test-focused": ("focus-added",),
+    "integrity.test-skipped": ("skip-added",),
+    "integrity.test-removed": ("test-removed", "test-substituted"),
+    "integrity.assertions-removed": ("assertion-removed", "assertion-trivialized"),
+    "integrity.suppression-added": ("suppression-added",),
+    "integrity.gate-relaxed": ("gate-relaxed",),
+    # Whole-file removal is reported by the behavioral signal by design; this
+    # row counts either signal for a removed test.
+    "integrity.test-removed+behavioral.test-deleted-or-emptied": ("test-removed", "test-substituted"),
+}
+
+
+def wilson(hits: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    if n == 0:
+        return (0.0, 0.0)
+    p = hits / n
+    denom = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denom
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, centre - half), min(1.0, centre + half))
+
+
+def fmt(hits: int, n: int) -> str:
+    lo, hi = wilson(hits, n)
+    pct = 100 * hits / n if n else 0.0
+    return f"{hits}/{n} ({pct:.1f}%, 95% CI {100 * lo:.1f}–{100 * hi:.1f}%)"
+
+
+# Corpus splits by id prefix: title and what the denominator is.
+SPLITS = (
+    ("ic-", "Development corpus", "merged, approved PRs (2026-06-01..09-28); detectors were tuned on it after the first evaluation"),
+    ("ih-", "Held-out corpus", "merged, approved PRs (2026-03-01..05-31), sampled and labeled after tuning and evaluated once"),
+    ("icc-", "Closed agent PRs", "agent PRs closed without merge after discussion (2026-06-01..09-28)"),
+)
+
+
+def render(manifest: list[dict], labels: dict, results: dict[str, dict] | None = None) -> str:
+    by_id = {entry["id"]: entry for entry in labels.get("label", [])}
+    meta = labels.get("meta", {})
+    lines = [
+        "# Integrity corpus",
+        "",
+        f"Labeler: {meta.get('labeler', 'unrecorded')}. Status: {meta.get('status', 'exploratory')}.",
+        "Every PR modifies or removes at least one test file.",
+    ]
+    for prefix, title, scope in SPLITS:
+        entries = [e for e in manifest if e["id"].startswith(prefix)]
+        if entries:
+            lines += ["", f"## {title}", "", f"Denominator: {scope}."]
+            lines += section(entries, by_id, results)
+    return "\n".join(lines)
+
+
+def section(manifest: list[dict], by_id: dict, results: dict[str, dict] | None) -> list[str]:
+    lines = [""]
+    names = [g for g in ("agent", "human", "agent-closed") if any(e["group"] == g for e in manifest)]
+    lines += ["| Kind | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    groups = {g: [e for e in manifest if e["group"] == g and e["id"] in by_id] for g in names}
+    for kind in KINDS:
+        cells = []
+        for group in names:
+            entries = groups[group]
+            hits = sum(1 for e in entries if kind in by_id[e["id"]].get("kinds", []))
+            cells.append(fmt(hits, len(entries)))
+        lines.append(f"| `{kind}` | " + " | ".join(cells) + " |")
+    lines += ["", "| Verdict | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    for verdict in VERDICTS:
+        cells = []
+        for group in names:
+            entries = groups[group]
+            hits = sum(1 for e in entries if by_id[e["id"]].get("verdict") == verdict)
+            cells.append(fmt(hits, len(entries)))
+        lines.append(f"| {verdict} | " + " | ".join(cells) + " |")
+    unlabeled = [e["id"] for e in manifest if e["id"] not in by_id]
+    lines += ["", f"Unlabeled: {len(unlabeled)} of {len(manifest)}."]
+    if results and any(e["id"] in results for e in manifest):
+        lines += catches(manifest, by_id, results, "blind labels")
+        reconciled = {
+            corpus_id: {**label, "kinds": label.get("reconciled_kinds", label.get("kinds", []))}
+            for corpus_id, label in by_id.items()
+        }
+        ids = {e["id"] for e in manifest}
+        changed = [corpus_id for corpus_id, label in by_id.items() if "reconciled_kinds" in label and corpus_id in ids]
+        if changed:
+            lines += catches(manifest, reconciled, results, f"labels with {len(changed)} reconciliation(s)")
+            lines += ["", "Reconciled after evaluation (evidence the blind label missed):"]
+            lines += [f"- {corpus_id}: {by_id[corpus_id].get('reconciliation', '')}" for corpus_id in sorted(changed)]
+    return lines
+
+
+def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: str) -> list[str]:
+    """PR-level agreement between labels and RepoPilot signals."""
+    scored = [e for e in manifest if e["id"] in by_id and e["id"] in results]
+    binaries = sorted({results[e["id"]].get("binary", "?") for e in scored})
+    lines = [
+        "",
+        f"### RepoPilot catches ({title})",
+        "",
+        f"PRs with both labels and results: {len(scored)}. Binary: {', '.join(binaries)}.",
+        "A PR counts once per signal kind, whatever the number of occurrences.",
+        "",
+        "| Signal | caught | missed | false alarm | precision | recall |",
+        "|---|---|---|---|---|---|",
+    ]
+    for signal, kinds in SIGNAL_KINDS.items():
+        tp = fn = fp = 0
+        for entry in scored:
+            labeled = any(kind in by_id[entry["id"]].get("kinds", []) for kind in kinds)
+            fired = any(s["kind"] in signal.split("+") for s in results[entry["id"]]["signals"])
+            tp += labeled and fired
+            fn += labeled and not fired
+            fp += fired and not labeled
+        precision = fmt(tp, tp + fp) if tp + fp else "n/a"
+        recall = fmt(tp, tp + fn) if tp + fn else "n/a"
+        lines.append(f"| `{signal}` | {tp} | {fn} | {fp} | {precision} | {recall} |")
+    return lines
