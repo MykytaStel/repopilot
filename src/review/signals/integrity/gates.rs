@@ -8,6 +8,7 @@
 
 mod ci;
 mod config;
+mod flags;
 mod parse;
 
 use super::{IntegrityKind, IntegritySignal};
