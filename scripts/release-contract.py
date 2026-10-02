@@ -289,6 +289,12 @@ def check_versions(version: str) -> None:
     for dependency, dependency_version in package["optionalDependencies"].items():
         versions[f"package.json optional dependency {dependency}"] = dependency_version
 
+    # The MCP Registry entry lists the same release on npm and crates.io.
+    server = json_file("server.json")
+    versions["server.json version"] = server["version"]
+    for entry in server["packages"]:
+        versions[f"server.json {entry['registryType']} package"] = entry["version"]
+
     workflow = read_text(ROOT / ".github/workflows/repopilot-pr-review.yml")
     action_ref = re.search(r"uses:\s+MykytaStel/repopilot@v([^\s]+)", workflow)
     if not action_ref:

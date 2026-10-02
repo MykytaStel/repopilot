@@ -1,0 +1,53 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.MykytaStel/repopilot",
+  "title": "RepoPilot",
+  "description": "Local, deterministic review of Git changes: weakened tests and CI gates, risky flows, blast radius.",
+  "repository": {
+    "url": "https://github.com/MykytaStel/repopilot",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/MykytaStel/repopilot/blob/main/docs/mcp.md",
+  "version": "0.23.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "repopilot",
+      "version": "0.23.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        },
+        {
+          "type": "named",
+          "name": "--root",
+          "value": "."
+        }
+      ]
+    },
+    {
+      "registryType": "cargo",
+      "identifier": "repopilot",
+      "version": "0.23.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        },
+        {
+          "type": "named",
+          "name": "--root",
+          "value": "."
+        }
+      ]
+    }
+  ]
+}

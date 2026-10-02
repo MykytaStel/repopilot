@@ -142,8 +142,9 @@ weakened is unexplained:
 ```
 
 Codex installs the same plugin (`codex plugin marketplace add
-MykytaStel/repopilot`, then `codex plugin add repopilot@repopilot`). Cursor and
-Gemini CLI run the same loop through project hooks. For GitHub Copilot's coding
+MykytaStel/repopilot`, then `codex plugin add repopilot@repopilot`). Gemini CLI installs it as an
+extension (`gemini extensions install https://github.com/MykytaStel/repopilot`),
+and Cursor runs it through project hooks. For GitHub Copilot's coding
 agent and other agents, RepoPilot provides setup steps, an MCP entry, and an
 `AGENTS.md` snippet. See [Guard your agent runs](docs/agent-guardrail.md#pick-your-agent).
 
@@ -151,7 +152,8 @@ RepoPilot also provides a local stdio MCP server and a GitHub Action. The MCP
 server gives an agent access to the local scan and review tools. The Action runs
 RepoPilot on the Actions runner and can publish SARIF or a pull request summary.
 See [Guard your agent runs](docs/agent-guardrail.md), [MCP server](docs/mcp.md),
-and [GitHub integration](docs/integrations/github-code-scanning.md).
+and [GitHub integration](docs/integrations/github-code-scanning.md). MCP Registry
+name: `mcp-name: io.github.MykytaStel/repopilot`.
 
 ## More capabilities
 

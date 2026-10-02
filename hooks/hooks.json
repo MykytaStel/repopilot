@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "repopilot-snapshot",
+            "type": "command",
+            "command": "sh \"${extensionPath}/integrations/claude-code/repopilot/scripts/snapshot.sh\"",
+            "timeout": 60000,
+            "description": "Mark the repository state before the agent changes anything."
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "repopilot-guard",
+            "type": "command",
+            "command": "sh \"${extensionPath}/integrations/claude-code/repopilot/scripts/guard.sh\"",
+            "timeout": 180000,
+            "description": "Review the session; ask the agent once to restore any check it weakened."
+          }
+        ]
+      }
+    ]
+  }
+}
