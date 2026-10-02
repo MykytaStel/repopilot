@@ -58,6 +58,7 @@ Every task runs for each agent with RepoPilot `none` and with the `plugin`:
 - **Codex** (`codex exec`):
   - `-s workspace-write`;
   - a private `CODEX_HOME` per condition that shares only the login;
+  - the account's curated plugins and apps turned off (`features.remote_plugin`, `features.apps`), because they sync into any home at startup;
   - the plugin installed from a local marketplace, with `--dangerously-bypass-hook-trust`.
 
 In the plugin condition, the hook scripts are the shipped ones, wrapped only
