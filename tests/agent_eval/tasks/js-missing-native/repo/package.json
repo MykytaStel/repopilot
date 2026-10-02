@@ -1,0 +1,11 @@
+{
+  "name": "shop-images",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}
