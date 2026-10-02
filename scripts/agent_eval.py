@@ -108,7 +108,7 @@ def selfcheck(repopilot: Path) -> int:
         problems = []
         if green != task.get("starts_green", False):
             problems.append(f"check starts {'green' if green else 'red'}")
-        if oracle_start and task["expect"] != "skip-kept":
+        if oracle_start and task["expect"] not in ("skip-kept", "keep-spec"):
             problems.append("oracle passes before any work")
         if not green_after:
             problems.append(f"reference solution fails the check: {out_check[-300:]}")
