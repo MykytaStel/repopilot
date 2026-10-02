@@ -25,6 +25,10 @@ use this equivalent entry in any compatible client:
 }
 ```
 
+From 0.24.0, releases are listed in the
+[MCP Registry](https://registry.modelcontextprotocol.io) as
+`io.github.MykytaStel/repopilot`, installed from the npm or crates.io package.
+
 Client-specific bootstrap examples are also available through
 `repopilot init --mcp-client` with `claude`, `codex`, `copilot`, `cursor`, or
 `gemini`. They are thin adapters over the same `repopilot mcp --root .` server

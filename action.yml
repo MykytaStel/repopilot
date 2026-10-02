@@ -1,5 +1,5 @@
-name: RepoPilot
-description: "Review Git changes for security boundaries, behavioral risk, and blast radius"
+name: RepoPilot Review
+description: "Review Git changes for weakened tests and CI gates, security boundaries, behavioral risk, and blast radius"
 author: "MykytaStel"
 
 branding:

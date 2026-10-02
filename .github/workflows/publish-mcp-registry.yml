@@ -1,0 +1,80 @@
+name: Publish MCP Registry
+
+# Lists a published release in the official MCP Registry
+# (registry.modelcontextprotocol.io) as io.github.MykytaStel/repopilot. Run it
+# after the tag's npm and crates.io packages are published: the registry checks
+# `mcpName` in the npm package.json and `mcp-name:` in the crates.io README.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag, e.g. v0.24.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-mcp-registry-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  MCP_PUBLISHER_VERSION: "1.8.1"
+  MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+
+jobs:
+  publish-mcp-registry:
+    name: Publish to the MCP Registry
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # GitHub OIDC login proves ownership of io.github.MykytaStel
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Check server.json matches the published packages
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "::error::$RELEASE_TAG is a prerelease; the registry lists stable releases only"
+            exit 1
+          fi
+          NAME="$(jq -r .name server.json)"
+          for field in .version '.packages[].version'; do
+            for found in $(jq -r "$field" server.json); do
+              if [[ "$found" != "$VERSION" ]]; then
+                echo "::error::server.json $field is $found, expected $VERSION"
+                exit 1
+              fi
+            done
+          done
+          NPM_MCP_NAME="$(curl -fsS "https://registry.npmjs.org/repopilot/${VERSION}" | jq -r '.mcpName // empty')"
+          if [[ "$NPM_MCP_NAME" != "$NAME" ]]; then
+            echo "::error::npm repopilot@${VERSION} has mcpName '${NPM_MCP_NAME}', expected '${NAME}'"
+            exit 1
+          fi
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum --check
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

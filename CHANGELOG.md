@@ -8,6 +8,26 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Listings for plugin, extension, MCP, and Action directories.**
+  - **Gemini CLI:** installs RepoPilot as an extension (`gemini extensions
+    install https://github.com/MykytaStel/repopilot`) through a root
+    `gemini-extension.json` and `hooks/hooks.json`. They run the same session
+    scripts and register the MCP server for the workspace.
+  - **MCP Registry:** `server.json` describes the
+    `io.github.MykytaStel/repopilot` entry for the npm and crates.io packages.
+    `package.json` carries the matching `mcpName`, and the README carries
+    `mcp-name:`, so the registry can verify ownership.
+    `publish-mcp-registry.yml` publishes a stable tag with a pinned,
+    checksum-verified `mcp-publisher`. The release contract now requires the
+    `server.json` versions to match the release.
+  - **Plugin README:** the plugin directory has one for directory listings.
+  - **GitHub Action:** renamed to "RepoPilot Review", because a GitHub user
+    named `repopilot` exists and the Marketplace rejects an Action named like an
+    existing account.
+  - **Adoption numbers:** `scripts/adoption_stats.py` prints them on one page
+    (GitHub traffic and referrers, npm and crates.io downloads read against
+    their mirror baselines, release downloads, other repositories using the
+    Action, MCP Registry status).
 - **Session review for Codex, Gemini CLI, and GitHub Copilot's coding agent.**
   The RepoPilot plugin now ships a Codex manifest (`.codex-plugin/plugin.json`
   with `SessionStart`/`Stop` hooks), so `codex plugin add repopilot@repopilot`

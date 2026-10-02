@@ -178,3 +178,56 @@ fn codex_and_gemini_stop_inputs_block_a_weakened_session_once() {
         assert_eq!(hook(repo, "guard.sh", again).status.code(), Some(0));
     }
 }
+
+#[test]
+fn gemini_extension_runs_the_shared_scripts_from_the_repository_root() {
+    let manifest = json(&root().join("gemini-extension.json"));
+    let plugin = json(&root().join(PLUGIN).join(".claude-plugin/plugin.json"));
+    assert_eq!(manifest["name"], "repopilot");
+    assert_eq!(
+        manifest["version"], plugin["version"],
+        "one version for every agent"
+    );
+    assert_eq!(
+        manifest["mcpServers"]["repopilot"]["args"],
+        serde_json::json!(["mcp", "--root", "${workspacePath}"])
+    );
+    let hooks = json(&root().join("hooks/hooks.json"));
+    for (event, script) in [("SessionStart", "snapshot.sh"), ("AfterAgent", "guard.sh")] {
+        let command = hooks["hooks"][event][0]["hooks"][0]["command"]
+            .as_str()
+            .expect("command");
+        let relative = command
+            .split("${extensionPath}/")
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .expect("script under ${extensionPath}");
+        assert!(relative.ends_with(script), "{event}: {relative}");
+        assert!(root().join(relative).is_file(), "{event}: {relative}");
+    }
+}
+
+#[test]
+fn mcp_registry_entry_is_owned_by_the_published_packages() {
+    let server = json(&root().join("server.json"));
+    let package = json(&root().join("package.json"));
+    let name = server["name"].as_str().expect("name");
+    assert_eq!(package["mcpName"], name, "npm ownership check");
+    let readme = fs::read_to_string(root().join("README.md")).expect("README");
+    assert!(
+        readme.contains(&format!("mcp-name: {name}")),
+        "crates.io ownership check"
+    );
+    assert!(server["description"].as_str().unwrap().chars().count() <= 100);
+    for entry in server["packages"].as_array().expect("packages") {
+        assert_eq!(entry["identifier"], "repopilot");
+        assert_eq!(entry["version"], server["version"]);
+        let args: Vec<&str> = entry["packageArguments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|arg| arg["value"].as_str().unwrap())
+            .collect();
+        assert_eq!(args, ["mcp", "."]);
+    }
+}

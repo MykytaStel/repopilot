@@ -33,7 +33,7 @@ repopilot review --since-snapshot --fail-on-review definitely
 | Claude Code | [plugin](#claude-code-install-the-plugin) | the stop is blocked once, with the list |
 | Codex | [plugin](#codex-install-the-plugin) | the stop is blocked once, with the list |
 | Cursor | [project hooks](#cursor-project-hooks) | one follow-up message with the list |
-| Gemini CLI | [project hooks](#gemini-cli-project-hooks) | the reply is rejected once, with the list |
+| Gemini CLI | [extension](#gemini-cli-install-the-extension) or project hooks | the reply is rejected once, with the list |
 | GitHub Copilot coding agent | [setup steps, MCP, and the Action](#github-copilot-coding-agent) | the pull request review lists it; the agent is not stopped |
 | Any other agent | [AGENTS.md instructions](#any-agent-agentsmd) | the agent runs the review itself, if it follows the instructions |
 
@@ -170,10 +170,27 @@ RepoPilot 0.24 or newer; check with `repopilot --version`.
 To register only the MCP server, run
 `codex mcp add repopilot -- repopilot mcp --root .`.
 
-## Gemini CLI: project hooks
+## Gemini CLI: install the extension
 
-Gemini CLI reads hooks and MCP servers from `.gemini/settings.json`. From the
-repository root, with the `repopilot` CLI installed:
+With the `repopilot` CLI installed:
+
+```bash
+gemini extensions install https://github.com/MykytaStel/repopilot
+```
+
+The extension runs the same two scripts as the Claude Code plugin and
+registers the MCP server for the current workspace. Gemini CLI asks you to
+trust its hooks once.
+
+`SessionStart` takes a snapshot. `AfterAgent` runs the review after each agent
+reply. When it finds a weakened check, it rejects the reply once and sends the
+list back, so the agent gets another turn to restore the check or explain the
+change.
+
+### Without the extension: project hooks
+
+To keep the hooks in the repository instead, Gemini CLI reads them from
+`.gemini/settings.json`. From the repository root:
 
 ```bash
 mkdir -p .gemini/hooks
@@ -185,11 +202,6 @@ curl -fsSL -o .gemini/hooks/repopilot-guard.sh https://raw.githubusercontent.com
 If `.gemini/settings.json` already exists, merge the `hooks` and `mcpServers`
 entries from [`integrations/gemini/settings.json`](../integrations/gemini/settings.json)
 into it instead of overwriting it.
-
-`SessionStart` takes a snapshot. `AfterAgent` runs the review after each agent
-reply. When it finds a weakened check, it rejects the reply once and sends the
-list back, so the agent gets another turn to restore the check or explain the
-change.
 
 ## GitHub Copilot coding agent
 
