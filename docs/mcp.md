@@ -25,9 +25,10 @@ use this equivalent entry in any compatible client:
 }
 ```
 
-From 0.24.0, releases are listed in the
-[MCP Registry](https://registry.modelcontextprotocol.io) as
-`io.github.MykytaStel/repopilot`, installed from the npm or crates.io package.
+The 0.24.0 release prepares an [MCP Registry](https://registry.modelcontextprotocol.io)
+entry named `io.github.MykytaStel/repopilot` for the npm and crates.io packages.
+Listing is pending: maintainers must run `publish-mcp-registry.yml` after the
+stable packages are published and verify that the entry appears in the registry.
 
 Client-specific bootstrap examples are also available through
 `repopilot init --mcp-client` with `claude`, `codex`, `copilot`, `cursor`, or

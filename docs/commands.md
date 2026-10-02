@@ -213,7 +213,7 @@ Use the reusable workflow:
 ```yaml
 jobs:
   repopilot:
-    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.23.0
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.24.0
     with:
       fail-on-review: none
       upload-sarif: false
@@ -222,7 +222,7 @@ jobs:
 Or use the Action directly:
 
 ```yaml
-- uses: MykytaStel/repopilot@v0.23.0
+- uses: MykytaStel/repopilot@v0.24.0
   with:
     command: review
     scope: changed

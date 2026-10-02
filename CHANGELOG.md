@@ -6,6 +6,27 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- Adoption statistics keep failed GitHub requests unavailable instead of
+  recording zero mentions, referrers, or release downloads. Public counters
+  remain usable when the `gh` executable is missing. Code-search mentions
+  no longer claim to establish GitHub Action usage.
+
+## [0.24.0] - 2026-10-02
+
+RepoPilot 0.24 (Honest Green) reports when a change turns CI green by weakening
+the checks that judge it: focused, skipped, or removed tests, tests that lost
+assertions, new lint, type, and coverage suppressions, relaxed CI and tool gates
+(including coverage floors lowered on the command line), and entries that
+silence RepoPilot itself. The console lists them right after the decision, and
+the GitHub Action's summary lists them first. `repopilot snapshot` and the
+RepoPilot plugin (Claude Code, Codex), Gemini CLI extension, Cursor hooks, and
+Copilot setup run the same review at the end of a coding-agent session. Risk
+formula `risk-v4` caps priority by severity. Report schema stays `0.26` with
+additive fields. Evidence is scoped to what was measured: a 358-PR integrity
+corpus with maintainer-reviewed verdicts, and a small agent eval.
+
 ### Added
 
 - **Listings for plugin, extension, MCP, and Action directories.**

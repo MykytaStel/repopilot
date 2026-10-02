@@ -4,22 +4,28 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.24 — Honest Green
+## Current: 0.24 — release prepared
 
-RepoPilot 0.24 reports when a change turns CI green by weakening the checks
-that judge it:
+RepoPilot 0.24 reports the checks a change weakened and runs the same review
+at the end of a coding-agent session. The stable release is prepared; the
+`v0.24.0` tag and public-channel verification are still pending. The latest
+stable release is 0.23.0.
 
-- skipped or focused tests and removed test cases or assertions;
-- added suppressions, including suppressions of RepoPilot itself, and relaxed
-  CI, coverage, or type-checking gates;
-- a labeled corpus of real pull requests that measures how often this happens
-  and what RepoPilot catches, with its limits stated;
-- optional snapshot, stop-hook, commit-hook, and CI integrations that run the
-  same check before review;
-- severity-capped priorities, named coverage limits, and grouped proof
-  obligations, already on `main`.
+See the [0.24 release contract](roadmap/v0.24.md) and
+[prepared release notes](releases/v0.24.0.md).
 
-See the [0.24 release contract](roadmap/v0.24.md).
+## Next: 0.25
+
+The 0.25 scope is not set yet. Evidence from 0.24 points at these candidates:
+
+- failures a change silences in code, such as an empty `catch` or a fallback
+  that returns its input, which the agent eval found where test-integrity
+  signals saw nothing;
+- fewer `test removed` reports when a test is rewritten for a deliberate
+  behavior change;
+- trivialized tests, loosened matchers, cross-file assertion helpers, and
+  bulk-suppression files;
+- measuring Claude Code alongside Codex in the agent eval.
 
 ## Released
 
