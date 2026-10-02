@@ -2,10 +2,17 @@
 
 Snapshots the repository when a coding-agent session starts, and reviews
 everything the session changed before the agent finishes. If the agent
-skipped, focused, removed, or weakened a test, added a lint, type, or
-coverage suppression, relaxed a CI gate, or made a definitely-sensitive
-change, the stop is blocked once and the agent gets the list with file and
-line. It must restore each check or explain why the change is intended.
+skipped, focused, removed, or weakened a test, added a lint, type, coverage,
+or RepoPilot suppression, relaxed a CI gate, removed an auth check, or let
+request input reach SQL or a shell, the stop is blocked and the agent gets the
+list with file and line. It must restore each check or explain why the change
+is intended. Each signal is raised once per session. Other sensitive changes,
+such as a dependency bump or an edited workflow, stay in the review report and
+do not stop the agent.
+
+The hooks list `.repopilot/snapshot.json` and `.repopilot/cache/` in the
+repository's `.git/info/exclude`, so session state never shows up in
+`git status`.
 
 The same directory installs in Claude Code and Codex. It also registers the
 local RepoPilot MCP server and a `review-session` skill.
@@ -48,7 +55,7 @@ codex plugin add repopilot@repopilot
 | Hook | Script | What it does |
 |---|---|---|
 | `SessionStart` | `scripts/snapshot.sh` | `repopilot snapshot` at the repository root |
-| `Stop` | `scripts/guard.sh` | `repopilot review --since-snapshot`; exit 2 with the flagged signals, once per stop |
+| `Stop` | `scripts/guard.sh` | `repopilot review --since-snapshot --format json`; exit 2 with weakened checks not raised earlier in the session |
 
 Everything runs locally. RepoPilot sends no source code anywhere and calls
 no language model. The agent receives hook feedback and MCP results under its

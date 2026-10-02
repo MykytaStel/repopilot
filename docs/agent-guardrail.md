@@ -102,11 +102,14 @@ The RepoPilot plugin wires the whole loop into Claude Code. With the
 ```
 
 The plugin snapshots the repository when a session starts. When Claude tries
-to stop, it reviews everything the session changed and blocks the stop once
-if it finds a definitely-sensitive signal or any test-integrity signal: a
-focused, skipped, or removed test, a test that lost assertions, or a new lint,
-type, or coverage suppression. Claude gets the list with file and line and must
-restore each check or explain why the change is intended. It also registers the
+to stop, it reviews everything the session changed and blocks the stop when
+the session weakened a check or a safeguard: a focused, skipped, or removed
+test, a test that lost assertions, a new lint, type, coverage, or RepoPilot
+suppression, a relaxed CI gate, a removed auth check, or request input newly
+reaching SQL or a shell. Claude gets the list with file and line and must
+restore each check or explain why the change is intended. Each signal is raised
+once per session. Other sensitive changes, such as a dependency bump or an
+edited workflow, stay in the review report and do not stop Claude. It also registers the
 MCP server below and a `review-session` skill. Outside a Git repository the hooks
 do nothing. Inside Git, unavailable review is reported in the hook diagnostics.
 
@@ -157,10 +160,11 @@ If `.cursor/hooks.json` already exists, add the two entries from
 instead of overwriting it.
 
 `sessionStart` takes a snapshot. When the agent finishes a turn, `stop`
-reviews everything the session changed. If it finds a definitely-sensitive
-signal or any test-integrity signal, it sends the agent one follow-up message
-listing each signal with its file and line, and asks the agent to restore the
-check or explain why the change is intended. `loop_limit: 1` and the script's
+reviews everything the session changed. If the session weakened a check or a
+safeguard (the same list as the Claude Code plugin), it sends the agent one
+follow-up message listing each signal with its file and line, and asks the
+agent to restore the check or explain why the change is intended. Each signal
+is raised once per session. `loop_limit: 1` and the script's
 own `loop_count` check keep it to one follow-up per stop. The hook prints `{}`
 and does nothing when the turn was aborted, outside a Git repository, or when
 review is unavailable (with the diagnostic on stderr).
