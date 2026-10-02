@@ -1,0 +1,30 @@
+{
+  "measured_on": "2026-10-02",
+  "platform": "darwin-arm64",
+  "gate_passed": true,
+  "results": {
+    "changed_median_ms": 359.4,
+    "full_median_ms": 851.81,
+    "changed_to_full_ratio": 0.422,
+    "required_max_ratio": 0.6,
+    "report_finalization_us": 4618,
+    "report_finalization_budget_us": 100000,
+    "large_diff_review": {
+      "changed_files": 123,
+      "base": "b2ec92e731f1035461e20871086f88aa04e315ce",
+      "head": "c6656898cd706b5e4759e6727c50f2fa2c6ef2ca",
+      "wall_median_ms": 1377.62,
+      "review_signals_median_ms": 593.2,
+      "required_max_median_ms": 2100
+    },
+    "integrity_review": {
+      "changed_files": 20,
+      "integrity_signals": 20,
+      "wall_median_ms": 654.98,
+      "integrity_median_ms": 3.085,
+      "integrity_share": 0.0047,
+      "required_max_median_ms": 1000,
+      "required_max_integrity_share": 0.1
+    }
+  }
+}

@@ -978,6 +978,22 @@ def check_rule_scorecard() -> None:
         raise ContractError("engineering index does not link to the rule scorecard")
 
 
+def check_release_scorecard() -> None:
+    """The v0.24 release scorecard must match the committed evidence it is built from."""
+    import release_scorecard as release_card
+
+    path = ROOT / "docs" / "engineering" / "v0.24-release-scorecard.md"
+    if not path.is_file():
+        raise ContractError("Missing docs/engineering/v0.24-release-scorecard.md")
+    if read_text(path) != release_card.render():
+        raise ContractError(
+            "docs/engineering/v0.24-release-scorecard.md is stale; "
+            "regenerate with `python3 scripts/release_scorecard.py --write`"
+        )
+    if "v0.24-release-scorecard.md" not in read_text(ROOT / "docs" / "engineering" / "README.md"):
+        raise ContractError("engineering index does not link to the v0.24 release scorecard")
+
+
 def check_review_contract_scorecard() -> None:
     """The review-zoo contract evidence document must match its fixtures."""
     fixture_dir = ROOT / "tests" / "fixtures" / "review-zoo"
@@ -1054,6 +1070,7 @@ def check_contract(tag: str | None) -> None:
     check_docs_parity()
     check_rule_scorecard()
     check_review_contract_scorecard()
+    check_release_scorecard()
     check_zoo_gate()
     print(f"Release contract passed for {version}")
 
