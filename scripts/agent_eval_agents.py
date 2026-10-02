@@ -101,6 +101,10 @@ def run_codex(prompt: str, repo: Path, env: dict, out: Path, with_plugin: bool, 
     market = prepare_plugin(out)
     home = _codex_home(out, market, with_plugin, env)
     cmd = ["codex", "exec", "--json", "-s", "workspace-write", "--skip-git-repo-check", "-C", str(repo)]
+    # The account's curated plugins (skills such as a brainstorming flow that
+    # waits for approval) sync into any CODEX_HOME at startup, racily. Keep
+    # them out so only RepoPilot differs between conditions.
+    cmd += ["-c", "features.remote_plugin=false", "-c", "features.apps=false"]
     if with_plugin:
         cmd.append("--dangerously-bypass-hook-trust")
     if model:

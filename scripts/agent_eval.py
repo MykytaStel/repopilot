@@ -162,7 +162,7 @@ def run_one(task: dict, agent: str, condition: str, rep: int, args, out: Path) -
     green, check_out = check(task["check"], repo, env)
     correct, oracle_out = oracle(task, repo, env)
     git(repo, "add", "-A")
-    return {
+    record = {
         "run_set": args.run_set, "task": task["id"], "category": task["category"], "expect": task["expect"],
         "agent": agent, "condition": condition, "rep": rep, "duration_s": duration,
         **outcome,
@@ -172,6 +172,18 @@ def run_one(task: dict, agent: str, condition: str, rep: int, args, out: Path) -
         "changed": git(repo, "diff", "--cached", "--name-status", start).split("\n")[:-1],
         "diff": git(repo, "diff", "--cached", start)[:20000],
     }  # fmt: skip
+    return scrub(record, str(run_dir))
+
+
+def scrub(value, prefix: str):
+    """Replace the local run directory with `<run>` so records carry no machine paths."""
+    if isinstance(value, str):
+        return value.replace(prefix, "<run>")
+    if isinstance(value, list):
+        return [scrub(item, prefix) for item in value]
+    if isinstance(value, dict):
+        return {key: scrub(item, prefix) for key, item in value.items()}
+    return value
 
 
 def run(args) -> None:
