@@ -9,6 +9,7 @@ whether the work was really done; RepoPilot plays no part in that verdict.
 
     python3 scripts/agent_eval.py selfcheck          # tasks start red and the reference solution passes the oracle
     python3 scripts/agent_eval.py run --run-set NAME # run agents; append to tests/agent_eval/results/NAME.jsonl
+    python3 scripts/agent_eval.py rejudge --run-set NAME --out DIR  # re-run a stricter oracle on saved runs
     python3 scripts/agent_eval.py report             # write tests/agent_eval/REPORT.md
 
 `run` uses the agents' own logins (Claude Code and Codex subscriptions).
@@ -89,7 +90,8 @@ def oracle(task: dict, repo: Path, env: dict) -> tuple[bool, str]:
         copy = Path(tmp) / "check"
         shutil.copytree(repo, copy, ignore=shutil.ignore_patterns(".git", ".repopilot", "node_modules"))
         shutil.copytree(task["dir"] / "oracle", copy / "oracle", dirs_exist_ok=True)
-        return check(task["oracle"], copy, {**env, **task.get("oracle_env", {})})
+        passed, tail = check(task["oracle"], copy, {**env, **task.get("oracle_env", {})})
+        return passed, tail.replace(str(copy.resolve()), "<check>").replace(str(copy), "<check>")
 
 
 def selfcheck(repopilot: Path) -> int:
@@ -186,6 +188,23 @@ def scrub(value, prefix: str):
     return value
 
 
+def rejudge(args) -> None:
+    """Re-run the current oracle on saved runs, after an oracle got stricter."""
+    results = RESULTS / f"{args.run_set}.jsonl"
+    tasks = {task["id"]: task for task in load_tasks(args.tasks)}
+    records = [json.loads(line) for line in results.read_text().splitlines()]
+    for record in records:
+        task = tasks.get(record["task"])
+        name = f"{record['task']}__{record['agent']}__{record['condition']}__{record['rep']}"
+        repo = Path(args.out) / args.run_set / name / "repo"
+        if not task or not repo.exists():
+            continue
+        correct, tail = oracle(task, repo, base_env(args.repopilot, task))
+        print(f"{name}: oracle {'pass' if record['correct'] else 'fail'} -> {'pass' if correct else 'fail'}")
+        record.update(scrub({"correct": correct, "oracle_tail": tail[-600:]}, str(repo.parent)))
+    results.write_text("".join(json.dumps(record) + "\n" for record in records))
+
+
 def run(args) -> None:
     out = Path(args.out)
     RESULTS.mkdir(parents=True, exist_ok=True)
@@ -226,20 +245,21 @@ def run(args) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("selfcheck", "run", "report"):
+    for name in ("selfcheck", "run", "rejudge", "report"):
         p = sub.add_parser(name)
         p.add_argument("--repopilot", type=Path, default=ROOT / "target" / "release" / "repopilot")
-        if name == "run":
+        if name in ("run", "rejudge"):
             p.add_argument("--run-set", required=True)
+            p.add_argument("--tasks", default="all")
+            p.add_argument("--out", default=str(Path(tempfile.gettempdir()) / "repopilot-agent-eval"))
+        if name == "run":
             p.add_argument("--agents", default="claude,codex")
             p.add_argument("--conditions", default="plain,plugin")
-            p.add_argument("--tasks", default="all")
             p.add_argument("--reps", type=int, default=1)
             p.add_argument("--jobs", type=int, default=2)
             p.add_argument("--timeout", type=int, default=900)
             p.add_argument("--claude-model")
             p.add_argument("--codex-model")
-            p.add_argument("--out", default=str(Path(tempfile.gettempdir()) / "repopilot-agent-eval"))
     args = parser.parse_args()
     if args.command != "report" and not args.repopilot.exists():
         sys.exit(f"{args.repopilot} not found; run `cargo build --release` or pass --repopilot")
@@ -247,6 +267,8 @@ def main() -> None:
         sys.exit(selfcheck(args.repopilot))
     if args.command == "run":
         run(args)
+    if args.command == "rejudge":
+        rejudge(args)
     report.write(RESULTS, EVAL / "REPORT.md")
 
 
