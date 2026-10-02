@@ -124,7 +124,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.23.0` emits schema `0.26` for scan, baseline-scan, and review; 0.23 changes to that schema are additive.
+Binary `0.24.0-rc.1` emits schema `0.26` for scan, baseline-scan, and review; 0.24 changes to that schema are additive.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
