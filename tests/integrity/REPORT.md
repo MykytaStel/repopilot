@@ -25,6 +25,15 @@ Denominator: merged, approved PRs (2026-06-01..09-28); detectors were tuned on i
 | justified | 21/84 (25.0%, 95% CI 17.0–35.2%) | 45/114 (39.5%, 95% CI 31.0–48.6%) |
 | none | 62/84 (73.8%, 95% CI 63.5–82.0%) | 69/114 (60.5%, 95% CI 51.4–69.0%) |
 
+| Verdict after maintainer review | agent | human |
+|---|---|---|
+| weakened | 0/84 (0.0%, 95% CI 0.0–4.4%) | 0/114 (0.0%, 95% CI 0.0–3.3%) |
+| justified | 22/84 (26.2%, 95% CI 18.0–36.5%) | 45/114 (39.5%, 95% CI 31.0–48.6%) |
+| none | 62/84 (73.8%, 95% CI 63.5–82.0%) | 69/114 (60.5%, 95% CI 51.4–69.0%) |
+
+Reviewed here: ic-069. Changed by the review:
+- ic-069: weakened → justified; maintainer review 2026-10-02: justified, not weakened; the new test follows the file's existing convention (10 identical eslint-disable-next-line comments before `{} as any`)
+
 Unlabeled: 0 of 198.
 
 ### RepoPilot catches (blind labels)
@@ -85,6 +94,15 @@ Denominator: merged, approved PRs (2026-03-01..05-31), sampled and labeled after
 | justified | 8/42 (19.0%, 95% CI 10.0–33.3%) | 17/56 (30.4%, 95% CI 19.9–43.3%) |
 | none | 34/42 (81.0%, 95% CI 66.7–90.0%) | 36/56 (64.3%, 95% CI 51.2–75.5%) |
 
+| Verdict after maintainer review | agent | human |
+|---|---|---|
+| weakened | 0/42 (0.0%, 95% CI 0.0–8.4%) | 2/56 (3.6%, 95% CI 1.0–12.1%) |
+| justified | 8/42 (19.0%, 95% CI 10.0–33.3%) | 18/56 (32.1%, 95% CI 21.4–45.2%) |
+| none | 34/42 (81.0%, 95% CI 66.7–90.0%) | 36/56 (64.3%, 95% CI 51.2–75.5%) |
+
+Reviewed here: ih-070, ih-083, ih-084. Changed by the review:
+- ih-070: weakened → justified; maintainer review 2026-10-02: justified, not weakened; lint still runs on Linux and Windows, and the macOS copy was a duplicate removed for CI speed
+
 Unlabeled: 0 of 98.
 
 ### RepoPilot catches (blind labels)
@@ -141,6 +159,15 @@ Denominator: agent PRs closed without merge after discussion (2026-06-01..09-28)
 | weakened | 2/62 (3.2%, 95% CI 0.9–11.0%) |
 | justified | 16/62 (25.8%, 95% CI 16.6–37.9%) |
 | none | 44/62 (71.0%, 95% CI 58.7–80.8%) |
+
+| Verdict after maintainer review | agent-closed |
+|---|---|
+| weakened | 1/62 (1.6%, 95% CI 0.3–8.6%) |
+| justified | 17/62 (27.4%, 95% CI 17.9–39.6%) |
+| none | 44/62 (71.0%, 95% CI 58.7–80.8%) |
+
+Reviewed here: icc-018, icc-059. Changed by the review:
+- icc-059: weakened → justified; maintainer review 2026-10-02: justified, not weakened; the PR description explains the redesign (the operator renders the Alertmanager config, and alerts are suppressed through AlertExceptions)
 
 Unlabeled: 0 of 62.
 
