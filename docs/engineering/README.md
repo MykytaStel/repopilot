@@ -21,6 +21,7 @@ release operations. Product workflows are in the
 - [Risk v4 calibration](risk-v4-calibration.md)
 - [Review contract evidence](review-contract-evidence.md)
 - [Performance budgets](performance-budgets.md)
+- [v0.24 release scorecard](v0.24-release-scorecard.md)
 - [v0.24 report compatibility matrix](v0.24-compatibility-matrix.md)
 - [v0.23 report compatibility matrix](v0.23-compatibility-matrix.md)
 - [v0.24 release evidence ledger](v0.24-evidence-ledger.md)
