@@ -628,12 +628,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "repopilot"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04b65ed43bfd2c2fdf4607d0c0b71ac3784c0094b67c4a4a6b4618167a5b7db3"
+dependencies = [
+ "chrono",
+ "clap",
+ "globset",
+ "ignore",
+ "indicatif",
+ "libc",
+ "rayon",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "thiserror",
+ "toml",
+ "tree-sitter",
+ "tree-sitter-c-sharp",
+ "tree-sitter-go",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-kotlin-ng",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
+ "windows-sys",
+]
+
+[[package]]
 name = "repopilot-released-reader-probe"
 version = "0.0.0"
 dependencies = [
  "repopilot 0.20.0",
  "repopilot 0.21.0",
  "repopilot 0.22.0",
+ "repopilot 0.23.0",
 ]
 
 [[package]]

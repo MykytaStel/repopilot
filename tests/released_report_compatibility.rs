@@ -35,6 +35,9 @@ struct ProducerEvidence {
     report_schema: String,
     fixture: String,
     report_sha256: String,
+    /// Set for entries added after the manifest's first observation.
+    #[serde(default)]
+    observed_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,6 +46,8 @@ struct ReaderEvidence {
     crate_sha256: String,
     input_schema: String,
     outcome: String,
+    #[serde(default)]
+    observed_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,6 +73,7 @@ fn current_reader_accepts_every_version_provenanced_release_report() {
         ("0.20.0", "0.23"),
         ("0.21.0", "0.23"),
         ("0.22.0", "0.26"),
+        ("0.23.0", "0.26"),
     ]);
     assert_eq!(manifest.producers.len(), expected.len());
 
@@ -76,6 +82,11 @@ fn current_reader_accepts_every_version_provenanced_release_report() {
         assert_eq!(producer.tag_commit.len(), 40);
         assert_eq!(producer.asset_sha256.len(), 64);
         assert!(producer.asset.contains(&producer.package_version));
+        let later = producer.package_version == "0.23.0";
+        assert_eq!(
+            producer.observed_at.as_deref(),
+            later.then_some("2026-10-02")
+        );
         assert_eq!(
             expected.get(producer.package_version.as_str()),
             Some(&producer.report_schema.as_str())
@@ -106,6 +117,8 @@ fn manifest_pins_released_reader_and_baseline_evidence() {
         .map(|reader| {
             assert_eq!(reader.crate_sha256.len(), 64);
             assert_eq!(reader.input_schema, "0.26");
+            let later = reader.package_version == "0.23.0";
+            assert_eq!(reader.observed_at.as_deref(), later.then_some("2026-10-02"));
             (reader.package_version.as_str(), reader.outcome.as_str())
         })
         .collect::<BTreeMap<_, _>>();
@@ -115,6 +128,7 @@ fn manifest_pins_released_reader_and_baseline_evidence() {
             ("0.20.0", "rejected-unsupported-schema"),
             ("0.21.0", "rejected-unsupported-schema"),
             ("0.22.0", "accepted"),
+            ("0.23.0", "accepted"),
         ])
     );
 
@@ -198,7 +212,7 @@ fn exact_released_readers_match_recorded_schema_outcomes() {
             "--manifest-path",
             "reader-probe/Cargo.toml",
             "--",
-            "scan-v0220-schema026.json",
+            "scan-v0230-schema026.json",
         ])
         .output()
         .expect("run exact released-reader probe");
@@ -213,6 +227,7 @@ fn exact_released_readers_match_recorded_schema_outcomes() {
             "0.20.0 REJECT unsupported scan report schema; expected scan report schema 0.23\n",
             "0.21.0 REJECT unsupported scan report schema; expected scan report schema 0.23\n",
             "0.22.0 ACCEPT\n",
+            "0.23.0 ACCEPT\n",
         )
     );
 }

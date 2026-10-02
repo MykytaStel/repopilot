@@ -7,3 +7,4 @@ edition = "2024"
 repopilot020 = { package = "repopilot", version = "=0.20.0" }
 repopilot021 = { package = "repopilot", version = "=0.21.0" }
 repopilot022 = { package = "repopilot", version = "=0.22.0" }
+repopilot023 = { package = "repopilot", version = "=0.23.0" }
