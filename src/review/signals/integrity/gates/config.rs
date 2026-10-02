@@ -1,6 +1,7 @@
 //! Tool configuration: npm scripts, TypeScript, pytest/coverage/mypy/ruff,
 //! and Codecov.
 
+use super::flags::relaxed_thresholds;
 use super::parse::{flatten_json, flatten_toml, number, parse_ini, parse_jsonc};
 use super::{Relaxation, runs_check, swallows_failure};
 use serde_json::Value as Json;
@@ -50,6 +51,11 @@ pub(super) fn package_json(before: &str, after: &str) -> Vec<Relaxation> {
                         ),
                     ));
                 }
+                found.extend(relaxed_thresholds(
+                    old,
+                    new,
+                    &format!("check script `{name}`"),
+                ));
             }
         }
     }
@@ -144,6 +150,9 @@ fn compare_settings(
     for (key, value) in new {
         let previous = old.get(key);
         let leaf = key.rsplit('.').next().unwrap_or(key);
+        if let Some(previous) = previous {
+            found.extend(relaxed_thresholds(previous, value, &format!("`{key}`")));
+        }
         if leaf == "addopts" {
             // Quotes vary (`-m "not slow"`); compare the bare option text.
             let unquoted = |text: &str| text.replace(['"', '\''], "");

@@ -212,3 +212,35 @@ fn ini_and_codecov_settings_are_reported() {
         ]
     );
 }
+
+#[test]
+fn command_line_thresholds_are_reported_wherever_the_command_lives() {
+    let before = r#"{"scripts":{"test":"node --test --experimental-test-coverage --test-coverage-lines=90 test/"}}"#;
+    assert_eq!(
+        relaxed("package.json", before, &before.replace("=90", "=80")),
+        vec!["check script `test` lowers `--test-coverage-lines` from 90 to 80"]
+    );
+    let workflow = "jobs:\n  test:\n    steps:\n      - name: Tests\n        run: pytest --cov=app --cov-fail-under=90\n";
+    assert_eq!(
+        relaxed(
+            ".github/workflows/ci.yml",
+            workflow,
+            &workflow.replace("=90", "=70")
+        ),
+        vec!["check step `Tests` in job `test` lowers `--cov-fail-under` from 90 to 70"]
+    );
+    let pyproject = "[tool.pytest.ini_options]\naddopts = \"--cov=app --cov-fail-under=85\"\n";
+    assert_eq!(
+        relaxed(
+            "pyproject.toml",
+            pyproject,
+            &pyproject.replace(" --cov-fail-under=85", "")
+        ),
+        vec!["`tool.pytest.ini_options.addopts` no longer passes `--cov-fail-under 85`"]
+    );
+    let tox = "[testenv]\ncommands =\n    pytest --cov=app --cov-fail-under=90\n";
+    assert_eq!(
+        relaxed("tox.ini", tox, &tox.replace("=90", "=60")),
+        vec!["`testenv.commands` lowers `--cov-fail-under` from 90 to 60"]
+    );
+}
