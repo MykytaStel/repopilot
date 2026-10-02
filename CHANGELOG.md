@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- Adoption statistics keep failed GitHub requests unavailable instead of
+  recording zero mentions, referrers, or release downloads. Public counters
+  remain usable when the `gh` executable is missing. Code-search mentions
+  no longer claim to establish GitHub Action usage.
+
 ## [0.24.0] - 2026-10-02
 
 RepoPilot 0.24 (Honest Green) reports when a change turns CI green by weakening

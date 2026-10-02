@@ -4,6 +4,16 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
+## Current: 0.24 — release prepared
+
+RepoPilot 0.24 reports the checks a change weakened and runs the same review
+at the end of a coding-agent session. The stable release is prepared; the
+`v0.24.0` tag and public-channel verification are still pending. The latest
+stable release is 0.23.0.
+
+See the [0.24 release contract](roadmap/v0.24.md) and
+[prepared release notes](releases/v0.24.0.md).
+
 ## Next: 0.25
 
 The 0.25 scope is not set yet. Evidence from 0.24 points at these candidates:
@@ -19,9 +29,6 @@ The 0.25 scope is not set yet. Evidence from 0.24 points at these candidates:
 
 ## Released
 
-- **0.24 — Honest Green:** reports the checks a change weakened (tests,
-  assertions, suppressions, CI and coverage gates) and runs the same review at
-  the end of a coding-agent session. [Release notes](releases/v0.24.0.md)
 - **0.23 — Change Proof:** one review verdict, its reasons, proof obligations,
   and next action across supported outputs. [Release notes](releases/v0.23.0.md)
 - **0.22 — Repository intelligence:** shared graph analysis, broken local

@@ -29,9 +29,16 @@ def fetch(url: str) -> dict:
         return json.load(response)
 
 
+def gh_json(args: list[str]):
+    try:
+        run = subprocess.run(["gh", *args], capture_output=True, text=True)
+        return json.loads(run.stdout) if run.returncode == 0 else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def gh(path: str):
-    run = subprocess.run(["gh", "api", path], capture_output=True, text=True)
-    return json.loads(run.stdout) if run.returncode == 0 else None
+    return gh_json(["api", path])
 
 
 def npm_week(package: str) -> int:
@@ -44,13 +51,11 @@ def collect() -> dict:
     clones = gh(f"repos/{REPO}/traffic/clones") or {}
     platforms = {name: npm_week(f"@repopilot/{name}") for name in NPM_PLATFORMS}
     crate = fetch("https://crates.io/api/v1/crates/repopilot")
-    releases = gh(f"repos/{REPO}/releases?per_page=5") or []
-    search = subprocess.run(
-        ["gh", "search", "code", REPO, "--limit", "100", "--json", "repository"],
-        capture_output=True, text=True,
-    )  # fmt: skip
-    mentions = sorted(
-        {hit["repository"]["nameWithOwner"] for hit in json.loads(search.stdout or "[]")} - {REPO}
+    releases = gh(f"repos/{REPO}/releases?per_page=5")
+    referrers = gh(f"repos/{REPO}/traffic/popular/referrers")
+    search = gh_json(["search", "code", REPO, "--limit", "100", "--json", "repository"])
+    mentions = None if search is None else sorted(
+        {hit["repository"]["nameWithOwner"] for hit in search} - {REPO}
     )
     registry = fetch(f"https://registry.modelcontextprotocol.io/v0/servers?search={MCP_NAME.split('/')[1]}")
     listed = any(entry.get("server", entry).get("name") == MCP_NAME for entry in registry.get("servers", []))
@@ -62,13 +67,15 @@ def collect() -> dict:
         "visitors_14d": views.get("uniques"),
         "clones_14d": clones.get("count"),
         "cloners_14d": clones.get("uniques"),
-        "referrers": [(r["referrer"], r["uniques"]) for r in gh(f"repos/{REPO}/traffic/popular/referrers") or []],
+        "referrers": None if referrers is None else [(r["referrer"], r["uniques"]) for r in referrers],
         "npm_week": npm_week("repopilot"),
         "npm_platforms_week": platforms,
         "crates_total": crate["crate"]["downloads"],
         "crates_90d": crate["crate"].get("recent_downloads"),
         "crates_versions": [(v["num"], v["downloads"]) for v in crate["versions"][:3]],
-        "releases": [(r["tag_name"], sum(a["download_count"] for a in r["assets"])) for r in releases],
+        "releases": None if releases is None else [
+            (r["tag_name"], sum(a["download_count"] for a in r["assets"])) for r in releases
+        ],
         "mentions": mentions,
         "mcp_registry": listed,
     }
@@ -78,7 +85,15 @@ def render(stats: dict) -> str:
     platforms = stats["npm_platforms_week"]
     floor = min(platforms.values()) if platforms else 0
     above_floor = sum(count - floor for count in platforms.values())
-    referrers = ", ".join(f"{name} ({uniques})" for name, uniques in stats["referrers"]) or "none"
+    referrers = "unavailable" if stats["referrers"] is None else (
+        ", ".join(f"{name} ({uniques})" for name, uniques in stats["referrers"]) or "none"
+    )
+    releases = "unavailable" if stats["releases"] is None else (
+        ", ".join(f"{tag} {count}" for tag, count in stats["releases"]) or "none"
+    )
+    mentions = "unavailable" if stats["mentions"] is None else (
+        f"{len(stats['mentions'])}: {', '.join(stats['mentions'][:8]) or '—'}"
+    )
     lines = [
         f"# RepoPilot adoption, {stats['date']}",
         "",
@@ -93,8 +108,8 @@ def render(stats: dict) -> str:
         f"| a real install fetches one platform; ~{above_floor} above the common floor of {floor} |",
         f"| crates.io total / 90 days | {stats['crates_total']} / {stats['crates_90d']} | ~400 per version is the mirror baseline |",
         f"| crates.io latest versions | {', '.join(f'{v} {n}' for v, n in stats['crates_versions'])} | |",
-        f"| Release binary downloads | {', '.join(f'{t} {n}' for t, n in stats['releases'])} | the Action and installers fetch these |",
-        f"| Other repositories naming `{REPO}` | {len(stats['mentions'])}: {', '.join(stats['mentions'][:8]) or '—'} | workflows here are real Action users |",
+        f"| Release binary downloads | {releases} | the Action and installers fetch these |",
+        f"| Other repositories naming `{REPO}` | {mentions} | code search capped at 100 hits; inspect matches for actual integration use |",
         f"| MCP Registry `{MCP_NAME}` | {'listed' if stats['mcp_registry'] else 'not listed'} | |",
     ]
     return "\n".join(lines) + "\n"
