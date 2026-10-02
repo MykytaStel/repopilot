@@ -69,6 +69,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   ignores; and `--deselect`, `--ignore`, `-k`, or `-m not` added to pytest
   `addopts`. Deleting a workflow or `.gitlab-ci.yml` reports the check jobs it
   ran. Steps and scripts that run no check (build, docs) are not reported.
+- **Gate relaxation covers thresholds passed on the command line.** The same
+  npm script, GitHub Actions step, GitLab job, or tool setting (pytest
+  `addopts`, tox `commands`) is compared before and after. RepoPilot reports a
+  coverage floor that went down or was dropped, and a lint warning cap that went
+  up or was dropped. Coverage floors: `--cov-fail-under`, `--fail-under`,
+  `cargo llvm-cov --fail-under-*`, Node's `--test-coverage-*`, Vitest
+  `--coverage.thresholds.*`, and c8/nyc `--lines`, `--branches`,
+  `--functions`, `--statements`. Lint cap: `eslint --max-warnings`. Found while
+  building the agent eval: lowering `--test-coverage-lines` in an npm script
+  was not reported.
 - **Review shows a change that silences RepoPilot itself.**
   `integrity.review-suppression-added` (maybe sensitive) reports each entry a
   change adds to `.repopilot/overlay.toml`, with what it suppresses, its path

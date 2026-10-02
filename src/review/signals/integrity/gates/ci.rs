@@ -1,5 +1,6 @@
 //! CI pipelines: GitHub Actions workflows and GitLab CI.
 
+use super::flags::relaxed_thresholds;
 use super::{Relaxation, runs_check, swallows_failure};
 use serde_yaml::Value;
 
@@ -71,12 +72,19 @@ fn steps(job: &str, old_job: &Value, new_job: &Value) -> Vec<Relaxation> {
         }
         if let (Some(old_run), Some(new_run)) =
             (text(old_step.get("run")), text(new_step.get("run")))
-            && let Some(marker) = swallows_failure(&new_run)
-            && swallows_failure(&old_run).is_none()
         {
-            found.push(Relaxation::at(
-                marker,
-                format!("check step `{label}` in job `{job}` now ends with `{marker}`"),
+            if let Some(marker) = swallows_failure(&new_run)
+                && swallows_failure(&old_run).is_none()
+            {
+                found.push(Relaxation::at(
+                    marker,
+                    format!("check step `{label}` in job `{job}` now ends with `{marker}`"),
+                ));
+            }
+            found.extend(relaxed_thresholds(
+                &old_run,
+                &new_run,
+                &format!("check step `{label}` in job `{job}`"),
             ));
         }
     }
@@ -133,7 +141,8 @@ pub(super) fn gitlab(before: &str, after: &str) -> Vec<Relaxation> {
                 format!("job `{name}` now runs only manually"),
             ));
         }
-        if let Some(marker) = swallows_failure(&scripts(new_job))
+        let new_script = scripts(new_job);
+        if let Some(marker) = swallows_failure(&new_script)
             && swallows_failure(&script).is_none()
         {
             found.push(Relaxation::at(
@@ -141,6 +150,11 @@ pub(super) fn gitlab(before: &str, after: &str) -> Vec<Relaxation> {
                 format!("job `{name}` script now ends with `{marker}`"),
             ));
         }
+        found.extend(relaxed_thresholds(
+            &script,
+            &new_script,
+            &format!("job `{name}` script"),
+        ));
     }
     found
 }
