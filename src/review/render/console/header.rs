@@ -39,6 +39,7 @@ pub(super) fn render(
     let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
 
     render_verdict(output, &decision, &proof);
+    super::weakened::render(output, report);
     render_proof_summary(output, report, &proof, &evidence);
     if full {
         render_proof_details(output, report, &proof, &evidence, &readiness);

@@ -22,20 +22,26 @@ for their application.
 This change drops a range check from `applyDiscount`. The same change skips the
 test that would now fail, removes an assertion from another test, and lets the
 CI test step fail without failing the job. Every check that still runs passes.
-`repopilot review .` reports each of these with its file and line:
+`repopilot review .` lists them right after its decision:
 
 ```text
-Review signals [preview]:
-  Definitely sensitive:
-    ⚑ deploy surface changed — .github/workflows/ci.yml
-  Maybe sensitive:
+Decision: REVIEW (Change Proof: REVIEW)
+...
+Checks this change weakened (details under Review signals):
+  ⚑ check gate relaxed — .github/workflows/ci.yml:10
+  ⚑ assertions removed — src/pricing.test.ts:5
+  ⚑ test skipped — src/pricing.test.ts:9
+```
+
+Further down, each signal explains itself:
+
+```text
     ⚑ check gate relaxed — .github/workflows/ci.yml:10  check step `npm test` in job `test` now has `continue-on-error: true`
     ⚑ assertions removed — src/pricing.test.ts:5  "applyDiscount > takes a percentage off the total": assertions 2 → 1
     ⚑ test skipped — src/pricing.test.ts:9  `it.skip` added on "rejects a discount above 100%"; its result no longer fails the run
 ```
 
-This is an excerpt. The full output starts with a `REVIEW` decision and its
-reasons ([recording](docs/demos/06-weakened-tests.gif)). Replay it with
+These are excerpts of one run ([recording](docs/demos/06-weakened-tests.gif)). Replay it with
 `scripts/demo-weakened-tests.sh <empty-dir>`, then run `repopilot review <empty-dir>`.
 
 ## Install and review

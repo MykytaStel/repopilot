@@ -94,6 +94,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- **The console review lists the checks a change weakened right after its
+  decision.** A "Checks this change weakened" block names each integrity
+  signal (skipped, focused, or removed tests, lost assertions, suppressions,
+  relaxed gates) with its file and line. Before, they appeared only after the
+  proof details and the changed-file inventory. Each signal's full entry stays
+  under "Review signals", which agent hooks read.
+
 - **`snapshot` keeps pre-existing work out of `review --since-snapshot`.** On
   a dirty working tree the snapshot now records a baseline commit of the exact
   tree (tracked edits and untracked, non-ignored files), pinned as

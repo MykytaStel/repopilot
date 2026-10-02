@@ -55,6 +55,50 @@ fn a_skipped_test_is_reported_without_failing_the_definitely_gate() {
     assert!(stdout(&json).contains("integrity.test-skipped"));
 }
 
+#[test]
+fn console_lists_weakened_checks_right_after_the_decision() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    seed(root);
+    let skipped = CART_TEST.replace("it(\"applies", "it.skip(\"applies");
+    fs::write(root.join("src/cart.test.ts"), skipped).expect("skip test");
+
+    let console = stdout(&review(root, &[]));
+    let decision = console.find("Decision:").expect("decision line");
+    let weakened = console
+        .find("Checks this change weakened")
+        .expect("weakened checks block");
+    let evidence = console.find("Evidence scope:").expect("evidence line");
+    let signals = console
+        .find("Review signals [preview]")
+        .expect("review signals section");
+    assert!(
+        decision < weakened && weakened < evidence && evidence < signals,
+        "{console}"
+    );
+    assert!(
+        console.contains("  \u{2691} test skipped \u{2014} src/cart.test.ts:"),
+        "{console}"
+    );
+}
+
+#[test]
+fn console_has_no_weakened_block_without_integrity_signals() {
+    let temp = tempdir().expect("temp dir");
+    let root = temp.path();
+    seed(root);
+    fs::write(
+        root.join("src/cart.ts"),
+        "export function total(items: number[]): number {\n  return items.length;\n}\n",
+    )
+    .expect("edit source");
+    let console = stdout(&review(root, &[]));
+    assert!(
+        !console.contains("Checks this change weakened"),
+        "{console}"
+    );
+}
+
 fn seed(root: &Path) {
     fs::create_dir_all(root.join("src")).expect("src dir");
     fs::write(
