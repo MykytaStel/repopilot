@@ -11,9 +11,8 @@ local and offline and needs no API key; installation uses your package channel.
    `npm install -g repopilot` or `cargo install repopilot --locked`.
 2. Run `command -v repopilot` and `repopilot --version` in the terminal that
    launches your agent. Session integrity review requires **0.24 or newer**.
-   If your package channel still serves 0.23, use the published 0.24 release
-   candidate (`npm install -g repopilot@next`) or build the current checkout
-   with `cargo install --path . --locked --force`; verify the resolved version.
+   The current stable release is 0.24.0. If an older executable resolves,
+   update that installation and check its version before starting a session.
 3. Install the plugin or extension for your agent below. Review any hook trust
    prompt, then start a new session in a Git repository.
 4. Make one small change. Ask the agent to run
@@ -84,6 +83,7 @@ repopilot review --since-snapshot --fail-on-review definitely
 | Codex | [plugin](#codex-install-the-plugin) | the stop is blocked once, with the list |
 | Cursor | [project hooks](#cursor-project-hooks) | one follow-up message with the list |
 | Gemini CLI | [extension](#gemini-cli-install-the-extension) or project hooks | the reply is rejected once, with the list |
+| Google Antigravity | [MCP and manual review](#google-antigravity) | automatic stop unverified |
 | GitHub Copilot coding agent | [setup steps, MCP, and the Action](#github-copilot-coding-agent) | the pull request review lists it; the agent is not stopped |
 | Any other agent | [AGENTS.md instructions](#any-agent-agentsmd) | the agent runs the review itself, if it follows the instructions |
 
@@ -222,6 +222,32 @@ If `.gemini/settings.json` already exists, merge the `hooks` and `mcpServers`
 entries from [`integrations/gemini/settings.json`](../integrations/gemini/settings.json)
 into it instead of overwriting it.
 
+## Google Antigravity
+
+An observed Gemini CLI 0.62.0 Google login was rejected because personal Code
+Assist no longer supported that client. Follow Google's
+[Gemini CLI migration guide](https://antigravity.google/docs/cli/gcli-migration/)
+for the current Antigravity client rather than treating this as a RepoPilot
+failure.
+
+Register the local MCP server with Antigravity CLI:
+
+```bash
+agy mcp add repopilot -- repopilot mcp --root .
+agy mcp list
+```
+
+Use [the manual snapshot/review loop](#any-agent-agentsmd) in each Git workspace.
+This provides MCP tools; automatic stop behavior is not claimed for Antigravity.
+Interactive MCP calls require the client's permission. For headless context
+calls, merge `"mcp(repopilot/repopilot_context)"` into `permissions.allow` in
+`~/.gemini/antigravity-cli/settings.json`, preserving existing rules. This
+allows that context tool only; other tools keep their existing permissions.
+Headless denials can still exit `0` with a `SUCCESS` status: check that the
+requested MCP data actually returned and inspect stderr or `denied_actions`.
+A legacy extension import can pin `${workspacePath}` to the directory used at
+import time. Verify the resulting MCP root before using it in another project.
+
 ## GitHub Copilot coding agent
 
 Copilot's coding agent works in GitHub Actions and opens a pull request. Its
@@ -230,7 +256,10 @@ hooks cannot stop the agent, so RepoPilot checks its work in two places:
 1. Copy [`integrations/copilot/copilot-setup-steps.yml`](../integrations/copilot/copilot-setup-steps.yml)
    to `.github/workflows/copilot-setup-steps.yml`. The agent's environment then
    has the `repopilot` CLI and a snapshot before it starts.
-2. In the repository's Copilot settings, add the MCP server from
+   RepoPilot itself includes [this setup workflow](../.github/workflows/copilot-setup-steps.yml),
+   pinned to the stable 0.24.0 package. Run it manually to verify installation
+   and snapshot creation; this does not prove an agent PR or MCP configuration.
+2. Open **Settings → Copilot → MCP servers** in your repository and add the server from
    `repopilot init --mcp-client copilot`. The agent can then call
    `repopilot_review_change` before it finishes.
 3. Review the pull request with the [GitHub Action](#gate-pull-requests-in-ci).

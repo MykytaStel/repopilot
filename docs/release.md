@@ -169,7 +169,11 @@ tagged artifacts:
 gh workflow run verify-publication.yml -f tag=vX.Y.Z
 ```
 
-The same check runs locally against a checkout of the tag:
+The same check runs locally against a clean checkout of the tag. For 0.24.0,
+use the publisher runtime, Node 24.21.0 with npm 11.19.0; other compressors can
+produce a different tarball digest for identical contents. The verifier rejects
+an unsupported runtime before querying channels. See the
+[agent maintenance runbook](engineering/maintaining-agent-integrations.md#release-maintenance).
 
 ```bash
 VERSION=vX.Y.Z SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh

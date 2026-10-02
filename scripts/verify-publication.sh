@@ -6,7 +6,7 @@
 # Used by the tag workflow, by the manual `Verify publication` workflow after a
 # recovery, and locally:
 #
-#   VERSION=v0.23.0 SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
+#   VERSION=v0.24.0 SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
 #
 # SOURCE_DIR must be a checkout of the release tag (default: current directory);
 # expected crate and npm digests are rebuilt from it. Exits 0 only when every
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-: "${VERSION:?VERSION must be the release tag, e.g. v0.23.0}"
+: "${VERSION:?VERSION must be the release tag, e.g. v0.24.0}"
 SOURCE_DIR="$(cd "${SOURCE_DIR:-.}" && pwd)"
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-MykytaStel/repopilot}"
 # crates.io rejects API requests without a descriptive User-Agent (HTTP 403).
@@ -27,6 +27,19 @@ VERSION_NUMBER="${VERSION#v}"
 PRERELEASE=false
 if [[ "$VERSION_NUMBER" == *-* ]]; then
   PRERELEASE=true
+fi
+
+# npm integrity covers the compressed tarball. Node's compressor can change
+# its bytes without changing package contents; reproduce the publisher runtime
+# before classifying any public artifact as a mismatch.
+release_runtime="$(python3 "$TOOLS_DIR/scripts/publication_runtime.py" "$VERSION")"
+release_node_version="$(jq -r '.node' <<<"$release_runtime")"
+release_npm_version="$(jq -r '.npm' <<<"$release_runtime")"
+node_version="$(node --version 2>/dev/null || true)"
+npm_version="$(npm --version 2>/dev/null || true)"
+if [[ "$node_version" != "v$release_node_version" || "$npm_version" != "$release_npm_version" ]]; then
+  echo "unsupported verifier runtime: use Node $release_node_version and npm $release_npm_version (publisher); found Node ${node_version:-missing}, npm ${npm_version:-missing}" >&2
+  exit 1
 fi
 
 verify_tmp="$(mktemp -d)"
