@@ -141,9 +141,11 @@ weakened is unexplained:
 /plugin install repopilot@repopilot
 ```
 
-In Cursor, two project hooks run the same loop and send the agent one
-follow-up message listing what it weakened. See
-[Guard your agent runs](docs/agent-guardrail.md).
+Codex installs the same plugin (`codex plugin marketplace add
+MykytaStel/repopilot`, then `codex plugin add repopilot@repopilot`). Cursor and
+Gemini CLI run the same loop through project hooks. For GitHub Copilot's coding
+agent and other agents, RepoPilot provides setup steps, an MCP entry, and an
+`AGENTS.md` snippet. See [Guard your agent runs](docs/agent-guardrail.md#pick-your-agent).
 
 RepoPilot also provides a local stdio MCP server and a GitHub Action. The MCP
 server gives an agent access to the local scan and review tools. The Action runs

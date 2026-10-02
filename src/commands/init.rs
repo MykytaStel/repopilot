@@ -1,4 +1,5 @@
 use crate::cli::{InitOptions, McpClientArg};
+use crate::commands::init_mcp::{mcp_bootstrap, mcp_output_path};
 use crate::commands::init_suggestions::{detect, render as render_init_suggestions};
 use crate::commands::init_suggestions_export::render as render_init_suggestions_toml;
 use repopilot::config::template::default_config_toml;
@@ -7,7 +8,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const ACTION_PATH: &str = ".github/workflows/repopilot-review.yml";
-const MCP_DIR: &str = ".repopilot/bootstrap";
 
 pub fn run(options: InitOptions) -> Result<(), Box<dyn std::error::Error>> {
     let invocation_dir = std::env::current_dir()?;
@@ -134,47 +134,6 @@ jobs:
     )
 }
 
-fn mcp_output_path(client: McpClientArg) -> PathBuf {
-    let name = match client {
-        McpClientArg::Claude => "claude.json",
-        McpClientArg::Cursor => "cursor.json",
-        McpClientArg::Generic => "generic.json",
-    };
-    Path::new(MCP_DIR).join(name)
-}
-
-fn mcp_bootstrap(client: McpClientArg) -> String {
-    match client {
-        McpClientArg::Claude => r#"{
-  "registration_command": "claude mcp add repopilot -- repopilot mcp --root .",
-  "note": "Run the registration command from the repository root."
-}
-"#
-        .to_string(),
-        McpClientArg::Cursor => r#"{
-  "mcpServers": {
-    "repopilot": {
-      "command": "repopilot",
-      "args": ["mcp", "--root", "."]
-    }
-  },
-  "note": "Copy this server entry into the MCP configuration used by Cursor."
-}
-"#
-        .to_string(),
-        McpClientArg::Generic => r#"{
-  "mcpServers": {
-    "repopilot": {
-      "command": "repopilot",
-      "args": ["mcp", "--root", "."]
-    }
-  }
-}
-"#
-        .to_string(),
-    }
-}
-
 fn print_next_steps(
     config: &Path,
     root: &Path,
@@ -203,6 +162,7 @@ fn print_next_steps(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::init_mcp::MCP_DIR;
     use tempfile::tempdir;
 
     fn options(root: &Path) -> InitOptions {
@@ -260,20 +220,5 @@ mod tests {
         run_at(options, temp.path()).expect("init succeeds");
 
         assert_ne!(fs::read_to_string(path).expect("config"), "custom = true\n");
-    }
-
-    #[test]
-    fn every_mcp_bootstrap_is_valid_json_and_launches_or_registers_repopilot() {
-        for client in [
-            McpClientArg::Claude,
-            McpClientArg::Cursor,
-            McpClientArg::Generic,
-        ] {
-            let value: serde_json::Value =
-                serde_json::from_str(&mcp_bootstrap(client)).expect("valid bootstrap JSON");
-            let rendered = value.to_string();
-            assert!(rendered.contains("repopilot"));
-            assert!(rendered.contains("mcp"));
-        }
     }
 }

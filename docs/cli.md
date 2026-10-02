@@ -558,6 +558,7 @@ repopilot init --suggestions-output .repopilot/init-suggestions.toml
 repopilot init --github-action
 repopilot init --mcp-client claude
 repopilot init --mcp-client cursor
+repopilot init --mcp-client codex     # also: copilot, gemini, generic
 repopilot init --all
 ```
 

@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- **Session review for Codex, Gemini CLI, and GitHub Copilot's coding agent.**
+  The RepoPilot plugin now ships a Codex manifest (`.codex-plugin/plugin.json`
+  with `SessionStart`/`Stop` hooks), so `codex plugin add repopilot@repopilot`
+  installs the same snapshot-and-review loop as Claude Code. Gemini CLI gets
+  `integrations/gemini/settings.json` (`SessionStart`/`AfterAgent` hooks plus
+  the MCP server). Copilot's coding agent gets
+  `integrations/copilot/copilot-setup-steps.yml`. Any agent that reads
+  `AGENTS.md` gets `integrations/agents/AGENTS.md`. `repopilot init
+  --mcp-client` accepts `codex`, `copilot`, and `gemini`. All hooks share the
+  same scripts. `tests/agent_integrations.rs` runs the Codex `Stop` and Gemini
+  `AfterAgent` inputs through them.
 - **Review reports tests a change stopped running.** New `integrity` signal
   family: `integrity.test-focused` (definitely sensitive) when a change commits
   a focus marker such as `it.only` or `fdescribe`, and

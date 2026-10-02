@@ -4,7 +4,10 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum McpClientArg {
     Claude,
+    Codex,
+    Copilot,
     Cursor,
+    Gemini,
     Generic,
 }
 
