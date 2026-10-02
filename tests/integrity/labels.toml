@@ -3,6 +3,7 @@
 labeler = "Claude (Anthropic, Opus 5.5) for the maintainer; same model wrote the detectors"
 status = "single-labeler, exploratory, pending maintainer review"
 method = "compact test/gate diff view (integrity_corpus.py show --compact), labeled before any RepoPilot run"
+review = "2026-10-02: the maintainer reviewed every weakened verdict (6) and changed 3 to justified, because the labeler had judged them from the PR title and diff without reading the PR description. Claude then re-read the other 56 labels on the review page (held-out and closed labels with kinds, reconciliations, and a sample of 10 none labels) against their full PR descriptions. None changed."
 
 [[label]]
 id = "ic-001"
@@ -420,6 +421,8 @@ id = "ic-069"
 kinds = ["suppression-added"]
 verdict = "weakened"
 note = "blanket eslint-disable-next-line without rule or reason in new test code"
+reviewed_verdict = "justified"
+review = "maintainer review 2026-10-02: justified, not weakened; the new test follows the file's existing convention (10 identical eslint-disable-next-line comments before `{} as any`)"
 
 [[label]]
 id = "ic-070"
@@ -1626,6 +1629,8 @@ id = "ih-070"
 kinds = ["gate-relaxed"]
 verdict = "weakened"
 note = "CI restructured into a test matrix; the macOS workflow's only yarn lint step is dropped without a stated reason"
+reviewed_verdict = "justified"
+review = "maintainer review 2026-10-02: justified, not weakened; lint still runs on Linux and Windows, and the macOS copy was a duplicate removed for CI speed"
 
 [[label]]
 id = "ih-071"
@@ -1704,12 +1709,14 @@ id = "ih-083"
 kinds = ["assertion-trivialized"]
 verdict = "weakened"
 note = "modal close test unmounts the component before asserting its text is gone, so the check cannot fail"
+review = "maintainer review 2026-10-02: confirmed weakened; after unmount() the assertion cannot fail"
 
 [[label]]
 id = "ih-084"
 kinds = ["assertion-removed"]
 verdict = "weakened"
 note = "thank-you link became a button; renamed test says it navigates but no longer checks the destination"
+review = "maintainer review 2026-10-02: confirmed weakened; a test should check where the button leads"
 
 [[label]]
 id = "ih-085"
@@ -1902,6 +1909,7 @@ id = "icc-018"
 kinds = ["assertion-trivialized"]
 verdict = "weakened"
 note = "\"run calls addJs and addCss\" test replaces run() with its own implementation, so it no longer exercises the real method; unrelated to the triage title"
+review = "maintainer review 2026-10-02: confirmed weakened; the real run() is no longer exercised (the affected test is `run method waits for both promises`)"
 
 [[label]]
 id = "icc-019"
@@ -2148,6 +2156,8 @@ id = "icc-059"
 kinds = ["test-removed", "test-substituted"]
 verdict = "weakened"
 note = "Alertmanager secret upgrade and ownership tests (including keep-user-modified-config) replaced by webhook rendering checks; the alerts-page title does not explain dropping them"
+reviewed_verdict = "justified"
+review = "maintainer review 2026-10-02: justified, not weakened; the PR description explains the redesign (the operator renders the Alertmanager config, and alerts are suppressed through AlertExceptions)"
 
 [[label]]
 id = "icc-060"

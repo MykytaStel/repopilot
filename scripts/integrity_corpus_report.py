@@ -91,6 +91,7 @@ def section(manifest: list[dict], by_id: dict, results: dict[str, dict] | None) 
             hits = sum(1 for e in entries if by_id[e["id"]].get("verdict") == verdict)
             cells.append(fmt(hits, len(entries)))
         lines.append(f"| {verdict} | " + " | ".join(cells) + " |")
+    lines += reviewed_verdicts(manifest, by_id, names, groups)
     unlabeled = [e["id"] for e in manifest if e["id"] not in by_id]
     lines += ["", f"Unlabeled: {len(unlabeled)} of {len(manifest)}."]
     if results and any(e["id"] in results for e in manifest):
@@ -105,6 +106,27 @@ def section(manifest: list[dict], by_id: dict, results: dict[str, dict] | None) 
             lines += catches(manifest, reconciled, results, f"labels with {len(changed)} reconciliation(s)")
             lines += ["", "Reconciled after evaluation (evidence the blind label missed):"]
             lines += [f"- {corpus_id}: {by_id[corpus_id].get('reconciliation', '')}" for corpus_id in sorted(changed)]
+    return lines
+
+
+def reviewed_verdicts(manifest: list[dict], by_id: dict, names: list[str], groups: dict) -> list[str]:
+    """Verdicts after maintainer review, when a review changed any in this split."""
+    ids = {e["id"] for e in manifest}
+    changed = sorted(i for i, label in by_id.items() if "reviewed_verdict" in label and i in ids)
+    reviewed = sorted(i for i, label in by_id.items() if "review" in label and i in ids)
+    if not reviewed:
+        return []
+    final = lambda label: label.get("reviewed_verdict", label.get("verdict"))
+    lines = ["", "| Verdict after maintainer review | " + " | ".join(names) + " |", "|---" * (len(names) + 1) + "|"]
+    for verdict in VERDICTS:
+        cells = []
+        for group in names:
+            entries = groups[group]
+            hits = sum(1 for e in entries if final(by_id[e["id"]]) == verdict)
+            cells.append(fmt(hits, len(entries)))
+        lines.append(f"| {verdict} | " + " | ".join(cells) + " |")
+    lines += ["", f"Reviewed here: {', '.join(reviewed)}. Changed by the review:"]
+    lines += [f"- {i}: {by_id[i]['verdict']} → {by_id[i]['reviewed_verdict']}; {by_id[i].get('review', '')}" for i in changed] or ["- none"]
     return lines
 
 

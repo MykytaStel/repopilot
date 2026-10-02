@@ -103,6 +103,18 @@ the rubric could be read either way.
 deleted or emptied. `integrity.test-removed` reports test cases removed from a
 file that still has tests. The report has a combined row for either signal.
 
+## Maintainer review
+
+On 2026-10-02 the maintainer reviewed every `weakened` verdict (6 PRs) and
+changed 3 of them to `justified`. The labeler had judged those 3 from the PR
+title and diff without reading the PR description. Claude then re-read the
+other 56 labels on the review page against their full PR descriptions, and
+none changed. Those 56 were the held-out and closed labels with kinds, the
+reconciliations, and a sample of 10 `none` labels. Labels record a changed
+verdict as `reviewed_verdict` and every reviewed label as `review`. The report
+shows verdicts both blind and after review. Kinds were not changed, so the
+catch tables are unaffected.
+
 ## Labeler disclosure
 
 The labels were made by Claude (Anthropic, model Opus 5.5) working for the
