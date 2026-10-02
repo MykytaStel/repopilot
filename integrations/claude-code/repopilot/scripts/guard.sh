@@ -8,12 +8,33 @@ input=$(cat)
 case "$input" in
   *'"stop_hook_active":true'* | *'"stop_hook_active": true'*) exit 0 ;; # one re-prompt only
 esac
-command -v repopilot >/dev/null 2>&1 || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
+command -v repopilot >/dev/null 2>&1 || {
+  echo "RepoPilot: session review unavailable; install the repopilot CLI (0.24 or newer) on PATH." >&2
+  exit 0
+}
+version=$(repopilot --version 2>/dev/null) || version=""
+if ! printf '%s\n' "$version" | awk '
+  $1 == "repopilot" { split($2, v, "."); ready = v[1] ~ /^[0-9]+$/ && v[2] ~ /^[0-9]+$/ && (v[1]+0 > 0 || v[2]+0 >= 24) }
+  END { exit !ready }
+'; then
+  echo "RepoPilot: session review unavailable; repopilot on PATH must be 0.24 or newer. Check repopilot --version." >&2
+  exit 0
+fi
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-[ -f "$root/.repopilot/snapshot.json" ] || exit 0
+[ -f "$root/.repopilot/snapshot.json" ] || {
+  echo "RepoPilot: session review unavailable; snapshot is missing. Start a new agent session." >&2
+  exit 0
+}
+[ -w "$root/.repopilot" ] && [ -w "$root/.repopilot/snapshot.json" ] || {
+  echo "RepoPilot: session review unavailable; restore .repopilot write permission, then start a new session." >&2
+  exit 0
+}
 
-out=$(repopilot review "$root" --since-snapshot 2>&1) || exit 0
+out=$(repopilot review "$root" --since-snapshot 2>&1) || {
+  echo "RepoPilot: session review unavailable; review failed. Run repopilot review --since-snapshot to inspect the error." >&2
+  exit 0
+}
 
 flagged=$(printf '%s\n' "$out" | awk '
   /^  Definitely sensitive:/ { tier = "definitely"; next }

@@ -30,6 +30,7 @@ release operations. Product workflows are in the
 
 - [Release process](../release.md)
 - [Distribution](../distribution.md)
+- [Maintaining agent integrations](maintaining-agent-integrations.md)
 - [GitHub ruleset](../github-ruleset.md)
 - [Product roadmap](../roadmap.md)
 - [v0.24 release contract](../roadmap/v0.24.md)

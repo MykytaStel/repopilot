@@ -6,13 +6,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-### Fixed
-
-- Adoption statistics keep failed GitHub requests unavailable instead of
-  recording zero mentions, referrers, or release downloads. Public counters
-  remain usable when the `gh` executable is missing. Code-search mentions
-  no longer claim to establish GitHub Action usage.
-
 ## [0.24.0] - 2026-10-02
 
 RepoPilot 0.24 (Honest Green) reports when a change turns CI green by weakening
@@ -231,6 +224,19 @@ corpus with maintainer-reviewed verdicts, and a small agent eval.
   runs, so a release recovered by hand can still be verified end to end.
 
 ### Fixed
+
+- Agent hooks report unavailable session review when the CLI is missing, older
+  than 0.24, or snapshot/review fails. An unavailable session start invalidates
+  the previous session's baseline metadata; unwritable state reports an error and
+  requires a new session after repair.
+  Installation guidance explains CLI prerequisites, hook trust, platform
+  coverage, and separate worktrees for parallel agent sessions.
+- Updated the transitive WASI development dependency `anyhow` to 1.0.103,
+  fixing the unsoundness advisory RUSTSEC-2026-0190.
+- Adoption statistics keep failed GitHub requests unavailable instead of
+  recording zero mentions, referrers, or release downloads. Public counters
+  remain usable when the `gh` executable is missing. Code-search mentions
+  no longer claim to establish GitHub Action usage.
 
 - **`integrity.assertions-removed` follows assertions into helpers.** A test
   that moves its assertions into a helper in the same file, or calls one helper
