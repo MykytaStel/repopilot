@@ -1,0 +1,22 @@
+# Copy to .github/workflows/copilot-setup-steps.yml. GitHub Copilot coding agent
+# runs this job before it starts work, so RepoPilot is installed and the
+# repository state is marked for `repopilot review --since-snapshot`.
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install RepoPilot
+        run: npm install -g repopilot
+      - name: Mark the starting state
+        run: repopilot snapshot

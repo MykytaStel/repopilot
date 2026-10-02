@@ -66,3 +66,33 @@ fn init_overwrites_existing_config_with_force() {
     assert!(config.contains("# RepoPilot configuration file"));
     assert!(!config.contains("sentinel = true"));
 }
+
+#[test]
+fn init_writes_an_mcp_bootstrap_for_each_agent_client() {
+    let temp = tempdir().expect("temp dir");
+    for (client, expected) in [
+        ("claude", "claude mcp add repopilot"),
+        ("codex", "codex mcp add repopilot"),
+        ("copilot", "\"type\": \"local\""),
+        ("cursor", "\"mcpServers\""),
+        ("gemini", ".gemini/settings.json"),
+        ("generic", "\"mcpServers\""),
+    ] {
+        let output = repopilot()
+            .args(["init", "--force", "--mcp-client", client])
+            .current_dir(temp.path())
+            .output()
+            .expect("run repopilot init");
+        assert!(output.status.success(), "{client}: {output:?}");
+        let path = temp
+            .path()
+            .join(format!(".repopilot/bootstrap/{client}.json"));
+        let text = fs::read_to_string(&path).expect("bootstrap file");
+        serde_json::from_str::<serde_json::Value>(&text).expect("bootstrap is JSON");
+        assert!(text.contains(expected), "{client}: {text}");
+        assert!(
+            text.contains("repopilot mcp") || text.contains("\"mcp\""),
+            "{client}: {text}"
+        );
+    }
+}

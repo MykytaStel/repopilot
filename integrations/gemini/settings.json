@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "name": "repopilot-snapshot",
+            "type": "command",
+            "command": "sh .gemini/hooks/repopilot-snapshot.sh",
+            "timeout": 60000,
+            "description": "Mark the repository state before the agent changes anything."
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "name": "repopilot-guard",
+            "type": "command",
+            "command": "sh .gemini/hooks/repopilot-guard.sh",
+            "timeout": 180000,
+            "description": "Review the session; ask the agent once to restore any check it weakened."
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "repopilot": {
+      "command": "repopilot",
+      "args": ["mcp", "--root", "."]
+    }
+  }
+}

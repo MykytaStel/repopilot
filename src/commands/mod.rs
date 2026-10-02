@@ -5,6 +5,7 @@ mod dispatch;
 pub(crate) mod filters;
 pub(crate) mod focus;
 pub mod init;
+mod init_mcp;
 mod init_suggestions;
 mod init_suggestions_export;
 mod llm;

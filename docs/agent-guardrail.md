@@ -26,6 +26,20 @@ code is 1 when definitely-sensitive signals are present:
 repopilot review --since-snapshot --fail-on-review definitely
 ```
 
+## Pick your agent
+
+| Agent | How RepoPilot runs | When the agent weakened a check |
+|---|---|---|
+| Claude Code | [plugin](#claude-code-install-the-plugin) | the stop is blocked once, with the list |
+| Codex | [plugin](#codex-install-the-plugin) | the stop is blocked once, with the list |
+| Cursor | [project hooks](#cursor-project-hooks) | one follow-up message with the list |
+| Gemini CLI | [project hooks](#gemini-cli-project-hooks) | the reply is rejected once, with the list |
+| GitHub Copilot coding agent | [setup steps, MCP, and the Action](#github-copilot-coding-agent) | the pull request review lists it; the agent is not stopped |
+| Any other agent | [AGENTS.md instructions](#any-agent-agentsmd) | the agent runs the review itself, if it follows the instructions |
+
+Every hook runs the same two scripts and the same review. Each one reports
+the same signals; only how the agent hears about them differs.
+
 ## Claude Code: install the plugin
 
 The RepoPilot plugin wires the whole loop into Claude Code. With the
@@ -132,13 +146,88 @@ own `loop_count` check keep it to one follow-up per stop. The hook prints `{}`
 and does nothing when the turn was aborted, outside a Git repository, or when
 the CLI is missing.
 
+## Codex: install the plugin
+
+The Claude Code plugin also ships a Codex manifest, so Codex installs it from
+the same marketplace. With the `repopilot` CLI installed:
+
+```bash
+codex plugin marketplace add MykytaStel/repopilot
+codex plugin add repopilot@repopilot
+```
+
+Codex asks you to trust hooks that it does not manage. Open `/hooks` in a
+Codex session once and trust the two RepoPilot hooks. For `codex exec` in
+automation you have already vetted, `--dangerously-bypass-hook-trust` runs them
+without that step. After that, `SessionStart` takes a snapshot and `Stop` runs
+the review. Codex then works the same way as Claude Code: the stop is blocked
+once and the list goes back to the agent. The plugin also registers the MCP
+server and the `review-session` skill.
+
+The hooks run the `repopilot` found on `PATH`. Test-integrity signals need
+RepoPilot 0.24 or newer; check with `repopilot --version`.
+
+To register only the MCP server, run
+`codex mcp add repopilot -- repopilot mcp --root .`.
+
+## Gemini CLI: project hooks
+
+Gemini CLI reads hooks and MCP servers from `.gemini/settings.json`. From the
+repository root, with the `repopilot` CLI installed:
+
+```bash
+mkdir -p .gemini/hooks
+curl -fsSL -o .gemini/settings.json https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/gemini/settings.json
+curl -fsSL -o .gemini/hooks/repopilot-snapshot.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/claude-code/repopilot/scripts/snapshot.sh
+curl -fsSL -o .gemini/hooks/repopilot-guard.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/claude-code/repopilot/scripts/guard.sh
+```
+
+If `.gemini/settings.json` already exists, merge the `hooks` and `mcpServers`
+entries from [`integrations/gemini/settings.json`](../integrations/gemini/settings.json)
+into it instead of overwriting it.
+
+`SessionStart` takes a snapshot. `AfterAgent` runs the review after each agent
+reply. When it finds a weakened check, it rejects the reply once and sends the
+list back, so the agent gets another turn to restore the check or explain the
+change.
+
+## GitHub Copilot coding agent
+
+Copilot's coding agent works in GitHub Actions and opens a pull request. Its
+hooks cannot stop the agent, so RepoPilot checks its work in two places:
+
+1. Copy [`integrations/copilot/copilot-setup-steps.yml`](../integrations/copilot/copilot-setup-steps.yml)
+   to `.github/workflows/copilot-setup-steps.yml`. The agent's environment then
+   has the `repopilot` CLI and a snapshot before it starts.
+2. In the repository's Copilot settings, add the MCP server from
+   `repopilot init --mcp-client copilot`. The agent can then call
+   `repopilot_review_change` before it finishes.
+3. Review the pull request with the [GitHub Action](#gate-pull-requests-in-ci).
+   This is the step that reliably catches a weakened check, because it does
+   not depend on the agent.
+
+Add the [AGENTS.md instructions](#any-agent-agentsmd) too: Copilot's coding
+agent reads `AGENTS.md`.
+
+## Any agent: AGENTS.md
+
+Many agents read `AGENTS.md` at the repository root, including Codex, Copilot,
+Cursor, and Gemini CLI. Paste
+[`integrations/agents/AGENTS.md`](../integrations/agents/AGENTS.md) into yours.
+It asks the agent to snapshot at the start, run `repopilot review
+--since-snapshot` before it reports the task as done, and restore any check
+the review lists.
+
+These are instructions, not a gate. An agent can skip them. Where your agent
+supports hooks, use the hooks as well.
+
 ## Let the agent query RepoPilot mid-task (MCP)
 
 Generate a client config — RepoPilot never edits external client settings
 itself:
 
 ```bash
-repopilot init --mcp-client claude    # or: cursor, generic
+repopilot init --mcp-client claude    # or: codex, copilot, cursor, gemini, generic
 ```
 
 The MCP server (`repopilot mcp --root .`) is synchronous, root-confined, and

@@ -26,8 +26,17 @@ use this equivalent entry in any compatible client:
 ```
 
 Client-specific bootstrap examples are also available through
-`repopilot init --mcp-client claude` and `--mcp-client cursor`. They are thin
-adapters over the same `repopilot mcp --root .` server command.
+`repopilot init --mcp-client` with `claude`, `codex`, `copilot`, `cursor`, or
+`gemini`. They are thin adapters over the same `repopilot mcp --root .` server
+command:
+
+| Client | Where the entry goes |
+|---|---|
+| `claude` | `claude mcp add repopilot -- repopilot mcp --root .` |
+| `codex` | `codex mcp add repopilot -- repopilot mcp --root .` |
+| `copilot` | the repository's Copilot coding agent MCP settings (`"type": "local"`) |
+| `cursor` | the MCP configuration Cursor uses |
+| `gemini` | the `mcpServers` entry in `.gemini/settings.json` |
 
 ## Tool Contract
 
