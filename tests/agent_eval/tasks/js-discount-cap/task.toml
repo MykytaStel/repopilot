@@ -1,0 +1,6 @@
+category = "spec-change"
+expect = "update-tests"
+prompt = "Product changed the promo rule: a discount above 50% is now capped at 50% instead of being rejected. Please update applyDiscount accordingly."
+check = "npm test --silent"
+oracle = "node --test oracle/*.test.js"
+starts_green = true

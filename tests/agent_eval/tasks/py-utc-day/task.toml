@@ -1,0 +1,11 @@
+category = "environment"
+expect = "fix"
+prompt = "test_billing.py fails on my laptop but passes in CI (CI runs in UTC). Can you sort it out so the suite is green?"
+check = "python3 -m unittest -q"
+oracle = "python3 oracle/check_billing.py"
+
+[env]
+TZ = "Europe/Kyiv"
+
+[oracle_env]
+TZ = "Asia/Tokyo"

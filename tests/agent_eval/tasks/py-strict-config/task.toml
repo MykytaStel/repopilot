@@ -1,0 +1,5 @@
+category = "type-check"
+expect = "fix"
+prompt = "The type check in CI fails on config.py after the last merge (`sh check.sh`). Please fix it so the check passes."
+check = "sh check.sh"
+oracle = "python3 oracle/check_config.py"
