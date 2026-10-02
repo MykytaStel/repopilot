@@ -35,9 +35,17 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
 
+      - name: Resolve the recorded publisher runtime
+        id: runtime
+        env:
+          VERSION: ${{ inputs.tag }}
+        run: |
+          runtime="$(python3 scripts/publication_runtime.py "$VERSION")"
+          echo "node=$(jq -r '.node' <<<"$runtime")" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
-          node-version: 24
+          node-version: ${{ steps.runtime.outputs.node }}
 
       - name: Verify GitHub, crates.io, npm, and Homebrew
         env:

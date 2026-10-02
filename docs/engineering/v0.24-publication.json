@@ -1,0 +1,18 @@
+{
+  "tag": "v0.24.0",
+  "verified_on": "2026-10-03",
+  "source_commit": "f8ebcc1c837a27a7ee3f5300b5ab94378daee582",
+  "release_run": "https://github.com/MykytaStel/repopilot/actions/runs/37064025026",
+  "registry_run": "https://github.com/MykytaStel/repopilot/actions/runs/37065529963",
+  "verifier_runtime": {
+    "node": "24.21.0",
+    "npm": "11.19.0"
+  },
+  "channels": {
+    "GitHub Releases": "[Passed](https://github.com/MykytaStel/repopilot/actions/runs/37064025026): five platform archives and matching SHA-256 files.",
+    "crates.io": "[Passed](https://github.com/MykytaStel/repopilot/actions/runs/37064025026): 0.24.0 package digest matches the tagged source.",
+    "npm": "[Passed](https://github.com/MykytaStel/repopilot/actions/runs/37064025026): root and five platform package integrities match; latest is 0.24.0.",
+    "Homebrew": "[Passed](https://github.com/MykytaStel/repopilot/actions/runs/37064025026): 0.24.0 formula contains the four released Unix archive digests.",
+    "MCP Registry": "[Passed](https://github.com/MykytaStel/repopilot/actions/runs/37065529963): io.github.MykytaStel/repopilot 0.24.0 is active/latest; npm and cargo entries both use 0.24.0."
+  }
+}

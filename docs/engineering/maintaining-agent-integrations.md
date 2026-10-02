@@ -12,6 +12,7 @@ belong in [the roadmap](../roadmap.md).
 | Claude Code | Marketplace plugin, SessionStart/Stop, MCP, skill | Manifest validation, scripted hooks, observed client loading/trust |
 | Codex | Same plugin, Codex manifest and hooks | Plugin discovery, explicit hook trust, scripted hooks, observed session |
 | Gemini CLI | Extension, SessionStart/AfterAgent, MCP | Extension discovery/validation, hook consent, scripted hooks, observed session |
+| Google Antigravity | Generic stdio MCP and manual snapshot/review | Native MCP loading and correct workspace root; migrated hooks require their own session proof |
 | Cursor | Project hooks | Valid JSON replies, one follow-up, observed hook loading |
 | Copilot coding agent | Setup steps, MCP, PR Action | Setup-job execution and a real PR review; no stop-hook claim |
 | Other MCP clients | Generic stdio entry and AGENTS.md recipe | Actual tool discovery in that client; no automatic-stop claim |
@@ -23,6 +24,24 @@ session. Never promote one level to another.
 
 One snapshot belongs to one Git working tree. Parallel agent sessions use
 separate worktrees until session-scoped baselines are implemented and tested.
+
+## Observed owner setup (2026-10-03, macOS ARM64)
+
+The public Homebrew CLI is 0.24.0. The Claude/Codex plugin and Gemini extension
+are installed, enabled, and their hook scripts match the tagged source.
+
+| Client version | Observation | Remaining boundary |
+|---|---|---|
+| Claude Code 2.1.216 | Authenticated; plugin loaded; native SessionStart baseline, successful MCP context, and injected skipped-test Stop feedback observed | Controlled fixture; the bounded first run hit its five-turn limit after feedback, then a resumed turn acknowledged the signal and exited successfully |
+| Codex CLI 0.144.6, model gpt-5.5 | Both RepoPilot hooks explicitly trusted; native SessionStart wrote the baseline; MCP context completed; native Stop returned the injected skipped-test signals to the model once | Controlled owner fixture, not an external user sample; the configured gpt-6.1-sol model was rejected by this CLI/account |
+| Gemini CLI 0.62.0 | Version-pinned extension installed/enabled; Google login attempted | Provider rejected Gemini Code Assist for individuals and directed migration to Antigravity; native Gemini session remains unobserved |
+| Antigravity CLI 1.2.15 | Official checksum-verified CLI installed; native MCP context returned the requested fixture data and a successful model response; exact context-tool permission granted | Automatic stop unverified; imported legacy hooks disabled because their workspace root was fixed at import time |
+| Cursor | Three real-binary scripted protocol tests passed | Client not installed; native session unobserved |
+| Copilot cloud agent | Repository setup workflow installs pinned 0.24.0 and snapshots; MCP recipe documented | Workflow execution, repository MCP settings, and an actual agent PR are separate checks |
+
+Installation or a scripted protocol pass does not close a native session claim.
+Update this table after observing the missing client step, with its exact
+version and platform. Never commit account configuration or raw transcripts.
 
 ## Triage an installation report
 
@@ -56,6 +75,17 @@ Follow [the release process](../release.md): full local verification, required
 hosted CI, tag the reviewed main commit, approve the existing protected
 deployments, and verify public artifacts by digest. Recover only a failed
 channel; never republish a different artifact under the same version.
+
+For 0.24.0 publication verification, use **Node 24.21.0 and npm 11.19.0**,
+the observed publisher runtime, on a clean checkout of the tag. Node 26 produced
+different gzip bytes for identical package contents during owner verification.
+The verifier rejects a different runtime before reading public channels; never
+weaken the digest comparison or replace an immutable published package to fix
+this local reproduction mismatch. Publisher and verification workflows pin
+the same Node version. The manual verifier selects recorded runtimes by tag
+from `scripts/publication_runtime.py`, including 0.22's older publisher.
+Unknown tags fail before channel reads; record their observed publisher runtime
+when preparing a release. Recheck this contract when updating the runtime.
 
 After the stable channels pass, run `publish-mcp-registry.yml` for the same tag
 and verify the exact `io.github.MykytaStel/repopilot` name/version. Registry

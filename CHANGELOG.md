@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- Publication verification requires the pinned publisher Node/npm runtime before
+  comparing compressed package digests, so a different local compressor does
+  not incorrectly report changed public artifacts.
+
 ## [0.24.0] - 2026-10-02
 
 RepoPilot 0.24 (Honest Green) reports when a change turns CI green by weakening
