@@ -14,6 +14,7 @@ const REVIEW_SIGNAL_DETAIL_LIMIT: usize = 20;
 
 mod header;
 mod inventory;
+mod weakened;
 
 pub fn render_console(report: &ReviewReport, ci_gate: Option<&CiGateResult>) -> String {
     render_console_with_options(report, ci_gate, None, ReviewRenderOptions::full())
