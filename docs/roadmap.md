@@ -16,7 +16,24 @@ See the [0.24 release contract](roadmap/v0.24.md) and
 
 ## Next: 0.25
 
-The 0.25 scope is not set yet. Evidence from 0.24 points at these candidates:
+The next slice should make the existing review loop reliable for its first
+external users. Work in this order, and record results in the release ledger:
+
+1. **Installation and first review.** Validate a fresh public CLI install and
+   agent setup in five minutes for Claude Code, Codex, Gemini CLI, and Cursor;
+   validate Copilot's setup and PR review separately. Record actual client and
+   platform versions. Target five independently observed first reviews; the
+   owner's scripted tests are compatibility evidence, not that user sample.
+2. **Fewer misleading interruptions.** Review real reports of rewritten or
+   renamed tests. Add a false-positive regression and a recall guard before
+   adjusting a signal. Measure the affected corpus cases, not a headline total
+   across unrelated rules.
+3. **One missed behavior, measured first.** The Codex eval found code changed
+   to satisfy contradictory tests while integrity signals stayed quiet. Collect
+   concrete error-swallowing/fallback cases, define benign guards, and evaluate
+   an advisory signal before adding an automatic stop condition.
+
+Additional candidates from 0.24 evidence:
 
 - failures a change silences in code, such as an empty `catch` or a fallback
   that returns its input, which the agent eval found where test-integrity
@@ -26,6 +43,12 @@ The 0.25 scope is not set yet. Evidence from 0.24 points at these candidates:
 - trivialized tests, loosened matchers, cross-file assertion helpers, and
   bulk-suppression files;
 - measuring Claude Code alongside Codex in the agent eval.
+
+Track successful first reviews, user-confirmed useful reports, false alarms,
+and recurring installation failures. Downloads, stars, and code mentions are
+distribution counters; they do not establish active use or detector quality.
+Support and release maintenance follow the
+[agent integration runbook](engineering/maintaining-agent-integrations.md).
 
 ## Released
 

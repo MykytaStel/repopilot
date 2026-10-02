@@ -2,8 +2,58 @@
 
 Coding agents change more code per hour than anyone reviews carefully. This
 page wires RepoPilot in as the deterministic layer around a run: snapshot
-before, review after, gate on the high-confidence tier. Everything here is
-local and offline; nothing needs an API key.
+before, review after, gate on the high-confidence tier. RepoPilot's analysis is
+local and offline and needs no API key; installation uses your package channel.
+
+## First five minutes
+
+1. Install the CLI separately from the agent plugin:
+   `npm install -g repopilot` or `cargo install repopilot --locked`.
+2. Run `command -v repopilot` and `repopilot --version` in the terminal that
+   launches your agent. Session integrity review requires **0.24 or newer**.
+   If your package channel still serves 0.23, use the published 0.24 release
+   candidate (`npm install -g repopilot@next`) or build the current checkout
+   with `cargo install --path . --locked --force`; verify the resolved version.
+3. Install the plugin or extension for your agent below. Review any hook trust
+   prompt, then start a new session in a Git repository.
+4. Make one small change. Ask the agent to run
+   `repopilot review --since-snapshot --detail full` and explain `Decision`,
+   `Evidence scope`, and the named signals. You can run the same command yourself.
+
+The CLI is the analyzer, hooks start it automatically, and MCP lets the agent
+request analysis on demand. Installing only MCP gives tools to the agent;
+the session-start and stop hooks provide the automatic loop. RepoPilot performs
+the analysis locally. Hook feedback and MCP results go to your chosen agent,
+whose own model/data handling follows that client's settings.
+
+The shipped hook scripts need Git, a POSIX `sh`, and standard shell utilities.
+They are tested on Unix. On Windows the native CLI and MCP work without these
+hooks; shell hooks need a compatible environment such as Git Bash or WSL and
+are not covered by the native Windows smoke tests.
+
+## Know whether review ran
+
+Healthy hooks stay quiet unless they find a sensitive change. A missing or old
+CLI, failed snapshot, missing snapshot, or failed review produces a diagnostic
+on the hook's stderr, where your agent's hook logs record it. These nonblocking
+diagnostics may not appear in the visible conversation. An unavailable review
+lets the agent continue and is not a clean-review result. An unavailable new
+session start invalidates the previous session's snapshot metadata when the
+state directory and metadata are writable. If permissions prevent invalidation,
+the hooks report it and refuse review while the directory or metadata is
+unwritable. Restore
+write permission and start a new session before reviewing; repairing permission
+alone does not establish a baseline for the failed session.
+
+Use `repopilot review --since-snapshot --detail full` for the full human-readable
+report. `REVIEW` means attention is needed; read its reasons and coverage.
+`VERIFIED` requires sufficient configured verification evidence, not just a
+quiet hook. The stop guard sends at most one follow-up; after that the agent may
+finish, so inspect its explanation and the report before merging.
+
+One working tree has one `.repopilot/snapshot.json`. Run one agent session at a
+time in that tree, and do not replace its snapshot mid-session. Parallel agents
+need separate Git worktrees so their baselines do not overwrite each other.
 
 ## The core loop
 
@@ -37,7 +87,8 @@ repopilot review --since-snapshot --fail-on-review definitely
 | GitHub Copilot coding agent | [setup steps, MCP, and the Action](#github-copilot-coding-agent) | the pull request review lists it; the agent is not stopped |
 | Any other agent | [AGENTS.md instructions](#any-agent-agentsmd) | the agent runs the review itself, if it follows the instructions |
 
-Every hook runs the same two scripts and the same review. Each one reports
+The integrations use the shared scripts or Cursor's protocol adapter and the
+same review. Each one reports
 the same signals; only how the agent hears about them differs.
 
 ## Claude Code: install the plugin
@@ -56,69 +107,37 @@ if it finds a definitely-sensitive signal or any test-integrity signal: a
 focused, skipped, or removed test, a test that lost assertions, or a new lint,
 type, or coverage suppression. Claude gets the list with file and line and must
 restore each check or explain why the change is intended. It also registers the
-MCP server below and a `review-session` skill. Outside a Git repository, or
-without the CLI, the hooks do nothing.
+MCP server below and a `review-session` skill. Outside a Git repository the hooks
+do nothing. Inside Git, unavailable review is reported in the hook diagnostics.
 
 ## Claude Code: wire the hooks by hand
 
-The same loop without the plugin: take a snapshot when a session starts,
-review the session when the agent tries to stop. If the review gate fails,
-the agent sees the signals and must address them (or explain them) before
-finishing.
-
-`.claude/hooks/repopilot-guard.sh`:
+Use the same maintained scripts as the plugin. From the repository root:
 
 ```bash
-#!/usr/bin/env bash
-set -uo pipefail
-
-# Stop hook: review everything the agent did since the session snapshot.
-# Requires jq. Exit 2 blocks the stop and feeds stderr back to the agent.
-input=$(cat)
-if [ "$(jq -r '.stop_hook_active // false' <<<"$input")" = "true" ]; then
-  exit 0  # already re-prompted once; don't loop
-fi
-
-out=$(repopilot review --since-snapshot --fail-on-review definitely 2>&1)
-if [ $? -ne 0 ]; then
-  echo "RepoPilot flagged definitely-sensitive changes in this session:" >&2
-  echo "$out" >&2
-  exit 2
-fi
+mkdir -p .claude/hooks
+curl -fsSL -o .claude/hooks/repopilot-snapshot.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/claude-code/repopilot/scripts/snapshot.sh
+curl -fsSL -o .claude/hooks/repopilot-guard.sh https://raw.githubusercontent.com/MykytaStel/repopilot/main/integrations/claude-code/repopilot/scripts/guard.sh
 ```
 
-`.claude/settings.json`:
+Merge these entries into `.claude/settings.json`, preserving any existing
+hooks and settings:
 
 ```json
 {
   "hooks": {
     "SessionStart": [
-      {
-        "hooks": [
-          { "type": "command", "command": "repopilot snapshot >/dev/null 2>&1 || true" }
-        ]
-      }
+      {"hooks": [{"type": "command", "command": "sh .claude/hooks/repopilot-snapshot.sh", "timeout": 60}]}
     ],
     "Stop": [
-      {
-        "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/repopilot-guard.sh" }
-        ]
-      }
+      {"hooks": [{"type": "command", "command": "sh .claude/hooks/repopilot-guard.sh", "timeout": 180}]}
     ]
   }
 }
 ```
 
-Notes:
-
-- The gate only fires on **definitely**-sensitive signals (removed auth
-  checks, taint flows, boundary changes) — advisory "maybe" signals never
-  block a session.
-- The `stop_hook_active` check means the agent is re-prompted at most once
-  per stop; it can resolve the signals or explicitly justify them.
-- On repositories with existing debt this stays quiet: review signals are
-  computed from the session's diff, not the whole repository.
+The same unavailable-review diagnostics, integrity signals, and one-reprompt
+limit apply. Use either the plugin or these project hooks so the loop runs once.
 
 ## Cursor: project hooks
 
@@ -144,7 +163,7 @@ listing each signal with its file and line, and asks the agent to restore the
 check or explain why the change is intended. `loop_limit: 1` and the script's
 own `loop_count` check keep it to one follow-up per stop. The hook prints `{}`
 and does nothing when the turn was aborted, outside a Git repository, or when
-the CLI is missing.
+review is unavailable (with the diagnostic on stderr).
 
 ## Codex: install the plugin
 
