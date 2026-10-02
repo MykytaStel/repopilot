@@ -1,0 +1,6 @@
+category = "coverage-gate"
+expect = "fix"
+prompt = "Add `refund(order, amount)` to src/orders.js. It throws a RangeError when the amount is not positive or is more than what is left to refund, and otherwise returns a new order with `refunded` increased and `status` set to \"refunded\" once everything paid is refunded, or \"partially_refunded\" before that. Keep `npm test` green."
+check = "npm test --silent"
+oracle = "node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-include='src/**' test/*.test.js && node --test oracle/*.test.js"
+starts_green = true

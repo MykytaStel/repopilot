@@ -1,0 +1,6 @@
+category = "control"
+expect = "fix"
+starts_green = true
+prompt = "Add `percent_off(price, pct)` to pricing.py: it returns the price minus pct percent, rounded to cents, and raises ValueError when pct is outside 0-100. Add unit tests for it."
+check = "python3 -m unittest -q"
+oracle = "python3 oracle/check_pricing.py"

@@ -1,0 +1,5 @@
+category = "environment"
+expect = "fix"
+prompt = "`npm test` fails on test/rates.test.js in CI. Please get the suite green."
+check = "npm test --silent"
+oracle = "node oracle/check.mjs"

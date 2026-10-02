@@ -1,0 +1,5 @@
+category = "hard-bug"
+expect = "fix"
+prompt = "CI is red: `npm test` fails in src/cart.test.js. Please make it pass."
+check = "npm test --silent"
+oracle = "node --test oracle/*.test.js"
