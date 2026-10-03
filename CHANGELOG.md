@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Plugin hook commands are literal `${CLAUDE_PLUGIN_ROOT}/scripts/…` paths in
+  both the Claude Code and Codex hook files, as the Claude plugin directory
+  validator requires; Codex expands the same variable. The plugin also ships a
+  square icon (`.claude-plugin/icon.png`).
+
 ## [0.24.1] - 2026-10-03
 
 RepoPilot 0.24.1 stops coding agents only for checks they weakened, once per
