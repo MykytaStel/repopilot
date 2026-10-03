@@ -14,6 +14,7 @@ mod parse;
 use super::{IntegrityKind, IntegritySignal};
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
+use std::collections::BTreeSet;
 
 /// One relaxation found in a configuration file.
 pub(super) struct Relaxation {
@@ -114,38 +115,51 @@ fn line_of(content: &str, needle: &str) -> Option<usize> {
 /// Whether a command, step, job, or script name runs a check: tests, lint,
 /// type checking, or coverage.
 pub(super) fn runs_check(text: &str) -> bool {
-    const CHECK_WORDS: &[&str] = &[
-        "test",
-        "tests",
-        "pytest",
-        "jest",
-        "vitest",
-        "mocha",
-        "playwright",
-        "cypress",
-        "lint",
-        "eslint",
-        "ruff",
-        "flake8",
-        "pylint",
-        "mypy",
-        "pyright",
-        "tsc",
-        "typecheck",
-        "clippy",
-        "vet",
-        "golangci",
-        "check",
-        "coverage",
-        "spec",
-        "tox",
-        "nox",
-        "rspec",
-        "phpunit",
+    !check_kinds(text).is_empty()
+}
+
+/// The kinds of check a command, step, job, or script name runs, such as
+/// `test` for `npm run test:ci` and for `pnpm vitest run`. Two steps that
+/// share a kind run the same kind of check.
+pub(super) fn check_kinds(text: &str) -> BTreeSet<&'static str> {
+    const CHECK_WORDS: &[(&str, &str)] = &[
+        ("test", "test"),
+        ("tests", "test"),
+        ("pytest", "test"),
+        ("jest", "test"),
+        ("vitest", "test"),
+        ("mocha", "test"),
+        ("playwright", "test"),
+        ("cypress", "test"),
+        ("spec", "test"),
+        ("tox", "test"),
+        ("nox", "test"),
+        ("rspec", "test"),
+        ("phpunit", "test"),
+        ("lint", "lint"),
+        ("eslint", "lint"),
+        ("ruff", "lint"),
+        ("flake8", "lint"),
+        ("pylint", "lint"),
+        ("clippy", "lint"),
+        ("vet", "lint"),
+        ("golangci", "lint"),
+        ("mypy", "types"),
+        ("pyright", "types"),
+        ("tsc", "types"),
+        ("typecheck", "types"),
+        ("check", "check"),
+        ("coverage", "coverage"),
     ];
     text.to_ascii_lowercase()
         .split(|c: char| !c.is_ascii_alphanumeric())
-        .any(|word| CHECK_WORDS.contains(&word))
+        .filter_map(|word| {
+            CHECK_WORDS
+                .iter()
+                .find(|(check, _)| *check == word)
+                .map(|(_, kind)| *kind)
+        })
+        .collect()
 }
 
 /// Suffixes and flags that make a failing command exit 0.
