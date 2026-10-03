@@ -17,5 +17,7 @@ started. It is deterministic and local: the same change gives the same answer.
 4. For security signals (auth check removed, untrusted input reaching a sink),
    confirm the guard still exists on that path or fix it.
 
-Do not report the work as complete while a definitely-sensitive signal is open
-and unexplained.
+Do not report the work as complete while a weakened check or a removed
+safeguard is open and unexplained. Other sensitive signals, such as a changed
+workflow or dependency, are context for the reviewer: mention them, but they
+do not need to be undone.

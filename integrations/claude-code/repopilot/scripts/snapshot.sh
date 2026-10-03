@@ -35,6 +35,22 @@ if ! printf '%s\n' "$version" | awk '
   echo "RepoPilot: session review unavailable; repopilot on PATH must be 0.24 or newer. Check repopilot --version." >&2
   exit 0
 fi
+# --- shared: session state (keep identical in Claude Code and Cursor snapshot hooks) ---
+# A new session starts with no raised signals; the stop hook records them.
+raised=$(git -C "$root" rev-parse --git-path repopilot-raised-signals 2>/dev/null) || raised=""
+case "$raised" in /*) rm -f "$raised" 2>/dev/null ;; ?*) rm -f "$root/$raised" 2>/dev/null ;; esac
+# The snapshot marker and the review cache are local session state, not part
+# of the change: list them in the repository's own info/exclude so they never
+# show up in `git status` or get committed with the agent's work.
+exclude=$(git -C "$root" rev-parse --git-path info/exclude 2>/dev/null) || exclude=""
+case "$exclude" in /* | '') ;; *) exclude="$root/$exclude" ;; esac
+if [ -n "$exclude" ] && mkdir -p "${exclude%/*}" 2>/dev/null; then
+  for pattern in /.repopilot/snapshot.json /.repopilot/cache/; do
+    awk -v pattern="$pattern" '$0 == pattern { found = 1 } END { exit !found }' "$exclude" 2>/dev/null ||
+      ( printf '%s\n' "$pattern" >>"$exclude" ) 2>/dev/null
+  done
+fi
+# --- end shared ---
 if ! repopilot snapshot >/dev/null 2>&1; then
   if ! invalidate_snapshot; then
     echo "RepoPilot: session review unavailable; restore snapshot write permission, then start a new session." >&2

@@ -8,6 +8,24 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Agent stop hooks (the Claude Code and Codex plugin, the Gemini CLI extension,
+  and the Cursor hooks) stop the agent only when the session weakened a check
+  or a safeguard: a test-integrity signal, a removed auth check, an emptied test
+  file, or request input reaching SQL or a shell. A dependency bump, an edited
+  workflow, a migration, or another file-level sensitive change stays in the
+  review and no longer stops the agent with "restore each weakened check".
+- Stop hooks raise each signal once per session. A signal the agent already
+  restored or explained no longer stops every later turn; a new weakening, or
+  one that returns after a restore, is raised again.
+- Stop hooks read the JSON report instead of the console preview, which lists
+  at most 20 signals: a weakened test behind 20 other signals never reached the
+  agent. They also pass `--fail-on-review none`, so `[review] fail_on =
+  "definitely"` in `repopilot.toml` no longer turns the hook into "review
+  failed" exactly when there is something to report.
+- Session hooks list `.repopilot/snapshot.json` and `.repopilot/cache/` in the
+  repository's `.git/info/exclude`, so session state no longer shows up as
+  untracked in `git status` or gets committed with the agent's work. The plugin
+  and Gemini extension version is 0.24.1; the CLI is unchanged.
 - Publication verification requires the pinned publisher Node/npm runtime before
   comparing compressed package digests, so a different local compressor does
   not incorrectly report changed public artifacts.

@@ -1,7 +1,7 @@
 {
   "name": "repopilot",
   "displayName": "RepoPilot",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "description": "Snapshot each session and review what Claude changed before it stops: tests it skipped, focused, removed, or weakened, new lint/type suppressions, removed auth or error handling, and untrusted input reaching risky sinks. Deterministic and local; requires the repopilot CLI.",
   "author": {
     "name": "Mykyta Stelmashenko",
