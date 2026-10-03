@@ -15,9 +15,10 @@ See the [0.24 release contract](roadmap/v0.24.md),
 [release notes](releases/v0.24.0.md), and
 [publication evidence](engineering/v0.24-release-scorecard.md#publication).
 
-The 0.24.1 patch is prepared: agent stop hooks stop only for weakened checks,
-once per session; a change with nothing flagged and no configured verification
-reads `PASS (not verified)`; two integrity false positives are fixed. See the
+The `v0.24.1` patch is published on GitHub Releases, crates.io, npm, and
+Homebrew: agent stop hooks stop only for weakened checks, once per session; a
+change with nothing flagged and no configured verification reads
+`PASS (not verified)`; two integrity false positives are fixed. See the
 [0.24.1 release notes](releases/v0.24.1.md).
 
 ## Next: 0.25
@@ -53,6 +54,9 @@ Support and release maintenance follow the
 
 ## Released
 
+- **0.24.1 — Quieter agent stops:** stop hooks only for weakened checks, an
+  informative first decision, two integrity false positives fixed.
+  [Release notes](releases/v0.24.1.md)
 - **0.24 — Honest Green:** weakened checks, session review, and verified agent
   installation channels. [Release notes](releases/v0.24.0.md)
 - **0.23 — Change Proof:** one review verdict, its reasons, proof obligations,
