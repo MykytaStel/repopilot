@@ -9,11 +9,19 @@
   "homepage": "https://github.com/MykytaStel/repopilot/blob/main/docs/agent-guardrail.md",
   "repository": "https://github.com/MykytaStel/repopilot",
   "license": "MIT OR Apache-2.0",
-  "keywords": ["code-review", "testing", "test-integrity", "security", "git"],
+  "keywords": [
+    "code-review",
+    "testing",
+    "test-integrity",
+    "security",
+    "git"
+  ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/codex-hooks.json",
   "interface": {
-    "displayName": "RepoPilot"
+    "displayName": "RepoPilot",
+    "shortDescription": "Stops the agent when it weakens tests, suppressions, or CI gates. Local and deterministic.",
+    "composerIcon": "./.claude-plugin/icon.png"
   }
 }
