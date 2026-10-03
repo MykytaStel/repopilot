@@ -555,7 +555,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_docs_navigation_requires_architecture_and_release_notes(self) -> None:
         self.write("docs/architecture.md", "# Current architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
@@ -577,20 +577,20 @@ class ReleaseContractTests(unittest.TestCase):
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n",
         )
         release_contract.check_docs_navigation()
 
     def test_docs_navigation_rejects_direct_internal_public_link(self) -> None:
         self.write("docs/architecture.md", "# Architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n"
             "- [Foo](engineering/foo.md)\n",
         )
@@ -600,13 +600,13 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_docs_navigation_rejects_versioned_roadmap_public_link(self) -> None:
         self.write("docs/architecture.md", "# Architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n"
             "- [v0.22](roadmap/v0.22.md)\n",
         )
@@ -616,14 +616,14 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_docs_navigation_rejects_orphan_engineering_file(self) -> None:
         self.write("docs/architecture.md", "# Architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/bar.md", "# Bar\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n",
         )
 
@@ -632,7 +632,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_docs_navigation_rejects_stale_language_migration_checklist(self) -> None:
         self.write("docs/architecture.md", "# Architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write(
             "docs/engineering/language-surface-inventory.md",
             "# Language Surface Inventory\n"
@@ -646,7 +646,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n",
         )
 
@@ -666,13 +666,13 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_docs_navigation_passes_with_single_public_engineering_link(self) -> None:
         self.write("docs/architecture.md", "# Architecture\n")
-        self.write("docs/releases/v0.24.0.md", "# v0.24.0\n")
+        self.write("docs/releases/v0.24.1.md", "# v0.24.1\n")
         self.write("docs/engineering/foo.md", "# Foo\n")
         self.write("docs/engineering/README.md", "- [Foo](foo.md)\n")
         self.write(
             "docs/README.md",
             "- [Architecture](architecture.md)\n"
-            "- [Release notes](releases/v0.24.0.md)\n"
+            "- [Release notes](releases/v0.24.1.md)\n"
             "- [Engineering](engineering/README.md)\n"
             "- [Roadmap](roadmap.md)\n",
         )

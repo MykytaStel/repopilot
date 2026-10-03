@@ -15,6 +15,11 @@ See the [0.24 release contract](roadmap/v0.24.md),
 [release notes](releases/v0.24.0.md), and
 [publication evidence](engineering/v0.24-release-scorecard.md#publication).
 
+The 0.24.1 patch is prepared: agent stop hooks stop only for weakened checks,
+once per session; a change with nothing flagged and no configured verification
+reads `PASS (not verified)`; two integrity false positives are fixed. See the
+[0.24.1 release notes](releases/v0.24.1.md).
+
 ## Next: 0.25
 
 The next slice should make the existing review loop reliable for its first
