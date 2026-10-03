@@ -97,7 +97,11 @@ directory blocks hook and MCP commands with computed paths only for a plugin in
 a subfolder, and our hook scripts compute the user's repository paths. Run
 `scripts/sync-plugin-repo.sh` after every merge that changes the plugin folder,
 and at each release; the directory rescans new mirror commits. Never commit to
-the mirror directly: the sync is a fast-forward of `git subtree split`. Registry
+the mirror directly: the sync is a fast-forward of `git subtree split`.
+`plugin.json` sets `supportUrl` and `privacyPolicyUrl` for the directory
+listing. Claude Code ignores both at load time, so
+`claude plugin validate --strict` reports them as unknown fields; those two
+warnings are expected, and every other warning still fails the check. Registry
 publication is a separate operation, not implied by npm/crates.io success.
 Update RP24-016, its publication artifact, the generated release scorecard,
 the public release status, and version-pinned installation instructions.
