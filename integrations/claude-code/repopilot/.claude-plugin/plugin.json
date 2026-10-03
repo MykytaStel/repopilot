@@ -9,6 +9,7 @@
   },
   "homepage": "https://github.com/MykytaStel/repopilot/blob/main/docs/agent-guardrail.md",
   "repository": "https://github.com/MykytaStel/repopilot",
+  "supportUrl": "https://github.com/MykytaStel/repopilot/issues",
   "license": "MIT OR Apache-2.0",
   "keywords": [
     "code-review",
