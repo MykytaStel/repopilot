@@ -14,7 +14,8 @@ include = [
     "/Cargo.toml",
     "/Cargo.lock",
     "/README.md",
-    "/LICENSE",
+    "/LICENSE-APACHE",
+    "/LICENSE-MIT",
 ]
 
 [dependencies]

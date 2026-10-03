@@ -587,7 +587,8 @@ def check_cargo_package() -> None:
         "Cargo.lock",
         "Cargo.toml",
         "Cargo.toml.orig",
-        "LICENSE",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
         "README.md",
     }
     unexpected = [

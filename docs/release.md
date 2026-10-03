@@ -60,8 +60,8 @@ It verifies:
 - third-party GitHub Actions are pinned to commit SHAs;
 - the tag workflow directly calls reusable npm publishing;
 - removed editor packaging does not return;
-- `cargo package --list` contains only Cargo metadata, README, LICENSE, and
-  `src/**`.
+- `cargo package --list` contains only Cargo metadata, README, LICENSE-APACHE,
+  LICENSE-MIT, and `src/**`.
 
 ## Verify
 
