@@ -244,3 +244,46 @@ fn command_line_thresholds_are_reported_wherever_the_command_lives() {
         vec!["`testenv.commands` lowers `--cov-fail-under` from 90 to 60"]
     );
 }
+
+const UNNAMED_STEP: &str =
+    "jobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n";
+
+#[test]
+fn a_rewritten_check_command_replaces_the_step() {
+    let path = ".github/workflows/ci.yml";
+    let rewritten = UNNAMED_STEP.replace("npm test", "npm run test:ci");
+    assert!(relaxed(path, UNNAMED_STEP, &rewritten).is_empty());
+    let moved = UNNAMED_STEP.replace(
+        "      - run: npm test\n",
+        "      - uses: actions/setup-node@v4\n      - run: pnpm vitest run\n",
+    );
+    assert!(
+        relaxed(path, UNNAMED_STEP, &moved).is_empty(),
+        "test → vitest"
+    );
+}
+
+#[test]
+fn a_replacement_step_is_still_checked_for_relaxation() {
+    let path = ".github/workflows/ci.yml";
+    let swallowed = UNNAMED_STEP.replace("npm test", "npm run test:ci || true");
+    assert_eq!(
+        relaxed(path, UNNAMED_STEP, &swallowed),
+        vec!["check step `npm test` in job `test` now ends with `|| true`"]
+    );
+}
+
+#[test]
+fn a_check_replaced_by_a_different_kind_of_check_is_still_removed() {
+    let path = ".github/workflows/ci.yml";
+    let lint_only = UNNAMED_STEP.replace("npm test", "npm run lint");
+    assert_eq!(
+        relaxed(path, UNNAMED_STEP, &lint_only),
+        vec!["check step `npm test` in job `test` was removed"]
+    );
+    let build_only = UNNAMED_STEP.replace("npm test", "npm run build");
+    assert_eq!(
+        relaxed(path, UNNAMED_STEP, &build_only),
+        vec!["check step `npm test` in job `test` was removed"]
+    );
+}

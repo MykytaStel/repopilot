@@ -1,7 +1,7 @@
 //! CI pipelines: GitHub Actions workflows and GitLab CI.
 
 use super::flags::relaxed_thresholds;
-use super::{Relaxation, runs_check, swallows_failure};
+use super::{Relaxation, check_kinds, runs_check, swallows_failure};
 use serde_yaml::Value;
 
 /// GitHub Actions: steps or jobs that stop failing the run, or that run a
@@ -45,13 +45,22 @@ pub(super) fn github_actions(before: &str, after: &str) -> Vec<Relaxation> {
 fn steps(job: &str, old_job: &Value, new_job: &Value) -> Vec<Relaxation> {
     let old_steps = sequence(old_job, "steps");
     let new_steps = sequence(new_job, "steps");
+    let mut unmatched: Vec<&Value> = new_steps
+        .iter()
+        .filter(|new_step| {
+            !old_steps
+                .iter()
+                .any(|old_step| same_step(old_step, new_step))
+        })
+        .collect();
     let mut found = Vec::new();
     for old_step in old_steps {
         let label = step_label(old_step);
         if !runs_check(&label) {
             continue;
         }
-        let Some(new_step) = new_steps.iter().find(|step| same_step(old_step, step)) else {
+        let matched = new_steps.iter().find(|step| same_step(old_step, step));
+        let Some(new_step) = matched.or_else(|| take_replacement(&mut unmatched, &label)) else {
             found.push(Relaxation::removed(format!(
                 "check step `{label}` in job `{job}` was removed"
             )));
@@ -202,6 +211,18 @@ fn step_label(step: &Value) -> String {
         .find_map(|key| text(step.get(*key)))
         .map(|label| label.lines().next().unwrap_or_default().trim().to_string())
         .unwrap_or_default()
+}
+
+/// A new step that runs the same kind of check as an old one no step matches,
+/// such as `npm test` rewritten as `npm run test:ci`, replaces it instead of
+/// counting as a removed check. The replacement is still compared for
+/// `continue-on-error`, `if: false`, swallowed failures, and thresholds.
+fn take_replacement<'a>(unmatched: &mut Vec<&'a Value>, label: &str) -> Option<&'a Value> {
+    let kinds = check_kinds(label);
+    let index = unmatched
+        .iter()
+        .position(|step| !check_kinds(&step_label(step)).is_disjoint(&kinds))?;
+    Some(unmatched.remove(index))
 }
 
 fn same_step(left: &Value, right: &Value) -> bool {

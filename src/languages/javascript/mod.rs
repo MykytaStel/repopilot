@@ -9,6 +9,7 @@ use crate::audits::context::LanguageKind;
 mod imports;
 mod integrity;
 mod integrity_suppressions;
+mod removed;
 mod review;
 mod risk;
 

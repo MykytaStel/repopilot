@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-10-03
+
+RepoPilot 0.24.1 stops coding agents only for checks they weakened, once per
+session, and keeps session files out of `git status`. Without configured
+verification, a change with nothing flagged reads `PASS (not verified)` instead
+of `REVIEW`. Two integrity false positives are fixed: a rewritten CI test
+command and skipping every test in a JS/TS file. Report schema stays `0.26`.
+
 ### Changed
 
 - Without configured verification, a review that flags nothing is
@@ -21,6 +29,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- A CI step whose check command was rewritten (`npm test` → `npm run test:ci`,
+  or `npm test` → `pnpm vitest run`) is no longer reported as "check step was
+  removed". A new step that runs the same kind of check (tests, lint, type
+  checking, coverage) replaces the old one and is still compared for
+  `continue-on-error`, `if: false`, swallowed failures, and lowered thresholds;
+  a test step replaced by lint or build alone is still a removed check.
+- Skipping every test in a JS/TS file (`it.skip`, `describe.skip`, `xit`) no
+  longer also reports "test deleted or emptied — all test cases were removed".
+  Modified and aliased test calls count as test cases; the skip stays an
+  `integrity.test-skipped` signal, and removing every test is still reported.
 - Agent stop hooks (the Claude Code and Codex plugin, the Gemini CLI extension,
   and the Cursor hooks) stop the agent only when the session weakened a check
   or a safeguard: a test-integrity signal, a removed auth check, an emptied test

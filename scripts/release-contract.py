@@ -368,7 +368,7 @@ def check_public_docs_index(public_index: Path, engineering_index: Path) -> None
     public_targets = _local_markdown_targets(public_index)
     required_public_pages = {
         "architecture": ROOT / "docs" / "architecture.md",
-        "release notes": ROOT / "docs" / "releases" / "v0.24.0.md",
+        "release notes": ROOT / "docs" / "releases" / "v0.24.1.md",
         "engineering index": engineering_index,
     }
     for label, path in required_public_pages.items():
