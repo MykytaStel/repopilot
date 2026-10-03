@@ -51,8 +51,11 @@ Start with a local review:
 repopilot review .
 ```
 
-If no proof policy or no matching check is configured, export suggestions and
-inspect their source comments and commands:
+Without configured checks, a change with nothing flagged reads
+`PASS (not verified)`: RepoPilot found nothing to review, and no check of yours
+verified the change. To verify changes too, or if no proof policy or no
+matching check is configured, export suggestions and inspect their source
+comments and commands:
 
 ```bash
 repopilot init --suggestions-output .repopilot/init-suggestions.toml

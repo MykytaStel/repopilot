@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Without configured verification, a review that flags nothing is
+  `PASS (not verified)` instead of `REVIEW`. Before, every change in a
+  repository without a proof policy read `REVIEW`, even a one-line README edit,
+  so the decision carried no information on a first run. Any review signal,
+  finding, coverage limit, limited contract, failed gate, or intent drift still
+  keeps `REVIEW`, and Change Proof stays `REVIEW` until a check verifies the
+  change. The console and Markdown summaries list evidence reasons first and
+  fold the missing setup into one "Not verified" line; compact console output
+  shows one `Verification: not configured` line instead of the empty proof
+  policy and obligation counts (`--detail full` keeps them).
+
 ### Fixed
 
 - Agent stop hooks (the Claude Code and Codex plugin, the Gemini CLI extension,

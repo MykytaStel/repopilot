@@ -4,7 +4,7 @@
 use super::super::diagnostics;
 use crate::baseline::gate::CiGateResult;
 use crate::review::ReviewSignalGateResult;
-use crate::review::decision::{ReviewDecision, derive_review_decision};
+use crate::review::decision::{ReviewDecision, derive_review_decision, headline_reasons};
 use crate::review::derive_readiness;
 use crate::review::model::ReviewReport;
 use crate::review::ownership::OwnershipAssessment;
@@ -35,7 +35,7 @@ pub(super) fn render(
     let evidence = EvidenceSummary::from_review(report, &proof);
     let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
 
-    render_verdict(output, &decision, &proof);
+    render_verdict(output, report, &decision, &proof);
     let _ = writeln!(output, "- **Evidence scope:** {}", evidence.scope_line());
     let _ = writeln!(
         output,
@@ -62,6 +62,9 @@ pub(super) fn render(
     );
 
     output.push_str("\n### Proof details\n\n");
+    if decision.is_unverified_pass(&proof) {
+        let _ = writeln!(output, "- **Change proof:** `{}`", proof.verdict.label());
+    }
     render_details(output, report, &proof, &evidence, &readiness);
 }
 
@@ -79,18 +82,33 @@ fn render_obligation_groups(output: &mut String, proof: &ChangeProof) {
     }
 }
 
-fn render_verdict(output: &mut String, decision: &ReviewDecision, proof: &ChangeProof) {
-    let _ = writeln!(
-        output,
-        "- **Decision:** `{}` (**Change proof:** `{}`)",
-        decision.verdict.label(),
-        proof.verdict.label()
-    );
+fn render_verdict(
+    output: &mut String,
+    report: &ReviewReport,
+    decision: &ReviewDecision,
+    proof: &ChangeProof,
+) {
+    let unverified_pass = decision.is_unverified_pass(proof);
+    if unverified_pass {
+        output.push_str("- **Decision:** `PASS` (not verified)\n");
+    } else {
+        let _ = writeln!(
+            output,
+            "- **Decision:** `{}` (**Change proof:** `{}`)",
+            decision.verdict.label(),
+            proof.verdict.label()
+        );
+    }
     let _ = writeln!(output, "- **Meaning:** {}", decision.meaning);
-    if !proof.reasons.is_empty() {
+    let reasons = if unverified_pass {
+        Vec::new()
+    } else {
+        headline_reasons(report, proof)
+    };
+    if !reasons.is_empty() {
         output.push_str("- **Reasons:**\n");
-        for reason in proof.reasons.iter().take(MAX_SUMMARY_REASONS) {
-            let _ = writeln!(output, "  - {}", reason.message);
+        for reason in reasons.iter().take(MAX_SUMMARY_REASONS) {
+            let _ = writeln!(output, "  - {reason}");
         }
     }
     let _ = writeln!(output, "- **Next action:** {}", decision.next_action);

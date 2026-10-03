@@ -5,7 +5,7 @@
 use super::super::diagnostics;
 use crate::baseline::gate::CiGateResult;
 use crate::review::ReviewSignalGateResult;
-use crate::review::decision::{ReviewDecision, derive_review_decision};
+use crate::review::decision::{derive_review_decision, verification_configured};
 use crate::review::derive_readiness;
 use crate::review::intent::IntentStatus;
 use crate::review::model::ReviewReport;
@@ -18,7 +18,8 @@ use crate::review::render::helpers::{
 };
 use std::fmt::Write;
 
-const MAX_HEADER_REASONS: usize = 5;
+const VERIFICATION_NOT_CONFIGURED: &str =
+    "Verification: not configured (details with --detail full)\n";
 
 pub(super) fn render(
     output: &mut String,
@@ -38,11 +39,12 @@ pub(super) fn render(
     let evidence = EvidenceSummary::from_review(report, &proof);
     let decision = derive_review_decision(report, &proof, &readiness, ci_gate, review_gate);
 
-    render_verdict(output, &decision, &proof);
+    super::verdict::render(output, report, &decision, &proof);
     super::weakened::render(output, report);
-    render_proof_summary(output, report, &proof, &evidence);
+    render_proof_summary(output, report, &proof, &evidence, full);
     if full {
-        render_proof_details(output, report, &proof, &evidence, &readiness);
+        let show_proof = decision.is_unverified_pass(&proof);
+        render_proof_details(output, report, &proof, &evidence, &readiness, show_proof);
     } else {
         render_compact_context(output, &proof, &readiness);
     }
@@ -52,37 +54,18 @@ pub(super) fn render(
     render_counts(output, report, full);
 }
 
-fn render_verdict(output: &mut String, decision: &ReviewDecision, proof: &ChangeProof) {
-    let _ = writeln!(
-        output,
-        "Decision: {} (Change Proof: {})",
-        decision.verdict.label(),
-        proof.verdict.label()
-    );
-    let _ = writeln!(output, "Meaning: {}", decision.meaning);
-    if !proof.reasons.is_empty() {
-        output.push_str("Reasons:\n");
-        for reason in proof.reasons.iter().take(MAX_HEADER_REASONS) {
-            let _ = writeln!(output, "  - {}", reason.message);
-        }
-        if proof.reasons.len() > MAX_HEADER_REASONS {
-            let _ = writeln!(
-                output,
-                "  ... {} more reason(s) in --format json",
-                proof.reasons.len() - MAX_HEADER_REASONS
-            );
-        }
-    }
-    let _ = writeln!(output, "Next action: {}", decision.next_action);
-}
-
 fn render_proof_summary(
     output: &mut String,
     report: &ReviewReport,
     proof: &ChangeProof,
     evidence: &EvidenceSummary,
+    full: bool,
 ) {
     let _ = writeln!(output, "Evidence scope: {}", evidence.scope_line());
+    if !full && !verification_configured(report) {
+        output.push_str(VERIFICATION_NOT_CONFIGURED);
+        return;
+    }
     let _ = writeln!(
         output,
         "Verification proof: {}",
@@ -130,7 +113,12 @@ fn render_proof_details(
     proof: &ChangeProof,
     evidence: &EvidenceSummary,
     readiness: &MergeReadinessRecord,
+    show_proof: bool,
 ) {
+    // An unverified PASS leaves the Change Proof verdict out of the header.
+    if show_proof {
+        let _ = writeln!(output, "Change Proof: {}", proof.verdict.label());
+    }
     let _ = writeln!(output, "Evidence class: {}", evidence.class.label());
     let _ = writeln!(
         output,
