@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/repopilot.svg)](https://crates.io/crates/repopilot)
 [![npm](https://img.shields.io/npm/v/repopilot.svg)](https://www.npmjs.com/package/repopilot)
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
-[![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
+[![License](https://img.shields.io/crates/l/repopilot.svg)](#license)
 
 **Local, deterministic review for Git changes.**
 
@@ -178,4 +178,5 @@ Contributing and development setup: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT OR Apache-2.0.
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option.

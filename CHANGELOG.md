@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   a mirror of `integrations/claude-code/repopilot` at the repository root,
   kept in sync by `scripts/sync-plugin-repo.sh`. Marketplace installs from this
   repository are unchanged.
+- The dual license ships as `LICENSE-APACHE` and `LICENSE-MIT` instead of one
+  combined `LICENSE`, so GitHub and MCP directories detect it. A `glama.json`
+  names the maintainer for the Glama MCP directory.
 
 ## [0.24.1] - 2026-10-03
 
