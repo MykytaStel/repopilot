@@ -12,7 +12,7 @@ fn findings_detail_bounds_changed_files_and_summarizes_areas() {
     let output = render_console(&report, DetailLevel::Findings);
 
     assert!(output.contains("Changed areas:\n"));
-    assert!(output.contains("Change Proof: REVIEW"));
+    assert!(output.contains("Decision: PASS (not verified)"));
     assert!(output.contains("  docs: 2\n"));
     assert!(output.contains("  root: 1\n"));
     assert!(output.contains("  src: 8\n"));

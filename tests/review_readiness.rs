@@ -152,8 +152,10 @@ fn human_reports_project_readiness_and_owners() {
     let console = repopilot::review::render::render_console(&report, None);
     let markdown = repopilot::review::render::render_markdown(&report, None);
     assert!(console.contains("Legacy merge readiness: READY"));
+    // Nothing flagged and no checks configured: PASS, labeled not verified,
+    // while Change Proof stays REVIEW and legacy readiness stays separate.
+    assert!(console.contains("Decision: PASS (not verified)"));
     assert!(console.contains("Change Proof: REVIEW"));
-    assert!(!console.contains("Decision: PASS"));
     assert!(
         console.find("Change Proof: REVIEW").unwrap()
             < console.find("Legacy merge readiness: READY").unwrap()
@@ -168,9 +170,9 @@ fn human_reports_project_readiness_and_owners() {
         env!("CARGO_PKG_VERSION")
     )));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
-    assert!(console.contains("Reasons:"));
+    assert!(!console.contains("Reasons:"));
     assert!(console.contains(
-        "Next action: Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
+        "Next action: Nothing flagged. To verify changes with your own build and test commands, run repopilot init --suggestions-output .repopilot/init-suggestions.toml."
     ));
     assert!(console.contains("Suggested owners: @team"));
     assert!(console.contains("Ownership: resolved"));
@@ -194,9 +196,10 @@ fn human_reports_project_readiness_and_owners() {
         env!("CARGO_PKG_VERSION")
     )));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));
-    assert!(markdown.contains("**Reasons:**"));
+    assert!(markdown.contains("**Decision:** `PASS` (not verified)"));
+    assert!(!markdown.contains("**Reasons:**"));
     assert!(markdown.contains(
-        "**Next action:** Run repopilot init --suggestions-output .repopilot/init-suggestions.toml; review suggestions, add only missing accepted checks, and fix unavailable configured ones. Rerun this review with --verify CHECK_ID, keeping its original path, revision, scope, and config."
+        "**Next action:** Nothing flagged. To verify changes with your own build and test commands, run repopilot init --suggestions-output .repopilot/init-suggestions.toml."
     ));
     assert!(markdown.contains("**Ownership:** `resolved`"));
     assert!(markdown.contains("**Suggested owners:** `@team`"));

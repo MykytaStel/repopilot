@@ -68,13 +68,22 @@ questions:
 
 | Field | What it answers |
 |---|---|
-| `Decision` | What should happen next: `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED`. It maps from the Change Proof verdict. |
+| `Decision` | What should happen next: `PASS`, `REVIEW`, `BLOCK`, or `NOT ASSESSED`. It maps from the Change Proof verdict; without configured verification, a change with nothing flagged is `PASS (not verified)`. |
 | `Change Proof` | What the analyzed scope and selected proof policy establish: `VERIFIED`, `REVIEW`, `BROKEN`, or `NOT ASSESSED`. `VERIFIED` requires a sufficient policy and no outstanding proof reasons; `BROKEN` means supported evidence shows a changed contract is broken. |
 | CI and review gates | Did the configured finding threshold or review-signal threshold pass? They are shown separately. A failed configured gate also appears as a proof reason and can make the decision `REVIEW`. |
 | `merge_readiness` | A compatibility record with the older `ready`, `review`, and `blocked` values. It is not interchangeable with Change Proof. |
 
 The mapping is `VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`,
 and `NOT ASSESSED` → `NOT ASSESSED`.
+
+One exception covers repositories without verification setup. When no
+verification check is configured or recorded and the only open proof reasons
+are that missing setup (no sufficient proof policy, required checks
+unavailable), the decision is `PASS (not verified)`: RepoPilot flagged nothing,
+and no check verified the change. Change Proof stays `REVIEW`. Any review
+signal, finding, coverage limit, limited contract, failed gate, or intent drift
+keeps the decision at `REVIEW`. Once a repository configures a check, the
+mapping above applies without the exception.
 
 For example, a review can report `merge_readiness: ready` and Change Proof
 `REVIEW` when no sufficient proof policy is selected. The legacy record does not

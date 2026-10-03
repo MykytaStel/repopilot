@@ -347,7 +347,10 @@ single primary assessment for the review and contains `verdict` (`PASS`,
 `next_action`, and separate `gates.ci` / `gates.review` states. The decision
 verdict maps from `change_proof`; a configured gate failure is also recorded as
 a proof reason where applicable, while the gate field reports its threshold
-result separately. `merge_readiness` is a compatibility record with older
+result separately. Without any configured or recorded verification check, a
+`REVIEW` whose only reasons are that missing setup becomes `PASS` with a
+`limitations` entry that the change is not verified; `change_proof.verdict`
+stays `REVIEW`. `merge_readiness` is a compatibility record with older
 `ready` / `review` / `blocked` semantics and can differ from Change Proof when
 the selected proof policy is insufficient. See
 [Read the review result](commands.md#read-the-review-result) for the user-facing

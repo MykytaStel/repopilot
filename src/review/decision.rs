@@ -8,6 +8,9 @@ use crate::review::readiness::MergeReadinessRecord;
 use crate::scan::types::ScanMode;
 use serde::{Deserialize, Serialize};
 
+mod unverified;
+pub use unverified::{headline_reasons, verification_configured};
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ReviewDecisionVerdict {
@@ -74,14 +77,14 @@ pub fn derive_review_decision(
     review_gate: Option<&ReviewSignalGateResult>,
 ) -> ReviewDecision {
     let empty_change = report.summary.mode == ScanMode::Changed && report.changed_files.is_empty();
-    decision_from_proof(
-        proof,
-        empty_change,
-        ReviewDecisionGates {
-            ci: ci_gate.map_or(ReviewGateState::NotConfigured, gate_state),
-            review: review_gate.map_or(ReviewGateState::NotConfigured, review_gate_state),
-        },
-    )
+    let gates = ReviewDecisionGates {
+        ci: ci_gate.map_or(ReviewGateState::NotConfigured, gate_state),
+        review: review_gate.map_or(ReviewGateState::NotConfigured, review_gate_state),
+    };
+    if unverified::passes_without_verification(report, proof) {
+        return unverified::unverified_pass(gates);
+    }
+    decision_from_proof(proof, empty_change, gates)
 }
 
 pub fn decision_from_proof(
