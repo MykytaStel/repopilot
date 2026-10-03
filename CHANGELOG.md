@@ -11,7 +11,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Plugin hook commands are literal `${CLAUDE_PLUGIN_ROOT}/scripts/…` paths in
   both the Claude Code and Codex hook files, as the Claude plugin directory
   validator requires; Codex expands the same variable. The plugin also ships a
-  square icon (`.claude-plugin/icon.png`).
+  square icon (`.claude-plugin/icon.png`) and its own `LICENSE`.
+- The Claude plugin directory lists the plugin from
+  [MykytaStel/repopilot-plugin](https://github.com/MykytaStel/repopilot-plugin),
+  a mirror of `integrations/claude-code/repopilot` at the repository root,
+  kept in sync by `scripts/sync-plugin-repo.sh`. Marketplace installs from this
+  repository are unchanged.
 
 ## [0.24.1] - 2026-10-03
 

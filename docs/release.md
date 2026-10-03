@@ -188,6 +188,9 @@ VERSION=vX.Y.Z SOURCE_DIR=/path/to/tag/checkout scripts/verify-publication.sh
   [distribution](distribution.md).
 - Approve the `release` (crates.io) and `npm` environment deployments when the
   tag workflow requests them.
+- Run `scripts/sync-plugin-repo.sh` so the Claude plugin directory mirror
+  ([MykytaStel/repopilot-plugin](https://github.com/MykytaStel/repopilot-plugin))
+  matches the released plugin folder.
 
 ## Verify Public Channels
 
