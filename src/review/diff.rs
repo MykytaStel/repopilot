@@ -1,14 +1,13 @@
 use serde::Serialize;
-use std::error::Error;
-use std::fmt;
 use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 mod batch;
+mod error;
 mod since_base;
 pub(crate) use batch::{BatchedContent, git_show_many};
+pub use error::GitDiffError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DiffTarget<'a> {
@@ -107,14 +106,6 @@ pub struct ChangedRange {
     pub end: usize,
 }
 
-#[derive(Debug)]
-pub enum GitDiffError {
-    PathNotFound(PathBuf),
-    GitNotFound,
-    GitCommandFailed { command: String, stderr: String },
-    Io(io::Error),
-}
-
 impl<'a> DiffTarget<'a> {
     pub fn from_refs(base: Option<&'a str>, head: Option<&'a str>) -> Self {
         match base {
@@ -139,41 +130,6 @@ impl ChangedFile {
     }
 }
 
-impl fmt::Display for GitDiffError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            GitDiffError::PathNotFound(path) => {
-                write!(formatter, "path does not exist: {}", path.display())
-            }
-            GitDiffError::GitNotFound => write!(
-                formatter,
-                "git executable was not found; `repopilot review` requires git"
-            ),
-            GitDiffError::GitCommandFailed { command, stderr } => {
-                let message = stderr.trim();
-                if message.is_empty() {
-                    write!(formatter, "git command failed: {command}")
-                } else {
-                    write!(formatter, "git command failed: {command}: {message}")
-                }
-            }
-            GitDiffError::Io(error) => write!(formatter, "{error}"),
-        }
-    }
-}
-
-impl Error for GitDiffError {}
-
-impl From<io::Error> for GitDiffError {
-    fn from(error: io::Error) -> Self {
-        if error.kind() == io::ErrorKind::NotFound {
-            GitDiffError::GitNotFound
-        } else {
-            GitDiffError::Io(error)
-        }
-    }
-}
-
 pub fn resolve_git_root(path: &Path) -> Result<PathBuf, GitDiffError> {
     if !path.exists() {
         return Err(GitDiffError::PathNotFound(path.to_path_buf()));
@@ -188,7 +144,15 @@ pub fn resolve_git_root(path: &Path) -> Result<PathBuf, GitDiffError> {
         cwd,
         &["rev-parse", "--show-toplevel"],
         "git rev-parse --show-toplevel",
-    )?;
+    )
+    .map_err(|error| match error {
+        GitDiffError::GitCommandFailed { ref stderr, .. }
+            if stderr.contains("not a git repository") =>
+        {
+            GitDiffError::NotARepository(path.to_path_buf())
+        }
+        other => other,
+    })?;
 
     Ok(PathBuf::from(output.trim()))
 }
@@ -235,13 +199,18 @@ pub fn load_changed_files(
     }
 
     let mut files = match target {
-        DiffTarget::WorkingTree => parse_diff(&git_diff_against_head(repo_root, pathspec)?),
-        DiffTarget::Refs { base, head } => {
-            parse_diff(&git_diff_between_refs(repo_root, base, head, pathspec)?)
-        }
-        DiffTarget::SinceRef { base } => {
-            parse_diff(&git_diff_since_ref(repo_root, base, pathspec)?)
-        }
+        DiffTarget::WorkingTree => parse_diff(
+            &git_diff_against_head(repo_root, pathspec)
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
+        ),
+        DiffTarget::Refs { base, head } => parse_diff(
+            &git_diff_between_refs(repo_root, base, head, pathspec)
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
+        ),
+        DiffTarget::SinceRef { base } => parse_diff(
+            &git_diff_since_ref(repo_root, base, pathspec)
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
+        ),
     };
 
     // Both targets that end at the working tree must also pick up untracked files,

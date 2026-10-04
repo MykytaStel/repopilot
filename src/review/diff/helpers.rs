@@ -7,6 +7,59 @@ fn git_diff_against_head(repo_root: &Path, pathspec: Option<&str>) -> Result<Str
     git_output(repo_root, &args, "git diff --unified=0 --no-ext-diff HEAD")
 }
 
+/// Turn a failed diff into a plain message for the cases a person can fix: no
+/// commits yet, a base or head ref that does not exist (often `main` vs
+/// `master`, or an unfetched remote branch), and refs with no merge base (a
+/// shallow clone). Each case is confirmed by asking Git directly rather than by
+/// parsing its possibly localized error text; anything else keeps Git's message.
+fn explain_diff_failure(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
+    error: GitDiffError,
+) -> GitDiffError {
+    if !matches!(error, GitDiffError::GitCommandFailed { .. }) {
+        return error;
+    }
+    if !commit_resolves(repo_root, "HEAD") {
+        return GitDiffError::NoCommits;
+    }
+    match target {
+        DiffTarget::WorkingTree => error,
+        DiffTarget::SinceRef { base } if !commit_resolves(repo_root, base) => {
+            GitDiffError::RefNotFound(base.to_string())
+        }
+        DiffTarget::SinceRef { .. } => error,
+        DiffTarget::Refs { base, head } => {
+            if let Some(missing) = [base, head]
+                .into_iter()
+                .find(|reference| !commit_resolves(repo_root, reference))
+            {
+                return GitDiffError::RefNotFound(missing.to_string());
+            }
+            if !git_succeeds(repo_root, &["merge-base", base, head]) {
+                return GitDiffError::NoMergeBase {
+                    base: base.to_string(),
+                    head: head.to_string(),
+                };
+            }
+            error
+        }
+    }
+}
+
+fn commit_resolves(repo_root: &Path, reference: &str) -> bool {
+    let spec = format!("{reference}^{{commit}}");
+    git_succeeds(repo_root, &["rev-parse", "--verify", "--quiet", &spec])
+}
+
+fn git_succeeds(repo_root: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .args(args)
+        .current_dir(repo_root)
+        .output()
+        .is_ok_and(|output| output.status.success())
+}
+
 fn git_diff_since_ref(
     repo_root: &Path,
     base: &str,

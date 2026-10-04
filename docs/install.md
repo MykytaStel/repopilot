@@ -6,7 +6,8 @@ RepoPilot is distributed through several channels so different developer workflo
 
 ### Cargo
 
-Use this when you already have Rust installed:
+Use this when you already have Rust 1.90 or newer (`rustup update` upgrades an
+older toolchain):
 
 ```bash
 cargo install repopilot
