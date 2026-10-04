@@ -26,6 +26,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   combined `LICENSE`, so GitHub and MCP directories detect it. A `glama.json`
   names the maintainer for the Glama MCP directory.
 
+### Fixed
+
+- A review with no changed files now says so and suggests `--base origin/main`
+  for committed work, instead of asking to expand the analyzable scope.
+
 ## [0.24.1] - 2026-10-03
 
 RepoPilot 0.24.1 stops coding agents only for checks they weakened, once per
