@@ -7,23 +7,57 @@ fn git_diff_against_head(repo_root: &Path, pathspec: Option<&str>) -> Result<Str
     git_output(repo_root, &args, "git diff --unified=0 --no-ext-diff HEAD")
 }
 
-/// A diff against HEAD fails in a repository without commits; say so plainly.
-/// The check asks Git whether HEAD resolves rather than parsing its (possibly
-/// localized) error text, and any other failure keeps Git's own message.
-fn no_commits_or(repo_root: &Path, error: GitDiffError) -> GitDiffError {
+/// Turn a failed diff into a plain message for the cases a person can fix: no
+/// commits yet, a base or head ref that does not exist (often `main` vs
+/// `master`, or an unfetched remote branch), and refs with no merge base (a
+/// shallow clone). Each case is confirmed by asking Git directly rather than by
+/// parsing its possibly localized error text; anything else keeps Git's message.
+fn explain_diff_failure(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
+    error: GitDiffError,
+) -> GitDiffError {
     if !matches!(error, GitDiffError::GitCommandFailed { .. }) {
         return error;
     }
-    let head_resolves = Command::new("git")
-        .args(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"])
+    if !commit_resolves(repo_root, "HEAD") {
+        return GitDiffError::NoCommits;
+    }
+    match target {
+        DiffTarget::WorkingTree => error,
+        DiffTarget::SinceRef { base } if !commit_resolves(repo_root, base) => {
+            GitDiffError::RefNotFound(base.to_string())
+        }
+        DiffTarget::SinceRef { .. } => error,
+        DiffTarget::Refs { base, head } => {
+            if let Some(missing) = [base, head]
+                .into_iter()
+                .find(|reference| !commit_resolves(repo_root, reference))
+            {
+                return GitDiffError::RefNotFound(missing.to_string());
+            }
+            if !git_succeeds(repo_root, &["merge-base", base, head]) {
+                return GitDiffError::NoMergeBase {
+                    base: base.to_string(),
+                    head: head.to_string(),
+                };
+            }
+            error
+        }
+    }
+}
+
+fn commit_resolves(repo_root: &Path, reference: &str) -> bool {
+    let spec = format!("{reference}^{{commit}}");
+    git_succeeds(repo_root, &["rev-parse", "--verify", "--quiet", &spec])
+}
+
+fn git_succeeds(repo_root: &Path, args: &[&str]) -> bool {
+    Command::new("git")
+        .args(args)
         .current_dir(repo_root)
         .output()
-        .is_ok_and(|output| output.status.success());
-    if head_resolves {
-        error
-    } else {
-        GitDiffError::NoCommits
-    }
+        .is_ok_and(|output| output.status.success())
 }
 
 fn git_diff_since_ref(

@@ -15,6 +15,13 @@ pub enum GitDiffError {
     NotARepository(PathBuf),
     /// The repository has no commits, so there is no `HEAD` to diff against.
     NoCommits,
+    /// A base or head ref given to the review does not resolve to a commit.
+    RefNotFound(String),
+    /// Both refs exist but share no history in this clone (usually shallow).
+    NoMergeBase {
+        base: String,
+        head: String,
+    },
     GitCommandFailed {
         command: String,
         stderr: String,
@@ -41,6 +48,14 @@ impl fmt::Display for GitDiffError {
             GitDiffError::NoCommits => write!(
                 formatter,
                 "this repository has no commits yet, so there is no HEAD to compare against. Commit once, then review later changes, or run `repopilot scan .` for a full audit."
+            ),
+            GitDiffError::RefNotFound(reference) => write!(
+                formatter,
+                "Git ref `{reference}` was not found in this repository. List branches with `git branch -a`: the default branch may be `master` rather than `main`, or a remote branch may need `git fetch`."
+            ),
+            GitDiffError::NoMergeBase { base, head } => write!(
+                formatter,
+                "`{base}` and `{head}` share no history in this clone, so there is no merge base to diff from. In a shallow clone, fetch more history with `git fetch --unshallow`, or use `fetch-depth: 0` in GitHub Actions."
             ),
             GitDiffError::GitCommandFailed { command, stderr } => {
                 let message = stderr.trim();

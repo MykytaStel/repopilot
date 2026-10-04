@@ -201,14 +201,16 @@ pub fn load_changed_files(
     let mut files = match target {
         DiffTarget::WorkingTree => parse_diff(
             &git_diff_against_head(repo_root, pathspec)
-                .map_err(|error| no_commits_or(repo_root, error))?,
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
         ),
-        DiffTarget::Refs { base, head } => {
-            parse_diff(&git_diff_between_refs(repo_root, base, head, pathspec)?)
-        }
-        DiffTarget::SinceRef { base } => {
-            parse_diff(&git_diff_since_ref(repo_root, base, pathspec)?)
-        }
+        DiffTarget::Refs { base, head } => parse_diff(
+            &git_diff_between_refs(repo_root, base, head, pathspec)
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
+        ),
+        DiffTarget::SinceRef { base } => parse_diff(
+            &git_diff_since_ref(repo_root, base, pathspec)
+                .map_err(|error| explain_diff_failure(repo_root, target, error))?,
+        ),
     };
 
     // Both targets that end at the working tree must also pick up untracked files,
