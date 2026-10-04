@@ -7,6 +7,25 @@ fn git_diff_against_head(repo_root: &Path, pathspec: Option<&str>) -> Result<Str
     git_output(repo_root, &args, "git diff --unified=0 --no-ext-diff HEAD")
 }
 
+/// A diff against HEAD fails in a repository without commits; say so plainly.
+/// The check asks Git whether HEAD resolves rather than parsing its (possibly
+/// localized) error text, and any other failure keeps Git's own message.
+fn no_commits_or(repo_root: &Path, error: GitDiffError) -> GitDiffError {
+    if !matches!(error, GitDiffError::GitCommandFailed { .. }) {
+        return error;
+    }
+    let head_resolves = Command::new("git")
+        .args(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"])
+        .current_dir(repo_root)
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if head_resolves {
+        error
+    } else {
+        GitDiffError::NoCommits
+    }
+}
+
 fn git_diff_since_ref(
     repo_root: &Path,
     base: &str,

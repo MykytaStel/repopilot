@@ -30,6 +30,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - A review with no changed files now says so and suggests `--base origin/main`
   for committed work, instead of asking to expand the analyzable scope.
+- `repopilot review` outside a Git repository, or in a repository without
+  commits, explains the problem and what to run instead (`repopilot scan`, or
+  commit first) instead of printing raw Git errors.
+- The crate declares `rust-version = "1.90"`, the oldest toolchain it builds
+  with, so `cargo install` on an older Rust reports the required version.
 
 ## [0.24.1] - 2026-10-03
 

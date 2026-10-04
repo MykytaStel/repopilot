@@ -2,6 +2,7 @@
 name = "repopilot"
 version = "0.24.1"
 edition = "2024"
+rust-version = "1.90"
 description = "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
