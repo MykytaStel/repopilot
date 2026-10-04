@@ -278,6 +278,7 @@ fn initialize_result(params: &Value) -> Value {
             "resources": { "subscribe": false, "listChanged": false },
             "prompts": { "listChanged": false }
         },
-        "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION }
+        "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION },
+        "instructions": catalog::SERVER_INSTRUCTIONS
     })
 }

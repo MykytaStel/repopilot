@@ -7,12 +7,18 @@ pub const TOOL_NAME: &str = "repopilot_explain_review_signal";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Explain one review signal by signal_id from the latest or a handle-selected review. Returns provenance, trust tier, gate eligibility, impact context, verification steps, and limitations.",
+        "description": "Explain one signal from a review: where it came from, its confidence tier, whether it can fail a gate, the files it affects, how to verify it, and its limits. Use it after repopilot_review_change, with a `signal_id` from that report's `tiered_signals`. For a finding (`finding_id` in the findings array), use repopilot_explain_finding instead. Reads the stored review only; it runs nothing and changes nothing.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "signal_id": { "type": "string" },
-                "analysis_handle": { "type": "string" }
+                "signal_id": {
+                    "type": "string",
+                    "description": "The `signal_id` of an entry in the review report's `tiered_signals`."
+                },
+                "analysis_handle": {
+                    "type": "string",
+                    "description": "Optional `analysisHandle` from an earlier repopilot_review_change call. Omit to use the latest review in this session."
+                }
             },
             "required": ["signal_id"],
             "additionalProperties": false

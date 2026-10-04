@@ -251,7 +251,9 @@ explicitly selects an allowlisted repository check through `verify`.
 ## Lifecycle
 
 Clients must call `initialize`, send `notifications/initialized`, then use
-`tools/*`, `resources/*`, or `prompts/*`. Tool calls run through one background
+`tools/*`, `resources/*`, or `prompts/*`. The `initialize` result carries
+`instructions` that map common questions to the right tool; each tool
+description also says when to use a sibling tool instead. Tool calls run through one background
 worker built with standard-library channels, so the stdio loop can receive
 `notifications/cancelled` while analysis is running. Calls that include
 `_meta.progressToken` receive start/completion `notifications/progress`.

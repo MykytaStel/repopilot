@@ -17,7 +17,7 @@ pub const TOOL_NAME: &str = "repopilot_scan";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Audit a repository, folder, or file for findings across architecture, coupling, code quality, security, and testing, and return the full JSON scan report (findings, metrics, risk summary). Runs entirely on disk — nothing is uploaded.",
+        "description": "Audit a repository, folder, or file for findings across architecture, coupling, code quality, security, and testing, and return the JSON scan report (findings, metrics, risk summary). Use it for a health check that is not about one change. To review what a change touched or which checks it weakened, use repopilot_review_change; for a short Markdown brief to read before editing, use repopilot_context. Explain a returned finding with repopilot_explain_finding. Runs entirely on disk; nothing is uploaded.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -25,14 +25,25 @@ pub fn definition() -> Value {
                     "type": "string",
                     "description": "Path to scan. Defaults to the current working directory."
                 },
-                "config": { "type": "string", "description": "Optional repopilot.toml path." },
-                "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" },
-                "scope": { "type": "string", "enum": ["full", "changed"], "default": "full" },
-                "base": { "type": "string", "description": "Optional base ref for changed scope." },
+                "config": { "type": "string", "description": "Optional repopilot.toml path. Defaults to the one discovered in the repository." },
+                "profile": {
+                    "type": "string",
+                    "enum": ["default", "strict"],
+                    "default": "default",
+                    "description": "\"default\" hides low-signal suggestions; \"strict\" shows all findings."
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": ["full", "changed"],
+                    "default": "full",
+                    "description": "\"full\" scans every file under `path`; \"changed\" scans only changed files (against HEAD, or against `base` when given) and skips repository-level rules."
+                },
+                "base": { "type": "string", "description": "Base Git ref for \"changed\" scope, e.g. \"origin/main\": scans files changed between base and HEAD. Without it, \"changed\" means changed against HEAD, including untracked files." },
                 "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
                 "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
                 "filters": {
                     "type": "object",
+                    "description": "Optional thresholds and rule IDs that narrow the returned findings.",
                     "properties": {
                         "min_severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
                         "min_confidence": { "type": "string", "enum": ["low", "medium", "high"] },
