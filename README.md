@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/repopilot.svg)](https://crates.io/crates/repopilot)
 [![npm](https://img.shields.io/npm/v/repopilot.svg)](https://www.npmjs.com/package/repopilot)
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
-[![License](https://img.shields.io/crates/l/repopilot.svg)](LICENSE)
+[![License](https://img.shields.io/crates/l/repopilot.svg)](#license)
 
 **Local, deterministic review for Git changes.**
 
@@ -170,8 +170,7 @@ name: `mcp-name: io.github.MykytaStel/repopilot`.
   [Reports and schemas](docs/reports.md) · [Security model](docs/security.md)
 - [Language support](docs/language-support.md) ·
   [Rules reference](docs/rules-reference.md) · [Roadmap](docs/roadmap.md)
-- [Latest stable release notes](docs/releases/v0.24.0.md) ·
-  [Prepared 0.24.1 release notes](docs/releases/v0.24.1.md) ·
+- [Latest stable release notes](docs/releases/v0.24.1.md) ·
   [Release evidence](docs/engineering/v0.24-release-scorecard.md) ·
   [Maintainer documentation](docs/engineering/README.md)
 
@@ -179,4 +178,5 @@ Contributing and development setup: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT OR Apache-2.0.
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option.

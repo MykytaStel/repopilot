@@ -224,7 +224,7 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     ));
     assert!(console.contains("Why: No changed files were available for assessment."));
     assert!(console.contains(
-        "Next action: Expand the analyzable scope before treating this review as evidence."
+        "Next action: Nothing changed in the reviewed scope. To review committed work, rerun with a base ref, for example --base origin/main."
     ));
     assert!(console.contains(
         "Legacy merge readiness: READY (COMPATIBILITY FIELD; NO CHANGED SCOPE ASSESSED)"
@@ -234,7 +234,7 @@ fn empty_review_is_not_assessed_and_explains_the_missing_scope() {
     assert!(markdown.contains("**Evidence class:** `UNKNOWN`"));
     assert!(markdown.contains("**Why:** No changed files were available for assessment."));
     assert!(markdown.contains(
-        "**Next action:** Expand the analyzable scope before treating this review as evidence."
+        "**Next action:** Nothing changed in the reviewed scope. To review committed work, rerun with a base ref, for example --base origin/main."
     ));
     assert!(markdown.contains(
         "**Legacy merge readiness:** `ready (compatibility field; no changed scope assessed)`"

@@ -88,7 +88,20 @@ Unknown tags fail before channel reads; record their observed publisher runtime
 when preparing a release. Recheck this contract when updating the runtime.
 
 After the stable channels pass, run `publish-mcp-registry.yml` for the same tag
-and verify the exact `io.github.MykytaStel/repopilot` name/version. Registry
+and verify the exact `io.github.MykytaStel/repopilot` name/version.
+
+The Claude plugin directory lists the plugin from
+[MykytaStel/repopilot-plugin](https://github.com/MykytaStel/repopilot-plugin),
+a mirror where `integrations/claude-code/repopilot` is the repository root. The
+directory blocks hook and MCP commands with computed paths only for a plugin in
+a subfolder, and our hook scripts compute the user's repository paths. Run
+`scripts/sync-plugin-repo.sh` after every merge that changes the plugin folder,
+and at each release; the directory rescans new mirror commits. Never commit to
+the mirror directly: the sync is a fast-forward of `git subtree split`.
+`plugin.json` sets `supportUrl` and `privacyPolicyUrl` for the directory
+listing. Claude Code ignores both at load time, so
+`claude plugin validate --strict` reports them as unknown fields; those two
+warnings are expected, and every other warning still fails the check. Registry
 publication is a separate operation, not implied by npm/crates.io success.
 Update RP24-016, its publication artifact, the generated release scorecard,
 the public release status, and version-pinned installation instructions.

@@ -29,7 +29,8 @@
 	"files": [
 		"bin",
 		"README.md",
-		"LICENSE"
+		"LICENSE-APACHE",
+		"LICENSE-MIT"
 	],
 	"optionalDependencies": {
 		"@repopilot/darwin-arm64": "0.24.1",

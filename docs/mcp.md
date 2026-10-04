@@ -26,9 +26,9 @@ use this equivalent entry in any compatible client:
 ```
 
 The [MCP Registry listing](https://registry.modelcontextprotocol.io/v0.1/servers?search=repopilot)
-`io.github.MykytaStel/repopilot` version 0.24.0 is published and active for the
+`io.github.MykytaStel/repopilot` version 0.24.1 is published and active for the
 npm and crates.io packages. Its exact name/version and both package entries
-were verified after [the registry publication](https://github.com/MykytaStel/repopilot/actions/runs/37065529963).
+were verified after [the registry publication](https://github.com/MykytaStel/repopilot/actions/runs/37114648902).
 
 Client-specific bootstrap examples are also available through
 `repopilot init --mcp-client` with `claude`, `codex`, `copilot`, `cursor`, or
@@ -251,7 +251,9 @@ explicitly selects an allowlisted repository check through `verify`.
 ## Lifecycle
 
 Clients must call `initialize`, send `notifications/initialized`, then use
-`tools/*`, `resources/*`, or `prompts/*`. Tool calls run through one background
+`tools/*`, `resources/*`, or `prompts/*`. The `initialize` result carries
+`instructions` that map common questions to the right tool; each tool
+description also says when to use a sibling tool instead. Tool calls run through one background
 worker built with standard-library channels, so the stdio loop can receive
 `notifications/cancelled` while analysis is running. Calls that include
 `_meta.progressToken` receive start/completion `notifications/progress`.

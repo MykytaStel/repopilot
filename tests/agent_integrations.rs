@@ -35,17 +35,43 @@ fn codex_plugin_manifest_points_at_shipped_files() {
         let relative = manifest[field].as_str().expect(field);
         assert!(plugin.join(relative).exists(), "{field}: {relative}");
     }
-    let hooks = json(&plugin.join(manifest["hooks"].as_str().unwrap()));
+    let codex_hooks = manifest["hooks"].as_str().unwrap();
+    assert_literal_plugin_scripts(&plugin, codex_hooks);
+    assert_literal_plugin_scripts(&plugin, "hooks/hooks.json");
+}
+
+/// The Claude plugin directory validator follows a hook command only when it
+/// is a literal `${CLAUDE_PLUGIN_ROOT}/<file>` path; Codex expands the same
+/// variable. Each command must name an executable script inside the plugin.
+fn assert_literal_plugin_scripts(plugin: &Path, hooks_file: &str) {
+    let hooks = json(&plugin.join(hooks_file));
     for event in ["SessionStart", "Stop"] {
         let command = hooks["hooks"][event][0]["hooks"][0]["command"]
             .as_str()
             .expect("command");
         let script = command
-            .split("$PLUGIN_ROOT/")
-            .nth(1)
-            .and_then(|rest| rest.split('"').next())
-            .expect("script under $PLUGIN_ROOT");
-        assert!(plugin.join(script).is_file(), "{event}: {script}");
+            .strip_prefix("${CLAUDE_PLUGIN_ROOT}/")
+            .filter(|rest| {
+                rest.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "._/-".contains(c))
+            })
+            .unwrap_or_else(|| {
+                panic!("{hooks_file} {event}: not a literal plugin path: {command}")
+            });
+        let path = plugin.join(script);
+        assert!(path.is_file(), "{hooks_file} {event}: {script}");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&path)
+                .expect("script metadata")
+                .permissions()
+                .mode();
+            assert!(
+                mode & 0o111 != 0,
+                "{hooks_file} {event}: {script} is not executable"
+            );
+        }
     }
 }
 
