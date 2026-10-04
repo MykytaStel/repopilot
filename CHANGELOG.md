@@ -6,11 +6,6 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-### Fixed
-
-- A review with no changed files now says so and suggests `--base origin/main`
-  for committed work, instead of asking to expand the analyzable scope.
-
 ### Changed
 
 - Plugin hook commands are literal `${CLAUDE_PLUGIN_ROOT}/scripts/…` paths in
@@ -30,6 +25,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - The dual license ships as `LICENSE-APACHE` and `LICENSE-MIT` instead of one
   combined `LICENSE`, so GitHub and MCP directories detect it. A `glama.json`
   names the maintainer for the Glama MCP directory.
+
+### Fixed
+
+- A review with no changed files now says so and suggests `--base origin/main`
+  for committed work, instead of asking to expand the analyzable scope.
 
 ## [0.24.1] - 2026-10-03
 
