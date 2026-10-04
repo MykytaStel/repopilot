@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- A review with no changed files now says so and suggests `--base origin/main`
+  for committed work, instead of asking to expand the analyzable scope.
+
 ### Changed
 
 - Plugin hook commands are literal `${CLAUDE_PLUGIN_ROOT}/scripts/…` paths in
