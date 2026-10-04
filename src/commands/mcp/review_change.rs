@@ -19,7 +19,7 @@ use repopilot::review::{
     load_review_input,
 };
 use repopilot::verification::CancellationToken;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::fmt;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -58,76 +58,8 @@ impl From<String> for ReviewCallError {
     }
 }
 
-/// The `tools/list` descriptor for this tool.
-pub fn definition() -> Value {
-    json!({
-        "name": TOOL_NAME,
-        "description": "Audit the current Git changes locally. Scans the repository, splits findings into those touching changed diff lines vs the rest, and reports blast radius (files that import the changed files). Also surfaces deterministic change signals grouped by confidence tier (definitely-sensitive / maybe-sensitive / large-diff-or-noise) on `tiered_signals`: security-boundary changes (auth, CORS, CI, dependency manifests, committed .env), behavioral changes (network/subprocess/filesystem/env/dependency/migration/raw-SQL added; error-handling, auth-check, or test removed; removed named TypeScript/JavaScript export that a resolved local caller still imports), algorithmic changes (control-flow nesting deeper, nested loop introduced, function grew, recursion introduced), and taint-lite reachability (HTTP request or process arguments reaching SQL, exec, filesystem-write, or outbound-network sinks within a changed function). These flag, they do not judge. An explicit non-empty `verify` array runs only configured local checks; those processes may modify workspace files or contact external systems. Captured output is bounded and redacted. RepoPilot itself uploads nothing. Returns a JSON review report.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Repository path to review. Defaults to the current working directory."
-                },
-                "base": {
-                    "type": "string",
-                    "description": "Base Git ref to diff against, e.g. \"origin/main\". Optional; defaults to the working tree vs HEAD."
-                },
-                "head": {
-                    "type": "string",
-                    "description": "Head Git ref. Optional and only valid together with \"base\"."
-                },
-                "config": { "type": "string", "description": "Optional repopilot.toml path." },
-                "intent_path": { "type": "string", "description": "Optional repository-rooted bounded TOML intent file." },
-                "intent": {
-                    "type": "object",
-                    "description": "Optional bounded intent data. It is metadata only and cannot execute commands.",
-                    "properties": {
-                        "version": { "type": "integer", "const": 1 },
-                        "summary": { "type": "string", "maxLength": 256 },
-                        "paths": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 },
-                        "contract_families": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
-                        "critical_paths": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 },
-                        "verification": { "type": "array", "items": { "type": "string", "maxLength": 256 }, "maxItems": 32 }
-                    },
-                    "additionalProperties": false
-                },
-                "baseline": { "type": "string", "description": "Optional baseline path." },
-                "scope": { "type": "string", "enum": ["changed", "full"], "default": "changed" },
-                "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" },
-                "fail_on_review": { "type": "string", "enum": ["none", "definitely"], "default": "none" },
-                "detail": { "type": "string", "enum": ["compact", "full"], "default": "compact" },
-                "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
-                "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
-                "verify": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "uniqueItems": true,
-                    "description": "Configured local verification check IDs to run explicitly."
-                },
-                "filters": {
-                    "type": "object",
-                    "properties": {
-                        "min_severity": { "type": "string", "enum": ["info", "low", "medium", "high", "critical"] },
-                        "min_confidence": { "type": "string", "enum": ["low", "medium", "high"] },
-                        "min_priority": { "type": "string", "enum": ["p0", "p1", "p2", "p3"] },
-                        "rules": { "type": "array", "items": { "type": "string" } }
-                    },
-                    "additionalProperties": false
-                }
-            },
-            "additionalProperties": false
-        },
-        "outputSchema": { "type": "object", "additionalProperties": true },
-        "annotations": {
-            "readOnlyHint": false,
-            "destructiveHint": true,
-            "idempotentHint": false,
-            "openWorldHint": true
-        }
-    })
-}
+mod definition;
+pub use definition::definition;
 
 /// Runs the review for a `tools/call`, returning the JSON report on success or a
 /// human-readable message on failure (surfaced to the agent as an error result).

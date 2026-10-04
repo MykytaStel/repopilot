@@ -68,6 +68,11 @@ fn initialize_reports_server_info_and_tools_capability() {
     let result = &responses[0]["result"];
     assert_eq!(result["serverInfo"]["name"], "repopilot");
     assert!(result["capabilities"]["tools"].is_object());
+    assert!(
+        result["instructions"]
+            .as_str()
+            .is_some_and(|text| text.contains("repopilot_review_change"))
+    );
     // Unsupported client versions negotiate to the latest server version.
     assert_eq!(result["protocolVersion"], "2025-11-25");
     assert_eq!(responses[1]["result"]["protocolVersion"], "2024-11-05");

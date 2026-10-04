@@ -4,6 +4,17 @@ use super::{
 use crate::commands::mcp::jsonrpc::Response;
 use serde_json::{Value, json};
 
+/// Returned as `instructions` from `initialize`; clients place it ahead of the
+/// tool catalog, so it routes a question to the right tool.
+pub(super) const SERVER_INSTRUCTIONS: &str = "RepoPilot reviews Git changes and repositories locally and deterministically. It calls no model and uploads nothing. Pick a tool by the question:\n\
+- What did this change touch, and which checks did it weaken? repopilot_review_change (uncommitted work by default; pass `base`, e.g. \"origin/main\", for a branch).\n\
+- What needs attention in this repository or folder overall? repopilot_scan.\n\
+- What should I know before editing this codebase? repopilot_context.\n\
+- Why was this finding reported? repopilot_explain_finding with its `finding_id`, after a scan or review.\n\
+- Why was this review signal raised? repopilot_explain_review_signal with its `signal_id`, after a review.\n\
+- How does RepoPilot treat this file, and which rules apply to it? repopilot_explain_file.\n\
+Findings and signals are evidence, not verdicts: confirm the impact in the code. Re-run a review after editing; stored results describe the workspace at the time of the call.";
+
 pub(super) fn tools_list_result() -> Value {
     json!({
         "tools": [
@@ -138,4 +149,52 @@ pub(super) fn handle_prompt_get(id: Value, params: &Value) -> Response {
             }]
         }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SERVER_INSTRUCTIONS, tools_list_result};
+    use serde_json::Value;
+
+    fn tools() -> Vec<Value> {
+        tools_list_result()["tools"]
+            .as_array()
+            .expect("tools array")
+            .clone()
+    }
+
+    #[test]
+    fn every_tool_points_to_a_sibling_and_describes_its_inputs() {
+        for tool in tools() {
+            let name = tool["name"].as_str().expect("tool name");
+            let description = tool["description"].as_str().expect("description");
+            let names_sibling = tools().iter().any(|other| {
+                let other = other["name"].as_str().unwrap_or_default();
+                other != name && description.contains(other)
+            });
+            assert!(
+                names_sibling,
+                "{name} should say when to use a sibling tool"
+            );
+
+            let properties = tool["inputSchema"]["properties"]
+                .as_object()
+                .expect("input properties");
+            for (property, schema) in properties {
+                let text = schema["description"].as_str().unwrap_or_default();
+                assert!(!text.is_empty(), "{name}.{property} has no description");
+            }
+        }
+    }
+
+    #[test]
+    fn server_instructions_route_to_every_tool() {
+        for tool in tools() {
+            let name = tool["name"].as_str().expect("tool name");
+            assert!(
+                SERVER_INSTRUCTIONS.contains(name),
+                "instructions should mention {name}"
+            );
+        }
+    }
 }
