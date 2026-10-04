@@ -12,7 +12,7 @@ pub const TOOL_NAME: &str = "repopilot_explain_finding";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Explain an emitted finding by stable ID using the latest scan or review in this MCP session. Replays the stored Knowledge Engine inputs against the current workspace, returns the full decision trace, and reports matched vs drifted decisions. Local-only.",
+        "description": "Explain why a finding was reported. Use it when you have a `finding_id` from repopilot_scan or repopilot_review_change in this session and need to know why it fired or whether it still reproduces. It replays the stored rule decision against the current workspace, returns the full decision trace, and reports whether the decision matched or drifted. For a review signal (`signal_id`), use repopilot_explain_review_signal; for a file with no finding, use repopilot_explain_file. Local-only.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -24,11 +24,11 @@ pub fn definition() -> Value {
                     "type": "string",
                     "enum": ["last-scan", "last-review"],
                     "default": "last-scan",
-                    "description": "Session report containing the finding."
+                    "description": "Which report holds the finding: the latest repopilot_scan (\"last-scan\") or the latest repopilot_review_change (\"last-review\")."
                 },
                 "analysis_handle": {
                     "type": "string",
-                    "description": "Optional scan/review handle to select a stored analysis instead of the latest result."
+                    "description": "Optional `analysisHandle` from an earlier scan or review in this session, to use that report instead of the latest one."
                 },
                 "evidence_path": {
                     "type": "string",

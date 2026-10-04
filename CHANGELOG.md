@@ -17,9 +17,19 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   a mirror of `integrations/claude-code/repopilot` at the repository root,
   kept in sync by `scripts/sync-plugin-repo.sh`. Marketplace installs from this
   repository are unchanged.
+- MCP tool descriptions say when to use each tool and when to use a sibling
+  instead, every input has a description, and `initialize` returns
+  `instructions` that route common questions to a tool. The review tool's
+  description now lists the checks a change weakened. Tool schemas are
+  unchanged.
 - The dual license ships as `LICENSE-APACHE` and `LICENSE-MIT` instead of one
   combined `LICENSE`, so GitHub and MCP directories detect it. A `glama.json`
   names the maintainer for the Glama MCP directory.
+
+### Fixed
+
+- A review with no changed files now says so and suggests `--base origin/main`
+  for committed work, instead of asking to expand the analyzable scope.
 
 ## [0.24.1] - 2026-10-03
 

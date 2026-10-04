@@ -26,7 +26,7 @@ pub struct ContextCallResult {
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Generate a budgeted, AI-ready Markdown brief of the repository (risks, hotspots, structure) for an agent to reason over before editing. Built locally from a scan — no AI service is called and nothing is uploaded.",
+        "description": "Generate a budgeted Markdown brief of the repository (risks, hotspots, structure) to read before editing, especially in an unfamiliar codebase. Use it for orientation. For the full findings as JSON, use repopilot_scan; to review a change, use repopilot_review_change. Pass `analysis_handle` to make sure the brief still matches an earlier scan or review. Built locally from a scan; no AI service is called and nothing is uploaded.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -44,10 +44,15 @@ pub fn definition() -> Value {
                 },
                 "analysis_handle": {
                     "type": "string",
-                    "description": "Optional scan/review handle whose workspace revision must still match before context is generated."
+                    "description": "Optional `analysisHandle` from an earlier repopilot_scan or repopilot_review_change call. The call fails if the workspace changed since that analysis."
                 },
-                "config": { "type": "string", "description": "Optional repopilot.toml path." },
-                "profile": { "type": "string", "enum": ["default", "strict"], "default": "default" }
+                "config": { "type": "string", "description": "Optional repopilot.toml path. Defaults to the one discovered in the repository." },
+                "profile": {
+                    "type": "string",
+                    "enum": ["default", "strict"],
+                    "default": "default",
+                    "description": "\"default\" hides low-signal suggestions; \"strict\" includes all findings."
+                }
             },
             "additionalProperties": false
         },

@@ -11,6 +11,10 @@ use serde::{Deserialize, Serialize};
 mod unverified;
 pub use unverified::{headline_reasons, verification_configured};
 
+/// A clean working tree is the most common first run; point at the branch review
+/// instead of a generic scope message.
+const EMPTY_CHANGE_ACTION: &str = "Nothing changed in the reviewed scope. To review committed work, rerun with a base ref, for example --base origin/main.";
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ReviewDecisionVerdict {
@@ -101,7 +105,11 @@ pub fn decision_from_proof(
     let why = why_for(proof, empty_change);
     let meaning = meaning_for(verdict, empty_change);
     let limitations = limitations_for(proof, empty_change);
-    let next_action = next_action_for(proof).to_string();
+    let next_action = if empty_change && verdict == ReviewDecisionVerdict::NotAssessed {
+        EMPTY_CHANGE_ACTION.to_string()
+    } else {
+        next_action_for(proof).to_string()
+    };
     ReviewDecision {
         verdict,
         meaning,
