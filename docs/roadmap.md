@@ -27,10 +27,11 @@ hint that names `--base origin/main`, MCP tool descriptions that route between
 sibling tools, and license files that GitHub and MCP directories detect. See
 the [0.24.2 release notes](releases/v0.24.2.md).
 
-The 0.24.3 patch is prepared: reviews on large repositories are about four
-times faster (next.js: ~32 s to ~8.5 s) with identical findings, cached and
-uncached reviews agree, generated-code and entry-point detection read only
-headers and top-level definitions, and two removal false alarms are gone.
+The `v0.24.3` patch is published on GitHub Releases, crates.io, npm, and
+Homebrew: reviews on large repositories are about four times faster (next.js:
+~32 s to ~8.5 s) with identical findings, cached and uncached reviews agree,
+generated-code and entry-point detection read only headers and top-level
+definitions, and two removal false alarms are gone.
 See the [0.24.3 release notes](releases/v0.24.3.md).
 
 ## Next: 0.25
@@ -66,6 +67,9 @@ Support and release maintenance follow the
 
 ## Released
 
+- **0.24.3 — Large-repository reviews:** about four times faster on next.js
+  with identical findings; cached and uncached reviews agree; structural
+  generated-code and entry-point detection. [Release notes](releases/v0.24.3.md)
 - **0.24.2 — Plain first-run errors:** review explains a missing repository,
   commit, ref, or merge base; MCP tools say when to use each one.
   [Release notes](releases/v0.24.2.md)
