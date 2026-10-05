@@ -39,5 +39,7 @@ static GO_CONVENTIONS: PathConventions = PathConventions {
     test_file_name: |name| name.ends_with("_test.go"),
     test_prefix_marks_test: true,
     test_support: None,
-    entrypoint_content: Some(|content| content.contains("func main(")),
+    entrypoint_content: Some(|content| {
+        crate::languages::conventions::has_top_level_line(content, &["func main("])
+    }),
 };

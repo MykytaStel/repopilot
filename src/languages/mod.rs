@@ -22,6 +22,8 @@ mod python;
 mod rust;
 
 #[cfg(test)]
+mod entrypoint_tests;
+#[cfg(test)]
 mod tests;
 
 pub use reference::render_language_support_markdown;
