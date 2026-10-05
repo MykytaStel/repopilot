@@ -190,6 +190,86 @@ fn a_change_to_a_policy_skipped_test_file_uses_the_context_cache() {
     );
 }
 
+/// The cached repository context must give audits the same file facts as a
+/// cold scan. It used to read `has_inline_tests` from `is_test`, so a Rust
+/// module with inline tests became `source-without-test` on every cached run.
+#[test]
+fn cold_and_cached_changed_scans_report_the_same_findings() {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    write(root, "src/lib.rs", "pub mod parser;\npub mod render;\n");
+    write(
+        root,
+        "src/parser.rs",
+        "pub fn parse(input: &str) -> usize {\n    input.len()\n}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn parses() {\n        assert_eq!(super::parse(\"ab\"), 2);\n    }\n}\n",
+    );
+    write(
+        root,
+        "src/render.rs",
+        "pub fn render() -> String {\n    String::new()\n}\n",
+    );
+    let changed = vec![ChangedFile {
+        path: "src/render.rs".into(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let config = ScanConfig::default();
+    let scan = || {
+        scan_resolved_changed_with_config(
+            root,
+            &config,
+            root.to_path_buf(),
+            changed.clone(),
+            Some("HEAD"),
+        )
+        .expect("changed scan")
+    };
+    let cold = scan();
+    let cached = scan();
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit")
+    );
+    assert_eq!(finding_keys(&cold), finding_keys(&cached));
+    assert!(
+        !finding_keys(&cached).contains(&(
+            "testing.source-without-test".to_string(),
+            "src/parser.rs".to_string()
+        )),
+        "a module with inline tests has tests"
+    );
+}
+
+fn finding_keys(summary: &crate::scan::types::ScanSummary) -> Vec<(String, String)> {
+    let mut keys = summary
+        .artifacts
+        .findings
+        .iter()
+        .map(|finding| {
+            let path = finding
+                .evidence
+                .first()
+                .map(|evidence| {
+                    evidence
+                        .path
+                        .strip_prefix(&summary.root_path)
+                        .unwrap_or(&evidence.path)
+                        .to_string_lossy()
+                        .replace('\\', "/")
+                })
+                .unwrap_or_default();
+            (finding.rule_id.clone(), path)
+        })
+        .collect::<Vec<_>>();
+    keys.sort();
+    keys
+}
+
 fn changed_file_hub_findings(
     summary: &crate::scan::types::ScanSummary,
 ) -> Vec<crate::findings::types::Finding> {

@@ -231,6 +231,9 @@ impl RepoContextNode {
             is_test: context.is_test,
             is_generated,
             is_config,
+            has_inline_tests: file.has_inline_tests,
+            in_executable_package: file.in_executable_package,
+            branch_count: file.branch_count,
         }
     }
 
@@ -239,11 +242,11 @@ impl RepoContextNode {
             path: self.path.clone(),
             language: self.language.clone(),
             non_empty_lines: self.non_empty_lines,
-            branch_count: 0,
+            branch_count: self.branch_count,
             imports: self.imports.clone(),
             content: None,
-            has_inline_tests: self.is_test,
-            in_executable_package: false,
+            has_inline_tests: self.has_inline_tests,
+            in_executable_package: self.in_executable_package,
             deferred_imports: self.deferred_imports.clone(),
         }
     }

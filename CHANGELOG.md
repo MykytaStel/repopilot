@@ -20,6 +20,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- A review that reused the cached repository context lost three file facts:
+  inline Rust tests, membership in an executable package, and branch count.
+  Every Rust module with `#[cfg(test)]` then read as `source-without-test`,
+  and a review gave different repository-wide findings than the same review
+  without the cache. The cache keeps these facts (schema 9; older caches are
+  rebuilt once).
 - Deleting a test file whose tests all appear in other files of the same
   change is a move, not `test deleted or emptied`. A deleted file with even one
   test that went nowhere is still reported.
