@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- Deleting a test file whose tests all appear in other files of the same
+  change is a move, not `test deleted or emptied`. A deleted file with even one
+  test that went nowhere is still reported.
+- A renamed test whose new body is part of the old one and checks less is
+  reported as `assertions removed` with both names, instead of a removed test
+  plus a new one.
+
 ## [0.24.2] - 2026-10-05
 
 ### Changed

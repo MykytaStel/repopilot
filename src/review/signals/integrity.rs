@@ -19,6 +19,9 @@ mod helpers;
 #[cfg(test)]
 mod helpers_tests;
 mod markers;
+mod moves;
+#[cfg(test)]
+mod rename_tests;
 mod scan;
 mod suppressions;
 #[cfg(test)]
@@ -32,6 +35,7 @@ use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
 pub use acknowledgement::detect_review_suppressions;
 pub use gates::detect_gate_relaxation;
+pub use moves::moved_test_files;
 use serde::Serialize;
 
 /// The category of test-integrity change.

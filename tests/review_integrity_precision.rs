@@ -1,6 +1,7 @@
-//! Integrity false positives found in agent sessions, each with a recall
-//! guard: a rewritten CI test command is not a removed check, and skipping
-//! every test in a file is a skip, not an emptied test file.
+//! Integrity false positives found in agent sessions and the integrity
+//! corpus, each with a recall guard: a rewritten CI test command is not a
+//! removed check, skipping every test in a file is a skip, not an emptied test
+//! file, and a test file whose tests all moved to another file was not deleted.
 
 use serde_json::Value;
 use std::fs;
@@ -115,5 +116,34 @@ fn skipping_every_test_is_a_skip_not_an_emptied_test_file() {
     assert!(
         kinds.contains(&"behavioral.test-deleted-or-emptied".to_string()),
         "removing every test is still an emptied test file: {kinds:?}"
+    );
+}
+
+/// PrimeIntellect-ai/verifiers#974 moved every test of a deleted file into a
+/// new one; the deletion removed no test.
+#[test]
+fn a_test_file_whose_tests_all_moved_was_not_deleted() {
+    let temp = tempdir().expect("temp repo");
+    let root = temp.path();
+    repo(root);
+    fs::remove_file(root.join("src/math.test.ts")).expect("delete test file");
+    let moved = format!("{TESTS}\nit(\"multiplies\", () => {{\n  expect(2 * 3).toBe(6);\n}});\n");
+    write(root, "src/arithmetic.test.ts", &moved);
+    let kinds = signal_kinds(root);
+    assert!(
+        !kinds.contains(&"behavioral.test-deleted-or-emptied".to_string()),
+        "{kinds:?}"
+    );
+    assert!(
+        !kinds.contains(&"integrity.test-removed".to_string()),
+        "{kinds:?}"
+    );
+
+    let partly = "import { expect, it } from \"vitest\";\n\nit(\"adds\", () => {\n  expect(1 + 2).toBe(3);\n});\n";
+    write(root, "src/arithmetic.test.ts", partly);
+    let kinds = signal_kinds(root);
+    assert!(
+        kinds.contains(&"behavioral.test-deleted-or-emptied".to_string()),
+        "a deleted file with a test that went nowhere is still deleted: {kinds:?}"
     );
 }
