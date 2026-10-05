@@ -5,7 +5,9 @@ source, test, and gate files at the base and head SHAs (GitHub contents API),
 commit base then head, and run `repopilot review --base --head --format json`.
 Only changed files exist in that repository, so graph-wide signals are out of
 scope; the integrity family is file- and change-local. Results are cached
-under the gitignored `.integrity-corpus/results/` with the binary's version.
+under the gitignored `.integrity-corpus/results/` with the binary's version,
+and fetched files under `.integrity-corpus/files/` by SHA, so a re-run after a
+detector change needs no network.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ def evaluate(manifest: list[dict], cache: Path, binary: Path) -> None:
         if repo.exists():
             shutil.rmtree(repo)
         repo.mkdir(parents=True)
-        base, head = build_repo(repo, entry, changed, fork_point)
+        base, head = build_repo(repo, entry, changed, fork_point, cache)
         review = subprocess.run(
             [str(binary), "review", str(repo), "--base", base, "--head", head, "--format", "json"],
             capture_output=True,
@@ -84,14 +86,14 @@ def changed_files(cache: Path, entry: dict) -> list[dict]:
     return json.loads(path.read_text())
 
 
-def build_repo(repo: Path, entry: dict, changed: list[dict], fork_point: str) -> tuple[str, str]:
+def build_repo(repo: Path, entry: dict, changed: list[dict], fork_point: str, cache: Path) -> tuple[str, str]:
     git(repo, "init", "-q")
     git(repo, "config", "user.email", "corpus@repopilot.invalid")
     git(repo, "config", "user.name", "Integrity Corpus")
     for file in changed:
         before = file.get("previous_filename") or file["filename"]
         if file["status"] != "added":
-            write(repo / before, gh.raw_file(entry["repo"], before, fork_point))
+            write(repo / before, raw_file(cache, entry["repo"], before, fork_point))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "--allow-empty", "-m", "base")
     base = git(repo, "rev-parse", "HEAD")
@@ -103,10 +105,27 @@ def build_repo(repo: Path, entry: dict, changed: list[dict], fork_point: str) ->
         if file["status"] == "removed":
             target.unlink(missing_ok=True)
         else:
-            write(target, gh.raw_file(entry["repo"], file["filename"], entry["head_sha"]))
+            write(target, raw_file(cache, entry["repo"], file["filename"], entry["head_sha"]))
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "--allow-empty", "-m", "head")
     return base, git(repo, "rev-parse", "HEAD")
+
+
+def raw_file(cache: Path, repo: str, path: str, ref: str) -> bytes | None:
+    """`gh.raw_file`, cached by commit SHA: a file at a SHA never changes."""
+    stored = cache / "files" / repo / ref / path
+    missing = stored.with_name(stored.name + ".missing")
+    if stored.is_file():
+        return stored.read_bytes()
+    if missing.exists():
+        return None
+    content = gh.raw_file(repo, path, ref)
+    stored.parent.mkdir(parents=True, exist_ok=True)
+    if content is None:
+        missing.touch()
+    else:
+        stored.write_bytes(content)
+    return content
 
 
 def write(path: Path, content: bytes | None) -> None:
