@@ -14,6 +14,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   files, ~1,170 unresolved internal imports) a one-file review drops from
   ~32 s to ~16 s and a full strict scan from 35 s to 15 s, with identical
   findings.
+- A review of a change that touches only test files (or other paths the scan
+  skips by default) reuses the cached repository context instead of rebuilding
+  it on every run. On next.js such a review drops from ~15 s to ~9 s.
 
 ### Fixed
 

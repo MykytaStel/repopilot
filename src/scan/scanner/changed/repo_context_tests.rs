@@ -35,6 +35,17 @@ fn changed_context_graph_is_stable_between_cold_and_cached_scans() {
     let cached =
         scan_resolved_changed_with_config(root, &config, root.to_path_buf(), changed, Some("HEAD"))
             .expect("cached changed scan");
+    // The second scan must use the cache, or this compares two cold graphs.
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit"),
+        "{:?}",
+        cached.artifacts.context_graph_cache
+    );
 
     let cold_graph = cold
         .artifacts
@@ -130,6 +141,52 @@ fn oversized_modified_file_is_removed_from_cold_and_cached_context_graphs() {
             .edges
             .get(Path::new("src/large.rs"))
             .is_some_and(|targets| targets.contains(Path::new("src/target.rs")))
+    );
+}
+
+/// A test file is skipped by the default scan policy, so it is never a graph
+/// node, cold or cached. Changing only tests must not rebuild the repository
+/// context on every review (next.js: ~5 s per agent stop).
+#[test]
+fn a_change_to_a_policy_skipped_test_file_uses_the_context_cache() {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    write(root, "src/lib.rs", "pub mod target;\n");
+    write(root, "src/target.rs", "pub fn target() {}\n");
+    write(root, "tests/target.rs", "#[test]\nfn works() {}\n");
+    let changed = vec![ChangedFile {
+        path: "tests/target.rs".into(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let config = ScanConfig::default();
+    let cold = scan_resolved_changed_with_config(
+        root,
+        &config,
+        root.to_path_buf(),
+        changed.clone(),
+        Some("HEAD"),
+    )
+    .expect("cold changed scan");
+    write(root, "tests/target.rs", "#[test]\nfn still_works() {}\n");
+    let cached =
+        scan_resolved_changed_with_config(root, &config, root.to_path_buf(), changed, Some("HEAD"))
+            .expect("cached changed scan");
+
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit"),
+        "{:?}",
+        cached.artifacts.context_graph_cache
+    );
+    assert_eq!(
+        cold.artifacts.coupling_graph, cached.artifacts.coupling_graph,
+        "a skipped file leaves the graph unchanged"
     );
 }
 

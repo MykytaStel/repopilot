@@ -39,7 +39,12 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
-            if has_unpatched_modified_file(repo_root, &discovery.changed_files, graph_patch_files) {
+            if has_unpatched_modified_file(
+                repo_root,
+                &discovery.changed_files,
+                graph_patch_files,
+                self.config.include_low_signal,
+            ) {
                 return self.cold_repo_context(
                     discovery,
                     facts,
