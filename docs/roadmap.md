@@ -21,6 +21,12 @@ change with nothing flagged and no configured verification reads
 `PASS (not verified)`; two integrity false positives are fixed. See the
 [0.24.1 release notes](releases/v0.24.1.md).
 
+The 0.24.2 patch is prepared: plain first-run errors instead of raw Git
+output, an empty-change hint that names `--base origin/main`, MCP tool
+descriptions that route between sibling tools, and license files that GitHub
+and MCP directories detect. See the
+[0.24.2 release notes](releases/v0.24.2.md).
+
 ## Next: 0.25
 
 The next slice should make the existing review loop reliable for its first

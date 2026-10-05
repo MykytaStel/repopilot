@@ -18,9 +18,11 @@ themselves.
 
 Official channels are crates.io, npm, Homebrew, and GitHub Releases.
 
-RepoPilot `0.x` does not declare a minimum supported Rust version. CI and
-release workflows pin an explicit Rust toolchain for reproducibility; that pin
-is a build input, not a compatibility promise for older compilers.
+The crate declares `rust-version` in `Cargo.toml`: the oldest toolchain it
+builds with, so `cargo install` on an older Rust names the required version.
+Raise it when a dependency or language feature needs a newer compiler. CI and
+release workflows pin their own Rust toolchain for reproducibility; that pin is
+a build input, not the minimum.
 
 ## Prepare
 
