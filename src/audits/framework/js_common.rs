@@ -53,7 +53,7 @@ fn audit_javascript_files(
     rule_id: &str,
 ) -> Vec<Finding> {
     let mut findings = Vec::new();
-    for file in &facts.files {
+    for file in facts.audited_files() {
         if !is_js_file(&file.path) || is_test_path(&file.path) {
             continue;
         }

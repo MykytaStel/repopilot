@@ -20,6 +20,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- A review reports framework rules (React, React Native, Django, JS
+  `var`/`console.log`) for the changed files, like every other per-file rule.
+  It reported them for every file in the repository; a full scan still does.
 - Generated-code markers are read once, while a file's text is loaded, and kept
   with its facts. Project audits run after the text is dropped, so a file
   marked `@generated` or `Code generated … DO NOT EDIT` was audited as

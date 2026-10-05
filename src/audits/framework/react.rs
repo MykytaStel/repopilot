@@ -12,7 +12,7 @@ impl ProjectAudit for ReactClassComponentAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" {
                 continue;
@@ -81,7 +81,7 @@ impl ProjectAudit for ReactPropTypesAudit {
 
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" && ext != "ts" && ext != "js" {
                 continue;
