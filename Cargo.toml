@@ -1,6 +1,6 @@
 [package]
 name = "repopilot"
-version = "0.24.2"
+version = "0.24.3"
 edition = "2024"
 rust-version = "1.90"
 description = "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge."

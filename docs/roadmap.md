@@ -27,6 +27,12 @@ hint that names `--base origin/main`, MCP tool descriptions that route between
 sibling tools, and license files that GitHub and MCP directories detect. See
 the [0.24.2 release notes](releases/v0.24.2.md).
 
+The 0.24.3 patch is prepared: reviews on large repositories are about four
+times faster (next.js: ~32 s to ~8.5 s) with identical findings, cached and
+uncached reviews agree, generated-code and entry-point detection read only
+headers and top-level definitions, and two removal false alarms are gone.
+See the [0.24.3 release notes](releases/v0.24.3.md).
+
 ## Next: 0.25
 
 The next slice should make the existing review loop reliable for its first
