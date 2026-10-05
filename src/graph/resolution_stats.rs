@@ -13,7 +13,7 @@
 //! directory that exists in the repository (a monorepo/workspace package the
 //! resolver did not wire up).
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -57,6 +57,12 @@ pub struct UnresolvedImportEvidence {
 pub struct ImportResolutionStats {
     /// Unresolved internal imports keyed by the importing file.
     pub unresolved_internal_by_source: BTreeMap<PathBuf, Vec<UnresolvedImportEvidence>>,
+    /// Lowercased stems any unresolved import could target, kept with every
+    /// insert: readiness asks once per file, and a monorepo has thousands of
+    /// files and unresolved imports.
+    target_stems: BTreeSet<String>,
+    /// Unresolved imports by the importing file's extension.
+    by_extension: BTreeMap<String, usize>,
 }
 
 impl ImportResolutionStats {
@@ -84,13 +90,28 @@ impl ImportResolutionStats {
     }
 
     fn insert(&mut self, evidence: UnresolvedImportEvidence) {
+        let stems = import_target_stems(&evidence.raw_import);
+        let extension = evidence
+            .source
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(str::to_string);
         let entries = self
             .unresolved_internal_by_source
             .entry(evidence.source.clone())
             .or_default();
+        let before = entries.len();
         entries.push(evidence);
         entries.sort();
         entries.dedup();
+        if entries.len() == before {
+            return;
+        }
+        self.target_stems
+            .extend(stems.iter().map(|stem| stem.to_ascii_lowercase()));
+        if let Some(extension) = extension {
+            *self.by_extension.entry(extension).or_default() += 1;
+        }
     }
 
     pub fn evidence(&self) -> impl Iterator<Item = &UnresolvedImportEvidence> {
@@ -114,16 +135,7 @@ impl ImportResolutionStats {
     /// map its TypeScript perfectly while its Kotlin barely resolves, and an
     /// absence claim about a Kotlin file must be judged on the Kotlin figure.
     pub fn total_for_extension(&self, extension: &str) -> usize {
-        self.unresolved_internal_by_source
-            .iter()
-            .filter(|(source, _)| {
-                source
-                    .extension()
-                    .and_then(|value| value.to_str())
-                    .is_some_and(|value| value == extension)
-            })
-            .map(|(_, evidence)| evidence.len())
-            .sum()
+        self.by_extension.get(extension).copied().unwrap_or(0)
     }
 
     /// True when any unresolved import could plausibly target a file named
@@ -132,17 +144,7 @@ impl ImportResolutionStats {
     /// (Python `app.services.foo` → `foo`) are considered, since the path/module
     /// separator differs by language.
     pub fn could_target_stem(&self, stem: &str) -> bool {
-        if stem.is_empty() {
-            return false;
-        }
-        self.unresolved_internal_by_source
-            .values()
-            .flatten()
-            .any(|evidence| {
-                import_target_stems(&evidence.raw_import)
-                    .iter()
-                    .any(|candidate| candidate.eq_ignore_ascii_case(stem))
-            })
+        !stem.is_empty() && self.target_stems.contains(&stem.to_ascii_lowercase())
     }
 }
 
