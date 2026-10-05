@@ -267,6 +267,7 @@ fn python_init_and_infra_not_flagged() {
                 has_inline_tests: false,
                 in_executable_package: false,
                 deferred_imports: Vec::new(),
+                content_markers: Default::default(),
             }],
             files_analyzed: 1,
             ..ScanFacts::default()
@@ -308,6 +309,7 @@ fn production_apps_py_still_flagged() {
                 has_inline_tests: false,
                 in_executable_package: false,
                 deferred_imports: Vec::new(),
+                content_markers: Default::default(),
             }],
             files_analyzed: 1,
             ..ScanFacts::default()
@@ -368,6 +370,7 @@ fn ts_file(path: &str) -> FileFacts {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }
 
@@ -382,5 +385,6 @@ fn file(path: &str) -> FileFacts {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }

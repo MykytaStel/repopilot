@@ -20,5 +20,6 @@ fn facts(path: &str, language: Option<&str>, content: &str, has_inline_tests: bo
         has_inline_tests,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }

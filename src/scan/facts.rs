@@ -90,6 +90,22 @@ pub struct FileFacts {
     /// similar host-termination calls as an intended boundary (downgraded, not a
     /// hazard). Set by a post-collection pass once workspace layout is known.
     pub in_executable_package: bool,
+    /// Role evidence only the file's text gives, read while the text is
+    /// loaded. Project audits run after the text is dropped, so they classify
+    /// from these instead of re-reading markers they can no longer see.
+    pub content_markers: ContentMarkers,
+}
+
+/// What a file's text says about its role, beyond its path.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ContentMarkers {
+    /// A generated-code or vendored-bundle marker (`@generated`,
+    /// `Code generated … DO NOT EDIT`, an Emscripten shim).
+    #[serde(default)]
+    pub generated: bool,
+    /// An entry function the language's conventions recognize in the text.
+    #[serde(default)]
+    pub entrypoint: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

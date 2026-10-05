@@ -252,6 +252,7 @@ mod tests {
             has_inline_tests: false,
             in_executable_package: false,
             branch_count: 0,
+            content_markers: Default::default(),
         }
     }
 }

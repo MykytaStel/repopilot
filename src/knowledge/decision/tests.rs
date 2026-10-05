@@ -271,6 +271,7 @@ fn applied_file_decision_preserves_replayable_provenance() {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     };
     let base_severity = Severity::Medium;
     let signal = "rust.panic";

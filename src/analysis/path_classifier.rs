@@ -55,7 +55,7 @@ impl ArchitectureClassifier {
         // 1. Determine FileRole
         let file_role = if is_config_file(&file.path) {
             FileRole::Config
-        } else if is_generated_file(&file.path, content) {
+        } else if is_generated_file(&file.path, content) || file.content_markers.generated {
             FileRole::Generated
         } else if path_contains_component(
             &file.path,
@@ -90,7 +90,8 @@ impl ArchitectureClassifier {
         }
 
         // 3. Determine is_entrypoint
-        let is_entrypoint = is_app_entrypoint(&file.path, content, language_kind);
+        let is_entrypoint = is_app_entrypoint(&file.path, content, language_kind)
+            || file.content_markers.entrypoint;
 
         // 4. Determine is_public_api
         let is_public_api = is_public_api_file(&file.path);

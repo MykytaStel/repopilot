@@ -104,18 +104,22 @@ pub(super) fn load_file(
     // Imports are extracted later, from the shared `ParsedFile`, so a file's
     // syntax tree is produced once and reused by the per-file audits rather than
     // parsed separately here. See `process_file_inner` and `collect_file_facts`.
+    let mut full_facts = FileFacts {
+        path: path.to_path_buf(),
+        language: language.clone(),
+        non_empty_lines,
+        branch_count,
+        imports: Vec::new(),
+        has_inline_tests,
+        content: Some(content),
+        in_executable_package: path_in_executable_package(path, package_roots),
+        deferred_imports: Vec::new(),
+        content_markers: Default::default(),
+    };
+    full_facts.content_markers =
+        crate::audits::context::classify::helpers::content_markers(&full_facts);
     Ok(LoadedFile::Analyzable {
-        full_facts: FileFacts {
-            path: path.to_path_buf(),
-            language: language.clone(),
-            non_empty_lines,
-            branch_count,
-            imports: Vec::new(),
-            has_inline_tests,
-            content: Some(content),
-            in_executable_package: path_in_executable_package(path, package_roots),
-            deferred_imports: Vec::new(),
-        },
+        full_facts,
         language,
     })
 }
@@ -138,6 +142,7 @@ pub(super) fn empty_file_facts(path: &Path, language: Option<String>) -> FileFac
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }
 

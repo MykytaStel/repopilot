@@ -226,6 +226,7 @@ impl<'a> ChangedScanEngine<'a> {
                             is_test: context.is_test,
                             has_inline_tests: per_file.file_facts.has_inline_tests,
                             in_executable_package: per_file.file_facts.in_executable_package,
+                            content_markers: per_file.file_facts.content_markers,
                         },
                     );
                     if let Some(content) = per_file.file_facts.content.as_deref() {

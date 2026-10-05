@@ -15,6 +15,7 @@ fn make_file_facts(path: std::path::PathBuf) -> FileFacts {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }
 
@@ -162,6 +163,7 @@ fn console_log_flagged() {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     });
     let findings = ConsoleLogAudit.audit(&facts, &ScanConfig::default());
     assert_eq!(findings.len(), 1);

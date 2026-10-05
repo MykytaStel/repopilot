@@ -251,6 +251,8 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
                 "has_inline_tests": node.has_inline_tests,
                 "in_executable_package": node.in_executable_package,
                 "branch_count": node.branch_count,
+                "content_generated": node.content_markers.generated,
+                "content_entrypoint": node.content_markers.entrypoint,
             })
         })
         .collect::<Vec<_>>();

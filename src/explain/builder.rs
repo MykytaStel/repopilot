@@ -49,6 +49,7 @@ pub fn build_explain_report_with_root(
         has_inline_tests,
         in_executable_package,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     };
 
     let classified = classify_file_with_evidence(&file);

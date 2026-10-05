@@ -14,7 +14,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 9;
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 10;
 pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-state-v1";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
@@ -79,6 +79,8 @@ pub struct RepoContextNode {
     pub in_executable_package: bool,
     #[serde(default)]
     pub branch_count: usize,
+    #[serde(default)]
+    pub content_markers: crate::scan::facts::ContentMarkers,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

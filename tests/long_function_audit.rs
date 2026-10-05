@@ -20,6 +20,7 @@ fn make_file_at(path: &str, language: &str, content: &str) -> FileFacts {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }
 

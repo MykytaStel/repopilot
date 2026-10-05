@@ -41,6 +41,28 @@ pub fn classify_file_with_evidence(file: &FileFacts) -> FileContextClassificatio
         is_test,
     );
 
+    // Without the text, the markers read when it was loaded stand in for it.
+    if file.content.is_none() {
+        if file.content_markers.generated && !roles.contains(&FileRole::Generated) {
+            roles::push_role(
+                &mut roles,
+                &mut role_evidence,
+                FileRole::Generated,
+                RoleEvidenceSource::Mixed,
+                "generated-content marker read with the file",
+            );
+        }
+        if file.content_markers.entrypoint && !roles.contains(&FileRole::AppEntrypoint) {
+            roles::push_role(
+                &mut roles,
+                &mut role_evidence,
+                FileRole::AppEntrypoint,
+                RoleEvidenceSource::Mixed,
+                "entry function read with the file",
+            );
+        }
+    }
+
     // A CLI command is an exit boundary only when the path and package
     // manifest agree that this file belongs to an executable command surface.
     if file.in_executable_package && path_contains_component(&file.path, &["commands"]) {

@@ -21,15 +21,15 @@
   "strict": {
     "by_rule": {
       "architecture.dead-module": 2,
-      "architecture.large-file": 29,
+      "architecture.large-file": 30,
       "code-marker.fixme": 4,
       "code-marker.todo": 4,
-      "code-quality.complex-function": 22,
+      "code-quality.complex-function": 24,
       "code-quality.deep-control-flow": 3,
-      "code-quality.long-function": 59,
-      "language.rust.panic-risk": 97,
+      "code-quality.long-function": 62,
+      "language.rust.panic-risk": 99,
       "testing.source-without-test": 27
     },
-    "visible_total": 247
+    "visible_total": 255
   }
 }

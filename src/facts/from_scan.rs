@@ -54,6 +54,7 @@ mod tests {
                 has_inline_tests: true,
                 in_executable_package: false,
                 deferred_imports: Vec::new(),
+                content_markers: Default::default(),
             }],
             ..ScanFacts::default()
         };

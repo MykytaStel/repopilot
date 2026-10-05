@@ -234,6 +234,7 @@ impl RepoContextNode {
             has_inline_tests: file.has_inline_tests,
             in_executable_package: file.in_executable_package,
             branch_count: file.branch_count,
+            content_markers: file.content_markers,
         }
     }
 
@@ -248,6 +249,7 @@ impl RepoContextNode {
             has_inline_tests: self.has_inline_tests,
             in_executable_package: self.in_executable_package,
             deferred_imports: self.deferred_imports.clone(),
+            content_markers: self.content_markers,
         }
     }
 }
