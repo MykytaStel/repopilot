@@ -85,3 +85,11 @@ pub(crate) fn all_conventions() -> Vec<(&'static str, &'static PathConventions)>
         .map(|frontend| (frontend.id, frontend.conventions))
         .collect()
 }
+
+/// True when a line starts, with no indentation, with one of `prefixes`: a
+/// top-level definition, not the same words in a string, comment, or test.
+pub(crate) fn has_top_level_line(content: &str, prefixes: &[&str]) -> bool {
+    content
+        .lines()
+        .any(|line| prefixes.iter().any(|prefix| line.starts_with(prefix)))
+}

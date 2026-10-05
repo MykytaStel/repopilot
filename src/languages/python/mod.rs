@@ -39,5 +39,10 @@ static PYTHON_CONVENTIONS: PathConventions = PathConventions {
     test_file_name: |name| name.ends_with("_test.py"),
     test_prefix_marks_test: true,
     test_support: None,
-    entrypoint_content: Some(|content| content.contains("if __name__ == \"__main__\"")),
+    entrypoint_content: Some(|content| {
+        crate::languages::conventions::has_top_level_line(
+            content,
+            &["if __name__ == \"__main__\"", "if __name__ == '__main__'"],
+        )
+    }),
 };
