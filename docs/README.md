@@ -30,7 +30,6 @@ needed.
 ## Project
 
 - [Roadmap](roadmap.md)
-- [Latest stable release notes](releases/v0.24.1.md)
-- [Prepared 0.24.2 release notes](releases/v0.24.2.md)
+- [Latest stable release notes](releases/v0.24.2.md)
 - [Previous 0.23 release notes](releases/v0.23.0.md)
 - [Maintainer and engineering documentation](engineering/README.md)
