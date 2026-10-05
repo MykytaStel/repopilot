@@ -4,7 +4,8 @@ use crate::graph::imports::lines::import_line_spans;
 use crate::graph::{UnresolvedImportLimitation, UnresolvedImportProof};
 use crate::scan::facts::FileFacts;
 use crate::scan::types::{DiagnosticSeverity, ScanDiagnostic};
-use std::collections::BTreeMap;
+use std::cell::OnceCell;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 const RULE_ID: &str = "architecture.unresolved-local-import";
@@ -19,6 +20,7 @@ pub(crate) fn analyze_unresolved_local_imports(
 ) -> UnresolvedLocalImportAnalysis {
     let mut findings = Vec::new();
     let mut limitations = BTreeMap::new();
+    let files = FileIndex::new(context);
     for unresolved in context.resolution.evidence() {
         if is_guarded_optional_import(unresolved, context) {
             continue;
@@ -26,7 +28,7 @@ pub(crate) fn analyze_unresolved_local_imports(
         if is_shadowed_python_submodule(unresolved, context.resolution) {
             continue;
         }
-        if speculation::is_python_package_member(unresolved, source_facts(context, unresolved)) {
+        if speculation::is_python_package_member(unresolved, files.get(&unresolved.source)) {
             *limitations
                 .entry(UnresolvedImportLimitation::PythonPackageMember)
                 .or_insert(0usize) += 1;
@@ -36,7 +38,12 @@ pub(crate) fn analyze_unresolved_local_imports(
             UnresolvedImportProof::DefinitiveLocalCandidates(candidates)
                 if !candidates.iter().any(|candidate| candidate.is_file()) =>
             {
-                findings.push(missing_import_finding(context, unresolved, candidates));
+                findings.push(missing_import_finding(
+                    context,
+                    unresolved,
+                    candidates,
+                    files.get(&unresolved.source),
+                ));
             }
             UnresolvedImportProof::DefinitiveLocalCandidates(_) => {}
             UnresolvedImportProof::Limited(reason) => {
@@ -84,14 +91,37 @@ fn path_keyed_value<'a, T>(values: &'a BTreeMap<PathBuf, T>, path: &Path) -> Opt
     })
 }
 
-fn source_facts<'a>(
-    context: &'a GraphAuditContext<'_>,
-    unresolved: &crate::graph::UnresolvedImportEvidence,
-) -> Option<&'a FileFacts> {
-    context.facts.files.iter().find(|file| {
-        crate::graph::resolver::normalize_path(&file.path)
-            == crate::graph::resolver::normalize_path(&unresolved.source)
-    })
+/// Scanned files by normalized path, built on the first lookup. A monorepo
+/// has thousands of unresolved imports and files; a scan per import was
+/// quadratic.
+struct FileIndex<'a> {
+    files: &'a [FileFacts],
+    by_path: OnceCell<HashMap<PathBuf, &'a FileFacts>>,
+}
+
+impl<'a> FileIndex<'a> {
+    fn new(context: &'a GraphAuditContext<'_>) -> Self {
+        Self {
+            files: &context.facts.files,
+            by_path: OnceCell::new(),
+        }
+    }
+
+    /// The first scanned file whose normalized path equals `path`'s.
+    fn get(&self, path: &Path) -> Option<&'a FileFacts> {
+        self.by_path
+            .get_or_init(|| {
+                let mut by_path = HashMap::with_capacity(self.files.len());
+                for file in self.files {
+                    by_path
+                        .entry(crate::graph::resolver::normalize_path(&file.path))
+                        .or_insert(file);
+                }
+                by_path
+            })
+            .get(&crate::graph::resolver::normalize_path(path))
+            .copied()
+    }
 }
 
 fn is_shadowed_python_submodule(
@@ -123,9 +153,9 @@ fn missing_import_finding(
     context: &GraphAuditContext<'_>,
     unresolved: &crate::graph::UnresolvedImportEvidence,
     candidates: &[PathBuf],
+    source_facts: Option<&FileFacts>,
 ) -> Finding {
     let path = relative_path(&unresolved.source, context.root);
-    let source_facts = source_facts(context, unresolved);
     let stored_spans = path_keyed_value(&context.facts.import_spans_by_file, &unresolved.source);
     let (line_start, line_end) = import_span(source_facts, stored_spans, &unresolved.raw_import);
     Finding {

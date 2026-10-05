@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- Review and scan are faster on large repositories. Two graph checks looked
+  up every unresolved import against every file (a test-target lookup per
+  file, and a file lookup per import); both now use an index. On next.js (34k
+  files, ~1,170 unresolved internal imports) a one-file review drops from
+  ~32 s to ~16 s and a full strict scan from 35 s to 15 s, with identical
+  findings.
+
 ### Fixed
 
 - Deleting a test file whose tests all appear in other files of the same
