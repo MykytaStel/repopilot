@@ -155,6 +155,7 @@ fn facts_for_file(path: std::path::PathBuf) -> ScanFacts {
             has_inline_tests: false,
             in_executable_package: false,
             deferred_imports: Vec::new(),
+            content_markers: Default::default(),
         }],
         ..ScanFacts::default()
     }

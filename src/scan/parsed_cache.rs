@@ -312,6 +312,7 @@ mod tests {
             content: None,
             has_inline_tests: false,
             in_executable_package: false,
+            content_markers: Default::default(),
         };
         let artifact = ParsedArtifact::from_source(
             file.path.clone(),

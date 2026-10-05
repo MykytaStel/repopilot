@@ -44,7 +44,20 @@ static RUST_CONVENTIONS: PathConventions = PathConventions {
     test_file_name: |name| name == "tests.rs" || name.ends_with("_tests.rs"),
     test_prefix_marks_test: false,
     test_support: Some(&RUST_TEST_SUPPORT),
-    entrypoint_content: Some(|content| content.contains("fn main(")),
+    entrypoint_content: Some(|content| {
+        // An entry point is never inside the test module, which Rust puts at
+        // the end of the file; strings there can hold `fn main(` in column 0.
+        let production = content.split("\n#[cfg(test)]").next().unwrap_or(content);
+        crate::languages::conventions::has_top_level_line(
+            production,
+            &[
+                "fn main(",
+                "pub fn main(",
+                "async fn main(",
+                "pub async fn main(",
+            ],
+        )
+    }),
 };
 
 /// `testutil.rs`-style helpers: production modules (compiled in normal

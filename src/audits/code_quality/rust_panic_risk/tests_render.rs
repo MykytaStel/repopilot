@@ -71,5 +71,6 @@ fn facts(path: &str, content: &str, has_inline_tests: bool) -> FileFacts {
         has_inline_tests,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }

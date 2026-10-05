@@ -12,16 +12,17 @@
   "strict": {
     "by_rule": {
       "architecture.dead-module": 13,
-      "architecture.large-file": 3,
+      "architecture.large-file": 4,
       "code-marker.fixme": 3,
+      "code-marker.todo": 1,
       "code-quality.complex-file": 2,
-      "code-quality.complex-function": 5,
-      "code-quality.deep-control-flow": 5,
-      "code-quality.long-function": 10,
-      "language.go.panic-exit-risk": 10,
+      "code-quality.complex-function": 9,
+      "code-quality.deep-control-flow": 7,
+      "code-quality.long-function": 14,
+      "language.go.panic-exit-risk": 12,
       "testing.missing-test-folder": 1,
       "testing.source-without-test": 4
     },
-    "visible_total": 56
+    "visible_total": 70
   }
 }

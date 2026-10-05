@@ -451,6 +451,7 @@ fn file_fact(path: &str, imports: &[&str]) -> FileFacts {
         content: None,
         has_inline_tests: false,
         in_executable_package: false,
+        content_markers: Default::default(),
     }
 }
 
@@ -475,6 +476,7 @@ fn node(path: &Path) -> RepoContextNode {
         has_inline_tests: false,
         in_executable_package: false,
         branch_count: 0,
+        content_markers: Default::default(),
     }
 }
 

@@ -164,6 +164,7 @@ mod tests {
             has_inline_tests: false,
             in_executable_package: false,
             deferred_imports: Vec::new(),
+            content_markers: Default::default(),
         });
 
         let findings = ReactClassComponentAudit.audit(&facts, &ScanConfig::default());
@@ -192,6 +193,7 @@ mod tests {
             has_inline_tests: false,
             in_executable_package: false,
             deferred_imports: Vec::new(),
+            content_markers: Default::default(),
         });
         // no TypeScript in languages list
 
@@ -224,6 +226,7 @@ mod tests {
             has_inline_tests: false,
             in_executable_package: false,
             deferred_imports: Vec::new(),
+            content_markers: Default::default(),
         });
 
         let findings = ReactPropTypesAudit.audit(&facts, &ScanConfig::default());

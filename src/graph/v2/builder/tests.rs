@@ -12,6 +12,7 @@ fn file(path: &str, imports: &[&str]) -> FileFacts {
         has_inline_tests: false,
         in_executable_package: false,
         deferred_imports: Vec::new(),
+        content_markers: Default::default(),
     }
 }
 
