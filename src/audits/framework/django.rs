@@ -11,7 +11,7 @@ impl ProjectAudit for DjangoDebugTrueAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if !is_django_settings_file(&file.path) {
                 continue;
             }
@@ -70,7 +70,7 @@ impl ProjectAudit for DjangoEmptyAllowedHostsAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if !is_django_settings_file(&file.path) {
                 continue;
             }
@@ -129,7 +129,7 @@ impl ProjectAudit for DjangoRawSqlAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if file
                 .path
                 .extension()

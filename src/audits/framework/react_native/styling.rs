@@ -10,7 +10,7 @@ impl ProjectAudit for RnInlineStyleAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if !is_js_file(&file.path) {
                 continue;
             }
@@ -93,7 +93,7 @@ impl ProjectAudit for RnDeprecatedApiAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if !is_js_file(&file.path) {
                 continue;
             }
@@ -154,7 +154,7 @@ impl ProjectAudit for RnFlatListMissingKeyAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             let ext = file.path.extension().and_then(|e| e.to_str()).unwrap_or("");
             if ext != "tsx" && ext != "jsx" {
                 continue;

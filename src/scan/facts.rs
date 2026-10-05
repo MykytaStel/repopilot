@@ -4,7 +4,7 @@ use crate::frameworks::FrameworkProject;
 use crate::frameworks::ReactNativeArchitectureProfile;
 use crate::scan::types::LanguageSummary;
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -39,11 +39,24 @@ pub struct ScanFacts {
     pub files_skipped_by_limit: usize,
     pub files_skipped_repopilotignore: usize,
     pub repopilotignore_path: Option<PathBuf>,
+    /// Files per-file framework rules report on: `None` in a full scan (every
+    /// file), the changed files in a changed scan. `files` stays complete for
+    /// rules that look across files.
+    pub audit_paths: Option<BTreeSet<PathBuf>>,
 }
 
 pub type FactStore = ScanFacts;
 
 impl ScanFacts {
+    /// The files per-file framework rules audit (see `audit_paths`).
+    pub fn audited_files(&self) -> impl Iterator<Item = &FileFacts> {
+        self.files.iter().filter(|file| {
+            self.audit_paths
+                .as_ref()
+                .is_none_or(|paths| paths.contains(&file.path))
+        })
+    }
+
     pub fn insert_artifact(&mut self, artifact: ParsedArtifact) {
         if artifact.guarded_optional_imports.is_empty() {
             self.guarded_optional_imports_by_file.remove(&artifact.path);

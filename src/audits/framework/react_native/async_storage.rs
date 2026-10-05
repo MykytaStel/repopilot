@@ -10,7 +10,7 @@ impl ProjectAudit for AsyncStorageFromCoreAudit {
     fn audit(&self, facts: &ScanFacts, _config: &ScanConfig) -> Vec<Finding> {
         let mut findings = Vec::new();
 
-        for file in &facts.files {
+        for file in facts.audited_files() {
             if !is_js_file(&file.path) {
                 continue;
             }

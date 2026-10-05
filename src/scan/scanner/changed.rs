@@ -103,12 +103,21 @@ impl<'a> ChangedScanEngine<'a> {
             return self.finalize_empty_changed(start, discovery);
         }
         let mut file_stage = self.run_file_analysis(&discovery)?;
-        let repo_stage = self.run_repo_context(
+        let mut repo_stage = self.run_repo_context(
             &discovery,
             &mut file_stage.facts,
             &file_stage.graph_patch_files,
             &mut file_stage.parsed_cache,
         )?;
+        // Framework rules are per file: report them for the change, like every
+        // other per-file rule, not for each unchanged file in the repository.
+        repo_stage.repo_context.audit_paths = Some(
+            discovery
+                .changed_files
+                .iter()
+                .map(|file| discovery.repo_root.join(&file.path))
+                .collect(),
+        );
         self.run_api_contract_analysis(&discovery, &mut file_stage, &repo_stage);
         let project_start = Instant::now();
         let ((project_findings, framework_findings), graph_analysis) = rayon::join(
@@ -183,6 +192,9 @@ impl<'a> ChangedScanEngine<'a> {
 mod api_contract;
 mod file_analysis;
 mod finalize;
+#[cfg(test)]
+#[path = "changed/framework_scope_tests.rs"]
+mod framework_scope_tests;
 mod repo_context;
 mod stages;
 use stages::*;
