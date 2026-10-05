@@ -35,6 +35,17 @@ fn changed_context_graph_is_stable_between_cold_and_cached_scans() {
     let cached =
         scan_resolved_changed_with_config(root, &config, root.to_path_buf(), changed, Some("HEAD"))
             .expect("cached changed scan");
+    // The second scan must use the cache, or this compares two cold graphs.
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit"),
+        "{:?}",
+        cached.artifacts.context_graph_cache
+    );
 
     let cold_graph = cold
         .artifacts
@@ -131,6 +142,132 @@ fn oversized_modified_file_is_removed_from_cold_and_cached_context_graphs() {
             .get(Path::new("src/large.rs"))
             .is_some_and(|targets| targets.contains(Path::new("src/target.rs")))
     );
+}
+
+/// A test file is skipped by the default scan policy, so it is never a graph
+/// node, cold or cached. Changing only tests must not rebuild the repository
+/// context on every review (next.js: ~5 s per agent stop).
+#[test]
+fn a_change_to_a_policy_skipped_test_file_uses_the_context_cache() {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    write(root, "src/lib.rs", "pub mod target;\n");
+    write(root, "src/target.rs", "pub fn target() {}\n");
+    write(root, "tests/target.rs", "#[test]\nfn works() {}\n");
+    let changed = vec![ChangedFile {
+        path: "tests/target.rs".into(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let config = ScanConfig::default();
+    let cold = scan_resolved_changed_with_config(
+        root,
+        &config,
+        root.to_path_buf(),
+        changed.clone(),
+        Some("HEAD"),
+    )
+    .expect("cold changed scan");
+    write(root, "tests/target.rs", "#[test]\nfn still_works() {}\n");
+    let cached =
+        scan_resolved_changed_with_config(root, &config, root.to_path_buf(), changed, Some("HEAD"))
+            .expect("cached changed scan");
+
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit"),
+        "{:?}",
+        cached.artifacts.context_graph_cache
+    );
+    assert_eq!(
+        cold.artifacts.coupling_graph, cached.artifacts.coupling_graph,
+        "a skipped file leaves the graph unchanged"
+    );
+}
+
+/// The cached repository context must give audits the same file facts as a
+/// cold scan. It used to read `has_inline_tests` from `is_test`, so a Rust
+/// module with inline tests became `source-without-test` on every cached run.
+#[test]
+fn cold_and_cached_changed_scans_report_the_same_findings() {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    write(root, "src/lib.rs", "pub mod parser;\npub mod render;\n");
+    write(
+        root,
+        "src/parser.rs",
+        "pub fn parse(input: &str) -> usize {\n    input.len()\n}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn parses() {\n        assert_eq!(super::parse(\"ab\"), 2);\n    }\n}\n",
+    );
+    write(
+        root,
+        "src/render.rs",
+        "pub fn render() -> String {\n    String::new()\n}\n",
+    );
+    let changed = vec![ChangedFile {
+        path: "src/render.rs".into(),
+        status: ChangeStatus::Modified,
+        ranges: Vec::new(),
+        hunks: Vec::new(),
+    }];
+    let config = ScanConfig::default();
+    let scan = || {
+        scan_resolved_changed_with_config(
+            root,
+            &config,
+            root.to_path_buf(),
+            changed.clone(),
+            Some("HEAD"),
+        )
+        .expect("changed scan")
+    };
+    let cold = scan();
+    let cached = scan();
+    assert_eq!(
+        cached
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit")
+    );
+    assert_eq!(finding_keys(&cold), finding_keys(&cached));
+    assert!(
+        !finding_keys(&cached).contains(&(
+            "testing.source-without-test".to_string(),
+            "src/parser.rs".to_string()
+        )),
+        "a module with inline tests has tests"
+    );
+}
+
+fn finding_keys(summary: &crate::scan::types::ScanSummary) -> Vec<(String, String)> {
+    let mut keys = summary
+        .artifacts
+        .findings
+        .iter()
+        .map(|finding| {
+            let path = finding
+                .evidence
+                .first()
+                .map(|evidence| {
+                    evidence
+                        .path
+                        .strip_prefix(&summary.root_path)
+                        .unwrap_or(&evidence.path)
+                        .to_string_lossy()
+                        .replace('\\', "/")
+                })
+                .unwrap_or_default();
+            (finding.rule_id.clone(), path)
+        })
+        .collect::<Vec<_>>();
+    keys.sort();
+    keys
 }
 
 fn changed_file_hub_findings(

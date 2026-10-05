@@ -1,5 +1,6 @@
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::scan::facts::{FileFacts, ScanFacts};
+use crate::scan::path_classification::is_low_signal_audit_path;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -45,14 +46,20 @@ pub(super) fn apply_changed_context_facts(
     );
 }
 
+/// A modified file the cached graph cannot account for. A file the scan
+/// policy skips by path (tests, fixtures, examples) is never a graph node, cold
+/// or cached, so it needs no patch: without this, changing only tests rebuilt
+/// the whole repository context on every review.
 pub(super) fn has_unpatched_modified_file(
     repo_root: &Path,
     changed_files: &[ChangedFile],
     patch_files: &[FileFacts],
+    include_low_signal: bool,
 ) -> bool {
     let patched_paths = patch_file_paths(repo_root, patch_files);
     changed_files.iter().any(|file| {
         file.status == ChangeStatus::Modified
+            && (include_low_signal || !is_low_signal_audit_path(&file.path))
             && !patched_paths.contains(&repository_relative_path(repo_root, &file.path))
     })
 }

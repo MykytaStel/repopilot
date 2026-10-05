@@ -14,7 +14,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 pub const CONTEXT_GRAPH_CACHE_NAME: &str = "repo_context.json";
-pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 8;
+pub const CONTEXT_GRAPH_SCHEMA_VERSION: u32 = 9;
 pub const CONTEXT_GRAPH_RESOLVER_VERSION: &str = "context-state-v1";
 pub const MAX_CONTEXT_GRAPH_CYCLES: usize = 20;
 pub const MAX_CONTEXT_GRAPH_METRICS: usize = 10;
@@ -71,6 +71,14 @@ pub struct RepoContextNode {
     pub is_test: bool,
     pub is_generated: bool,
     pub is_config: bool,
+    /// Scan facts audits read from a cached context. Without them a cached
+    /// review saw every Rust module with inline tests as untested.
+    #[serde(default)]
+    pub has_inline_tests: bool,
+    #[serde(default)]
+    pub in_executable_package: bool,
+    #[serde(default)]
+    pub branch_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

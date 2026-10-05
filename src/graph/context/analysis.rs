@@ -249,6 +249,9 @@ mod tests {
             is_test: false,
             is_generated: false,
             is_config: false,
+            has_inline_tests: false,
+            in_executable_package: false,
+            branch_count: 0,
         }
     }
 }

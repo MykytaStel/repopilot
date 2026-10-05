@@ -14,9 +14,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   files, ~1,170 unresolved internal imports) a one-file review drops from
   ~32 s to ~16 s and a full strict scan from 35 s to 15 s, with identical
   findings.
+- A review of a change that touches only test files (or other paths the scan
+  skips by default) reuses the cached repository context instead of rebuilding
+  it on every run. On next.js such a review drops from ~15 s to ~9 s.
 
 ### Fixed
 
+- A review that reused the cached repository context lost three file facts:
+  inline Rust tests, membership in an executable package, and branch count.
+  Every Rust module with `#[cfg(test)]` then read as `source-without-test`,
+  and a review gave different repository-wide findings than the same review
+  without the cache. The cache keeps these facts (schema 9; older caches are
+  rebuilt once).
 - Deleting a test file whose tests all appear in other files of the same
   change is a move, not `test deleted or emptied`. A deleted file with even one
   test that went nowhere is still reported.
