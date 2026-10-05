@@ -8,13 +8,13 @@
     "source": "github"
   },
   "websiteUrl": "https://github.com/MykytaStel/repopilot/blob/main/docs/mcp.md",
-  "version": "0.24.1",
+  "version": "0.24.2",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "repopilot",
-      "version": "0.24.1",
+      "version": "0.24.2",
       "transport": {
         "type": "stdio"
       },
@@ -33,7 +33,7 @@
     {
       "registryType": "cargo",
       "identifier": "repopilot",
-      "version": "0.24.1",
+      "version": "0.24.2",
       "transport": {
         "type": "stdio"
       },

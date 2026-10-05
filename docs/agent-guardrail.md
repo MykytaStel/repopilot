@@ -11,7 +11,7 @@ local and offline and needs no API key; installation uses your package channel.
    `npm install -g repopilot` or `cargo install repopilot --locked`.
 2. Run `command -v repopilot` and `repopilot --version` in the terminal that
    launches your agent. Session integrity review requires **0.24 or newer**.
-   The current stable release is 0.24.1. If an older executable resolves,
+   The current stable release is 0.24.2. If an older executable resolves,
    update that installation and check its version before starting a session.
 3. Install the plugin or extension for your agent below. Review any hook trust
    prompt, then start a new session in a Git repository.
@@ -261,7 +261,7 @@ hooks cannot stop the agent, so RepoPilot checks its work in two places:
    to `.github/workflows/copilot-setup-steps.yml`. The agent's environment then
    has the `repopilot` CLI and a snapshot before it starts.
    RepoPilot itself includes [this setup workflow](../.github/workflows/copilot-setup-steps.yml),
-   pinned to the stable 0.24.1 package. Run it manually to verify installation
+   pinned to the stable 0.24.2 package. Run it manually to verify installation
    and snapshot creation; this does not prove an agent PR or MCP configuration.
 2. Open **Settings → Copilot → MCP servers** in your repository and add the server from
    `repopilot init --mcp-client copilot`. The agent can then call

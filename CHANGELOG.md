@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.24.2] - 2026-10-05
+
 ### Changed
 
 - Plugin hook commands are literal `${CLAUDE_PLUGIN_ROOT}/scripts/…` paths in
