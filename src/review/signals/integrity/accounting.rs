@@ -11,15 +11,14 @@
 //! same file was renamed: it is compared by assertion count, not reported as
 //! removed.
 
+mod renames;
+
 use super::helpers::{self, Body};
 use super::{FileEvidence, IntegrityKind, IntegritySignal};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 const LISTED_NAMES: usize = 5;
-/// Jaccard similarity of body tokens at which a removed and a new test count
-/// as one renamed test.
-const RENAME_SIMILARITY: f64 = 0.75;
 
 /// One test case as it exists on one side of the change.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,7 +88,7 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             });
             removed.extend(std::iter::repeat_n(name, count - moved));
         }
-        let (renamed, removed) = pair_renames(file, &removed);
+        let (renamed, removed) = renames::pair(file, &removed);
         for (before, after) in renamed {
             if after.checks_less_than(before) {
                 signals.push(IntegritySignal {
@@ -112,7 +111,10 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
 }
 
 /// Names in `left` beyond their count in `right` (a multiset difference).
-fn difference<'a>(left: &'a [TestFacts], right: &[TestFacts]) -> BTreeMap<&'a str, usize> {
+pub(super) fn difference<'a>(
+    left: &'a [TestFacts],
+    right: &[TestFacts],
+) -> BTreeMap<&'a str, usize> {
     let mut counts: BTreeMap<&str, isize> = BTreeMap::new();
     for test in left {
         *counts.entry(test.name.as_str()).or_default() += 1;
@@ -126,71 +128,6 @@ fn difference<'a>(left: &'a [TestFacts], right: &[TestFacts]) -> BTreeMap<&'a st
         .into_iter()
         .filter(|(_, count)| *count > 0)
         .map(|(name, count)| (name, count as usize))
-        .collect()
-}
-
-type Renamed<'a> = Vec<(&'a TestFacts, &'a TestFacts)>;
-
-/// Splits removed names into renames (a new test in the same file with a
-/// closely matching body) and genuine removals.
-fn pair_renames<'a>(file: &'a FileEvidence, removed: &[&'a str]) -> (Renamed<'a>, Vec<&'a str>) {
-    let appeared = difference(&file.post.tests, &file.pre.tests);
-    let mut candidates: Vec<(&TestFacts, BTreeSet<String>)> = file
-        .post
-        .tests
-        .iter()
-        .filter(|test| appeared.contains_key(test.name.as_str()))
-        .map(|test| (test, body_tokens(&test.text, &test.name)))
-        .collect();
-    let (mut renamed, mut remaining) = (Vec::new(), Vec::new());
-    for name in removed {
-        let Some(before) = file.pre.tests.iter().find(|test| test.name == *name) else {
-            remaining.push(*name);
-            continue;
-        };
-        let tokens = body_tokens(&before.text, &before.name);
-        let best = candidates
-            .iter()
-            .enumerate()
-            .map(|(index, (_, after))| (index, similarity(&tokens, after)))
-            .filter(|(_, score)| *score >= RENAME_SIMILARITY)
-            .max_by(|left, right| left.1.total_cmp(&right.1));
-        match best {
-            Some((index, _)) => renamed.push((before, candidates.remove(index).0)),
-            None => remaining.push(*name),
-        }
-    }
-    (renamed, remaining)
-}
-
-fn similarity(left: &BTreeSet<String>, right: &BTreeSet<String>) -> f64 {
-    let union = left.union(right).count();
-    if union == 0 {
-        return 0.0;
-    }
-    left.intersection(right).count() as f64 / union as f64
-}
-
-/// Test-framework words every test shares; they would make any two short
-/// tests look alike. Matchers (`toBe`, `toThrow`) carry meaning and stay.
-const BOILERPLATE: &[&str] = &[
-    "it", "test", "describe", "expect", "assert", "self", "def", "fn", "func", "function", "async",
-    "await", "const", "let", "var", "return", "true", "false", "None", "nil", "null", "t",
-    "require", "mut", "pub",
-];
-
-/// Identifier and literal tokens of a test body, minus framework boilerplate
-/// and the words of its name.
-fn body_tokens(text: &str, name: &str) -> BTreeSet<String> {
-    let name_words: BTreeSet<&str> = name
-        .split(|c: char| !c.is_alphanumeric() && c != '_')
-        .filter(|word| !word.is_empty())
-        .collect();
-    text.split(|c: char| !c.is_alphanumeric() && c != '_')
-        .filter(|token| {
-            !token.is_empty() && !name_words.contains(token) && !BOILERPLATE.contains(token)
-        })
-        .map(str::to_string)
         .collect()
 }
 

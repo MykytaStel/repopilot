@@ -18,6 +18,7 @@ use crate::review::signals::behavioral::{self, DependencyContext};
 use crate::review::signals::{BoundarySignal, algorithmic, classify, integrity, taint};
 use crate::scan::types::CouplingGraph;
 use rayon::prelude::*;
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::Instant;
 mod source_loading;
@@ -75,7 +76,12 @@ pub(super) fn detect_review_signals(
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
         let integrity_started = Instant::now();
-        content_signals.integrity = detect_integrity(changed_files, &loaded_sources);
+        let (integrity_signals, moved) = detect_integrity(changed_files, &loaded_sources);
+        content_signals.integrity = integrity_signals;
+        content_signals.behavioral.retain(|signal| {
+            signal.kind != behavioral::BehavioralKind::TestDeletedOrEmptied
+                || !moved.contains(&signal.path)
+        });
         content_signals
             .integrity
             .extend(integrity::detect_review_suppressions(repo_root, target));
@@ -147,11 +153,12 @@ fn detect_file_signals(
 
 /// Integrity evidence is compared across the whole change, so a test moved
 /// from one changed file to another is not reported as skipped or removed.
+/// Also returns the deleted or emptied test files whose tests all moved.
 /// Files are scanned in parallel; the evidence keeps the changed-file order.
 fn detect_integrity(
     changed_files: &[ChangedFile],
     loaded_sources: &[LoadedReviewSources],
-) -> Vec<integrity::IntegritySignal> {
+) -> (Vec<integrity::IntegritySignal>, BTreeSet<String>) {
     let markers = changed_files
         .par_iter()
         .zip(loaded_sources.par_iter())
@@ -159,6 +166,7 @@ fn detect_integrity(
             integrity::collect_file_evidence(file, sources.pre.as_ref(), sources.post.as_ref())
         })
         .collect::<Vec<_>>();
+    let moved = integrity::moved_test_files(&markers);
     let mut signals = integrity::detect_integrity(&markers);
     for (file, sources) in changed_files.iter().zip(loaded_sources) {
         signals.extend(integrity::detect_gate_relaxation(
@@ -167,7 +175,7 @@ fn detect_integrity(
             sources.post.as_ref(),
         ));
     }
-    signals
+    (signals, moved)
 }
 
 fn detect_api_contract(
