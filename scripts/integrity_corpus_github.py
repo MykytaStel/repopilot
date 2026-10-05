@@ -108,7 +108,11 @@ def pr_meta(repo: str, number: int) -> dict:
 
 
 def raw_file(repo: str, path: str, ref: str) -> bytes | None:
-    """A file's bytes at `ref`, or `None` when it does not exist there."""
+    """A file's bytes at `ref`, or `None` when it does not exist there.
+
+    Raises when GitHub keeps failing: a missing file would turn into a
+    deleted test in the evaluated repository."""
+    error = ""
     for attempt in range(4):
         result = subprocess.run(
             ["gh", "api", "-H", "Accept: application/vnd.github.raw", f"repos/{repo}/contents/{path}?ref={ref}"],
@@ -120,7 +124,7 @@ def raw_file(repo: str, path: str, ref: str) -> bytes | None:
         if "404" in error or "not found" in error or "too large" in error:
             return None
         time.sleep(15 * (attempt + 1))
-    return None
+    raise RuntimeError(f"could not fetch {repo}:{path}@{ref}: {error.strip()[:200]}")
 
 
 def has_agent_marker(body: str) -> bool:
