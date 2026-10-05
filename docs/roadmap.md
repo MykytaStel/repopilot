@@ -21,11 +21,11 @@ change with nothing flagged and no configured verification reads
 `PASS (not verified)`; two integrity false positives are fixed. See the
 [0.24.1 release notes](releases/v0.24.1.md).
 
-The 0.24.2 patch is prepared: plain first-run errors instead of raw Git
-output, an empty-change hint that names `--base origin/main`, MCP tool
-descriptions that route between sibling tools, and license files that GitHub
-and MCP directories detect. See the
-[0.24.2 release notes](releases/v0.24.2.md).
+The `v0.24.2` patch is published on GitHub Releases, crates.io, npm, and
+Homebrew: plain first-run errors instead of raw Git output, an empty-change
+hint that names `--base origin/main`, MCP tool descriptions that route between
+sibling tools, and license files that GitHub and MCP directories detect. See
+the [0.24.2 release notes](releases/v0.24.2.md).
 
 ## Next: 0.25
 
@@ -60,6 +60,9 @@ Support and release maintenance follow the
 
 ## Released
 
+- **0.24.2 — Plain first-run errors:** review explains a missing repository,
+  commit, ref, or merge base; MCP tools say when to use each one.
+  [Release notes](releases/v0.24.2.md)
 - **0.24.1 — Quieter agent stops:** stop hooks only for weakened checks, an
   informative first decision, two integrity false positives fixed.
   [Release notes](releases/v0.24.1.md)
