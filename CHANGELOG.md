@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Rust review now flags a changed top-level public-function parameter count when
+  a proven direct module-qualified caller still passes the previous number of
+  arguments. Same-arity type changes and unsupported call forms remain outside
+  this detector.
+
 ### Fixed
 
 - JVM graph assembly now indexes source filenames once per inventory, preserving

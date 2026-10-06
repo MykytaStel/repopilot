@@ -9,17 +9,28 @@ mod runtime;
 mod security;
 
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
+const RUST_ARITY_SIGNAL: &str = "behavioral.rust-public-function-arity-changed";
 
 pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
     let mut deltas = report
         .tiered_signals
         .definitely
         .iter()
-        .filter(|signal| signal.kind == REMOVED_EXPORT_SIGNAL && !signal.suppressed)
+        .filter(|signal| {
+            matches!(
+                signal.kind.as_str(),
+                REMOVED_EXPORT_SIGNAL | RUST_ARITY_SIGNAL
+            ) && !signal.suppressed
+        })
         .filter_map(|signal| {
+            let change = match signal.kind.as_str() {
+                REMOVED_EXPORT_SIGNAL => ContractChangeKind::RemovedExport,
+                RUST_ARITY_SIGNAL => ContractChangeKind::FunctionArityChanged,
+                _ => return None,
+            };
             Some(ChangeProofContractDelta {
                 family: ContractFamily::PublicSymbol,
-                change: ContractChangeKind::RemovedExport,
+                change,
                 exporter_path: signal.target_path.clone()?,
                 consumer_path: signal.path.clone(),
                 line_start: signal.line_start,

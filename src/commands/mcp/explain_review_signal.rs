@@ -112,6 +112,11 @@ fn why_it_matters(signal: &Value) -> String {
     {
         return "removed export is still imported. The caller imports a named symbol that the changed module no longer exports, which can break that import contract. This is static Git-diff evidence; RepoPilot does not execute the compiler or claim full module-resolution parity.".to_string();
     }
+    if signal.get("kind").and_then(Value::as_str)
+        == Some("behavioral.rust-public-function-arity-changed")
+    {
+        return "a Rust public function changed its parameter count while a proven direct local call still passes the previous number of arguments. This is static Git-diff evidence; RepoPilot does not run the Rust compiler.".to_string();
+    }
     let family = signal
         .get("family")
         .and_then(Value::as_str)
@@ -174,5 +179,17 @@ mod tests {
         assert_eq!(value["gate"]["eligible"], true);
         assert_eq!(value["impact"]["direct_dependents"][0], "src/api.rs");
         assert_eq!(value["evidence"]["class"], "suspicion");
+    }
+
+    #[test]
+    fn explains_rust_public_function_arity_signal() {
+        let signal = json!({
+            "kind": "behavioral.rust-public-function-arity-changed",
+            "family": "behavioral",
+            "headline": "Rust public function arity changed"
+        });
+
+        assert!(why_it_matters(&signal).contains("still passes the previous number of arguments"));
+        assert!(why_it_matters(&signal).contains("does not run the Rust compiler"));
     }
 }

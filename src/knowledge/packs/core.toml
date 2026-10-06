@@ -806,6 +806,13 @@ languages = ["typescript", "typescript-react", "javascript", "javascript-react"]
 suppress_generated = true
 
 [[rules]]
+rule_id = "behavioral.rust-public-function-arity-changed"
+minimum_support = "context-aware"
+languages = ["rust"]
+suppress_generated = true
+risk = { id = "knowledge.rust-public-api-arity", label = "Rust API arity break", weight = 8, reason = "a proven local caller still passes the previous argument count after a public function changed arity" }
+
+[[rules]]
 rule_id = "architecture.excessive-fan-out"
 minimum_support = "rule-aware"
 languages = ["rust", "go", "python", "typescript", "typescript-react", "javascript", "javascript-react", "java", "kotlin"]

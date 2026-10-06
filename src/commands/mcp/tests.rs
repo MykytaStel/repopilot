@@ -4,6 +4,8 @@ use serde_json::{Value, json};
 use std::io::Cursor;
 use std::sync::{Arc, Mutex, mpsc};
 
+mod rust_arity;
+
 /// Runs the server over newline-delimited request lines and returns the decoded
 /// JSON responses in order.
 fn exchange(requests: &[Value]) -> Vec<Value> {

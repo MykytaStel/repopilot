@@ -15,13 +15,15 @@
 //! Signals retain their source and analysis scope. The existing
 //! `boundary_signals` view remains available alongside this grouped view.
 
+mod api_contract;
+
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::Confidence;
 use crate::review::diff::ChangedFile;
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
-use crate::review::signals::api_contract::{RemovedExportSignal, SymbolKind};
+use crate::review::signals::api_contract::RemovedExportSignal;
 use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
 use crate::review::signals::composites;
 use crate::review::signals::integrity::{IntegrityKind, IntegritySignal};
@@ -264,7 +266,7 @@ pub(crate) fn build_tiered_with_api_contract(
         ));
     }
     for occurrence in api_contract {
-        tiered.push(from_removed_export(occurrence));
+        tiered.push(api_contract::from_occurrence(occurrence));
     }
     for signal in integrity {
         tiered.push(build_signal(
@@ -343,64 +345,6 @@ fn from_boundary(signal: &BoundarySignal) -> ReviewSignal {
     );
     review_signal.blast_radius = signal.blast_radius;
     review_signal
-}
-
-fn from_removed_export(occurrence: &RemovedExportSignal) -> ReviewSignal {
-    let kind = "behavioral.removed-export-still-imported";
-    let exporter = occurrence
-        .exporter_path
-        .to_string_lossy()
-        .replace('\\', "/");
-    let importer = occurrence
-        .importer_path
-        .to_string_lossy()
-        .replace('\\', "/");
-    let symbol_kind = match occurrence.symbol_kind {
-        SymbolKind::Value => "value",
-        SymbolKind::Type => "type",
-    };
-    let rust = occurrence
-        .importer_path
-        .extension()
-        .is_some_and(|ext| ext == "rs");
-    let relation = if rust {
-        "referenced directly as"
-    } else {
-        "imported as local binding"
-    };
-    let detail = format!(
-        "Removed {symbol_kind} export '{}' from {exporter} remains {relation} '{}' via '{}'.",
-        occurrence.exported_name, occurrence.local_name, occurrence.module_specifier,
-    );
-    let identity = format!(
-        "{kind}\0{exporter}\0{}\0{importer}\0{}\0{}-{}\0{}-{}",
-        occurrence.exported_name,
-        occurrence.module_specifier,
-        occurrence.line_start,
-        occurrence.line_end,
-        occurrence.byte_start,
-        occurrence.byte_end,
-    );
-    let mut signal = build_signal(
-        kind,
-        SignalFamily::Behavioral,
-        ConfidenceTier::DefinitelySensitive,
-        Confidence::High,
-        importer,
-        Some(occurrence.line_start),
-        if rust {
-            "removed public function is still referenced"
-        } else {
-            "removed export is still imported"
-        },
-        Some(detail),
-        SignalSource::Ast,
-    );
-    signal.signal_id = stable_hash_hex(identity.as_bytes())[..16].to_string();
-    signal.target_path = Some(exporter);
-    signal.line_end = Some(occurrence.line_end);
-    signal.evidence_lines = (occurrence.line_start..=occurrence.line_end).collect();
-    signal
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -495,6 +439,9 @@ fn build_verification_plan(
 }
 
 pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily) -> &'static str {
+    if let Some(step) = api_contract::verification_step(kind) {
+        return step;
+    }
     match family {
         SignalFamily::Boundary => match kind {
             "boundary.access-control" => {
@@ -517,9 +464,6 @@ pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily
             }
         },
         SignalFamily::Behavioral => match kind {
-            "behavioral.removed-export-still-imported" => {
-                "Inspect the changed exporter and surviving caller import, then restore the export or update the caller before running the repository's type-check, build, or focused tests."
-            }
             "behavioral.network-call-added" => {
                 "Confirm the new network call has the expected timeout, retry, error handling, authorization, and data exposure behavior."
             }
@@ -596,7 +540,11 @@ fn deduplicate(tiered: &mut TieredSignals) {
         .chain(tiered.maybe.drain(..))
         .chain(tiered.noise.drain(..))
     {
-        let identity = if signal.kind == "behavioral.removed-export-still-imported" {
+        let identity = if matches!(
+            signal.kind.as_str(),
+            "behavioral.removed-export-still-imported"
+                | "behavioral.rust-public-function-arity-changed"
+        ) {
             signal.signal_id.clone()
         } else {
             signal.path.clone()

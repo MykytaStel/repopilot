@@ -40,6 +40,32 @@ pub(crate) struct JavaScriptSymbolFacts {
     /// `export * from "..."` is present, so any name may still be supplied.
     pub wildcard_re_export: bool,
     pub imports: Vec<ImportedSymbolFact>,
+    /// Rust-only facts for bounded public-function arity checks.
+    #[serde(default)]
+    pub rust_contracts: Option<RustContractFacts>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub(crate) struct RustContractFacts {
+    pub functions: Vec<RustFunctionArityFact>,
+    pub calls: Vec<RustCallFact>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustFunctionArityFact {
+    pub name: String,
+    pub parameter_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustCallFact {
+    pub imported_name: String,
+    pub module_specifier: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub byte_start: usize,
+    pub byte_end: usize,
+    pub argument_count: usize,
 }
 
 /// Dispatch once for all analysis adapters while retaining the private cache

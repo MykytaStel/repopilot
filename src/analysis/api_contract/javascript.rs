@@ -1,4 +1,4 @@
-use super::{JavaScriptContractFactProvider, RemovedExportOccurrence};
+use super::{ApiContractChange, ApiContractOccurrence, JavaScriptContractFactProvider};
 use crate::analysis::symbols::{ExportedSymbolFact, ImportedSymbolFact, SymbolKind};
 use crate::graph::{resolve_import, resolver::normalize_path};
 use crate::scan::types::CouplingGraph;
@@ -11,7 +11,7 @@ pub(super) fn detect_removed_export_imports<P: JavaScriptContractFactProvider>(
     graph: &CouplingGraph,
     current_files: &HashSet<PathBuf>,
     provider: &mut P,
-) -> Vec<RemovedExportOccurrence> {
+) -> Vec<ApiContractOccurrence> {
     let importers = importers_by_target(graph, repo_root);
     let mut occurrences = Vec::new();
 
@@ -62,22 +62,15 @@ fn confirmed_occurrence(
     removed: &RemovedExports,
     repo_root: &Path,
     current_files: &HashSet<PathBuf>,
-) -> Option<RemovedExportOccurrence> {
-    let rust = importer.extension().is_some_and(|ext| ext == "rs");
-    if (!rust && !import.module_specifier.starts_with('.'))
-        || !removed.matches(&import.imported_name, import.kind)
-    {
+) -> Option<ApiContractOccurrence> {
+    if !removed.matches(&import.imported_name, import.kind) {
         return None;
     }
-    let importer_absolute = absolute_path(repo_root, importer);
-    let exporter_absolute = absolute_path(repo_root, exporter);
-    let module = proven_module(import, importer, repo_root, current_files)?;
-    let resolved = resolve_import(&module, &importer_absolute, repo_root, current_files);
-    if resolved.as_deref() != Some(exporter_absolute.as_path()) {
+    if !resolves_to_exporter(import, importer, exporter, repo_root, current_files) {
         return None;
     }
 
-    Some(RemovedExportOccurrence {
+    Some(ApiContractOccurrence {
         exporter_path: exporter.to_path_buf(),
         importer_path: importer.to_path_buf(),
         exported_name: import.imported_name.clone(),
@@ -88,10 +81,31 @@ fn confirmed_occurrence(
         line_end: import.line_end,
         byte_start: import.byte_start,
         byte_end: import.byte_end,
+        change: ApiContractChange::RemovedExport,
     })
 }
 
-fn proven_module(
+pub(super) fn resolves_to_exporter(
+    import: &ImportedSymbolFact,
+    importer: &Path,
+    exporter: &Path,
+    repo_root: &Path,
+    current_files: &HashSet<PathBuf>,
+) -> bool {
+    let rust = importer.extension().is_some_and(|ext| ext == "rs");
+    if !rust && !import.module_specifier.starts_with('.') {
+        return false;
+    }
+    let importer_absolute = absolute_path(repo_root, importer);
+    let exporter_absolute = absolute_path(repo_root, exporter);
+    let Some(module) = proven_module(import, importer, repo_root, current_files) else {
+        return false;
+    };
+    let resolved = resolve_import(&module, &importer_absolute, repo_root, current_files);
+    resolved.as_deref() == Some(exporter_absolute.as_path())
+}
+
+pub(super) fn proven_module(
     import: &ImportedSymbolFact,
     importer: &Path,
     root: &Path,
@@ -166,7 +180,7 @@ fn removed_symbols(
     RemovedExports { pairs, vanished }
 }
 
-fn importers_by_target(
+pub(super) fn importers_by_target(
     graph: &CouplingGraph,
     repo_root: &Path,
 ) -> BTreeMap<PathBuf, BTreeSet<PathBuf>> {
@@ -201,7 +215,7 @@ fn absolute_path(repo_root: &Path, path: &Path) -> PathBuf {
     })
 }
 
-fn is_supported_path(path: &Path) -> bool {
+pub(super) fn is_supported_path(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|extension| extension.to_str()),
         Some("ts" | "tsx" | "js" | "jsx" | "rs")
