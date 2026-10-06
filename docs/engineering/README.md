@@ -36,6 +36,16 @@ release operations. Product workflows are in the
 - [v0.24 release contract](../roadmap/v0.24.md)
 - [v0.24 review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
 
+## Next scope — draft
+
+- [v0.25 technical and first-use scope](../roadmap/v0.25.md)
+- [v0.25 evidence ledger](v0.25-evidence-ledger.md)
+- [v0.25 analysis-core implementation plan](v0.25-analysis-core-implementation-plan.md)
+- [v0.25 resolver freshness evidence](v0.25-resolver-freshness.md)
+- [v0.25 Rust public-function contract](v0.25-rust-public-function-contract.md)
+- [v0.25 C# command-property support](v0.25-csharp-command-property.md)
+- [v0.25 JVM inventory indexing evidence](v0.25-jvm-scaling.md)
+
 ## Historical records
 
 - [v0.20 release record](v0.20-release-scorecard.md)

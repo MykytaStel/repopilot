@@ -235,7 +235,11 @@ fn cold_and_cached_changed_scans_report_the_same_findings() {
             .map(|cache| cache.status.as_str()),
         Some("hit")
     );
-    assert_eq!(finding_keys(&cold), finding_keys(&cached));
+    assert_eq!(cold.artifacts.findings, cached.artifacts.findings);
+    assert_eq!(
+        cold.artifacts.coupling_graph,
+        cached.artifacts.coupling_graph
+    );
     assert!(
         !finding_keys(&cached).contains(&(
             "testing.source-without-test".to_string(),

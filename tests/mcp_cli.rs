@@ -816,3 +816,57 @@ fn mcp_scan_cache_persists_across_sessions_and_invalidates_on_edit() {
         "a miss returns a real scan report"
     );
 }
+
+#[test]
+fn default_export_mcp_and_cli_share_exact_occurrence() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    setup_removed_export_change(root);
+    fs::write(
+        root.join("src/api.ts"),
+        "export default function loadUser() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/caller.ts"),
+        "import loadUser from \"./api.ts\";\n",
+    )
+    .unwrap();
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "default before"]);
+    fs::write(root.join("src/api.ts"), "export function saveUser() {}\n").unwrap();
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(root);
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"review","method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":".","detail":"full","fail_on_review":"definitely"}}}),
+    );
+    let review = receive_mcp(&mut stdout);
+    let report = &review["result"]["structuredContent"];
+    let signal = removed_export_signal(report);
+    assert_eq!(signal["path"], "src/caller.ts");
+    assert_eq!(signal["target_path"], "src/api.ts");
+    assert_eq!(signal["gate_eligible"], true);
+    assert_eq!(signal["provenance"]["detector"], signal["kind"]);
+    assert_eq!(report["review_gate"]["failed_signals"], 1);
+    let cli = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .args(["review", ".", "--format", "json"])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let cli_report: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(signal, removed_export_signal(&cli_report));
+    let signal_id = signal["signal_id"].as_str().expect("signal id");
+
+    send_mcp(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"explain","method":"tools/call","params":{"name":"repopilot_explain_review_signal","arguments":{"signal_id":signal_id}}}),
+    );
+    let explain = receive_mcp(&mut stdout);
+    let explanation = &explain["result"]["structuredContent"];
+    assert_removed_export_explanation(explanation, signal_id);
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+}

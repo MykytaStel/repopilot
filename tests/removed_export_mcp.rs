@@ -59,6 +59,59 @@ fn changed_scan_finding_replays_through_mcp() {
 }
 
 #[test]
+fn rust_changed_scan_finding_replays_through_mcp() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    init_repo(root);
+    write(root, "src/api.rs", "pub fn loadUser() {}\n");
+    write(
+        root,
+        "src/lib.rs",
+        "mod api; use self::api::loadUser;\nfn run() { loadUser(); }\n",
+    );
+    commit_all(root, "before");
+    write(root, "src/api.rs", "pub fn saveUserAccount() {}\n");
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(root);
+    initialize_mcp(&mut stdin, &mut stdout);
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"scan","method":"tools/call","params":{"name":"repopilot_scan","arguments":{"path":".","scope":"changed","filters":{"rules":[B21_KIND]}}}}),
+    );
+    let scan = receive(&mut stdout);
+    let finding = &scan["result"]["structuredContent"]["findings"][0];
+    assert_eq!(finding["rule_id"], B21_KIND, "{scan:#?}");
+    assert_eq!(finding["evidence"][0]["path"], "src/lib.rs");
+    let finding_id = finding["id"].as_str().expect("finding id");
+    let handle = scan["result"]["analysisHandle"]
+        .as_str()
+        .expect("analysis handle");
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","id":"explain","method":"tools/call","params":{"name":"repopilot_explain_finding","arguments":{"analysis_handle":handle,"finding_id":finding_id,"evidence_path":"src/lib.rs","line_start":1}}}),
+    );
+    let explanation = receive(&mut stdout);
+    assert_eq!(explanation["result"]["isError"], false, "{explanation:#?}");
+    assert_eq!(
+        explanation["result"]["structuredContent"]["status"], "stored-only",
+        "{explanation:#?}",
+    );
+    assert_eq!(
+        explanation["result"]["structuredContent"]["finding"]["rule_id"],
+        B21_KIND,
+    );
+    assert_eq!(
+        explanation["result"]["structuredContent"]["finding"]["evidence"][0]["path"],
+        "src/lib.rs",
+    );
+
+    assert_rust_review_replay(&mut stdin, &mut stdout);
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+}
+
+#[test]
 fn same_line_alias_occurrences_each_replay_through_mcp() {
     let temp = tempfile::tempdir().expect("temp dir");
     let root = temp.path();
@@ -110,6 +163,32 @@ fn same_line_alias_occurrences_each_replay_through_mcp() {
 
     drop(stdin);
     assert!(child.wait().expect("wait for MCP server").success());
+}
+
+fn assert_rust_review_replay(stdin: &mut ChildStdin, stdout: &mut BufReader<ChildStdout>) {
+    send(
+        stdin,
+        &json!({"jsonrpc":"2.0","id":"review-rust","method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":".","detail":"full"}}}),
+    );
+    let review = receive(stdout);
+    let signal = review["result"]["structuredContent"]["tiered_signals"]["definitely"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|signal| signal["kind"] == B21_KIND)
+        .unwrap();
+    assert_eq!(signal["path"], "src/lib.rs");
+    assert_eq!(signal["target_path"], "src/api.rs");
+    send(
+        stdin,
+        &json!({"jsonrpc":"2.0","id":"explain-rust","method":"tools/call","params":{"name":"repopilot_explain_review_signal","arguments":{"signal_id":signal["signal_id"]}}}),
+    );
+    let explanation = receive(stdout);
+    let replay = &explanation["result"]["structuredContent"];
+    assert_eq!(replay["status"], "explained");
+    assert_eq!(replay["signal"]["signal_id"], signal["signal_id"]);
+    assert_eq!(replay["signal"]["detail"], signal["detail"]);
+    assert_eq!(replay["signal"]["path"], "src/lib.rs");
 }
 
 fn start_mcp(root: &Path) -> (Child, ChildStdin, BufReader<ChildStdout>) {

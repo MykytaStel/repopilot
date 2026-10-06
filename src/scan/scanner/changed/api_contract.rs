@@ -1,10 +1,15 @@
+#[path = "api_contract_finding.rs"]
+mod finding;
+#[path = "api_contract_source.rs"]
+mod source_facts;
+use finding::occurrence_to_finding;
+
 use crate::analysis::ParsedArtifact;
 use crate::analysis::api_contract::{
-    JavaScriptContractFactProvider, RemovedExportOccurrence, detect_removed_export_imports,
+    JavaScriptContractFactProvider, detect_removed_export_imports,
 };
-use crate::analysis::symbols::{JavaScriptSymbolFacts, SymbolKind};
-use crate::findings::provenance::{AnalysisScope, FindingProvenance};
-use crate::findings::types::{Evidence, Finding, FindingCategory};
+use crate::analysis::symbols::JavaScriptSymbolFacts;
+use crate::findings::types::Finding;
 use crate::graph::resolver::normalize_path;
 use crate::review::diff::{ChangedFile, DiffTarget};
 use crate::review::signals::api_contract::extract_javascript_symbol_facts;
@@ -175,47 +180,23 @@ impl JavaScriptContractFactProvider for ScanFactProvider<'_> {
     }
 
     fn current_facts(&mut self, path: &Path) -> Option<JavaScriptSymbolFacts> {
-        if let Some(artifact) = self.changed_artifact(path) {
-            return artifact.javascript_symbols.clone();
+        if let Some(artifact) = self.changed_artifact(path)
+            && let Some(symbols) = artifact.javascript_symbols.as_ref()
+        {
+            return Some(symbols.clone());
         }
-        let (hash, language) = self.current_cache_key(path)?;
-        self.parsed_cache
-            .lookup_javascript_symbols(&hash, language.as_deref())
-    }
-}
-
-fn occurrence_to_finding(occurrence: &RemovedExportOccurrence) -> Finding {
-    let symbol_kind = match occurrence.symbol_kind {
-        SymbolKind::Value => "value",
-        SymbolKind::Type => "type",
-    };
-    let exporter = occurrence
-        .exporter_path
-        .to_string_lossy()
-        .replace('\\', "/");
-    let snippet = format!(
-        "named {symbol_kind} import '{} as {}' from '{}' resolves to '{}'",
-        occurrence.exported_name, occurrence.local_name, occurrence.module_specifier, exporter,
-    );
-
-    Finding {
-        rule_id: "behavioral.removed-export-still-imported".to_string(),
-        description: format!(
-            "Removed {symbol_kind} export '{}' from {exporter} remains imported as local binding '{}'.",
-            occurrence.exported_name, occurrence.local_name,
-        ),
-        category: FindingCategory::CodeQuality,
-        evidence: vec![Evidence {
-            path: occurrence.importer_path.clone(),
-            line_start: occurrence.line_start,
-            line_end: Some(occurrence.line_end),
-            snippet,
-        }],
-        provenance: FindingProvenance {
-            analysis_scope: AnalysisScope::GitDiff,
-            ..Default::default()
-        },
-        ..Default::default()
+        if let Some((hash, language)) = self.current_cache_key(path)
+            && let Some(facts) = self
+                .parsed_cache
+                .lookup_javascript_symbols(&hash, language.as_deref())
+        {
+            return Some(facts);
+        }
+        let file = self
+            .repo_files
+            .iter()
+            .find(|file| repository_relative(&file.path, self.repo_root) == path)?;
+        source_facts::rebuild(self.repo_root, path, file, self.parsed_cache)
     }
 }
 
@@ -229,36 +210,4 @@ fn absolute_path(repo_root: &Path, path: &Path) -> PathBuf {
     } else {
         repo_root.join(path)
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::findings::types::Severity;
-    use std::path::PathBuf;
-
-    #[test]
-    fn occurrence_projects_to_git_diff_finding_on_the_caller_import() {
-        let finding = occurrence_to_finding(&RemovedExportOccurrence {
-            exporter_path: PathBuf::from("src/api.ts"),
-            importer_path: PathBuf::from("src/caller.ts"),
-            exported_name: "loadUser".to_string(),
-            local_name: "load".to_string(),
-            symbol_kind: SymbolKind::Value,
-            module_specifier: "./api.ts".to_string(),
-            line_start: 3,
-            line_end: 3,
-            byte_start: 12,
-            byte_end: 28,
-        });
-
-        assert_eq!(finding.rule_id, "behavioral.removed-export-still-imported");
-        assert_eq!(finding.category, FindingCategory::CodeQuality);
-        assert_eq!(finding.severity, Severity::Info);
-        assert_eq!(finding.provenance.analysis_scope, AnalysisScope::GitDiff);
-        assert_eq!(finding.evidence[0].path, PathBuf::from("src/caller.ts"));
-        assert_eq!(finding.evidence[0].line_start, 3);
-        assert!(finding.evidence[0].snippet.contains("src/api.ts"));
-        assert!(finding.evidence[0].snippet.contains("loadUser as load"));
-    }
 }

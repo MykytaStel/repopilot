@@ -9,9 +9,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 6;
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 9;
 const PARSED_FACTS_ANALYSIS_VERSION: &str =
-    "tree-sitter-imports-exports-symbols-spans-guarded-syntax-v5";
+    "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v8";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";

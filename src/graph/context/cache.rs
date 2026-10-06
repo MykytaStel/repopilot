@@ -1,5 +1,7 @@
 use super::*;
-use sha2::{Digest, Sha256};
+#[path = "cache_identity.rs"]
+mod identity;
+use identity::{resolver_input_fingerprint, stable_hash_hex};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -8,6 +10,8 @@ struct CachedRepositoryContextState {
     repopilot_version: String,
     config_fingerprint: String,
     resolver_version: String,
+    #[serde(default)]
+    resolver_input_fingerprint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     repository_fingerprint: Option<RepositoryFingerprint>,
     input_fingerprint: String,
@@ -78,6 +82,7 @@ pub(crate) fn write_repository_context_state(
             config_fingerprint,
             &repository_fingerprint,
         )
+        && cached.resolver_input_fingerprint == Some(resolver_input_fingerprint(root))
         && cached.input_fingerprint == input_fingerprint
         && cached.relationship_fingerprint == relationship_fingerprint
     {
@@ -93,6 +98,7 @@ pub(crate) fn write_repository_context_state(
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
         config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
+        resolver_input_fingerprint: Some(resolver_input_fingerprint(root)),
         repository_fingerprint,
         input_fingerprint,
         relationship_fingerprint,
@@ -137,6 +143,7 @@ fn valid_cached_state_metadata(
 ) -> bool {
     let repository_fingerprint = repository_fingerprint(root);
     valid_cached_state_metadata_for_repository(cached, config_fingerprint, &repository_fingerprint)
+        && cached.resolver_input_fingerprint == Some(resolver_input_fingerprint(root))
 }
 
 fn valid_cached_state_metadata_for_repository(
@@ -153,11 +160,6 @@ fn valid_cached_state_metadata_for_repository(
 
 pub fn context_graph_cache_path(root: &Path) -> PathBuf {
     root.join(".repopilot/cache").join(CONTEXT_GRAPH_CACHE_NAME)
-}
-
-fn stable_hash_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn context_graph_fingerprints(graph: &RepoContextGraph) -> (String, String) {

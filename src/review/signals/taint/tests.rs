@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 /// Run taint detection over `code`, treating every line as changed so the sink is
 /// always in-diff. `path` drives language detection; `label` drives parsing.
-fn run(path: &str, label: &str, code: &str) -> Vec<super::TaintSignal> {
+pub(super) fn run(path: &str, label: &str, code: &str) -> Vec<super::TaintSignal> {
     let file = ChangedFile {
         path: PathBuf::from(path),
         status: ChangeStatus::Modified,
@@ -555,9 +555,6 @@ class OrdersController {
 }
 "#,
     );
-    // The tainted value flows into CommandText, not the ExecuteReader args —
-    // intra-procedural taint-lite deliberately does not track field state, so
-    // this stays a known limitation; the direct-argument form below must flag.
     let direct = run(
         "src/App/OrdersController.cs",
         "C#",
@@ -570,7 +567,7 @@ class OrdersController {
 }
 "#,
     );
-    assert!(signals.is_empty());
+    assert_eq!(signals.len(), 1);
     assert_eq!(direct.len(), 1);
     assert_eq!(direct[0].sink, SinkKind::Sql);
 }

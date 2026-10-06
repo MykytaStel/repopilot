@@ -63,19 +63,16 @@ fn confirmed_occurrence(
     repo_root: &Path,
     current_files: &HashSet<PathBuf>,
 ) -> Option<RemovedExportOccurrence> {
-    if !import.module_specifier.starts_with('.')
+    let rust = importer.extension().is_some_and(|ext| ext == "rs");
+    if (!rust && !import.module_specifier.starts_with('.'))
         || !removed.matches(&import.imported_name, import.kind)
     {
         return None;
     }
     let importer_absolute = absolute_path(repo_root, importer);
     let exporter_absolute = absolute_path(repo_root, exporter);
-    let resolved = resolve_import(
-        &import.module_specifier,
-        &importer_absolute,
-        repo_root,
-        current_files,
-    );
+    let module = proven_module(import, importer, repo_root, current_files)?;
+    let resolved = resolve_import(&module, &importer_absolute, repo_root, current_files);
     if resolved.as_deref() != Some(exporter_absolute.as_path()) {
         return None;
     }
@@ -92,6 +89,36 @@ fn confirmed_occurrence(
         byte_start: import.byte_start,
         byte_end: import.byte_end,
     })
+}
+
+fn proven_module(
+    import: &ImportedSymbolFact,
+    importer: &Path,
+    root: &Path,
+    files: &HashSet<PathBuf>,
+) -> Option<String> {
+    if importer.extension().is_none_or(|ext| ext != "rs") {
+        return Some(import.module_specifier.clone());
+    }
+    let module = if let Some(name) = import.module_specifier.strip_prefix("crate::") {
+        if importer != Path::new("src/lib.rs") && importer != Path::new("src/main.rs") {
+            return None;
+        }
+        format!("mod::{name}")
+    } else {
+        import.module_specifier.clone()
+    };
+    let candidates = crate::graph::resolver::definitive_local_candidates(
+        &module,
+        &absolute_path(root, importer),
+        root,
+    )?;
+    (candidates
+        .iter()
+        .filter(|path| files.contains(*path))
+        .count()
+        == 1)
+        .then_some(module)
 }
 
 #[derive(Debug, Default)]
@@ -177,6 +204,6 @@ fn absolute_path(repo_root: &Path, path: &Path) -> PathBuf {
 fn is_supported_path(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|extension| extension.to_str()),
-        Some("ts" | "tsx" | "js" | "jsx")
+        Some("ts" | "tsx" | "js" | "jsx" | "rs")
     )
 }

@@ -50,6 +50,7 @@ fn cold_and_warm_changed_scans_keep_identical_removed_export_identity() {
     commit_all(root, "before");
     write(root, "src/api.ts", "export function saveUser() {}\n");
 
+    assert_rule_absent(&scan_json(root, &[]));
     let cold = scan_json(root, &["--changed"]);
     let warm = scan_json(root, &["--changed"]);
 
@@ -111,7 +112,7 @@ fn since_base_uses_the_selected_pre_change_exporter() {
 }
 
 #[test]
-fn missing_current_caller_facts_suppress_instead_of_reparsing() {
+fn missing_current_caller_facts_rebuild_without_losing_occurrence() {
     let temp = tempfile::tempdir().expect("temp dir");
     let root = temp.path();
     init_repo(root);
@@ -129,7 +130,8 @@ fn missing_current_caller_facts_suppress_instead_of_reparsing() {
 
     let missing = scan_json(root, &["--changed"]);
 
-    assert_rule_absent(&missing);
+    assert_eq!(finding_for_rule(&cold), finding_for_rule(&missing));
+    assert_eq!(missing["context_graph_cache"]["status"], "hit");
     assert!(
         missing["cache_telemetry"]["parsed_cache_misses"]
             .as_u64()
@@ -215,3 +217,63 @@ fn same_line_aliases_keep_distinct_scan_occurrences() {
     assert_eq!(findings.len(), 2);
     assert_eq!(occurrence_keys.len(), 2);
 }
+
+#[test]
+fn default_export_cold_warm_and_full_scan_scope() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    init_repo(root);
+    write(
+        root,
+        "src/api.ts",
+        "export default function loadUser() {}\n",
+    );
+    write(
+        root,
+        "src/caller.ts",
+        "import loadUser from './api.ts';\nloadUser();\n",
+    );
+    commit_all(root, "before");
+    write(root, "src/api.ts", "export function saveUser() {}\n");
+
+    assert_rule_absent(&scan_json(root, &[]));
+    let cold = scan_json(root, &["--changed"]);
+    let warm = scan_json(root, &["--changed"]);
+
+    assert_eq!(finding_for_rule(&cold), finding_for_rule(&warm));
+    assert_eq!(warm["context_graph_cache"]["status"], "hit");
+    assert!(
+        warm["cache_telemetry"]["parsed_cache_hits"]
+            .as_u64()
+            .is_some_and(|hits| hits > 0)
+    );
+}
+
+#[test]
+fn default_export_legacy_cache_rebuilds_missing_symbol_facts() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    init_repo(root);
+    write(root, "src/api.ts", "export default 42;\n");
+    write(root, "src/caller.ts", "import load from './api.ts';\n");
+    commit_all(root, "before");
+    write(root, "src/api.ts", "export const value = 42;\n");
+    let cold = scan_json(root, &["--changed"]);
+    let path = root.join(".repopilot/cache/parsed_facts_v2.json");
+    let mut cache: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    cache["schema_version"] = serde_json::json!(6);
+    for entry in cache["entries"].as_array_mut().unwrap() {
+        if let Some(imports) = entry["javascript_symbols"]["imports"].as_array_mut() {
+            imports.retain(|import| import["imported_name"] != "default");
+        }
+    }
+    std::fs::write(&path, serde_json::to_vec(&cache).unwrap()).unwrap();
+    let rebuilt = scan_json(root, &["--changed"]);
+    assert_eq!(finding_for_rule(&cold), finding_for_rule(&rebuilt));
+    let cache: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(cache["schema_version"], 9);
+}
+
+#[path = "removed_export_changed_scan/source_scope.rs"]
+mod source_scope;

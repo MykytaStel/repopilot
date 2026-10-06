@@ -10,8 +10,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
 
+mod defaults;
 mod re_exports;
 mod robustness;
+mod rust;
 
 #[test]
 fn extracts_named_value_type_and_binding_alias_facts() {
@@ -87,10 +89,8 @@ fn ignores_non_direct_module_forms_and_text_lookalikes() {
         concat!(
             "// export const Commented = 1; import { Commented } from \"./comment.ts\";\n",
             "const text = 'export { StringOnly }; import { StringOnly } from \\\"./string.ts\\\"';\n",
-            "export default function defaultOnly() {}\n",
             "export * from \"./barrel.ts\";\n",
             "export { reExported } from \"./remote.ts\";\n",
-            "import defaultOnly from \"./default.ts\";\n",
             "import * as namespaceOnly from \"./namespace.ts\";\n",
             "import(\"./dynamic.ts\");\n",
             "const commonJs = require(\"./commonjs.ts\");\n",

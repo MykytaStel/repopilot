@@ -6,6 +6,39 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- JVM graph assembly now indexes source filenames once per inventory, preserving
+  package boundaries, production/test preference and ambiguous imports. A pinned
+  synthetic resolver workload and complete graph/evidence parity checks cover
+  the optimization; its measurements do not imply a whole-review speedup.
+
+- C# review now follows straight-line local command `CommandText` assignments to
+  the existing six SQL execution methods, retaining source, property and execution
+  lines through CLI/MCP. Conservative scope and receiver controls are fixture-tested.
+
+- Rust removed public free functions now retain direct caller evidence through
+  unambiguous file-backed child modules declared in the caller, in review and
+  changed scans. CLI/MCP and cache parity are verified with synthetic fixtures;
+  cfg/macros, forwarding, signatures and arbitrary crate paths remain bounded.
+  Bare qualified calls shadowed by local type items stay silent; explicit
+  module qualification and imports preserve their evidence.
+
+- Removed direct JS/TS default exports now retain surviving relative default-import
+  evidence in review and changed scans, including CLI/MCP and cached paths.
+  Conservative forwarding and parser limits remain; verified with synthetic fixtures.
+
+- TypeScript/JavaScript aliases now observe effective tsconfig/jsconfig content
+  changes during one process. Config-only alias remaps also rebuild cached
+  repository relationships; unchanged effective inputs retain cache reuse.
+
+### Documentation
+
+- Define the draft 0.25 engineering scope alongside first-user validation:
+  resolver input freshness, semantic cache parity, and direct JS/TS
+  default-export contracts, with ordered Rust, C# taint, and graph-performance
+  candidates and an evidence ledger.
+
 ## [0.24.3] - 2026-10-05
 
 ### Changed

@@ -335,10 +335,16 @@ patterns, so an agent's own edits get caught before a human does:
   import owned by `go.mod`, whose complete candidate set is absent.
   Ambiguous forms (Go `replace`/external modules, aliases, extensionless imports, workspace packages) stay
   bounded diagnostics, never a false broken-code claim.
-- **`behavioral.removed-export-still-imported`** — a named export an agent
+- **`behavioral.removed-export-still-imported`** — a named or direct default export an agent
   deleted or renamed while a local caller still imports the old name. Fires
   only when the resolver proves the caller targets the changed module; a
-  coordinated rename across both sides produces no signal.
+  coordinated rename across both sides produces no signal. Default aliases require
+  a proven top-level local binding; forwarding, parser failures, namespace and
+  dynamic imports remain explicit limits. CLI/MCP review and changed scans retain
+  the same caller occurrence; full scans lack historical removal evidence. Rust
+  covers removed public free functions through a plain child module declared
+  in that caller; [language support](language-support.md#direct-rust-public-function-removal)
+  lists the exact forms and abstention limits.
 
 Neither runs a compiler; both are AST-plus-resolver proofs, so they hold even
 when nothing else in the diff looks risky — exactly the failure mode an agent

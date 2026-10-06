@@ -1,5 +1,5 @@
 //! TypeScript / JavaScript import resolution, including `tsconfig`/`jsconfig`
-//! `paths` and `baseUrl` aliases (parsed once and cached per repo root).
+//! `paths` and `baseUrl` aliases (cached by effective readable config content).
 
 use super::{normalize_path, probe};
 use std::collections::{HashMap, HashSet};
@@ -68,35 +68,47 @@ struct TsAlias {
     roots: Vec<PathBuf>,
 }
 
-static TSCONFIG_CACHE: OnceLock<RwLock<HashMap<PathBuf, Vec<TsAlias>>>> = OnceLock::new();
+struct CachedAliases {
+    content: Option<String>,
+    aliases: Vec<TsAlias>,
+}
 
-fn get_tsconfig_cache() -> &'static RwLock<HashMap<PathBuf, Vec<TsAlias>>> {
+static TSCONFIG_CACHE: OnceLock<RwLock<HashMap<PathBuf, CachedAliases>>> = OnceLock::new();
+
+fn get_tsconfig_cache() -> &'static RwLock<HashMap<PathBuf, CachedAliases>> {
     TSCONFIG_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
+pub(crate) fn effective_tsconfig_content(root: &Path) -> Option<String> {
+    ["tsconfig.json", "jsconfig.json"]
+        .iter()
+        .find_map(|name| std::fs::read_to_string(root.join(name)).ok())
+}
+
 fn tsconfig_paths(root: &Path) -> Vec<TsAlias> {
+    let content = effective_tsconfig_content(root);
     let cache = get_tsconfig_cache();
-    if let Some(cached) = cache.read().unwrap().get(root) {
-        return cached.clone();
+    if let Some(cached) = cache.read().unwrap().get(root)
+        && cached.content == content
+    {
+        return cached.aliases.clone();
     }
-    let aliases = parse_tsconfig_paths(root);
-    cache
-        .write()
-        .unwrap()
-        .insert(root.to_path_buf(), aliases.clone());
+    let aliases = content
+        .as_deref()
+        .map(|text| parse_tsconfig_paths(root, text))
+        .unwrap_or_default();
+    cache.write().unwrap().insert(
+        root.to_path_buf(),
+        CachedAliases {
+            content,
+            aliases: aliases.clone(),
+        },
+    );
     aliases
 }
 
-fn parse_tsconfig_paths(root: &Path) -> Vec<TsAlias> {
-    let content = ["tsconfig.json", "jsconfig.json"]
-        .iter()
-        .find_map(|name| std::fs::read_to_string(root.join(name)).ok());
-
-    let Some(content) = content else {
-        return Vec::new();
-    };
-
-    let stripped = strip_json_line_comments(&content);
+fn parse_tsconfig_paths(root: &Path, content: &str) -> Vec<TsAlias> {
+    let stripped = strip_json_line_comments(content);
     let Ok(value) = serde_json::from_str::<serde_json::Value>(&stripped) else {
         return Vec::new();
     };
@@ -224,3 +236,7 @@ fn resolve_ts_alias(
 
     None
 }
+
+#[cfg(test)]
+#[path = "ts_freshness_tests.rs"]
+mod freshness_tests;

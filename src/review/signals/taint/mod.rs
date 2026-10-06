@@ -17,6 +17,8 @@
 //!   changed ranges.
 
 pub(crate) mod ast;
+#[cfg(test)]
+mod csharp_property_tests;
 mod flow;
 mod sanitizers;
 pub(crate) mod sinks;

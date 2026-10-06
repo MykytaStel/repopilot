@@ -198,3 +198,6 @@ mod framework_scope_tests;
 mod repo_context;
 mod stages;
 use stages::*;
+#[cfg(test)]
+#[path = "changed/alias_freshness_tests.rs"]
+mod alias_freshness_tests;

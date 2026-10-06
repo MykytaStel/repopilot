@@ -306,12 +306,12 @@ handles.
 
 For `behavioral.removed-export-still-imported`, B2.1 adds the optional
 `target_path` field to the canonical review signal. `path` and its line range
-remain the direct named-import evidence in the surviving caller, while
-`target_path` is the changed exporter whose named export was removed. The
+remain the direct import evidence in the surviving caller, while
+`target_path` is the changed exporter whose named or default export was removed. The
 signal is High-confidence and definitely-sensitive only after RepoPilot's local
-AST and target-matched resolver checks prove the relationship. It is review-only evidence for
-direct named `.ts`, `.tsx`, `.js`, and `.jsx` imports/exports; path aliases,
-package imports, default or namespace forms, re-exports, CommonJS/dynamic forms, and
+AST and target-matched resolver checks prove the relationship. It is change-aware evidence for
+direct named and default `.ts`, `.tsx`, `.js`, and `.jsx` imports/exports; path aliases,
+package imports, namespace forms, re-exports, CommonJS/dynamic forms, and
 imports whose selected-target resolver selection is not the changed exporter are not
 reported as broken code. A changed exporter that still forwards the name through
 `export { name } from "..."`, or that can forward any name through
@@ -319,6 +319,16 @@ reported as broken code. A changed exporter that still forwards the name through
 asks the user to inspect the change and run the repository's declared
 type-check, build, or test command manually—RepoPilot does not execute those
 commands.
+
+Direct default-export removal supports JS/TS declaration and expression forms,
+plus `export default local` and `export { local as default }` when a top-level
+local declaration proves the binding. Default and named exports have distinct
+symbol names. Imported aliases and forwarding remain uncertain; a surviving
+forwarded default suppresses removal proof. Parse errors, namespace/dynamic/
+CommonJS forms and unsupported extensions remain outside this proof. The same
+caller occurrence is retained by CLI and MCP review and changed scans (including
+cached runs). Full scans have no historical exporter facts and do not infer
+removal. These claims are backed by synthetic fixtures, not measured zoo accuracy.
 
 This optional field is backward-compatible in serialized review JSON: existing
 signals continue to omit it. It is nevertheless a source compatibility change

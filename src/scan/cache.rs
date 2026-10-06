@@ -23,7 +23,7 @@ use std::time::UNIX_EPOCH;
 /// and managed test-support roles.
 /// v7 adds explainable role-evidence records to each cached file-role entry.
 /// v8 carries the remaining `FileFacts` fields needed for warm cache parity.
-pub const CACHE_SCHEMA_VERSION: u32 = 9;
+pub const CACHE_SCHEMA_VERSION: u32 = 12;
 pub const CACHE_DIR: &str = ".repopilot/cache";
 const FILE_HASHES_NAME: &str = "file_hashes.json";
 const FILE_ROLES_NAME: &str = "file_roles.json";

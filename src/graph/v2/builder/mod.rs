@@ -6,7 +6,7 @@ use super::{
     GraphNodeId, GraphNodeKind, GraphSnapshot,
 };
 use crate::graph::resolution_stats::is_relative_import;
-use crate::graph::resolve_import;
+use crate::graph::resolver::ResolverInventory;
 use crate::graph::resolver::normalize_path;
 use crate::scan::facts::ScanFacts;
 use std::collections::{BTreeMap, HashSet};
@@ -32,6 +32,7 @@ pub fn graph_snapshot_from_scan(scan: &ScanFacts) -> GraphSnapshot {
         .map(|(id, _, path, _)| (path.clone(), id.clone()))
         .collect::<BTreeMap<_, _>>();
     let known_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+    let inventory = ResolverInventory::new(&known_paths);
     let mut nodes = files
         .iter()
         .map(|(id, label, path, _)| {
@@ -57,7 +58,7 @@ pub fn graph_snapshot_from_scan(scan: &ScanFacts) -> GraphSnapshot {
             }
 
             let (target_id, kind, confidence) =
-                match resolve_import(raw_import, &source_path, &root, &known_paths) {
+                match inventory.resolve(raw_import, &source_path, &root) {
                     // A file importing itself carries no dependency information.
                     Some(resolved) if resolved == source_path => continue,
                     Some(resolved) => (

@@ -6,3 +6,6 @@ mod parity;
 mod revision_inventory;
 #[path = "removed_export_review/support.rs"]
 mod support;
+
+#[path = "removed_export_review/defaults.rs"]
+mod defaults;

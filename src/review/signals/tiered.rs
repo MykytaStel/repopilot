@@ -359,8 +359,17 @@ fn from_removed_export(occurrence: &RemovedExportSignal) -> ReviewSignal {
         SymbolKind::Value => "value",
         SymbolKind::Type => "type",
     };
+    let rust = occurrence
+        .importer_path
+        .extension()
+        .is_some_and(|ext| ext == "rs");
+    let relation = if rust {
+        "referenced directly as"
+    } else {
+        "imported as local binding"
+    };
     let detail = format!(
-        "Removed {symbol_kind} export '{}' from {exporter} remains imported as local binding '{}' via '{}'.",
+        "Removed {symbol_kind} export '{}' from {exporter} remains {relation} '{}' via '{}'.",
         occurrence.exported_name, occurrence.local_name, occurrence.module_specifier,
     );
     let identity = format!(
@@ -379,7 +388,11 @@ fn from_removed_export(occurrence: &RemovedExportSignal) -> ReviewSignal {
         Confidence::High,
         importer,
         Some(occurrence.line_start),
-        "removed export is still imported",
+        if rust {
+            "removed public function is still referenced"
+        } else {
+            "removed export is still imported"
+        },
         Some(detail),
         SignalSource::Ast,
     );

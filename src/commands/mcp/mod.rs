@@ -282,3 +282,6 @@ fn initialize_result(params: &Value) -> Value {
         "instructions": catalog::SERVER_INSTRUCTIONS
     })
 }
+
+#[cfg(test)]
+mod alias_freshness_tests;

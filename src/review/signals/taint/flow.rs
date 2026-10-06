@@ -9,6 +9,9 @@ mod flow_seed;
 #[path = "flow_state.rs"]
 mod flow_state;
 
+#[path = "csharp_property.rs"]
+mod csharp_property;
+
 use super::TaintSignal;
 use super::tables::TaintTables;
 use crate::review::diff::ChangedFile;
@@ -31,6 +34,7 @@ fn detect_scope(
     file: &ChangedFile,
     out: &mut Vec<TaintSignal>,
 ) {
+    csharp_property::detect(root, content, tables, file, out);
     let tainted = flow_seed::seed_tainted(root, content, tables);
     flow_checks::check_sinks(root, content, tables, file, &tainted, out);
     detect_nested_scopes(root, content, tables, file, out);

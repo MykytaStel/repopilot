@@ -6,7 +6,9 @@
 //! helpers live here because every resolver depends on them.
 
 mod go;
+mod inventory;
 mod jvm;
+pub(crate) use inventory::ResolverInventory;
 mod python;
 mod rust;
 mod ts;
@@ -382,3 +384,5 @@ mod file_resolution_support_tests {
         assert!(!resolves_file_imports(Path::new("/repo/Makefile")));
     }
 }
+
+pub(crate) use ts::effective_tsconfig_content;
