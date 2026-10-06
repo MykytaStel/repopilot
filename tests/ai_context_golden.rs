@@ -78,8 +78,8 @@ fn render_json_variant(focus: Option<AiFocusCategory>) -> String {
 
 #[test]
 fn ai_context_json_brief_stays_stable() {
-    // The JSON form is deterministic (no version/cache/wall-clock fields), so the
-    // golden is the raw output; `normalize` is a no-op here.
+    // The JSON form embeds the package version and derives `approx_tokens` from
+    // serialized byte length; normalize both so release versions keep one golden.
     assert_golden("ai-context.json", render_json_variant(None));
 }
 
@@ -106,6 +106,8 @@ fn normalize(output: String) -> String {
     for line in output.replace("\r\n", "\n").lines() {
         let line = if line.trim_start().starts_with("- Cache:") {
             "- Cache: {{CACHE}}".to_string()
+        } else if line.trim_start().starts_with("\"approx_tokens\":") {
+            pin_json_token_count(line)
         } else if line.contains("tokens (budget:") {
             pin_token_count(line)
         } else {
@@ -115,6 +117,20 @@ fn normalize(output: String) -> String {
         out.push('\n');
     }
     out
+}
+
+/// The actual JSON token estimate is validated by focused output tests. Pin
+/// this derived count here so package-version byte length does not drift the golden.
+fn pin_json_token_count(line: &str) -> String {
+    let Some((prefix, value)) = line.split_once(':') else {
+        return line.to_string();
+    };
+    let comma = if value.trim_end().ends_with(',') {
+        ","
+    } else {
+        ""
+    };
+    format!("{prefix}: 0{comma}")
 }
 
 /// Footer: `*~1054 tokens (budget: 4096) · scanned in 0ms — …*`. Replace the

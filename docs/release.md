@@ -26,9 +26,9 @@ a build input, not the minimum.
 
 ## Prepare
 
-Update the version consistently in Cargo, npm, the Action, and reusable
-workflow. Add a dated `CHANGELOG.md` section for the full technical record, add
-curated GitHub Release notes at `docs/releases/vX.Y.Z.md`, and leave
+Update the version consistently in Cargo, npm, the Action, reusable workflow,
+and `server.json`. Add a dated `CHANGELOG.md` section for the full technical
+record, add curated GitHub Release notes at `docs/releases/vX.Y.Z.md`, and leave
 `[Unreleased]` ready for the next change.
 
 Curated release notes should stay short and user-facing:
@@ -130,7 +130,7 @@ prerelease version:
 ```bash
 git switch -c release/vX.Y.Z-rc.N origin/main
 # bump every version pin to X.Y.Z-rc.N (Cargo, Cargo.lock, package.json and its
-# five platform pins, action.yml, the reusable workflow), then:
+# five platform pins, action.yml, the reusable workflow, and server.json), then:
 python3 scripts/release-contract.py check --tag vX.Y.Z-rc.N
 git commit -am "chore: rehearse vX.Y.Z-rc.N"
 git tag vX.Y.Z-rc.N

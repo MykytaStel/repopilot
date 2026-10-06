@@ -1,6 +1,6 @@
 {
 	"name": "repopilot",
-	"version": "0.24.3",
+	"version": "0.25.0-rc.1",
 	"mcpName": "io.github.MykytaStel/repopilot",
 	"description": "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge.",
 	"license": "MIT OR Apache-2.0",
@@ -33,11 +33,11 @@
 		"LICENSE-MIT"
 	],
 	"optionalDependencies": {
-		"@repopilot/darwin-arm64": "0.24.3",
-		"@repopilot/darwin-x64": "0.24.3",
-		"@repopilot/linux-arm64-gnu": "0.24.3",
-		"@repopilot/linux-x64-gnu": "0.24.3",
-		"@repopilot/win32-x64-msvc": "0.24.3"
+		"@repopilot/darwin-arm64": "0.25.0-rc.1",
+		"@repopilot/darwin-x64": "0.25.0-rc.1",
+		"@repopilot/linux-arm64-gnu": "0.25.0-rc.1",
+		"@repopilot/linux-x64-gnu": "0.25.0-rc.1",
+		"@repopilot/win32-x64-msvc": "0.25.0-rc.1"
 	},
 	"keywords": [
 		"cli",

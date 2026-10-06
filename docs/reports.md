@@ -35,11 +35,11 @@ output excerpts, not complete input fixtures for a report reader.
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.24.3",
+  "repopilot_version": "0.25.0-rc.1",
   "report": {
     "kind": "scan",
     "schema_version": "0.26",
-    "repopilot_version": "0.24.3"
+    "repopilot_version": "0.25.0-rc.1"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -124,7 +124,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.24.3` emits schema `0.26` for scan, baseline-scan, and review; 0.23 and 0.24 changes to that schema are additive.
+Binary `0.25.0-rc.1` emits schema `0.26` for scan, baseline-scan, and review; 0.23 and 0.24 changes to that schema are additive.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -220,11 +220,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.24.3",
+  "repopilot_version": "0.25.0-rc.1",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.26",
-    "repopilot_version": "0.24.3"
+    "repopilot_version": "0.25.0-rc.1"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -268,11 +268,11 @@ Envelope excerpt (the remaining review fields are omitted here):
 ```json
 {
   "schema_version": "0.26",
-  "repopilot_version": "0.24.3",
+  "repopilot_version": "0.25.0-rc.1",
   "report": {
     "kind": "review",
     "schema_version": "0.26",
-    "repopilot_version": "0.24.3"
+    "repopilot_version": "0.25.0-rc.1"
   }
 }
 ```
@@ -421,10 +421,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "6",
-    "repopilot_version": "0.24.3"
+    "repopilot_version": "0.25.0-rc.1"
   },
   "tool": "repopilot",
-  "version": "0.24.3",
+  "version": "0.25.0-rc.1",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {
