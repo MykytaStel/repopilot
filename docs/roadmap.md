@@ -62,8 +62,8 @@ records progress. The current published version remains 0.24.3.
    before adding resolver indexes. Require deterministic evidence and unchanged
    ambiguity handling as well as lower time and memory costs.
 
-The initial engineering scope is the first two slices. The remaining three are
-approved technical slices, each with focused tests and review evidence. Every slice
+All five technical slices are approved for the analysis-core draft PR, each
+with focused tests and review evidence. Every slice
 needs an unsafe regression, safe controls, applicable full/changed/cache/MCP
 parity, and evidence appropriate to its claims.
 
