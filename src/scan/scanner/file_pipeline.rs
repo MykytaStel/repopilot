@@ -2,7 +2,7 @@ use crate::analysis::SyntaxSummary;
 use crate::analysis::exports::extract_exports;
 use crate::analysis::parse::ParsedFile;
 use crate::analysis::symbols::JavaScriptSymbolFacts;
-use crate::analysis::symbols::javascript::extract_javascript_symbol_facts;
+use crate::analysis::symbols::extract_symbol_facts;
 use crate::audits::pipeline::FileAuditRegistration;
 use crate::findings::types::Finding;
 use crate::graph::imports::{
@@ -108,7 +108,7 @@ fn extract_parsed_artifacts(parsed: &ParsedFile, language: Option<&str>) -> Pars
     let exports = extract_exports(parsed.content(), language);
     let javascript_symbols = parsed
         .tree()
-        .and_then(|tree| extract_javascript_symbol_facts(parsed.content(), language, tree));
+        .and_then(|tree| extract_symbol_facts(parsed.content(), language, tree));
     let syntax = parsed.syntax_summary();
     ParsedFileFacts {
         imports,

@@ -61,6 +61,29 @@ heuristic; findings are review signals, not absolute truth. Use
 language-specific tools alongside it: `cargo clippy`, `tsc`/ESLint, Ruff and
 Pyright, `go vet`, or your build's own checks.
 
+## Direct Rust public-function removal
+
+`review` and `scan --changed` can retain a removed top-level `pub fn` when
+its current caller declares the file-backed child (`mod api;`), and imports
+`api::load` / `self::api::load` (including `as` bindings), or directly calls
+`api::load()` / `self::api::load()`. `crate::api::load` imports/calls require
+that same declaration in `src/lib.rs` or `src/main.rs`. The ordinary resolver
+must point to exactly one existing `api.rs` or `api/mod.rs` candidate.
+Caller/exporter paths and exact occurrence spans survive CLI/MCP adapters and
+cold/warm changed caches. Full scans lack the historical removal comparison.
+
+This is fixture-tested coverage, not measured Rust repository precision/recall.
+It does not follow arbitrary sibling callers or crate module hierarchies,
+`super::` paths, grouped/glob imports, module aliases, or re-exports. Attributes
+(including cfg/path), macros, inline modules and malformed syntax cause the
+whole source to abstain. Foreign declarations and nested imports/modules also abstain; associated
+methods and generic-function call sites are excluded. Function signatures,
+fields, types and trait contracts are not compared. A preserved public name
+or a coordinated current caller edit/removal does not establish a broken
+contract. Retaining a private/pub(crate) definition or replacing it with a
+same-name item is deliberately deferred: this slice detects definition removal,
+not visibility downgrades or kind changes; module/file renames stay outside historical removal ownership.
+
 ## Adding a language
 
 The whole point of the frontend contract is that support is added by

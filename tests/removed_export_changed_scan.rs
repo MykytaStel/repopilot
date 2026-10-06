@@ -272,7 +272,7 @@ fn default_export_legacy_cache_rebuilds_missing_symbol_facts() {
     let rebuilt = scan_json(root, &["--changed"]);
     assert_eq!(finding_for_rule(&cold), finding_for_rule(&rebuilt));
     let cache: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    assert_eq!(cache["schema_version"], 7);
+    assert_eq!(cache["schema_version"], 8);
 }
 
 #[path = "removed_export_changed_scan/source_scope.rs"]

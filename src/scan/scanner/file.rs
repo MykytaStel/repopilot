@@ -1,6 +1,6 @@
 use crate::analysis::exports::extract_exports;
 use crate::analysis::parse::ParsedFile;
-use crate::analysis::symbols::javascript::extract_javascript_symbol_facts;
+use crate::analysis::symbols::extract_symbol_facts;
 use crate::analysis::{FileContextFacts, ParsedArtifact, RoleEvidenceFact};
 use crate::audits::code_quality::complexity::count_branches;
 use crate::audits::context::classify_file_with_evidence;
@@ -347,7 +347,7 @@ fn collect_file_facts_inner(
         let lang = full_facts.language.as_deref();
         let javascript_symbols = parsed
             .tree()
-            .and_then(|tree| extract_javascript_symbol_facts(parsed.content(), lang, tree));
+            .and_then(|tree| extract_symbol_facts(parsed.content(), lang, tree));
         (
             extract_imports_from(&parsed, lang),
             extract_import_spans_from(&parsed, lang),

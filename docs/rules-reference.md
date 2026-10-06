@@ -235,11 +235,11 @@ A supported explicit local import does not resolve to any bounded source-file ca
 - **Cache policy:** per-change-set
 - **Produces:** finding
 
-A changed TypeScript or JavaScript module removed a named or direct default export while a surviving direct local caller still imports that symbol from the same resolved module.
+A changed TypeScript or JavaScript module removed a named or direct default export while a surviving direct local caller still imports that symbol from the same resolved module. Rust additionally covers removed public free functions imported or directly called through a file-backed child module declared in the caller.
 
 **Recommendation:** Restore the removed export or update every surviving caller, then run the repository's declared type-check, build, or focused tests.
 
-**Known false positives:** Only direct relative named or default imports with exact resolver proof are reported. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
+**Known false positives:** JS/TS requires direct relative named or default imports with exact resolver proof. Rust requires an unambiguous plain child-module declaration in the caller; crate paths require src/lib.rs or src/main.rs. Rust attributes/cfg, macros, inline modules, forwarding, grouped/glob imports, arbitrary sibling paths, associated methods and generic-function call sites are outside this slice. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 

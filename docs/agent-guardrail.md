@@ -341,7 +341,10 @@ patterns, so an agent's own edits get caught before a human does:
   coordinated rename across both sides produces no signal. Default aliases require
   a proven top-level local binding; forwarding, parser failures, namespace and
   dynamic imports remain explicit limits. CLI/MCP review and changed scans retain
-  the same caller occurrence; full scans lack historical removal evidence.
+  the same caller occurrence; full scans lack historical removal evidence. Rust
+  covers removed public free functions through a plain child module declared
+  in that caller; [language support](language-support.md#direct-rust-public-function-removal)
+  lists the exact forms and abstention limits.
 
 Neither runs a compiler; both are AST-plus-resolver proofs, so they hold even
 when nothing else in the diff looks risky — exactly the failure mode an agent

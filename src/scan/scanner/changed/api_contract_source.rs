@@ -1,7 +1,7 @@
 use crate::analysis::exports::extract_exports;
 use crate::analysis::parse::ParsedFile;
 use crate::analysis::symbols::JavaScriptSymbolFacts;
-use crate::analysis::symbols::javascript::extract_javascript_symbol_facts;
+use crate::analysis::symbols::extract_symbol_facts;
 use crate::graph::imports::{
     extract_deferred_imports_from, extract_guarded_optional_imports_from,
     extract_import_spans_from, extract_imports_from,
@@ -27,11 +27,7 @@ pub(super) fn rebuild(
         return Some(facts);
     }
     let parsed = ParsedFile::new(source.content(), file.language.as_deref());
-    let symbols = extract_javascript_symbol_facts(
-        source.content(),
-        file.language.as_deref(),
-        parsed.tree()?,
-    )?;
+    let symbols = extract_symbol_facts(source.content(), file.language.as_deref(), parsed.tree()?)?;
     cache.insert(ParsedFactsEntry {
         content_hash: hash,
         language: file.language.clone(),

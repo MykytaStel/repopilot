@@ -60,7 +60,7 @@ pub(crate) fn detect_removed_export_imports(
 pub(crate) fn extract_javascript_symbol_facts(
     source: &ReviewSource,
 ) -> Option<JavaScriptSymbolFacts> {
-    crate::analysis::symbols::javascript::extract_javascript_symbol_facts(
+    crate::analysis::symbols::extract_symbol_facts(
         source.content(),
         source.language_label(),
         source.tree()?,

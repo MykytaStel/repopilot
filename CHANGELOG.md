@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Rust removed public free functions now retain direct caller evidence through
+  unambiguous file-backed child modules declared in the caller, in review and
+  changed scans. CLI/MCP and cache parity are verified with synthetic fixtures;
+  cfg/macros, forwarding, signatures and arbitrary crate paths remain bounded.
+
 - Removed direct JS/TS default exports now retain surviving relative default-import
   evidence in review and changed scans, including CLI/MCP and cached paths.
   Conservative forwarding and parser limits remain; verified with synthetic fixtures.

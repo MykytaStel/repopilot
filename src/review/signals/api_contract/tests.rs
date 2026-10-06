@@ -13,6 +13,7 @@ use tempfile::TempDir;
 mod defaults;
 mod re_exports;
 mod robustness;
+mod rust;
 
 #[test]
 fn extracts_named_value_type_and_binding_alias_facts() {
