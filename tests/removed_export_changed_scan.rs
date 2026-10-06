@@ -274,3 +274,6 @@ fn default_export_legacy_cache_rebuilds_missing_symbol_facts() {
     let cache: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     assert_eq!(cache["schema_version"], 7);
 }
+
+#[path = "removed_export_changed_scan/source_scope.rs"]
+mod source_scope;

@@ -13,15 +13,15 @@ use crate::scan::parsed_cache::{ParsedFactsCache, ParsedFactsEntry, content_hash
 use std::path::Path;
 
 // Cached relationship summaries may omit content hashes or outlive parsed
-// entries. Rebuild only the candidate caller's facts using selected-target source.
+// entries. Current scan artifacts/context come from disk even for `--since`;
+// rebuild from that same scope. Only pre-change exporter facts use selected refs.
 pub(super) fn rebuild(
     root: &Path,
     path: &Path,
-    target: DiffTarget<'_>,
     file: &FileFacts,
     cache: &mut ParsedFactsCache,
 ) -> Option<JavaScriptSymbolFacts> {
-    let source = post_change_source_at_path(root, path, target)?;
+    let source = post_change_source_at_path(root, path, DiffTarget::WorkingTree)?;
     let hash = content_hash(source.content());
     if let Some(facts) = cache.lookup_javascript_symbols(&hash, file.language.as_deref()) {
         return Some(facts);

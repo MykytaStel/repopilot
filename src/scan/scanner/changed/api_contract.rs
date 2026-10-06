@@ -194,7 +194,7 @@ impl JavaScriptContractFactProvider for ScanFactProvider<'_> {
             .repo_files
             .iter()
             .find(|file| repository_relative(&file.path, self.repo_root) == path)?;
-        source_facts::rebuild(self.repo_root, path, self.target, file, self.parsed_cache)
+        source_facts::rebuild(self.repo_root, path, file, self.parsed_cache)
     }
 }
 
