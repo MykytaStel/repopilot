@@ -51,6 +51,7 @@ pub fn build_coupling_graph_with_resolution(
         .map(|file| (resolver::normalize_path(&file.path), file.path.clone()))
         .collect();
     let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
+    let inventory = resolver::ResolverInventory::new(&known_files);
     let repo_dirs =
         resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
     let repo_jvm_packages = resolution_stats::repo_jvm_package_suffixes(
@@ -66,7 +67,7 @@ pub fn build_coupling_graph_with_resolution(
             file,
             root,
             &known_file_by_normalized,
-            &known_files,
+            &inventory,
             &repo_dirs,
             &repo_jvm_packages,
             &mut edges,
@@ -96,7 +97,7 @@ fn process_graph_file(
     file: &crate::scan::facts::FileFacts,
     root: &Path,
     known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
-    known_files: &HashSet<PathBuf>,
+    inventory: &resolver::ResolverInventory<'_>,
     repo_dirs: &HashSet<String>,
     repo_jvm_packages: &HashSet<PathBuf>,
     edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
@@ -121,7 +122,7 @@ fn process_graph_file(
             &deferred_raws,
             root,
             known_file_by_normalized,
-            known_files,
+            inventory,
             repo_dirs,
             repo_jvm_packages,
             outgoing,
@@ -131,7 +132,7 @@ fn process_graph_file(
     }
 
     for raw in &file.deferred_imports {
-        if let Some(target) = resolve_import(raw, &normalized_source, root, known_files)
+        if let Some(target) = inventory.resolve(raw, &normalized_source, root)
             && target != normalized_source
         {
             let resolved = known_file_by_normalized
@@ -156,14 +157,14 @@ fn process_import(
     deferred_raws: &HashSet<&str>,
     root: &Path,
     known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
-    known_files: &HashSet<PathBuf>,
+    inventory: &resolver::ResolverInventory<'_>,
     repo_dirs: &HashSet<String>,
     repo_jvm_packages: &HashSet<PathBuf>,
     outgoing: &mut BTreeSet<PathBuf>,
     eager_targets: &mut BTreeSet<PathBuf>,
     resolution: &mut ImportResolutionStats,
 ) {
-    match resolve_import(raw, normalized_source, root, known_files) {
+    match inventory.resolve(raw, normalized_source, root) {
         Some(target) if target != normalized_source => {
             let resolved = known_file_by_normalized
                 .get(&target)

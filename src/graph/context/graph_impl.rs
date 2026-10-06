@@ -1,6 +1,6 @@
 use super::summary::{build_language_summary, directory_count};
 use super::*;
-use crate::graph::resolve_import;
+use crate::graph::resolver::ResolverInventory;
 use crate::graph::resolver::normalize_path;
 
 impl RepoContextGraph {
@@ -172,10 +172,11 @@ impl RepoContextGraph {
 
         let known_files = known_files_by_normalized_path(repo_root, &self.nodes);
         let known_file_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+        let inventory = ResolverInventory::new(&known_file_paths);
         for file in patch_files {
             let source = relative_graph_path(repo_root, &file.path);
             let (edges, deferred_edges) =
-                resolve_file_edges(file, repo_root, &known_files, &known_file_paths);
+                resolve_file_edges(file, repo_root, &known_files, &inventory);
             self.edges.insert(source.clone(), edges);
             if deferred_edges.is_empty() {
                 self.deferred_edges.remove(&source);
@@ -295,13 +296,14 @@ fn resolve_graph_edges(
 ) {
     let known_files = known_files_by_normalized_path(root, nodes);
     let known_file_paths = known_files.keys().cloned().collect::<HashSet<_>>();
+    let inventory = ResolverInventory::new(&known_file_paths);
     let mut edges = BTreeMap::new();
     let mut deferred_edges = BTreeMap::new();
 
     for file in files {
         let source = relative_graph_path(root, &file.path);
         let (resolved_edges, resolved_deferred_edges) =
-            resolve_file_edges(file, root, &known_files, &known_file_paths);
+            resolve_file_edges(file, root, &known_files, &inventory);
         edges.insert(source.clone(), resolved_edges);
         if !resolved_deferred_edges.is_empty() {
             deferred_edges.insert(source, resolved_deferred_edges);
@@ -328,7 +330,7 @@ fn resolve_file_edges(
     file: &FileFacts,
     root: &Path,
     known_files: &BTreeMap<PathBuf, PathBuf>,
-    known_file_paths: &HashSet<PathBuf>,
+    inventory: &ResolverInventory<'_>,
 ) -> (BTreeSet<PathBuf>, BTreeSet<PathBuf>) {
     let source = relative_graph_path(root, &file.path);
     let source_abs = normalize_path(&absolute_graph_path(root, &source));
@@ -341,7 +343,7 @@ fn resolve_file_edges(
     let mut eager_targets = BTreeSet::new();
 
     for raw in &file.imports {
-        if let Some(resolved) = resolve_import(raw, &source_abs, root, known_file_paths)
+        if let Some(resolved) = inventory.resolve(raw, &source_abs, root)
             && resolved != source_abs
             && let Some(target) = known_files.get(&resolved)
         {
@@ -354,7 +356,7 @@ fn resolve_file_edges(
 
     let mut deferred_edges = BTreeSet::new();
     for raw in &file.deferred_imports {
-        if let Some(resolved) = resolve_import(raw, &source_abs, root, known_file_paths)
+        if let Some(resolved) = inventory.resolve(raw, &source_abs, root)
             && resolved != source_abs
             && let Some(target) = known_files.get(&resolved)
             && !eager_targets.contains(target)

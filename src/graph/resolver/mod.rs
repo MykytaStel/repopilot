@@ -6,7 +6,9 @@
 //! helpers live here because every resolver depends on them.
 
 mod go;
+mod inventory;
 mod jvm;
+pub(crate) use inventory::ResolverInventory;
 mod python;
 mod rust;
 mod ts;

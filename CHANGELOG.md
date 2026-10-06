@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- JVM graph assembly now indexes source filenames once per inventory, preserving
+  package boundaries, production/test preference and ambiguous imports. A pinned
+  synthetic resolver workload and complete graph/evidence parity checks cover
+  the optimization; its measurements do not imply a whole-review speedup.
+
 - C# review now follows straight-line local command `CommandText` assignments to
   the existing six SQL execution methods, retaining source, property and execution
   lines through CLI/MCP. Conservative scope and receiver controls are fixture-tested.

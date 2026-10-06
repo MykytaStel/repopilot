@@ -67,6 +67,39 @@ pub(super) fn resolve_jvm(
     None
 }
 
+fn resolve_candidates<'a>(
+    raw: &str,
+    extensions: &[&str],
+    candidates: impl Fn(&str) -> Vec<&'a PathBuf>,
+) -> Option<PathBuf> {
+    for type_path in type_path_candidates(raw) {
+        let type_name = type_path.rsplit('/').next().unwrap_or(&type_path);
+        let mut matches = candidates(type_name)
+            .into_iter()
+            .filter(|path| declares_type(path, &type_path, extensions))
+            .collect::<Vec<_>>();
+        if matches.is_empty() {
+            continue;
+        }
+        // A test or fixture source set never shadows production code; only when
+        // every candidate is a test set does one of those stay eligible.
+        let production = matches
+            .iter()
+            .filter(|path| !is_test_source_set(path))
+            .count();
+        if production > 0 {
+            matches.retain(|path| !is_test_source_set(path));
+        }
+        if matches.len() == 1 {
+            return Some(normalize_path(matches[0]));
+        }
+        // Two source sets declare the same type; the build picks one by variant
+        // and this resolver cannot know which.
+        return None;
+    }
+    None
+}
+
 /// The package paths that could name the declaring file, longest first:
 /// the import itself, then the same import with trailing member segments
 /// dropped while the remaining tail still looks like a type name.
@@ -133,3 +166,11 @@ fn starts_uppercase(segment: &str) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+#[path = "jvm/index.rs"]
+mod index;
+pub(super) use index::JvmIndex;
+
+#[cfg(test)]
+#[path = "jvm/index_tests.rs"]
+mod index_tests;
