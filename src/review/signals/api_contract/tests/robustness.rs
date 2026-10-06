@@ -45,7 +45,7 @@ fn namespace_exports_are_not_direct_module_exports() {
 }
 
 #[test]
-fn default_semantic_export_and_import_specifiers_are_excluded() {
+fn default_semantic_specifiers_retain_reserved_name() {
     for source_text in [
         concat!(
             "const value = 1;\n",
@@ -60,24 +60,9 @@ fn default_semantic_export_and_import_specifiers_are_excluded() {
     ] {
         let facts = extract_javascript_symbol_facts(&source(source_text))
             .expect("supported TypeScript source");
-        assert!(facts.exports.is_empty(), "{:#?}", facts.exports);
-        assert!(facts.imports.is_empty(), "{:#?}", facts.imports);
-    }
-}
-
-#[test]
-fn default_semantic_specifiers_cannot_produce_a_removed_export_signal() {
-    for (pre, caller) in [
-        (
-            "const value = 1;\nexport { value as default };\n",
-            "import { default as local } from \"./api.ts\";\n",
-        ),
-        (
-            "const value = 1;\nexport { value as \"default\" };\n",
-            "import { \"default\" as local } from \"./api.ts\";\n",
-        ),
-    ] {
-        assert_no_signal(pre, "const value = 1;\n", caller);
+        assert_eq!(facts.exports[0].name, "default");
+        assert_eq!(facts.imports[0].imported_name, "default");
+        assert_eq!(facts.imports[0].local_name, "local");
     }
 }
 

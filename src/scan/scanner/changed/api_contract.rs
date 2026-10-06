@@ -1,3 +1,6 @@
+#[path = "api_contract_source.rs"]
+mod source_facts;
+
 use crate::analysis::ParsedArtifact;
 use crate::analysis::api_contract::{
     JavaScriptContractFactProvider, RemovedExportOccurrence, detect_removed_export_imports,
@@ -175,12 +178,23 @@ impl JavaScriptContractFactProvider for ScanFactProvider<'_> {
     }
 
     fn current_facts(&mut self, path: &Path) -> Option<JavaScriptSymbolFacts> {
-        if let Some(artifact) = self.changed_artifact(path) {
-            return artifact.javascript_symbols.clone();
+        if let Some(artifact) = self.changed_artifact(path)
+            && let Some(symbols) = artifact.javascript_symbols.as_ref()
+        {
+            return Some(symbols.clone());
         }
-        let (hash, language) = self.current_cache_key(path)?;
-        self.parsed_cache
-            .lookup_javascript_symbols(&hash, language.as_deref())
+        if let Some((hash, language)) = self.current_cache_key(path)
+            && let Some(facts) = self
+                .parsed_cache
+                .lookup_javascript_symbols(&hash, language.as_deref())
+        {
+            return Some(facts);
+        }
+        let file = self
+            .repo_files
+            .iter()
+            .find(|file| repository_relative(&file.path, self.repo_root) == path)?;
+        source_facts::rebuild(self.repo_root, path, self.target, file, self.parsed_cache)
     }
 }
 
@@ -193,8 +207,13 @@ fn occurrence_to_finding(occurrence: &RemovedExportOccurrence) -> Finding {
         .exporter_path
         .to_string_lossy()
         .replace('\\', "/");
+    let import_form = if occurrence.exported_name == "default" {
+        "default"
+    } else {
+        "named"
+    };
     let snippet = format!(
-        "named {symbol_kind} import '{} as {}' from '{}' resolves to '{}'",
+        "{import_form} {symbol_kind} import '{} as {}' from '{}' resolves to '{}'",
         occurrence.exported_name, occurrence.local_name, occurrence.module_specifier, exporter,
     );
 

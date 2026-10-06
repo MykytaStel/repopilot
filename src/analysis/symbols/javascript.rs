@@ -1,3 +1,6 @@
+mod defaults;
+use defaults::{has_direct_type_modifier, span};
+
 use super::{ExportedSymbolFact, ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind};
 use crate::languages::import_support::extract_string_literal;
 use tree_sitter::Node;
@@ -34,6 +37,9 @@ fn extract_program(program: Node<'_>, content: &str, facts: &mut JavaScriptSymbo
         match statement.kind() {
             "export_statement" => extract_export(statement, content, facts),
             "import_statement" => extract_import(statement, content, facts),
+            _ if defaults::uncertain_supply(statement, content) => {
+                facts.re_exports.push("default".to_string())
+            }
             _ => {}
         }
     }
@@ -44,7 +50,12 @@ fn extract_export(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFac
         extract_re_export(node, content, facts);
         return;
     }
+    if has_direct_kind(node, "=") {
+        facts.re_exports.push("default".to_string());
+        return;
+    }
     if has_direct_kind(node, "default") {
+        defaults::extract_export(node, content, facts);
         return;
     }
     let statement_kind = if has_direct_type_modifier(node) {
@@ -117,7 +128,7 @@ fn collect_re_exported_names(clause: Node<'_>, content: &str, facts: &mut JavaSc
         // so only the exported side is checked for the `default` name.
         let name = semantic_field_text(specifier, "alias", content)
             .or_else(|| semantic_field_text(specifier, "name", content));
-        if let Some(name) = name.filter(|name| *name != "default") {
+        if let Some(name) = name {
             facts.re_exports.push(name.to_string());
         }
     }
@@ -136,7 +147,11 @@ fn extract_export_clause(
         }
         let local_name = semantic_field_text(specifier, "name", content);
         let name = semantic_field_text(specifier, "alias", content).or(local_name);
-        if local_name == Some("default") || name == Some("default") {
+        if local_name == Some("default") {
+            continue;
+        }
+        if name == Some("default") && !defaults::is_local_binding(specifier, local_name, content) {
+            facts.re_exports.push("default".to_string());
             continue;
         }
         if let Some(name) = name {
@@ -199,6 +214,7 @@ fn extract_import(node: Node<'_>, content: &str, facts: &mut JavaScriptSymbolFac
     } else {
         SymbolKind::Value
     };
+    defaults::extract_import(node, content, module_specifier, statement_kind, facts);
     if let Some(named_imports) = find_descendant(node, "named_imports") {
         extract_named_imports(
             named_imports,
@@ -225,9 +241,6 @@ fn extract_named_imports(
         let Some(imported_name) = semantic_field_text(specifier, "name", content) else {
             continue;
         };
-        if imported_name == "default" {
-            continue;
-        }
         let local_name = field_text(specifier, "alias", content).unwrap_or(imported_name);
         let (line_start, line_end) = span(specifier);
         facts.imports.push(ImportedSymbolFact {
@@ -245,10 +258,6 @@ fn extract_named_imports(
             byte_end: specifier.end_byte(),
         });
     }
-}
-
-fn has_direct_type_modifier(node: Node<'_>) -> bool {
-    has_direct_kind(node, "type") || has_direct_kind(node, "typeof")
 }
 
 fn has_direct_kind(node: Node<'_>, kind: &str) -> bool {
@@ -283,10 +292,6 @@ fn semantic_field_text<'a>(node: Node<'_>, field: &str, content: &'a str) -> Opt
     } else {
         Some(text)
     }
-}
-
-fn span(node: Node<'_>) -> (usize, usize) {
-    (node.start_position().row + 1, node.end_position().row + 1)
 }
 
 #[cfg(test)]

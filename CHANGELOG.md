@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Removed direct JS/TS default exports now retain surviving relative default-import
+  evidence in review and changed scans, including CLI/MCP and cached paths.
+  Conservative forwarding and parser limits remain; verified with synthetic fixtures.
+
 - TypeScript/JavaScript aliases now observe effective tsconfig/jsconfig content
   changes during one process. Config-only alias remaps also rebuild cached
   repository relationships; unchanged effective inputs retain cache reuse.

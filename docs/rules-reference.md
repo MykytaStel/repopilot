@@ -235,11 +235,11 @@ A supported explicit local import does not resolve to any bounded source-file ca
 - **Cache policy:** per-change-set
 - **Produces:** finding
 
-A changed TypeScript or JavaScript module removed a named export while a surviving direct local caller still imports that symbol from the same resolved module.
+A changed TypeScript or JavaScript module removed a named or direct default export while a surviving direct local caller still imports that symbol from the same resolved module.
 
 **Recommendation:** Restore the removed export or update every surviving caller, then run the repository's declared type-check, build, or focused tests.
 
-**Known false positives:** Only direct relative named imports with exact resolver proof are reported. Default and namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST/cache evidence are intentionally outside this claim.
+**Known false positives:** Only direct relative named or default imports with exact resolver proof are reported. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 

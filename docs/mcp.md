@@ -229,15 +229,15 @@ storage, and unsafe opt-in cases.
 
 In B2.1, `repopilot_review_change` can return the review-only
 `behavioral.removed-export-still-imported` signal. It is High-confidence and
-definitely-sensitive only when a direct named import in a supported local
+definitely-sensitive only when a direct named or default import in a supported local
 `.ts`, `.tsx`, `.js`, or `.jsx` caller has the resolver, using the selected
 review target's file inventory, select a changed module that removed the
-corresponding named export. The signal's `path` is the caller evidence and its
+corresponding named or default export. The signal's `path` is the caller evidence and its
 optional `target_path` is the exporter used for impact lookup. Use the
 existing `repopilot_explain_review_signal` tool with the retained `signal_id`
 to replay its canonical provenance, impact, gate state, verification plan, and
-limitations. This does not add an MCP tool or `scan --changed` parity: path
-aliases, package imports, default/namespace imports, re-exports, CommonJS/dynamic forms,
+limitations. This adds no MCP tool; `scan --changed` shares the occurrence facts: path
+aliases, package imports, namespace imports, re-exports, CommonJS/dynamic forms,
 and imports whose selected-target resolver selection is not the changed exporter are
 outside the broken-code claim. RepoPilot never runs arbitrary commands supplied
 by an MCP caller; the returned verification plan is guidance unless the caller

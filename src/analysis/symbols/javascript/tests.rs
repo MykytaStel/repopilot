@@ -39,3 +39,27 @@ fn symbol_facts_round_trip_without_losing_spans() {
             && fact.byte_end > fact.byte_start
     }));
 }
+
+#[test]
+fn default_facts_round_trip_preserves_distinct_import_occurrences() {
+    let source = "export default () => 42;\nimport first, { default as second } from './api';\n";
+    let mut parser = Parser::new();
+    parser
+        .set_language(&tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into())
+        .unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let facts = extract_javascript_symbol_facts(source, Some("TypeScript"), &tree).unwrap();
+    let encoded = serde_json::to_string(&facts).unwrap();
+    let decoded: JavaScriptSymbolFacts = serde_json::from_str(&encoded).unwrap();
+    assert_eq!(facts, decoded);
+    assert_eq!(facts.exports[0].name, "default");
+    assert_eq!(facts.imports.len(), 2);
+    assert!(
+        facts
+            .imports
+            .iter()
+            .all(|import| import.imported_name == "default")
+    );
+    assert_ne!(facts.imports[0].local_name, facts.imports[1].local_name);
+    assert_ne!(facts.imports[0].byte_start, facts.imports[1].byte_start);
+}
