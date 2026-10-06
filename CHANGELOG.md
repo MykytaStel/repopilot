@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- C# review now follows straight-line local command `CommandText` assignments to
+  the existing six SQL execution methods, retaining source, property and execution
+  lines through CLI/MCP. Conservative scope and receiver controls are fixture-tested.
+
 - Rust removed public free functions now retain direct caller evidence through
   unambiguous file-backed child modules declared in the caller, in review and
   changed scans. CLI/MCP and cache parity are verified with synthetic fixtures;
