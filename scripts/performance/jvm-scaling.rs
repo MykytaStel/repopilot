@@ -35,13 +35,17 @@ fn workload(size: usize) -> (HashSet<PathBuf>, Vec<(String, Option<PathBuf>)>) {
     (files, imports)
 }
 
-fn main() {
-    let size = std::env::args()
-        .nth(1)
-        .map(|v| v.parse().unwrap())
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut args = std::env::args().skip(1);
+    let size = args
+        .next()
+        .map(|value| value.parse::<usize>())
+        .transpose()?
         .unwrap_or(3000);
-    let algorithm = std::env::args().nth(2).unwrap_or_else(|| "indexed".into());
-    assert!(["scan", "indexed"].contains(&algorithm.as_str()));
+    let algorithm = args.next().unwrap_or_else(|| "indexed".into());
+    if !["scan", "indexed"].contains(&algorithm.as_str()) {
+        return Err(format!("unknown algorithm {algorithm:?}; expected scan or indexed").into());
+    }
     let start = Instant::now();
     let (files, imports) = workload(size);
     println!(
@@ -78,4 +82,5 @@ fn main() {
             actual.iter().filter(|p| p.is_none()).count()
         );
     }
+    Ok(())
 }

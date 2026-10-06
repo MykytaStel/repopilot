@@ -97,7 +97,7 @@ fn proven_module(
     root: &Path,
     files: &HashSet<PathBuf>,
 ) -> Option<String> {
-    if !importer.extension().is_some_and(|ext| ext == "rs") {
+    if importer.extension().is_none_or(|ext| ext != "rs") {
         return Some(import.module_specifier.clone());
     }
     let module = if let Some(name) = import.module_specifier.strip_prefix("crate::") {
