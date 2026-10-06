@@ -78,7 +78,10 @@ It does not follow arbitrary sibling callers or crate module hierarchies,
 (including cfg/path), macros, inline modules and malformed syntax cause the
 whole source to abstain. Foreign declarations and nested imports/modules also abstain; associated
 methods and generic-function call sites are excluded. Function signatures,
-fields, types and trait contracts are not compared. A preserved public name
+fields, types and trait contracts are not compared. Bare qualified calls
+are excluded when a lexical block declares a matching struct, enum, union,
+type alias or trait; explicit self::/crate:: qualification and top-level
+imports keep their module proof, and neighboring blocks keep their own scope. A preserved public name
 or a coordinated current caller edit/removal does not establish a broken
 contract. Retaining a private/pub(crate) definition or replacing it with a
 same-name item is deliberately deferred: this slice detects definition removal,

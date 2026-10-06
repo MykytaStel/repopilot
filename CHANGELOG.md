@@ -12,6 +12,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   unambiguous file-backed child modules declared in the caller, in review and
   changed scans. CLI/MCP and cache parity are verified with synthetic fixtures;
   cfg/macros, forwarding, signatures and arbitrary crate paths remain bounded.
+  Bare qualified calls shadowed by local type items stay silent; explicit
+  module qualification and imports preserve their evidence.
 
 - Removed direct JS/TS default exports now retain surviving relative default-import
   evidence in review and changed scans, including CLI/MCP and cached paths.

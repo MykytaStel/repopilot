@@ -169,3 +169,47 @@ fn rust_uncertain_paths_and_opaque_syntax_cannot_prove_removal() {
     }
     assert!(rust_case(before, after, "mod api; use api::load;", true).is_empty());
 }
+
+#[test]
+fn rust_local_type_shadowing_is_not_a_module_call() {
+    let caller = "mod api; fn run() { struct api; impl api { fn load() {} } api::load(); }";
+    assert!(rust_case("pub fn load() {}", "pub fn save() {}", caller, false).is_empty());
+    assert_eq!(
+        rust_case(
+            "pub fn load() {}",
+            "pub fn save() {}",
+            "mod api; fn run() { api::load(); }",
+            false
+        )
+        .len(),
+        1
+    );
+}
+
+#[test]
+fn rust_shadowing_respects_block_scope_and_explicit_qualification() {
+    for item in [
+        "struct api;",
+        "enum api { Variant }",
+        "union api { value: usize }",
+        "type api = ();",
+        "trait api {}",
+    ] {
+        let caller = format!("mod api; fn run() {{ api::load(); {item} }}");
+        assert!(
+            rust_case("pub fn load() {}", "pub fn save() {}", &caller, false).is_empty(),
+            "{item}"
+        );
+    }
+    for caller in [
+        "mod api; fn run() { struct api; self::api::load(); crate::api::load(); }",
+        "mod api; use api::load; fn run() { struct api; api::load(); } fn other() { api::load(); }",
+        "mod api; fn run() { { struct api; api::load(); } api::load(); self::api::load(); }",
+    ] {
+        assert_eq!(
+            rust_case("pub fn load() {}", "pub fn save() {}", caller, false).len(),
+            2,
+            "{caller}"
+        );
+    }
+}

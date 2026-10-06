@@ -49,7 +49,7 @@ pub(super) fn extract(content: &str, tree: &Tree) -> Option<JavaScriptSymbolFact
             extract_use(node, content, &modules, &mut facts);
         }
     }
-    extract_calls(root, content, &modules, &mut facts);
+    extract_calls(root, content, &modules, &BTreeSet::new(), &mut facts);
     facts.exports.sort();
     facts.imports.sort();
     facts.imports.dedup();
@@ -118,6 +118,7 @@ fn extract_calls(
     node: Node<'_>,
     content: &str,
     modules: &BTreeSet<&str>,
+    inherited_shadowing: &BTreeSet<String>,
     facts: &mut JavaScriptSymbolFacts,
 ) {
     if matches!(node.kind(), "impl_item" | "trait_item")
@@ -125,15 +126,43 @@ fn extract_calls(
     {
         return;
     }
+    let mut shadowing = inherited_shadowing.clone();
+    if node.kind() == "block" {
+        collect_type_bindings(node, content, &mut shadowing);
+    }
     if node.kind() == "call_expression"
         && let Some(function) = node.child_by_field_name("function")
         && function.kind() == "scoped_identifier"
     {
-        record(function, function, None, content, modules, facts);
+        let qualifier = text(function, content)
+            .split("::")
+            .next()
+            .unwrap_or("")
+            .trim();
+        if !shadowing.contains(qualifier) {
+            record(function, function, None, content, modules, facts);
+        }
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        extract_calls(child, content, modules, facts);
+        extract_calls(child, content, modules, &shadowing, facts);
+    }
+}
+
+fn collect_type_bindings(node: Node<'_>, content: &str, bindings: &mut BTreeSet<String>) {
+    // Rust block items are in scope throughout their block, even before their
+    // declaration. Only type-namespace items shadow a bare module qualifier;
+    // self::/crate:: paths and neighboring blocks retain their module proof.
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        if matches!(
+            child.kind(),
+            "struct_item" | "enum_item" | "union_item" | "type_item" | "trait_item"
+        ) && let Some(name) = child.child_by_field_name("name")
+        {
+            bindings.insert(text(name, content).trim_start_matches("r#").into());
+            bindings.insert(text(name, content).into());
+        }
     }
 }
 

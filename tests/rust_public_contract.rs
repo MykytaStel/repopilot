@@ -108,3 +108,49 @@ fn rust_same_line_qualified_calls_keep_occurrence_identity() {
     std::fs::remove_file(root.join("src/lib.rs")).unwrap();
     scan::assert_rule_absent(&scan::scan_json(root, &["--changed"]));
 }
+
+#[test]
+fn rust_shadowed_calls_are_safe_across_cold_warm_and_previous_rust_cache() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    review::init_repo(root);
+    review::write(root, "src/api.rs", "pub fn load() {}\n");
+    review::write(
+        root,
+        "src/lib.rs",
+        "mod api; fn run() { struct api; impl api { fn load() {} } api::load(); }\n",
+    );
+    review::commit_all(root, "before");
+    review::write(root, "src/api.rs", "pub fn save() {}\n");
+    for _ in 0..2 {
+        let report = review::run_review_json(root, &["review", ".", "--format", "json"]);
+        assert!(review::b21_records(&report).is_empty());
+        scan::assert_rule_absent(&scan::scan_json(root, &["--changed"]));
+    }
+    let path = root.join(".repopilot/cache/parsed_facts_v2.json");
+    let mut cache: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    cache["schema_version"] = 8.into();
+    cache["analysis_version"] =
+        "tree-sitter-imports-exports-default-rust-symbols-spans-guarded-syntax-v7".into();
+    for entry in cache["entries"].as_array_mut().unwrap() {
+        if entry["javascript_symbols"]["exports"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+        {
+            entry["javascript_symbols"]["imports"] = serde_json::json!([{
+                "imported_name":"load", "local_name":"load", "kind":"Value", "module_specifier":"mod::api",
+                "line_start":1, "line_end":1, "byte_start":72, "byte_end":81
+            }]);
+        }
+    }
+    std::fs::write(&path, serde_json::to_vec(&cache).unwrap()).unwrap();
+    scan::assert_rule_absent(&scan::scan_json(root, &["--changed"]));
+    let rebuilt: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    assert_eq!(rebuilt["schema_version"], 9);
+    review::write(
+        root,
+        "src/lib.rs",
+        "mod api; fn run() { struct api; self::api::load(); }\n",
+    );
+    scan::finding_for_rule(&scan::scan_json(root, &["--changed"]));
+}
