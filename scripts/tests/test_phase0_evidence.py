@@ -46,9 +46,9 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         )
 
         rule_quality = report["tracks"][2]
-        self.assertEqual(rule_quality["observation"]["rules_total"], 54)
+        self.assertEqual(rule_quality["observation"]["rules_total"], 55)
         self.assertEqual(rule_quality["observation"]["default_rules_measured"], 6)
-        self.assertEqual(rule_quality["observation"]["default_rules_unmeasured"], 48)
+        self.assertEqual(rule_quality["observation"]["default_rules_unmeasured"], 49)
         self.assertEqual(rule_quality["observation"]["labeled_default_findings"], 25)
 
     def test_audit_mode_is_open_but_require_complete_fails_closed(self) -> None:
@@ -95,8 +95,8 @@ class Phase0EvidenceReportTests(unittest.TestCase):
 
         text = phase0_evidence.render_text(report)
         markdown = phase0_evidence.render_markdown(report)
-        self.assertIn("rules_total=54", text)
-        self.assertIn("default_rules_unmeasured=48", text)
+        self.assertIn("rules_total=55", text)
+        self.assertIn("default_rules_unmeasured=49", text)
         self.assertIn("labeled_default_findings=25", markdown)
 
     def test_tampered_real_history_artifact_is_invalid(self) -> None:

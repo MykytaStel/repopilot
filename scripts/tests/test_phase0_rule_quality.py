@@ -25,9 +25,9 @@ class Phase0RuleQualityTests(unittest.TestCase):
         first = rule_quality.inspect_rule_quality(self.paths)
         second = rule_quality.inspect_rule_quality(self.paths)
 
-        self.assertEqual(first["observation"]["rules_total"], 54)
+        self.assertEqual(first["observation"]["rules_total"], 55)
         self.assertEqual(first["observation"]["default_rules_measured"], 6)
-        self.assertEqual(first["observation"]["default_rules_unmeasured"], 48)
+        self.assertEqual(first["observation"]["default_rules_unmeasured"], 49)
         self.assertEqual(first["observation"]["labeled_default_findings"], 25)
         self.assertEqual(first["observation"]["strict_sampled_rules"], 10)
         self.assertEqual(first["observation"]["strict_sampled_findings"], 32)
