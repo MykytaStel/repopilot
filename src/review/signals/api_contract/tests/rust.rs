@@ -29,6 +29,87 @@ fn rust_removed_public_function_has_proven_surviving_import() {
     assert_eq!(signals[0].importer_path, PathBuf::from("src/lib.rs"));
 }
 
+#[test]
+fn rust_arity_controls_require_a_previously_matching_direct_call() {
+    for (before, after, caller) in [
+        (
+            "pub fn load(user: usize) {}",
+            "pub fn load(user: usize, mode: bool) {}",
+            "mod api; fn run() { api::load(1, true); }",
+        ),
+        (
+            "pub fn load(user: usize) {}",
+            "pub fn load(user: String) {}",
+            "mod api; fn run() { api::load(1); }",
+        ),
+        (
+            "pub fn load<T>(user: T) {}",
+            "pub fn load<T>(user: T, mode: bool) {}",
+            "mod api; fn run() { api::load::<usize>(1); }",
+        ),
+        (
+            "pub fn load(user: usize) {}",
+            "pub fn load(user: usize, mode: bool) {}",
+            "mod api; use api::load as fetch; fn run() { fetch(1); }",
+        ),
+        (
+            "pub fn load(user: usize) {}",
+            "pub fn save(user: usize, mode: bool) {}",
+            "mod api; fn run() { api::load(1); }",
+        ),
+    ] {
+        let signals = rust_case(before, after, caller, false);
+        assert!(
+            signals
+                .iter()
+                .all(|signal| !matches!(signal.change, ContractChange::RustFunctionArity { .. })),
+            "{before} -> {after}: {caller}"
+        );
+    }
+}
+
+#[test]
+fn rust_changed_public_function_arity_flags_a_surviving_call_with_old_arity() {
+    let signals = rust_case(
+        "pub fn load(user: usize) {}\n",
+        "pub fn load(user: usize, mode: bool) {}\n",
+        "mod api;\nfn run() { api::load(1); }\n",
+        false,
+    );
+
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].exported_name, "load");
+    assert_eq!(signals[0].importer_path, PathBuf::from("src/lib.rs"));
+    assert_eq!(
+        signals[0].change,
+        ContractChange::RustFunctionArity {
+            before: 1,
+            after: 2,
+            call_arguments: 1,
+        }
+    );
+}
+
+#[test]
+fn rust_decreased_public_function_arity_flags_a_surviving_old_call() {
+    let signals = rust_case(
+        "pub fn load(user: usize, mode: bool) {}",
+        "pub fn load(user: usize) {}",
+        "mod api; fn run() { api::load(1, true); }",
+        false,
+    );
+
+    assert_eq!(signals.len(), 1);
+    assert_eq!(
+        signals[0].change,
+        ContractChange::RustFunctionArity {
+            before: 2,
+            after: 1,
+            call_arguments: 2,
+        }
+    );
+}
+
 fn rust_case(
     before: &str,
     after: &str,

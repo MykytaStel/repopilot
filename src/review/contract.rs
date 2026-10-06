@@ -15,6 +15,7 @@ pub enum ContractFamily {
 #[serde(rename_all = "kebab-case")]
 pub enum ContractChangeKind {
     RemovedExport,
+    FunctionArityChanged,
     Added,
     Removed,
     Upgraded,
@@ -58,7 +59,10 @@ pub struct ChangeProofContractDelta {
 impl ChangeProofContractDelta {
     pub(crate) fn is_broken(&self) -> bool {
         self.family == ContractFamily::PublicSymbol
-            && self.change == ContractChangeKind::RemovedExport
+            && matches!(
+                self.change,
+                ContractChangeKind::RemovedExport | ContractChangeKind::FunctionArityChanged
+            )
     }
 }
 

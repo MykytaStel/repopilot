@@ -1,6 +1,11 @@
 //! Bounded Rust facts: top-level `pub fn` and imports through a module declared
 //! in the same file. Attributes, macro expansion and inline modules are opaque.
-use super::{ExportedSymbolFact, ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind};
+mod exports;
+mod paths;
+
+use super::{ImportedSymbolFact, JavaScriptSymbolFacts, RustContractFacts, SymbolKind};
+use exports::record_public_function;
+use paths::{record_call, resolved_path};
 use std::collections::BTreeSet;
 use tree_sitter::{Node, Tree};
 
@@ -9,51 +14,82 @@ pub(super) fn extract(content: &str, tree: &Tree) -> Option<JavaScriptSymbolFact
     if root.has_error() || contains_opaque(root) {
         return None;
     }
-    let mut facts = JavaScriptSymbolFacts::default();
+    let mut facts = JavaScriptSymbolFacts {
+        rust_contracts: Some(RustContractFacts::default()),
+        ..JavaScriptSymbolFacts::default()
+    };
+    let modules = top_level_facts(root, content, &mut facts)?;
+    extract_uses(root, content, &modules, &mut facts);
+    extract_calls(root, content, &modules, &BTreeSet::new(), &mut facts);
+    sort_facts(&mut facts);
+    Some(facts)
+}
+
+fn top_level_facts<'a>(
+    root: Node<'_>,
+    content: &'a str,
+    facts: &mut JavaScriptSymbolFacts,
+) -> Option<BTreeSet<&'a str>> {
     let mut modules = BTreeSet::new();
     let mut cursor = root.walk();
     for node in root.named_children(&mut cursor) {
-        match node.kind() {
-            "function_item" if public(node, content) => {
-                let name = node.child_by_field_name("name")?;
-                facts.exports.push(ExportedSymbolFact {
-                    name: text(name, content).into(),
-                    kind: SymbolKind::Value,
-                    line_start: node.start_position().row + 1,
-                    line_end: node.end_position().row + 1,
-                });
-            }
-            "mod_item" => {
-                if node.child_by_field_name("body").is_none() {
-                    let name = text(node.child_by_field_name("name")?, content);
-                    modules.insert(name);
-                    facts.re_exports.push(name.into());
-                }
-            }
-            // A forwarded name may replace a removed definition. We cannot
-            // establish its origin, so withhold removal facts for this file.
-            "use_declaration" if has_visibility(node) => return None,
-            _ if node.child_by_field_name("name").is_some() => {
-                // A preserved name with different visibility/item kind is not
-                // function removal; do not infer type or visibility contracts.
-                facts
-                    .re_exports
-                    .push(text(node.child_by_field_name("name")?, content).into());
-            }
-            _ => {}
-        }
+        collect_top_level_node(node, content, &mut modules, facts)?;
     }
+    Some(modules)
+}
+
+fn collect_top_level_node<'a>(
+    node: Node<'_>,
+    content: &'a str,
+    modules: &mut BTreeSet<&'a str>,
+    facts: &mut JavaScriptSymbolFacts,
+) -> Option<()> {
+    if node.kind() == "function_item" && public(node, content) {
+        record_public_function(node, content, facts)?;
+        return Some(());
+    }
+    if node.kind() == "mod_item" && node.child_by_field_name("body").is_none() {
+        let name = text(node.child_by_field_name("name")?, content);
+        modules.insert(name);
+        facts.re_exports.push(name.into());
+        return Some(());
+    }
+    // A forwarded name may replace a removed definition. We cannot establish
+    // its origin, so withhold removal facts for this file.
+    if node.kind() == "use_declaration" && has_visibility(node) {
+        return None;
+    }
+    // A preserved name with different visibility/item kind is not function
+    // removal; do not infer type or visibility contracts.
+    if let Some(name) = node.child_by_field_name("name") {
+        facts.re_exports.push(text(name, content).into());
+    }
+    Some(())
+}
+
+fn extract_uses(
+    root: Node<'_>,
+    content: &str,
+    modules: &BTreeSet<&str>,
+    facts: &mut JavaScriptSymbolFacts,
+) {
     let mut cursor = root.walk();
     for node in root.named_children(&mut cursor) {
         if node.kind() == "use_declaration" {
-            extract_use(node, content, &modules, &mut facts);
+            extract_use(node, content, modules, facts);
         }
     }
-    extract_calls(root, content, &modules, &BTreeSet::new(), &mut facts);
+}
+
+fn sort_facts(facts: &mut JavaScriptSymbolFacts) {
     facts.exports.sort();
     facts.imports.sort();
     facts.imports.dedup();
-    Some(facts)
+    if let Some(contracts) = facts.rust_contracts.as_mut() {
+        contracts.functions.sort();
+        contracts.calls.sort();
+        contracts.calls.dedup();
+    }
 }
 
 fn public(node: Node<'_>, content: &str) -> bool {
@@ -114,6 +150,29 @@ fn extract_use(
     record(path, node, alias, content, modules, facts);
 }
 
+fn record(
+    path: Node<'_>,
+    span: Node<'_>,
+    alias: Option<&str>,
+    content: &str,
+    modules: &BTreeSet<&str>,
+    facts: &mut JavaScriptSymbolFacts,
+) {
+    let Some((name, module_specifier)) = resolved_path(path, content, modules) else {
+        return;
+    };
+    facts.imports.push(ImportedSymbolFact {
+        imported_name: name.into(),
+        local_name: alias.unwrap_or(name).into(),
+        kind: SymbolKind::Value,
+        module_specifier,
+        line_start: span.start_position().row + 1,
+        line_end: span.end_position().row + 1,
+        byte_start: span.start_byte(),
+        byte_end: span.end_byte(),
+    });
+}
+
 fn extract_calls(
     node: Node<'_>,
     content: &str,
@@ -134,18 +193,33 @@ fn extract_calls(
         && let Some(function) = node.child_by_field_name("function")
         && function.kind() == "scoped_identifier"
     {
-        let qualifier = text(function, content)
-            .split("::")
-            .next()
-            .unwrap_or("")
-            .trim();
-        if !shadowing.contains(qualifier) {
-            record(function, function, None, content, modules, facts);
-        }
+        record_qualified_call(node, function, content, modules, &shadowing, facts);
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
         extract_calls(child, content, modules, &shadowing, facts);
+    }
+}
+
+fn record_qualified_call(
+    call: Node<'_>,
+    function: Node<'_>,
+    content: &str,
+    modules: &BTreeSet<&str>,
+    shadowing: &BTreeSet<String>,
+    facts: &mut JavaScriptSymbolFacts,
+) {
+    let qualifier = text(function, content)
+        .split("::")
+        .next()
+        .unwrap_or("")
+        .trim();
+    if shadowing.contains(qualifier) {
+        return;
+    }
+    record(function, function, None, content, modules, facts);
+    if let Some(arguments) = call.child_by_field_name("arguments") {
+        record_call(function, arguments, content, modules, facts);
     }
 }
 
@@ -166,39 +240,6 @@ fn collect_type_bindings(node: Node<'_>, content: &str, bindings: &mut BTreeSet<
     }
 }
 
-fn record(
-    path: Node<'_>,
-    span: Node<'_>,
-    alias: Option<&str>,
-    content: &str,
-    modules: &BTreeSet<&str>,
-    facts: &mut JavaScriptSymbolFacts,
-) {
-    let segments = text(path, content)
-        .split("::")
-        .map(str::trim)
-        .collect::<Vec<_>>();
-    let (module, name, crate_path) = match segments.as_slice() {
-        [module, name] => (*module, *name, false),
-        ["self", module, name] => (*module, *name, false),
-        ["crate", module, name] => (*module, *name, true),
-        _ => return,
-    };
-    if !modules.contains(module) {
-        return;
-    }
-    facts.imports.push(ImportedSymbolFact {
-        imported_name: name.into(),
-        local_name: alias.unwrap_or(name).into(),
-        kind: SymbolKind::Value,
-        module_specifier: format!("{}::{module}", if crate_path { "crate" } else { "mod" }),
-        line_start: span.start_position().row + 1,
-        line_end: span.end_position().row + 1,
-        byte_start: span.start_byte(),
-        byte_end: span.end_byte(),
-    });
-}
-
-fn text<'a>(node: Node<'_>, content: &'a str) -> &'a str {
+pub(super) fn text<'a>(node: Node<'_>, content: &'a str) -> &'a str {
     &content[node.byte_range()]
 }

@@ -5,6 +5,7 @@ use super::proof::{
 use super::{MergeReadinessRecord, ReadinessReason, ReadinessReasonCode, ReadinessVerdict};
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::Confidence;
+use crate::review::contract::ContractChangeKind;
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange, DiffHunk};
 use crate::review::model::ReviewReport;
 use crate::review::signals::tiered::{
@@ -586,6 +587,38 @@ fn removed_export_contract_creates_typecheck_obligation_without_signal_plan() {
         derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
 
     assert_eq!(proof.contract_deltas.len(), 1);
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unselected, 1);
+}
+
+#[test]
+fn rust_arity_contract_is_a_broken_public_symbol_with_typecheck_obligation() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    let mut signal = access_control_signal();
+    signal.kind = "behavioral.rust-public-function-arity-changed".to_string();
+    signal.family = SignalFamily::Behavioral;
+    signal.target_path = Some("src/api.rs".to_string());
+    signal.path = "src/lib.rs".to_string();
+    signal.verification_plan = None;
+    report.tiered_signals.definitely.push(signal);
+    report.verification_policy = VerificationPolicy {
+        configured: vec![VerificationPolicyCheck {
+            id: "types".to_string(),
+            role: VerificationRole::TypeCheck,
+            paths: Vec::new(),
+        }],
+        selected: Vec::new(),
+    };
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Broken);
+    assert_eq!(proof.contract_deltas.len(), 1);
+    assert_eq!(
+        proof.contract_deltas[0].change,
+        ContractChangeKind::FunctionArityChanged
+    );
     assert_eq!(proof.obligations.applicable, 1);
     assert_eq!(proof.obligations.unselected, 1);
 }

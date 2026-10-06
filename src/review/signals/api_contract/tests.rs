@@ -2,6 +2,7 @@ use super::{
     ChangedReviewSources, SymbolKind, detect_removed_export_imports,
     extract_javascript_symbol_facts,
 };
+use crate::analysis::api_contract::ApiContractChange as ContractChange;
 use crate::review::diff::{ChangeStatus, ChangedFile, DiffTarget};
 use crate::review::signals::content::ReviewSource;
 use crate::scan::types::CouplingGraph;

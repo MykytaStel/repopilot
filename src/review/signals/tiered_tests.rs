@@ -4,6 +4,7 @@ use super::behavioral::{BehavioralKind, BehavioralSignal, BehavioralSignalSource
 use super::taint::{SinkKind, SourceKind, TaintSignal};
 use super::tiered::{ConfidenceTier, SignalFamily, build_tiered, build_tiered_with_api_contract};
 use super::{BoundaryCategory, BoundarySignal};
+use crate::analysis::api_contract::ApiContractChange as ContractChange;
 use crate::findings::types::Confidence;
 use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
 use crate::scan::types::CouplingGraph;
@@ -67,6 +68,7 @@ fn removed_export(
         line_end,
         byte_start: line_start * 100,
         byte_end: line_end * 100 + 10,
+        change: ContractChange::RemovedExport,
     }
 }
 

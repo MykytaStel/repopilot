@@ -170,9 +170,11 @@ fn required_verification_requirements(report: &ReviewReport) -> BTreeSet<Verific
         })
         .map(|signal| VerificationRequirement {
             role: match (signal.family, signal.kind.as_str()) {
-                (SignalFamily::Behavioral, "behavioral.removed-export-still-imported") => {
-                    VerificationRole::TypeCheck
-                }
+                (
+                    SignalFamily::Behavioral,
+                    "behavioral.removed-export-still-imported"
+                    | "behavioral.rust-public-function-arity-changed",
+                ) => VerificationRole::TypeCheck,
                 _ => VerificationRole::Test,
             },
             path: signal.path.clone(),
@@ -185,9 +187,10 @@ fn contract_requirement(delta: &ChangeProofContractDelta) -> Option<Verification
         return None;
     }
     let role = match (delta.family, delta.change) {
-        (ContractFamily::PublicSymbol, ContractChangeKind::RemovedExport) => {
-            VerificationRole::TypeCheck
-        }
+        (
+            ContractFamily::PublicSymbol,
+            ContractChangeKind::RemovedExport | ContractChangeKind::FunctionArityChanged,
+        ) => VerificationRole::TypeCheck,
         (ContractFamily::Delivery, _)
         | (ContractFamily::TestCoverage, ContractChangeKind::TestChanged)
         | (ContractFamily::SecurityBoundary, ContractChangeKind::EntryPointImpacted) => {

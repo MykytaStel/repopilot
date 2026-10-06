@@ -3,7 +3,7 @@
 <!-- @generated from the rule registry — do not edit by hand. -->
 <!-- Regenerate with `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`. -->
 
-RepoPilot ships 54 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
+RepoPilot ships 55 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
 
 ## Architecture
 
@@ -240,6 +240,25 @@ A changed TypeScript or JavaScript module removed a named or direct default expo
 **Recommendation:** Restore the removed export or update every surviving caller, then run the repository's declared type-check, build, or focused tests.
 
 **Known false positives:** JS/TS requires direct relative named or default imports with exact resolver proof. Rust requires an unambiguous plain child-module declaration in the caller; crate paths require src/lib.rs or src/main.rs. Rust attributes/cfg, macros, inline modules, forwarding, grouped/glob imports, arbitrary sibling paths, associated methods and generic-function call sites are outside this slice. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
+
+**Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
+
+### `behavioral.rust-public-function-arity-changed` — Rust public function arity changed
+
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Lifecycle:** preview
+- **Signal source:** ast
+- **Execution scope:** change-set
+- **Required facts:** git-diff, symbol-facts, imports, exports, dependency-graph, workspace-metadata
+- **Cache policy:** per-change-set
+- **Produces:** finding
+
+A changed Rust module changed the parameter count of a top-level public free function while an unambiguous direct local call still passes the previous count of arguments.
+
+**Recommendation:** Update the proven direct caller to match the new public function arity, or restore the previous signature, then run the Rust type-check or focused tests.
+
+**Known false positives:** Rust support is limited to non-generic top-level pub fn declarations and direct module-qualified calls through an unambiguous file-backed child module declared in the caller. The caller's current argument count must match the previous function parameter count. Bare imported calls, macros, attributes/cfg, generic or variadic functions, methods, ambiguous module proof, and same-arity type changes are outside this slice.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 

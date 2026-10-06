@@ -77,6 +77,25 @@ mod tests {
     }
 
     #[test]
+    fn rust_arity_rule_declares_change_set_symbol_graph_contract() {
+        let meta = lookup_rule_metadata("behavioral.rust-public-function-arity-changed")
+            .expect("Rust arity rule must be registered");
+
+        assert_eq!(meta.category, FindingCategory::CodeQuality);
+        assert_eq!(meta.default_severity, Severity::High);
+        assert_eq!(
+            meta.default_confidence,
+            crate::findings::types::Confidence::High
+        );
+        assert_eq!(meta.signal_source, SignalSource::Ast);
+        assert_eq!(meta.requirements.scope, RuleScope::ChangeSet);
+        assert_eq!(
+            meta.requirements.cache_policy,
+            RuleCachePolicy::PerChangeSet
+        );
+    }
+
+    #[test]
     fn known_rn_rule_returns_metadata() {
         let meta = lookup_rule_metadata("framework.react-native.inline-style");
         assert!(meta.is_some(), "inline-style rule must be in the registry");

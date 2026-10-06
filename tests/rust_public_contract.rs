@@ -146,11 +146,76 @@ fn rust_shadowed_calls_are_safe_across_cold_warm_and_previous_rust_cache() {
     std::fs::write(&path, serde_json::to_vec(&cache).unwrap()).unwrap();
     scan::assert_rule_absent(&scan::scan_json(root, &["--changed"]));
     let rebuilt: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    assert_eq!(rebuilt["schema_version"], 9);
+    assert_eq!(rebuilt["schema_version"], 10);
     review::write(
         root,
         "src/lib.rs",
         "mod api; fn run() { struct api; self::api::load(); }\n",
     );
     scan::finding_for_rule(&scan::scan_json(root, &["--changed"]));
+}
+
+#[test]
+fn rust_arity_break_flows_through_review_and_changed_scan_caches() {
+    const RULE_ID: &str = "behavioral.rust-public-function-arity-changed";
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    review::init_repo(root);
+    review::write(root, "src/api.rs", "pub fn load(user: usize) {}\n");
+    review::write(root, "src/lib.rs", "mod api;\nfn run() { api::load(1); }\n");
+    review::commit_all(root, "before arity change");
+    review::write(
+        root,
+        "src/api.rs",
+        "pub fn load(user: usize, mode: bool) {}\n",
+    );
+
+    let review_cold = review::run_review_json(root, &["review", ".", "--format", "json"]);
+    let review_signals = arity_signals(&review_cold, RULE_ID);
+    assert_eq!(review_signals.len(), 1, "{review_cold:#?}");
+    assert_eq!(review_signals[0]["path"], "src/lib.rs");
+    assert_eq!(review_signals[0]["target_path"], "src/api.rs");
+    let review_warm = review::run_review_json(root, &["review", ".", "--format", "json"]);
+    assert_eq!(arity_signals(&review_warm, RULE_ID), review_signals);
+
+    let scan_cold = scan::scan_json(root, &["--changed"]);
+    let findings = arity_findings(&scan_cold, RULE_ID);
+    assert_eq!(findings.len(), 1, "{scan_cold:#?}");
+    assert_eq!(findings[0]["evidence"][0]["path"], "src/lib.rs");
+    assert!(
+        findings[0]["description"]
+            .as_str()
+            .unwrap()
+            .contains("arity from 1 to 2")
+    );
+    let scan_warm = scan::scan_json(root, &["--changed"]);
+    assert_eq!(arity_findings(&scan_warm, RULE_ID), findings);
+
+    review::write(
+        root,
+        "src/lib.rs",
+        "mod api;\nfn run() { api::load(1, true); }\n",
+    );
+    let coordinated_review = review::run_review_json(root, &["review", ".", "--format", "json"]);
+    assert!(arity_signals(&coordinated_review, RULE_ID).is_empty());
+    let coordinated_scan = scan::scan_json(root, &["--changed"]);
+    assert!(arity_findings(&coordinated_scan, RULE_ID).is_empty());
+}
+
+fn arity_signals<'a>(report: &'a Value, rule_id: &str) -> Vec<&'a Value> {
+    report["tiered_signals"]["definitely"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|signal| signal["kind"] == rule_id)
+        .collect()
+}
+
+fn arity_findings<'a>(report: &'a Value, rule_id: &str) -> Vec<&'a Value> {
+    report["findings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|finding| finding["rule_id"] == rule_id)
+        .collect()
 }
