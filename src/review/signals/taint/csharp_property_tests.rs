@@ -78,3 +78,44 @@ fn csharp_changed_property_assignment_with_unchanged_execution() {
     file.ranges = vec![ChangedRange { start: 1, end: 1 }];
     assert!(detect_taint(&file, Some(&source)).is_empty());
 }
+
+#[test]
+fn csharp_command_property_abstains_on_expression_order_ambiguity() {
+    for statements in [
+        "cmd.CommandText = id + cmd.ExecuteScalar(); cmd.ExecuteReader();",
+        "cmd.CommandText = id; cmd.CommandText = cmd.ExecuteScalar().ToString(); cmd.ExecuteReader();",
+    ] {
+        assert!(
+            run("src/Controller.cs", "C#", &code(statements)).is_empty(),
+            "{statements}"
+        );
+    }
+}
+
+#[test]
+fn csharp_command_property_abstains_on_conditional_mutation() {
+    for statements in [
+        "var ignored = ok ? (cmd.CommandText = id) : \"\"; cmd.ExecuteReader();",
+        "cmd.CommandText = id; var ignored = ok ? (cmd.CommandText = \"SELECT 1\") : \"\"; cmd.ExecuteReader();",
+        "var ignored = ok && ((cmd.CommandText = id) != null); cmd.ExecuteReader();",
+        "var ignored = ok || ((cmd.CommandText = id) != null); cmd.ExecuteReader();",
+        "var ignored = fallback ?? (cmd.CommandText = id); cmd.ExecuteReader();",
+        "cmd.CommandText ??= id; cmd.ExecuteReader();",
+    ] {
+        assert!(
+            run("src/Controller.cs", "C#", &code(statements)).is_empty(),
+            "{statements}"
+        );
+    }
+}
+
+#[test]
+fn csharp_expression_guard_preserves_direct_sql_argument_flow() {
+    let signals = run(
+        "src/Controller.cs",
+        "C#",
+        &code("var result = db.ExecuteScalar(\"SELECT * WHERE id = \" + id);"),
+    );
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].line, 3);
+}

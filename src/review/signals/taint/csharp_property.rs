@@ -33,7 +33,8 @@ pub(super) fn detect(
         if !matches!(
             statement.kind(),
             "local_declaration_statement" | "expression_statement"
-        ) {
+        ) || ambiguous_statement(statement, content, tables)
+        {
             state = TaintState::default();
             origins.clear();
             continue;
@@ -143,4 +144,44 @@ fn origin_line(
     let mut cursor = node.walk();
     node.named_children(&mut cursor)
         .find_map(|child| origin_line(child, content, tables, origins))
+}
+
+// Do not infer evaluation order or a guaranteed write from expression-level branches.
+fn ambiguous_statement(node: Node<'_>, content: &str, tables: &'static TaintTables) -> bool {
+    let mut assignments = 0;
+    let mut execution = false;
+    let mut conditional = false;
+    expression_facts(
+        node,
+        content,
+        tables,
+        &mut assignments,
+        &mut execution,
+        &mut conditional,
+    );
+    conditional || assignments > 1 || (assignments > 0 && execution)
+}
+
+fn expression_facts(
+    node: Node<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+    assignments: &mut usize,
+    execution: &mut bool,
+    conditional: &mut bool,
+) {
+    if (tables.is_flow_scope)(node) {
+        return;
+    }
+    *assignments += usize::from(tables.assignment_kinds.contains(&node.kind()));
+    *execution |=
+        (tables.classify_sink)(node, content).is_some_and(|sink| sink.kind == SinkKind::Sql);
+    *conditional |= matches!(
+        node.kind(),
+        "conditional_expression" | "conditional_access_expression" | "&&" | "||" | "??" | "??="
+    );
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        expression_facts(child, content, tables, assignments, execution, conditional);
+    }
 }
