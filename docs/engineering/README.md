@@ -40,6 +40,8 @@ release operations. Product workflows are in the
 
 - [v0.25 technical and first-use scope](../roadmap/v0.25.md)
 - [v0.25 evidence ledger](v0.25-evidence-ledger.md)
+- [v0.25 analysis-core implementation plan](v0.25-analysis-core-implementation-plan.md)
+- [v0.25 resolver freshness evidence](v0.25-resolver-freshness.md)
 
 ## Historical records
 

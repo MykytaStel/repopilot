@@ -7,7 +7,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-fn git(root: &Path, args: &[&str]) {
+pub(super) fn git(root: &Path, args: &[&str]) {
     let output = Command::new("git")
         .arg("-C")
         .arg(root)
@@ -21,7 +21,7 @@ fn git(root: &Path, args: &[&str]) {
     );
 }
 
-fn state(root: &Path) -> ServerState {
+pub(super) fn state(root: &Path) -> ServerState {
     ServerState {
         root: root.canonicalize().expect("canonical root"),
         initialized: true,
@@ -30,7 +30,7 @@ fn state(root: &Path) -> ServerState {
     }
 }
 
-fn tool_text(response: super::jsonrpc::Response) -> String {
+pub(super) fn tool_text(response: super::jsonrpc::Response) -> String {
     response
         .result
         .expect("response result")

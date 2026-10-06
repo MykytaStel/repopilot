@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Fixed
+
+- TypeScript/JavaScript aliases now observe effective tsconfig/jsconfig content
+  changes during one process. Config-only alias remaps also rebuild cached
+  repository relationships; unchanged effective inputs retain cache reuse.
+
 ### Documentation
 
 - Define the draft 0.25 engineering scope alongside first-user validation:

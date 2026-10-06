@@ -226,3 +226,75 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     drop(stdin);
     assert!(child.wait().expect("wait for MCP server").success());
 }
+
+fn alias_semantics(report: &Value) -> Value {
+    for key in [
+        "findings",
+        "tiered_signals",
+        "change_proof",
+        "evidence",
+        "decision",
+    ] {
+        assert!(!report[key].is_null(), "missing semantic projection: {key}");
+    }
+    json!({
+        "findings": report["findings"],
+        "signals": report["tiered_signals"],
+        "proof": report["change_proof"],
+        "evidence": report["evidence"],
+        "decision": report["decision"],
+    })
+}
+#[test]
+fn valid_config_only_remap_has_cli_mcp_cold_warm_semantic_parity() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    setup_removed_export_change(root);
+    fs::write(root.join("src/api.ts"), "export function loadUser() {}\n").unwrap();
+    fs::write(root.join("src/other.ts"), "export function loadUser() {}\n").unwrap();
+    fs::write(
+        root.join("src/caller.ts"),
+        "import { loadUser } from '@api';\nloadUser();\n",
+    )
+    .unwrap();
+    let remap = |target| {
+        fs::write(
+            root.join("tsconfig.json"),
+            format!(r#"{{"compilerOptions":{{"paths":{{"@api":["src/{target}"]}}}}}}"#),
+        )
+        .unwrap()
+    };
+    remap("api");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "valid aliases"]);
+    let (mut child, mut stdin, mut stdout) = start_mcp(root);
+    initialize(&mut stdin, &mut stdout);
+    let request = json!({"jsonrpc":"2.0", "id": "review", "method":"tools/call", "params": {
+        "name":"repopilot_review_change", "arguments":{"path":".", "scope":"changed", "profile":"strict", "detail":"full"}
+    }});
+    send(&mut stdin, &request);
+    let _ = receive(&mut stdout);
+    remap("other");
+    send(&mut stdin, &request);
+    let warm = receive(&mut stdout)["result"]["structuredContent"].clone();
+    assert!(warm["change_proof"].is_object(), "{warm:#}");
+    send(&mut stdin, &request);
+    let reused = receive(&mut stdout)["result"]["structuredContent"].clone();
+    assert_eq!(alias_semantics(&warm), alias_semantics(&reused));
+    fs::remove_dir_all(root.join(".repopilot/cache")).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .current_dir(root)
+        .args(["review", ".", "--profile", "strict", "--format", "json"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let cold: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(alias_semantics(&warm), alias_semantics(&cold));
+    assert_ne!(cold["change_proof"]["verdict"], "BROKEN");
+    child.kill().unwrap();
+    child.wait().unwrap();
+}

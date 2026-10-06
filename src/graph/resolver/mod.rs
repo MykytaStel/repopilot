@@ -382,3 +382,5 @@ mod file_resolution_support_tests {
         assert!(!resolves_file_imports(Path::new("/repo/Makefile")));
     }
 }
+
+pub(crate) use ts::effective_tsconfig_content;
