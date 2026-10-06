@@ -36,8 +36,40 @@ See the [0.24.3 release notes](releases/v0.24.3.md).
 
 ## Next: 0.25
 
-The next slice should make the existing review loop reliable for its first
-external users. Work in this order, and record results in the release ledger:
+The next slice develops the analysis engine alongside reliable first use.
+Engineering does not wait for the external-user sample. The
+[0.25 scope](roadmap/v0.25.md) defines the technical slices and their
+acceptance criteria; the [0.25 evidence ledger](engineering/v0.25-evidence-ledger.md)
+records progress. The current published version remains 0.24.3.
+
+### Technical core
+
+1. **Resolver freshness and semantic cache parity.** Reproduce the suspected
+   stale TypeScript alias cache in a long-lived MCP process. Cover config
+   creation, edits, and deletion; compare complete semantic evidence across
+   cold and warm runs of the same scope.
+2. **Direct JavaScript/TypeScript default-export contracts.** Extend the
+   existing named-export check to a removed default export whose precisely
+   resolved relative caller still imports it. Preserve coordinated changes
+   and uncertain resolution as safe or explicitly limited cases.
+3. **Structural Rust public-item contracts.** Start with a removed public
+   function and a proven direct local caller. Signature and field changes,
+   macros, traits, conditional compilation, and re-exports need separate slices.
+4. **One measured taint blind spot.** Begin with C# SQL assigned to a command
+   object's property and executed on that same object. Cover parameterization,
+   clean overwrites, unrelated objects, and no execution before widening scope.
+5. **Large-graph performance protection.** Measure many-file/import workloads
+   before adding resolver indexes. Require deterministic evidence and unchanged
+   ambiguity handling as well as lower time and memory costs.
+
+The initial engineering scope is the first two slices. The remaining three are
+approved technical slices, each with focused tests and review evidence. Every slice
+needs an unsafe regression, safe controls, applicable full/changed/cache/MCP
+parity, and evidence appropriate to its claims.
+
+### First use and evidence
+
+Progress alongside the technical work:
 
 1. **Installation and first review.** Validate a fresh public CLI install and
    agent setup in five minutes for Claude Code, Codex, Gemini CLI, and Cursor;

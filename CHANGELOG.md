@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Documentation
+
+- Define the draft 0.25 engineering scope alongside first-user validation:
+  resolver input freshness, semantic cache parity, and direct JS/TS
+  default-export contracts, with ordered Rust, C# taint, and graph-performance
+  candidates and an evidence ledger.
+
 ## [0.24.3] - 2026-10-05
 
 ### Changed
