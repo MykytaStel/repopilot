@@ -171,6 +171,27 @@ fn notifications_receive_no_response() {
 }
 
 #[test]
+fn late_server_response_without_pending_request_is_ignored() {
+    let responses = exchange(&[
+        json!({
+            "jsonrpc": "2.0",
+            "id": "repopilot/elicitation/1",
+            "result": { "action": "accept", "content": { "approve": true } }
+        }),
+        json!({
+            "jsonrpc": "2.0",
+            "id": "repopilot/elicitation/2",
+            "error": { "code": -32603, "message": "client failed" }
+        }),
+    ]);
+
+    assert!(
+        responses.is_empty(),
+        "a response to an expired server request is not a new client request"
+    );
+}
+
+#[test]
 fn unknown_method_returns_method_not_found() {
     let responses = initialized_exchange(&[json!({
         "jsonrpc": "2.0",

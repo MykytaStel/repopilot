@@ -32,6 +32,58 @@ pub struct Request {
     pub params: Value,
 }
 
+/// A JSON-RPC message received on stdin. Server responses share the same
+/// stream as client requests and must not be mistaken for malformed calls.
+#[derive(Debug)]
+pub enum IncomingMessage {
+    Request(Request),
+    Response(IncomingResponse),
+}
+
+#[derive(Debug)]
+pub struct IncomingResponse {
+    pub id: Value,
+    pub result: Option<Value>,
+    pub error: Option<ResponseError>,
+}
+
+pub fn parse_message(line: &str) -> Result<IncomingMessage, RequestParseError> {
+    let value = serde_json::from_str::<Value>(line).map_err(|_| RequestParseError::Parse)?;
+    if value.get("method").is_some() {
+        return parse_request(line).map(IncomingMessage::Request);
+    }
+    parse_response(value).map(IncomingMessage::Response)
+}
+
+fn parse_response(value: Value) -> Result<IncomingResponse, RequestParseError> {
+    let object = value.as_object().ok_or(RequestParseError::InvalidRequest)?;
+    let id = object
+        .get("id")
+        .cloned()
+        .ok_or(RequestParseError::InvalidRequest)?;
+    let valid_id = id.is_string() || id.is_number();
+    let has_result = object.contains_key("result");
+    let has_error = object.contains_key("error");
+    if object.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+        || !valid_id
+        || has_result == has_error
+    {
+        return Err(RequestParseError::InvalidRequest);
+    }
+
+    let error = object
+        .get("error")
+        .cloned()
+        .map(serde_json::from_value::<ResponseError>)
+        .transpose()
+        .map_err(|_| RequestParseError::InvalidRequest)?;
+    Ok(IncomingResponse {
+        id,
+        result: object.get("result").cloned(),
+        error,
+    })
+}
+
 pub fn parse_request(line: &str) -> Result<Request, RequestParseError> {
     let value = serde_json::from_str::<Value>(line).map_err(|_| RequestParseError::Parse)?;
     let explicit_id = value.get("id").cloned();
@@ -62,7 +114,7 @@ pub struct Response {
     pub error: Option<ResponseError>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ResponseError {
     pub code: i32,
     pub message: String,
@@ -90,3 +142,6 @@ impl Response {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
