@@ -101,6 +101,53 @@ export function lookup(req: any) {
     );
 }
 
+#[test]
+fn review_reports_a_changed_empty_catch_as_a_non_gating_candidate() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let root = temp.path();
+    init_repo(root);
+    write(
+        root,
+        "src/thumbnail.js",
+        "export async function thumbnail(input) {\n  try { return await transform(input); } catch (error) { throw error; }\n}\n",
+    );
+    commit_all(root, "initial");
+
+    let source = r#"export async function thumbnail(input) {
+  try {
+    return await transform(input);
+  } catch {
+    // Keep the input when transformation fails.
+  }
+  return Buffer.from(input);
+}
+"#;
+    write(root, "src/thumbnail.js", source);
+
+    let json = run_review_json(root, &["review", ".", "--format", "json"]);
+    let signals = json["tiered_signals"]["maybe"]
+        .as_array()
+        .expect("maybe signals");
+    let matches = signals
+        .iter()
+        .filter(|signal| signal["kind"] == "behavioral.quiet-fallback-introduced")
+        .collect::<Vec<_>>();
+
+    assert_eq!(matches.len(), 1, "{signals:#?}");
+    assert_eq!(matches[0]["path"], "src/thumbnail.js");
+    assert_eq!(matches[0]["line"], 4);
+    assert_eq!(matches[0]["confidence"], "MEDIUM");
+    assert_eq!(matches[0]["tier"], "maybe-sensitive");
+    assert_eq!(matches[0]["gate_eligible"], false);
+    assert!(matches[0]["detail"].as_str().unwrap().contains("transform"));
+    assert!(
+        matches[0]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("return line 7")
+    );
+}
+
 fn run_review_json(root: &Path, args: &[&str]) -> Value {
     let output = repopilot()
         .args(args)

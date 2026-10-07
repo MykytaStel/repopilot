@@ -20,65 +20,20 @@ mod go;
 mod js;
 mod jvm;
 mod keywords;
+mod model;
 mod python;
 mod removed;
 pub(crate) mod removed_ast;
 mod rust;
 
+pub use model::{BehavioralKind, BehavioralSignal, BehavioralSignalSource};
 pub use removed::detect_behavioral_removed;
 
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;
-use serde::Serialize;
 use std::collections::BTreeSet;
 use std::path::Path;
 use tree_sitter::Node;
-
-/// The category of behavioral change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum BehavioralKind {
-    NetworkCallAdded,
-    SubprocessAdded,
-    FsWriteAdded,
-    EnvVarIntroduced,
-    DependencyImportAdded,
-    MigrationAdded,
-    RawSqlAdded,
-    ErrorHandlingRemoved,
-    TestDeletedOrEmptied,
-    AuthCheckRemoved,
-}
-
-/// How a behavioral signal was detected. Confidence — and therefore tiering —
-/// keys off this structured source, never off the user-facing `detail` text.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum BehavioralSignalSource {
-    /// Matched structurally against the parsed syntax tree.
-    Ast,
-    /// Matched by scanning raw diff lines because the file could not be parsed.
-    CoarseFallback,
-}
-
-/// A behavioral signal detected in a changed file.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct BehavioralSignal {
-    pub kind: BehavioralKind,
-    pub path: String,
-    pub line: usize,
-    pub detail: String,
-    pub source: BehavioralSignalSource,
-}
-
-impl BehavioralSignal {
-    /// Whether this signal came from the coarse (non-AST) fallback, which only
-    /// runs when the file can't be parsed. Coarse signals are hints, not
-    /// confident findings, and are demoted in the tiered view.
-    pub fn is_coarse(&self) -> bool {
-        self.source == BehavioralSignalSource::CoarseFallback
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct DependencyContext {
@@ -174,8 +129,15 @@ pub fn detect_behavioral_added(
         dependencies,
         &mut signals,
     );
+    signals.extend(super::quiet_fallback::detect_quiet_fallback(
+        file,
+        post_source,
+    ));
 
-    // Deduplicate signals of the same kind on the same line to avoid noise from nested AST nodes
+    deduplicate_signals(signals)
+}
+
+fn deduplicate_signals(signals: Vec<BehavioralSignal>) -> Vec<BehavioralSignal> {
     let mut unique = Vec::new();
     for sig in signals {
         if !unique.iter().any(|existing: &BehavioralSignal| {
