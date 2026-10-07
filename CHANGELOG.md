@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- JS/TS review now surfaces a changed empty `catch` around a call when the same
+  function can later return. The maybe-tier, medium-confidence signal identifies
+  a candidate fallback path; it does not claim that the operation is required
+  or the returned value is invalid.
+
 - Rust review now flags a changed top-level public-function parameter count when
   a proven direct module-qualified caller still passes the previous number of
   arguments. Same-arity type changes and unsupported call forms remain outside

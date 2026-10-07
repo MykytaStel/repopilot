@@ -122,6 +122,21 @@ Hidden suggestion summaries keep default output transparent: RepoPilot reports
 that additional findings exist without allowing weak heuristics to dominate
 normal review or CI output.
 
+## Quiet Fallback Review Signal
+
+`behavioral.quiet-fallback-introduced` is a preview review signal for parsed
+JavaScript and TypeScript diffs. It points to a changed `catch` whose body has
+no executable statements, when its `try` body contains a call and the same
+enclosing function has a later `return`. Comments in the catch body are ignored.
+The detail retains the call and return locations so a reviewer can check the
+actual fallback path.
+
+The signal is emitted in the maybe-sensitive tier with medium confidence and
+cannot fail the review gate. It is a syntax-based candidate only: it does not
+prove that the operation is required, that the fallback is invalid, or that
+production behavior is harmful. It does not cover Promise `.catch`, error
+sentinels, unsupported languages, test files, or files that fail to parse.
+
 ## Signal Quality
 
 Reports include raw and visible quality summaries with confidence, lifecycle,
