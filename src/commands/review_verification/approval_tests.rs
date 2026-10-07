@@ -1,5 +1,5 @@
 use super::super::{ReviewVerificationEvent, VerificationApproval};
-use super::run_selected_with_approval;
+use super::{ApprovalHooks, run_selected_with_approval};
 use crate::commands::review_verification::tests::empty_report;
 use repopilot::config::loader::parse_config;
 use repopilot::findings::visibility::FindingVisibilityProfile;
@@ -38,8 +38,10 @@ fn accepted_check_executes_declined_check_is_skipped_and_order_is_deterministic(
         &mut report,
         &CancellationToken::new(),
         &mut |event| events.push(event),
-        &mut reload,
-        &mut approve,
+        ApprovalHooks {
+            reload_check: &mut reload,
+            approve: &mut approve,
+        },
     )
     .expect("review verification");
 
@@ -99,8 +101,10 @@ fn decline_continues_but_user_cancel_stops_later_prompts() {
         &mut report,
         &CancellationToken::new(),
         &mut |_| {},
-        &mut reload,
-        &mut approve,
+        ApprovalHooks {
+            reload_check: &mut reload,
+            approve: &mut approve,
+        },
     )
     .expect("review verification");
 
@@ -151,8 +155,10 @@ fn workspace_or_policy_drift_after_acceptance_skips_check() {
             &mut report,
             &CancellationToken::new(),
             &mut |_| {},
-            &mut reload_check,
-            &mut approve,
+            ApprovalHooks {
+                reload_check: &mut reload_check,
+                approve: &mut approve,
+            },
         )
         .expect("review verification");
 

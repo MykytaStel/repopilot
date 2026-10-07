@@ -14,6 +14,7 @@ mod explain_file;
 mod explain_finding;
 mod explain_review_signal;
 mod jsonrpc;
+mod message_writer;
 mod progress;
 mod publication;
 mod request_registry;

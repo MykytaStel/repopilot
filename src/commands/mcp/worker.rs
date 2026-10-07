@@ -1,12 +1,12 @@
 use super::elicitation::ElicitationBroker;
 use super::jsonrpc::{INVALID_REQUEST, Response};
+use super::message_writer::write_message;
 use super::progress::{ProgressReporter, mode_for_tool_call};
 use super::request_registry::RequestRegistry;
 use super::{ServerState, lock_error, request_key, verification_consent};
 use crate::commands::mcp::tool_call::handle_tools_call_with_approval;
 use repopilot::verification::CancellationToken;
 use repopilot::verification::ValidatedCheck;
-use serde::Serialize;
 use serde_json::Value;
 use std::io::Write;
 use std::sync::{Arc, Mutex, mpsc};
@@ -18,17 +18,6 @@ pub(super) struct ToolJob {
     pub params: Value,
     pub progress_token: Option<Value>,
     pub cancellation: CancellationToken,
-}
-
-pub(super) fn write_message<W: Write, T: Serialize>(
-    writer: &Arc<Mutex<&mut W>>,
-    message: &T,
-) -> std::io::Result<()> {
-    let encoded = serde_json::to_string(message)?;
-    let mut writer = writer.lock().map_err(lock_error)?;
-    writer.write_all(encoded.as_bytes())?;
-    writer.write_all(b"\n")?;
-    writer.flush()
 }
 
 pub(super) fn enqueue_tool_job<W: Write>(

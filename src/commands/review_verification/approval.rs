@@ -20,8 +20,7 @@ pub(crate) fn run_selected_with_approval(
     report: &mut ReviewReport,
     cancellation: &CancellationToken,
     observer: &mut dyn FnMut(ReviewVerificationEvent),
-    reload_check: &mut dyn FnMut(&str) -> Result<ValidatedCheck, String>,
-    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
+    approval: ApprovalHooks<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     report.verification_policy.set_selected(selected);
     if selected.is_empty() {
@@ -50,7 +49,7 @@ pub(crate) fn run_selected_with_approval(
             index,
             total,
         });
-        match approve(check) {
+        match (approval.approve)(check) {
             VerificationApproval::ToolCallCancelled => break,
             VerificationApproval::Skip {
                 limitation,
@@ -99,7 +98,7 @@ pub(crate) fn run_selected_with_approval(
             continue;
         }
 
-        let current_check = reload_check(check.id());
+        let current_check = (approval.reload_check)(check.id());
         if !matches!(current_check, Ok(ref current) if check.same_execution_policy(current)) {
             report.verification.push(skipped_outcome(
                 check,
@@ -128,6 +127,11 @@ pub(crate) fn run_selected_with_approval(
 
     report.timings.verification_us = started.elapsed().as_micros().min(u128::from(u64::MAX)) as u64;
     Ok(())
+}
+
+pub(crate) struct ApprovalHooks<'a> {
+    pub reload_check: &'a mut dyn FnMut(&str) -> Result<ValidatedCheck, String>,
+    pub approve: &'a mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 }
 
 pub(crate) fn evidence_paths(report: &ReviewReport) -> Vec<std::path::PathBuf> {

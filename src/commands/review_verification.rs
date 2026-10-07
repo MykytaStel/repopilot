@@ -34,7 +34,7 @@ pub(super) enum VerificationApproval {
 }
 
 mod approval;
-pub(super) use approval::{evidence_paths, run_selected_with_approval};
+pub(super) use approval::{ApprovalHooks, evidence_paths, run_selected_with_approval};
 
 pub(super) fn run_selected(
     selected: &[String],

@@ -1,5 +1,5 @@
 use super::jsonrpc::IncomingResponse;
-use super::worker::write_message;
+use super::message_writer::write_message;
 use repopilot::verification::CancellationToken;
 use serde_json::{Value, json};
 use std::collections::HashMap;

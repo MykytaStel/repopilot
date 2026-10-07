@@ -74,13 +74,57 @@ fn receive_mcp(stdout: &mut BufReader<ChildStdout>) -> Value {
 fn initialize_mcp(stdin: &mut ChildStdin, stdout: &mut BufReader<ChildStdout>) {
     send_mcp(
         stdin,
-        &json!({"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}),
+        &json!({"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"elicitation":{"form":{}}}}}),
     );
     let _initialize = receive_mcp(stdout);
     send_mcp(
         stdin,
         &json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
     );
+}
+
+fn run_mcp_approving(cwd: &Path, request: Value, call_id: u64) -> Vec<Value> {
+    let (mut child, mut stdin, mut stdout) = start_mcp(cwd);
+    initialize_mcp(&mut stdin, &mut stdout);
+    send_mcp(&mut stdin, &request);
+    let mut responses = Vec::new();
+    while !responses
+        .iter()
+        .any(|message: &Value| message["id"] == call_id)
+    {
+        let message = receive_mcp(&mut stdout);
+        if message["method"] == "elicitation/create" {
+            send_mcp(
+                &mut stdin,
+                &json!({
+                    "jsonrpc": "2.0",
+                    "id": message["id"].clone(),
+                    "result": { "action": "accept", "content": { "approve": true } }
+                }),
+            );
+        }
+        responses.push(message);
+    }
+    drop(stdin);
+    assert!(child.wait().expect("MCP server exits").success());
+    responses
+}
+
+fn approve_pending_form(stdin: &mut ChildStdin, stdout: &mut BufReader<ChildStdout>) {
+    loop {
+        let message = receive_mcp(stdout);
+        if message["method"] == "elicitation/create" {
+            send_mcp(
+                stdin,
+                &json!({
+                    "jsonrpc": "2.0",
+                    "id": message["id"].clone(),
+                    "result": { "action": "accept", "content": { "approve": true } }
+                }),
+            );
+            return;
+        }
+    }
 }
 
 #[test]
@@ -165,7 +209,7 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
         temp.path().join("src/config.ts"),
         "export const API_KEY = \"abc123xyz987\";\n",
     )
-    .expect("secret fixture");
+    .expect("source file");
 
     let responses = run_mcp(
         &[
@@ -493,30 +537,37 @@ fn mcp_review_emits_check_aware_redaction_safe_progress() {
 id = "lint"
 role = "lint"
 program = "sh"
-args = ["-c", "printf 'token=progress-secret'; exit 0"]
+args = ["-c", "printf 'token=%s' \"$(cat fixture.txt)\"; exit 0"]
 [[verification.checks]]
 id = "unit"
 role = "test"
 program = "sh"
-args = ["-c", "printf 'token=progress-secret' >&2; exit 7"]
+args = ["-c", "printf 'token=%s' \"$(cat fixture.txt)\" >&2; exit 7"]
 "#,
     )
     .expect("config");
     git(temp.path(), &["add", "."]);
     git(temp.path(), &["commit", "-qm", "initial"]);
+    fs::write(temp.path().join("fixture.txt"), "progress-secret").expect("secret fixture");
     fs::write(
         temp.path().join("lib.rs"),
         "pub fn value() -> usize { 2 }\n",
     )
     .expect("change");
 
-    let responses = run_mcp(
-        &[
-            r#"{"jsonrpc":"2.0","id":"init","method":"initialize","params":{"protocolVersion":"2025-11-25"}}"#,
-            r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
-            r#"{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"repopilot_review_change","arguments":{"path":".","verify":["unit","lint"]},"_meta":{"progressToken":"review-8"}}}"#,
-        ],
+    let responses = run_mcp_approving(
         temp.path(),
+        json!({
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "verify": ["unit", "lint"] },
+                "_meta": { "progressToken": "review-8" }
+            }
+        }),
+        8,
     );
     let progress = responses
         .iter()
@@ -546,7 +597,9 @@ args = ["-c", "printf 'token=progress-secret' >&2; exit 7"]
             (2, 4, "verification unit started".to_string()),
             (3, 4, "verification unit failed".to_string()),
             (4, 4, "review complete".to_string()),
-        ]
+        ],
+        "MCP messages: {}",
+        serde_json::to_string_pretty(&responses).expect("response JSON")
     );
     let encoded = serde_json::to_string(&responses).expect("responses");
     assert!(!encoded.contains("progress-secret"));
@@ -632,6 +685,7 @@ fn mcp_cancellation_stops_active_verification() {
             }
         }),
     );
+    approve_pending_form(&mut stdin, &mut stdout);
     let marker = temp.path().join("verification-started");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while !marker.exists() && std::time::Instant::now() < deadline {
@@ -682,6 +736,7 @@ fn mcp_queue_overload_stays_responsive_during_an_active_tool() {
             }
         }),
     );
+    approve_pending_form(&mut stdin, &mut stdout);
     let marker = temp.path().join("verification-started");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while !marker.exists() && std::time::Instant::now() < deadline {

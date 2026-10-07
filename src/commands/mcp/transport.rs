@@ -4,8 +4,9 @@ use super::elicitation::ElicitationBroker;
 use super::jsonrpc::{
     INVALID_REQUEST, IncomingMessage, PARSE_ERROR, RequestParseError, Response, parse_message,
 };
+use super::message_writer::write_message;
 use super::request_registry::RequestRegistry;
-use super::worker::{ToolJob, enqueue_tool_job, run_tool_worker, write_message};
+use super::worker::{ToolJob, enqueue_tool_job, run_tool_worker};
 use super::{ServerState, TOOL_QUEUE_CAPACITY, handle, lock_error, request_key};
 use crate::cli::McpOptions;
 use serde_json::Value;
@@ -107,7 +108,7 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                 continue;
             }
 
-            if request.id.is_none() {
+            let Some(request_id) = request.id.clone() else {
                 if request.method == "notifications/initialized" && !initialized {
                     let mut state = state.lock().map_err(lock_error)?;
                     if state.negotiated {
@@ -116,26 +117,21 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                     initialized = state.initialized;
                 }
                 continue;
-            }
+            };
 
             if request.method == "ping" {
                 write_message(
                     &writer,
-                    &Response::success(
-                        request.id.expect("request id checked above"),
-                        serde_json::json!({}),
-                    ),
+                    &Response::success(request_id.clone(), serde_json::json!({})),
                 )?;
                 continue;
             }
 
-            if request.method == "tools/call"
-                && let Some(id) = request.id.clone()
-            {
+            if request.method == "tools/call" {
                 if !initialized {
                     write_message(
                         &writer,
-                        &Response::error(id, -32002, "MCP server is not initialized"),
+                        &Response::error(request_id, -32002, "MCP server is not initialized"),
                     )?;
                     continue;
                 }
@@ -148,7 +144,7 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                 enqueue_tool_job(
                     &jobs_tx,
                     ToolJob {
-                        id,
+                        id: request_id,
                         params: request.params,
                         progress_token,
                         cancellation,
@@ -166,7 +162,7 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                         write_message(
                             &writer,
                             &Response::error(
-                                request.id.clone().expect("request id checked above"),
+                                request_id.clone(),
                                 -32000,
                                 "MCP server is busy processing another tool call",
                             ),

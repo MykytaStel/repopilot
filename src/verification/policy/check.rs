@@ -133,10 +133,10 @@ mod tests {
     #[test]
     fn policy_comparison_covers_execution_values_and_prompt_shows_only_approval_details() {
         let root = tempdir().expect("root");
-        let original = selected(&root.path().to_path_buf(), "printf ok", "30");
-        let same = selected(&root.path().to_path_buf(), "printf ok", "30");
-        let changed = selected(&root.path().to_path_buf(), "printf changed", "30");
-        let mut changed_resolution = selected(&root.path().to_path_buf(), "printf ok", "30");
+        let original = selected(root.path(), "printf ok", "30");
+        let same = selected(root.path(), "printf ok", "30");
+        let changed = selected(root.path(), "printf changed", "30");
+        let mut changed_resolution = selected(root.path(), "printf ok", "30");
         changed_resolution.resolved_program = Some(PathBuf::from("/different/tool"));
 
         assert!(original.same_execution_policy(&same));

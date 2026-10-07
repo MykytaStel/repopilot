@@ -5,7 +5,7 @@ use super::verification_consent::{self, EffectiveConfigSource};
 use crate::commands::mcp::review_projection::compact_review_json;
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
 use crate::commands::review_verification::{
-    ReviewVerificationEvent, VerificationApproval, run_selected_with_approval,
+    ApprovalHooks, ReviewVerificationEvent, VerificationApproval, run_selected_with_approval,
 };
 use crate::commands::scan_config::ScanConfigOverrides;
 use repopilot::baseline::reader::read_baseline;
@@ -210,8 +210,10 @@ pub(super) fn call_with_context(
         &mut review_report,
         context.cancellation,
         context.observer,
-        &mut reload_check,
-        context.approve,
+        ApprovalHooks {
+            reload_check: &mut reload_check,
+            approve: context.approve,
+        },
     )
     .map_err(|error| ReviewCallError::Message(error.to_string()))?;
     if context.cancellation.is_cancelled() {

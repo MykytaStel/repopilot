@@ -64,7 +64,7 @@ fn build_with_context(
     context: &KeyContext<'_>,
 ) -> Option<VerificationCacheKey> {
     let executable = check.resolved_program.as_deref()?;
-    let executable_sha256 = hash_file(&executable)?;
+    let executable_sha256 = hash_file(executable)?;
     let input = KeyInput {
         schema_version: context.schema_version,
         repopilot_version: context.repopilot_version,
