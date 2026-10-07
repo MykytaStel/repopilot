@@ -32,13 +32,25 @@ configuration files may contain credentials.
 
 ### Explicit verification commands
 
-RepoPilot runs a configured check only when the user explicitly selects its ID
-with CLI `--verify` or the `verify` parameter to MCP
-`repopilot_review_change`. The configured program runs on the host with the
-user's filesystem and network permissions. RepoPilot does not sandbox that
-process; it may access files or services independently of RepoPilot's own
-analysis. If checks must run offline, prepare their dependencies and apply
-network restrictions outside RepoPilot. See [verification configuration](configuration.md#explicit-local-verification)
+CLI `--verify` remains the explicit request to run a configured check. The MCP
+`repopilot_review_change` tool's `verify` parameter only requests checks: each
+needs a separate one-time form-mode Elicitation approval from a client that
+negotiated protocol `2025-11-25` and declared `elicitation.form`. Without that
+capability, or when a response is declined, form-cancelled, malformed, or stale,
+the check is skipped and the static review still completes; cancelling the MCP
+tool call aborts the whole call. Before launch or cache reuse, RepoPilot
+rechecks the reviewed workspace revision and the full validated command policy
+from the same configuration source.
+
+The approval request sends the resolved executable, exact arguments, and
+working directory to the MCP client; environment values and process output are
+not included. The configured process still runs on the host with the user's
+filesystem and network permissions. RepoPilot does not sandbox it; it may access
+files or services independently of RepoPilot's own analysis. The connected MCP
+client controls how it presents Elicitation, and the protocol response is not
+cryptographic proof of a human action. If checks must run offline, prepare their
+dependencies and apply network restrictions outside RepoPilot. See
+[verification configuration](configuration.md#explicit-local-verification)
 and the [MCP tool contract](mcp.md#tool-contract).
 
 ## Installation security

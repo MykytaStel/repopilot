@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- MCP review verification now requires one-time, per-check form-mode Elicitation
+  consent from a client that negotiated protocol `2025-11-25` and
+  `elicitation.form`. Unsupported, declined, form-cancelled, timed-out,
+  malformed, or stale approvals skip execution; cancelling the MCP tool call
+  aborts it. Accepted checks are revalidated against the reviewed workspace and
+  effective configuration before launch. The prompt shows the command,
+  arguments, working directory, and host-permission boundary.
+
 - JS/TS review now surfaces a changed empty `catch` around a call when the same
   function can later return. The maybe-tier, medium-confidence signal identifies
   a candidate fallback path; it does not claim that the operation is required

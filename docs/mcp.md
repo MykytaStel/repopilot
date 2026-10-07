@@ -53,11 +53,18 @@ behavior. The review tool's annotations describe its worst case:
 `openWorldHint=true`, because its optional `verify` input can run configured
 checks.
 
-The default review analysis does not run configured verification checks. When
-the `verify` array names configured check IDs, those checks run on the host with
-the user's filesystem and network permissions. RepoPilot does not sandbox the
-process, and it never accepts a shell command string through MCP. See the
-[security model](security.md#explicit-verification-commands).
+The default review analysis does not run configured verification checks. A
+non-empty `verify` array requests configured check IDs; each check runs only
+after a separate form-mode Elicitation approval from a client that negotiated
+protocol `2025-11-25` and declared `elicitation.form`. The prompt shows the
+resolved executable, exact arguments, and working directory. A declined,
+form-cancelled, timed-out, malformed, unsupported, or stale approval skips
+execution while static review completes. Cancelling the MCP tool call aborts
+that whole call. Consent applies only to that check in that call.
+The configured process runs on the host with the user's filesystem and network
+permissions. RepoPilot does not sandbox it, and it never accepts a shell command
+string through MCP.
+See the [security model](security.md#explicit-verification-commands).
 
 | Tool | Purpose | Additional inputs |
 |---|---|---|
