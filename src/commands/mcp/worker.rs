@@ -1,9 +1,11 @@
+use super::elicitation::ElicitationBroker;
 use super::jsonrpc::{INVALID_REQUEST, Response};
 use super::progress::{ProgressReporter, mode_for_tool_call};
 use super::request_registry::RequestRegistry;
-use super::{ServerState, lock_error, request_key};
-use crate::commands::mcp::tool_call::handle_tools_call_with_context;
+use super::{ServerState, lock_error, request_key, verification_consent};
+use crate::commands::mcp::tool_call::handle_tools_call_with_approval;
 use repopilot::verification::CancellationToken;
+use repopilot::verification::ValidatedCheck;
 use serde::Serialize;
 use serde_json::Value;
 use std::io::Write;
@@ -70,11 +72,12 @@ pub(super) fn run_tool_worker<W: Write>(
     jobs: mpsc::Receiver<ToolJob>,
     state: &Arc<Mutex<ServerState>>,
     registry: &Arc<Mutex<RequestRegistry>>,
+    elicitation: &Arc<ElicitationBroker>,
     writer: &Arc<Mutex<&mut W>>,
 ) -> std::io::Result<()> {
     for job in jobs {
         let key = request_key(&job.id);
-        let result = process_job(job, state, writer);
+        let result = process_job(job, state, elicitation, writer);
         registry.lock().map_err(lock_error)?.finish(&key);
         result?;
     }
@@ -84,6 +87,7 @@ pub(super) fn run_tool_worker<W: Write>(
 fn process_job<W: Write>(
     job: ToolJob,
     state: &Arc<Mutex<ServerState>>,
+    elicitation: &Arc<ElicitationBroker>,
     writer: &Arc<Mutex<&mut W>>,
 ) -> std::io::Result<()> {
     if job.cancellation.is_cancelled() {
@@ -108,12 +112,23 @@ fn process_job<W: Write>(
 
     let response = {
         let mut state = state.lock().map_err(lock_error)?;
-        handle_tools_call_with_context(
+        let supports_form = state.elicitation_form;
+        let mut approve = |check: &ValidatedCheck| {
+            verification_consent::request_approval(
+                check,
+                supports_form,
+                elicitation,
+                writer,
+                &job.cancellation,
+            )
+        };
+        handle_tools_call_with_approval(
             job.id.clone(),
             &job.params,
             &mut state,
             &job.cancellation,
             &mut |event| reporter.verification(event),
+            &mut approve,
         )
     };
 

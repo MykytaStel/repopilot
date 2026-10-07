@@ -9,6 +9,7 @@
 mod analysis_store;
 mod catalog;
 mod context;
+mod elicitation;
 mod explain_file;
 mod explain_finding;
 mod explain_review_signal;
@@ -21,7 +22,9 @@ mod review_projection;
 mod scan;
 mod scan_cache;
 mod tool_call;
+mod tool_paths;
 mod transport;
+mod verification_consent;
 mod worker;
 
 #[cfg(test)]
@@ -58,6 +61,8 @@ const TOOL_QUEUE_CAPACITY: usize = 8;
 struct ServerState {
     root: PathBuf,
     negotiated: bool,
+    negotiated_protocol: String,
+    elicitation_form: bool,
     initialized: bool,
     last_scan: Option<String>,
     last_review: Option<String>,
@@ -70,6 +75,8 @@ impl Default for ServerState {
         Self {
             root: PathBuf::new(),
             negotiated: false,
+            negotiated_protocol: String::new(),
+            elicitation_form: false,
             initialized: false,
             last_scan: None,
             last_review: None,
@@ -110,6 +117,12 @@ fn handle(request: &Request, state: &mut ServerState) -> Option<Response> {
         "initialize" => {
             state.negotiated = true;
             state.initialized = false;
+            state.negotiated_protocol = negotiated_protocol(&request.params).to_string();
+            state.elicitation_form = state.negotiated_protocol == LATEST_PROTOCOL_VERSION
+                && request
+                    .params
+                    .pointer("/capabilities/elicitation/form")
+                    .is_some_and(Value::is_object);
             Response::success(id, initialize_result(&request.params))
         }
         "ping" => Response::success(id, json!({})),
@@ -126,15 +139,7 @@ fn handle(request: &Request, state: &mut ServerState) -> Option<Response> {
 }
 
 fn initialize_result(params: &Value) -> Value {
-    let requested = params
-        .get("protocolVersion")
-        .and_then(Value::as_str)
-        .unwrap_or(LATEST_PROTOCOL_VERSION);
-    let protocol_version = if SUPPORTED_PROTOCOL_VERSIONS.contains(&requested) {
-        requested
-    } else {
-        LATEST_PROTOCOL_VERSION
-    };
+    let protocol_version = negotiated_protocol(params);
 
     json!({
         "protocolVersion": protocol_version,
@@ -146,6 +151,18 @@ fn initialize_result(params: &Value) -> Value {
         "serverInfo": { "name": SERVER_NAME, "version": SERVER_VERSION },
         "instructions": catalog::SERVER_INSTRUCTIONS
     })
+}
+
+fn negotiated_protocol(params: &Value) -> &str {
+    let requested = params
+        .get("protocolVersion")
+        .and_then(Value::as_str)
+        .unwrap_or(LATEST_PROTOCOL_VERSION);
+    if SUPPORTED_PROTOCOL_VERSIONS.contains(&requested) {
+        requested
+    } else {
+        LATEST_PROTOCOL_VERSION
+    }
 }
 
 #[cfg(test)]

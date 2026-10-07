@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(super) const CACHE_SCHEMA_VERSION: u32 = 1;
 
@@ -63,7 +63,7 @@ fn build_with_context(
     revision: &WorkspaceRevision,
     context: &KeyContext<'_>,
 ) -> Option<VerificationCacheKey> {
-    let executable = resolved_executable(&check.program)?;
+    let executable = check.resolved_program.as_deref()?;
     let executable_sha256 = hash_file(&executable)?;
     let input = KeyInput {
         schema_version: context.schema_version,
@@ -116,22 +116,7 @@ fn program_label(program: &ValidatedProgram) -> String {
     }
 }
 
-fn resolved_executable(program: &ValidatedProgram) -> Option<PathBuf> {
-    match program {
-        ValidatedProgram::RepositoryRelative(path) => Some(path.clone()),
-        ValidatedProgram::Bare(program) => resolve_bare_program(program),
-    }
-}
-
-fn resolve_bare_program(program: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    let extensions = std::env::var("PATHEXT").ok();
-    let candidates = program_candidates(program, extensions.as_deref(), cfg!(windows));
-    std::env::split_paths(&path)
-        .flat_map(|directory| candidates.iter().map(move |name| directory.join(name)))
-        .find(|candidate| candidate.is_file())
-}
-
+#[cfg(test)]
 fn program_candidates(program: &str, path_ext: Option<&str>, windows: bool) -> Vec<String> {
     let mut candidates = vec![program.to_string()];
     if windows && Path::new(program).extension().is_none() {

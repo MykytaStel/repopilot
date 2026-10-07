@@ -23,6 +23,19 @@ pub(super) enum ReviewVerificationEvent {
     },
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum VerificationApproval {
+    Accepted,
+    Skip {
+        limitation: String,
+        stop_following: bool,
+    },
+    ToolCallCancelled,
+}
+
+mod approval;
+pub(super) use approval::{evidence_paths, run_selected_with_approval};
+
 pub(super) fn run_selected(
     selected: &[String],
     session: &AnalysisSession,
@@ -60,19 +73,7 @@ pub(super) fn run_selected_with_context(
         selected,
     )
     .map_err(usage_error)?;
-    let mut evidence_paths = report
-        .changed_files
-        .iter()
-        .map(|file| file.path.clone())
-        .collect::<Vec<_>>();
-    for impact in &report.impact_paths.files {
-        evidence_paths.push(impact.path.clone());
-        evidence_paths.extend(impact.direct_dependents.iter().cloned());
-        evidence_paths.extend(impact.transitive_dependents.iter().cloned());
-    }
-    evidence_paths.sort();
-    evidence_paths.dedup();
-
+    let evidence_paths = evidence_paths(report);
     let started = Instant::now();
     report.verification = run_checks_observed_cached(
         &checks,
@@ -111,7 +112,7 @@ fn map_event(event: VerificationExecutionEvent) -> ReviewVerificationEvent {
     }
 }
 
-fn usage_error(error: impl std::fmt::Display) -> Box<dyn std::error::Error> {
+pub(super) fn usage_error(error: impl std::fmt::Display) -> Box<dyn std::error::Error> {
     Box::new(CliExit {
         code: EXIT_USAGE,
         message: error.to_string(),

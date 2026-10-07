@@ -2,169 +2,16 @@
 
 use serde_json::{Value, json};
 use std::fs;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
 
-#[test]
-fn absent_empty_and_duplicate_selection_preserve_explicit_execution() {
-    let temp = verification_repo(
-        r#"[[verification.checks]]
-id = "unit"
-role = "test"
-program = "sh"
-args = ["-c", "printf x >> verification-runs"]
-"#,
-    );
-    let responses = run_mcp(
-        temp.path(),
-        vec![
-            tool_call(1, json!({ "path": ".", "detail": "full" })),
-            tool_call(2, json!({ "path": ".", "detail": "full", "verify": [] })),
-            tool_call(
-                3,
-                json!({
-                    "path": ".",
-                    "detail": "full",
-                    "verify": ["unit", "unit"]
-                }),
-            ),
-        ],
-    );
-
-    for id in [1, 2] {
-        let result = result_for(&responses, id);
-        assert_eq!(result["isError"], false);
-        assert!(
-            result["structuredContent"]["merge_readiness"]
-                .get("verification")
-                .is_none()
-        );
-    }
-    let selected = result_for(&responses, 3);
-    assert_eq!(
-        selected["structuredContent"]["merge_readiness"]["verification"]
-            .as_array()
-            .expect("verification outcomes")
-            .len(),
-        1
-    );
-    assert_eq!(
-        fs::read_to_string(temp.path().join("verification-runs")).expect("marker"),
-        "x"
-    );
-}
-
-#[test]
-fn unknown_selector_fails_before_spawn_and_publication() {
-    let temp = verification_repo(
-        r#"[[verification.checks]]
-id = "known"
-role = "test"
-program = "sh"
-args = ["-c", "printf spawned > should-not-exist"]
-"#,
-    );
-    let responses = run_mcp(
-        temp.path(),
-        vec![
-            tool_call(4, json!({ "path": ".", "verify": ["unknown"] })),
-            json!({
-                "jsonrpc": "2.0",
-                "id": 5,
-                "method": "resources/read",
-                "params": { "uri": "repopilot://analyses" }
-            }),
-        ],
-    );
-
-    let result = result_for(&responses, 4);
-    assert_eq!(result["isError"], true);
-    assert!(
-        result["content"][0]["text"]
-            .as_str()
-            .expect("error")
-            .contains("unknown verification check id")
-    );
-    assert!(!temp.path().join("should-not-exist").exists());
-    assert_eq!(result_for(&responses, 5)["contents"][0]["text"], "[]");
-}
-
-#[test]
-fn failed_check_is_blocked_publishable_evidence() {
-    let temp = verification_repo(
-        r#"[[verification.checks]]
-id = "unit"
-role = "test"
-program = "sh"
-args = ["-c", "printf failure >&2; exit 7"]
-"#,
-    );
-    let responses = run_mcp(
-        temp.path(),
-        vec![tool_call(
-            6,
-            json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
-        )],
-    );
-
-    let result = result_for(&responses, 6);
-    assert_eq!(result["isError"], false);
-    assert_eq!(
-        result["structuredContent"]["merge_readiness"]["verification"][0]["status"],
-        "failed"
-    );
-    assert_eq!(
-        result["structuredContent"]["merge_readiness"]["verdict"],
-        "blocked"
-    );
-    assert!(result["analysisHandle"].is_string());
-}
-
-#[test]
-fn opted_in_cache_is_shared_by_mcp_calls_and_remains_publishable() {
-    let temp = verification_repo(
-        r#"[[verification.checks]]
-id = "unit"
-role = "test"
-program = "sh"
-args = ["-c", "mkdir -p .repopilot/cache; printf x >> .repopilot/cache/mcp-verification-runs"]
-cache = { enabled = true }
-"#,
-    );
-    let responses = run_mcp(
-        temp.path(),
-        vec![
-            tool_call(
-                7,
-                json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
-            ),
-            tool_call(
-                8,
-                json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
-            ),
-        ],
-    );
-
-    let first = result_for(&responses, 7);
-    let second = result_for(&responses, 8);
-    assert!(
-        first["structuredContent"]["merge_readiness"]["verification"][0]
-            .get("reused")
-            .is_none()
-    );
-    assert_eq!(
-        second["structuredContent"]["merge_readiness"]["verification"][0]["reused"],
-        true
-    );
-    assert!(first["analysisHandle"].is_string());
-    assert!(second["analysisHandle"].is_string());
-    assert_eq!(
-        fs::read_to_string(temp.path().join(".repopilot/cache/mcp-verification-runs"))
-            .expect("marker"),
-        "x"
-    );
-}
+#[path = "mcp_verification/basic.rs"]
+mod basic;
+#[path = "mcp_verification/consent.rs"]
+mod consent;
+#[path = "mcp_verification/freshness.rs"]
+mod freshness;
 
 fn verification_repo(config: &str) -> tempfile::TempDir {
     let temp = tempfile::tempdir().expect("temp dir");
@@ -185,6 +32,27 @@ fn verification_repo(config: &str) -> tempfile::TempDir {
     )
     .expect("change");
     temp
+}
+
+fn client_with_form(root: &Path) -> InteractiveMcpClient {
+    InteractiveMcpClient::start(
+        root,
+        "2025-11-25",
+        json!({
+            "elicitation": { "form": {} }
+        }),
+    )
+}
+
+fn accept_prompt(client: &mut InteractiveMcpClient, call_id: u64) -> Value {
+    let prompt = client.receive();
+    assert_eq!(prompt["method"], "elicitation/create");
+    client.send(json!({
+        "jsonrpc": "2.0",
+        "id": prompt["id"],
+        "result": { "action": "accept", "content": { "approve": true } }
+    }));
+    client.receive_with_id(call_id)["result"].clone()
 }
 
 fn tool_call(id: u64, arguments: Value) -> Value {
@@ -255,4 +123,75 @@ fn git(root: &Path, args: &[&str]) {
         .output()
         .expect("git");
     assert!(output.status.success(), "git {args:?} failed");
+}
+
+struct InteractiveMcpClient {
+    child: Child,
+    stdin: Option<ChildStdin>,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl InteractiveMcpClient {
+    fn start(root: &Path, protocol: &str, capabilities: Value) -> Self {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+            .arg("mcp")
+            .current_dir(root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("spawn MCP server");
+        let stdin = child.stdin.take().expect("stdin");
+        let stdout = BufReader::new(child.stdout.take().expect("stdout"));
+        let mut client = Self {
+            child,
+            stdin: Some(stdin),
+            stdout,
+        };
+        client.send(json!({
+            "jsonrpc": "2.0",
+            "id": "initialize",
+            "method": "initialize",
+            "params": { "protocolVersion": protocol, "capabilities": capabilities }
+        }));
+        assert_eq!(client.receive()["id"], "initialize");
+        client.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        client
+    }
+
+    fn send(&mut self, message: Value) {
+        let stdin = self.stdin.as_mut().expect("MCP client stdin is open");
+        writeln!(stdin, "{message}").expect("write MCP message");
+        stdin.flush().expect("flush MCP message");
+    }
+
+    fn receive(&mut self) -> Value {
+        let mut line = String::new();
+        let count = self.stdout.read_line(&mut line).expect("read MCP message");
+        assert_ne!(count, 0, "MCP server closed stdout unexpectedly");
+        serde_json::from_str(&line).expect("MCP message is JSON")
+    }
+
+    fn receive_with_id(&mut self, id: u64) -> Value {
+        loop {
+            let message = self.receive();
+            if message["id"] == id {
+                return message;
+            }
+        }
+    }
+
+    fn close(mut self) -> ExitStatus {
+        self.stdin.take();
+        self.child.wait().expect("wait for MCP server")
+    }
+}
+
+impl Drop for InteractiveMcpClient {
+    fn drop(&mut self) {
+        if self.child.try_wait().ok().flatten().is_none() {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
 }

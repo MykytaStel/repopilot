@@ -1,5 +1,6 @@
 #[cfg(test)]
 use super::DEFAULT_MAX_RESPONSE_BYTES;
+use super::elicitation::ElicitationBroker;
 use super::jsonrpc::{
     INVALID_REQUEST, IncomingMessage, PARSE_ERROR, RequestParseError, Response, parse_message,
 };
@@ -47,6 +48,7 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
         ..ServerState::default()
     }));
     let registry = Arc::new(Mutex::new(RequestRegistry::default()));
+    let elicitation = Arc::new(ElicitationBroker::default());
     let writer = Arc::new(Mutex::new(&mut writer));
     let (jobs_tx, jobs_rx) = mpsc::sync_channel::<ToolJob>(TOOL_QUEUE_CAPACITY);
 
@@ -54,9 +56,16 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
         let mut initialized = false;
         let worker_state = Arc::clone(&state);
         let worker_registry = Arc::clone(&registry);
+        let worker_elicitation = Arc::clone(&elicitation);
         let worker_writer = Arc::clone(&writer);
         let worker = scope.spawn(move || {
-            run_tool_worker(jobs_rx, &worker_state, &worker_registry, &worker_writer)
+            run_tool_worker(
+                jobs_rx,
+                &worker_state,
+                &worker_registry,
+                &worker_elicitation,
+                &worker_writer,
+            )
         });
 
         for line in reader.lines() {
@@ -68,8 +77,8 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
             let request = match parse_message(&line) {
                 Ok(IncomingMessage::Request(request)) => request,
                 Ok(IncomingMessage::Response(response)) => {
-                    // No server request is pending yet; a late response is inert.
-                    let _ = (response.id, response.result, response.error);
+                    // A response is useful only while its exact server request is pending.
+                    elicitation.resolve(response);
                     continue;
                 }
                 Err(RequestParseError::Parse) => {
@@ -95,6 +104,28 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                         .map_err(lock_error)?
                         .cancel(&request_key(&request_id));
                 }
+                continue;
+            }
+
+            if request.id.is_none() {
+                if request.method == "notifications/initialized" && !initialized {
+                    let mut state = state.lock().map_err(lock_error)?;
+                    if state.negotiated {
+                        state.initialized = true;
+                    }
+                    initialized = state.initialized;
+                }
+                continue;
+            }
+
+            if request.method == "ping" {
+                write_message(
+                    &writer,
+                    &Response::success(
+                        request.id.expect("request id checked above"),
+                        serde_json::json!({}),
+                    ),
+                )?;
                 continue;
             }
 
@@ -129,7 +160,23 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
             }
 
             let response = {
-                let mut state = state.lock().map_err(lock_error)?;
+                let mut state = match state.try_lock() {
+                    Ok(state) => state,
+                    Err(std::sync::TryLockError::WouldBlock) => {
+                        write_message(
+                            &writer,
+                            &Response::error(
+                                request.id.clone().expect("request id checked above"),
+                                -32000,
+                                "MCP server is busy processing another tool call",
+                            ),
+                        )?;
+                        continue;
+                    }
+                    Err(std::sync::TryLockError::Poisoned(error)) => {
+                        return Err(lock_error(error));
+                    }
+                };
                 let response = handle(&request, &mut state);
                 initialized = state.initialized;
                 response

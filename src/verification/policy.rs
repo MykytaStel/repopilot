@@ -1,55 +1,17 @@
 use crate::config::model::VerificationCheckConfig;
 use crate::review::diff::OwnedDiffTarget;
-use crate::verification::VerificationRole;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
+mod check;
+pub use check::ValidatedCheck;
+pub(crate) use check::ValidatedProgram;
+
 const MAX_TIMEOUT_SECONDS: u64 = 1_800;
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
-
-#[derive(Debug)]
-pub struct ValidatedCheck {
-    id: String,
-    pub(crate) role: VerificationRole,
-    pub(crate) program: ValidatedProgram,
-    pub(crate) args: Vec<String>,
-    pub(crate) working_directory: PathBuf,
-    pub(crate) working_directory_label: String,
-    pub(crate) timeout_seconds: u64,
-    pub(crate) max_output_bytes: usize,
-    pub(crate) paths: Option<GlobSet>,
-    pub(crate) path_patterns: Vec<String>,
-    cache_enabled: bool,
-}
-
-impl ValidatedCheck {
-    pub fn id(&self) -> &str {
-        &self.id
-    }
-
-    pub fn is_applicable<'a>(&self, paths: impl IntoIterator<Item = &'a Path>) -> bool {
-        let Some(patterns) = &self.paths else {
-            return true;
-        };
-        paths.into_iter().any(|path| {
-            let normalized = path.to_string_lossy().replace('\\', "/");
-            patterns.is_match(normalized)
-        })
-    }
-
-    pub fn cache_enabled(&self) -> bool {
-        self.cache_enabled
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum ValidatedProgram {
-    Bare(String),
-    RepositoryRelative(PathBuf),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerificationPolicyError(String);
@@ -196,12 +158,20 @@ fn validate_check(
     path_patterns.sort();
     path_patterns.dedup();
 
+    let working_directory = confined_directory(root, &config.id, &config.working_directory)?;
+    let program = validate_program(root, &config.id, &config.program)?;
+    let resolved_program = match &program {
+        ValidatedProgram::Bare(program) => check::resolve_bare_program(program, &working_directory),
+        ValidatedProgram::RepositoryRelative(program) => Some(program.clone()),
+    };
+
     Ok(ValidatedCheck {
         id: config.id.clone(),
         role: config.role,
-        program: validate_program(root, &config.id, &config.program)?,
+        program,
+        resolved_program,
         args: config.args.clone(),
-        working_directory: confined_directory(root, &config.id, &config.working_directory)?,
+        working_directory,
         working_directory_label: normalized_label(&config.working_directory),
         timeout_seconds: config.timeout_seconds,
         max_output_bytes: config.max_output_bytes,

@@ -141,7 +141,10 @@ pub fn execute_check(
 
 fn command_for(check: &ValidatedCheck) -> Command {
     let mut command = match &check.program {
-        ValidatedProgram::Bare(program) => Command::new(program),
+        ValidatedProgram::Bare(program) => match &check.resolved_program {
+            Some(resolved) => Command::new(resolved),
+            None => Command::new(program),
+        },
         ValidatedProgram::RepositoryRelative(program) => Command::new(program),
     };
     command
@@ -251,7 +254,7 @@ fn cancelled_outcome(
     }
 }
 
-fn skipped_outcome(
+pub fn skipped_outcome(
     check: &ValidatedCheck,
     revision: &WorkspaceRevision,
     limitation: &str,
