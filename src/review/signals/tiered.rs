@@ -16,6 +16,7 @@
 //! `boundary_signals` view remains available alongside this grouped view.
 
 mod api_contract;
+mod behavioral;
 
 use crate::findings::provenance::AnalysisScope;
 use crate::findings::types::Confidence;
@@ -24,13 +25,14 @@ use crate::review::paths::normalized_review_path;
 use crate::review::signals::BoundarySignal;
 use crate::review::signals::algorithmic::{AlgorithmicKind, AlgorithmicSignal};
 use crate::review::signals::api_contract::RemovedExportSignal;
-use crate::review::signals::behavioral::{BehavioralKind, BehavioralSignal};
+use crate::review::signals::behavioral::BehavioralSignal;
 use crate::review::signals::composites;
 use crate::review::signals::integrity::{IntegrityKind, IntegritySignal};
 use crate::review::signals::taint::{SinkKind, TaintSignal};
 use crate::rules::{RuleLifecycle, SignalSource};
 use crate::scan::cache::stable_hash_hex;
 use crate::scan::types::CouplingGraph;
+use behavioral::{behavioral_confidence, behavioral_headline, behavioral_kind, behavioral_tier};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -223,11 +225,7 @@ pub(crate) fn build_tiered_with_api_contract(
             behavioral_kind(signal.kind),
             SignalFamily::Behavioral,
             behavioral_tier(signal.kind, in_access, signal.is_coarse()),
-            if signal.is_coarse() {
-                Confidence::Low
-            } else {
-                Confidence::High
-            },
+            behavioral_confidence(signal.kind, signal.is_coarse()),
             signal.path.clone(),
             Some(signal.line),
             behavioral_headline(signal.kind),
@@ -583,22 +581,6 @@ fn boundary_kind(category: crate::review::signals::BoundaryCategory) -> &'static
     }
 }
 
-fn behavioral_kind(kind: BehavioralKind) -> &'static str {
-    use BehavioralKind::*;
-    match kind {
-        NetworkCallAdded => "behavioral.network-call-added",
-        SubprocessAdded => "behavioral.subprocess-added",
-        FsWriteAdded => "behavioral.fs-write-added",
-        EnvVarIntroduced => "behavioral.env-var-introduced",
-        DependencyImportAdded => "behavioral.dependency-import-added",
-        MigrationAdded => "behavioral.migration-added",
-        RawSqlAdded => "behavioral.raw-sql-added",
-        ErrorHandlingRemoved => "behavioral.error-handling-removed",
-        TestDeletedOrEmptied => "behavioral.test-deleted-or-emptied",
-        AuthCheckRemoved => "behavioral.auth-check-removed",
-    }
-}
-
 fn algorithmic_kind(kind: AlgorithmicKind) -> &'static str {
     use AlgorithmicKind::*;
     match kind {
@@ -615,39 +597,6 @@ fn taint_kind(sink: SinkKind) -> &'static str {
         SinkKind::Exec => "taint.exec",
         SinkKind::FsWrite => "taint.fs-write",
         SinkKind::Network => "taint.network",
-    }
-}
-
-fn behavioral_tier(kind: BehavioralKind, in_access_boundary: bool, coarse: bool) -> ConfidenceTier {
-    use BehavioralKind::*;
-    // Coarse (non-AST) signals are best-effort hints from a file we couldn't
-    // parse; keep them visible but never above the large-diff/noise tier.
-    if coarse {
-        return ConfidenceTier::LargeDiffOrNoise;
-    }
-    match kind {
-        SubprocessAdded | EnvVarIntroduced | MigrationAdded | ErrorHandlingRemoved
-        | TestDeletedOrEmptied | AuthCheckRemoved => ConfidenceTier::DefinitelySensitive,
-        NetworkCallAdded if in_access_boundary => ConfidenceTier::DefinitelySensitive,
-        NetworkCallAdded | FsWriteAdded | DependencyImportAdded | RawSqlAdded => {
-            ConfidenceTier::MaybeSensitive
-        }
-    }
-}
-
-fn behavioral_headline(kind: BehavioralKind) -> &'static str {
-    use BehavioralKind::*;
-    match kind {
-        NetworkCallAdded => "network call added",
-        SubprocessAdded => "subprocess/exec added",
-        FsWriteAdded => "filesystem write added",
-        EnvVarIntroduced => "env var introduced",
-        DependencyImportAdded => "dependency import added",
-        MigrationAdded => "migration added",
-        RawSqlAdded => "raw SQL added",
-        ErrorHandlingRemoved => "error handling removed",
-        TestDeletedOrEmptied => "test deleted or emptied",
-        AuthCheckRemoved => "auth check removed",
     }
 }
 

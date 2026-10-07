@@ -111,6 +111,26 @@ fn behavioral_kinds_tier_by_sensitivity() {
 }
 
 #[test]
+fn quiet_fallback_is_a_medium_confidence_non_gating_maybe_signal() {
+    let tiered = build_tiered(
+        &[],
+        &[behavioral(
+            BehavioralKind::QuietFallbackIntroduced,
+            "src/thumbnail.ts",
+        )],
+        &[],
+        &[],
+        &[],
+    );
+
+    assert!(tiered.definitely.is_empty());
+    assert_eq!(tiered.maybe.len(), 1);
+    assert_eq!(tiered.maybe[0].kind, "behavioral.quiet-fallback-introduced");
+    assert_eq!(tiered.maybe[0].confidence, Confidence::Medium);
+    assert!(!tiered.maybe[0].gate_eligible);
+}
+
+#[test]
 fn coarse_behavioral_signals_are_demoted_to_noise() {
     // An AuthCheckRemoved from the coarse (non-AST) fallback would normally be
     // "definitely sensitive"; its CoarseFallback source drops it to the noise tier.

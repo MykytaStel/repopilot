@@ -23,6 +23,9 @@ pub(in crate::review) mod classify;
 pub mod composites;
 pub mod content;
 pub mod integrity;
+pub(crate) mod quiet_fallback;
+#[cfg(test)]
+mod quiet_fallback_tests;
 pub(crate) mod tables;
 pub mod taint;
 #[cfg(test)]
