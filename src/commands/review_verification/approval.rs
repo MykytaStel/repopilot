@@ -4,8 +4,8 @@ use repopilot::review::model::ReviewReport;
 use repopilot::scan::session::{AnalysisSession, WorkspaceRevision};
 use repopilot::verification::{
     CancellationToken, ValidatedCheck, VerificationExecutionEvent, VerificationOutcome,
-    VerificationStatus, run_checks_observed_cached, select_checks, skipped_outcome,
-    validate_review_target,
+    VerificationStatus, run_checks_observed_cached_with_pinned_identity, select_checks,
+    skipped_outcome, validate_review_target,
 };
 use std::time::Instant;
 
@@ -110,7 +110,7 @@ pub(crate) fn run_selected_with_approval(
             continue;
         }
 
-        let outcomes = run_checks_observed_cached(
+        let outcomes = run_checks_observed_cached_with_pinned_identity(
             std::slice::from_ref(check),
             &evidence_paths,
             session.revision(),

@@ -13,8 +13,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   `elicitation.form`. Unsupported, declined, form-cancelled, timed-out,
   malformed, or stale approvals skip execution; cancelling the MCP tool call
   aborts it. Accepted checks are revalidated against the reviewed workspace and
-  effective configuration before launch. The prompt shows the command,
-  arguments, working directory, and host-permission boundary.
+  effective configuration and executable content before cache reuse or launch.
+  Unresolved executables are skipped. The prompt shows the command, exact
+  arguments, working directory, and host-permission boundary; do not put secrets
+  in command arguments because they are sent to the MCP client.
 
 - JS/TS review now surfaces a changed empty `catch` around a call when the same
   function can later return. The maybe-tier, medium-confidence signal identifies

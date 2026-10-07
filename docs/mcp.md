@@ -57,10 +57,14 @@ The default review analysis does not run configured verification checks. A
 non-empty `verify` array requests configured check IDs; each check runs only
 after a separate form-mode Elicitation approval from a client that negotiated
 protocol `2025-11-25` and declared `elicitation.form`. The prompt shows the
-resolved executable, exact arguments, and working directory. A declined,
+resolved executable, exact arguments, and working directory. Executable
+resolution and SHA-256 content identity are rechecked before cache reuse or
+launch; an unresolved executable is skipped without a prompt. A declined,
 form-cancelled, timed-out, malformed, unsupported, or stale approval skips
 execution while static review completes. Cancelling the MCP tool call aborts
 that whole call. Consent applies only to that check in that call.
+Exact arguments are sent to the MCP client and may contain credentials; do not
+put secrets in program or argument fields.
 The configured process runs on the host with the user's filesystem and network
 permissions. RepoPilot does not sandbox it, and it never accepts a shell command
 string through MCP.

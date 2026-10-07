@@ -67,6 +67,9 @@ pub(super) fn request_approval<W: Write>(
     if !supported {
         return skipped("client does not support approval", false);
     }
+    if !check.has_stable_executable_identity() {
+        return skipped("configured executable could not be resolved", false);
+    }
     let params = json!({
         "mode": "form",
         "message": check.approval_details(),
@@ -94,15 +97,18 @@ pub(super) fn request_approval<W: Write>(
 
 fn response_decision(result: &Value) -> VerificationApproval {
     match result.get("action").and_then(Value::as_str) {
-        Some("accept")
-            if result.pointer("/content/approve").and_then(Value::as_bool) == Some(true) =>
-        {
-            VerificationApproval::Accepted
-        }
+        Some("accept") if accepted_content(result.get("content")) => VerificationApproval::Accepted,
         Some("decline") => skipped("user declined", false),
         Some("cancel") => skipped("user cancelled", true),
         _ => skipped("invalid approval response", true),
     }
+}
+
+fn accepted_content(content: Option<&Value>) -> bool {
+    let Some(content) = content.and_then(Value::as_object) else {
+        return false;
+    };
+    content.len() == 1 && content.get("approve").and_then(Value::as_bool) == Some(true)
 }
 
 fn skipped(limitation: &str, stop_following: bool) -> VerificationApproval {
@@ -124,8 +130,17 @@ mod tests {
             response_decision(&json!({ "action": "accept", "content": { "approve": true } })),
             VerificationApproval::Accepted
         );
+        assert_eq!(
+            response_decision(&json!({
+                "_meta": { "trace": "supported extension" },
+                "action": "accept",
+                "content": { "approve": true }
+            })),
+            VerificationApproval::Accepted
+        );
         for invalid in [
             json!({ "action": "accept", "content": { "approve": false } }),
+            json!({ "action": "accept", "content": { "approve": true, "extra": 1 } }),
             json!({ "action": "accept" }),
             json!({ "action": "unknown" }),
         ] {

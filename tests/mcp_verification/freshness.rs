@@ -99,3 +99,81 @@ args = ["-c", "printf x >> verification-runs"]
     assert!(!temp.path().join("verification-runs").exists());
     assert!(client.close().success());
 }
+
+#[test]
+fn ignored_executable_replacement_while_approval_is_pending_invalidates_consent() {
+    let temp = verification_repo(
+        r#"[[verification.checks]]
+id = "unit"
+role = "test"
+program = ".local/bin/check"
+args = []
+[verification.checks.cache]
+enabled = true
+"#,
+    );
+    fs::write(temp.path().join(".gitignore"), ".local/\n").expect("ignore local binary");
+    git(temp.path(), &["add", ".gitignore"]);
+    git(temp.path(), &["commit", "-qm", "ignore local binary"]);
+    let executable = temp.path().join(".local/bin/check");
+    fs::create_dir_all(executable.parent().expect("binary parent")).expect("binary directory");
+    fs::write(
+        &executable,
+        "#!/bin/sh\nprintf original >> .local/verification-runs\n",
+    )
+    .expect("initial executable");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755))
+            .expect("executable permissions");
+    }
+
+    let mut client = client_with_form(temp.path());
+    client.send(tool_call(
+        90,
+        json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+    ));
+    let initial_prompt = client.receive();
+    assert_eq!(initial_prompt["method"], "elicitation/create");
+    client.send(json!({
+        "jsonrpc": "2.0",
+        "id": initial_prompt["id"],
+        "result": { "action": "accept", "content": { "approve": true } }
+    }));
+    assert_eq!(
+        client.receive_with_id(90)["result"]["structuredContent"]["merge_readiness"]["verification"]
+            [0]["status"],
+        "passed"
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".local/verification-runs")).expect("initial run"),
+        "original"
+    );
+    fs::remove_file(temp.path().join(".local/verification-runs")).expect("clear run marker");
+
+    client.send(tool_call(
+        91,
+        json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+    ));
+    let prompt = client.receive();
+    assert_eq!(prompt["method"], "elicitation/create");
+    fs::write(
+        &executable,
+        "#!/bin/sh\nprintf replacement >> .local/verification-runs\n",
+    )
+    .expect("replace ignored executable");
+    client.send(json!({
+        "jsonrpc": "2.0",
+        "id": prompt["id"],
+        "result": { "action": "accept", "content": { "approve": true } }
+    }));
+    let outcome = client.receive_with_id(91)["result"]["structuredContent"]["merge_readiness"]["verification"][0].clone();
+    assert_eq!(outcome["status"], "skipped");
+    assert_eq!(
+        outcome["limitations"][0],
+        "check definition changed before execution"
+    );
+    assert!(!temp.path().join(".local/verification-runs").exists());
+    assert!(client.close().success());
+}

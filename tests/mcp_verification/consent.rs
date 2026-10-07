@@ -100,7 +100,11 @@ args = ["-c", "printf x >> verification-runs"]
             80,
             json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
         ));
-        let response = client.receive_with_id(80);
+        let response = client.receive();
+        assert_eq!(
+            response["id"], 80,
+            "unsupported consent must emit no prompt"
+        );
         let outcome =
             &response["result"]["structuredContent"]["merge_readiness"]["verification"][0];
         assert_eq!(outcome["status"], "skipped");
@@ -128,12 +132,43 @@ args = ["-c", "printf x >> verification-runs"]
         90,
         json!({ "path": ".", "detail": "full", "verify": [] }),
     ));
-    let response = client.receive_with_id(90);
+    let response = client.receive();
+    assert_eq!(response["id"], 90, "empty selection must emit no prompt");
     assert_eq!(response["result"]["isError"], false);
     assert!(
         response["result"]["structuredContent"]["merge_readiness"]
             .get("verification")
             .is_none()
+    );
+    assert!(!temp.path().join("verification-runs").exists());
+    assert!(client.close().success());
+}
+
+#[test]
+fn unresolved_executable_skips_without_elicitation() {
+    let temp = verification_repo(
+        r#"[[verification.checks]]
+id = "unit"
+role = "test"
+program = "repopilot-intentionally-missing-executable-7c9c3f"
+args = []
+"#,
+    );
+    let mut client = client_with_form(temp.path());
+    client.send(tool_call(
+        92,
+        json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+    ));
+    let response = client.receive();
+    assert_eq!(
+        response["id"], 92,
+        "unresolved executable must emit no prompt"
+    );
+    let outcome = &response["result"]["structuredContent"]["merge_readiness"]["verification"][0];
+    assert_eq!(outcome["status"], "skipped");
+    assert_eq!(
+        outcome["limitations"][0],
+        "configured executable could not be resolved"
     );
     assert!(!temp.path().join("verification-runs").exists());
     assert!(client.close().success());
@@ -184,6 +219,10 @@ args = ["-c", "printf x >> verification-runs"]
         (
             84,
             json!({ "action": "accept", "content": { "approve": false } }),
+        ),
+        (
+            86,
+            json!({ "action": "accept", "content": { "approve": true, "extra": 1 } }),
         ),
         (
             85,

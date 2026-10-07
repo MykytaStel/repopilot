@@ -8,6 +8,7 @@ pub struct ValidatedCheck {
     pub(crate) role: VerificationRole,
     pub(crate) program: ValidatedProgram,
     pub(crate) resolved_program: Option<PathBuf>,
+    pub(crate) executable_sha256: Option<String>,
     pub(crate) args: Vec<String>,
     pub(crate) working_directory: PathBuf,
     pub(crate) working_directory_label: String,
@@ -86,6 +87,21 @@ impl ValidatedCheck {
         self.cache_enabled
     }
 
+    pub fn has_stable_executable_identity(&self) -> bool {
+        self.resolved_program.is_some() && self.executable_sha256.is_some()
+    }
+
+    /// Confirms the executable still has the content identity captured at selection.
+    pub fn executable_identity_matches(&self) -> bool {
+        let (Some(program), Some(expected)) = (
+            self.resolved_program.as_deref(),
+            self.executable_sha256.as_ref(),
+        ) else {
+            return false;
+        };
+        super::super::file_hash::sha256_file_hex(program).as_ref() == Some(expected)
+    }
+
     /// Safe details shown to a user before the MCP client requests approval.
     /// This intentionally excludes environment values and process output.
     pub fn approval_details(&self) -> String {
@@ -113,6 +129,7 @@ impl ValidatedCheck {
             && self.role == other.role
             && self.program == other.program
             && self.resolved_program == other.resolved_program
+            && self.executable_sha256 == other.executable_sha256
             && self.args == other.args
             && self.working_directory == other.working_directory
             && self.working_directory_label == other.working_directory_label
@@ -155,10 +172,38 @@ mod tests {
         assert!(!details.contains("SECRET"));
     }
 
+    #[test]
+    fn policy_comparison_rejects_executable_content_replacement() {
+        let root = tempdir().expect("root");
+        let executable = root.path().join("tools/check");
+        std::fs::create_dir_all(executable.parent().expect("tools directory"))
+            .expect("create tools directory");
+        std::fs::write(&executable, "original executable").expect("initial executable");
+        let original = selected_program(root.path(), "tools/check");
+
+        std::fs::write(&executable, "replacement executable").expect("replace executable");
+        let replacement = selected_program(root.path(), "tools/check");
+
+        assert!(!original.same_execution_policy(&replacement));
+    }
+
     fn selected(root: &std::path::Path, command: &str, timeout: &str) -> super::ValidatedCheck {
         let config = parse_config(
             &format!(
                 "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"sh\"\nargs = [\"-c\", \"{command}\"]\ntimeout_seconds = {timeout}\n"
+            ),
+            None,
+        )
+        .expect("config");
+        select_checks(root, &config.verification.checks, &["unit".to_string()])
+            .expect("selected check")
+            .remove(0)
+    }
+
+    fn selected_program(root: &std::path::Path, program: &str) -> super::ValidatedCheck {
+        let config = parse_config(
+            &format!(
+                "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"{program}\"\n"
             ),
             None,
         )

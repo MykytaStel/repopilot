@@ -1,3 +1,4 @@
+use super::file_hash::sha256_file_hex;
 use crate::config::model::VerificationCheckConfig;
 use crate::review::diff::OwnedDiffTarget;
 use globset::{Glob, GlobSet, GlobSetBuilder};
@@ -164,12 +165,14 @@ fn validate_check(
         ValidatedProgram::Bare(program) => check::resolve_bare_program(program, &working_directory),
         ValidatedProgram::RepositoryRelative(program) => Some(program.clone()),
     };
+    let executable_sha256 = resolved_program.as_deref().and_then(sha256_file_hex);
 
     Ok(ValidatedCheck {
         id: config.id.clone(),
         role: config.role,
         program,
         resolved_program,
+        executable_sha256,
         args: config.args.clone(),
         working_directory,
         working_directory_label: normalized_label(&config.working_directory),
