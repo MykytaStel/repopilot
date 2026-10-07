@@ -12,7 +12,9 @@ use std::time::{Duration, Instant};
 
 mod cache_runner;
 mod platform;
-pub use cache_runner::run_checks_observed_cached;
+pub use cache_runner::{
+    run_checks_observed_cached, run_checks_observed_cached_with_pinned_identity,
+};
 use platform::{ProcessTree, configure_process_tree};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -57,9 +59,34 @@ pub fn execute_check(
     revision_before: &WorkspaceRevision,
     cancellation: &CancellationToken,
 ) -> VerificationOutcome {
+    execute_check_inner(check, revision_before, cancellation, false)
+}
+
+pub(crate) fn execute_check_with_pinned_identity(
+    check: &ValidatedCheck,
+    revision_before: &WorkspaceRevision,
+    cancellation: &CancellationToken,
+) -> VerificationOutcome {
+    execute_check_inner(check, revision_before, cancellation, true)
+}
+
+fn execute_check_inner(
+    check: &ValidatedCheck,
+    revision_before: &WorkspaceRevision,
+    cancellation: &CancellationToken,
+    enforce_identity: bool,
+) -> VerificationOutcome {
     let started = Instant::now();
     if cancellation.is_cancelled() {
         return cancelled_outcome(check, revision_before, started);
+    }
+    if enforce_identity && !check.executable_identity_matches() {
+        return skipped_outcome(
+            check,
+            revision_before,
+            "configured executable changed before execution",
+            true,
+        );
     }
     let mut command = command_for(check);
     let mut child = match command.spawn() {
@@ -141,7 +168,10 @@ pub fn execute_check(
 
 fn command_for(check: &ValidatedCheck) -> Command {
     let mut command = match &check.program {
-        ValidatedProgram::Bare(program) => Command::new(program),
+        ValidatedProgram::Bare(program) => match &check.resolved_program {
+            Some(resolved) => Command::new(resolved),
+            None => Command::new(program),
+        },
         ValidatedProgram::RepositoryRelative(program) => Command::new(program),
     };
     command
@@ -251,7 +281,7 @@ fn cancelled_outcome(
     }
 }
 
-fn skipped_outcome(
+pub fn skipped_outcome(
     check: &ValidatedCheck,
     revision: &WorkspaceRevision,
     limitation: &str,

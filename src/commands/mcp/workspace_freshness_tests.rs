@@ -1,7 +1,7 @@
 use super::{ServerState, context, explain_file, handle_tools_call, review_change, scan};
-use crate::commands::mcp::tool_call::handle_tools_call_with_context;
-use crate::commands::review_verification::ReviewVerificationEvent;
-use repopilot::verification::CancellationToken;
+use crate::commands::mcp::tool_call::handle_tools_call_with_approval;
+use crate::commands::review_verification::{ReviewVerificationEvent, VerificationApproval};
+use repopilot::verification::{CancellationToken, ValidatedCheck};
 use serde_json::{Value, json};
 use std::fs;
 use std::path::Path;
@@ -206,7 +206,8 @@ fn revision_incompatible_review_is_returned_but_not_published() {
     let mut state = state(temp.path());
     state.last_review = Some("previous review".to_string());
 
-    let response = handle_tools_call(
+    let mut approve = |_check: &ValidatedCheck| VerificationApproval::Accepted;
+    let response = handle_tools_call_with_approval(
         json!(20),
         &json!({
             "name": review_change::TOOL_NAME,
@@ -218,6 +219,9 @@ fn revision_incompatible_review_is_returned_but_not_published() {
             }
         }),
         &mut state,
+        &CancellationToken::new(),
+        &mut |_| {},
+        &mut approve,
     );
     let result = response.result.expect("review result");
 
@@ -238,7 +242,8 @@ fn revision_compatible_failed_review_is_published() {
     setup_verification_review_repo(temp.path(), "exit 7");
     let mut state = state(temp.path());
 
-    let response = handle_tools_call(
+    let mut approve = |_check: &ValidatedCheck| VerificationApproval::Accepted;
+    let response = handle_tools_call_with_approval(
         json!(21),
         &json!({
             "name": review_change::TOOL_NAME,
@@ -250,6 +255,9 @@ fn revision_compatible_failed_review_is_published() {
             }
         }),
         &mut state,
+        &CancellationToken::new(),
+        &mut |_| {},
+        &mut approve,
     );
     let result = response.result.expect("review result");
 
@@ -273,7 +281,8 @@ fn cancellation_after_verification_leaves_previous_review_unchanged() {
     let cancellation = CancellationToken::new();
     let observer_token = cancellation.clone();
 
-    let response = handle_tools_call_with_context(
+    let mut approve = |_check: &ValidatedCheck| VerificationApproval::Accepted;
+    let response = handle_tools_call_with_approval(
         json!(22),
         &json!({
             "name": review_change::TOOL_NAME,
@@ -291,6 +300,7 @@ fn cancellation_after_verification_leaves_previous_review_unchanged() {
                 observer_token.cancel();
             }
         },
+        &mut approve,
     );
 
     assert_eq!(response.error.expect("cancelled response").code, -32800);

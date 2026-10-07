@@ -145,7 +145,7 @@ fn shared_adapter_reuses_enabled_cache_for_cli_and_mcp_callers() {
     assert!(second.verification[0].reused);
 }
 
-fn empty_report(root: &std::path::Path) -> ReviewReport {
+pub(super) fn empty_report(root: &std::path::Path) -> ReviewReport {
     ReviewReport {
         analysis_revision: None,
         revisions: Default::default(),

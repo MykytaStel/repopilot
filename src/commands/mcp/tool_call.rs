@@ -1,14 +1,14 @@
 use super::analysis_store::{AnalysisKind, AnalysisRecord};
 use super::publication::{prepare_tool_result, tool_result};
+use super::tool_paths::resolve_tool_paths;
 use super::{
     ServerState, context, explain_file, explain_finding, explain_review_signal, review_change, scan,
 };
 use crate::commands::mcp::jsonrpc::Response;
-use crate::commands::review_verification::ReviewVerificationEvent;
+use crate::commands::review_verification::{ReviewVerificationEvent, VerificationApproval};
 use repopilot::scan::session::WorkspaceRevision;
-use repopilot::verification::CancellationToken;
+use repopilot::verification::{CancellationToken, ValidatedCheck};
 use serde_json::{Value, json};
-use std::path::Path;
 
 pub(super) fn handle_tools_call(id: Value, params: &Value, state: &mut ServerState) -> Response {
     handle_tools_call_with_context(id, params, state, &CancellationToken::new(), &mut |_| {})
@@ -20,6 +20,21 @@ pub(super) fn handle_tools_call_with_context(
     state: &mut ServerState,
     cancellation: &CancellationToken,
     observer: &mut dyn FnMut(ReviewVerificationEvent),
+) -> Response {
+    let mut approve = |_check: &ValidatedCheck| VerificationApproval::Skip {
+        limitation: "client does not support approval".to_string(),
+        stop_following: false,
+    };
+    handle_tools_call_with_approval(id, params, state, cancellation, observer, &mut approve)
+}
+
+pub(super) fn handle_tools_call_with_approval(
+    id: Value,
+    params: &Value,
+    state: &mut ServerState,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 ) -> Response {
     let name = params
         .get("name")
@@ -45,6 +60,7 @@ pub(super) fn handle_tools_call_with_context(
         referenced.as_ref(),
         cancellation,
         observer,
+        approve,
     ) {
         Ok(outcome) => Ok(outcome),
         Err(DispatchError::Message(message)) => Err(message),
@@ -115,6 +131,7 @@ fn dispatch_tool(
     referenced: Option<&AnalysisRecord>,
     cancellation: &CancellationToken,
     observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 ) -> Result<ToolExecution, DispatchError> {
     match name {
         review_change::TOOL_NAME => {
@@ -125,6 +142,7 @@ fn dispatch_tool(
                 review_change::ReviewCallContext {
                     cancellation,
                     observer,
+                    approve,
                 },
             )
             .map(|result| ToolExecution {
@@ -274,16 +292,4 @@ fn call_explain_finding(
         state.last_scan.as_deref(),
         state.last_review.as_deref(),
     )
-}
-
-fn resolve_tool_paths(arguments: &mut Value, root: &Path) -> Result<(), String> {
-    let confinement = repopilot::path_security::RootConfinement::named(root, "MCP root")?;
-    for key in ["path", "config", "baseline"] {
-        let Some(value) = arguments.get(key).and_then(Value::as_str) else {
-            continue;
-        };
-        let resolved = confinement.resolve_allow_missing(Path::new(value), &format!("`{key}`"))?;
-        arguments[key] = Value::String(resolved.to_string_lossy().to_string());
-    }
-    Ok(())
 }

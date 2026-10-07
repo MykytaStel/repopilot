@@ -1,4 +1,6 @@
-use super::{cancelled_outcome, execute_check, skipped_outcome};
+use super::{
+    cancelled_outcome, execute_check, execute_check_with_pinned_identity, skipped_outcome,
+};
 use crate::scan::session::WorkspaceRevision;
 use crate::verification::cache::{VerificationCache, VerificationCacheKey};
 use crate::verification::model::{
@@ -14,6 +16,45 @@ pub fn run_checks_observed_cached(
     revision: &WorkspaceRevision,
     cancellation: &CancellationToken,
     cache_root: Option<&Path>,
+    observer: &mut dyn FnMut(VerificationExecutionEvent),
+) -> Vec<VerificationOutcome> {
+    run_checks_observed_cached_inner(
+        checks,
+        evidence_paths,
+        revision,
+        cancellation,
+        cache_root,
+        false,
+        observer,
+    )
+}
+
+pub fn run_checks_observed_cached_with_pinned_identity(
+    checks: &[ValidatedCheck],
+    evidence_paths: &[std::path::PathBuf],
+    revision: &WorkspaceRevision,
+    cancellation: &CancellationToken,
+    cache_root: Option<&Path>,
+    observer: &mut dyn FnMut(VerificationExecutionEvent),
+) -> Vec<VerificationOutcome> {
+    run_checks_observed_cached_inner(
+        checks,
+        evidence_paths,
+        revision,
+        cancellation,
+        cache_root,
+        true,
+        observer,
+    )
+}
+
+fn run_checks_observed_cached_inner(
+    checks: &[ValidatedCheck],
+    evidence_paths: &[std::path::PathBuf],
+    revision: &WorkspaceRevision,
+    cancellation: &CancellationToken,
+    cache_root: Option<&Path>,
+    enforce_identity: bool,
     observer: &mut dyn FnMut(VerificationExecutionEvent),
 ) -> Vec<VerificationOutcome> {
     let mut outcomes = Vec::with_capacity(checks.len());
@@ -37,6 +78,7 @@ pub fn run_checks_observed_cached(
             cancellation,
             cache.as_ref(),
             revision_changed,
+            enforce_identity,
         );
         revision_changed = !outcome.revision_compatible;
         observer(VerificationExecutionEvent::Completed {
@@ -57,6 +99,7 @@ fn outcome_for_check(
     cancellation: &CancellationToken,
     cache: Option<&VerificationCache>,
     revision_changed: bool,
+    enforce_identity: bool,
 ) -> VerificationOutcome {
     if revision_changed {
         return skipped_outcome(
@@ -74,7 +117,7 @@ fn outcome_for_check(
             true,
         );
     }
-    execute_or_reuse(check, revision, cancellation, cache)
+    execute_or_reuse(check, revision, cancellation, cache, enforce_identity)
 }
 
 fn execute_or_reuse(
@@ -82,7 +125,16 @@ fn execute_or_reuse(
     revision: &WorkspaceRevision,
     cancellation: &CancellationToken,
     cache: Option<&VerificationCache>,
+    enforce_identity: bool,
 ) -> VerificationOutcome {
+    if enforce_identity && !check.executable_identity_matches() {
+        return skipped_outcome(
+            check,
+            revision,
+            "configured executable changed before execution",
+            true,
+        );
+    }
     if cancellation.is_cancelled() {
         return cancelled_outcome(check, revision, Instant::now());
     }
@@ -95,13 +147,25 @@ fn execute_or_reuse(
     if let Some(hit) =
         cache.and_then(|cache| key.as_ref().and_then(|key| cache.load(key, revision)))
     {
+        if enforce_identity && !check.executable_identity_matches() {
+            return skipped_outcome(
+                check,
+                revision,
+                "configured executable changed before execution",
+                true,
+            );
+        }
         return if cancellation.is_cancelled() {
             cancelled_outcome(check, revision, Instant::now())
         } else {
             hit
         };
     }
-    let outcome = execute_check(check, revision, cancellation);
+    let outcome = if enforce_identity {
+        execute_check_with_pinned_identity(check, revision, cancellation)
+    } else {
+        execute_check(check, revision, cancellation)
+    };
     if !cancellation.is_cancelled()
         && let (Some(cache), Some(key)) = (cache, key.as_ref())
     {

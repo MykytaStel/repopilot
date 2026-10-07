@@ -1,12 +1,14 @@
 //! The `repopilot_review_change` MCP tool: the local "is this change risky?"
 //! audit, wrapping the same scan + review pipeline the `review` command uses.
 
+use super::verification_consent::{self, EffectiveConfigSource};
 use crate::commands::mcp::review_projection::compact_review_json;
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
-use crate::commands::review_verification::{ReviewVerificationEvent, run_selected_with_context};
+use crate::commands::review_verification::{
+    ApprovalHooks, ReviewVerificationEvent, VerificationApproval, run_selected_with_approval,
+};
 use crate::commands::scan_config::ScanConfigOverrides;
 use repopilot::baseline::reader::read_baseline;
-use repopilot::config::loader::{discover_config_path, load_default_config, load_optional_config};
 use repopilot::findings::filter::FindingFilter;
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::output::OutputFormat;
@@ -18,7 +20,7 @@ use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input,
 };
-use repopilot::verification::CancellationToken;
+use repopilot::verification::{CancellationToken, ValidatedCheck};
 use serde_json::Value;
 use std::fmt;
 use std::path::PathBuf;
@@ -29,6 +31,7 @@ pub const TOOL_NAME: &str = "repopilot_review_change";
 pub(super) struct ReviewCallContext<'a> {
     pub cancellation: &'a CancellationToken,
     pub observer: &'a mut dyn FnMut(ReviewVerificationEvent),
+    pub approve: &'a mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 }
 
 pub(super) struct ReviewCallResult {
@@ -102,13 +105,8 @@ pub(super) fn call_with_context(
     let input =
         load_review_input(&path, base, head).map_err(|error| format!("review failed: {error}"))?;
     let review_target = input.target.clone();
-    let configured = match config_path.as_deref() {
-        Some(path) => load_optional_config(path).map_err(|error| error.to_string())?,
-        None => match discover_config_path(&input.repo_root) {
-            Some(path) => load_optional_config(&path).map_err(|error| error.to_string())?,
-            None => load_default_config().map_err(|error| error.to_string())?,
-        },
-    };
+    let config_source = EffectiveConfigSource::resolve(config_path.as_deref(), &input.repo_root);
+    let configured = verification_consent::load_initial_config(&config_source)?;
     validate_critical_paths(&configured).map_err(|error| error.to_string())?;
     let intent = match (arguments.get("intent"), intent_path.as_deref()) {
         (Some(value), None) => {
@@ -198,13 +196,24 @@ pub(super) fn call_with_context(
     if context.cancellation.is_cancelled() {
         return Err(ReviewCallError::Cancelled);
     }
-    run_selected_with_context(
+    let mut reload_check = |check_id: &str| {
+        verification_consent::reload_check(
+            scan_result.session.workspace_root(),
+            &config_source,
+            check_id,
+        )
+    };
+    run_selected_with_approval(
         &selected_checks,
         &scan_result.session,
         &review_target,
         &mut review_report,
         context.cancellation,
         context.observer,
+        ApprovalHooks {
+            reload_check: &mut reload_check,
+            approve: context.approve,
+        },
     )
     .map_err(|error| ReviewCallError::Message(error.to_string()))?;
     if context.cancellation.is_cancelled() {

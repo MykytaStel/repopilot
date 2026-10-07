@@ -1,14 +1,14 @@
 use crate::scan::session::WorkspaceRevision;
 use crate::verification::VerificationRole;
 use crate::verification::executor::INHERITED_ENV_KEYS;
+use crate::verification::file_hash::sha256_file_hex;
 use crate::verification::policy::{ValidatedCheck, ValidatedProgram};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::fs::File;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::path::Path;
 
 pub(super) const CACHE_SCHEMA_VERSION: u32 = 1;
 
@@ -63,8 +63,8 @@ fn build_with_context(
     revision: &WorkspaceRevision,
     context: &KeyContext<'_>,
 ) -> Option<VerificationCacheKey> {
-    let executable = resolved_executable(&check.program)?;
-    let executable_sha256 = hash_file(&executable)?;
+    let executable = check.resolved_program.as_deref()?;
+    let executable_sha256 = sha256_file_hex(executable)?;
     let input = KeyInput {
         schema_version: context.schema_version,
         repopilot_version: context.repopilot_version,
@@ -116,22 +116,7 @@ fn program_label(program: &ValidatedProgram) -> String {
     }
 }
 
-fn resolved_executable(program: &ValidatedProgram) -> Option<PathBuf> {
-    match program {
-        ValidatedProgram::RepositoryRelative(path) => Some(path.clone()),
-        ValidatedProgram::Bare(program) => resolve_bare_program(program),
-    }
-}
-
-fn resolve_bare_program(program: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    let extensions = std::env::var("PATHEXT").ok();
-    let candidates = program_candidates(program, extensions.as_deref(), cfg!(windows));
-    std::env::split_paths(&path)
-        .flat_map(|directory| candidates.iter().map(move |name| directory.join(name)))
-        .find(|candidate| candidate.is_file())
-}
-
+#[cfg(test)]
 fn program_candidates(program: &str, path_ext: Option<&str>, windows: bool) -> Vec<String> {
     let mut candidates = vec![program.to_string()];
     if windows && Path::new(program).extension().is_none() {
@@ -144,20 +129,6 @@ fn program_candidates(program: &str, path_ext: Option<&str>, windows: bool) -> V
         );
     }
     candidates
-}
-
-fn hash_file(path: &Path) -> Option<String> {
-    let mut file = File::open(path).ok()?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0_u8; 16_384];
-    loop {
-        let read = file.read(&mut buffer).ok()?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Some(hex(&hasher.finalize()))
 }
 
 fn hash_environment(environment: &BTreeMap<String, Option<Vec<u8>>>) -> String {

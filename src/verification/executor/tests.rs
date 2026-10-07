@@ -1,6 +1,6 @@
 use super::{
     VerificationExecutionEvent, execute_check, run_checks, run_checks_observed,
-    run_checks_observed_cached,
+    run_checks_observed_cached, run_checks_observed_cached_with_pinned_identity,
 };
 use crate::config::loader::parse_config;
 use crate::scan::session::WorkspaceRevision;
@@ -402,6 +402,37 @@ fn cache_enabled_pass_executes_once_then_reuses_with_stable_lifecycle() {
             },
         ]
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn pinned_execution_skips_if_executable_changes_before_cache_or_spawn() {
+    let root = tempdir().expect("root");
+    let marker = root.path().join("runs.txt");
+    let executable = executable(root.path(), "printf original > runs.txt");
+    let check = check(
+        root.path(),
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"./tool.sh\"\n",
+        "unit",
+    );
+    std::fs::write(&executable, "#!/bin/sh\nprintf replacement > runs.txt\n")
+        .expect("replace executable");
+
+    let outcomes = run_checks_observed_cached_with_pinned_identity(
+        std::slice::from_ref(&check),
+        &[],
+        &WorkspaceRevision::capture(root.path()),
+        &CancellationToken::new(),
+        Some(root.path()),
+        &mut |_| {},
+    );
+
+    assert_eq!(outcomes[0].status, VerificationStatus::Skipped);
+    assert_eq!(
+        outcomes[0].limitations,
+        ["configured executable changed before execution"]
+    );
+    assert!(!marker.exists());
 }
 
 #[cfg(unix)]

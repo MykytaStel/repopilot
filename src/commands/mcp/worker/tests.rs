@@ -1,5 +1,6 @@
 use super::{ToolJob, run_tool_worker};
 use crate::commands::mcp::ServerState;
+use crate::commands::mcp::elicitation::ElicitationBroker;
 use crate::commands::mcp::request_registry::RequestRegistry;
 use repopilot::verification::CancellationToken;
 use serde_json::json;
@@ -41,8 +42,9 @@ fn writer_failure_still_cleans_request_registry() {
     let mut output = FailingWriter;
     let writer = Arc::new(Mutex::new(&mut output));
 
-    let error =
-        run_tool_worker(receiver, &state, &registry, &writer).expect_err("closed writer must fail");
+    let elicitation = Arc::new(ElicitationBroker::default());
+    let error = run_tool_worker(receiver, &state, &registry, &elicitation, &writer)
+        .expect_err("closed writer must fail");
 
     assert_eq!(error.kind(), io::ErrorKind::BrokenPipe);
     let mut registry = registry.lock().expect("registry");
