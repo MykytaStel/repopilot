@@ -53,6 +53,60 @@ fn selected_check_runs_and_is_reported_once() {
     assert_eq!(outcomes[0]["stdout_excerpt"], "verified");
 }
 
+#[cfg(unix)]
+#[test]
+fn bare_program_preserves_symlink_dispatch_name_for_cli_verification() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let temp = tempdir().expect("temp dir");
+    init_repo(temp.path());
+    let bin = temp.path().join("tool-bin");
+    fs::create_dir_all(&bin).expect("tool bin");
+    fs::create_dir_all(temp.path().join(".local")).expect("local data");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\nargs = []\n",
+    )
+    .expect("config");
+    fs::write(temp.path().join(".gitignore"), "tool-bin/\n.local/\n").expect("ignore tools");
+    let target = bin.join("cargo-proxy");
+    fs::write(
+        &target,
+        "#!/bin/sh\nprintf '%s' \"${0##*/}\" > .local/argv0\n",
+    )
+    .expect("proxy executable");
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).expect("executable mode");
+    symlink(&target, bin.join("cargo")).expect("cargo alias");
+    commit_all(temp.path(), "initial");
+    fs::write(temp.path().join("README.md"), "change\n").expect("review change");
+    let path = std::env::join_paths(std::iter::once(bin.clone()).chain(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    )))
+    .expect("test PATH");
+
+    let output = repopilot()
+        .args(["review", ".", "--format", "json", "--verify", "unit"])
+        .env("PATH", path)
+        .current_dir(temp.path())
+        .output()
+        .expect("review");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: Value = serde_json::from_slice(&output.stdout).expect("JSON report");
+    assert_eq!(
+        json["merge_readiness"]["verification"][0]["status"],
+        "passed"
+    );
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".local/argv0")).expect("argv0 marker"),
+        "cargo"
+    );
+}
+
 #[test]
 fn unknown_selected_check_exits_with_usage_code() {
     let temp = tempdir().expect("temp dir");

@@ -174,6 +174,53 @@ args = []
     assert!(client.close().success());
 }
 
+#[cfg(unix)]
+#[test]
+fn approved_bare_program_preserves_symlink_dispatch_name_in_mcp_verification() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+
+    let temp = verification_repo(
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"cargo\"\nargs = []\n",
+    );
+    fs::write(temp.path().join(".gitignore"), "tool-bin/\n.local/\n").expect("ignore tools");
+    git(temp.path(), &["add", ".gitignore"]);
+    git(temp.path(), &["commit", "-qm", "ignore verification tools"]);
+    let bin = temp.path().join("tool-bin");
+    fs::create_dir_all(&bin).expect("tool bin");
+    fs::create_dir_all(temp.path().join(".local")).expect("local data");
+    let target = bin.join("cargo-proxy");
+    fs::write(
+        &target,
+        "#!/bin/sh\nprintf '%s' \"${0##*/}\" > .local/argv0\n",
+    )
+    .expect("proxy executable");
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).expect("executable mode");
+    symlink(&target, bin.join("cargo")).expect("cargo alias");
+    let path = std::env::join_paths(std::iter::once(bin).chain(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    )))
+    .expect("test PATH");
+
+    let mut client = InteractiveMcpClient::start_with_path(
+        temp.path(),
+        "2025-11-25",
+        json!({ "elicitation": { "form": {} } }),
+        Some(path),
+    );
+    client.send(tool_call(
+        93,
+        json!({ "path": ".", "detail": "full", "verify": ["unit"] }),
+    ));
+    let result = accept_prompt(&mut client, 93);
+    let outcome = &result["structuredContent"]["merge_readiness"]["verification"][0];
+    assert_eq!(outcome["status"], "passed");
+    assert_eq!(
+        fs::read_to_string(temp.path().join(".local/argv0")).expect("argv0 marker"),
+        "cargo"
+    );
+    assert!(client.close().success());
+}
+
 #[test]
 fn elicitation_cancel_skips_without_launching_check() {
     let temp = verification_repo(

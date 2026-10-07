@@ -38,7 +38,6 @@ pub(crate) fn resolve_bare_program(program: &str, working_directory: &Path) -> O
             };
             candidates.iter().map(move |name| directory.join(name))
         })
-        .filter_map(|candidate| candidate.canonicalize().ok())
         .find(|candidate| candidate.is_file() && is_executable(candidate))
 }
 

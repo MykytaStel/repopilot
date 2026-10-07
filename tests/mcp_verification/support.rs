@@ -1,4 +1,5 @@
 use serde_json::{Value, json};
+use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
@@ -30,14 +31,26 @@ pub(super) struct InteractiveMcpClient {
 
 impl InteractiveMcpClient {
     pub(super) fn start(root: &Path, protocol: &str, capabilities: Value) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        Self::start_with_path(root, protocol, capabilities, None)
+    }
+
+    pub(super) fn start_with_path(
+        root: &Path,
+        protocol: &str,
+        capabilities: Value,
+        path: Option<OsString>,
+    ) -> Self {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_repopilot"));
+        command
             .arg("mcp")
             .current_dir(root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn MCP server");
+            .stderr(Stdio::null());
+        if let Some(path) = path {
+            command.env("PATH", path);
+        }
+        let mut child = command.spawn().expect("spawn MCP server");
         let stdin = child.stdin.take().expect("stdin");
         let stdout = BufReader::new(child.stdout.take().expect("stdout"));
         let mut client = Self {
