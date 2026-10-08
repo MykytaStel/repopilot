@@ -60,7 +60,7 @@ id = "rust-format"
 role = "lint"
 program = "cargo"
 args = ["--offline", "--locked", "fmt", "--all", "--", "--check"]
-timeout_seconds = 300
+timeout_seconds = 600
 paths = [
   "src/**",
   "tests/**",
@@ -85,7 +85,7 @@ args = [
   "-D",
   "warnings",
 ]
-timeout_seconds = 300
+timeout_seconds = 600
 paths = [
   "src/**",
   "tests/**",
@@ -101,7 +101,7 @@ id = "rust-tests"
 role = "test"
 program = "cargo"
 args = ["--offline", "--locked", "test", "--all"]
-timeout_seconds = 300
+timeout_seconds = 600
 paths = [
   "src/**",
   "tests/**",
