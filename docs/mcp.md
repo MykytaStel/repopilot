@@ -154,6 +154,14 @@ metadata with `offset`, `limit`, `total`, `returned`, and nullable
 the full report behind its handle even when the immediate client response uses
 `detail=compact`.
 
+Review signals keep the same structured evidence across MCP clients. The
+`behavioral.quiet-fallback-introduced` signal is a maybe-tier, medium-confidence
+candidate for a changed empty JS/TS `catch` or pass-only Python `except` around
+a call or import; it is not proof of harm and is not gate-eligible. Inspect the path and preserve an
+intentional recovery behavior. This signal is in the review result; the
+existing automatic stop hooks continue to block only their configured
+integrity and security signals.
+
 Serialized tool results are bounded to 1 MiB by default. Configure the bound
 with `repopilot mcp --max-response-bytes N` (`N >= 1024`). A result that still
 exceeds the bound is replaced with a small in-band error carrying

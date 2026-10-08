@@ -87,9 +87,11 @@ repopilot review --since-snapshot --fail-on-review definitely
 | GitHub Copilot coding agent | [setup steps, MCP, and the Action](#github-copilot-coding-agent) | the pull request review lists it; the agent is not stopped |
 | Any other agent | [AGENTS.md instructions](#any-agent-agentsmd) | the agent runs the review itself, if it follows the instructions |
 
-The integrations use the shared scripts or Cursor's protocol adapter and the
-same review. Each one reports
-the same signals; only how the agent hears about them differs.
+The integrations use the same local review and preserve its structured MCP
+signals. Automatic stop hooks block only the configured integrity and security
+signals. Other candidates, including quiet fallback, stay non-gating and are
+available to any configured MCP client in `tiered_signals`; inspect them as
+evidence rather than a verdict.
 
 ## Claude Code: install the plugin
 

@@ -70,11 +70,11 @@ fn initialize_reports_server_info_and_tools_capability() {
     let result = &responses[0]["result"];
     assert_eq!(result["serverInfo"]["name"], "repopilot");
     assert!(result["capabilities"]["tools"].is_object());
-    assert!(
-        result["instructions"]
-            .as_str()
-            .is_some_and(|text| text.contains("repopilot_review_change"))
-    );
+    assert!(result["instructions"].as_str().is_some_and(|text| {
+        text.contains("repopilot_review_change")
+            && text.contains("behavioral.quiet-fallback-introduced")
+            && text.contains("not proof of harm")
+    }));
     // Unsupported client versions negotiate to the latest server version.
     assert_eq!(result["protocolVersion"], "2025-11-25");
     assert_eq!(responses[1]["result"]["protocolVersion"], "2024-11-05");
@@ -155,6 +155,11 @@ fn tools_list_advertises_all_tools_with_schemas() {
         ),
         "{review_description}"
     );
+    assert!(
+        review_description.contains("changed quiet-fallback candidate in parsed JS/TS or Python"),
+        "{review_description}"
+    );
+    assert!(review_description.contains("not proof of harmful behavior"));
     assert!(review_description.contains("configured local checks"));
     assert!(review_description.contains("bounded and redacted"));
 }

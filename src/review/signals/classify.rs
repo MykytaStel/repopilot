@@ -36,12 +36,14 @@ pub(in crate::review) fn classify_boundary(
         return Some(BoundaryCategory::SecretConfig);
     }
 
-    let tokens = tokenize(path);
-    if is_request_trust(&tokens) {
-        return Some(BoundaryCategory::RequestTrust);
-    }
-    if is_access_control(&lower, &tokens) {
-        return Some(BoundaryCategory::AccessControl);
+    if !is_markdown_document(file_name) {
+        let tokens = tokenize(path);
+        if is_request_trust(&tokens) {
+            return Some(BoundaryCategory::RequestTrust);
+        }
+        if is_access_control(&lower, &tokens) {
+            return Some(BoundaryCategory::AccessControl);
+        }
     }
 
     if let Some(set) = custom
@@ -51,6 +53,10 @@ pub(in crate::review) fn classify_boundary(
     }
 
     None
+}
+
+fn is_markdown_document(file_name: &str) -> bool {
+    file_name.ends_with(".md") || file_name.ends_with(".markdown")
 }
 
 fn is_deploy_surface(lower: &str, file_name: &str) -> bool {

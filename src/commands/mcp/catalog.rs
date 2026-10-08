@@ -13,7 +13,7 @@ pub(super) const SERVER_INSTRUCTIONS: &str = "RepoPilot reviews Git changes and 
 - Why was this finding reported? repopilot_explain_finding with its `finding_id`, after a scan or review.\n\
 - Why was this review signal raised? repopilot_explain_review_signal with its `signal_id`, after a review.\n\
 - How does RepoPilot treat this file, and which rules apply to it? repopilot_explain_file.\n\
-Findings and signals are evidence, not verdicts: confirm the impact in the code. Re-run a review after editing; stored results describe the workspace at the time of the call.";
+Findings and signals are evidence, not verdicts: confirm the impact in the code. Treat `behavioral.quiet-fallback-introduced` as a candidate path, not proof of harm, and preserve intentional recovery behavior. Re-run a review after editing; stored results describe the workspace at the time of the call.";
 
 pub(super) fn tools_list_result() -> Value {
     json!({

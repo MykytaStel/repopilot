@@ -1,5 +1,7 @@
 //! Review-only candidates for changed empty catch handlers followed by a return.
 
+mod python;
+
 use crate::audits::context::classify::helpers::is_test_file;
 use crate::review::diff::ChangedFile;
 use crate::review::signals::behavioral::{
@@ -16,7 +18,13 @@ pub(crate) fn detect_quiet_fallback(
     file: &ChangedFile,
     post: &ReviewSource,
 ) -> Vec<BehavioralSignal> {
-    if is_test_file(&file.path) || !is_js_ts_file(&file.path, post.language_label()) {
+    if is_test_file(&file.path) {
+        return Vec::new();
+    }
+    if is_python_file(&file.path, post.language_label()) {
+        return python::detect(file, post);
+    }
+    if !is_js_ts_file(&file.path, post.language_label()) {
         return Vec::new();
     }
     let Some(tree) = post.tree().filter(|tree| !tree.root_node().has_error()) else {
@@ -26,6 +34,13 @@ pub(crate) fn detect_quiet_fallback(
     let mut signals = Vec::new();
     visit(tree.root_node(), file, post.content(), &mut signals);
     signals
+}
+
+fn is_python_file(path: &Path, label: Option<&str>) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("py"))
+        && label.is_some_and(|value| value.eq_ignore_ascii_case("python"))
 }
 
 fn is_js_ts_file(path: &Path, label: Option<&str>) -> bool {

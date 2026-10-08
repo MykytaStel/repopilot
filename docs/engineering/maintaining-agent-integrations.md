@@ -22,6 +22,11 @@ hook recipes are tested on Unix. Record the exact client/platform version and
 whether evidence is configuration, scripted protocol, or an actual client
 session. Never promote one level to another.
 
+The quiet-fallback candidate is returned through the shared review JSON/MCP
+contract for clients that consume it. It does not change automatic stop-hook
+blocking policy; proving native delivery and useful handling in each client is
+separate integration evidence.
+
 One snapshot belongs to one Git working tree. Parallel agent sessions use
 separate worktrees until session-scoped baselines are implemented and tested.
 

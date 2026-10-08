@@ -19,10 +19,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   the command, exact arguments, working directory, and host-permission boundary;
   do not put secrets in command arguments because they are sent to the MCP client.
 
-- JS/TS review now surfaces a changed empty `catch` around a call when the same
-  function can later return. The maybe-tier, medium-confidence signal identifies
-  a candidate fallback path; it does not claim that the operation is required
-  or the returned value is invalid.
+- JS/TS and Python review now surface a changed empty `catch` or pass-only
+  `except` around a call or optional import when the same function can later return. The
+  maybe-tier, medium-confidence signal identifies a candidate fallback path; it
+  does not claim that the operation is required or the returned value is invalid.
 
 - Rust review now flags a changed top-level public-function parameter count when
   a proven direct module-qualified caller still passes the previous number of
