@@ -3,7 +3,7 @@
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/MykytaStel/repopilot/main/install.sh | bash
-#   REPOPILOT_VERSION=0.24.3 bash install.sh
+#   REPOPILOT_VERSION=0.25.0 bash install.sh
 #
 # The binary is placed in ~/.local/bin (created if needed). If you want a system-wide
 # install, re-run with sudo and set INSTALL_DIR=/usr/local/bin.

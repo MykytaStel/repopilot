@@ -171,6 +171,7 @@ name: `mcp-name: io.github.MykytaStel/repopilot`.
 - [Language support](docs/language-support.md) ·
   [Rules reference](docs/rules-reference.md) · [Roadmap](docs/roadmap.md)
 - [Latest stable release notes](docs/releases/v0.24.3.md) ·
+  [Prepared 0.25.0 release notes](docs/releases/v0.25.0.md) ·
   [Release evidence](docs/engineering/v0.24-release-scorecard.md) ·
   [Maintainer documentation](docs/engineering/README.md)
 

@@ -34,6 +34,13 @@ generated-code and entry-point detection read only headers and top-level
 definitions, and two removal false alarms are gone.
 See the [0.24.3 release notes](releases/v0.24.3.md).
 
+The 0.25.0 release is prepared: review flags quiet fallbacks (a changed empty
+`catch` or pass-only `except`), reports callers that still use a removed JS/TS
+default export, a removed Rust public function, or the old parameter count of a
+Rust public function, and follows C# `CommandText` SQL to execution. An MCP client asks before it runs a
+configured check, and TypeScript alias edits are seen within one MCP session.
+See the [0.25.0 release notes](releases/v0.25.0.md).
+
 ## Next: 0.25
 
 The next slice develops the analysis engine alongside reliable first use.
