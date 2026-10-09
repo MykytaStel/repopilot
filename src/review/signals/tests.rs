@@ -63,6 +63,18 @@ fn access_control_does_not_match_lookalike_tokens() {
 }
 
 #[test]
+fn markdown_guidance_path_does_not_create_an_access_control_boundary() {
+    assert_eq!(
+        classify("integrations/claude-code/repopilot/skills/review-session/SKILL.md"),
+        None
+    );
+    assert_eq!(
+        classify("internal/session/store.go"),
+        Some(BoundaryCategory::AccessControl)
+    );
+}
+
+#[test]
 fn request_trust_matches_cors_and_helmet() {
     assert_eq!(
         classify("src/server/cors.ts"),

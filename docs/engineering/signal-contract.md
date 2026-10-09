@@ -125,17 +125,21 @@ normal review or CI output.
 ## Quiet Fallback Review Signal
 
 `behavioral.quiet-fallback-introduced` is a preview review signal for parsed
-JavaScript and TypeScript diffs. It points to a changed `catch` whose body has
-no executable statements, when its `try` body contains a call and the same
-enclosing function has a later `return`. Comments in the catch body are ignored.
-The detail retains the call and return locations so a reviewer can check the
-actual fallback path.
+JavaScript, TypeScript, and Python diffs. It points to a changed JS/TS `catch`
+whose body has no executable statements, or a Python `except` whose body
+contains only `pass`, when its `try` body contains a call (or, in Python, an
+`import`) and the same enclosing function has a later `return`. Comments in JS/TS catch bodies are ignored. For
+Python, the reported evidence line is the changed line within the handler, even
+when the `except` header itself is unchanged. The detail retains the call and
+return locations so a reviewer can check the actual fallback path.
 
 The signal is emitted in the maybe-sensitive tier with medium confidence and
 cannot fail the review gate. It is a syntax-based candidate only: it does not
 prove that the operation is required, that the fallback is invalid, or that
 production behavior is harmful. It does not cover Promise `.catch`, error
-sentinels, unsupported languages, test files, or files that fail to parse.
+sentinels, other languages or exception-handler forms, test files, or files
+that fail to parse. CLI review and MCP expose the same signal record; agent
+clients still depend on their configured MCP or hook integration to consume it.
 
 ## Signal Quality
 

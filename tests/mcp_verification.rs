@@ -2,9 +2,8 @@
 
 use serde_json::{Value, json};
 use std::fs;
-use std::io::Write;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 #[path = "mcp_verification/support.rs"]
 mod support;
@@ -44,57 +43,6 @@ fn accept_prompt(client: &mut InteractiveMcpClient, call_id: u64) -> Value {
         "result": { "action": "accept", "content": { "approve": true } }
     }));
     client.receive_with_id(call_id)["result"].clone()
-}
-
-fn run_mcp(root: &Path, requests: Vec<Value>) -> Vec<Value> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_repopilot"))
-        .arg("mcp")
-        .current_dir(root)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("spawn MCP server");
-    let mut stdin = child.stdin.take().expect("stdin");
-    writeln!(
-        stdin,
-        "{}",
-        json!({
-            "jsonrpc": "2.0",
-            "id": "init",
-            "method": "initialize",
-            "params": { "protocolVersion": "2025-11-25" }
-        })
-    )
-    .expect("initialize");
-    writeln!(
-        stdin,
-        "{}",
-        json!({
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized"
-        })
-    )
-    .expect("initialized");
-    for request in requests {
-        writeln!(stdin, "{request}").expect("request");
-    }
-    drop(stdin);
-
-    let output = child.wait_with_output().expect("MCP output");
-    assert!(output.status.success(), "MCP server failed");
-    String::from_utf8(output.stdout)
-        .expect("UTF-8")
-        .lines()
-        .map(|line| serde_json::from_str(line).expect("JSON response"))
-        .collect()
-}
-
-fn result_for(responses: &[Value], id: u64) -> &Value {
-    &responses
-        .iter()
-        .find(|response| response["id"] == id)
-        .unwrap_or_else(|| panic!("missing response {id}"))["result"]
 }
 
 fn git(root: &Path, args: &[&str]) {
@@ -234,20 +182,9 @@ program = "sh"
 args = ["-c", "printf spawned > should-not-exist"]
 "#,
     );
-    let responses = run_mcp(
-        temp.path(),
-        vec![
-            tool_call(4, json!({ "path": ".", "verify": ["unknown"] })),
-            json!({
-                "jsonrpc": "2.0",
-                "id": 5,
-                "method": "resources/read",
-                "params": { "uri": "repopilot://analyses" }
-            }),
-        ],
-    );
-
-    let result = result_for(&responses, 4);
+    let mut client = InteractiveMcpClient::start(temp.path(), "2025-11-25", json!({}));
+    client.send(tool_call(4, json!({ "path": ".", "verify": ["unknown"] })));
+    let result = client.receive_with_id(4)["result"].clone();
     assert_eq!(result["isError"], true);
     assert!(
         result["content"][0]["text"]
@@ -256,7 +193,17 @@ args = ["-c", "printf spawned > should-not-exist"]
             .contains("unknown verification check id")
     );
     assert!(!temp.path().join("should-not-exist").exists());
-    assert_eq!(result_for(&responses, 5)["contents"][0]["text"], "[]");
+    client.send(json!({
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "resources/read",
+        "params": { "uri": "repopilot://analyses" }
+    }));
+    assert_eq!(
+        client.receive_with_id(5)["result"]["contents"][0]["text"],
+        "[]"
+    );
+    assert!(client.close().success());
 }
 
 #[test]
