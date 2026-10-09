@@ -74,6 +74,25 @@ fn setup_change(root: &Path) {
     .expect("write changed source");
 }
 
+fn setup_python_change(root: &Path) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "test@example.invalid"]);
+    git(root, &["config", "user.name", "RepoPilot Test"]);
+    fs::create_dir_all(root.join("src")).expect("create src directory");
+    fs::write(
+        root.join("src/thumbnail.py"),
+        "def thumbnail(image):\n    try:\n        return native_transform(image)\n    except ImportError:\n        raise\n",
+    )
+    .expect("write original source");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "initial"]);
+    fs::write(
+        root.join("src/thumbnail.py"),
+        "def thumbnail(image):\n    try:\n        return native_transform(image)\n    except ImportError:\n        pass\n    return image\n",
+    )
+    .expect("write changed source");
+}
+
 fn git(root: &Path, args: &[&str]) {
     let output = Command::new("git")
         .args(args)
@@ -144,6 +163,58 @@ fn cli_and_mcp_publish_the_same_non_gating_signal() {
             .as_str()
             .unwrap()
             .contains("return line 7")
+    );
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+}
+
+#[test]
+fn python_cli_and_mcp_publish_the_same_non_gating_signal() {
+    let temp = tempdir().expect("temp directory");
+    setup_python_change(temp.path());
+    let cli_signal = signal(&cli_review(temp.path()));
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
+    send(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": "initialize",
+            "method": "initialize",
+            "params": { "protocolVersion": "2025-11-25" }
+        }),
+    );
+    let _ = receive(&mut stdout);
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+    );
+    send(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": "review",
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "detail": "full" }
+            }
+        }),
+    );
+    let response = receive(&mut stdout);
+    let mcp_signal = signal(&response["result"]["structuredContent"]);
+
+    assert_eq!(mcp_signal, cli_signal);
+    assert_eq!(cli_signal["line"], 5);
+    assert_eq!(cli_signal["confidence"], "MEDIUM");
+    assert_eq!(cli_signal["tier"], "maybe-sensitive");
+    assert_eq!(cli_signal["gate_eligible"], false);
+    assert!(
+        cli_signal["detail"]
+            .as_str()
+            .unwrap()
+            .contains("native_transform")
     );
 
     drop(stdin);
