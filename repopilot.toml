@@ -52,6 +52,66 @@ enabled = true
 [taint]
 enabled = true
 
+# Check IDs are the command identities in review output. `paths` only controls
+# applicability; commands run only when selected with `--verify <id>`.
+# All first-party commands are offline; MCP still requires per-check consent.
+[[verification.checks]]
+id = "rust-format"
+role = "lint"
+program = "cargo"
+args = ["--offline", "--locked", "fmt", "--all", "--", "--check"]
+timeout_seconds = 600
+paths = [
+  "src/**",
+  "tests/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "build.rs",
+  "rust-toolchain.toml",
+  "repopilot.toml",
+]
+
+[[verification.checks]]
+id = "rust-clippy"
+role = "lint"
+program = "cargo"
+args = [
+  "--offline",
+  "--locked",
+  "clippy",
+  "--all-targets",
+  "--all-features",
+  "--",
+  "-D",
+  "warnings",
+]
+timeout_seconds = 600
+paths = [
+  "src/**",
+  "tests/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "build.rs",
+  "rust-toolchain.toml",
+  "repopilot.toml",
+]
+
+[[verification.checks]]
+id = "rust-tests"
+role = "test"
+program = "cargo"
+args = ["--offline", "--locked", "test", "--all"]
+timeout_seconds = 600
+paths = [
+  "src/**",
+  "tests/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "build.rs",
+  "rust-toolchain.toml",
+  "repopilot.toml",
+]
+
 [output]
 default_format = "console"
 
