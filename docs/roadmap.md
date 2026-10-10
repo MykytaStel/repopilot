@@ -4,7 +4,17 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.24 — released
+## Current: 0.25 — released
+
+The `v0.25.0` release is published on GitHub Releases, crates.io, npm, and
+Homebrew (2026-10-10): review flags quiet fallbacks (a changed empty
+`catch` or pass-only `except`), reports callers that still use a removed JS/TS
+default export, a removed Rust public function, or the old parameter count of a
+Rust public function, and follows C# `CommandText` SQL to execution. An MCP client asks before it runs a
+configured check, and TypeScript alias edits are seen within one MCP session.
+See the [0.25.0 release notes](releases/v0.25.0.md).
+
+### 0.24
 
 RepoPilot 0.24 reports the checks a change weakened and runs the same review
 at the end of a coding-agent session. The stable `v0.24.0` tag is published;
@@ -34,20 +44,14 @@ generated-code and entry-point detection read only headers and top-level
 definitions, and two removal false alarms are gone.
 See the [0.24.3 release notes](releases/v0.24.3.md).
 
-The 0.25.0 release is prepared: review flags quiet fallbacks (a changed empty
-`catch` or pass-only `except`), reports callers that still use a removed JS/TS
-default export, a removed Rust public function, or the old parameter count of a
-Rust public function, and follows C# `CommandText` SQL to execution. An MCP client asks before it runs a
-configured check, and TypeScript alias edits are seen within one MCP session.
-See the [0.25.0 release notes](releases/v0.25.0.md).
+## 0.25 scope
 
-## Next: 0.25
-
-The next slice develops the analysis engine alongside reliable first use.
-Engineering does not wait for the external-user sample. The
+The 0.25 slice developed the analysis engine alongside reliable first use. The
 [0.25 scope](roadmap/v0.25.md) defines the technical slices and their
 acceptance criteria; the [0.25 evidence ledger](engineering/v0.25-evidence-ledger.md)
-records progress. The current published version remains 0.24.3.
+records progress. All technical slices shipped in 0.25.0. The first-use and
+evidence items below remain open, and new technical slices wait until at
+least two first reviews are independently observed.
 
 ### Technical core
 
@@ -106,6 +110,10 @@ Support and release maintenance follow the
 
 ## Released
 
+- **0.25.0 — Quiet fallbacks and broken callers:** review flags a changed empty
+  `catch` or pass-only `except`, callers of a removed JS/TS default export or
+  Rust public function, and stale Rust call arity; C# `CommandText` SQL taint;
+  per-check MCP consent before verification. [Release notes](releases/v0.25.0.md)
 - **0.24.3 — Large-repository reviews:** about four times faster on next.js
   with identical findings; cached and uncached reviews agree; structural
   generated-code and entry-point detection. [Release notes](releases/v0.24.3.md)
