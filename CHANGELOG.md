@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-10
+
 ### Added
 
 - MCP review verification now requires one-time, per-check form-mode Elicitation
@@ -38,6 +40,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   only when something imports it, and its callers are read only when it lost
   an export. A 123-file review of this repository takes 1.16 s instead of
   1.75–1.81 s (0.24.3: 1.10–1.15 s), with identical findings and signals.
+
+- A Markdown document no longer reads as an access-control or request-trust
+  boundary because of words in its path. A changed agent skill such as
+  `skills/review-session/SKILL.md` raised an access-control signal.
 
 - JVM graph assembly now indexes source filenames once per inventory, preserving
   package boundaries, production/test preference and ambiguous imports. A pinned
