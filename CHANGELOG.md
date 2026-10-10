@@ -31,6 +31,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- The API-contract checks added in this release no longer slow down reviews of
+  large changes. They read the previous version of every changed Rust or JS/TS
+  file with its own `git show` and re-read callers even when no export was
+  removed. Previous versions now come from one Git batch, an exporter is parsed
+  only when something imports it, and its callers are read only when it lost
+  an export. A 123-file review of this repository takes 1.16 s instead of
+  1.75–1.81 s (0.24.3: 1.10–1.15 s), with identical findings and signals.
+
 - JVM graph assembly now indexes source filenames once per inventory, preserving
   package boundaries, production/test preference and ambiguous imports. A pinned
   synthetic resolver workload and complete graph/evidence parity checks cover

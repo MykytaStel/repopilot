@@ -6,14 +6,16 @@ use finding::occurrence_to_finding;
 
 use crate::analysis::ParsedArtifact;
 use crate::analysis::api_contract::{
-    JavaScriptContractFactProvider, detect_removed_export_imports,
+    JavaScriptContractFactProvider, detect_removed_export_imports, is_contract_path,
 };
 use crate::analysis::symbols::JavaScriptSymbolFacts;
 use crate::findings::types::Finding;
 use crate::graph::resolver::normalize_path;
 use crate::review::diff::{ChangedFile, DiffTarget};
 use crate::review::signals::api_contract::extract_javascript_symbol_facts;
-use crate::review::signals::content::pre_change_source;
+use crate::review::signals::content::{
+    ReviewSource, batched_pre_change_sources, pre_change_source,
+};
 use crate::scan::cache::relative_cache_path;
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::parsed_cache::ParsedFactsCache;
@@ -93,6 +95,7 @@ pub(super) fn detect_findings(
         &context.repo_context.parsed_content_hashes,
         parsed_cache,
     );
+    provider.prefetch_pre_change_sources(&modified_exporters);
 
     detect_removed_export_imports(
         context.repo_root,
@@ -114,6 +117,7 @@ struct ScanFactProvider<'a> {
     repo_files: &'a [FileFacts],
     content_hashes: &'a BTreeMap<PathBuf, String>,
     parsed_cache: &'a mut ParsedFactsCache,
+    pre_change_sources: HashMap<PathBuf, Option<ReviewSource>>,
     before_facts: HashMap<PathBuf, Option<JavaScriptSymbolFacts>>,
 }
 
@@ -139,8 +143,23 @@ impl<'a> ScanFactProvider<'a> {
             repo_files,
             content_hashes,
             parsed_cache,
+            pre_change_sources: HashMap::new(),
             before_facts: HashMap::new(),
         }
+    }
+
+    /// Reads every supported exporter's pre-change source in one Git batch
+    /// instead of one `git show` per file. Facts are still extracted only for
+    /// an exporter that the detectors check.
+    fn prefetch_pre_change_sources(&mut self, exporters: &[PathBuf]) {
+        let (paths, files): (Vec<_>, Vec<_>) = exporters
+            .iter()
+            .filter(|path| is_contract_path(path))
+            .filter_map(|path| Some((path.clone(), (*self.changed_files.get(path)?).clone())))
+            .unzip();
+        let sources = batched_pre_change_sources(self.repo_root, self.target, &files);
+        self.pre_change_sources
+            .extend(paths.into_iter().zip(sources));
     }
 
     fn changed_artifact(&self, path: &Path) -> Option<&ParsedArtifact> {
@@ -170,11 +189,14 @@ impl JavaScriptContractFactProvider for ScanFactProvider<'_> {
         if let Some(facts) = self.before_facts.get(path) {
             return facts.clone();
         }
-        let facts = self
-            .changed_files
-            .get(path)
-            .and_then(|file| pre_change_source(self.repo_root, file, self.target))
-            .and_then(|source| extract_javascript_symbol_facts(&source));
+        let source = match self.pre_change_sources.remove(path) {
+            Some(source) => source,
+            None => self
+                .changed_files
+                .get(path)
+                .and_then(|file| pre_change_source(self.repo_root, file, self.target)),
+        };
+        let facts = source.and_then(|source| extract_javascript_symbol_facts(&source));
         self.before_facts.insert(path.to_path_buf(), facts.clone());
         facts
     }

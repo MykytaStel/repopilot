@@ -14,7 +14,16 @@ pub(in crate::review) fn pre_change_sources(
     if !toggles.behavioral && !toggles.algorithmic {
         return changed_files.iter().map(|_| None).collect();
     }
+    batched_pre_change_sources(repo_root, target, changed_files)
+}
 
+/// Every file's pre-change source, read in one Git batch: `None` for an added
+/// or untracked file, or when the content cannot be read.
+pub(crate) fn batched_pre_change_sources(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
+    changed_files: &[ChangedFile],
+) -> Vec<Option<ReviewSource>> {
     let reference = match target {
         DiffTarget::WorkingTree => "HEAD",
         DiffTarget::Refs { base, .. } | DiffTarget::SinceRef { base } => base,
