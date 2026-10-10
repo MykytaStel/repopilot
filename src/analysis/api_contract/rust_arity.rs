@@ -39,10 +39,12 @@ fn detect_exporter<P: JavaScriptContractFactProvider>(
     importers: Option<&BTreeSet<PathBuf>>,
     provider: &mut P,
 ) -> Vec<ApiContractOccurrence> {
-    let (Some(before), Some(current), Some(importers)) = (
+    let Some(importers) = importers else {
+        return Vec::new();
+    };
+    let (Some(before), Some(current)) = (
         provider.pre_change_facts(exporter),
         provider.current_facts(exporter),
-        importers,
     ) else {
         return Vec::new();
     };

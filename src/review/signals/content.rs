@@ -19,6 +19,7 @@ use std::sync::OnceLock;
 use tree_sitter::Tree;
 
 mod source_batch;
+pub(crate) use source_batch::batched_pre_change_sources;
 pub(in crate::review) use source_batch::{post_change_sources, pre_change_sources};
 
 /// One side (pre- or post-change) of a changed file's source. Owns the content

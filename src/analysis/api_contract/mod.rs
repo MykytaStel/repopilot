@@ -1,6 +1,8 @@
 mod javascript;
 mod rust_arity;
 
+pub(crate) use javascript::is_supported_path as is_contract_path;
+
 use crate::analysis::symbols::{JavaScriptSymbolFacts, SymbolKind};
 use crate::scan::types::CouplingGraph;
 use std::collections::HashSet;
