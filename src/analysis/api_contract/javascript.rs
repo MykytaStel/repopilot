@@ -20,6 +20,9 @@ pub(super) fn detect_removed_export_imports<P: JavaScriptContractFactProvider>(
         .filter(|path| is_supported_path(path))
     {
         let exporter = repository_relative(exporter, repo_root);
+        let Some(candidates) = importers.get(&exporter) else {
+            continue;
+        };
         let Some(before) = provider.pre_change_facts(&exporter) else {
             continue;
         };
@@ -30,9 +33,9 @@ pub(super) fn detect_removed_export_imports<P: JavaScriptContractFactProvider>(
             continue;
         }
         let removed = removed_symbols(&before.exports, &current);
-        let Some(candidates) = importers.get(&exporter) else {
+        if removed.is_empty() {
             continue;
-        };
+        }
         for importer in candidates.iter().filter(|path| is_supported_path(path)) {
             let Some(facts) = provider.current_facts(importer) else {
                 continue;
@@ -142,6 +145,11 @@ struct RemovedExports {
 }
 
 impl RemovedExports {
+    /// `vanished` is a subset of the names in `pairs`, so no pair means no match.
+    fn is_empty(&self) -> bool {
+        self.pairs.is_empty()
+    }
+
     fn matches(&self, name: &str, kind: SymbolKind) -> bool {
         self.vanished.contains(name) || self.pairs.contains(&(name.to_string(), kind))
     }
@@ -215,7 +223,7 @@ fn absolute_path(repo_root: &Path, path: &Path) -> PathBuf {
     })
 }
 
-pub(super) fn is_supported_path(path: &Path) -> bool {
+pub(crate) fn is_supported_path(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|extension| extension.to_str()),
         Some("ts" | "tsx" | "js" | "jsx" | "rs")
