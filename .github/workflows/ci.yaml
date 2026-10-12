@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload scan resource matrix
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: repopilot-scan-resource-matrix
           path: /tmp/repopilot-scan-resource-matrix.json
@@ -85,7 +85,7 @@ jobs:
 
       - name: Upload RepoPilot CI report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: repopilot-ci-report
           path: /tmp/repopilot-ci.md
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload RepoPilot CI shadow
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: repopilot-shadow
           path: /tmp/repopilot-shadow
@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload RepoPilot scoped policy
         if: ${{ always() && vars.REPOPILOT_SCOPED_BLOCKING == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: repopilot-scoped-policy
           path: |
