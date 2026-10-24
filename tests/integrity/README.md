@@ -76,14 +76,26 @@ avoids that vocabulary would be missed by the labeler as well.
 ## Evaluation and reconciliation
 
 `integrity_corpus.py evaluate` rebuilds each PR as a two-commit repository,
-from the merge base to the head, and runs `repopilot review` on it. `report`
-writes [REPORT.md](REPORT.md) and the per-PR signal kinds in `results.json`, so
-the report regenerates without the gitignored cache. The development split was
-evaluated with commit `5ff13d16`. The held-out and closed splits were evaluated
-once, with commit `b061d06f`. Detection code is the same in both commits.
-The performance rewrite in `2eb3c459` (single-cursor scan, parallel files) was
-re-run on all 358 PRs. Every signal's kind, path, line, and detail matched the
-earlier results exactly.
+from the merge base to the head, and runs `repopilot review` on it. Results are
+cached under the SHA-256 of the executable contents, so two builds with the
+same `--version` string cannot reuse each other's results. Re-running the same
+binary skips completed PRs; a changed binary starts a separate result set.
+
+`integrity_corpus.py report` prints the report from the only cached evaluation
+when there is one. If several executable hashes are cached, select one with
+`report --bin path/to/repopilot`; the command hashes that binary and loads only
+its results; fingerprinted results display the binary version and a SHA-256
+prefix. When there is no fingerprinted run, `report` falls back to the committed
+`results.json` and warns if an old flat cache is present. That old cache may
+contain results from multiple builds; inspect it only with
+`report --allow-legacy-cache`, and do not use it for version comparisons.
+Reporting does not replace the committed `results.json`; use
+`report --write-results` to explicitly replace that baseline. The development
+split was evaluated with commit `5ff13d16`. The held-out and closed splits were
+evaluated once, with commit `b061d06f`. Detection code is the same in both
+commits. The performance rewrite in `2eb3c459` (single-cursor scan, parallel
+files) was re-run on all 358 PRs. Every signal's kind, path, line, and detail
+matched the earlier results exactly.
 
 Blind labels stay the primary table. A second table applies reconciliations.
 Each one is a label that missed evidence which is objectively in the PR, and is
@@ -98,6 +110,13 @@ recorded in `reconciled_kinds` with its reason:
 
 Only missed evidence is reconciled. Judgment calls stay as labeled, even where
 the rubric could be read either way.
+
+The committed `results.json` is the original 0.23.0 evaluation. A separate
+re-evaluation of the 98 held-out PRs with RepoPilot 0.25.0 is preserved under
+[`evaluations/repopilot-0.25.0-holdout/`](evaluations/repopilot-0.25.0-holdout/).
+It records the binary hash, source commit, per-PR signals, and rendered report.
+It reuses the existing exploratory labels and does not establish
+production-wide detector accuracy.
 
 `behavioral.test-deleted-or-emptied` reports a whole test file that was
 deleted or emptied. `integrity.test-removed` reports test cases removed from a

@@ -173,7 +173,7 @@ fn stored_mcp_projections_share_the_canonical_review_records() {
     assert!(
         context["result"]["content"][0]["text"]
             .as_str()
-            .is_some_and(|text| text.contains("Repository Facts Summary")),
+            .is_some_and(|text| text.contains("Repository inventory facts")),
         "context content remains Markdown"
     );
 

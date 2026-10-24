@@ -8,6 +8,14 @@ case "$input" in
 esac
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+if [ -L "$root/.repopilot" ]; then
+  echo "RepoPilot: session review unavailable; .repopilot must be a real directory, not a symlink." >&2
+  exit 0
+fi
+if [ -L "$root/.repopilot/snapshot.json" ]; then
+  echo "RepoPilot: session review unavailable; .repopilot/snapshot.json must not be a symlink." >&2
+  exit 0
+fi
 if [ -d "$root/.repopilot" ] && [ ! -w "$root/.repopilot" ]; then
   echo "RepoPilot: session review unavailable; restore .repopilot write permission, then start a new session. Prior metadata could not be invalidated." >&2
   exit 0

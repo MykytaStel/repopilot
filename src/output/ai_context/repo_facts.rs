@@ -4,7 +4,7 @@ use std::fmt::Write as FmtWrite;
 pub(super) const MAX_LANGUAGES: usize = 5;
 
 pub(super) fn render_summary(out: &mut String, summary: &RepoFactsSummary) {
-    let _ = writeln!(out, "## Repository Facts Summary\n");
+    let _ = writeln!(out, "## Repository inventory facts\n");
 
     if summary.total_files == 0 {
         let _ = writeln!(out, "- No repository file facts were collected.");
@@ -12,7 +12,7 @@ pub(super) fn render_summary(out: &mut String, summary: &RepoFactsSummary) {
         return;
     }
 
-    let _ = writeln!(out, "- Files: {}", summary.total_files);
+    let _ = writeln!(out, "- Files inventoried: {}", summary.total_files);
     let _ = writeln!(
         out,
         "- Files with detected language: {}",
@@ -57,7 +57,7 @@ mod tests {
             },
         );
 
-        assert!(output.contains("## Repository Facts Summary"));
+        assert!(output.contains("## Repository inventory facts"));
         assert!(output.contains("- No repository file facts were collected."));
         assert!(output.contains("- Fact diagnostics: 2"));
     }
@@ -102,8 +102,8 @@ mod tests {
         let mut output = String::new();
         render_summary(&mut output, &summary);
 
-        assert!(output.contains("## Repository Facts Summary"));
-        assert!(output.contains("- Files: 2"));
+        assert!(output.contains("## Repository inventory facts"));
+        assert!(output.contains("- Files inventoried: 2"));
         assert!(output.contains("- Files with detected language: 1"));
         assert!(output.contains("- Non-empty lines: 50"));
         assert!(output.contains("- Fact diagnostics: 1"));

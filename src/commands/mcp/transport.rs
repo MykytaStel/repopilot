@@ -1,15 +1,12 @@
 #[cfg(test)]
 use super::DEFAULT_MAX_RESPONSE_BYTES;
+mod dispatch;
+use self::dispatch::serve_request_lines;
 use super::elicitation::ElicitationBroker;
-use super::jsonrpc::{
-    INVALID_REQUEST, IncomingMessage, PARSE_ERROR, RequestParseError, Response, parse_message,
-};
-use super::message_writer::write_message;
 use super::request_registry::RequestRegistry;
-use super::worker::{ToolJob, enqueue_tool_job, run_tool_worker};
-use super::{ServerState, TOOL_QUEUE_CAPACITY, handle, lock_error, request_key};
+use super::worker::{ToolJob, run_tool_worker};
+use super::{ServerState, TOOL_QUEUE_CAPACITY};
 use crate::cli::McpOptions;
-use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, mpsc};
@@ -37,7 +34,7 @@ pub(super) fn serve<R: BufRead, W: Write + Send>(reader: R, writer: W) -> std::i
 }
 
 fn serve_with_options<R: BufRead, W: Write + Send>(
-    reader: R,
+    mut reader: R,
     mut writer: W,
     root: PathBuf,
     max_response_bytes: usize,
@@ -54,7 +51,6 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
     let (jobs_tx, jobs_rx) = mpsc::sync_channel::<ToolJob>(TOOL_QUEUE_CAPACITY);
 
     std::thread::scope(|scope| -> std::io::Result<()> {
-        let mut initialized = false;
         let worker_state = Arc::clone(&state);
         let worker_registry = Arc::clone(&registry);
         let worker_elicitation = Arc::clone(&elicitation);
@@ -68,131 +64,20 @@ fn serve_with_options<R: BufRead, W: Write + Send>(
                 &worker_writer,
             )
         });
-
-        for line in reader.lines() {
-            let line = line?;
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            let request = match parse_message(&line) {
-                Ok(IncomingMessage::Request(request)) => request,
-                Ok(IncomingMessage::Response(response)) => {
-                    // A response is useful only while its exact server request is pending.
-                    elicitation.resolve(response);
-                    continue;
-                }
-                Err(RequestParseError::Parse) => {
-                    write_message(
-                        &writer,
-                        &Response::error(Value::Null, PARSE_ERROR, "parse error"),
-                    )?;
-                    continue;
-                }
-                Err(RequestParseError::InvalidRequest) => {
-                    write_message(
-                        &writer,
-                        &Response::error(Value::Null, INVALID_REQUEST, "invalid request"),
-                    )?;
-                    continue;
-                }
-            };
-
-            if request.method == "notifications/cancelled" {
-                if let Some(request_id) = cancellation_request_id(&request.params) {
-                    registry
-                        .lock()
-                        .map_err(lock_error)?
-                        .cancel(&request_key(&request_id));
-                }
-                continue;
-            }
-
-            let Some(request_id) = request.id.clone() else {
-                if request.method == "notifications/initialized" && !initialized {
-                    let mut state = state.lock().map_err(lock_error)?;
-                    if state.negotiated {
-                        state.initialized = true;
-                    }
-                    initialized = state.initialized;
-                }
-                continue;
-            };
-
-            if request.method == "ping" {
-                write_message(
-                    &writer,
-                    &Response::success(request_id.clone(), serde_json::json!({})),
-                )?;
-                continue;
-            }
-
-            if request.method == "tools/call" {
-                if !initialized {
-                    write_message(
-                        &writer,
-                        &Response::error(request_id, -32002, "MCP server is not initialized"),
-                    )?;
-                    continue;
-                }
-                let progress_token = request
-                    .params
-                    .get("_meta")
-                    .and_then(|meta| meta.get("progressToken"))
-                    .cloned();
-                let cancellation = repopilot::verification::CancellationToken::new();
-                enqueue_tool_job(
-                    &jobs_tx,
-                    ToolJob {
-                        id: request_id,
-                        params: request.params,
-                        progress_token,
-                        cancellation,
-                    },
-                    &registry,
-                    &writer,
-                )?;
-                continue;
-            }
-
-            let response = {
-                let mut state = match state.try_lock() {
-                    Ok(state) => state,
-                    Err(std::sync::TryLockError::WouldBlock) => {
-                        write_message(
-                            &writer,
-                            &Response::error(
-                                request_id.clone(),
-                                -32000,
-                                "MCP server is busy processing another tool call",
-                            ),
-                        )?;
-                        continue;
-                    }
-                    Err(std::sync::TryLockError::Poisoned(error)) => {
-                        return Err(lock_error(error));
-                    }
-                };
-                let response = handle(&request, &mut state);
-                initialized = state.initialized;
-                response
-            };
-            if let Some(response) = response {
-                write_message(&writer, &response)?;
-            }
-        }
-
+        let serve_result = serve_request_lines(
+            &mut reader,
+            &writer,
+            &state,
+            &registry,
+            &elicitation,
+            &jobs_tx,
+        );
         drop(jobs_tx);
-        worker
+        let worker_result = worker
             .join()
-            .map_err(|_| std::io::Error::other("MCP tool worker panicked"))??;
+            .map_err(|_| std::io::Error::other("MCP tool worker panicked"))?;
+        serve_result?;
+        worker_result?;
         Ok(())
     })
-}
-
-fn cancellation_request_id(params: &Value) -> Option<Value> {
-    params
-        .get("requestId")
-        .or_else(|| params.get("id"))
-        .cloned()
 }

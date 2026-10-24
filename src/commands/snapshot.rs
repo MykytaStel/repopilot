@@ -42,6 +42,10 @@ pub enum SnapshotError {
         path: PathBuf,
         source: std::io::Error,
     },
+    UnsafePath {
+        path: PathBuf,
+        reason: String,
+    },
     Json {
         path: PathBuf,
         source: serde_json::Error,
@@ -72,6 +76,13 @@ impl fmt::Display for SnapshotError {
             ),
             SnapshotError::Io { path, source } => {
                 write!(formatter, "failed to access {}: {source}", path.display())
+            }
+            SnapshotError::UnsafePath { path, reason } => {
+                write!(
+                    formatter,
+                    "refusing unsafe snapshot path {}: {reason}",
+                    path.display()
+                )
             }
             SnapshotError::Json { path, source } => write!(
                 formatter,
@@ -165,13 +176,40 @@ fn snapshot_path(repo_root: &Path) -> PathBuf {
 }
 
 fn write_snapshot(snapshot: &Snapshot, path: &Path) -> Result<(), SnapshotError> {
-    if let Some(parent) = path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|source| SnapshotError::Io {
-            path: parent.to_path_buf(),
-            source,
-        })?;
+    if let Some(parent) = path.parent() {
+        match fs::symlink_metadata(parent) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(SnapshotError::UnsafePath {
+                    path: parent.to_path_buf(),
+                    reason: "the .repopilot directory must not be a symlink".to_string(),
+                });
+            }
+            Ok(metadata) if !metadata.is_dir() => {
+                return Err(SnapshotError::UnsafePath {
+                    path: parent.to_path_buf(),
+                    reason: "the snapshot parent is not a directory".to_string(),
+                });
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                fs::create_dir_all(parent).map_err(|source| SnapshotError::Io {
+                    path: parent.to_path_buf(),
+                    source,
+                })?;
+            }
+            Err(source) => {
+                return Err(SnapshotError::Io {
+                    path: parent.to_path_buf(),
+                    source,
+                });
+            }
+        }
+    }
+    if fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+        return Err(SnapshotError::UnsafePath {
+            path: path.to_path_buf(),
+            reason: "the snapshot file must not be a symlink".to_string(),
+        });
     }
 
     let content = serde_json::to_string_pretty(snapshot).map_err(|source| SnapshotError::Json {

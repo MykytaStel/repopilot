@@ -1,0 +1,18 @@
+evaluation = "integrity-holdout-re-evaluation"
+date = "2026-10-24"
+binary_version = "repopilot 0.25.0"
+binary_sha256 = "46170247ec8dcb9cfbc02448fda373f865fc3107c203386cf3c95c9ae3819125"
+source_commit = "05015bf5c84eaabe49e866b30e1761bfdb8a45dc"
+host = "macOS Darwin 27, arm64"
+rustc = "rustc 1.94.0 (4a4ef493e 2026-03-02)"
+manifest = "../../manifest-holdout.toml"
+labels = "../../labels.toml"
+results = "results.json"
+report = "REPORT.md"
+command = "python3 scripts/integrity_corpus.py evaluate --prefix ih- --bin target/release/repopilot"
+
+[scope]
+pull_requests = 98
+source_and_test_changes_only = true
+repo_tests_executed = false
+labels = "existing single-labeler exploratory labels; one reviewed reconciliation"

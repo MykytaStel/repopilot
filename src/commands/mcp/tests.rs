@@ -149,6 +149,10 @@ fn tools_list_advertises_all_tools_with_schemas() {
     let review_description = review["description"]
         .as_str()
         .expect("review tool description");
+    assert!(review_description.contains("text block is concise Markdown"));
+    assert!(
+        review_description.contains("structuredContent contains the machine-readable JSON report")
+    );
     assert!(
         review_description.contains(
             "removed named TypeScript/JavaScript export that a resolved local caller still imports"
@@ -162,6 +166,13 @@ fn tools_list_advertises_all_tools_with_schemas() {
     assert!(review_description.contains("not proof of harmful behavior"));
     assert!(review_description.contains("configured local checks"));
     assert!(review_description.contains("bounded and redacted"));
+    let scan = tools
+        .iter()
+        .find(|tool| tool["name"] == "repopilot_scan")
+        .expect("scan tool");
+    let scan_description = scan["description"].as_str().expect("scan description");
+    assert!(scan_description.contains("text block is a concise Markdown summary"));
+    assert!(scan_description.contains("structuredContent contains the paginated JSON report"));
 }
 
 #[test]
@@ -236,6 +247,27 @@ fn malformed_line_returns_parse_error_and_server_continues() {
     let responses = decode(output);
     assert_eq!(responses.len(), 2);
     assert_eq!(responses[0]["error"]["code"], -32700);
+    assert_eq!(responses[1]["id"], 9);
+    assert!(responses[1]["result"].is_object());
+}
+
+#[test]
+fn oversized_request_is_rejected_and_server_continues() {
+    let padding = "x".repeat(1_048_577);
+    let input = format!(
+        "{{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"ping\",\"params\":{{\"padding\":\"{padding}\"}}}}\n{{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"ping\"}}"
+    );
+    let mut output = Vec::new();
+    serve(Cursor::new(input), &mut output).expect("serve");
+
+    let responses = decode(output);
+    assert_eq!(responses.len(), 2);
+    assert_eq!(responses[0]["error"]["code"], -32600);
+    assert!(
+        responses[0]["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("request too large"))
+    );
     assert_eq!(responses[1]["id"], 9);
     assert!(responses[1]["result"].is_object());
 }
@@ -488,6 +520,39 @@ fn explain_finding_requires_a_session_result() {
 }
 
 #[test]
+fn explain_file_uses_readable_text_and_keeps_structured_report() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir_all(temp.path().join("src")).expect("src");
+    std::fs::write(temp.path().join("src/lib.rs"), "pub fn live() {}\n").expect("source");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        ..ServerState::default()
+    };
+
+    let response = handle_tools_call(
+        json!(81),
+        &json!({
+            "name": "repopilot_explain_file",
+            "arguments": {"path": "src/lib.rs"}
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("tool result");
+
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("# RepoPilot file explanation")
+    );
+    assert_eq!(
+        result["structuredContent"]["scope"]["analysis_scope"],
+        "single-file"
+    );
+}
+
+#[test]
 fn scan_then_explain_finding_replays_session_finding() {
     let temp = tempfile::tempdir().expect("tempdir");
     let source_path = temp.path().join("src/lib.rs");
@@ -535,6 +600,24 @@ fn scan_then_explain_finding_replays_session_finding() {
     let result = response.result.expect("MCP result");
 
     assert_eq!(result["isError"], false, "tool call failed: {result}");
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("# RepoPilot finding explanation")
+    );
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("## Rule decision")
+    );
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("**Why it was reported:**")
+    );
     assert_eq!(result["structuredContent"]["source_report"], "last-scan");
     assert_eq!(result["structuredContent"]["replay"]["status"], "matched");
     assert!(
@@ -570,6 +653,11 @@ fn scan_paginates_and_handle_is_accepted_by_explain_and_context() {
     assert!(scan_result["workspaceRevision"].is_string());
     assert_eq!(scan_result["pagination"]["offset"], 0);
     assert_eq!(scan_result["pagination"]["limit"], 1);
+    let display = scan_result["content"][0]["text"]
+        .as_str()
+        .expect("human-readable text");
+    assert!(display.starts_with("# RepoPilot scan report"));
+    assert!(display.contains("**Page:** findings 1–1 of"));
     let handle = scan_result["analysisHandle"]
         .as_str()
         .expect("analysis handle")
@@ -684,6 +772,24 @@ fn review_signal_tool_explains_the_latest_stored_signal() {
     );
     let result = response.result.expect("tool result");
     assert_eq!(result["isError"], false, "tool call failed: {result}");
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("# RepoPilot review signal")
+    );
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("**Direct dependents:** `src/caller.ts`")
+    );
+    assert!(
+        result["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("## How to verify")
+    );
     assert_removed_export_explanation(&result);
 }
 
@@ -727,11 +833,14 @@ fn oversized_tool_result_is_replaced_by_a_bounded_error() {
     let result = super::tool_result(
         scan::TOOL_NAME,
         Ok(json!({ "findings": [], "payload": "x".repeat(4096) }).to_string()),
-        "revision-1",
-        Some("scan-handle"),
-        None,
-        1024,
-        None,
+        super::publication::ToolResultMetadata {
+            workspace_revision: "revision-1",
+            analysis_handle: Some("scan-handle"),
+            pagination: None,
+            max_response_bytes: 1024,
+            structured_content: None,
+            display_text: None,
+        },
     );
 
     assert_eq!(result["isError"], true);

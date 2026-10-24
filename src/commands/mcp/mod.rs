@@ -13,6 +13,7 @@ mod elicitation;
 mod explain_file;
 mod explain_finding;
 mod explain_review_signal;
+mod human_output;
 mod jsonrpc;
 mod message_writer;
 mod progress;

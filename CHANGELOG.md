@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Changed
+
+- MCP scan, change-review, and explain calls now show readable Markdown in the
+  text block while retaining the machine-readable report in `structuredContent`.
+  MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
+  coverage separately from the broader repository facts inventory.
+
+### Fixed
+
+- YAML config parsing now uses the maintained, safe-Rust `noyalib-serde-yaml`
+  compatibility package instead of the archived `unsafe-libyaml` dependency.
+- MCP review now confines `intent_path` to the configured MCP root. Claude Code
+  and Cursor session hooks, plus direct snapshot commands, refuse symlinked
+  `.repopilot` directories or snapshot files, preventing writes outside the
+  repository.
+
 ## [0.25.0] - 2026-10-10
 
 ### Added

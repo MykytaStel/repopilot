@@ -1,0 +1,1196 @@
+{
+  "schema_version": 1,
+  "corpus": "promise-catch-popular-pr-discovery",
+  "query": "catch fallback is:merged merged:2024-01-01..2026-10-24",
+  "snapshot_utc": "2026-10-24",
+  "ordering": "best-match",
+  "candidate_cap_per_repository": 20,
+  "candidate_count": 197,
+  "repository_count": 17,
+  "selection_note": "Exploratory text-ranked discovery frame. Repository popularity selection and PR search are not a probability sample.",
+  "pull_requests": [
+    {
+      "repo": "angular/angular",
+      "number": 67063,
+      "title": "feat(forms): introduce extractValue utility for signal forms",
+      "url": "https://github.com/angular/angular/pull/67063"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 67947,
+      "title": "Another approach to bootstrap Angular under a shadow root",
+      "url": "https://github.com/angular/angular/pull/67947"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 69769,
+      "title": "fix(language-server): recover project for external templates in solution-style workspaces",
+      "url": "https://github.com/angular/angular/pull/69769"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 69860,
+      "title": "feat(devtools): implement persistent breakpoints on signal consumers using CDP",
+      "url": "https://github.com/angular/angular/pull/69860"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 70155,
+      "title": "fix(compiler-cli): correctly resolve symbol for SafePropertyRead in c…",
+      "url": "https://github.com/angular/angular/pull/70155"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 70199,
+      "title": "fix(core): throw a descriptive error instead of crashing when a hydration node is missing",
+      "url": "https://github.com/angular/angular/pull/70199"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 70440,
+      "title": "docs: update link/file for JetBrains `AGENTS.md`",
+      "url": "https://github.com/angular/angular/pull/70440"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 70491,
+      "title": "fix(core): validate SVG animation attributes outside the SVG namespace",
+      "url": "https://github.com/angular/angular/pull/70491"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 70560,
+      "title": "docs: Add error boundaries entries",
+      "url": "https://github.com/angular/angular/pull/70560"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 71019,
+      "title": "docs: add pages for the NG8011 and NG8112 extended diagnostics",
+      "url": "https://github.com/angular/angular/pull/71019"
+    },
+    {
+      "repo": "angular/angular",
+      "number": 71392,
+      "title": "docs: document @switch multiple case matching in developer skill",
+      "url": "https://github.com/angular/angular/pull/71392"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 6961,
+      "title": "fix #6949: prevent RangeError when using large Buffers in axios requests",
+      "url": "https://github.com/axios/axios/pull/6961"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 7345,
+      "title": "merge v1 to main",
+      "url": "https://github.com/axios/axios/pull/7345"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 7352,
+      "title": "Fix issues with version 1.13.3",
+      "url": "https://github.com/axios/axios/pull/7352"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 7385,
+      "title": "feat: implement prettier and fix all issues",
+      "url": "https://github.com/axios/axios/pull/7385"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 7489,
+      "title": "refactor: port remaining karma tests",
+      "url": "https://github.com/axios/axios/pull/7489"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 10896,
+      "title": "fix(fetch): support basic auth from URL",
+      "url": "https://github.com/axios/axios/pull/10896"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 10961,
+      "title": "feat: validate fetchOptions while preserving provider extensions",
+      "url": "https://github.com/axios/axios/pull/10961"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11096,
+      "title": "fix: core methodList, HTTP adapter errors, and add tests",
+      "url": "https://github.com/axios/axios/pull/11096"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11121,
+      "title": "fix(xhr): flush final progress during the live loadend dispatch",
+      "url": "https://github.com/axios/axios/pull/11121"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11161,
+      "title": "feat!: require Node.js 20 for v2",
+      "url": "https://github.com/axios/axios/pull/11161"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11165,
+      "title": "build!: migrate release bundles to Rolldown",
+      "url": "https://github.com/axios/axios/pull/11165"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11166,
+      "title": "fix(xhr): avoid main-thread jank from cookie reads",
+      "url": "https://github.com/axios/axios/pull/11166"
+    },
+    {
+      "repo": "axios/axios",
+      "number": 11242,
+      "title": "fix: align request handling across runtimes (v1.x)",
+      "url": "https://github.com/axios/axios/pull/11242"
+    },
+    {
+      "repo": "babel/babel",
+      "number": 16263,
+      "title": "Reduce helper size for decorator 2023-11",
+      "url": "https://github.com/babel/babel/pull/16263"
+    },
+    {
+      "repo": "babel/babel",
+      "number": 16912,
+      "title": "Fix: node.js 23 support",
+      "url": "https://github.com/babel/babel/pull/16912"
+    },
+    {
+      "repo": "babel/babel",
+      "number": 17257,
+      "title": "Preserve class id when transforming using declarations with exported class",
+      "url": "https://github.com/babel/babel/pull/17257"
+    },
+    {
+      "repo": "babel/babel",
+      "number": 17832,
+      "title": "chore(deps): update dependency rollup to v4.59.0 [security]",
+      "url": "https://github.com/babel/babel/pull/17832"
+    },
+    {
+      "repo": "babel/babel",
+      "number": 18215,
+      "title": "fix(parser): remove non-decimal prefix from bigint",
+      "url": "https://github.com/babel/babel/pull/18215"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 32789,
+      "title": "fix: prevent threadpool starvation with concurrent file locks",
+      "url": "https://github.com/denoland/deno/pull/32789"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 32854,
+      "title": "fix: resolve local file when folder name matches import-mapped package",
+      "url": "https://github.com/denoland/deno/pull/32854"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 33274,
+      "title": "feat(upgrade): delta updates via bsdiff patches",
+      "url": "https://github.com/denoland/deno/pull/33274"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 33683,
+      "title": "perf(ext/fetch): cache lowercased header names per Headers instance",
+      "url": "https://github.com/denoland/deno/pull/33683"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 34416,
+      "title": "fix(ext/http): reject Response-like return from serve handler",
+      "url": "https://github.com/denoland/deno/pull/34416"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 34618,
+      "title": "feat(compile): persist Web Storage/KV in a per-app data directory",
+      "url": "https://github.com/denoland/deno/pull/34618"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 34698,
+      "title": "fix(npm): apply scoped registry auth to same-origin tarballs",
+      "url": "https://github.com/denoland/deno/pull/34698"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 34912,
+      "title": "fix(core): unwrap global exports in Wasm ESM integration",
+      "url": "https://github.com/denoland/deno/pull/34912"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 35236,
+      "title": "fix(ext/node): stop coloring non-TTY streams in `util.styleText`",
+      "url": "https://github.com/denoland/deno/pull/35236"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 35626,
+      "title": "fix(desktop): show macOS tray icon in bundled .app launched via Finder",
+      "url": "https://github.com/denoland/deno/pull/35626"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 35654,
+      "title": "fix(desktop): attribute bind calls to the registering window id",
+      "url": "https://github.com/denoland/deno/pull/35654"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36078,
+      "title": "fix(napi): synchronize external string finalizers",
+      "url": "https://github.com/denoland/deno/pull/36078"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36111,
+      "title": "fix(cjs): use loader sources for recursive analysis",
+      "url": "https://github.com/denoland/deno/pull/36111"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36375,
+      "title": "fix(repl): skip regex literals when validating input",
+      "url": "https://github.com/denoland/deno/pull/36375"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36398,
+      "title": "perf(ext/web): implement base64url encode/decode as simdutf ops",
+      "url": "https://github.com/denoland/deno/pull/36398"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36422,
+      "title": "perf(ext/web): apply the base64url op design to standard base64",
+      "url": "https://github.com/denoland/deno/pull/36422"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36531,
+      "title": "perf(ext/node): Buffer hex paths via native Uint8Array toHex/setFromHex",
+      "url": "https://github.com/denoland/deno/pull/36531"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36577,
+      "title": "fix(desktop): propagate deno.json version and license into packaged installers",
+      "url": "https://github.com/denoland/deno/pull/36577"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36592,
+      "title": "fix(ext/node): do not resume client TLS sessions unless requested",
+      "url": "https://github.com/denoland/deno/pull/36592"
+    },
+    {
+      "repo": "denoland/deno",
+      "number": 36785,
+      "title": "fix(permissions): parse unix: net rules as POSIX paths",
+      "url": "https://github.com/denoland/deno/pull/36785"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 46595,
+      "title": "fix: fallback to old MacOS context menu behavior if no frame is present",
+      "url": "https://github.com/electron/electron/pull/46595"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 49270,
+      "title": "fix: pulseaudio stream and icon names",
+      "url": "https://github.com/electron/electron/pull/49270"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 49717,
+      "title": "fix: address upstream Chromium shift to enable `CoreAudio Tap API` for audio capture used in electron's `desktopCapturer` (🍏 macOS). ",
+      "url": "https://github.com/electron/electron/pull/49717"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 50046,
+      "title": "feat: support Widevine CDM",
+      "url": "https://github.com/electron/electron/pull/50046"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 50598,
+      "title": "build: replace npx with lockfile-pinned binaries",
+      "url": "https://github.com/electron/electron/pull/50598"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 51703,
+      "title": "perf: boot the browser process from an embedded Node startup snapshot",
+      "url": "https://github.com/electron/electron/pull/51703"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 52748,
+      "title": "fix: load the zip extractor only when extraction runs",
+      "url": "https://github.com/electron/electron/pull/52748"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 52833,
+      "title": "feat: serve asar file descriptors, streams and copies from the archive",
+      "url": "https://github.com/electron/electron/pull/52833"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 52923,
+      "title": "perf: cut first-window, ipc, contextBridge, Buffer and asar overhead",
+      "url": "https://github.com/electron/electron/pull/52923"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 54264,
+      "title": "test: run the spec suite with vitest",
+      "url": "https://github.com/electron/electron/pull/54264"
+    },
+    {
+      "repo": "electron/electron",
+      "number": 54903,
+      "title": "feat: preload script URL filters",
+      "url": "https://github.com/electron/electron/pull/54903"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 18134,
+      "title": "feat: Add support for TS config files",
+      "url": "https://github.com/eslint/eslint/pull/18134"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 19643,
+      "title": "chore: add initial ecosystem plugin tests workflow",
+      "url": "https://github.com/eslint/eslint/pull/19643"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 19675,
+      "title": "refactor: Consolidate Config helpers",
+      "url": "https://github.com/eslint/eslint/pull/19675"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 19913,
+      "title": "feat: add `preserve-caught-error` rule",
+      "url": "https://github.com/eslint/eslint/pull/19913"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 20571,
+      "title": "feat: Add `meta.languages` support to rules",
+      "url": "https://github.com/eslint/eslint/pull/20571"
+    },
+    {
+      "repo": "eslint/eslint",
+      "number": 20682,
+      "title": "chore: replace `recast` with range approach in code-sample-minimizer",
+      "url": "https://github.com/eslint/eslint/pull/20682"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 33298,
+      "title": "feat(trace viewer): add \"Copy as Playwright Request\" button",
+      "url": "https://github.com/microsoft/playwright/pull/33298"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 33811,
+      "title": "fix(connect): disable context takeover in websocket transport",
+      "url": "https://github.com/microsoft/playwright/pull/33811"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 35670,
+      "title": "fix(reporters): error context exception with page.evaluate",
+      "url": "https://github.com/microsoft/playwright/pull/35670"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 36358,
+      "title": "feat(webkit): allow running WebKit via WSL on Windows",
+      "url": "https://github.com/microsoft/playwright/pull/36358"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 36833,
+      "title": "chore: replace more cleanupWhenAborted calls with try/catch",
+      "url": "https://github.com/microsoft/playwright/pull/36833"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 39190,
+      "title": "Document Precedence of Mocked Routes if Multiple are Matching",
+      "url": "https://github.com/microsoft/playwright/pull/39190"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 39418,
+      "title": "chore(deps): bump rollup from 4.50.0 to 4.59.0",
+      "url": "https://github.com/microsoft/playwright/pull/39418"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 41071,
+      "title": "fix(chromium): propagate `setUserAgent()` to service workers via `Network` domain",
+      "url": "https://github.com/microsoft/playwright/pull/41071"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 41294,
+      "title": "feat(routeFromHar): add interceptAPIRequests option",
+      "url": "https://github.com/microsoft/playwright/pull/41294"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "number": 41882,
+      "title": "fix(network): request.postData() returns null for empty string body override",
+      "url": "https://github.com/microsoft/playwright/pull/41882"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 55406,
+      "title": "CodeMapper support",
+      "url": "https://github.com/microsoft/TypeScript/pull/55406"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 57465,
+      "title": "Infer type predicates from function bodies using control flow analysis",
+      "url": "https://github.com/microsoft/TypeScript/pull/57465"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 62789,
+      "title": "Fix \"never nullish\" diagnostic missing expressions wrapped in parentheses",
+      "url": "https://github.com/microsoft/TypeScript/pull/62789"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 64366,
+      "title": "Watch projects and program files close to the filesystem root",
+      "url": "https://github.com/microsoft/TypeScript/pull/64366"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 64647,
+      "title": "[api] Expose API client modules from VS Code extension",
+      "url": "https://github.com/microsoft/TypeScript/pull/64647"
+    },
+    {
+      "repo": "microsoft/TypeScript",
+      "number": 64846,
+      "title": "[api] Add timing collection and dump via environment variable",
+      "url": "https://github.com/microsoft/TypeScript/pull/64846"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 52093,
+      "title": "module: eliminate performance cost of ESM syntax detection for CommonJS entry points",
+      "url": "https://github.com/nodejs/node/pull/52093"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 52413,
+      "title": "module: detect ESM syntax by trying to recompile as SourceTextModule",
+      "url": "https://github.com/nodejs/node/pull/52413"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 54648,
+      "title": "module: implement the \"module-sync\" exports condition",
+      "url": "https://github.com/nodejs/node/pull/54648"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 54862,
+      "title": "assert: make assertion_error user myers diff algorithm",
+      "url": "https://github.com/nodejs/node/pull/54862"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 55343,
+      "title": "V22.10.0 proposal",
+      "url": "https://github.com/nodejs/node/pull/55343"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 55602,
+      "title": "report: fix network queries in getReport libuv with exclude-network",
+      "url": "https://github.com/nodejs/node/pull/55602"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 56699,
+      "title": "v20.18.3 proposal",
+      "url": "https://github.com/nodejs/node/pull/56699"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 57343,
+      "title": "build, doc: use new api doc tooling",
+      "url": "https://github.com/nodejs/node/pull/57343"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 58588,
+      "title": "v20.19.3 proposal",
+      "url": "https://github.com/nodejs/node/pull/58588"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 61871,
+      "title": "buffer: improve performance of multiple Buffer operations",
+      "url": "https://github.com/nodejs/node/pull/61871"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 62239,
+      "title": "loader: implement package maps",
+      "url": "https://github.com/nodejs/node/pull/62239"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 64249,
+      "title": "tools: bump the eslint group in /tools/eslint with 8 updates",
+      "url": "https://github.com/nodejs/node/pull/64249"
+    },
+    {
+      "repo": "nodejs/node",
+      "number": 66533,
+      "title": "doc,lib,src: throw on missing WebAssembly or RX support",
+      "url": "https://github.com/nodejs/node/pull/66533"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 16559,
+      "title": "chore(deps): update dependency flow-parser to v0.243.0",
+      "url": "https://github.com/prettier/prettier/pull/16559"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 16856,
+      "title": "chore(deps): update dependency @angular/compiler to v19",
+      "url": "https://github.com/prettier/prettier/pull/16856"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 17365,
+      "title": "Update dependency angular-html-parser to v9",
+      "url": "https://github.com/prettier/prettier/pull/17365"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 18922,
+      "title": "Update devDependencies",
+      "url": "https://github.com/prettier/prettier/pull/18922"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 19030,
+      "title": "Update devDependencies",
+      "url": "https://github.com/prettier/prettier/pull/19030"
+    },
+    {
+      "repo": "prettier/prettier",
+      "number": 19303,
+      "title": "Update `eslint-plugin-unicorn` to v65",
+      "url": "https://github.com/prettier/prettier/pull/19303"
+    },
+    {
+      "repo": "puppeteer/puppeteer",
+      "number": 15607,
+      "title": "fix(network): return post data of a paused request without asking Chrome",
+      "url": "https://github.com/puppeteer/puppeteer/pull/15607"
+    },
+    {
+      "repo": "sveltejs/svelte",
+      "number": 13553,
+      "title": "fix: do no rerun the each block when array change from empty to empty",
+      "url": "https://github.com/sveltejs/svelte/pull/13553"
+    },
+    {
+      "repo": "sveltejs/svelte",
+      "number": 14211,
+      "title": "feat: add error boundaries",
+      "url": "https://github.com/sveltejs/svelte/pull/14211"
+    },
+    {
+      "repo": "sveltejs/svelte",
+      "number": 16748,
+      "title": "feat: async SSR",
+      "url": "https://github.com/sveltejs/svelte/pull/16748"
+    },
+    {
+      "repo": "sveltejs/svelte",
+      "number": 17429,
+      "title": "feat: customizable select",
+      "url": "https://github.com/sveltejs/svelte/pull/17429"
+    },
+    {
+      "repo": "sveltejs/svelte",
+      "number": 18467,
+      "title": "Fix hydration state restoration for custom element attribute updates",
+      "url": "https://github.com/sveltejs/svelte/pull/18467"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 8844,
+      "title": "chore(deps): update dependency next to v15.2.3 [security]",
+      "url": "https://github.com/TanStack/query/pull/8844"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9270,
+      "title": "feat(angular-query): move devtools to conditional sub-paths",
+      "url": "https://github.com/TanStack/query/pull/9270"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9615,
+      "title": "feat(query-core): add context to mutationfn & mutation callbacks",
+      "url": "https://github.com/TanStack/query/pull/9615"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9671,
+      "title": "ci: update workspace config",
+      "url": "https://github.com/TanStack/query/pull/9671"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9694,
+      "title": "feat!(svelte-query): rewrite Svelte adapter to use runes",
+      "url": "https://github.com/TanStack/query/pull/9694"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9813,
+      "title": "docs(solid-query): fix incorrect Vue.js code example in Suspense guide",
+      "url": "https://github.com/TanStack/query/pull/9813"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9841,
+      "title": "fix(solid-query): ignore error if data undefined so can redirect",
+      "url": "https://github.com/TanStack/query/pull/9841"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9862,
+      "title": "Upgrade to Vitest v4",
+      "url": "https://github.com/TanStack/query/pull/9862"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 9935,
+      "title": "feat: Preact Adapter",
+      "url": "https://github.com/TanStack/query/pull/9935"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10283,
+      "title": "ci: align publishing to router with main/-pre/-maint",
+      "url": "https://github.com/TanStack/query/pull/10283"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10652,
+      "title": "Lit query docs",
+      "url": "https://github.com/TanStack/query/pull/10652"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10662,
+      "title": "docs: add docs for simplified query methods",
+      "url": "https://github.com/TanStack/query/pull/10662"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10747,
+      "title": "fix(eslint-plugin-query): handle array-destructured useQueries results in no-unstable-deps (fix #10746)",
+      "url": "https://github.com/TanStack/query/pull/10747"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10771,
+      "title": "fix(broadcast-client): handle unhandled postMessage rejections",
+      "url": "https://github.com/TanStack/query/pull/10771"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 10823,
+      "title": "test(solid-query-devtools/devtools): add wiring and default-value cases for 'initialIsOpen', 'errorTypes', 'theme', 'setClient', and 'unmount'",
+      "url": "https://github.com/TanStack/query/pull/10823"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 11027,
+      "title": "test(preact-query-devtools): extract shared test setup into 'beforeEach'",
+      "url": "https://github.com/TanStack/query/pull/11027"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 11204,
+      "title": "docs(preact-query): document functions and components with JSDoc for generated reference docs",
+      "url": "https://github.com/TanStack/query/pull/11204"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 11309,
+      "title": "fix(preact-query): propagate falsy errors to the error boundary",
+      "url": "https://github.com/TanStack/query/pull/11309"
+    },
+    {
+      "repo": "TanStack/query",
+      "number": 11438,
+      "title": "docs(query-core): add JSDoc across the package and expose it in generated reference docs",
+      "url": "https://github.com/TanStack/query/pull/11438"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 16471,
+      "title": "feat: v6 - Environment API",
+      "url": "https://github.com/vitejs/vite/pull/16471"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 19959,
+      "title": "fix(ssr): handle uninitialized export access as undefined",
+      "url": "https://github.com/vitejs/vite/pull/19959"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20212,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitejs/vite/pull/20212"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20460,
+      "title": "fix(worker): resolve WebKit compat with inline workers by deferring blob URL revocation",
+      "url": "https://github.com/vitejs/vite/pull/20460"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20676,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitejs/vite/pull/20676"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20739,
+      "title": "feat(create-vite): scaffold with rolldown-vite",
+      "url": "https://github.com/vitejs/vite/pull/20739"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20916,
+      "title": "feat: forward browser console logs and errors to dev server terminal",
+      "url": "https://github.com/vitejs/vite/pull/20916"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 20924,
+      "title": "perf(module-runner): add client-side builtin module check",
+      "url": "https://github.com/vitejs/vite/pull/20924"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 21002,
+      "title": "fix(css): fallback to sass when sass-embedded platform binary is missing",
+      "url": "https://github.com/vitejs/vite/pull/21002"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 21321,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitejs/vite/pull/21321"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 21585,
+      "title": "fix(module-runner): prevent crash on negative column in stacktrace",
+      "url": "https://github.com/vitejs/vite/pull/21585"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 21710,
+      "title": "fix(types): remove extends ImportMeta from ModuleRunnerImportMeta",
+      "url": "https://github.com/vitejs/vite/pull/21710"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 21878,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitejs/vite/pull/21878"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 22759,
+      "title": "fix: preload css for nested dynamic imports",
+      "url": "https://github.com/vitejs/vite/pull/22759"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23042,
+      "title": "feat(cli): support naming the CPU profile via --profile [name]",
+      "url": "https://github.com/vitejs/vite/pull/23042"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23077,
+      "title": "test(bundled-dev): wait for first bundle and client before assertions",
+      "url": "https://github.com/vitejs/vite/pull/23077"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23080,
+      "title": "test(bundled-dev): enable sourcemap playgrounds",
+      "url": "https://github.com/vitejs/vite/pull/23080"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23217,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitejs/vite/pull/23217"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23333,
+      "title": "feat(devtools): enable dev server integration",
+      "url": "https://github.com/vitejs/vite/pull/23333"
+    },
+    {
+      "repo": "vitejs/vite",
+      "number": 23600,
+      "title": "fix(optimizer): preserve excluded optional peer require fallbacks",
+      "url": "https://github.com/vitejs/vite/pull/23600"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 5053,
+      "title": "fix(vm): improve error when module is not found",
+      "url": "https://github.com/vitest-dev/vitest/pull/5053"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 5712,
+      "title": "chore(deps): update all non-major dependencies",
+      "url": "https://github.com/vitest-dev/vitest/pull/5712"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 7765,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitest-dev/vitest/pull/7765"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 8071,
+      "title": "fix(vite-node): unable to handle errors where sourcemap mapping empty",
+      "url": "https://github.com/vitest-dev/vitest/pull/8071"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 8235,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitest-dev/vitest/pull/8235"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 9192,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitest-dev/vitest/pull/9192"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 9388,
+      "title": "chore(deps): update vueuse monorepo to v14 (major)",
+      "url": "https://github.com/vitest-dev/vitest/pull/9388"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 9567,
+      "title": "fix(deps): update all non-major dependencies",
+      "url": "https://github.com/vitest-dev/vitest/pull/9567"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 10113,
+      "title": "feat(benchmark)!: rewrite the public API",
+      "url": "https://github.com/vitest-dev/vitest/pull/10113"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 10174,
+      "title": "feat(vitest): create `vi.when()`",
+      "url": "https://github.com/vitest-dev/vitest/pull/10174"
+    },
+    {
+      "repo": "vitest-dev/vitest",
+      "number": 11513,
+      "title": "fix(coverage): `allowExternal` fails to include uncovered files",
+      "url": "https://github.com/vitest-dev/vitest/pull/11513"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 12601,
+      "title": "fix(server-renderer): handle errors in optimized component renders",
+      "url": "https://github.com/vuejs/core/pull/12601"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14730,
+      "title": "refactor(runtime-vapor): simplify slot fallback ownership",
+      "url": "https://github.com/vuejs/core/pull/14730"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14758,
+      "title": "fix(compiler-sfc): infer Vue ref wrapper types when source is unresolvable",
+      "url": "https://github.com/vuejs/core/pull/14758"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14790,
+      "title": "fix(compiler-vapor): bind dynamic slot sources to owner",
+      "url": "https://github.com/vuejs/core/pull/14790"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14794,
+      "title": "fix(server-renderer): render unresolved tag fallback as element",
+      "url": "https://github.com/vuejs/core/pull/14794"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14819,
+      "title": "refactor(runtime-vapor): simplify slot fallback and slot binding cache",
+      "url": "https://github.com/vuejs/core/pull/14819"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14832,
+      "title": "fix(runtime-vapor): skip teleport ranges for logical hydration siblings",
+      "url": "https://github.com/vuejs/core/pull/14832"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14875,
+      "title": "refactor(vapor): compact createSlot options into flags",
+      "url": "https://github.com/vuejs/core/pull/14875"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14899,
+      "title": "refactor(runtime-vapor): simplify slot fallback model",
+      "url": "https://github.com/vuejs/core/pull/14899"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14904,
+      "title": "fix(runtime-vapor): preserve fallthrough attrs on nested dynamic fragments",
+      "url": "https://github.com/vuejs/core/pull/14904"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14908,
+      "title": "fix(runtime-vapor): restore hmr context on errors",
+      "url": "https://github.com/vuejs/core/pull/14908"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14912,
+      "title": "perf(runtime-vapor): cache normalized interop slot wrappers",
+      "url": "https://github.com/vuejs/core/pull/14912"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14913,
+      "title": "fix(runtime-vapor): update custom element children from reactive props",
+      "url": "https://github.com/vuejs/core/pull/14913"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 14999,
+      "title": "fix(runtime-vapor): pair vdom interop update hooks",
+      "url": "https://github.com/vuejs/core/pull/14999"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15027,
+      "title": "fix(runtime-vapor): defer slot content anchors during hydration",
+      "url": "https://github.com/vuejs/core/pull/15027"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15035,
+      "title": "fix(runtime-vapor): preserve VNode anchors in dynamic component hydration",
+      "url": "https://github.com/vuejs/core/pull/15035"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15115,
+      "title": "chore(deps): update build",
+      "url": "https://github.com/vuejs/core/pull/15115"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15773,
+      "title": "fix(hydration): observe children of a display: contents root in hydrateOnVisible",
+      "url": "https://github.com/vuejs/core/pull/15773"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15876,
+      "title": "refactor(vapor): sequence slot content and fallback under a transition like vdom",
+      "url": "https://github.com/vuejs/core/pull/15876"
+    },
+    {
+      "repo": "vuejs/core",
+      "number": 15942,
+      "title": "fix(runtime-vapor): settle the enclosing outlet after an out-in branch resumes from its leave",
+      "url": "https://github.com/vuejs/core/pull/15942"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21323,
+      "title": "perf: reduce HTML parser memory and CPU with parser-level skip options",
+      "url": "https://github.com/webpack/webpack/pull/21323"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21455,
+      "title": "perf(javascript): avoid double parse for auto source type on top-level return",
+      "url": "https://github.com/webpack/webpack/pull/21455"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21628,
+      "title": "perf(css): recycle nested block contents during the walk",
+      "url": "https://github.com/webpack/webpack/pull/21628"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21653,
+      "title": "feat(esm): widen analyzable output to HMR, hashed and function chunk filenames",
+      "url": "https://github.com/webpack/webpack/pull/21653"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21676,
+      "title": "refactor(css,html): derive the remaining name tables in the generators",
+      "url": "https://github.com/webpack/webpack/pull/21676"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21750,
+      "title": "fix(analyzable): resolve a relative baseUri against the chunk, bake one direction of a hash cycle",
+      "url": "https://github.com/webpack/webpack/pull/21750"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21808,
+      "title": "perf(scope-analyzer): cut the built-in analyser's time and memory by a third to two thirds",
+      "url": "https://github.com/webpack/webpack/pull/21808"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21830,
+      "title": "feat(css,html): add renderEmbeddedSource for source one language embeds in another",
+      "url": "https://github.com/webpack/webpack/pull/21830"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 21913,
+      "title": "feat: add the SSR manifest and collect server styles without a DOM",
+      "url": "https://github.com/webpack/webpack/pull/21913"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22097,
+      "title": "build(html): sweep the HTML printer for spelling-dependent output",
+      "url": "https://github.com/webpack/webpack/pull/22097"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22170,
+      "title": "chore(release): new release",
+      "url": "https://github.com/webpack/webpack/pull/22170"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22270,
+      "title": "fix(css): take out the declaration a lowered shorthand writes over",
+      "url": "https://github.com/webpack/webpack/pull/22270"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22314,
+      "title": "fix(css): reach the printer branches the corpus never took, and settle the three it found",
+      "url": "https://github.com/webpack/webpack/pull/22314"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22390,
+      "title": "test(javascript): hold the minifier to terser's fuzzer over seeded programs",
+      "url": "https://github.com/webpack/webpack/pull/22390"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22411,
+      "title": "refactor(javascript): mangle minified JavaScript on ESTree",
+      "url": "https://github.com/webpack/webpack/pull/22411"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22495,
+      "title": "feat(javascript): read a copied binding in place of its copy in the minifier",
+      "url": "https://github.com/webpack/webpack/pull/22495"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22730,
+      "title": "test(css): pin the cases lightningcss computes differently",
+      "url": "https://github.com/webpack/webpack/pull/22730"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22735,
+      "title": "test(javascript): compare thrown messages and values in the behavior relation",
+      "url": "https://github.com/webpack/webpack/pull/22735"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22814,
+      "title": "feat(minifier): take swc's and oxc's assumptions about globals and prototypes",
+      "url": "https://github.com/webpack/webpack/pull/22814"
+    },
+    {
+      "repo": "webpack/webpack",
+      "number": 22836,
+      "title": "build: report redundant type assertions",
+      "url": "https://github.com/webpack/webpack/pull/22836"
+    }
+  ]
+}
+

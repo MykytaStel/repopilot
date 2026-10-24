@@ -11,7 +11,10 @@ from tests/integrity/labels.toml.
     python3 scripts/integrity_corpus.py fetch    # caches patches for the manifest
     python3 scripts/integrity_corpus.py show ID  # test/gate hunks for labeling
     python3 scripts/integrity_corpus.py evaluate # run a RepoPilot build per PR
-    python3 scripts/integrity_corpus.py report   # prevalence and catches, Wilson intervals
+    python3 scripts/integrity_corpus.py report   # print prevalence and catches, Wilson intervals
+    python3 scripts/integrity_corpus.py report --bin target/release/repopilot
+    python3 scripts/integrity_corpus.py report --allow-legacy-cache  # inspect unverified old results
+    python3 scripts/integrity_corpus.py report --bin target/release/repopilot --write-results
 """
 
 from __future__ import annotations
@@ -274,6 +277,43 @@ def compact_patch(lines: list[str]) -> list[str]:
     return out
 
 
+def print_report(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    try:
+        results = evaluation.load_cached_results(CACHE, args.bin, args.allow_legacy_cache)
+    except ValueError as error:
+        parser.error(str(error))
+    legacy_cache = CACHE / "results"
+    has_legacy_results = legacy_cache.exists() and any(legacy_cache.glob("*.json"))
+    if args.allow_legacy_cache and has_legacy_results:
+        print("warning: using un-fingerprinted results; they may mix different builds.", file=sys.stderr)
+    if not results and args.bin is None and not args.allow_legacy_cache and has_legacy_results:
+        print(
+            "warning: ignoring un-fingerprinted cached results; they may mix builds. "
+            "Re-run evaluate or pass --allow-legacy-cache for historical inspection.",
+            file=sys.stderr,
+        )
+    if results:
+        summary = {
+            corpus_id: {
+                "binary": result.get("binary"),
+                "binary_sha256": result.get("binary_sha256"),
+                "base": result.get("base"),
+                "signals": sorted({signal["kind"] for signal in result["signals"]}),
+            }
+            for corpus_id, result in results.items()
+        }
+        if args.write_results:
+            RESULTS.write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
+    elif RESULTS.exists():
+        summary = json.loads(RESULTS.read_text())
+        results = {
+            corpus_id: {**entry, "signals": [{"kind": kind} for kind in entry["signals"]]}
+            for corpus_id, entry in summary.items()
+        }
+    labels = tomllib.loads(LABELS.read_text()) if LABELS.exists() else {}
+    print(report.render(load_manifest(), labels, results))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -285,7 +325,15 @@ def main() -> None:
     sh = sub.add_parser("show")
     sh.add_argument("ids", nargs="+")
     sh.add_argument("--compact", action="store_true")
-    sub.add_parser("report")
+    rp = sub.add_parser("report")
+    result_source = rp.add_mutually_exclusive_group()
+    result_source.add_argument("--bin", type=Path, help="select cached results by exact executable SHA-256")
+    result_source.add_argument(
+        "--allow-legacy-cache",
+        action="store_true",
+        help="inspect un-fingerprinted results that may mix different builds",
+    )
+    rp.add_argument("--write-results", action="store_true", help="replace the committed baseline results.json")
     ev = sub.add_parser("evaluate")
     ev.add_argument("--bin", type=Path, default=REPO_ROOT / "target" / "release" / "repopilot")
     ev.add_argument("--prefix", default="", help="only ids starting with this, e.g. ih- (keeps unlabeled splits blind)")
@@ -305,28 +353,7 @@ def main() -> None:
     elif args.cmd == "evaluate":
         evaluation.evaluate([e for e in load_manifest() if e["id"].startswith(args.prefix)], CACHE, args.bin)
     else:
-        results = {
-            path.stem: json.loads(path.read_text()) for path in sorted((CACHE / "results").glob("*.json"))
-        }
-        if results:
-            # Committed summary: per PR, the binary, the base, and the signal kinds.
-            summary = {
-                corpus_id: {
-                    "binary": result.get("binary"),
-                    "base": result.get("base"),
-                    "signals": sorted({signal["kind"] for signal in result["signals"]}),
-                }
-                for corpus_id, result in results.items()
-            }
-            RESULTS.write_text(json.dumps(summary, indent=1, sort_keys=True) + "\n")
-        elif RESULTS.exists():
-            summary = json.loads(RESULTS.read_text())
-            results = {
-                corpus_id: {**entry, "signals": [{"kind": kind} for kind in entry["signals"]]}
-                for corpus_id, entry in summary.items()
-            }
-        labels = tomllib.loads(LABELS.read_text()) if LABELS.exists() else {}
-        print(report.render(load_manifest(), labels, results))
+        print_report(args, parser)
 
 
 if __name__ == "__main__":

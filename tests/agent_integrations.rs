@@ -99,7 +99,7 @@ fn copilot_setup_installs_repopilot_in_the_required_job() {
         .expect("copilot-setup-steps job");
     let runs: Vec<&str> = steps
         .iter()
-        .filter_map(|step| step["run"].as_str())
+        .filter_map(|step| step.get("run").and_then(|run| run.as_str()))
         .collect();
     assert!(runs.contains(&"npm install -g repopilot"), "{runs:?}");
     assert!(runs.contains(&"repopilot snapshot"), "{runs:?}");

@@ -130,10 +130,16 @@ def reviewed_verdicts(manifest: list[dict], by_id: dict, names: list[str], group
     return lines
 
 
+def _binary_label(result: dict) -> str:
+    version = result.get("binary", "?")
+    digest = result.get("binary_sha256")
+    return f"{version} ({digest[:12]})" if digest else version
+
+
 def catches(manifest: list[dict], by_id: dict, results: dict[str, dict], title: str) -> list[str]:
     """PR-level agreement between labels and RepoPilot signals."""
     scored = [e for e in manifest if e["id"] in by_id and e["id"] in results]
-    binaries = sorted({results[e["id"]].get("binary", "?") for e in scored})
+    binaries = sorted({_binary_label(results[e["id"]]) for e in scored})
     lines = [
         "",
         f"### RepoPilot catches ({title})",

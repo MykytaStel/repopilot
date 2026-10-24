@@ -26,7 +26,7 @@ pub(super) fn render_header(out: &mut String, summary: &ScanSummary, findings: &
     };
     let _ = writeln!(
         out,
-        "**Size:** {} files · {} non-empty lines · {} directories · {token_est_str}",
+        "**Scan coverage:** {} files analyzed · {} non-empty lines · {} directories · {token_est_str}",
         summary.metrics.files_analyzed,
         summary.metrics.non_empty_lines,
         summary.metrics.directories_count

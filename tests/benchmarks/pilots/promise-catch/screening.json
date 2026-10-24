@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "candidate_pool": "candidate_pool.json",
+  "labels_status": "not-collected",
+  "repopilot_results_status": "not-run",
+  "search_frame_count": 59,
+  "screening_summary": {
+    "production_pr_cases_with_changed_promise_catch": 4,
+    "promise_catch_changes_in_tests_only": 2,
+    "operation_changed_but_catch_callback_unchanged": 1,
+    "direct_target_shape_candidates": 1,
+    "evaluation_production_candidates": 3,
+    "development_production_candidates": 1
+  },
+  "cases": [
+    {
+      "id": "openclaw-pr-175709",
+      "repo": "openclaw/openclaw",
+      "pull_request": 175709,
+      "url": "https://github.com/openclaw/openclaw/pull/175709",
+      "split": "development",
+      "language": "TypeScript",
+      "base_sha": "21de16f04fbf576376d3171554051f19a7d59d50",
+      "head_sha": "c47c6e96f8ca3a8b20b468583e8f5ab8d23761eb",
+      "merge_sha": "68555b8cf3704bccb3b176006d375eec5a1a9384",
+      "merged_at": "2026-10-17T17:09:09Z",
+      "changed_files": ["src/daemon/systemd-install.ts"],
+      "handler_change": "changed",
+      "context_summary": "Adds an error-classification guard before returning the existing null diagnostic fallback. The PR says unsettled native command outcomes and ownership refusals must remain visible; ordinary unavailable-manager diagnostics keep their fallback.",
+      "label": "not-assessed"
+    },
+    {
+      "id": "threejs-pr-30870",
+      "repo": "mrdoob/three.js",
+      "pull_request": 30870,
+      "url": "https://github.com/mrdoob/three.js/pull/30870",
+      "split": "evaluation",
+      "language": "JavaScript",
+      "base_sha": "c73eff8c53663621ba6bf2cbb9bb288a3f0d730b",
+      "head_sha": "8580860266beb0de165f15534177318f08b11c0a",
+      "merge_sha": "2a4e27e261b48fc5d8060e7aa733713970c4e388",
+      "merged_at": "2026-04-07T10:22:58Z",
+      "changed_files": ["devtools/background.js"],
+      "handler_change": "added",
+      "context_summary": "Adds best-effort rejection handlers around browser DevTools messaging and badge updates as part of a new DevTools extension.",
+      "label": "not-assessed"
+    },
+    {
+      "id": "n8n-pr-40114",
+      "repo": "n8n-io/n8n",
+      "pull_request": 40114,
+      "url": "https://github.com/n8n-io/n8n/pull/40114",
+      "split": "evaluation",
+      "language": "TypeScript",
+      "base_sha": "8ba4f696a6db2ee902087b45e8905a00c955387a",
+      "head_sha": "b910e3919ae7c95dcf744e50a1fcf518ddd8cb7d",
+      "merge_sha": "7ffa1b17153b31c356372b52efa751e798712963",
+      "merged_at": "2026-10-21T13:59:47Z",
+      "changed_files": ["packages/nodes-base/nodes/MySql/v2/transport/index.ts"],
+      "handler_change": "added",
+      "context_summary": "The newly added rejection handler aborts the affected SSH connection and rethrows, so the query fails promptly and the next execution can reconnect instead of hanging until timeout.",
+      "label": "not-assessed"
+    },
+    {
+      "id": "n8n-pr-40957",
+      "repo": "n8n-io/n8n",
+      "pull_request": 40957,
+      "url": "https://github.com/n8n-io/n8n/pull/40957",
+      "split": "evaluation",
+      "language": "TypeScript",
+      "base_sha": "1c234b026912ac77acc6f417e5320ffab9fed4df",
+      "head_sha": "737145a79ddbf0ab01f0ea176c775dce3999b3fc",
+      "merge_sha": "e456b351320d46cc59203ae39d311c5d12e92395",
+      "merged_at": "2026-10-23T13:25:38Z",
+      "changed_files": ["packages/cli/src/workflow-execute-additional-data.ts"],
+      "handler_change": "added",
+      "context_summary": "Adds logging for detached sub-workflow and lifecycle-hook rejections while arranging the error hooks to persist failure and start the configured error workflow; the PR says a non-waiting parent previously could report success.",
+      "label": "not-assessed"
+    }
+  ],
+  "excluded_screening_items": [
+    {
+      "repo": "openclaw/openclaw",
+      "pull_request": 176006,
+      "reason": "The new .catch() appears only in a regression test; production behavior changes in another file."
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "pull_request": 168605,
+      "reason": "The new .catch(reject) appears only in a regression test and re-propagates the rejection."
+    },
+    {
+      "repo": "microsoft/vscode",
+      "pull_request": 342451,
+      "reason": "The call arguments change, but the existing .catch() callback body is unchanged."
+    },
+    {
+      "repo": "vercel/next.js",
+      "pull_request": 100552,
+      "reason": "Viewed during exploratory discovery before the candidate frame was frozen; its new handler is try/catch, not Promise.catch. Excluded from analysis."
+    }
+  ],
+  "limitations": [
+    "The candidate frame is text-search-ranked, not a probability sample of all merged PRs.",
+    "Only the frozen top results per repository were screened; this is a feasibility screen, not prevalence or accuracy evidence.",
+    "No independent annotations were collected and no RepoPilot output was generated for these PR revisions."
+  ]
+}
