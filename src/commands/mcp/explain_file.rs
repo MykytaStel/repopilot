@@ -13,7 +13,7 @@ pub const TOOL_NAME: &str = "repopilot_explain_file";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Explain how RepoPilot treats one file: the role it assigns (for example test, generated, config, or CLI command handler) and the evidence for it, which rules apply, the ordered overrides that change a rule's severity, and whether the default profile would show the result. Use it to understand a file without a report, or to ask why a rule (`rule`, optionally one detector `signal`) would or would not fire there. To explain a finding already in a scan or review, use repopilot_explain_finding; for a review signal, use repopilot_explain_review_signal. Reads local files only and returns JSON.",
+        "description": "Explain how RepoPilot treats one file: the role it assigns (for example test, generated, config, or CLI command handler) and the evidence for it, which rules apply, the ordered overrides that change a rule's severity, and whether the default profile would show the result. The text block is a readable Markdown summary; structuredContent contains the full JSON explanation. Use it to understand a file without a report, or to ask why a rule (`rule`, optionally one detector `signal`) would or would not fire there. To explain a finding already in a scan or review, use repopilot_explain_finding; for a review signal, use repopilot_explain_review_signal. Reads local files only.",
         "inputSchema": {
             "type": "object",
             "properties": {

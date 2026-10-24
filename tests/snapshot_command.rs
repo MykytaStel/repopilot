@@ -34,6 +34,59 @@ fn snapshot_writes_default_marker_with_current_head() {
     assert!(stdout.contains("repopilot review --since-snapshot"));
 }
 
+#[cfg(unix)]
+#[test]
+fn snapshot_rejects_a_symlinked_repopilot_directory() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("snapshot.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    std::os::unix::fs::symlink(outside.path(), temp.path().join(".repopilot"))
+        .expect("symlink repopilot directory");
+
+    let output = repopilot()
+        .args(["snapshot"])
+        .current_dir(temp.path())
+        .output()
+        .expect("snapshot command runs");
+
+    assert!(!output.status.success(), "snapshot must reject the symlink");
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn snapshot_rejects_a_symlinked_snapshot_file() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("external.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    fs::create_dir(temp.path().join(".repopilot")).expect("snapshot directory");
+    std::os::unix::fs::symlink(&sentinel, temp.path().join(".repopilot/snapshot.json"))
+        .expect("symlink snapshot file");
+
+    let output = repopilot()
+        .args(["snapshot"])
+        .current_dir(temp.path())
+        .output()
+        .expect("snapshot command runs");
+
+    assert!(!output.status.success(), "snapshot must reject the symlink");
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+}
+
 #[test]
 fn snapshot_records_dirty_worktree_before_writing_marker() {
     let temp = tempdir().expect("failed to create temp dir");

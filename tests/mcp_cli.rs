@@ -245,12 +245,13 @@ fn mcp_server_initializes_lists_tools_and_runs_scan_locally() {
         ]
     );
 
-    // tools/call runs the scan entirely from local files and returns a JSON report.
+    // The text block is readable while structuredContent remains the report.
     let result = &responses[2]["result"];
     assert_eq!(result["isError"], false, "scan should succeed");
-    assert!(result["structuredContent"].is_object());
     let text = result["content"][0]["text"].as_str().expect("text content");
-    let report: Value = serde_json::from_str(text).expect("scan report is json");
+    assert!(text.starts_with("# RepoPilot scan report"), "{text}");
+    assert!(!text.trim_start().starts_with('{'), "{text}");
+    let report = &result["structuredContent"];
     assert!(
         report["schema_version"].is_string(),
         "scan report carries schema metadata"
@@ -299,7 +300,8 @@ fn mcp_review_projects_the_canonical_merge_readiness_record() {
     let text = responses[1]["result"]["content"][0]["text"]
         .as_str()
         .expect("text content");
-    let report: Value = serde_json::from_str(text).expect("review report is json");
+    assert!(text.starts_with("# RepoPilot change review"), "{text}");
+    let report = &responses[1]["result"]["structuredContent"];
     assert!(matches!(
         report["merge_readiness"]["verdict"].as_str(),
         Some("ready" | "review" | "blocked")
@@ -364,7 +366,8 @@ fn mcp_review_accepts_inline_intent_and_projects_drift() {
     let text = response["result"]["content"][0]["text"]
         .as_str()
         .expect("text content");
-    let report: Value = serde_json::from_str(text).expect("review report is json");
+    assert!(text.starts_with("# RepoPilot change review"), "{text}");
+    let report = &response["result"]["structuredContent"];
     assert_eq!(
         report["change_proof"]["intent_drift"]["status"],
         "within-scope"
@@ -435,7 +438,7 @@ fn mcp_context_tool_includes_repository_facts() {
     assert!(
         responses[1]
             .to_string()
-            .contains("Repository Facts Summary"),
+            .contains("Repository inventory facts"),
         "context tool should include the repository facts section: {}",
         responses[1]
     );

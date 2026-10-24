@@ -1,4 +1,4 @@
-use super::workspace_freshness_tests::{git, state, tool_text};
+use super::workspace_freshness_tests::{git, state, tool_structured};
 use super::{handle_tools_call, scan};
 use serde_json::{Value, json};
 use std::fs;
@@ -31,29 +31,14 @@ fn scan_alias_remap_is_fresh_and_semantically_stable_in_one_mcp_session() {
         .unwrap()
     };
     remap("one");
-    let before: Value = serde_json::from_str(&tool_text(handle_tools_call(
-        json!(1),
-        &params,
-        &mut session,
-    )))
-    .unwrap();
+    let before = tool_structured(handle_tools_call(json!(1), &params, &mut session));
     remap("two");
-    let after: Value = serde_json::from_str(&tool_text(handle_tools_call(
-        json!(2),
-        &params,
-        &mut session,
-    )))
-    .unwrap();
+    let after = tool_structured(handle_tools_call(json!(2), &params, &mut session));
     assert_ne!(
         before["coupling_graph"]["edges"],
         after["coupling_graph"]["edges"]
     );
-    let repeated: Value = serde_json::from_str(&tool_text(handle_tools_call(
-        json!(3),
-        &params,
-        &mut session,
-    )))
-    .unwrap();
+    let repeated = tool_structured(handle_tools_call(json!(3), &params, &mut session));
     let normalize = |mut value: Value| {
         let object = value.as_object_mut().unwrap();
         for key in ["context_graph_cache", "scan_timings", "scan_duration_us"] {

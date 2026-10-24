@@ -1,0 +1,480 @@
+{
+  "schema_version": 1,
+  "snapshot_utc": "2026-10-23T15:29:41Z",
+  "repository_search_revalidation_utc": "2026-10-23T15:37:32Z",
+  "repository_queries": [
+    {
+      "query": "language:JavaScript stars:>50000",
+      "topn": 10,
+      "selected": [
+        "react/react",
+        "mrdoob/three.js",
+        "vercel/next.js"
+      ],
+      "returned_repositories": [
+        "affaan-m/ECC",
+        "react/react",
+        "trekhleb/javascript-algorithms",
+        "DietrichGebert/ponytail",
+        "Snailclimb/JavaGuide",
+        "airbnb/javascript",
+        "vercel/next.js",
+        "Chalarangelo/30-seconds-of-code",
+        "nodejs/node",
+        "mrdoob/three.js"
+      ]
+    },
+    {
+      "query": "language:TypeScript stars:>30000",
+      "topn": 10,
+      "selected": [
+        "microsoft/vscode",
+        "openclaw/openclaw",
+        "n8n-io/n8n"
+      ],
+      "returned_repositories": [
+        "freeCodeCamp/freeCodeCamp",
+        "openclaw/openclaw",
+        "morluto/rea",
+        "nilbuild/developer-roadmap",
+        "deepseek-ai/deepseek-harness",
+        "anomalyco/opencode",
+        "vuejs/vue",
+        "n8n-io/n8n",
+        "firecrawl/firecrawl",
+        "microsoft/vscode"
+      ]
+    }
+  ],
+  "pr_query": {
+    "query": "is:merged merged:2024-01-01..2026-10-23 catch fallback",
+    "order": "best-match",
+    "state": "closed",
+    "topn_per_repository": 10,
+    "merged_date_window": "2024-01-01..2026-10-23"
+  },
+  "repository_splits": {
+    "vercel/next.js": "development",
+    "openclaw/openclaw": "development",
+    "react/react": "evaluation",
+    "mrdoob/three.js": "evaluation",
+    "microsoft/vscode": "evaluation",
+    "n8n-io/n8n": "evaluation"
+  },
+  "selection_notes": "This is the frozen candidate search frame only. Keep candidates whose merged diff changes a JS/TS .catch() handler, plus matched controls. Exclude repositories in tests/zoo. PR search metadata is not a label; pin immutable SHAs before annotation. Exploratory PR vercel/next.js#100552 remains here in the raw search results for traceability but is excluded from screened-case analysis because its diff was viewed before this frame was frozen. The original repository search happened before PR diff screening; its exact retrieval time was not captured, so result membership was revalidated at repository_search_revalidation_utc.",
+  "candidates": [
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 98883,
+      "title": "[test] Add fallback param deployment regression coverage",
+      "url": "https://github.com/vercel/next.js/pull/98883"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 99078,
+      "title": "fix: preserve HTTP status codes during prerendering",
+      "url": "https://github.com/vercel/next.js/pull/99078"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 100552,
+      "title": "Preserve deferred middleware instrumentation spans when the adapter throws",
+      "url": "https://github.com/vercel/next.js/pull/100552"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 98649,
+      "title": "Preserve committed app route response status during fallback",
+      "url": "https://github.com/vercel/next.js/pull/98649"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 99121,
+      "title": "Avoid decoding prerender matcher parameters twice",
+      "url": "https://github.com/vercel/next.js/pull/99121"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 98944,
+      "title": "Use structural React keys during server rendering",
+      "url": "https://github.com/vercel/next.js/pull/98944"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 99864,
+      "title": "fix: classify collapsed generated paths from child routes",
+      "url": "https://github.com/vercel/next.js/pull/99864"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 96553,
+      "title": "Fix catch-all index page being served for every other slug",
+      "url": "https://github.com/vercel/next.js/pull/96553"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 97268,
+      "title": "Add the mtime fallback back",
+      "url": "https://github.com/vercel/next.js/pull/97268"
+    },
+    {
+      "repo": "vercel/next.js",
+      "split": "development",
+      "number": 99289,
+      "title": "fix(incremental-cache): keep an ISR entry's cache lifetime across instances and restarts",
+      "url": "https://github.com/vercel/next.js/pull/99289"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 175709,
+      "title": "fix(daemon): retain native errors through systemd diagnostic fallback",
+      "url": "https://github.com/openclaw/openclaw/pull/175709"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 177216,
+      "title": "fix(plugins): report bundled channel schema fallback failures",
+      "url": "https://github.com/openclaw/openclaw/pull/177216"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 173806,
+      "title": "fix(ci): let locale refresh catch up without a shared cache",
+      "url": "https://github.com/openclaw/openclaw/pull/173806"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 161469,
+      "title": "refactor(agents): remove dead draining-message fallback from exec approval admission",
+      "url": "https://github.com/openclaw/openclaw/pull/161469"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 167082,
+      "title": "fix(control-ui): catch missing plugin label keys",
+      "url": "https://github.com/openclaw/openclaw/pull/167082"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 176006,
+      "title": "fix: preserve uncertain command failures during Git repair",
+      "url": "https://github.com/openclaw/openclaw/pull/176006"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 178035,
+      "title": "fix: preserve steering fallback and native command replies",
+      "url": "https://github.com/openclaw/openclaw/pull/178035"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 168605,
+      "title": "fix: restore model fallback after provider timeouts",
+      "url": "https://github.com/openclaw/openclaw/pull/168605"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 177566,
+      "title": "refactor(runtime): trust supported builtin APIs",
+      "url": "https://github.com/openclaw/openclaw/pull/177566"
+    },
+    {
+      "repo": "openclaw/openclaw",
+      "split": "development",
+      "number": 179916,
+      "title": "refactor(plugins): remove redundant private owner work",
+      "url": "https://github.com/openclaw/openclaw/pull/179916"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 37608,
+      "title": "[Flight & DevTools] Strip the whole \"async \" prefix from V8 stack frame names",
+      "url": "https://github.com/react/react/pull/37608"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 37539,
+      "title": "[rust-compiler] Fix non-ASCII panic in ValidateNoSetStateInEffects",
+      "url": "https://github.com/react/react/pull/37539"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 37322,
+      "title": "[ci] Rebuild sizebot on the GitHub Actions token",
+      "url": "https://github.com/react/react/pull/37322"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 37207,
+      "title": "React Compiler: Avoid unnecessary clone in effect inference",
+      "url": "https://github.com/react/react/pull/37207"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 35650,
+      "title": "[Flight] Restore original function name in dev, server callstacks served with `unsafe-eval`",
+      "url": "https://github.com/react/react/pull/35650"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 33752,
+      "title": "[compiler] Enable additional lints by default",
+      "url": "https://github.com/react/react/pull/33752"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 33499,
+      "title": "Disable ScrollTimeline in Safari",
+      "url": "https://github.com/react/react/pull/33499"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 32614,
+      "title": "[DevTools] Use Popover API for TraceUpdates highlighting",
+      "url": "https://github.com/react/react/pull/32614"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 32069,
+      "title": "[Fizz] Support Suspense boundaries anywhere",
+      "url": "https://github.com/react/react/pull/32069"
+    },
+    {
+      "repo": "react/react",
+      "split": "evaluation",
+      "number": 32734,
+      "title": "Rename <ViewTransition className=\"...\"> to <ViewTransition default=\"...\">",
+      "url": "https://github.com/react/react/pull/32734"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 35007,
+      "title": "WebGPURenderer: Share builds between instanced meshes with `referenceAttribute()`.",
+      "url": "https://github.com/mrdoob/three.js/pull/35007"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 34609,
+      "title": "WGSLNodeBuilder: Support `gather()` with multisampled textures.",
+      "url": "https://github.com/mrdoob/three.js/pull/34609"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 34358,
+      "title": "Add TSL GPU unit test coverage for LTC area lights, point light, SH irradiance, equirect/spritesheet UV, and post-processing utils",
+      "url": "https://github.com/mrdoob/three.js/pull/34358"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 34848,
+      "title": "TSL: Optimize function layouts with include deduplication and default parameters",
+      "url": "https://github.com/mrdoob/three.js/pull/34848"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 33497,
+      "title": "WebGPURenderer: Add fallback for XR with WebGPU.",
+      "url": "https://github.com/mrdoob/three.js/pull/33497"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 30870,
+      "title": "Added new DevTools",
+      "url": "https://github.com/mrdoob/three.js/pull/30870"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 33322,
+      "title": "WebGPURenderer: Adjust getArrayBufferAsync behavior, add support for partial readback",
+      "url": "https://github.com/mrdoob/three.js/pull/33322"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 31134,
+      "title": "WebGPURenderer: Optimize WebXR render path.",
+      "url": "https://github.com/mrdoob/three.js/pull/31134"
+    },
+    {
+      "repo": "mrdoob/three.js",
+      "split": "evaluation",
+      "number": 29670,
+      "title": "WebGPURenderer: Add backend information to `data-engine` field.",
+      "url": "https://github.com/mrdoob/three.js/pull/29670"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 332703,
+      "title": "Track fallbacks to Local when Agent Host is unavailable",
+      "url": "https://github.com/microsoft/vscode/pull/332703"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 342451,
+      "title": "processes: resolve killTree when the process exits while its tree is killed",
+      "url": "https://github.com/microsoft/vscode/pull/342451"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 341783,
+      "title": "Fix image preview copy performance by using a worker for encoding",
+      "url": "https://github.com/microsoft/vscode/pull/341783"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 342757,
+      "title": "agentHost: keep debug log exports local and best-effort",
+      "url": "https://github.com/microsoft/vscode/pull/342757"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 342284,
+      "title": "agentHost: make the concurrent first listings test independent of timing",
+      "url": "https://github.com/microsoft/vscode/pull/342284"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 343783,
+      "title": "sessions: fix external application badge From setting and row height",
+      "url": "https://github.com/microsoft/vscode/pull/343783"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 340107,
+      "title": " Improve diagnostics for legacy Copilot CLI session migration",
+      "url": "https://github.com/microsoft/vscode/pull/340107"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 343370,
+      "title": "sessions: fix Send and chat binding regressions in the shared composer",
+      "url": "https://github.com/microsoft/vscode/pull/343370"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 342227,
+      "title": "sanity: check webview resource loading",
+      "url": "https://github.com/microsoft/vscode/pull/342227"
+    },
+    {
+      "repo": "microsoft/vscode",
+      "split": "evaluation",
+      "number": 343736,
+      "title": "Engineering - skip PR bundles and check only changed files in Compile & Hygiene",
+      "url": "https://github.com/microsoft/vscode/pull/343736"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 40683,
+      "title": "fix(core): Keep waiting executions unchanged when a resume request fails",
+      "url": "https://github.com/n8n-io/n8n/pull/40683"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 40509,
+      "title": "refactor(core): Move test runner transactions to TransactionRunner (no-changelog)",
+      "url": "https://github.com/n8n-io/n8n/pull/40509"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 41323,
+      "title": "fix(editor): Localize the binary data preview messages",
+      "url": "https://github.com/n8n-io/n8n/pull/41323"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 39863,
+      "title": "feat(Microsoft SharePoint Node): Accept both v2 credentials on the trigger (no-changelog)",
+      "url": "https://github.com/n8n-io/n8n/pull/39863"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 40114,
+      "title": "fix(core): Don't close shared SSH tunnel clients that are still in use",
+      "url": "https://github.com/n8n-io/n8n/pull/40114"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 38921,
+      "title": "ci: Validate regenerated sync lockfiles (no-changelog)",
+      "url": "https://github.com/n8n-io/n8n/pull/38921"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 40957,
+      "title": "fix(core): Start sub-workflow error workflow when a pre-run check fails",
+      "url": "https://github.com/n8n-io/n8n/pull/40957"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 41186,
+      "title": "fix(API): Log errors before returning generic 500 in Public API",
+      "url": "https://github.com/n8n-io/n8n/pull/41186"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 35486,
+      "title": "fix(GitlabTrigger): use NodeApiError.httpCode and safe description access in webhook checkExists",
+      "url": "https://github.com/n8n-io/n8n/pull/35486"
+    },
+    {
+      "repo": "n8n-io/n8n",
+      "split": "evaluation",
+      "number": 40637,
+      "title": "fix(editor): Shorten the share button label on the credential sharing tab",
+      "url": "https://github.com/n8n-io/n8n/pull/40637"
+    }
+  ]
+}

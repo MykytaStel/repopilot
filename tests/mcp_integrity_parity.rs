@@ -146,8 +146,11 @@ fn mcp_review(root: &Path) -> Value {
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .find(|message| message["id"] == 2)
         .expect("tool response");
-    let text = response["result"]["content"][0]["text"]
-        .as_str()
-        .expect("text content");
-    serde_json::from_str(text).expect("review report json")
+    assert!(
+        response["result"]["content"][0]["text"]
+            .as_str()
+            .expect("text content")
+            .starts_with("# RepoPilot change review")
+    );
+    response["result"]["structuredContent"].clone()
 }

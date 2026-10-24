@@ -1,5 +1,6 @@
 use super::header::risk_level;
 use super::{AiContextRenderOptions, AiFocusCategory, render};
+use crate::facts::RepoFactsSummary;
 use crate::findings::types::{Evidence, Finding, FindingCategory, Severity};
 use crate::graph::context::{ContextGraphFileMetric, ContextGraphSummary, ContextRiskCluster};
 use crate::risk::RiskPriority;
@@ -55,6 +56,25 @@ fn make_summary(findings: Vec<Finding>) -> ScanSummary {
             ..Default::default()
         },
     }
+}
+
+#[test]
+fn markdown_names_scan_coverage_and_repository_inventory_separately() {
+    let summary = make_summary(Vec::new());
+    let facts = RepoFactsSummary {
+        total_files: 57,
+        ..RepoFactsSummary::default()
+    };
+
+    let (markdown, _) = super::render_with_facts_summary_and_breakdown(
+        &summary,
+        Some(&facts),
+        &AiContextRenderOptions::default(),
+    );
+
+    assert!(markdown.contains("**Scan coverage:** 42 files analyzed"));
+    assert!(markdown.contains("## Repository inventory facts"));
+    assert!(markdown.contains("- Files inventoried: 57"));
 }
 
 include!("tests/group_1.rs");

@@ -1,0 +1,43 @@
+schema_version = 1
+corpus = "promise-catch-popular-pr-discovery"
+protocol = "automated-diff-hunk-screen-v1"
+snapshot_utc = "2026-10-24"
+query = "catch fallback is:merged merged:2024-01-01..2026-10-24"
+state = "merged"
+sort = "best-match"
+maximum_results_per_repository = 20
+candidate_count = 197
+repository_count = 17
+patch_fetch_successes = 185
+patch_fetch_errors = 12
+patch_hunk_match_pr_count = 34
+source_like_path_heuristic_pr_count = 26
+candidate_pool = "candidate_pool.json"
+screening = "screening.json"
+
+[limitations]
+selection = "Text-ranked convenience search; not a probability sample."
+source_like_paths = "A simple filename heuristic only; changed callback semantics and production relevance are not validated for every match."
+labels = "None collected; human adjudication required."
+repopilot_baseline = "Not run; blind labels and minimum pilot denominators are absent."
+execution = "No candidate PR code or tests were executed."
+
+[repository_candidate_counts]
+"angular/angular" = 11
+"axios/axios" = 13
+"babel/babel" = 5
+"denoland/deno" = 20
+"electron/electron" = 11
+"eslint/eslint" = 6
+"microsoft/playwright" = 10
+"microsoft/TypeScript" = 6
+"nodejs/node" = 13
+"prettier/prettier" = 6
+"puppeteer/puppeteer" = 1
+"sveltejs/svelte" = 5
+"TanStack/query" = 19
+"vitejs/vite" = 20
+"vitest-dev/vitest" = 11
+"vuejs/core" = 20
+"webpack/webpack" = 20
+

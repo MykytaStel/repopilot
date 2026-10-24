@@ -31,9 +31,7 @@ pub(super) fn state(root: &Path) -> ServerState {
 }
 
 pub(super) fn tool_text(response: super::jsonrpc::Response) -> String {
-    response
-        .result
-        .expect("response result")
+    tool_result(response)
         .get("content")
         .and_then(Value::as_array)
         .and_then(|content| content.first())
@@ -41,6 +39,17 @@ pub(super) fn tool_text(response: super::jsonrpc::Response) -> String {
         .and_then(Value::as_str)
         .expect("tool text")
         .to_string()
+}
+
+pub(super) fn tool_result(response: super::jsonrpc::Response) -> Value {
+    response.result.expect("response result")
+}
+
+pub(super) fn tool_structured(response: super::jsonrpc::Response) -> Value {
+    tool_result(response)
+        .get("structuredContent")
+        .cloned()
+        .expect("structured tool report")
 }
 
 #[test]
@@ -74,9 +83,17 @@ fn scan_tool_observes_an_edit_in_the_same_session() {
     )
     .expect("secret fixture");
 
-    let second = tool_text(handle_tools_call(json!(2), &params, &mut state));
-    assert!(second.contains("security.secret-candidate"));
-    assert_eq!(state.last_scan.as_deref(), Some(second.as_str()));
+    let second = tool_result(handle_tools_call(json!(2), &params, &mut state));
+    assert!(
+        second["content"][0]["text"]
+            .as_str()
+            .is_some_and(|text| text.contains("security.secret-candidate"))
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(state.last_scan.as_deref().expect("stored scan"))
+            .expect("stored JSON report"),
+        second["structuredContent"]
+    );
 }
 
 #[test]
@@ -114,9 +131,17 @@ fn review_change_observes_an_edit_and_updates_last_review() {
     )
     .expect("panic edit");
 
-    let second = tool_text(handle_tools_call(json!(4), &params, &mut state));
-    assert!(second.contains("language.rust.panic-risk"));
-    assert_eq!(state.last_review.as_deref(), Some(second.as_str()));
+    let second = tool_result(handle_tools_call(json!(4), &params, &mut state));
+    assert!(
+        second["content"][0]["text"]
+            .as_str()
+            .is_some_and(|text| text.contains("language.rust.panic-risk"))
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(state.last_review.as_deref().expect("stored review"))
+            .expect("stored JSON report"),
+        second["structuredContent"]
+    );
 }
 
 #[test]
@@ -171,8 +196,7 @@ fn explain_file_observes_manifest_changes_after_the_first_call() {
         }
     });
 
-    let first = tool_text(handle_tools_call(json!(7), &params, &mut state));
-    let first_value: Value = serde_json::from_str(&first).expect("first explain JSON");
+    let first_value = tool_structured(handle_tools_call(json!(7), &params, &mut state));
     assert_eq!(first_value["decision"]["final_severity"], "HIGH");
 
     fs::write(
@@ -187,8 +211,7 @@ fn explain_file_observes_manifest_changes_after_the_first_call() {
     )
     .expect("package manifest");
 
-    let second = tool_text(handle_tools_call(json!(8), &params, &mut state));
-    let second_value: Value = serde_json::from_str(&second).expect("second explain JSON");
+    let second_value = tool_structured(handle_tools_call(json!(8), &params, &mut state));
 
     assert_eq!(second_value["decision"]["final_severity"], "LOW");
     assert!(

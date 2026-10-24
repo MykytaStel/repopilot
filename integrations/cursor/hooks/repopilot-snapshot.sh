@@ -5,6 +5,14 @@ cat >/dev/null
 quiet() { echo '{}'; exit 0; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || quiet
 root=$(git rev-parse --show-toplevel 2>/dev/null) || quiet
+if [ -L "$root/.repopilot" ]; then
+  echo "RepoPilot: session review unavailable; .repopilot must be a real directory, not a symlink." >&2
+  quiet
+fi
+if [ -L "$root/.repopilot/snapshot.json" ]; then
+  echo "RepoPilot: session review unavailable; .repopilot/snapshot.json must not be a symlink." >&2
+  quiet
+fi
 if [ -d "$root/.repopilot" ] && [ ! -w "$root/.repopilot" ]; then
   echo "RepoPilot: session review unavailable; restore .repopilot write permission, then start a new session. Prior metadata could not be invalidated." >&2
   quiet

@@ -7,7 +7,7 @@ pub const TOOL_NAME: &str = "repopilot_explain_review_signal";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Explain one signal from a review: where it came from, its confidence tier, whether it can fail a gate, the files it affects, how to verify it, and its limits. Use it after repopilot_review_change, with a `signal_id` from that report's `tiered_signals`. For a finding (`finding_id` in the findings array), use repopilot_explain_finding instead. Reads the stored review only; it runs nothing and changes nothing.",
+        "description": "Explain one signal from a review: where it came from, its confidence tier, whether it can fail a gate, the files it affects, how to verify it, and its limits. The text block is a readable Markdown summary; structuredContent contains the full JSON explanation. Use it after repopilot_review_change, with a `signal_id` from that report's `tiered_signals`. For a finding (`finding_id` in the findings array), use repopilot_explain_finding instead. Reads the stored review only; it runs nothing and changes nothing.",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -12,7 +12,7 @@ pub const TOOL_NAME: &str = "repopilot_explain_finding";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Explain why a finding was reported. Use it when you have a `finding_id` from repopilot_scan or repopilot_review_change in this session and need to know why it fired or whether it still reproduces. It replays the stored rule decision against the current workspace, returns the full decision trace, and reports whether the decision matched or drifted. For a review signal (`signal_id`), use repopilot_explain_review_signal; for a file with no finding, use repopilot_explain_file. Local-only.",
+        "description": "Explain why a finding was reported. Use it when you have a `finding_id` from repopilot_scan or repopilot_review_change in this session and need to know why it fired or whether it still reproduces. It replays the stored rule decision against the current workspace, returns the full decision trace, and reports whether the decision matched or drifted. The text block is a readable Markdown summary; structuredContent contains the full JSON explanation. For a review signal (`signal_id`), use repopilot_explain_review_signal; for a file with no finding, use repopilot_explain_file. Local-only.",
         "inputSchema": {
             "type": "object",
             "properties": {

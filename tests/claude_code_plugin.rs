@@ -153,6 +153,63 @@ fn hooks_stay_out_of_the_way_outside_git_and_on_resume() {
     assert!(!repo.path().join(".repopilot/snapshot.json").exists());
 }
 
+#[cfg(unix)]
+#[test]
+fn session_start_does_not_write_through_a_repopilot_symlink() {
+    let repo = repo();
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("snapshot.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    std::os::unix::fs::symlink(outside.path(), repo.path().join(".repopilot"))
+        .expect("symlink repopilot directory");
+
+    let output = hook(
+        repo.path(),
+        "snapshot.sh",
+        r#"{"hook_event_name":"SessionStart","source":"startup"}"#,
+    );
+
+    assert!(output.status.success());
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+    assert!(String::from_utf8_lossy(&output.stderr).contains("symlink"));
+}
+
+#[cfg(unix)]
+#[test]
+fn session_start_preserves_and_rejects_a_symlinked_snapshot_file() {
+    let repo = repo();
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("snapshot.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    fs::create_dir(repo.path().join(".repopilot")).expect("state directory");
+    let snapshot = repo.path().join(".repopilot/snapshot.json");
+    std::os::unix::fs::symlink(&sentinel, &snapshot).expect("symlink snapshot file");
+
+    let output = hook(
+        repo.path(),
+        "snapshot.sh",
+        r#"{"hook_event_name":"SessionStart","source":"startup"}"#,
+    );
+
+    assert!(output.status.success());
+    assert!(
+        fs::symlink_metadata(snapshot)
+            .expect("snapshot symlink remains")
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("snapshot.json must not be a symlink")
+    );
+}
+
 #[test]
 fn silencing_repopilot_from_the_session_still_blocks_the_stop() {
     let temp = repo();

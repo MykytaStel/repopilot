@@ -1,0 +1,71 @@
+schema_version = 1
+corpus = "promise-catch-popular-pr-pilot"
+protocol = "promise-catch-feasibility-screen-v1"
+pr_search_snapshot_utc = "2026-10-23T15:29:41Z"
+repository_search_revalidation_utc = "2026-10-23T15:37:32Z"
+candidate_pool = "candidate_pool.json"
+screening = "screening.json"
+repository_search_initial_retrieval_time = "not-recorded; revalidated after PR screening"
+
+[repository_search.javascript]
+query = "language:JavaScript stars:>50000"
+topn = 10
+
+[repository_search.typescript]
+query = "language:TypeScript stars:>30000"
+topn = 10
+
+[pull_request_search]
+query = "is:merged merged:2024-01-01..2026-10-23 catch fallback"
+state = "closed"
+sort = "best-match"
+topn_per_repository = 10
+merge_window = "2024-01-01..2026-10-23"
+
+[[repository]]
+name = "vercel/next.js"
+popularity_query = "language:JavaScript stars:>50000"
+split = "development"
+candidate_count = 10
+
+[[repository]]
+name = "openclaw/openclaw"
+popularity_query = "language:TypeScript stars:>30000"
+split = "development"
+candidate_count = 10
+
+[[repository]]
+name = "react/react"
+popularity_query = "language:JavaScript stars:>50000"
+split = "evaluation"
+candidate_count = 10
+
+[[repository]]
+name = "mrdoob/three.js"
+popularity_query = "language:JavaScript stars:>50000"
+split = "evaluation"
+candidate_count = 9
+
+[[repository]]
+name = "microsoft/vscode"
+popularity_query = "language:TypeScript stars:>30000"
+split = "evaluation"
+candidate_count = 10
+
+[[repository]]
+name = "n8n-io/n8n"
+popularity_query = "language:TypeScript stars:>30000"
+split = "evaluation"
+candidate_count = 10
+
+[exclusions]
+zoo_repositories = []
+pre_freeze_patch_review = ["vercel/next.js#100552"]
+
+[thresholds]
+minimum_evaluation_harmful = 20
+minimum_evaluation_justified = 20
+minimum_evaluation_repositories = 2
+minimum_development_classes = 2
+minimum_held_out_harmful_detection_rate = 0.70
+maximum_held_out_justified_alert_rate = 0.10

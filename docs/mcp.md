@@ -45,10 +45,12 @@ command:
 
 ## Tool Contract
 
-Tools advertise `outputSchema`, return `structuredContent`, and retain text
-content as a fallback for older clients. Scan, context, and explanation tools
-carry MCP annotations for read-only, non-destructive, idempotent, closed-world
-behavior. The review tool's annotations describe its worst case:
+Tools advertise `outputSchema`, return `structuredContent`, and retain readable
+text as a fallback for older clients. Scan and review text blocks are concise
+Markdown summaries; explain tools show a human-readable decision summary. The
+full machine-readable reports remain in `structuredContent`. Scan, context, and
+explanation tools carry MCP annotations for read-only, non-destructive,
+idempotent, closed-world behavior. The review tool's annotations describe its worst case:
 `readOnlyHint=false`, `destructiveHint=true`, `idempotentHint=false`, and
 `openWorldHint=true`, because its optional `verify` input can run configured
 checks.
@@ -168,6 +170,11 @@ exceeds the bound is replaced with a small in-band error carrying
 `responseTruncated`, `responseLimitBytes`, `workspaceRevision`, and the analysis
 handle when one was created. Use filters, pagination, compact review detail, or
 a smaller context budget to stay below the limit.
+
+Each newline-delimited MCP request is limited to 1 MiB. Oversized lines are
+discarded and receive JSON-RPC error `-32600`; the server then continues with
+the next line. This input limit is fixed and independent of the configurable
+response limit.
 
 For agent-assisted remediation, treat default-profile tool output as the product
 view, not the full recall set. Use `profile=strict` when auditing false positives,

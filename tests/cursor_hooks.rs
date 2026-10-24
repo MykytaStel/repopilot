@@ -160,6 +160,59 @@ fn hooks_stay_quiet_outside_git() {
 }
 
 #[test]
+#[cfg(unix)]
+fn session_start_does_not_write_through_a_repopilot_symlink() {
+    let repo = repo();
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("snapshot.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    std::os::unix::fs::symlink(outside.path(), repo.path().join(".repopilot"))
+        .expect("symlink repopilot directory");
+
+    let output = hook(
+        repo.path(),
+        "repopilot-snapshot.sh",
+        r#"{"session_id":"s1","is_background_agent":false,"composer_mode":"agent"}"#,
+    );
+
+    assert_eq!(output, serde_json::json!({}));
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn session_start_preserves_and_rejects_a_symlinked_snapshot_file() {
+    let repo = repo();
+    let outside = tempdir().expect("outside dir");
+    let sentinel = outside.path().join("snapshot.json");
+    fs::write(&sentinel, "keep outside data").expect("sentinel");
+    fs::create_dir(repo.path().join(".repopilot")).expect("state directory");
+    let snapshot = repo.path().join(".repopilot/snapshot.json");
+    std::os::unix::fs::symlink(&sentinel, &snapshot).expect("symlink snapshot file");
+
+    let output = hook(
+        repo.path(),
+        "repopilot-snapshot.sh",
+        r#"{"session_id":"s1","is_background_agent":false,"composer_mode":"agent"}"#,
+    );
+
+    assert_eq!(output, serde_json::json!({}));
+    assert!(
+        fs::symlink_metadata(snapshot)
+            .expect("snapshot symlink remains")
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(
+        fs::read_to_string(sentinel).expect("sentinel survives"),
+        "keep outside data"
+    );
+}
+
+#[test]
 fn hooks_json_points_at_the_shipped_scripts() {
     let config: Value =
         serde_json::from_str(&fs::read_to_string(recipe().join("hooks.json")).expect("hooks.json"))

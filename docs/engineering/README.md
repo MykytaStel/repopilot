@@ -17,6 +17,9 @@ release operations. Product workflows are in the
 
 ## Quality and compatibility evidence
 
+- [2026-10 RepoPilot quality expansion](2026-10-repopilot-quality-expansion.md)
+- [Feature-first dataset audit](2026-10-repopilot-feature-first-dataset-audit.md)
+- [Promise `.catch()` pilot design](promise-catch-pilot-design.md)
 - [Rule scorecard](rule-scorecard.md)
 - [Risk v4 calibration](risk-v4-calibration.md)
 - [Review contract evidence](review-contract-evidence.md)

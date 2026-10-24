@@ -15,7 +15,7 @@
 
 **Risk Level:** 🟡 MODERATE
 **Tech Stack:** Django 4.2.11
-**Size:** 0 files · 0 non-empty lines · 2 directories · ~0 tokens
+**Scan coverage:** 0 files analyzed · 0 non-empty lines · 2 directories · ~0 tokens
 **Health:** 2 findings — 0 critical, 2 high, 0 medium
 
 ## Security (2 high)

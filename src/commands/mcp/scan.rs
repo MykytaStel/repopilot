@@ -17,7 +17,7 @@ pub const TOOL_NAME: &str = "repopilot_scan";
 pub fn definition() -> Value {
     json!({
         "name": TOOL_NAME,
-        "description": "Audit a repository, folder, or file for findings across architecture, coupling, code quality, security, and testing, and return the JSON scan report (findings, metrics, risk summary). Use it for a health check that is not about one change. To review what a change touched or which checks it weakened, use repopilot_review_change; for a short Markdown brief to read before editing, use repopilot_context. Explain a returned finding with repopilot_explain_finding. Runs entirely on disk; nothing is uploaded.",
+        "description": "Audit a repository, folder, or file for findings across architecture, coupling, code quality, security, and testing. The text block is a concise Markdown summary; structuredContent contains the paginated JSON report with findings, metrics, and risk summary. Use it for a health check that is not about one change. To review what a change touched or which checks it weakened, use repopilot_review_change; for a short Markdown brief to read before editing, use repopilot_context. Explain a returned finding with repopilot_explain_finding. Runs entirely on disk; nothing is uploaded.",
         "inputSchema": {
             "type": "object",
             "properties": {

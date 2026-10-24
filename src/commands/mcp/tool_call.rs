@@ -1,5 +1,5 @@
 use super::analysis_store::{AnalysisKind, AnalysisRecord};
-use super::publication::{prepare_tool_result, tool_result};
+use super::publication::{ToolResultMetadata, prepare_tool_result, tool_result};
 use super::tool_paths::resolve_tool_paths;
 use super::{
     ServerState, context, explain_file, explain_finding, explain_review_signal, review_change, scan,
@@ -115,11 +115,14 @@ fn tool_response(
         tool_result(
             name,
             outcome,
-            workspace_revision,
-            None,
-            None,
-            state.max_response_bytes,
-            None,
+            ToolResultMetadata {
+                workspace_revision,
+                analysis_handle: None,
+                pagination: None,
+                max_response_bytes: state.max_response_bytes,
+                structured_content: None,
+                display_text: None,
+            },
         ),
     )
 }
