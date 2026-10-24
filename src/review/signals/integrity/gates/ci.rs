@@ -183,8 +183,8 @@ fn sequence<'a>(value: &'a Value, key: &str) -> &'a [Value] {
         .map_or(&[], |steps| steps.as_slice())
 }
 
-fn key_text(key: &Value) -> String {
-    text(Some(key)).unwrap_or_default()
+fn key_text(key: &str) -> String {
+    key.to_owned()
 }
 
 fn text(value: Option<&Value>) -> Option<String> {

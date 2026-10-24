@@ -15,6 +15,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- YAML config parsing now uses the maintained, safe-Rust `noyalib-serde-yaml`
+  compatibility package instead of the archived `unsafe-libyaml` dependency.
 - MCP review now confines `intent_path` to the configured MCP root. Claude Code
   and Cursor session hooks, plus direct snapshot commands, refuse symlinked
   `.repopilot` directories or snapshot files, preventing writes outside the
