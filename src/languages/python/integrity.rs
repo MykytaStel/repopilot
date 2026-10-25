@@ -15,6 +15,7 @@ pub(super) static PYTHON_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    assertion_matcher: None,
     suppression,
 };
 

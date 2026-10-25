@@ -38,6 +38,12 @@ PRs were found first, so the sample is not uniformly random.
 | `suppression-added` | A lint, type, or coverage suppression was added anywhere |
 | `gate-relaxed` | CI or tool configuration lets a failing check pass or runs fewer tests |
 
+RepoPilot emits `integrity.assertions-weakened` for bounded JS/TS object matcher
+changes from exact `toEqual` matching to `toMatchObject` or
+`toEqual(expect.objectContaining({...}))`. This remains an advisory candidate;
+the corpus labels keep the broader `assertion-removed` category for all
+exact-to-partial assertion changes.
+
 Verdicts:
 
 - `weakened`: at least one kind is present and nothing in the PR explains it

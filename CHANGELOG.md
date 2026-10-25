@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- JS/TS review reports when an existing test changes an exact object `toEqual`
+  matcher to partial `toMatchObject` or `expect.objectContaining` matching.
+  The maybe-tier signal is a review candidate, not proof that behavior was lost.
+
 ### Changed
 
 - MCP scan, change-review, and explain calls now show readable Markdown in the

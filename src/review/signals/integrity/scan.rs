@@ -8,7 +8,7 @@ use super::accounting::TestFacts;
 use super::helpers::{self, Body};
 use super::syntax::for_each_node;
 use crate::review::signals::content::ReviewSource;
-use crate::review::signals::tables::{IntegrityTables, TestMarker};
+use crate::review::signals::tables::{AssertionMatcher, IntegrityTables, TestMarker};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// What one side of a changed file contains. Markers and test cases are
@@ -38,101 +38,174 @@ pub(super) fn scan(
     test_scope: bool,
 ) -> Option<Scan> {
     let tree = source.tree()?;
-    let content = source.content();
-    let root = tree.root_node();
-    let mut found = Scan::default();
-    let mut helper_bodies: Vec<(String, Body)> = Vec::new();
-    let mut open: Vec<Open> = Vec::new();
-    // Depths of the loops enclosing the current node.
-    let mut loops: Vec<usize> = Vec::new();
-    let relevant = relevant_kinds(tree);
-    for_each_node(root, |node, depth| {
-        while open.last().is_some_and(|outer| outer.depth >= depth) {
-            open.pop();
+    let mut walker = Walker::new(tree, source.content(), tables, test_scope);
+    for_each_node(tree.root_node(), |node, depth| walker.visit(node, depth));
+    Some(walker.finish())
+}
+
+struct Walker<'a> {
+    content: &'a str,
+    tables: &'a IntegrityTables,
+    test_scope: bool,
+    relevant: Vec<bool>,
+    found: Scan,
+    helper_bodies: Vec<(String, Body)>,
+    open: Vec<Open>,
+    loops: Vec<usize>,
+}
+
+impl<'a> Walker<'a> {
+    fn new(
+        tree: &tree_sitter::Tree,
+        content: &'a str,
+        tables: &'a IntegrityTables,
+        test_scope: bool,
+    ) -> Self {
+        Self {
+            content,
+            tables,
+            test_scope,
+            relevant: relevant_kinds(tree),
+            found: Scan::default(),
+            helper_bodies: Vec::new(),
+            open: Vec::new(),
+            loops: Vec::new(),
         }
-        while loops.last().is_some_and(|&start| start >= depth) {
-            loops.pop();
+    }
+
+    fn visit(&mut self, node: tree_sitter::Node<'_>, depth: usize) -> bool {
+        while self.open.last().is_some_and(|outer| outer.depth >= depth) {
+            self.open.pop();
         }
-        if !relevant
+        while self.loops.last().is_some_and(|&start| start >= depth) {
+            self.loops.pop();
+        }
+        if !self
+            .relevant
             .get(usize::from(node.kind_id()))
             .copied()
             .unwrap_or(false)
         {
             return true;
         }
-        if let Some(label) = (tables.suppression)(node, content) {
-            found
+        if let Some(label) = (self.tables.suppression)(node, self.content) {
+            self.found
                 .suppressions
                 .push((label, node.start_position().row + 1));
         }
-        if !test_scope {
+        if !self.test_scope {
             return true;
         }
-        if let Some(marker) = (tables.test_marker)(node, content) {
-            found.markers.push(marker);
+        if let Some(marker) = (self.tables.test_marker)(node, self.content) {
+            self.found.markers.push(marker);
         }
-        if let Some(name) = (tables.test_case)(node, content) {
-            found.tests.push(TestFacts::of(node, content, name));
-            let owner = Owner::Test(found.tests.len() - 1);
-            open.push(Open { depth, owner });
+        if let Some(name) = (self.tables.test_case)(node, self.content) {
+            self.found
+                .tests
+                .push(TestFacts::of(node, self.content, name));
+            let owner = Owner::Test(self.found.tests.len() - 1);
+            self.open.push(Open { depth, owner });
             return true;
         }
-        if let Some(name) = helpers::definition_name(node, content) {
-            helper_bodies.push((name, Body::default()));
-            let owner = Owner::Helper(helper_bodies.len() - 1);
-            open.push(Open { depth, owner });
+        if let Some(name) = helpers::definition_name(node, self.content) {
+            self.helper_bodies.push((name, Body::default()));
+            let owner = Owner::Helper(self.helper_bodies.len() - 1);
+            self.open.push(Open { depth, owner });
             return true;
         }
-        if open.is_empty() {
-            return true;
+        if !self.open.is_empty() {
+            self.record_body_evidence(node, depth);
         }
-        let callee = helpers::callee_name(node, content);
+        true
+    }
+
+    fn record_body_evidence(&mut self, node: tree_sitter::Node<'_>, depth: usize) {
+        let callee = helpers::callee_name(node, self.content);
         // Callee names are resolved against the file's helpers after the walk.
         let called = callee.map(|name| {
             (
-                name.as_ptr() as usize - content.as_ptr() as usize,
+                name.as_ptr() as usize - self.content.as_ptr() as usize,
                 name.len(),
             )
         });
-        let asserts = (tables.is_assertion)(node, content);
-        if asserts || called.is_some() {
-            for body in open.iter().rev() {
-                let in_loop = loops.last().is_some_and(|&start| start > body.depth);
-                let target = match body.owner {
-                    Owner::Test(index) => found.tests[index].body_mut(),
-                    Owner::Helper(index) => &mut helper_bodies[index].1,
-                };
-                if asserts {
-                    target.add_assertion(in_loop);
-                }
-                if let Some((start, len)) = called {
-                    target.add_pending_call(start, len, in_loop);
-                }
-                if matches!(body.owner, Owner::Test(_)) {
-                    break;
-                }
+        let asserts = (self.tables.is_assertion)(node, self.content);
+        let matcher = if asserts {
+            self.tables
+                .assertion_matcher
+                .and_then(|recognize| recognize(node, self.content))
+        } else {
+            None
+        };
+        self.record_checks(asserts, matcher, called);
+        if helpers::iterates(node, callee) {
+            self.loops.push(depth);
+        }
+    }
+
+    fn record_checks(
+        &mut self,
+        asserts: bool,
+        matcher: Option<AssertionMatcher>,
+        called: Option<(usize, usize)>,
+    ) {
+        if !asserts && called.is_none() {
+            return;
+        }
+        for index in (0..self.open.len()).rev() {
+            let owner = self.open[index].owner;
+            let body_depth = self.open[index].depth;
+            let in_loop = self.loops.last().is_some_and(|&start| start > body_depth);
+            self.record_owner(owner, in_loop, asserts, matcher, called);
+            if matches!(owner, Owner::Test(_)) {
+                break;
             }
         }
-        if helpers::iterates(node, callee) {
-            loops.push(depth);
+    }
+
+    fn record_owner(
+        &mut self,
+        owner: Owner,
+        in_loop: bool,
+        asserts: bool,
+        matcher: Option<AssertionMatcher>,
+        called: Option<(usize, usize)>,
+    ) {
+        let target = match owner {
+            Owner::Test(index) => self.found.tests[index].body_mut(),
+            Owner::Helper(index) => &mut self.helper_bodies[index].1,
+        };
+        if asserts {
+            target.add_assertion(in_loop);
         }
-        true
-    });
-    let names: BTreeSet<String> = helper_bodies.iter().map(|(name, _)| name.clone()).collect();
-    for (_, body) in &mut helper_bodies {
-        body.settle(content, &names);
+        if let Some(matcher) = matcher {
+            target.add_matcher(matcher);
+        }
+        if let Some((start, len)) = called {
+            target.add_pending_call(start, len, in_loop);
+        }
     }
-    for test in &mut found.tests {
-        test.body_mut().settle(content, &names);
+
+    fn finish(mut self) -> Scan {
+        let names: BTreeSet<String> = self
+            .helper_bodies
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect();
+        for (_, body) in &mut self.helper_bodies {
+            body.settle(self.content, &names);
+        }
+        for test in &mut self.found.tests {
+            test.body_mut().settle(self.content, &names);
+        }
+        let mut helper_map = BTreeMap::new();
+        for (name, body) in self.helper_bodies {
+            helpers::remember(&mut helper_map, name, body);
+        }
+        for test in &mut self.found.tests {
+            test.include_helpers(&helper_map);
+        }
+        self.found
     }
-    let mut helper_map: BTreeMap<String, Body> = BTreeMap::new();
-    for (name, body) in helper_bodies {
-        helpers::remember(&mut helper_map, name, body);
-    }
-    for test in &mut found.tests {
-        test.include_helpers(&helper_map);
-    }
-    Some(found)
 }
 
 /// Every node kind a recognizer, helper, or loop check can match on entry, in

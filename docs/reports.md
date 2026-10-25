@@ -286,14 +286,21 @@ optional `local_feedback`, CI gate metadata when requested, and per-finding
 ranges, merged evidence lines, headline/detail/blast radius, provenance,
 suppression state, and gate eligibility. `family` is one of `boundary`,
 `behavioral`, `algorithmic`, `taint`, `integrity` (tests newly skipped,
-focused, removed, or stripped of assertions: `integrity.test-skipped`,
+focused, removed, or weakened assertions: `integrity.test-skipped`,
 `integrity.test-focused`, `integrity.test-removed`,
-`integrity.assertions-removed`, `integrity.suppression-added`,
+`integrity.assertions-removed`, `integrity.assertions-weakened`,
+`integrity.suppression-added`,
 `integrity.gate-relaxed`, `integrity.review-suppression-added`), or `volume`.
 Integrity signals never create a verification obligation. `review_gate` is independent from the
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, `rendering_us`, and `integrity_us` (the integrity
 analysis share of `review_signals_us`).
+
+`integrity.assertions-weakened` is a maybe-tier candidate for an existing JS/TS
+test that changes object matching from exact `toEqual` to partial
+`toMatchObject` or `toEqual(expect.objectContaining({...}))` matching.
+It asks whether that weaker matcher is intentional; it does not prove the test
+would miss a real regression.
 
 When supplied, a review also carries `change_proof.intent_drift` with the
 bounded declared scope, observed changed/impacted paths, canonical contract

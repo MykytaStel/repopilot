@@ -1,5 +1,5 @@
-//! Test-level accounting: test cases a change removed, and tests that kept
-//! their name but lost assertions.
+//! Test-level accounting: removed tests, lost assertions, and weakened
+//! matchers in tests that kept their name.
 //!
 //! Tests are identified by their qualified name (`header > renders title`,
 //! `TestLogout.test_logout`, `tests::adds`). A name that leaves one changed
@@ -28,6 +28,9 @@ pub(super) struct TestFacts {
     /// The test's own body, before helpers are folded in.
     body: Body,
     assertions: usize,
+    exact_matchers: usize,
+    partial_matchers: usize,
+    containing_matchers: usize,
     looped: bool,
     /// The test's source; its tokens are computed only when a removed test
     /// is matched against new ones (`pair_renames`).
@@ -42,6 +45,9 @@ impl TestFacts {
             line: node.start_position().row + 1,
             body: Body::default(),
             assertions: 0,
+            exact_matchers: 0,
+            partial_matchers: 0,
+            containing_matchers: 0,
             looped: false,
             text: text.to_string(),
             name,
@@ -56,6 +62,9 @@ impl TestFacts {
     pub(super) fn include_helpers(&mut self, helpers: &BTreeMap<String, Body>) {
         let resolved = helpers::resolve(&self.body, helpers);
         self.assertions = resolved.assertions;
+        self.exact_matchers = resolved.exact_matchers;
+        self.partial_matchers = resolved.partial_matchers;
+        self.containing_matchers = resolved.containing_matchers;
         self.looped = resolved.looped;
     }
 
@@ -63,6 +72,36 @@ impl TestFacts {
     /// cases, where one statement can check what several did.
     fn checks_less_than(&self, before: &TestFacts) -> bool {
         self.assertions < before.assertions && (before.looped || !self.looped)
+    }
+
+    fn weakens_matchers(&self, before: &TestFacts) -> bool {
+        let exact_removed = before.exact_matchers.saturating_sub(self.exact_matchers);
+        let partial_added = self
+            .partial_matchers
+            .saturating_sub(before.partial_matchers)
+            .saturating_add(
+                self.containing_matchers
+                    .saturating_sub(before.containing_matchers),
+            );
+        exact_removed > 0 && exact_removed == partial_added
+    }
+
+    fn weakened_matcher_detail(&self, before: &TestFacts, name: &str) -> String {
+        let exact_removed = before.exact_matchers.saturating_sub(self.exact_matchers);
+        let partial_added = self
+            .partial_matchers
+            .saturating_sub(before.partial_matchers);
+        let containing_added = self
+            .containing_matchers
+            .saturating_sub(before.containing_matchers);
+        let transition = if exact_removed == partial_added && containing_added == 0 {
+            "toEqual → toMatchObject"
+        } else if exact_removed == containing_added && partial_added == 0 {
+            "toEqual → toEqual(expect.objectContaining)"
+        } else {
+            "exact object matching weakened"
+        };
+        format!("\"{name}\": {transition}")
     }
 }
 
@@ -106,6 +145,7 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
             signals.push(removed_signal(file, &removed));
         }
         signals.extend(assertion_signals(file));
+        signals.extend(matcher_signals(file));
     }
     signals
 }
@@ -175,6 +215,24 @@ fn assertion_signals(file: &FileEvidence) -> Vec<IntegritySignal> {
                 } else {
                     format!("\"{name}\": assertions {} → {}", pre.assertions, post.assertions)
                 },
+            })
+        })
+        .collect()
+}
+
+/// Existing tests that trade exact object equality for partial matching.
+fn matcher_signals(file: &FileEvidence) -> Vec<IntegritySignal> {
+    let before = unique_by_name(&file.pre.tests);
+    let after = unique_by_name(&file.post.tests);
+    before
+        .iter()
+        .filter_map(|(name, pre)| {
+            let post = after.get(name)?;
+            post.weakens_matchers(pre).then(|| IntegritySignal {
+                kind: IntegrityKind::AssertionsWeakened,
+                path: file.path.clone(),
+                line: post.line,
+                detail: post.weakened_matcher_detail(pre, name),
             })
         })
         .collect()

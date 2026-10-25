@@ -1,8 +1,8 @@
 //! Test-integrity signals: a change that weakens the checks judging it.
 //!
 //! Skip and focus markers (`it.only`, `@pytest.mark.skip`, `t.Skip`,
-//! `#[ignore]`), removed test cases, removed assertions, new lint, type, or
-//! coverage suppressions, and relaxed CI or tool gates. Everything is
+//! `#[ignore]`), removed test cases, removed assertions, weakened matcher checks,
+//! new lint, type, or coverage suppressions, and relaxed CI or tool gates. Everything is
 //! counted over the whole pre- and post-change file, not only the changed
 //! lines, so re-indenting or moving code within a file is not a change. A
 //! marker or test that disappears from one changed file and appears in another
@@ -19,6 +19,8 @@ mod helpers;
 #[cfg(test)]
 mod helpers_tests;
 mod markers;
+#[cfg(test)]
+mod matcher_tests;
 mod moves;
 #[cfg(test)]
 mod rename_tests;
@@ -46,6 +48,7 @@ pub enum IntegrityKind {
     TestSkipped,
     TestRemoved,
     AssertionsRemoved,
+    AssertionsWeakened,
     SuppressionAdded,
     GateRelaxed,
     ReviewSuppressionAdded,
