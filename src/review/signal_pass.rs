@@ -76,7 +76,8 @@ pub(super) fn detect_review_signals(
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
         let integrity_started = Instant::now();
-        let (integrity_signals, moved) = detect_integrity(changed_files, &loaded_sources);
+        let (integrity_signals, moved) =
+            detect_integrity(repo_root, target, changed_files, &loaded_sources);
         content_signals.integrity = integrity_signals;
         content_signals.behavioral.retain(|signal| {
             signal.kind != behavioral::BehavioralKind::TestDeletedOrEmptied
@@ -156,6 +157,8 @@ fn detect_file_signals(
 /// Also returns the deleted or emptied test files whose tests all moved.
 /// Files are scanned in parallel; the evidence keeps the changed-file order.
 fn detect_integrity(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
     changed_files: &[ChangedFile],
     loaded_sources: &[LoadedReviewSources],
 ) -> (Vec<integrity::IntegritySignal>, BTreeSet<String>) {
@@ -168,6 +171,21 @@ fn detect_integrity(
         .collect::<Vec<_>>();
     let moved = integrity::moved_test_files(&markers);
     let mut signals = integrity::detect_integrity(&markers);
+    let changed_sources = changed_files
+        .iter()
+        .zip(loaded_sources)
+        .map(|(file, sources)| integrity::ChangedIntegritySource {
+            file,
+            pre: sources.pre.as_ref(),
+            post: sources.post.as_ref(),
+        })
+        .collect::<Vec<_>>();
+    signals.extend(integrity::detect_cross_file_helper_changes(
+        repo_root,
+        target,
+        &changed_sources,
+        &markers,
+    ));
     for (file, sources) in changed_files.iter().zip(loaded_sources) {
         signals.extend(integrity::detect_gate_relaxation(
             file,
@@ -201,7 +219,7 @@ fn detect_api_contract(
 mod tests {
     use super::*;
     use crate::config::model::SecurityBoundarySection;
-    use crate::review::diff::{ChangeStatus, DiffTarget};
+    use crate::review::diff::{ChangeStatus, ChangedRange, DiffTarget};
     use crate::scan::types::CouplingGraph;
     use std::fs;
     use std::path::PathBuf;
@@ -276,6 +294,89 @@ mod tests {
             Some(&graph),
         );
         assert!(disabled.api_contract.is_empty());
+    }
+
+    #[test]
+    fn integrity_tracks_matcher_changes_in_an_imported_helper_for_unchanged_tests() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        git(root, &["init"]);
+        git(root, &["config", "user.email", "repopilot@example.invalid"]);
+        git(root, &["config", "user.name", "RepoPilot Test"]);
+        write(
+            root,
+            "src/test-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toEqual({ id: 1, total: 20 });\n}\nexport function expectTax(tax: unknown) {\n  expect(tax).toEqual({ value: 2 });\n}\n",
+        );
+        write(
+            root,
+            "tests/cart.test.ts",
+            "import { expectInvoice as checkInvoice, expectTax as checkTax } from \"../src/test-helpers\";\ndescribe(\"cart\", () => {\n  it(\"returns an invoice\", () => {\n    checkInvoice(invoice());\n    checkTax(tax());\n  });\n});\n",
+        );
+        write(
+            root,
+            "src/other-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toEqual({ id: 1, total: 20 });\n}\n",
+        );
+        write(
+            root,
+            "tests/decoy.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../src/other-helpers\";\nit(\"returns another invoice\", () => {\n  checkInvoice(invoice());\n});\n",
+        );
+        write(
+            root,
+            "tests/unused.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../src/test-helpers\";\nit(\"does not call the imported helper\", () => {\n  expect(true).toBe(true);\n});\n",
+        );
+        write(
+            root,
+            "tests/fixtures/example.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../../src/test-helpers\";\nit(\"fixture example\", () => {\n  checkInvoice(invoice());\n});\n",
+        );
+        write(
+            root,
+            "src/cart-view.ts",
+            "import { expectInvoice as checkInvoice } from \"./test-helpers\";\nexport function renderCart() { checkInvoice(invoice()); }\n",
+        );
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "before"]);
+        write(
+            root,
+            "src/test-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toMatchObject({ id: 1 });\n}\nexport function expectTax(tax: unknown) {\n  expect(tax).toMatchObject({ value: 2 });\n}\n",
+        );
+
+        let changed_files = vec![ChangedFile {
+            path: PathBuf::from("src/test-helpers.ts"),
+            status: ChangeStatus::Modified,
+            ranges: vec![ChangedRange { start: 2, end: 2 }],
+            hunks: Vec::new(),
+        }];
+        let (_, signals) = detect_review_signals(
+            root,
+            DiffTarget::WorkingTree,
+            &changed_files,
+            &SecurityBoundarySection {
+                enabled: false,
+                extra_patterns: Vec::new(),
+            },
+            ContentToggles {
+                behavioral: true,
+                algorithmic: false,
+                taint: false,
+            },
+            None,
+        );
+
+        assert_eq!(signals.integrity.len(), 1, "{:?}", signals.integrity);
+        assert_eq!(
+            signals.integrity[0].kind,
+            integrity::IntegrityKind::AssertionsWeakened
+        );
+        assert_eq!(signals.integrity[0].path, "tests/cart.test.ts");
+        assert!(signals.integrity[0].detail.contains("returns an invoice"));
+        assert!(signals.integrity[0].detail.contains("expectInvoice"));
+        assert!(signals.integrity[0].detail.contains("expectTax"));
     }
 
     fn write(root: &Path, relative: &str, content: &str) {

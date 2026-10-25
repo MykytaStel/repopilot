@@ -58,6 +58,30 @@ impl TestFacts {
         &mut self.body
     }
 
+    /// Adds each directly imported helper's checks once per direct call in this
+    /// test body. Helper bodies have already been resolved within their module.
+    pub(super) fn include_external_helpers(&mut self, helpers: &BTreeMap<String, Body>) {
+        for (local_name, count) in self.body.direct_import_calls() {
+            let Some(helper) = helpers.get(local_name) else {
+                continue;
+            };
+            self.assertions = self
+                .assertions
+                .saturating_add(count.saturating_mul(helper.assertions));
+            self.exact_matchers = self
+                .exact_matchers
+                .saturating_add(count.saturating_mul(helper.exact_matchers));
+            self.partial_matchers = self
+                .partial_matchers
+                .saturating_add(count.saturating_mul(helper.partial_matchers));
+            self.containing_matchers = self
+                .containing_matchers
+                .saturating_add(count.saturating_mul(helper.containing_matchers));
+            self.looped |= helper.looped
+                || (helper.assertions > 0 && self.body.direct_import_call_is_looped(local_name));
+        }
+    }
+
     /// Folds in the assertions of the same-file helpers this test calls.
     pub(super) fn include_helpers(&mut self, helpers: &BTreeMap<String, Body>) {
         let resolved = helpers::resolve(&self.body, helpers);
@@ -70,11 +94,11 @@ impl TestFacts {
 
     /// Fewer assertions than `before`, unless the test became a loop over
     /// cases, where one statement can check what several did.
-    fn checks_less_than(&self, before: &TestFacts) -> bool {
+    pub(super) fn checks_less_than(&self, before: &TestFacts) -> bool {
         self.assertions < before.assertions && (before.looped || !self.looped)
     }
 
-    fn weakens_matchers(&self, before: &TestFacts) -> bool {
+    pub(super) fn weakens_matchers(&self, before: &TestFacts) -> bool {
         let exact_removed = before.exact_matchers.saturating_sub(self.exact_matchers);
         let partial_added = self
             .partial_matchers
@@ -86,7 +110,7 @@ impl TestFacts {
         exact_removed > 0 && exact_removed == partial_added
     }
 
-    fn weakened_matcher_detail(&self, before: &TestFacts, name: &str) -> String {
+    pub(super) fn weakened_matcher_detail(&self, before: &TestFacts, name: &str) -> String {
         let exact_removed = before.exact_matchers.saturating_sub(self.exact_matchers);
         let partial_added = self
             .partial_matchers
@@ -148,6 +172,53 @@ pub(super) fn detect(files: &[FileEvidence]) -> Vec<IntegritySignal> {
         signals.extend(matcher_signals(file));
     }
     signals
+}
+
+/// Compares test names after one changed exported helper's effective checks
+/// have been folded into each side.
+pub(super) fn cross_file_signals(
+    path: &str,
+    before_tests: &[TestFacts],
+    after_tests: &[TestFacts],
+    helper: &str,
+) -> Vec<IntegritySignal> {
+    let before = unique_by_name(before_tests);
+    let after = unique_by_name(after_tests);
+    before
+        .iter()
+        .filter_map(|(name, pre)| {
+            let post = after.get(name)?;
+            let mut signal = if post.checks_less_than(pre) {
+                Some(IntegritySignal {
+                    kind: IntegrityKind::AssertionsRemoved,
+                    path: path.to_string(),
+                    line: post.line,
+                    detail: if post.assertions == 0 {
+                        format!(
+                            "\"{name}\": assertions {} → 0; the test can no longer fail on a wrong result",
+                            pre.assertions
+                        )
+                    } else {
+                        format!("\"{name}\": assertions {} → {}", pre.assertions, post.assertions)
+                    },
+                })
+            } else {
+                None
+            };
+            if post.weakens_matchers(pre) {
+                signal = Some(IntegritySignal {
+                    kind: IntegrityKind::AssertionsWeakened,
+                    path: path.to_string(),
+                    line: post.line,
+                    detail: post.weakened_matcher_detail(pre, name),
+                });
+            }
+            signal.map(|mut signal| {
+                signal.detail.push_str(&format!(" via {helper}"));
+                signal
+            })
+        })
+        .collect()
 }
 
 /// Names in `left` beyond their count in `right` (a multiset difference).

@@ -40,9 +40,12 @@ PRs were found first, so the sample is not uniformly random.
 
 RepoPilot emits `integrity.assertions-weakened` for bounded JS/TS object matcher
 changes from exact `toEqual` matching to `toMatchObject` or
-`toEqual(expect.objectContaining({...}))`. This remains an advisory candidate;
-the corpus labels keep the broader `assertion-removed` category for all
-exact-to-partial assertion changes.
+`toEqual(expect.objectContaining({...}))`. It can also attribute that change
+through one directly resolved named export/import to an unchanged test that
+calls the helper directly. Unrelated same-name modules, indirect calls, and
+multi-hop helpers remain outside this scope. This remains an advisory
+candidate; the corpus labels keep the broader `assertion-removed` category for
+all exact-to-partial assertion changes.
 
 Verdicts:
 
