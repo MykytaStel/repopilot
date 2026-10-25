@@ -28,6 +28,10 @@ person reading it in an agent client.
    is a candidate with a concrete missed case, but requires a real-diff fixture
    and justified rewrite controls before implementation. Keep Promise `.catch()`
    gated on independent labels and a repository-held-out evaluation.
+6. Trace weakened matchers in modified, named-export JS/TS helpers to unchanged
+   tests that directly import and call those helpers. Resolve the exact module
+   path and imported symbol; keep re-exports, default/namespace/dynamic imports,
+   indirect calls, and multi-hop flows outside this slice.
 
 ## Acceptance checks
 
@@ -82,3 +86,11 @@ cross-file move as removal. Keep that case in the review-signal quality backlog
 for a repository-disjoint precision pilot. The remaining maybe-tier signals
 were imports of existing dependencies in split modules and a test-only file
 write.
+
+The cross-file matcher follow-up is covered by targeted fixtures and CLI/MCP
+parity tests. The implementation considers direct named value exports and
+imports in one hop, ignores fixture/test-data callers, and attributes only
+unchanged tests with a direct helper call. This establishes the supported
+mechanism and its boundaries; it is not a production precision or recall
+estimate. The full Rust suite, Clippy, formatting, and hosted Rust, CodeQL,
+security/maintenance, and Linux/macOS/Windows checks passed on the follow-up PR.
