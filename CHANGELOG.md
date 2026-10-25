@@ -10,7 +10,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 - JS/TS review reports when an existing test changes an exact object `toEqual`
   matcher to partial `toMatchObject` or `expect.objectContaining` matching.
-  The maybe-tier signal is a review candidate, not proof that behavior was lost.
+  The same maybe-tier signal now follows one changed named export through an
+  exact, direct named import into unchanged tests. It remains a review
+  candidate, not proof that behavior was lost; multi-hop and indirect calls are
+  outside the supported scope.
 
 ### Changed
 

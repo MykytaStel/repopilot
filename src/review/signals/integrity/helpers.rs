@@ -45,9 +45,11 @@ pub(super) struct Body {
     pub(super) looped: bool,
     calls: BTreeMap<String, usize>,
     looped_calls: BTreeSet<String>,
+    direct_import_calls: BTreeMap<String, usize>,
+    looped_direct_import_calls: BTreeSet<String>,
     /// Calls seen during the scan, by byte range of the callee name and
     /// whether they ran in a loop; `settle` keeps those naming a helper.
-    pending: Vec<(usize, usize, bool)>,
+    pending: Vec<(usize, usize, bool, bool)>,
 }
 
 impl Body {
@@ -72,19 +74,45 @@ impl Body {
     }
 
     /// Records a call by the byte range of its callee name in `content`.
-    pub(super) fn add_pending_call(&mut self, start: usize, len: usize, in_loop: bool) {
-        self.pending.push((start, len, in_loop));
+    pub(super) fn add_pending_call(
+        &mut self,
+        start: usize,
+        len: usize,
+        in_loop: bool,
+        direct: bool,
+    ) {
+        self.pending.push((start, len, in_loop, direct));
     }
 
     /// Keeps the pending calls that name a same-file function.
     pub(super) fn settle(&mut self, content: &str, names: &BTreeSet<String>) {
-        for (start, len, in_loop) in std::mem::take(&mut self.pending) {
-            if let Some(name) = content.get(start..start + len)
-                && names.contains(name)
-            {
+        for (start, len, in_loop, direct) in std::mem::take(&mut self.pending) {
+            let Some(name) = content.get(start..start + len) else {
+                continue;
+            };
+            if names.contains(name) {
                 self.add_call(name, in_loop);
+                continue;
+            }
+            if !direct {
+                continue;
+            }
+            *self
+                .direct_import_calls
+                .entry(name.to_string())
+                .or_default() += 1;
+            if in_loop {
+                self.looped_direct_import_calls.insert(name.to_string());
             }
         }
+    }
+
+    pub(super) fn direct_import_calls(&self) -> &BTreeMap<String, usize> {
+        &self.direct_import_calls
+    }
+
+    pub(super) fn direct_import_call_is_looped(&self, name: &str) -> bool {
+        self.looped_direct_import_calls.contains(name)
     }
 }
 

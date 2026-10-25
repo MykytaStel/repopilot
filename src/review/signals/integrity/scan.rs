@@ -18,6 +18,8 @@ pub(super) struct Scan {
     pub(super) markers: Vec<TestMarker>,
     pub(super) tests: Vec<TestFacts>,
     pub(super) suppressions: Vec<(String, usize)>,
+    pub(super) helpers: BTreeMap<String, Body>,
+    pub(super) ambiguous_helpers: BTreeSet<String>,
 }
 
 #[derive(Clone, Copy)]
@@ -93,21 +95,25 @@ impl<'a> Walker<'a> {
                 .suppressions
                 .push((label, node.start_position().row + 1));
         }
-        if !self.test_scope {
+        if !self.test_scope && self.tables.assertion_matcher.is_none() {
             return true;
         }
-        if let Some(marker) = (self.tables.test_marker)(node, self.content) {
-            self.found.markers.push(marker);
+        if self.test_scope {
+            if let Some(marker) = (self.tables.test_marker)(node, self.content) {
+                self.found.markers.push(marker);
+            }
+            if let Some(name) = (self.tables.test_case)(node, self.content) {
+                self.found
+                    .tests
+                    .push(TestFacts::of(node, self.content, name));
+                let owner = Owner::Test(self.found.tests.len() - 1);
+                self.open.push(Open { depth, owner });
+                return true;
+            }
         }
-        if let Some(name) = (self.tables.test_case)(node, self.content) {
-            self.found
-                .tests
-                .push(TestFacts::of(node, self.content, name));
-            let owner = Owner::Test(self.found.tests.len() - 1);
-            self.open.push(Open { depth, owner });
-            return true;
-        }
-        if let Some(name) = helpers::definition_name(node, self.content) {
+        if (self.test_scope || self.tables.assertion_matcher.is_some())
+            && let Some(name) = helpers::definition_name(node, self.content)
+        {
             self.helper_bodies.push((name, Body::default()));
             let owner = Owner::Helper(self.helper_bodies.len() - 1);
             self.open.push(Open { depth, owner });
@@ -128,6 +134,9 @@ impl<'a> Walker<'a> {
                 name.len(),
             )
         });
+        let direct_call = node
+            .child(0)
+            .is_some_and(|function| function.kind() == "identifier");
         let asserts = (self.tables.is_assertion)(node, self.content);
         let matcher = if asserts {
             self.tables
@@ -136,7 +145,7 @@ impl<'a> Walker<'a> {
         } else {
             None
         };
-        self.record_checks(asserts, matcher, called);
+        self.record_checks(asserts, matcher, called, direct_call);
         if helpers::iterates(node, callee) {
             self.loops.push(depth);
         }
@@ -147,6 +156,7 @@ impl<'a> Walker<'a> {
         asserts: bool,
         matcher: Option<AssertionMatcher>,
         called: Option<(usize, usize)>,
+        direct_call: bool,
     ) {
         if !asserts && called.is_none() {
             return;
@@ -155,7 +165,7 @@ impl<'a> Walker<'a> {
             let owner = self.open[index].owner;
             let body_depth = self.open[index].depth;
             let in_loop = self.loops.last().is_some_and(|&start| start > body_depth);
-            self.record_owner(owner, in_loop, asserts, matcher, called);
+            self.record_owner(owner, in_loop, asserts, matcher, called, direct_call);
             if matches!(owner, Owner::Test(_)) {
                 break;
             }
@@ -169,6 +179,7 @@ impl<'a> Walker<'a> {
         asserts: bool,
         matcher: Option<AssertionMatcher>,
         called: Option<(usize, usize)>,
+        direct_call: bool,
     ) {
         let target = match owner {
             Owner::Test(index) => self.found.tests[index].body_mut(),
@@ -181,7 +192,7 @@ impl<'a> Walker<'a> {
             target.add_matcher(matcher);
         }
         if let Some((start, len)) = called {
-            target.add_pending_call(start, len, in_loop);
+            target.add_pending_call(start, len, in_loop, direct_call);
         }
     }
 
@@ -198,9 +209,16 @@ impl<'a> Walker<'a> {
             test.body_mut().settle(self.content, &names);
         }
         let mut helper_map = BTreeMap::new();
+        let mut helper_counts = BTreeMap::<String, usize>::new();
         for (name, body) in self.helper_bodies {
+            *helper_counts.entry(name.clone()).or_default() += 1;
             helpers::remember(&mut helper_map, name, body);
         }
+        self.found.ambiguous_helpers = helper_counts
+            .into_iter()
+            .filter_map(|(name, count)| (count > 1).then_some(name))
+            .collect();
+        self.found.helpers = helper_map.clone();
         for test in &mut self.found.tests {
             test.include_helpers(&helper_map);
         }

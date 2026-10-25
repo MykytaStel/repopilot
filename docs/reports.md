@@ -299,8 +299,11 @@ analysis share of `review_signals_us`).
 `integrity.assertions-weakened` is a maybe-tier candidate for an existing JS/TS
 test that changes object matching from exact `toEqual` to partial
 `toMatchObject` or `toEqual(expect.objectContaining({...}))` matching.
-It asks whether that weaker matcher is intentional; it does not prove the test
-would miss a real regression.
+It also follows a changed named value export through a directly resolved named
+import to an unchanged test that calls it directly. This is limited to one
+helper hop and requires an unambiguous helper and test name. The signal asks
+whether that weaker matcher is intentional; it does not prove the test would
+miss a real regression.
 
 When supplied, a review also carries `change_proof.intent_drift` with the
 bounded declared scope, observed changed/impacted paths, canonical contract

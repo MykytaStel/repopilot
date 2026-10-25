@@ -14,6 +14,7 @@ mod accounting;
 #[cfg(test)]
 mod accounting_tests;
 mod acknowledgement;
+mod cross_file;
 mod gates;
 mod helpers;
 #[cfg(test)]
@@ -80,6 +81,14 @@ pub struct FileEvidence {
     post_marker_in_diff: Vec<bool>,
 }
 
+/// Changed paths and their already-loaded before/after sources for the
+/// graph-aware integrity pass.
+pub(crate) struct ChangedIntegritySource<'a> {
+    pub(crate) file: &'a ChangedFile,
+    pub(crate) pre: Option<&'a ReviewSource>,
+    pub(crate) post: Option<&'a ReviewSource>,
+}
+
 /// Collects a changed file's evidence, or `None` when no recognizer applies or
 /// a side that should exist cannot be parsed (never guess from half a picture).
 pub fn collect_file_evidence(
@@ -132,6 +141,16 @@ pub fn detect_integrity(files: &[FileEvidence]) -> Vec<IntegritySignal> {
     signals.extend(suppressions::detect(files));
     signals.sort_by(|left, right| left.path.cmp(&right.path).then(left.line.cmp(&right.line)));
     signals
+}
+
+/// Adds evidence from changed exported JS/TS helpers to unchanged test callers.
+pub(crate) fn detect_cross_file_helper_changes(
+    repo_root: &std::path::Path,
+    target: crate::review::diff::DiffTarget<'_>,
+    changed: &[ChangedIntegritySource<'_>],
+    files: &[FileEvidence],
+) -> Vec<IntegritySignal> {
+    cross_file::detect(repo_root, target, changed, files)
 }
 
 /// Fixture, `testdata`, and snapshot directories hold inputs a test reads, not

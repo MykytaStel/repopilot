@@ -88,6 +88,74 @@ fn mcp_review_returns_the_integrity_signals_the_cli_reports() {
     assert_eq!(reason_codes(&mcp), reason_codes(&cli));
 }
 
+#[test]
+fn mcp_review_attributes_a_changed_imported_matcher_to_an_unchanged_test() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let root = temp.path();
+    fs::create_dir_all(root.join("src")).expect("src dir");
+    fs::create_dir_all(root.join("tests")).expect("tests dir");
+    fs::write(
+        root.join("src/test-helpers.ts"),
+        "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toEqual({ id: 1, total: 20 });\n}\n",
+    )
+    .expect("seed helper");
+    fs::write(
+        root.join("tests/cart.test.ts"),
+        "import { expectInvoice as checkInvoice } from \"../src/test-helpers\";\nit(\"returns an invoice\", () => {\n  checkInvoice(invoice());\n});\n",
+    )
+    .expect("seed test");
+    for args in [
+        &["init", "-q"][..],
+        &["config", "user.email", "test@example.com"],
+        &["config", "user.name", "Test"],
+        &["add", "."],
+        &["commit", "-qm", "initial"],
+    ] {
+        assert!(
+            Command::new("git")
+                .args(args)
+                .current_dir(root)
+                .status()
+                .unwrap()
+                .success()
+        );
+    }
+    fs::write(
+        root.join("src/test-helpers.ts"),
+        "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toMatchObject({ id: 1 });\n}\n",
+    )
+    .expect("weaken helper matcher");
+
+    let cli = Command::new(env!("CARGO_BIN_EXE_repopilot"))
+        .args(["review", ".", "--format", "json"])
+        .current_dir(root)
+        .output()
+        .expect("run review");
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let cli: Value = serde_json::from_slice(&cli.stdout).expect("cli json");
+    let mcp = mcp_review(root);
+    let cli_signals = integrity_signals(&cli);
+
+    assert_eq!(
+        cli_signals.len(),
+        1,
+        "signals: {cli_signals:?}; graph: {}; changed files: {}",
+        cli["context_graph_summary"],
+        cli["changed_files"]
+    );
+    assert_eq!(cli_signals[0]["kind"], "integrity.assertions-weakened");
+    assert_eq!(cli_signals[0]["path"], "tests/cart.test.ts");
+    assert_eq!(integrity_signals(&mcp), cli_signals);
+    assert_eq!(
+        mcp["change_proof"]["verdict"],
+        cli["change_proof"]["verdict"]
+    );
+}
+
 /// Integrity signals across tiers, reduced to the fields both projections share.
 fn integrity_signals(report: &Value) -> Vec<Value> {
     ["definitely", "maybe", "noise"]

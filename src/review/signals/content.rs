@@ -108,6 +108,23 @@ pub(crate) fn post_change_source_at_path(
     Some(source_from(content, path))
 }
 
+/// The pre-change content for an arbitrary repository-relative path.
+///
+/// Used only after a resolver proves that an unchanged caller imports a changed
+/// module; ordinary review source loading remains limited to changed files.
+pub(crate) fn pre_change_source_at_path(
+    repo_root: &Path,
+    path: &Path,
+    target: DiffTarget<'_>,
+) -> Option<ReviewSource> {
+    let reference = match target {
+        DiffTarget::WorkingTree => "HEAD",
+        DiffTarget::Refs { base, .. } | DiffTarget::SinceRef { base } => base,
+    };
+    let content = git_show(repo_root, reference, &path.to_string_lossy())?;
+    Some(source_from(content, path))
+}
+
 /// The file's content *before* the change.
 ///
 /// `None` when the file is newly added/untracked (there is no pre-change
