@@ -84,8 +84,14 @@ pub struct TestMarker {
     pub line: usize,
 }
 
-/// Recognizers for the test-integrity signals (skipped, focused, or removed
-/// tests and removed assertions).
+/// Recognizers for test-integrity signals, including matcher-strength changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AssertionMatcher {
+    ExactObject,
+    PartialObject,
+    PartialObjectContaining,
+}
+
 pub struct IntegrityTables {
     /// Extensions this table answers for.
     pub(crate) extensions: &'static [&'static str],
@@ -100,6 +106,10 @@ pub struct IntegrityTables {
     /// Whether a node is an assertion that can fail. Constant-only forms such
     /// as `expect(true).toBe(true)` or `assert True` do not count.
     pub(crate) is_assertion: for<'a> fn(tree_sitter::Node<'a>, &'a str) -> bool,
+    /// Matcher strength for assertion calls, when the language has a supported
+    /// exact-to-partial transition detector.
+    pub(crate) assertion_matcher:
+        Option<for<'a> fn(tree_sitter::Node<'a>, &'a str) -> Option<AssertionMatcher>>,
     /// The lint/type/coverage suppression a comment or attribute node adds,
     /// labeled with its directive and rules (`eslint-disable-next-line
     /// no-console`, `type: ignore[attr-defined]`, `#[allow(dead_code)]`).

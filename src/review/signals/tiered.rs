@@ -498,34 +498,41 @@ pub(crate) fn family_specific_verification_step(kind: &str, family: SignalFamily
                 "Trace the changed input source to the reported sink and confirm validation, allowlisting, or safe encoding exists on that path."
             }
         },
-        SignalFamily::Integrity => match kind {
-            "integrity.test-focused" => {
-                "Remove the focus marker before merge; while it is committed, the rest of its suite does not run in CI."
-            }
-            "integrity.test-removed" => {
-                "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
-            }
-            "integrity.review-suppression-added" => {
-                "Confirm the new overlay entry acknowledges a reviewed signal on purpose, with a reason and an expiry; remove it if it only silences this review."
-            }
-            "integrity.gate-relaxed" => {
-                "Confirm the relaxed CI or tool gate is intended and temporary; restore it, or record why the check may fail and when it will be restored."
-            }
-            "integrity.suppression-added" => {
-                "Confirm the silenced lint, type, or coverage finding is a known false positive; fix the finding instead when it is real."
-            }
-            "integrity.assertions-removed" => {
-                "Compare the test's assertions before and after; confirm each removed check was redundant or moved, not dropped to make the test pass."
-            }
-            _ => {
-                "Confirm why the test no longer runs; restore it, or record the reason and a follow-up before merge. Re-running the suite cannot confirm a skipped test."
-            }
-        },
+        SignalFamily::Integrity => integrity_verification_step(kind),
         SignalFamily::Algorithmic => {
             "Confirm the algorithmic change is intentional, covered by representative inputs, and does not regress the expected complexity envelope."
         }
         SignalFamily::Volume => {
             "Split or manually sample the large diff so ownership, tests, and risky surfaces are reviewed instead of treating volume as proof."
+        }
+    }
+}
+
+fn integrity_verification_step(kind: &str) -> &'static str {
+    match kind {
+        "integrity.test-focused" => {
+            "Remove the focus marker before merge; while it is committed, the rest of its suite does not run in CI."
+        }
+        "integrity.test-removed" => {
+            "Confirm the removed tests covered behavior that was also removed, or that a remaining test still covers it; restore them otherwise."
+        }
+        "integrity.review-suppression-added" => {
+            "Confirm the new overlay entry acknowledges a reviewed signal on purpose, with a reason and an expiry; remove it if it only silences this review."
+        }
+        "integrity.gate-relaxed" => {
+            "Confirm the relaxed CI or tool gate is intended and temporary; restore it, or record why the check may fail and when it will be restored."
+        }
+        "integrity.suppression-added" => {
+            "Confirm the silenced lint, type, or coverage finding is a known false positive; fix the finding instead when it is real."
+        }
+        "integrity.assertions-removed" => {
+            "Compare the test's assertions before and after; confirm each removed check was redundant or moved, not dropped to make the test pass."
+        }
+        "integrity.assertions-weakened" => {
+            "Confirm the partial object matcher is intentional; use exact equality if extra or missing fields should fail the test."
+        }
+        _ => {
+            "Confirm why the test no longer runs; restore it, or record the reason and a follow-up before merge. Re-running the suite cannot confirm a skipped test."
         }
     }
 }
@@ -606,6 +613,7 @@ fn integrity_kind(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestSkipped => "integrity.test-skipped",
         IntegrityKind::TestRemoved => "integrity.test-removed",
         IntegrityKind::AssertionsRemoved => "integrity.assertions-removed",
+        IntegrityKind::AssertionsWeakened => "integrity.assertions-weakened",
         IntegrityKind::SuppressionAdded => "integrity.suppression-added",
         IntegrityKind::GateRelaxed => "integrity.gate-relaxed",
         IntegrityKind::ReviewSuppressionAdded => "integrity.review-suppression-added",
@@ -621,6 +629,7 @@ fn integrity_tier(kind: IntegrityKind) -> ConfidenceTier {
         IntegrityKind::TestSkipped
         | IntegrityKind::TestRemoved
         | IntegrityKind::AssertionsRemoved
+        | IntegrityKind::AssertionsWeakened
         | IntegrityKind::SuppressionAdded
         | IntegrityKind::GateRelaxed
         | IntegrityKind::ReviewSuppressionAdded => ConfidenceTier::MaybeSensitive,
@@ -633,6 +642,7 @@ fn integrity_headline(kind: IntegrityKind) -> &'static str {
         IntegrityKind::TestSkipped => "test skipped",
         IntegrityKind::TestRemoved => "test removed",
         IntegrityKind::AssertionsRemoved => "assertions removed",
+        IntegrityKind::AssertionsWeakened => "assertion matcher weakened",
         IntegrityKind::SuppressionAdded => "suppression added",
         IntegrityKind::GateRelaxed => "check gate relaxed",
         IntegrityKind::ReviewSuppressionAdded => "RepoPilot suppression added",

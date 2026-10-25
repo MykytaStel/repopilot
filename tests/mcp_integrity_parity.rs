@@ -20,6 +20,9 @@ const BEFORE: &str = r#"describe("cart", () => {
   it("rejects negative quantities", () => {
     expect(() => total([-1])).toThrow();
   });
+  it("returns a summary", () => {
+    expect(summary()).toEqual({ total: 5, count: 2 });
+  });
 });
 "#;
 
@@ -48,7 +51,11 @@ fn mcp_review_returns_the_integrity_signals_the_cli_reports() {
     let weakened = BEFORE
         .replace("it(\"applies", "it.only(\"applies")
         .replace("it(\"rejects", "it.skip(\"rejects")
-        .replace("    expect(total([])).toBe(0);\n", "");
+        .replace("    expect(total([])).toBe(0);\n", "")
+        .replace(
+            "toEqual({ total: 5, count: 2 })",
+            "toEqual(expect.objectContaining({ total: 5 }))",
+        );
     fs::write(root.join("src/cart.test.ts"), weakened).expect("weaken");
 
     let cli = Command::new(env!("CARGO_BIN_EXE_repopilot"))
@@ -68,7 +75,8 @@ fn mcp_review_returns_the_integrity_signals_the_cli_reports() {
         vec![
             "integrity.test-focused",
             "integrity.assertions-removed",
-            "integrity.test-skipped"
+            "integrity.test-skipped",
+            "integrity.assertions-weakened"
         ]
     );
     assert_eq!(integrity_signals(&mcp), cli_signals);
