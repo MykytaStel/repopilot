@@ -24,6 +24,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Review no longer reports a removed error handler when a clean, uniquely
+  matched handler is moved into another changed file. Rust `match Result` to
+  `?` extraction is matched by the preserved operation; changed or ambiguous
+  destinations remain reportable.
 - YAML config parsing now uses the maintained, safe-Rust `noyalib-serde-yaml`
   compatibility package instead of the archived `unsafe-libyaml` dependency.
 - MCP review now confines `intent_path` to the configured MCP root. Claude Code
