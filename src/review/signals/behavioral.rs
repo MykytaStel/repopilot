@@ -24,10 +24,13 @@ mod model;
 mod python;
 mod removed;
 pub(crate) mod removed_ast;
+mod removed_moves;
 mod rust;
 
 pub use model::{BehavioralKind, BehavioralSignal, BehavioralSignalSource};
 pub use removed::detect_behavioral_removed;
+pub(crate) use removed::detect_behavioral_removed_with_moved_handlers;
+pub(crate) use removed_moves::{ChangedBehaviorSource, moved_error_handler_counts};
 
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::review::signals::content::ReviewSource;

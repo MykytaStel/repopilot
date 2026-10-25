@@ -61,12 +61,30 @@ pub(super) fn detect_review_signals(
         custom.as_ref(),
         &toggles,
     );
+    let moved_error_handlers = toggles.behavioral.then(|| {
+        let changes = changed_files
+            .iter()
+            .zip(&loaded_sources)
+            .map(|(file, sources)| behavioral::ChangedBehaviorSource {
+                file,
+                pre: sources.pre.as_ref(),
+                post: sources.post.as_ref(),
+            })
+            .collect::<Vec<_>>();
+        behavioral::moved_error_handler_counts(&changes)
+    });
     for (file, sources) in changed_files.iter().zip(&loaded_sources) {
+        let moved_handler_count = moved_error_handlers
+            .as_ref()
+            .and_then(|by_path| by_path.get(&file.path))
+            .copied()
+            .unwrap_or_default();
         detect_file_signals(
             file,
             sources,
             &toggles,
             dependencies.as_ref(),
+            moved_handler_count,
             &mut boundary_signals,
             &mut content_signals,
         );
@@ -105,6 +123,7 @@ fn detect_file_signals(
     sources: &LoadedReviewSources,
     toggles: &ContentToggles,
     dependencies: Option<&DependencyContext>,
+    moved_error_handlers: usize,
     boundary_signals: &mut Vec<BoundarySignal>,
     content_signals: &mut ContentSignals,
 ) {
@@ -128,13 +147,14 @@ fn detect_file_signals(
                 .behavioral
                 .extend(behavioral::detect_behavioral_added(file, post, deps));
         }
-        content_signals
-            .behavioral
-            .extend(behavioral::detect_behavioral_removed(
+        content_signals.behavioral.extend(
+            behavioral::detect_behavioral_removed_with_moved_handlers(
                 file,
                 sources.pre.as_ref(),
                 sources.post.as_ref(),
-            ));
+                moved_error_handlers,
+            ),
+        );
     }
     if toggles.algorithmic {
         content_signals
@@ -219,7 +239,7 @@ fn detect_api_contract(
 mod tests {
     use super::*;
     use crate::config::model::SecurityBoundarySection;
-    use crate::review::diff::{ChangeStatus, ChangedRange, DiffTarget};
+    use crate::review::diff::{ChangeStatus, ChangedRange, DiffHunk, DiffTarget};
     use crate::scan::types::CouplingGraph;
     use std::fs;
     use std::path::PathBuf;
@@ -377,6 +397,82 @@ mod tests {
         assert!(signals.integrity[0].detail.contains("returns an invoice"));
         assert!(signals.integrity[0].detail.contains("expectInvoice"));
         assert!(signals.integrity[0].detail.contains("expectTax"));
+    }
+
+    #[test]
+    fn moved_error_handler_between_changed_files_is_not_reported_as_removed() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        git(root, &["init"]);
+        git(root, &["config", "user.email", "repopilot@example.invalid"]);
+        git(root, &["config", "user.name", "RepoPilot Test"]);
+        let before = "export async function publish() {\n  try {\n    await send();\n  } catch (error) {\n    return fallback(error);\n  }\n}\n\nexport function status() { return true; }\n";
+        write(root, "src/mcp.ts", before);
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "before"]);
+
+        write(
+            root,
+            "src/mcp.ts",
+            "export function status() { return true; }\n",
+        );
+        write(
+            root,
+            "src/transport/publish.ts",
+            "export async function publish() {\n    try {\n        await send();\n    } catch (error) {\n        return fallback(error);\n    }\n}\n",
+        );
+
+        let changed_files = vec![
+            ChangedFile {
+                path: PathBuf::from("src/mcp.ts"),
+                status: ChangeStatus::Modified,
+                ranges: Vec::new(),
+                hunks: vec![DiffHunk {
+                    header: None,
+                    new_range: None,
+                    old_range: Some(ChangedRange { start: 1, end: 7 }),
+                    added_lines: Vec::new(),
+                    removed_lines: before.lines().take(7).map(str::to_string).collect(),
+                }],
+            },
+            ChangedFile {
+                path: PathBuf::from("src/transport/publish.ts"),
+                status: ChangeStatus::Added,
+                ranges: vec![ChangedRange { start: 1, end: 7 }],
+                hunks: vec![DiffHunk {
+                    header: None,
+                    new_range: Some(ChangedRange { start: 1, end: 7 }),
+                    old_range: None,
+                    added_lines: Vec::new(),
+                    removed_lines: Vec::new(),
+                }],
+            },
+        ];
+
+        let (_, signals) = detect_review_signals(
+            root,
+            DiffTarget::WorkingTree,
+            &changed_files,
+            &SecurityBoundarySection {
+                enabled: false,
+                extra_patterns: Vec::new(),
+            },
+            ContentToggles {
+                behavioral: true,
+                algorithmic: false,
+                taint: false,
+            },
+            None,
+        );
+
+        assert!(
+            signals
+                .behavioral
+                .iter()
+                .all(|signal| signal.kind != behavioral::BehavioralKind::ErrorHandlingRemoved),
+            "a relocated handler should not be reported as removed: {:?}",
+            signals.behavioral
+        );
     }
 
     fn write(root: &Path, relative: &str, content: &str) {
