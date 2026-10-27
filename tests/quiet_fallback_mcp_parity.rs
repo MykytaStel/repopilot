@@ -93,6 +93,31 @@ fn setup_python_change(root: &Path) {
     .expect("write changed source");
 }
 
+fn setup_cross_file_handler_move(root: &Path) {
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.email", "test@example.invalid"]);
+    git(root, &["config", "user.name", "RepoPilot Test"]);
+    fs::create_dir_all(root.join("src/transport")).expect("create source directories");
+    fs::write(
+        root.join("src/mcp.ts"),
+        "export async function publish() {\n  try {\n    await send();\n  } catch (error) {\n    return fallback(error);\n  }\n}\n\nexport function status() { return true; }\n",
+    )
+    .expect("write original module");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "initial"]);
+
+    fs::write(
+        root.join("src/mcp.ts"),
+        "export function status() { return true; }\n",
+    )
+    .expect("remove moved function from original module");
+    fs::write(
+        root.join("src/transport/publish.ts"),
+        "export async function publish() {\n    try {\n        await send();\n    } catch (error) {\n        return fallback(error);\n    }\n}\n",
+    )
+    .expect("write moved function into transport module");
+}
+
 fn git(root: &Path, args: &[&str]) {
     let output = Command::new("git")
         .args(args)
@@ -114,6 +139,16 @@ fn signal(report: &Value) -> Value {
         .find(|signal| signal["kind"] == "behavioral.quiet-fallback-introduced")
         .expect("quiet fallback signal")
         .clone()
+}
+
+fn error_handling_signals(report: &Value) -> Vec<Value> {
+    ["definitely", "maybe", "noise"]
+        .into_iter()
+        .filter_map(|tier| report["tiered_signals"][tier].as_array())
+        .flatten()
+        .filter(|signal| signal["kind"] == "behavioral.error-handling-removed")
+        .cloned()
+        .collect()
 }
 
 #[test]
@@ -215,6 +250,103 @@ fn python_cli_and_mcp_publish_the_same_non_gating_signal() {
             .as_str()
             .unwrap()
             .contains("native_transform")
+    );
+
+    drop(stdin);
+    assert!(child.wait().expect("wait for MCP server").success());
+}
+
+#[test]
+fn cli_and_mcp_match_exact_handler_moves_but_keep_changed_handler_removals() {
+    let temp = tempdir().expect("temp directory");
+    setup_cross_file_handler_move(temp.path());
+    let cli_signals = error_handling_signals(&cli_review(temp.path()));
+    assert!(
+        cli_signals.is_empty(),
+        "the moved handler should remain accounted for: {cli_signals:#?}"
+    );
+
+    let (mut child, mut stdin, mut stdout) = start_mcp(temp.path());
+    send(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": "initialize",
+            "method": "initialize",
+            "params": { "protocolVersion": "2025-11-25" }
+        }),
+    );
+    let _ = receive(&mut stdout);
+    send(
+        &mut stdin,
+        &json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+    );
+    send(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": "review",
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "detail": "full" }
+            }
+        }),
+    );
+    let response = receive(&mut stdout);
+    let mcp_signals = error_handling_signals(&response["result"]["structuredContent"]);
+
+    assert_eq!(mcp_signals, cli_signals);
+
+    fs::write(
+        temp.path().join("src/transport/publish.ts"),
+        "export async function publish() {\n    try {\n        await send();\n    } catch (error) {\n        throw error;\n    }\n}\n",
+    )
+    .expect("change the destination handler instead of moving it exactly");
+    let cli_remaining = error_handling_signals(&cli_review(temp.path()));
+    assert_eq!(
+        cli_remaining.len(),
+        1,
+        "a changed destination handler must not cancel the removal: {cli_remaining:#?}"
+    );
+
+    send(
+        &mut stdin,
+        &json!({
+            "jsonrpc": "2.0",
+            "id": "review-changed-handler",
+            "method": "tools/call",
+            "params": {
+                "name": "repopilot_review_change",
+                "arguments": { "path": ".", "detail": "full" }
+            }
+        }),
+    );
+    let changed_response = receive(&mut stdout);
+    let mcp_remaining = error_handling_signals(&changed_response["result"]["structuredContent"]);
+    assert_eq!(mcp_remaining, cli_remaining);
+
+    fs::write(
+        temp.path().join("src/transport/publish.ts"),
+        "export async function publishForRetry() {\n    try {\n        await send();\n    } catch (error) {\n        return fallback(error);\n    }\n}\n",
+    )
+    .expect("move identical handler under a different function");
+    let different_owner = error_handling_signals(&cli_review(temp.path()));
+    assert!(
+        different_owner.is_empty(),
+        "an unchanged handler remains accounted for after extraction into a differently named function: {different_owner:#?}"
+    );
+
+    fs::write(
+        temp.path().join("src/transport/publish.ts"),
+        "export async function publish() {\n    try { await send(); } catch (error) { return fallback(error); }\n}\nexport async function publish() {\n    try { await send(); } catch (error) { return fallback(error); }\n}\n",
+    )
+    .expect("write ambiguous duplicate handlers");
+    let ambiguous = error_handling_signals(&cli_review(temp.path()));
+    assert_eq!(
+        ambiguous.len(),
+        1,
+        "duplicate destinations must leave the removal visible: {ambiguous:#?}"
     );
 
     drop(stdin);

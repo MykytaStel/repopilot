@@ -5,7 +5,9 @@
 use crate::review::signals::integrity::syntax::{
     all_arguments_literal, any_argument_string, compact_text, first_argument_string, is_literal,
 };
-use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
+use crate::review::signals::tables::{
+    AssertionMatcher, IntegrityTables, TestMarker, TestMarkerKind,
+};
 use tree_sitter::Node;
 
 pub(super) static JS_FAMILY_INTEGRITY: IntegrityTables = IntegrityTables {
@@ -14,6 +16,7 @@ pub(super) static JS_FAMILY_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    assertion_matcher: Some(assertion_matcher),
     suppression: super::integrity_suppressions::suppression,
 };
 
@@ -219,6 +222,41 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
         return arguments.is_none_or(|arguments| !all_arguments_literal(arguments));
     }
     false
+}
+
+fn assertion_matcher<'a>(node: Node<'a>, content: &'a str) -> Option<AssertionMatcher> {
+    if node.kind() != "call_expression" || chain_root(node, content) != Some("expect") {
+        return None;
+    }
+    let callee = compact_text(node.child_by_field_name("function")?, content)?;
+    let method = callee.rsplit('.').next()?;
+    let expected = node.child_by_field_name("arguments")?.named_child(0)?;
+    let matcher = match method {
+        "toEqual" if expected.kind() == "object" => Some(AssertionMatcher::ExactObject),
+        "toEqual" if is_object_containing(expected, content) => {
+            Some(AssertionMatcher::PartialObjectContaining)
+        }
+        "toMatchObject" if expected.kind() == "object" => Some(AssertionMatcher::PartialObject),
+        _ => None,
+    }?;
+    Some(matcher)
+}
+
+fn is_object_containing<'a>(node: Node<'a>, content: &'a str) -> bool {
+    if node.kind() != "call_expression" || chain_root(node, content) != Some("expect") {
+        return false;
+    }
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    if compact_text(function, content)
+        .is_none_or(|callee| callee.rsplit('.').next() != Some("objectContaining"))
+    {
+        return false;
+    }
+    node.child_by_field_name("arguments")
+        .and_then(|arguments| arguments.named_child(0))
+        .is_some_and(|expected| expected.kind() == "object")
 }
 
 /// The identifier a call chain starts from: `it` in `it.only(...)`, `expect` in

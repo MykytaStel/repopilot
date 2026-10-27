@@ -61,12 +61,30 @@ pub(super) fn detect_review_signals(
         custom.as_ref(),
         &toggles,
     );
+    let moved_error_handlers = toggles.behavioral.then(|| {
+        let changes = changed_files
+            .iter()
+            .zip(&loaded_sources)
+            .map(|(file, sources)| behavioral::ChangedBehaviorSource {
+                file,
+                pre: sources.pre.as_ref(),
+                post: sources.post.as_ref(),
+            })
+            .collect::<Vec<_>>();
+        behavioral::moved_error_handler_counts(&changes)
+    });
     for (file, sources) in changed_files.iter().zip(&loaded_sources) {
+        let moved_handler_count = moved_error_handlers
+            .as_ref()
+            .and_then(|by_path| by_path.get(&file.path))
+            .copied()
+            .unwrap_or_default();
         detect_file_signals(
             file,
             sources,
             &toggles,
             dependencies.as_ref(),
+            moved_handler_count,
             &mut boundary_signals,
             &mut content_signals,
         );
@@ -76,7 +94,8 @@ pub(super) fn detect_review_signals(
         content_signals.api_contract =
             detect_api_contract(repo_root, target, changed_files, &loaded_sources, graph);
         let integrity_started = Instant::now();
-        let (integrity_signals, moved) = detect_integrity(changed_files, &loaded_sources);
+        let (integrity_signals, moved) =
+            detect_integrity(repo_root, target, changed_files, &loaded_sources);
         content_signals.integrity = integrity_signals;
         content_signals.behavioral.retain(|signal| {
             signal.kind != behavioral::BehavioralKind::TestDeletedOrEmptied
@@ -104,6 +123,7 @@ fn detect_file_signals(
     sources: &LoadedReviewSources,
     toggles: &ContentToggles,
     dependencies: Option<&DependencyContext>,
+    moved_error_handlers: usize,
     boundary_signals: &mut Vec<BoundarySignal>,
     content_signals: &mut ContentSignals,
 ) {
@@ -127,13 +147,14 @@ fn detect_file_signals(
                 .behavioral
                 .extend(behavioral::detect_behavioral_added(file, post, deps));
         }
-        content_signals
-            .behavioral
-            .extend(behavioral::detect_behavioral_removed(
+        content_signals.behavioral.extend(
+            behavioral::detect_behavioral_removed_with_moved_handlers(
                 file,
                 sources.pre.as_ref(),
                 sources.post.as_ref(),
-            ));
+                moved_error_handlers,
+            ),
+        );
     }
     if toggles.algorithmic {
         content_signals
@@ -156,6 +177,8 @@ fn detect_file_signals(
 /// Also returns the deleted or emptied test files whose tests all moved.
 /// Files are scanned in parallel; the evidence keeps the changed-file order.
 fn detect_integrity(
+    repo_root: &Path,
+    target: DiffTarget<'_>,
     changed_files: &[ChangedFile],
     loaded_sources: &[LoadedReviewSources],
 ) -> (Vec<integrity::IntegritySignal>, BTreeSet<String>) {
@@ -168,6 +191,21 @@ fn detect_integrity(
         .collect::<Vec<_>>();
     let moved = integrity::moved_test_files(&markers);
     let mut signals = integrity::detect_integrity(&markers);
+    let changed_sources = changed_files
+        .iter()
+        .zip(loaded_sources)
+        .map(|(file, sources)| integrity::ChangedIntegritySource {
+            file,
+            pre: sources.pre.as_ref(),
+            post: sources.post.as_ref(),
+        })
+        .collect::<Vec<_>>();
+    signals.extend(integrity::detect_cross_file_helper_changes(
+        repo_root,
+        target,
+        &changed_sources,
+        &markers,
+    ));
     for (file, sources) in changed_files.iter().zip(loaded_sources) {
         signals.extend(integrity::detect_gate_relaxation(
             file,
@@ -201,7 +239,7 @@ fn detect_api_contract(
 mod tests {
     use super::*;
     use crate::config::model::SecurityBoundarySection;
-    use crate::review::diff::{ChangeStatus, DiffTarget};
+    use crate::review::diff::{ChangeStatus, ChangedRange, DiffHunk, DiffTarget};
     use crate::scan::types::CouplingGraph;
     use std::fs;
     use std::path::PathBuf;
@@ -276,6 +314,165 @@ mod tests {
             Some(&graph),
         );
         assert!(disabled.api_contract.is_empty());
+    }
+
+    #[test]
+    fn integrity_tracks_matcher_changes_in_an_imported_helper_for_unchanged_tests() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        git(root, &["init"]);
+        git(root, &["config", "user.email", "repopilot@example.invalid"]);
+        git(root, &["config", "user.name", "RepoPilot Test"]);
+        write(
+            root,
+            "src/test-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toEqual({ id: 1, total: 20 });\n}\nexport function expectTax(tax: unknown) {\n  expect(tax).toEqual({ value: 2 });\n}\n",
+        );
+        write(
+            root,
+            "tests/cart.test.ts",
+            "import { expectInvoice as checkInvoice, expectTax as checkTax } from \"../src/test-helpers\";\ndescribe(\"cart\", () => {\n  it(\"returns an invoice\", () => {\n    checkInvoice(invoice());\n    checkTax(tax());\n  });\n});\n",
+        );
+        write(
+            root,
+            "src/other-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toEqual({ id: 1, total: 20 });\n}\n",
+        );
+        write(
+            root,
+            "tests/decoy.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../src/other-helpers\";\nit(\"returns another invoice\", () => {\n  checkInvoice(invoice());\n});\n",
+        );
+        write(
+            root,
+            "tests/unused.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../src/test-helpers\";\nit(\"does not call the imported helper\", () => {\n  expect(true).toBe(true);\n});\n",
+        );
+        write(
+            root,
+            "tests/fixtures/example.test.ts",
+            "import { expectInvoice as checkInvoice } from \"../../src/test-helpers\";\nit(\"fixture example\", () => {\n  checkInvoice(invoice());\n});\n",
+        );
+        write(
+            root,
+            "src/cart-view.ts",
+            "import { expectInvoice as checkInvoice } from \"./test-helpers\";\nexport function renderCart() { checkInvoice(invoice()); }\n",
+        );
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "before"]);
+        write(
+            root,
+            "src/test-helpers.ts",
+            "export function expectInvoice(invoice: unknown) {\n  expect(invoice).toMatchObject({ id: 1 });\n}\nexport function expectTax(tax: unknown) {\n  expect(tax).toMatchObject({ value: 2 });\n}\n",
+        );
+
+        let changed_files = vec![ChangedFile {
+            path: PathBuf::from("src/test-helpers.ts"),
+            status: ChangeStatus::Modified,
+            ranges: vec![ChangedRange { start: 2, end: 2 }],
+            hunks: Vec::new(),
+        }];
+        let (_, signals) = detect_review_signals(
+            root,
+            DiffTarget::WorkingTree,
+            &changed_files,
+            &SecurityBoundarySection {
+                enabled: false,
+                extra_patterns: Vec::new(),
+            },
+            ContentToggles {
+                behavioral: true,
+                algorithmic: false,
+                taint: false,
+            },
+            None,
+        );
+
+        assert_eq!(signals.integrity.len(), 1, "{:?}", signals.integrity);
+        assert_eq!(
+            signals.integrity[0].kind,
+            integrity::IntegrityKind::AssertionsWeakened
+        );
+        assert_eq!(signals.integrity[0].path, "tests/cart.test.ts");
+        assert!(signals.integrity[0].detail.contains("returns an invoice"));
+        assert!(signals.integrity[0].detail.contains("expectInvoice"));
+        assert!(signals.integrity[0].detail.contains("expectTax"));
+    }
+
+    #[test]
+    fn moved_error_handler_between_changed_files_is_not_reported_as_removed() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        git(root, &["init"]);
+        git(root, &["config", "user.email", "repopilot@example.invalid"]);
+        git(root, &["config", "user.name", "RepoPilot Test"]);
+        let before = "export async function publish() {\n  try {\n    await send();\n  } catch (error) {\n    return fallback(error);\n  }\n}\n\nexport function status() { return true; }\n";
+        write(root, "src/mcp.ts", before);
+        git(root, &["add", "."]);
+        git(root, &["commit", "-m", "before"]);
+
+        write(
+            root,
+            "src/mcp.ts",
+            "export function status() { return true; }\n",
+        );
+        write(
+            root,
+            "src/transport/publish.ts",
+            "export async function publish() {\n    try {\n        await send();\n    } catch (error) {\n        return fallback(error);\n    }\n}\n",
+        );
+
+        let changed_files = vec![
+            ChangedFile {
+                path: PathBuf::from("src/mcp.ts"),
+                status: ChangeStatus::Modified,
+                ranges: Vec::new(),
+                hunks: vec![DiffHunk {
+                    header: None,
+                    new_range: None,
+                    old_range: Some(ChangedRange { start: 1, end: 7 }),
+                    added_lines: Vec::new(),
+                    removed_lines: before.lines().take(7).map(str::to_string).collect(),
+                }],
+            },
+            ChangedFile {
+                path: PathBuf::from("src/transport/publish.ts"),
+                status: ChangeStatus::Added,
+                ranges: vec![ChangedRange { start: 1, end: 7 }],
+                hunks: vec![DiffHunk {
+                    header: None,
+                    new_range: Some(ChangedRange { start: 1, end: 7 }),
+                    old_range: None,
+                    added_lines: Vec::new(),
+                    removed_lines: Vec::new(),
+                }],
+            },
+        ];
+
+        let (_, signals) = detect_review_signals(
+            root,
+            DiffTarget::WorkingTree,
+            &changed_files,
+            &SecurityBoundarySection {
+                enabled: false,
+                extra_patterns: Vec::new(),
+            },
+            ContentToggles {
+                behavioral: true,
+                algorithmic: false,
+                taint: false,
+            },
+            None,
+        );
+
+        assert!(
+            signals
+                .behavioral
+                .iter()
+                .all(|signal| signal.kind != behavioral::BehavioralKind::ErrorHandlingRemoved),
+            "a relocated handler should not be reported as removed: {:?}",
+            signals.behavioral
+        );
     }
 
     fn write(root: &Path, relative: &str, content: &str) {

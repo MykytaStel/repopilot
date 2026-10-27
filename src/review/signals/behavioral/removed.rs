@@ -12,6 +12,15 @@ pub fn detect_behavioral_removed(
     pre_source: Option<&ReviewSource>,
     post_source: Option<&ReviewSource>,
 ) -> Vec<BehavioralSignal> {
+    detect_behavioral_removed_with_moved_handlers(file, pre_source, post_source, 0)
+}
+
+pub(crate) fn detect_behavioral_removed_with_moved_handlers(
+    file: &ChangedFile,
+    pre_source: Option<&ReviewSource>,
+    post_source: Option<&ReviewSource>,
+    moved_error_handlers: usize,
+) -> Vec<BehavioralSignal> {
     let mut signals = Vec::new();
     let path_str = file.path_string();
 
@@ -68,15 +77,16 @@ pub fn detect_behavioral_removed(
     {
         let pre_try = count_try_blocks(pre_tree, pre_src.content(), file, ext, true);
         let post_try = count_try_blocks(post_tree, post_src.content(), file, ext, false);
+        let effective_post_try = post_try.saturating_add(moved_error_handlers);
 
-        if pre_try > post_try {
+        if pre_try > effective_post_try {
             signals.push(BehavioralSignal {
                 kind: BehavioralKind::ErrorHandlingRemoved,
                 path: path_str.clone(),
                 line: get_first_removed_line(file).unwrap_or(1),
                 detail: format!(
                     "Error handling block(s) removed (try/catch blocks: {} -> {})",
-                    pre_try, post_try
+                    pre_try, effective_post_try
                 ),
                 source: BehavioralSignalSource::Ast,
             });

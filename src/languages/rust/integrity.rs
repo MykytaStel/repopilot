@@ -13,6 +13,7 @@ pub(super) static RUST_INTEGRITY: IntegrityTables = IntegrityTables {
     test_marker,
     test_case,
     is_assertion,
+    assertion_matcher: None,
     suppression,
 };
 
