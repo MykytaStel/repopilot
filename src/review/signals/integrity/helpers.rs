@@ -7,6 +7,7 @@
 //! statements, so the accounting does not compare it with its loop-free
 //! version.
 
+use crate::review::signals::tables::AssertionMatcher;
 use std::collections::{BTreeMap, BTreeSet};
 use tree_sitter::Node;
 
@@ -37,19 +38,32 @@ const ITERATING_CALLS: &[&str] = &["forEach", "for_each"];
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(super) struct Body {
     pub(super) assertions: usize,
+    pub(super) exact_matchers: usize,
+    pub(super) partial_matchers: usize,
+    pub(super) containing_matchers: usize,
     /// An assertion, or a call to a helper that asserts, sits inside a loop.
     pub(super) looped: bool,
     calls: BTreeMap<String, usize>,
     looped_calls: BTreeSet<String>,
+    direct_import_calls: BTreeMap<String, usize>,
+    looped_direct_import_calls: BTreeSet<String>,
     /// Calls seen during the scan, by byte range of the callee name and
     /// whether they ran in a loop; `settle` keeps those naming a helper.
-    pending: Vec<(usize, usize, bool)>,
+    pending: Vec<(usize, usize, bool, bool)>,
 }
 
 impl Body {
     pub(super) fn add_assertion(&mut self, in_loop: bool) {
         self.assertions += 1;
         self.looped |= in_loop;
+    }
+
+    pub(super) fn add_matcher(&mut self, matcher: AssertionMatcher) {
+        match matcher {
+            AssertionMatcher::ExactObject => self.exact_matchers += 1,
+            AssertionMatcher::PartialObject => self.partial_matchers += 1,
+            AssertionMatcher::PartialObjectContaining => self.containing_matchers += 1,
+        }
     }
 
     fn add_call(&mut self, name: &str, in_loop: bool) {
@@ -60,19 +74,45 @@ impl Body {
     }
 
     /// Records a call by the byte range of its callee name in `content`.
-    pub(super) fn add_pending_call(&mut self, start: usize, len: usize, in_loop: bool) {
-        self.pending.push((start, len, in_loop));
+    pub(super) fn add_pending_call(
+        &mut self,
+        start: usize,
+        len: usize,
+        in_loop: bool,
+        direct: bool,
+    ) {
+        self.pending.push((start, len, in_loop, direct));
     }
 
     /// Keeps the pending calls that name a same-file function.
     pub(super) fn settle(&mut self, content: &str, names: &BTreeSet<String>) {
-        for (start, len, in_loop) in std::mem::take(&mut self.pending) {
-            if let Some(name) = content.get(start..start + len)
-                && names.contains(name)
-            {
+        for (start, len, in_loop, direct) in std::mem::take(&mut self.pending) {
+            let Some(name) = content.get(start..start + len) else {
+                continue;
+            };
+            if names.contains(name) {
                 self.add_call(name, in_loop);
+                continue;
+            }
+            if !direct {
+                continue;
+            }
+            *self
+                .direct_import_calls
+                .entry(name.to_string())
+                .or_default() += 1;
+            if in_loop {
+                self.looped_direct_import_calls.insert(name.to_string());
             }
         }
+    }
+
+    pub(super) fn direct_import_calls(&self) -> &BTreeMap<String, usize> {
+        &self.direct_import_calls
+    }
+
+    pub(super) fn direct_import_call_is_looped(&self, name: &str) -> bool {
+        self.looped_direct_import_calls.contains(name)
     }
 }
 
@@ -123,42 +163,74 @@ pub(super) fn resolve(body: &Body, helpers: &BTreeMap<String, Body>) -> Body {
     let mut memo = BTreeMap::new();
     let mut resolved = body.clone();
     for (name, count) in &body.calls {
-        let (assertions, looped) = reach(name, helpers, &mut memo, &mut BTreeSet::new());
+        let checks = reach(name, helpers, &mut memo, &mut BTreeSet::new());
         resolved.assertions = resolved
             .assertions
-            .saturating_add(count.saturating_mul(assertions));
-        resolved.looped |= looped || (assertions > 0 && body.looped_calls.contains(name));
+            .saturating_add(count.saturating_mul(checks.assertions));
+        resolved.exact_matchers = resolved
+            .exact_matchers
+            .saturating_add(count.saturating_mul(checks.exact_matchers));
+        resolved.partial_matchers = resolved
+            .partial_matchers
+            .saturating_add(count.saturating_mul(checks.partial_matchers));
+        resolved.containing_matchers = resolved
+            .containing_matchers
+            .saturating_add(count.saturating_mul(checks.containing_matchers));
+        resolved.looped |=
+            checks.looped || (checks.assertions > 0 && body.looped_calls.contains(name));
     }
     resolved
 }
 
 /// Assertions a helper reaches, and whether any of them run in a loop.
+#[derive(Debug, Clone, Copy, Default)]
+struct Checks {
+    assertions: usize,
+    exact_matchers: usize,
+    partial_matchers: usize,
+    containing_matchers: usize,
+    looped: bool,
+}
+
 fn reach(
     name: &str,
     helpers: &BTreeMap<String, Body>,
-    memo: &mut BTreeMap<String, (usize, bool)>,
+    memo: &mut BTreeMap<String, Checks>,
     active: &mut BTreeSet<String>,
-) -> (usize, bool) {
+) -> Checks {
     if let Some(known) = memo.get(name) {
         return *known;
     }
     let Some(helper) = helpers.get(name) else {
-        return (0, false);
+        return Checks::default();
     };
     if !active.insert(name.to_string()) {
-        return (0, false);
+        return Checks::default();
     }
-    let resolved = helper.calls.iter().fold(
-        (helper.assertions, helper.looped),
-        |(sum, looped), (callee, count)| {
-            let (assertions, nested) = reach(callee, helpers, memo, active);
-            let in_loop = assertions > 0 && helper.looped_calls.contains(callee);
-            (
-                sum.saturating_add(count.saturating_mul(assertions)),
-                looped || nested || in_loop,
-            )
-        },
-    );
+    let mut resolved = Checks {
+        assertions: helper.assertions,
+        exact_matchers: helper.exact_matchers,
+        partial_matchers: helper.partial_matchers,
+        containing_matchers: helper.containing_matchers,
+        looped: helper.looped,
+    };
+    for (callee, count) in &helper.calls {
+        let nested = reach(callee, helpers, memo, active);
+        resolved.assertions = resolved
+            .assertions
+            .saturating_add(count.saturating_mul(nested.assertions));
+        resolved.exact_matchers = resolved
+            .exact_matchers
+            .saturating_add(count.saturating_mul(nested.exact_matchers));
+        resolved.partial_matchers = resolved
+            .partial_matchers
+            .saturating_add(count.saturating_mul(nested.partial_matchers));
+        resolved.containing_matchers = resolved
+            .containing_matchers
+            .saturating_add(count.saturating_mul(nested.containing_matchers));
+        resolved.looped |=
+            nested.looped || (nested.assertions > 0 && helper.looped_calls.contains(callee));
+    }
     active.remove(name);
     memo.insert(name.to_string(), resolved);
     resolved

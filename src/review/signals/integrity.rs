@@ -1,8 +1,8 @@
 //! Test-integrity signals: a change that weakens the checks judging it.
 //!
 //! Skip and focus markers (`it.only`, `@pytest.mark.skip`, `t.Skip`,
-//! `#[ignore]`), removed test cases, removed assertions, new lint, type, or
-//! coverage suppressions, and relaxed CI or tool gates. Everything is
+//! `#[ignore]`), removed test cases, removed assertions, weakened matcher checks,
+//! new lint, type, or coverage suppressions, and relaxed CI or tool gates. Everything is
 //! counted over the whole pre- and post-change file, not only the changed
 //! lines, so re-indenting or moving code within a file is not a change. A
 //! marker or test that disappears from one changed file and appears in another
@@ -14,11 +14,14 @@ mod accounting;
 #[cfg(test)]
 mod accounting_tests;
 mod acknowledgement;
+mod cross_file;
 mod gates;
 mod helpers;
 #[cfg(test)]
 mod helpers_tests;
 mod markers;
+#[cfg(test)]
+mod matcher_tests;
 mod moves;
 #[cfg(test)]
 mod rename_tests;
@@ -46,6 +49,7 @@ pub enum IntegrityKind {
     TestSkipped,
     TestRemoved,
     AssertionsRemoved,
+    AssertionsWeakened,
     SuppressionAdded,
     GateRelaxed,
     ReviewSuppressionAdded,
@@ -75,6 +79,14 @@ pub struct FileEvidence {
     post: scan::Scan,
     /// Post-change markers on changed lines, by index into `post.markers`.
     post_marker_in_diff: Vec<bool>,
+}
+
+/// Changed paths and their already-loaded before/after sources for the
+/// graph-aware integrity pass.
+pub(crate) struct ChangedIntegritySource<'a> {
+    pub(crate) file: &'a ChangedFile,
+    pub(crate) pre: Option<&'a ReviewSource>,
+    pub(crate) post: Option<&'a ReviewSource>,
 }
 
 /// Collects a changed file's evidence, or `None` when no recognizer applies or
@@ -129,6 +141,16 @@ pub fn detect_integrity(files: &[FileEvidence]) -> Vec<IntegritySignal> {
     signals.extend(suppressions::detect(files));
     signals.sort_by(|left, right| left.path.cmp(&right.path).then(left.line.cmp(&right.line)));
     signals
+}
+
+/// Adds evidence from changed exported JS/TS helpers to unchanged test callers.
+pub(crate) fn detect_cross_file_helper_changes(
+    repo_root: &std::path::Path,
+    target: crate::review::diff::DiffTarget<'_>,
+    changed: &[ChangedIntegritySource<'_>],
+    files: &[FileEvidence],
+) -> Vec<IntegritySignal> {
+    cross_file::detect(repo_root, target, changed, files)
 }
 
 /// Fixture, `testdata`, and snapshot directories hold inputs a test reads, not

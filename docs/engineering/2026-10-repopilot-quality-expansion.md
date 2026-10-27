@@ -28,6 +28,14 @@ person reading it in an agent client.
    is a candidate with a concrete missed case, but requires a real-diff fixture
    and justified rewrite controls before implementation. Keep Promise `.catch()`
    gated on independent labels and a repository-held-out evaluation.
+6. Trace weakened matchers in modified, named-export JS/TS helpers to unchanged
+   tests that directly import and call those helpers. Resolve the exact module
+   path and imported symbol; keep re-exports, default/namespace/dynamic imports,
+   indirect calls, and multi-hop flows outside this slice.
+7. Attribute clean, uniquely matched error handlers moved between changed files
+   to their source file. For Rust, also match a moved `match Result` handler to
+   `?` propagation when the same Result-producing operation remains. Changed
+   handlers and ambiguous destinations remain visible.
 
 ## Acceptance checks
 
@@ -41,6 +49,10 @@ person reading it in an agent client.
 - AI Context names analyzed-file counts and inventoried-file counts explicitly.
 - No detector accuracy claim or Promise `.catch()` rule is added from the
   exploratory, single-reviewer corpus.
+- CLI and MCP both suppress the exact cross-file handler move, while a changed
+  handler body, a different Rust Result-producing operation, and duplicate
+  destination handlers leave the removal visible. Re-reviewing the historical
+  MCP refactor diff no longer emits the publication or transport move signals.
 
 ## Evidence limits and next evaluation
 
@@ -75,10 +87,21 @@ findings across 27 analyzed files, with 13 test/fixture/generated files skipped
 by policy. Its verdict remains `REVIEW`: no proof policy or formal verification
 checks were selected. It also raised two gate-eligible
 `behavioral.error-handling-removed` signals at the old MCP transport and
-publication files. The explain-signal tool and code/test inspection confirmed
-that the handlers were moved into new submodules and remain covered by passing
-tests. This exposes a file-local detector limitation: it interprets a
-cross-file move as removal. Keep that case in the review-signal quality backlog
-for a repository-disjoint precision pilot. The remaining maybe-tier signals
-were imports of existing dependencies in split modules and a test-only file
-write.
+publication files. The follow-up matcher now accounts for exact handler moves
+and Rust `match Result` to `?` extraction when the Result-producing call is
+preserved. Re-reviewing the historical refactor diff removes those two signals;
+an unrelated `integrity/gates/ci.rs` signal remains. This is a narrow
+file-local mitigation, not a semantic proof or a precision/recall estimate:
+identical code copied into another changed file can resemble a move. Ambiguous
+destinations and changed operations remain reportable. Other report noise in
+the historical diff includes imports of existing dependencies in split modules
+and a test-only file write.
+
+The weakened-helper and moved-handler follow-ups are covered by targeted
+fixtures and CLI/MCP parity tests. The helper implementation considers direct
+named value exports and imports in one hop, ignores fixture/test-data callers,
+and attributes only unchanged tests with a direct helper call. This establishes
+the supported mechanism and its boundaries; it is not a production precision
+or recall estimate. The full Rust suite, Clippy, formatting, and hosted Rust,
+CodeQL, security/maintenance, and Linux/macOS/Windows checks passed on the
+follow-up PR.
