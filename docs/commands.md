@@ -39,6 +39,11 @@ repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
 ```
 
+When `--head` is supplied, `--base` is required. Replace `origin/main` with
+the branch this change targets. If `review` cannot read or parse its config,
+the error names the config and points to fixing it or selecting another valid
+file with `--config PATH`.
+
 Write machine-readable JSON and SARIF from the same review:
 
 ```bash
@@ -75,6 +80,15 @@ questions:
 
 The mapping is `VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`,
 and `NOT ASSESSED` → `NOT ASSESSED`.
+
+In console output, the header's `Next action` is the primary action. Markdown
+and HTML show the same decision action near the top, and JSON exposes it as
+`decision.next_action`. When required checks are unselected, the action names
+their configured IDs as repeatable `--verify ID` flags. Rerun the same review
+with its original path, revision, scope, and config; checks run only when
+explicitly selected. The console `Details` section only shows how to reveal the
+full changed-file inventory, impact paths, and evidence with `--detail full`;
+it does not repeat or replace the decision action.
 
 One exception covers repositories without verification setup. When no
 verification check is configured or recorded and the only open proof reasons
@@ -149,8 +163,13 @@ Check the repository and confirm the initial setup:
 
 ```bash
 repopilot init
+repopilot review .
 repopilot scan .
 ```
+
+The review command looks at current changes. The scan command audits the full
+repository; `init` prints both routes and carries a custom `--path` config into
+each command when needed.
 
 Adopt existing debt as a reviewed baseline:
 
@@ -222,7 +241,7 @@ Use the reusable workflow:
 ```yaml
 jobs:
   repopilot:
-    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.25.0
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.26.0
     with:
       fail-on-review: none
       upload-sarif: false
@@ -231,7 +250,7 @@ jobs:
 Or use the Action directly:
 
 ```yaml
-- uses: MykytaStel/repopilot@v0.25.0
+- uses: MykytaStel/repopilot@v0.26.0
   with:
     command: review
     scope: changed

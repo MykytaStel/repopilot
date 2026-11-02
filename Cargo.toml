@@ -1,6 +1,6 @@
 [package]
 name = "repopilot"
-version = "0.25.0"
+version = "0.26.0"
 edition = "2024"
 rust-version = "1.90"
 description = "Local-first CLI for reviewing Git changes, security boundaries, and blast radius before merge."
@@ -46,7 +46,7 @@ toml = "1.1.2"
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Diagnostics_ToolHelp", "Win32_System_JobObjects", "Win32_System_Threading"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }

@@ -6,8 +6,14 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-02
+
 ### Added
 
+- `init` compares detected verification checks with the selected config, omits
+  already configured IDs from the separate suggestions file, and reports when
+  config comparison is unavailable. Its first-review guidance carries a custom
+  `--path` config and labels current-change review separately from full scan.
 - JS/TS review reports when an existing test changes an exact object `toEqual`
   matcher to partial `toMatchObject` or `expect.objectContaining` matching.
   The same maybe-tier signal now follows one changed named export through an
@@ -17,6 +23,22 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Review recovery guidance now explains the required base ref, how to recover
+  from an invalid config, and the exact configured `--verify` IDs needed to
+  rerun incomplete checks.
+- Console review keeps the decision header's `Next action` as the one primary
+  action and uses a separate `Details` hint to reveal the full inventory.
+- Scan cache files use buffered JSON I/O and borrowed, ordered entry views to
+  reduce measured cache latency and changed-scan peak memory without changing
+  cache or report schemas.
+- JS/TS integrity checks identify `toEqual` and `toMatchObject` from the matcher
+  property before expanding the assertion expression. Unrelated matcher calls
+  skip that extra work; signal scope and output are unchanged.
+- Cross-file integrity review checks for changed assertion helpers before
+  extracting export symbols or building the repository file inventory,
+  skipping both when assertion evidence is unchanged.
+- Integrity scans reuse a grammar-specific node-kind index instead of
+  rebuilding it for each changed file.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
@@ -24,6 +46,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Configured-check timeouts and cancellation now terminate descendants on Unix
+  and Windows. Windows starts the check suspended, attaches it to a
+  kill-on-close Job Object, and resumes it after output capture is ready.
 - Review no longer reports a removed error handler when a clean, uniquely
   matched handler is moved into another changed file. Rust `match Result` to
   `?` extraction is matched by the preserved operation; changed or ambiguous
@@ -2860,7 +2885,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/MykytaStel/repopilot/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/MykytaStel/repopilot/compare/v0.24.3...v0.25.0
 [0.22.0]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0

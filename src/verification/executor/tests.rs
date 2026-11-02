@@ -37,6 +37,150 @@ fn check(root: &std::path::Path, toml: &str, id: &str) -> crate::verification::V
         .remove(0)
 }
 
+#[cfg(any(unix, windows))]
+fn process_tree_fixture_args(test_name: &str) -> Vec<String> {
+    vec![
+        test_name.to_string(),
+        "--ignored".to_string(),
+        "--nocapture".to_string(),
+    ]
+}
+
+#[cfg(any(unix, windows))]
+fn process_tree_check(
+    root: &std::path::Path,
+    timeout_seconds: u64,
+) -> crate::verification::ValidatedCheck {
+    let executable = std::env::current_exe().expect("current test executable");
+    let helper_name = executable.file_name().expect("test executable name");
+    std::fs::copy(&executable, root.join(helper_name)).expect("copy test helper into repository");
+    let program = toml::Value::String(format!("./{}", helper_name.to_string_lossy())).to_string();
+    let args = process_tree_fixture_args("verification_process_tree_parent")
+        .iter()
+        .map(|argument| toml::Value::String(argument.clone()).to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let config = format!(
+        "[[verification.checks]]\nid = \"process-tree\"\nrole = \"test\"\nprogram = {program}\nargs = [{args}]\ntimeout_seconds = {timeout_seconds}\n"
+    );
+    check(root, &config, "process-tree")
+}
+
+#[cfg(any(unix, windows))]
+fn wait_for_process_tree_heartbeat(path: &std::path::Path) -> u64 {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let length = std::fs::metadata(path)
+            .map(|metadata| metadata.len())
+            .unwrap_or(0);
+        if length > 0 {
+            return length;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "grandchild did not start writing its heartbeat"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+}
+
+#[cfg(any(unix, windows))]
+fn assert_process_tree_heartbeat_stopped(path: &std::path::Path) {
+    let before = std::fs::metadata(path)
+        .expect("grandchild heartbeat exists")
+        .len();
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let after = std::fs::metadata(path)
+        .expect("grandchild heartbeat remains readable")
+        .len();
+    assert_eq!(
+        after, before,
+        "verification left a descendant process running after termination"
+    );
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+#[ignore = "launched as a child process by process-tree lifecycle tests"]
+fn verification_process_tree_heartbeat_child() {
+    use std::io::Write;
+
+    let heartbeat = std::path::Path::new("verification-grandchild.heartbeat");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(heartbeat)
+        .expect("open heartbeat file");
+    loop {
+        file.write_all(b"x").expect("write heartbeat");
+        file.flush().expect("flush heartbeat");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+#[ignore = "launched as a child process by process-tree lifecycle tests"]
+fn verification_process_tree_parent() {
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(std::env::current_exe().expect("current test executable"))
+        .args(process_tree_fixture_args(
+            "verification_process_tree_heartbeat_child",
+        ))
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn heartbeat grandchild");
+    let heartbeat = std::path::Path::new("verification-grandchild.heartbeat");
+    wait_for_process_tree_heartbeat(heartbeat);
+    let _ = child.wait();
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn verification_timeout_terminates_the_entire_process_tree() {
+    let temp = tempdir().expect("temp dir");
+    let check = process_tree_check(temp.path(), 10);
+    let outcome = execute_check(
+        &check,
+        &WorkspaceRevision::capture(temp.path()),
+        &CancellationToken::new(),
+    );
+
+    assert_eq!(outcome.status, VerificationStatus::TimedOut);
+    assert_process_tree_heartbeat_stopped(&temp.path().join("verification-grandchild.heartbeat"));
+}
+
+#[cfg(any(unix, windows))]
+#[test]
+fn verification_cancellation_terminates_the_entire_process_tree() {
+    use std::sync::mpsc;
+
+    let temp = tempdir().expect("temp dir");
+    let check = process_tree_check(temp.path(), 30);
+    let revision = WorkspaceRevision::capture(temp.path());
+    let cancellation = CancellationToken::new();
+    let execution_cancellation = cancellation.clone();
+    let (sender, receiver) = mpsc::channel();
+    let execution = std::thread::spawn(move || {
+        let outcome = execute_check(&check, &revision, &execution_cancellation);
+        sender.send(outcome).expect("send execution outcome");
+    });
+    let heartbeat = temp.path().join("verification-grandchild.heartbeat");
+    wait_for_process_tree_heartbeat(&heartbeat);
+
+    cancellation.cancel();
+    let outcome = receiver
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .expect("cancelled process tree returns promptly");
+    execution.join().expect("execution thread completes");
+
+    assert_eq!(outcome.status, VerificationStatus::Cancelled);
+    assert_process_tree_heartbeat_stopped(&heartbeat);
+}
+
 #[test]
 fn observed_checks_emit_ordered_lifecycle() {
     let temp = tempdir().expect("temp dir");

@@ -8,7 +8,13 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
     );
 
     if suggestions.checks.is_empty() {
-        output.push_str("# No executable stack-specific checks were detected.\n");
+        if suggestions.config_comparison_available && !suggestions.configured_check_ids.is_empty() {
+            output.push_str(
+                "# All detected executable stack-specific checks are already configured.\n",
+            );
+        } else {
+            output.push_str("# No executable stack-specific checks were detected.\n");
+        }
     } else {
         for check in &suggestions.checks {
             render_check(&mut output, check);
@@ -92,6 +98,7 @@ fn toml_string(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::commands::init_suggestions::detect;
+    use std::collections::BTreeSet;
     use std::fs;
     use tempfile::tempdir;
 
@@ -105,7 +112,7 @@ mod tests {
         .expect("cargo");
         fs::create_dir_all(temp.path().join("src/auth")).expect("auth");
 
-        let rendered = render(&detect(temp.path()));
+        let rendered = render(&detect(temp.path(), Some(&BTreeSet::new())));
         let parsed: toml::Value = toml::from_str(&rendered).expect("valid TOML");
 
         assert_eq!(
@@ -114,5 +121,25 @@ mod tests {
         );
         assert!(rendered.contains("# - src/auth/** (source: src/auth)"));
         assert!(rendered.contains("# Suggestions are not executed"));
+    }
+
+    #[test]
+    fn export_explains_when_all_detected_checks_are_already_configured() {
+        let temp = tempdir().expect("temp dir");
+        fs::write(
+            temp.path().join("Cargo.toml"),
+            "[package]\nname = \"demo\"\n",
+        )
+        .expect("cargo");
+        let configured = BTreeSet::from(["rust.test".to_string()]);
+
+        let rendered = render(&detect(temp.path(), Some(&configured)));
+
+        assert!(
+            rendered.contains(
+                "# All detected executable stack-specific checks are already configured."
+            )
+        );
+        assert!(!rendered.contains("# No executable stack-specific checks were detected."));
     }
 }

@@ -26,9 +26,9 @@ use this equivalent entry in any compatible client:
 ```
 
 The [MCP Registry listing](https://registry.modelcontextprotocol.io/v0.1/servers?search=repopilot)
-`io.github.MykytaStel/repopilot` version 0.25.0 is published and active for the
-npm and crates.io packages. Its exact name/version and both package entries
-were verified after [the registry publication](https://github.com/MykytaStel/repopilot/actions/runs/38057391414).
+uses the server name `io.github.MykytaStel/repopilot`. The repository keeps its
+registry, npm, and Cargo version metadata together in `server.json`; the
+published listing and package availability should be checked after each release.
 
 Client-specific bootstrap examples are also available through
 `repopilot init --mcp-client` with `claude`, `codex`, `copilot`, `cursor`, or

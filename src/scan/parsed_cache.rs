@@ -5,8 +5,8 @@ use crate::scan::facts::FileFacts;
 use crate::scan::types::ParsedCacheTelemetry;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::io;
+use std::fs::{self, File};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 
 const PARSED_FACTS_SCHEMA_VERSION: u32 = 10;
@@ -58,6 +58,14 @@ struct ParsedFactsFile {
     analysis_version: String,
     repopilot_version: String,
     entries: Vec<ParsedFactsEntry>,
+}
+
+#[derive(Serialize)]
+struct ParsedFactsFileRef<'a> {
+    schema_version: u32,
+    analysis_version: &'static str,
+    repopilot_version: &'static str,
+    entries: Vec<&'a ParsedFactsEntry>,
 }
 
 impl ParsedFactsCache {
@@ -173,20 +181,28 @@ impl ParsedFactsCache {
         let cache_root = cache_dir(root);
         fs::create_dir_all(&cache_root)?;
         self.enforce_entry_limit();
-        let file = ParsedFactsFile {
+        let file = ParsedFactsFileRef {
             schema_version: PARSED_FACTS_SCHEMA_VERSION,
-            analysis_version: PARSED_FACTS_ANALYSIS_VERSION.to_string(),
-            repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-            entries: self.entries.values().cloned().collect(),
+            analysis_version: PARSED_FACTS_ANALYSIS_VERSION,
+            repopilot_version: env!("CARGO_PKG_VERSION"),
+            entries: self.entries.values().collect(),
         };
-        self.telemetry.entries_written = file.entries.len();
-        let rendered = serde_json::to_string_pretty(&file).map_err(io::Error::other)?;
+        self.telemetry.entries_written = self.entries.len();
         let primary = cache_root.join(PARSED_FACTS_NAME);
         let backup = cache_root.join(PARSED_FACTS_BACKUP_NAME);
         let temporary = cache_root.join(PARSED_FACTS_TEMP_NAME);
 
         let _ = fs::remove_file(&temporary);
-        fs::write(&temporary, rendered)?;
+        let write_result = (|| {
+            let file_handle = File::create(&temporary)?;
+            let mut writer = BufWriter::new(file_handle);
+            serde_json::to_writer(&mut writer, &file).map_err(io::Error::other)?;
+            writer.flush()
+        })();
+        if let Err(error) = write_result {
+            let _ = fs::remove_file(&temporary);
+            return Err(error);
+        }
 
         if primary.exists() {
             let _ = fs::remove_file(&backup);
@@ -282,8 +298,8 @@ fn read_cache<T>(path: &Path) -> Option<T>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let content = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&content).ok()
+    let file = File::open(path).ok()?;
+    serde_json::from_reader(BufReader::new(file)).ok()
 }
 
 #[cfg(test)]
@@ -458,6 +474,29 @@ mod tests {
         let loaded = ParsedFactsCache::load(temp.path());
         assert!(loaded.get("hash", Some("Rust")).is_none());
         assert_eq!(loaded.telemetry().corruptions, 1);
+    }
+
+    #[test]
+    fn parsed_facts_cache_reads_existing_pretty_json() {
+        let temp = tempdir().expect("temp dir");
+        let cache_root = cache_dir(temp.path());
+        fs::create_dir_all(&cache_root).expect("create cache dir");
+        let previous = ParsedFactsFile {
+            schema_version: PARSED_FACTS_SCHEMA_VERSION,
+            analysis_version: PARSED_FACTS_ANALYSIS_VERSION.to_string(),
+            repopilot_version: "test".to_string(),
+            entries: vec![entry("hash")],
+        };
+        fs::write(
+            cache_root.join(PARSED_FACTS_NAME),
+            serde_json::to_string_pretty(&previous).expect("pretty parsed cache"),
+        )
+        .expect("write previous cache format");
+
+        let loaded = ParsedFactsCache::load(temp.path());
+
+        assert!(loaded.get("hash", Some("Rust")).is_some());
+        assert_eq!(loaded.telemetry().entries_loaded, 1);
     }
 
     #[test]

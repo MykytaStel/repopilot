@@ -4,7 +4,19 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.25 — released
+## Current: 0.26 — release preparation
+
+The owner-approved 0.26 technical scope is merged in PR #611: setup-to-review
+guidance, a clearer primary review action, measured cache I/O improvements, and
+configured-check process-tree cleanup on Unix and Windows. Release metadata and
+notes are being prepared on `release/v0.26.0`; the release is not published.
+It does not restore `doctor`, add detector families, or change report meaning.
+The [0.26 roadmap](roadmap/v0.26.md), [design](engineering/v0.26-design.md),
+and [evidence ledger](engineering/v0.26-evidence-ledger.md) track the work.
+Independent first-use and production-accuracy evidence remain open; technical
+work proceeds under the owner's direction without independent observations.
+
+## 0.25 — released
 
 The `v0.25.0` release is published on GitHub Releases, crates.io, npm, and
 Homebrew (2026-10-10): review flags quiet fallbacks (a changed empty
@@ -107,6 +119,10 @@ and recurring installation failures. Downloads, stars, and code mentions are
 distribution counters; they do not establish active use or detector quality.
 Support and release maintenance follow the
 [agent integration runbook](engineering/maintaining-agent-integrations.md).
+
+The 0.25 evidence gates above remain open. For 0.26, the owner approved a
+bounded technical scope that may proceed without independent observations;
+local fixtures and benchmarks do not close those evidence rows.
 
 ## Released
 

@@ -9,7 +9,12 @@ use super::helpers::{self, Body};
 use super::syntax::for_each_node;
 use crate::review::signals::content::ReviewSource;
 use crate::review::signals::tables::{AssertionMatcher, IntegrityTables, TestMarker};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::{Arc, Mutex, OnceLock};
+use tree_sitter::Language;
+
+static RELEVANT_KINDS_BY_LANGUAGE: OnceLock<Mutex<HashMap<Language, Arc<[bool]>>>> =
+    OnceLock::new();
 
 /// What one side of a changed file contains. Markers and test cases are
 /// collected only in test scope; suppressions everywhere.
@@ -49,7 +54,7 @@ struct Walker<'a> {
     content: &'a str,
     tables: &'a IntegrityTables,
     test_scope: bool,
-    relevant: Vec<bool>,
+    relevant: Arc<[bool]>,
     found: Scan,
     helper_bodies: Vec<(String, Body)>,
     open: Vec<Open>,
@@ -258,14 +263,54 @@ const RELEVANT_KINDS: &[&str] = &[
 
 /// A lookup by `kind_id`, so the walk compares a number per node instead of
 /// reading every node's kind name.
-fn relevant_kinds(tree: &tree_sitter::Tree) -> Vec<bool> {
+fn relevant_kinds(tree: &tree_sitter::Tree) -> Arc<[bool]> {
     let language = tree.language();
-    (0..language.node_kind_count())
+    let key = Language::clone(&language);
+    let cache = RELEVANT_KINDS_BY_LANGUAGE.get_or_init(Default::default);
+    if let Some(kinds) = cache
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&key)
+    {
+        return Arc::clone(kinds);
+    }
+
+    let kinds: Arc<[bool]> = (0..language.node_kind_count())
         .map(|id| {
             u16::try_from(id)
                 .ok()
                 .and_then(|id| language.node_kind_for_id(id))
                 .is_some_and(|name| RELEVANT_KINDS.contains(&name))
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .into();
+    let mut cached = cache
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    Arc::clone(cached.entry(key).or_insert(kinds))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::relevant_kinds;
+    use crate::analysis::parse::{ParseLanguage, parse};
+    use std::sync::Arc;
+
+    #[test]
+    fn relevant_node_kinds_are_cached_per_grammar() {
+        let first_typescript = parse("expect(value).toBe(1);", ParseLanguage::TypeScript)
+            .expect("TypeScript should parse");
+        let second_typescript = parse("expect(value).toBe(2);", ParseLanguage::TypeScript)
+            .expect("TypeScript should parse");
+        let javascript = parse("expect(value).toBe(3);", ParseLanguage::JavaScript)
+            .expect("JavaScript should parse");
+
+        let first = relevant_kinds(&first_typescript);
+        let second = relevant_kinds(&second_typescript);
+        let other_grammar = relevant_kinds(&javascript);
+
+        assert!(Arc::ptr_eq(&first, &second));
+        assert!(!Arc::ptr_eq(&first, &other_grammar));
+        assert!(first.iter().any(|&relevant| relevant));
+    }
 }
