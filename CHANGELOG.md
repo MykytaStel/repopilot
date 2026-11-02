@@ -6,59 +6,39 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-## [0.26.0] - 2026-11-02
+## [0.26.0] - 2026-11-03
 
 ### Added
 
-- `init` compares detected verification checks with the selected config, omits
-  already configured IDs from the separate suggestions file, and reports when
-  config comparison is unavailable. Its first-review guidance carries a custom
-  `--path` config and labels current-change review separately from full scan.
-- JS/TS review reports when an existing test changes an exact object `toEqual`
-  matcher to partial `toMatchObject` or `expect.objectContaining` matching.
-  The same maybe-tier signal now follows one changed named export through an
-  exact, direct named import into unchanged tests. It remains a review
-  candidate, not proof that behavior was lost; multi-hop and indirect calls are
-  outside the supported scope.
+- `init` now compares detected checks with the selected config, keeps custom
+  `--path` values in the suggested review command, and separates changed-file
+  review from a full scan. It explains unavailable config comparisons instead
+  of hiding candidate checks.
+- JS/TS review now flags tests that weaken exact object matching and unchanged
+  tests that still import a changed named export. These findings identify code
+  to review; they do not claim the behavior is broken.
 
 ### Changed
 
-- Review recovery guidance now explains the required base ref, how to recover
-  from an invalid config, and the exact configured `--verify` IDs needed to
-  rerun incomplete checks.
-- Console review keeps the decision header's `Next action` as the one primary
-  action and uses a separate `Details` hint to reveal the full inventory.
-- Scan cache files use buffered JSON I/O and borrowed, ordered entry views to
-  reduce measured cache latency and changed-scan peak memory without changing
-  cache or report schemas.
-- JS/TS integrity checks identify `toEqual` and `toMatchObject` from the matcher
-  property before expanding the assertion expression. Unrelated matcher calls
-  skip that extra work; signal scope and output are unchanged.
-- Cross-file integrity review checks for changed assertion helpers before
-  extracting export symbols or building the repository file inventory,
-  skipping both when assertion evidence is unchanged.
-- Integrity scans reuse a grammar-specific node-kind index instead of
-  rebuilding it for each changed file.
-- MCP scan, change-review, and explain calls now show readable Markdown in the
-  text block while retaining the machine-readable report in `structuredContent`.
-  MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
-  coverage separately from the broader repository facts inventory.
+- Review presents one primary next action and gives recovery commands with the
+  needed base ref, config path, and configured `--verify` IDs.
+- Scan and integrity hot paths now reuse buffered cache data, assertion
+  analysis, and grammar-specific node-kind indexes. In measured workloads,
+  warm full scans were 31–47% faster and the 123-file review median improved
+  16%; cache and report schemas did not change.
+- MCP scan, review, and explain responses now include readable Markdown while
+  preserving structured reports. Requests are limited to 1 MiB per input line,
+  and AI Context distinguishes parser coverage from repository facts.
 
 ### Fixed
 
-- Configured-check timeouts and cancellation now terminate descendants on Unix
-  and Windows. Windows starts the check suspended, attaches it to a
-  kill-on-close Job Object, and resumes it after output capture is ready.
-- Review no longer reports a removed error handler when a clean, uniquely
-  matched handler is moved into another changed file. Rust `match Result` to
-  `?` extraction is matched by the preserved operation; changed or ambiguous
-  destinations remain reportable.
-- YAML config parsing now uses the maintained, safe-Rust `noyalib-serde-yaml`
-  compatibility package instead of the archived `unsafe-libyaml` dependency.
-- MCP review now confines `intent_path` to the configured MCP root. Claude Code
-  and Cursor session hooks, plus direct snapshot commands, refuse symlinked
-  `.repopilot` directories or snapshot files, preventing writes outside the
-  repository.
+- Verification timeouts and cancellation now stop child processes on Unix and
+  Windows, using process groups and Windows Job Objects respectively.
+- Review no longer mistakes a cleanly moved JS/TS or Rust error handler for a
+  removed handler.
+- YAML config parsing uses a maintained safe-Rust parser. MCP intent paths stay
+  within the configured root, and Claude Code/Cursor hooks reject symlinked
+  session directories and snapshot files.
 
 ## [0.25.0] - 2026-10-10
 
