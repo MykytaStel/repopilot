@@ -7,8 +7,10 @@ quality gates that guide each release.
 ## Current: 0.26 — in progress
 
 The owner-approved 0.26 scope improves setup-to-review guidance, makes the
-existing console action clearer, and reduces measured cache I/O and memory.
-It does not restore `doctor`, add detector families, or change report meaning.
+existing console action clearer, reduces measured cache I/O and memory, and
+ensures configured-check timeouts and cancellation stop process trees on Unix
+and Windows. It does not restore `doctor`, add detector families, or change
+report meaning.
 The [0.26 roadmap](roadmap/v0.26.md), [design](engineering/v0.26-design.md),
 and [evidence ledger](engineering/v0.26-evidence-ledger.md) track the work.
 Independent first-use and production-accuracy evidence remain open; technical

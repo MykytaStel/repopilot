@@ -36,6 +36,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- Configured-check timeouts and cancellation now terminate descendants on Unix
+  and Windows. Windows starts the check suspended, attaches it to a
+  kill-on-close Job Object, and resumes it after output capture is ready.
 - Review no longer reports a removed error handler when a clean, uniquely
   matched handler is moved into another changed file. Rust `match Result` to
   `?` extraction is matched by the preserved operation; changed or ambiguous
