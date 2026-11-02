@@ -37,6 +37,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Cross-file integrity review checks for changed assertion helpers before
   extracting export symbols or building the repository file inventory,
   skipping both when assertion evidence is unchanged.
+- Integrity scans reuse a grammar-specific node-kind index instead of
+  rebuilding it for each changed file.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
