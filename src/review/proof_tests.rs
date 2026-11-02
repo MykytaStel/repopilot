@@ -22,6 +22,45 @@ fn obligations() -> ProofObligations {
     }
 }
 
+fn proof_with_check_status(status: ProofObligationStatus) -> ChangeProof {
+    let mut counts = ProofObligations {
+        applicable: 2,
+        satisfied: 0,
+        failed: 0,
+        unavailable: 0,
+        unselected: 0,
+        stale: 0,
+    };
+    match status {
+        ProofObligationStatus::Satisfied => counts.satisfied = counts.applicable,
+        ProofObligationStatus::Failed => counts.failed = counts.applicable,
+        ProofObligationStatus::Unavailable => counts.unavailable = counts.applicable,
+        ProofObligationStatus::Unselected => counts.unselected = counts.applicable,
+        ProofObligationStatus::Stale => counts.stale = counts.applicable,
+    }
+    let mut proof = derive_change_proof(ChangeProofInput {
+        coverage: coverage(1),
+        obligations: counts,
+        sufficient_policy: true,
+        broken_contracts: 0,
+        reasons: Vec::new(),
+    });
+    proof.obligation_groups = vec![ProofObligationGroup {
+        role: Some(crate::verification::VerificationRole::Test),
+        counts,
+        obligations: ["src/a.rs", "src/b.rs"]
+            .into_iter()
+            .map(|path| ProofObligation {
+                path: Some(path.to_string()),
+                check_ids: vec!["unit".to_string(), "types".to_string()],
+                status,
+            })
+            .collect(),
+        next_action: String::new(),
+    }];
+    proof
+}
+
 #[test]
 fn empty_scope_is_not_assessed() {
     let proof = derive_change_proof(ChangeProofInput {
@@ -160,6 +199,36 @@ fn configured_unavailable_check_action_repairs_the_existing_check_and_keeps_scop
         next_action_for(&proof),
         "Resolve why the configured checks are unavailable, then rerun this review with --verify rust.test, keeping its original path, revision, scope, and config."
     );
+}
+
+#[test]
+fn state_specific_check_actions_list_unique_ids_in_stable_order() {
+    let cases = [
+        (
+            ProofObligationStatus::Failed,
+            "Fix the failed checks, then rerun this review with",
+        ),
+        (
+            ProofObligationStatus::Unavailable,
+            "Resolve why the configured checks are unavailable, then rerun this review with",
+        ),
+        (ProofObligationStatus::Unselected, "Rerun this review with"),
+        (
+            ProofObligationStatus::Stale,
+            "Rerun this review against the current revision with",
+        ),
+    ];
+
+    for (status, action_prefix) in cases {
+        let proof = proof_with_check_status(status);
+        assert_eq!(
+            next_action_for(&proof),
+            format!(
+                "{action_prefix} --verify types --verify unit, keeping its original path, revision, scope, and config."
+            ),
+            "status: {status:?}"
+        );
+    }
 }
 
 #[test]

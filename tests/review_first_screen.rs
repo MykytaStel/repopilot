@@ -174,11 +174,80 @@ fn unavailable_configured_check_action_does_not_duplicate_config_and_keeps_revie
     assert_eq!(json["change_proof"]["verdict"], "REVIEW");
     assert_eq!(
         json["decision"]["next_action"],
-        "Resolve why configured checks are unavailable, then rerun this same review with its original path, revision, scope, and config options, including --verify CHECK_ID."
+        "Resolve why the configured checks are unavailable, then rerun this review with --verify unit, keeping its original path, revision, scope, and config."
     );
     assert_eq!(
         json["change_proof"]["obligation_groups"][0]["obligations"][0]["check_ids"][0],
         "unit"
+    );
+}
+
+#[test]
+fn unavailable_multiple_checks_are_listed_as_unique_repeatable_flags() {
+    let temp = tempdir().expect("temp repo");
+    let root = temp.path();
+    init(root);
+    write(
+        root,
+        "repopilot.toml",
+        r#"[[verification.checks]]
+id = "unit"
+role = "test"
+program = "repopilot-test-command-definitely-not-installed"
+paths = ["src/**"]
+
+[[verification.checks]]
+id = "types"
+role = "test"
+program = "repopilot-test-command-definitely-not-installed"
+paths = ["src/**"]
+"#,
+    );
+    write(root, "src/lib.rs", "pub fn value() -> u32 {\n    1\n}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-q", "-m", "base"]);
+    let base = rev_parse(root);
+    write(
+        root,
+        "src/lib.rs",
+        "/// The configured value.\npub fn value() -> u32 {\n    1\n}\n",
+    );
+    git(root, &["add", "."]);
+    git(root, &["commit", "-q", "-m", "change"]);
+    let head = rev_parse(root);
+
+    let output = repopilot()
+        .args([
+            "review",
+            ".",
+            "--format",
+            "json",
+            "--no-progress",
+            "--base",
+            &base,
+            "--head",
+            &head,
+            "--verify",
+            "unit",
+            "--verify",
+            "types",
+        ])
+        .current_dir(root)
+        .output()
+        .expect("run review");
+    let json: Value = serde_json::from_slice(&output.stdout).expect("review JSON");
+    let next_action = json["decision"]["next_action"]
+        .as_str()
+        .expect("next action");
+
+    assert!(
+        next_action.contains("--verify types --verify unit"),
+        "{next_action}"
+    );
+    assert_eq!(next_action.matches("--verify").count(), 2, "{next_action}");
+    assert!(
+        next_action.contains("keeping its original path, revision, scope, and config"),
+        "{next_action}"
     );
 }
 
