@@ -188,26 +188,35 @@ pub(crate) fn detect(
         });
     }
 
-    let mut omitted_check_ids = BTreeSet::new();
-    let checks = checks
+    let config_comparison_available = configured_check_ids.is_some();
+    let (checks, configured_check_ids) = omit_configured_checks(checks, configured_check_ids);
+
+    InitSuggestions {
+        stacks,
+        checks,
+        config_comparison_available,
+        configured_check_ids,
+        critical_paths: critical_path_candidates(root),
+    }
+}
+
+fn omit_configured_checks(
+    checks: Vec<SuggestedCheck>,
+    configured_check_ids: Option<&BTreeSet<String>>,
+) -> (Vec<SuggestedCheck>, Vec<String>) {
+    let mut omitted = BTreeSet::new();
+    let remaining = checks
         .into_iter()
         .filter(|check| {
             let already_configured =
                 configured_check_ids.is_some_and(|ids| ids.contains(&check.id));
             if already_configured {
-                omitted_check_ids.insert(check.id.clone());
+                omitted.insert(check.id.clone());
             }
             !already_configured
         })
         .collect();
-
-    InitSuggestions {
-        stacks,
-        checks,
-        configured_check_ids: omitted_check_ids.into_iter().collect(),
-        config_comparison_available: configured_check_ids.is_some(),
-        critical_paths: critical_path_candidates(root),
-    }
+    (remaining, omitted.into_iter().collect())
 }
 
 fn node_checks(root: &Path) -> Vec<SuggestedCheck> {
