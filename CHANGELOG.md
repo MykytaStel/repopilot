@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Added
 
+- `init` compares detected verification checks with the selected config, omits
+  already configured IDs from the separate suggestions file, and reports when
+  config comparison is unavailable. Its first-review guidance carries a custom
+  `--path` config and labels current-change review separately from full scan.
 - JS/TS review reports when an existing test changes an exact object `toEqual`
   matcher to partial `toMatchObject` or `expect.objectContaining` matching.
   The same maybe-tier signal now follows one changed named export through an
@@ -17,6 +21,11 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Console review keeps the decision header's `Next action` as the one primary
+  action and uses a separate `Details` hint to reveal the full inventory.
+- Scan cache files use buffered JSON I/O and borrowed, ordered entry views to
+  reduce measured cache latency and changed-scan peak memory without changing
+  cache or report schemas.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser

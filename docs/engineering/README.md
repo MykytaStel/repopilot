@@ -39,7 +39,14 @@ release operations. Product workflows are in the
 - [v0.24 release contract](../roadmap/v0.24.md)
 - [v0.24 review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
 
-## Next scope — draft
+## Current scope — v0.26 in progress
+
+- [v0.26 roadmap](../roadmap/v0.26.md)
+- [v0.26 design](v0.26-design.md)
+- [v0.26 evidence ledger](v0.26-evidence-ledger.md)
+- [v0.26 performance baseline and results](v0.26-performance-baseline.md)
+
+## Previous scope — v0.25 released
 
 - [v0.25 technical and first-use scope](../roadmap/v0.25.md)
 - [v0.25 evidence ledger](v0.25-evidence-ledger.md)
