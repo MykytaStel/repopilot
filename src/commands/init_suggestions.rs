@@ -33,7 +33,14 @@ pub(crate) struct InitSuggestions {
 
 pub(crate) fn render(suggestions: &InitSuggestions) -> String {
     let mut output = String::new();
+    render_stacks(&mut output, suggestions);
+    render_checks(&mut output, suggestions);
+    render_critical_paths(&mut output, suggestions);
+    output.push_str("No commands were run; these are deterministic suggestions only.\n");
+    output
+}
 
+fn render_stacks(output: &mut String, suggestions: &InitSuggestions) {
     if suggestions.stacks.is_empty() {
         output.push_str("Detected stack: unknown\n");
     } else {
@@ -47,7 +54,9 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
                 .join(", ")
         ));
     }
+}
 
+fn render_checks(output: &mut String, suggestions: &InitSuggestions) {
     if suggestions.checks.is_empty() {
         if suggestions.config_comparison_available && !suggestions.configured_check_ids.is_empty() {
             output.push_str(
@@ -77,7 +86,9 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
             "Configured-check comparison unavailable; all detected suggestions remain listed.\n",
         );
     }
+}
 
+fn render_critical_paths(output: &mut String, suggestions: &InitSuggestions) {
     if suggestions.critical_paths.is_empty() {
         output.push_str("No critical path candidates detected.\n");
     } else {
@@ -86,9 +97,6 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
             output.push_str(&format!("  - {} (source: {})\n", path.pattern, path.source));
         }
     }
-
-    output.push_str("No commands were run; these are deterministic suggestions only.\n");
-    output
 }
 
 pub(crate) fn detect(
