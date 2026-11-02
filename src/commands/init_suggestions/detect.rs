@@ -11,64 +11,11 @@ pub(crate) fn detect(
     let mut stacks = Vec::new();
     let mut checks = Vec::new();
 
-    if root.join("Cargo.toml").is_file() {
-        stacks.push(DetectedStack {
-            name: "Rust".to_string(),
-            source: "Cargo.toml".to_string(),
-        });
-        checks.push(SuggestedCheck {
-            id: "rust.test".to_string(),
-            command: "cargo test --all".to_string(),
-            source: "Cargo.toml".to_string(),
-        });
-    }
-
-    if root.join("package.json").is_file() {
-        stacks.push(DetectedStack {
-            name: "Node.js".to_string(),
-            source: "package.json".to_string(),
-        });
-        checks.extend(node_checks(root));
-    }
-
-    if let Some(source) = python_marker(root) {
-        stacks.push(DetectedStack {
-            name: "Python".to_string(),
-            source,
-        });
-        if let Some(source) = pytest_evidence(root) {
-            checks.push(SuggestedCheck {
-                id: "python.test".to_string(),
-                command: "python3 -m pytest -q".to_string(),
-                source,
-            });
-        }
-    }
-
-    if root.join("go.mod").is_file() {
-        stacks.push(DetectedStack {
-            name: "Go".to_string(),
-            source: "go.mod".to_string(),
-        });
-        checks.push(SuggestedCheck {
-            id: "go.test".to_string(),
-            command: "go test ./...".to_string(),
-            source: "go.mod".to_string(),
-        });
-    }
-
-    if root.join("pom.xml").is_file() {
-        stacks.push(DetectedStack {
-            name: "Java/Maven".to_string(),
-            source: "pom.xml".to_string(),
-        });
-        checks.push(SuggestedCheck {
-            id: "maven.test".to_string(),
-            command: "mvn test".to_string(),
-            source: "pom.xml".to_string(),
-        });
-    }
-
+    detect_rust(root, &mut stacks, &mut checks);
+    detect_node(root, &mut stacks, &mut checks);
+    detect_python(root, &mut stacks, &mut checks);
+    detect_go(root, &mut stacks, &mut checks);
+    detect_maven(root, &mut stacks, &mut checks);
     detect_gradle(root, &mut stacks, &mut checks);
 
     let config_comparison_available = configured_check_ids.is_some();
@@ -81,6 +28,79 @@ pub(crate) fn detect(
         configured_check_ids,
         critical_paths: critical_path_candidates(root),
     }
+}
+
+fn detect_rust(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
+    if !root.join("Cargo.toml").is_file() {
+        return;
+    }
+    stacks.push(DetectedStack {
+        name: "Rust".to_string(),
+        source: "Cargo.toml".to_string(),
+    });
+    checks.push(SuggestedCheck {
+        id: "rust.test".to_string(),
+        command: "cargo test --all".to_string(),
+        source: "Cargo.toml".to_string(),
+    });
+}
+
+fn detect_node(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
+    if !root.join("package.json").is_file() {
+        return;
+    }
+    stacks.push(DetectedStack {
+        name: "Node.js".to_string(),
+        source: "package.json".to_string(),
+    });
+    checks.extend(node_checks(root));
+}
+
+fn detect_python(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
+    let Some(source) = python_marker(root) else {
+        return;
+    };
+    stacks.push(DetectedStack {
+        name: "Python".to_string(),
+        source,
+    });
+    if let Some(source) = pytest_evidence(root) {
+        checks.push(SuggestedCheck {
+            id: "python.test".to_string(),
+            command: "python3 -m pytest -q".to_string(),
+            source,
+        });
+    }
+}
+
+fn detect_go(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
+    if !root.join("go.mod").is_file() {
+        return;
+    }
+    stacks.push(DetectedStack {
+        name: "Go".to_string(),
+        source: "go.mod".to_string(),
+    });
+    checks.push(SuggestedCheck {
+        id: "go.test".to_string(),
+        command: "go test ./...".to_string(),
+        source: "go.mod".to_string(),
+    });
+}
+
+fn detect_maven(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
+    if !root.join("pom.xml").is_file() {
+        return;
+    }
+    stacks.push(DetectedStack {
+        name: "Java/Maven".to_string(),
+        source: "pom.xml".to_string(),
+    });
+    checks.push(SuggestedCheck {
+        id: "maven.test".to_string(),
+        command: "mvn test".to_string(),
+        source: "pom.xml".to_string(),
+    });
 }
 
 fn detect_gradle(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
