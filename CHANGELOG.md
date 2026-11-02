@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-02
+
 ### Added
 
 - `init` compares detected verification checks with the selected config, omits
@@ -29,6 +31,12 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Scan cache files use buffered JSON I/O and borrowed, ordered entry views to
   reduce measured cache latency and changed-scan peak memory without changing
   cache or report schemas.
+- JS/TS integrity checks identify `toEqual` and `toMatchObject` from the matcher
+  property before expanding the assertion expression. Unrelated matcher calls
+  skip that extra work; signal scope and output are unchanged.
+- Cross-file integrity review checks for changed assertion helpers before
+  extracting export symbols or building the repository file inventory,
+  skipping both when assertion evidence is unchanged.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
@@ -2875,7 +2883,9 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/MykytaStel/repopilot/compare/v0.25.0...v0.26.0
+[0.25.0]: https://github.com/MykytaStel/repopilot/compare/v0.24.3...v0.25.0
 [0.22.0]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/MykytaStel/repopilot/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/MykytaStel/repopilot/compare/v0.19.0...v0.20.0

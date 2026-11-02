@@ -39,7 +39,7 @@ release operations. Product workflows are in the
 - [v0.24 release contract](../roadmap/v0.24.md)
 - [v0.24 review setup path specification](v0.24-phase-b-review-setup-path-spec.md)
 
-## Current scope — v0.26 in progress
+## Current scope — v0.26 release preparation
 
 - [v0.26 roadmap](../roadmap/v0.26.md)
 - [v0.26 design](v0.26-design.md)
