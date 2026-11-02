@@ -21,6 +21,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- Review recovery guidance now explains the required base ref, how to recover
+  from an invalid config, and the exact configured `--verify` IDs needed to
+  rerun incomplete checks.
 - Console review keeps the decision header's `Next action` as the one primary
   action and uses a separate `Details` hint to reveal the full inventory.
 - Scan cache files use buffered JSON I/O and borrowed, ordered entry views to

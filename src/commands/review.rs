@@ -8,7 +8,7 @@ use crate::commands::scan_config::ScanConfigOverrides;
 use crate::commands::{CliExit, EXIT_FINDINGS, EXIT_USAGE};
 use repopilot::baseline::gate::{FailOn, evaluate_ci_gate};
 use repopilot::baseline::reader::read_baseline;
-use repopilot::config::loader::{load_default_config, load_optional_config};
+use repopilot::config::loader::{ConfigError, load_default_config, load_optional_config};
 use repopilot::config::model::{ReviewFailOn, ReviewScope};
 use repopilot::findings::visibility::FindingVisibilityProfile;
 use repopilot::history::{AnalysisScope, ReceiptContext, record_session};
@@ -23,6 +23,8 @@ use repopilot::review::{
     load_review_input, load_review_input_since, review_report_for_ci,
 };
 use repopilot::verification::VerificationStatus;
+use std::error::Error;
+use std::fmt;
 use std::time::{Duration, Instant};
 
 pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +42,7 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
     if options.base.is_none() && options.head.is_some() {
         return Err(Box::new(CliExit {
             code: EXIT_USAGE,
-            message: "`repopilot review --head` requires --base".to_string(),
+            message: "`repopilot review --head` requires --base. Add `--base origin/main` (replace `origin/main` with your target branch); for a branch range, use `--base origin/main --head HEAD`. Omit `--head` to compare the working tree against `HEAD`.".to_string(),
         }));
     }
 
@@ -51,10 +53,11 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         }));
     }
 
-    let configured = match &options.config {
-        Some(path) => load_optional_config(path)?,
-        None => load_default_config()?,
+    let config_result = match &options.config {
+        Some(path) => load_optional_config(path),
+        None => load_default_config(),
     };
+    let configured = config_result.map_err(ReviewConfigError)?;
     validate_critical_paths(&configured)?;
     let scope = match options.scope {
         Some(ReviewScopeArg::Changed) => ReviewScope::Changed,
@@ -304,4 +307,23 @@ fn review_history_context(
 
 fn duration_us(duration: Duration) -> u64 {
     duration.as_micros().min(u128::from(u64::MAX)) as u64
+}
+
+#[derive(Debug)]
+struct ReviewConfigError(ConfigError);
+
+impl fmt::Display for ReviewConfigError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}. Next step: fix this config or rerun with --config PATH to select another valid file.",
+            self.0
+        )
+    }
+}
+
+impl Error for ReviewConfigError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.0)
+    }
 }

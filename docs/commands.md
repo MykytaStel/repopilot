@@ -39,6 +39,11 @@ repopilot review . --base origin/main
 repopilot review . --base origin/main --head HEAD
 ```
 
+When `--head` is supplied, `--base` is required. Replace `origin/main` with
+the branch this change targets. If `review` cannot read or parse its config,
+the error names the config and points to fixing it or selecting another valid
+file with `--config PATH`.
+
 Write machine-readable JSON and SARIF from the same review:
 
 ```bash
@@ -76,10 +81,14 @@ questions:
 The mapping is `VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`,
 and `NOT ASSESSED` → `NOT ASSESSED`.
 
-In console output, the header's `Next action` is the primary action. The
-`Details` section only shows how to reveal the full changed-file inventory,
-impact paths, and evidence with `--detail full`; it does not repeat or replace
-the decision action.
+In console output, the header's `Next action` is the primary action. Markdown
+and HTML show the same decision action near the top, and JSON exposes it as
+`decision.next_action`. When required checks are unselected, the action names
+their configured IDs as repeatable `--verify ID` flags. Rerun the same review
+with its original path, revision, scope, and config; checks run only when
+explicitly selected. The console `Details` section only shows how to reveal the
+full changed-file inventory, impact paths, and evidence with `--detail full`;
+it does not repeat or replace the decision action.
 
 One exception covers repositories without verification setup. When no
 verification check is configured or recorded and the only open proof reasons
