@@ -6,8 +6,8 @@ use crate::scan::config::ScanConfig;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::fs;
-use std::io;
+use std::fs::{self, File};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -101,6 +101,13 @@ pub struct FindingsCache {
     pub entries: Vec<FindingsEntry>,
 }
 
+#[derive(Serialize)]
+struct CacheEnvelopeRef<'a, T> {
+    schema_version: u32,
+    repopilot_version: &'static str,
+    entries: Vec<&'a T>,
+}
+
 #[derive(Debug, Default)]
 pub struct ScanCache {
     pub file_hashes: BTreeMap<String, FileHashEntry>,
@@ -133,26 +140,26 @@ impl ScanCache {
 
         write_cache(
             &cache_root.join(FILE_HASHES_NAME),
-            &FileHashesCache {
+            &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
-                repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-                entries: self.file_hashes.values().cloned().collect(),
+                repopilot_version: env!("CARGO_PKG_VERSION"),
+                entries: self.file_hashes.values().collect(),
             },
         )?;
         write_cache(
             &cache_root.join(FILE_ROLES_NAME),
-            &FileRolesCache {
+            &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
-                repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-                entries: self.file_roles.values().cloned().collect(),
+                repopilot_version: env!("CARGO_PKG_VERSION"),
+                entries: self.file_roles.values().collect(),
             },
         )?;
         write_cache(
             &cache_root.join(FINDINGS_NAME),
-            &FindingsCache {
+            &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
-                repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
-                entries: self.findings.values().cloned().collect(),
+                repopilot_version: env!("CARGO_PKG_VERSION"),
+                entries: self.findings.values().collect(),
             },
         )?;
 
@@ -304,16 +311,18 @@ fn read_cache<T>(path: &Path) -> Option<T>
 where
     T: for<'de> Deserialize<'de>,
 {
-    let content = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&content).ok()
+    let file = File::open(path).ok()?;
+    serde_json::from_reader(BufReader::new(file)).ok()
 }
 
 fn write_cache<T>(path: &Path, value: &T) -> io::Result<()>
 where
     T: Serialize,
 {
-    let rendered = serde_json::to_string_pretty(value).map_err(io::Error::other)?;
-    fs::write(path, rendered)
+    let file = File::create(path)?;
+    let mut writer = BufWriter::new(file);
+    serde_json::to_writer(&mut writer, value).map_err(io::Error::other)?;
+    writer.flush()
 }
 
 fn entries_by_path<T>(entries: Vec<T>) -> BTreeMap<String, T>
@@ -488,5 +497,58 @@ mod tests {
         };
 
         assert!(!valid_file_roles_cache(&cache));
+    }
+
+    #[test]
+    fn scan_cache_reads_pretty_json_and_writes_compact_sorted_entries() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let cache_root = cache_dir(temp.path());
+        fs::create_dir_all(&cache_root).expect("create cache dir");
+        let previous = FileHashesCache {
+            schema_version: CACHE_SCHEMA_VERSION,
+            repopilot_version: "test".to_string(),
+            entries: vec![file_hash("z.rs"), file_hash("a.rs")],
+        };
+        fs::write(
+            cache_root.join(FILE_HASHES_NAME),
+            serde_json::to_string_pretty(&previous).expect("pretty cache"),
+        )
+        .expect("write previous cache format");
+
+        let loaded = ScanCache::load(temp.path());
+        assert_eq!(
+            loaded
+                .file_hashes
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["a.rs", "z.rs"]
+        );
+        loaded.write(temp.path()).expect("write streamed cache");
+
+        let encoded = fs::read(cache_root.join(FILE_HASHES_NAME)).expect("written cache");
+        assert!(
+            !encoded.contains(&b'\n'),
+            "cache output should be compact JSON"
+        );
+        let decoded: FileHashesCache = serde_json::from_slice(&encoded).expect("decode cache");
+        assert_eq!(
+            decoded
+                .entries
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            ["a.rs", "z.rs"]
+        );
+    }
+
+    fn file_hash(path: &str) -> FileHashEntry {
+        FileHashEntry {
+            path: path.to_string(),
+            hash: format!("hash-{path}"),
+            size: 1,
+            modified_unix_seconds: 1,
+            cache_key: format!("key-{path}"),
+        }
     }
 }
