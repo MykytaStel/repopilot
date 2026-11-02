@@ -4,13 +4,13 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.26 — in progress
+## Current: 0.26 — release preparation
 
-The owner-approved 0.26 scope improves setup-to-review guidance, makes the
-existing console action clearer, reduces measured cache I/O and memory, and
-ensures configured-check timeouts and cancellation stop process trees on Unix
-and Windows. It does not restore `doctor`, add detector families, or change
-report meaning.
+The owner-approved 0.26 technical scope is merged in PR #611: setup-to-review
+guidance, a clearer primary review action, measured cache I/O improvements, and
+configured-check process-tree cleanup on Unix and Windows. Release metadata and
+notes are being prepared on `release/v0.26.0`; the release is not published.
+It does not restore `doctor`, add detector families, or change report meaning.
 The [0.26 roadmap](roadmap/v0.26.md), [design](engineering/v0.26-design.md),
 and [evidence ledger](engineering/v0.26-evidence-ledger.md) track the work.
 Independent first-use and production-accuracy evidence remain open; technical

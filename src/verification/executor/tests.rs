@@ -142,7 +142,7 @@ fn verification_process_tree_parent() {
 #[test]
 fn verification_timeout_terminates_the_entire_process_tree() {
     let temp = tempdir().expect("temp dir");
-    let check = process_tree_check(temp.path(), 1);
+    let check = process_tree_check(temp.path(), 10);
     let outcome = execute_check(
         &check,
         &WorkspaceRevision::capture(temp.path()),
