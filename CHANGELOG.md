@@ -34,6 +34,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - JS/TS integrity checks identify `toEqual` and `toMatchObject` from the matcher
   property before expanding the assertion expression. Unrelated matcher calls
   skip that extra work; signal scope and output are unchanged.
+- Cross-file integrity review checks for changed assertion helpers before
+  building the repository file inventory, skipping that Git scan when the
+  change contains no assertion-helper evidence.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser

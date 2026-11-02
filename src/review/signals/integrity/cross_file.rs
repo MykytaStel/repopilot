@@ -28,19 +28,19 @@ pub(super) fn detect(
     changed: &[ChangedIntegritySource<'_>],
     evidence: &[FileEvidence],
 ) -> Vec<IntegritySignal> {
-    let Some(current_files) = target_file_inventory(repo_root, target) else {
-        return Vec::new();
-    };
-    let current_files = absolute_files(repo_root, current_files);
-    let evidence_by_path = evidence_by_path(repo_root, evidence);
     let changed_paths = changed
         .iter()
         .map(|source| normalized_review_path(&source.file.path, repo_root))
         .collect::<BTreeSet<_>>();
+    let evidence_by_path = evidence_by_path(repo_root, evidence);
     let helpers = changed_helpers(repo_root, changed, &evidence_by_path);
     if helpers.is_empty() {
         return Vec::new();
     }
+    let Some(current_files) = target_file_inventory(repo_root, target) else {
+        return Vec::new();
+    };
+    let current_files = absolute_files(repo_root, current_files);
     let helper_index = helper_index(repo_root, &helpers);
     let mut signals = Vec::new();
 

@@ -200,28 +200,55 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
     let Some(function) = node.child(0) else {
         return false;
     };
-    let may_assert = chain_root(node, content)
-        .is_some_and(|root| matches!(root, "expect" | "assert"))
-        || function
-            .utf8_text(content.as_bytes())
-            .is_ok_and(|text| text.contains("should"));
-    if !may_assert {
-        return false;
-    }
-    let Some(callee) = compact_text(function, content) else {
-        return false;
-    };
+    let root = chain_root(node, content);
     let arguments = node.child_by_field_name("arguments");
-    if callee.starts_with("expect(") && function.kind() == "member_expression" {
+    if root == Some("expect")
+        && function.kind() == "member_expression"
+        && is_direct_expect_chain(function, content)
+    {
         // `expect(x).toBe(y)`: the matcher call. A literal subject cannot
         // observe the code under test (`expect(true).toBe(true)`).
         return expect_subject(function).is_none_or(|subject| !is_literal(subject));
     }
-    let base = callee.split('.').next().unwrap_or_default();
-    if base == "assert" || callee.contains(".should.") {
+    if root == Some("assert") {
         return arguments.is_none_or(|arguments| !all_arguments_literal(arguments));
     }
-    false
+    if !function
+        .utf8_text(content.as_bytes())
+        .is_ok_and(|text| text.contains("should"))
+    {
+        return false;
+    }
+    compact_text(function, content).is_some_and(|callee| {
+        callee.contains(".should.")
+            && arguments.is_none_or(|arguments| !all_arguments_literal(arguments))
+    })
+}
+
+/// Whether this matcher chain is rooted at a direct `expect(...)` call.
+/// `expect.soft(...)` and similarly named helpers intentionally keep the old
+/// fallback behavior instead of being treated as `expect(...).matcher(...)`.
+fn is_direct_expect_chain(function: Node<'_>, content: &str) -> bool {
+    let mut current = function;
+    loop {
+        if current.kind() != "member_expression" {
+            return false;
+        }
+        let Some(object) = current.child_by_field_name("object") else {
+            return false;
+        };
+        match object.kind() {
+            "member_expression" => current = object,
+            "call_expression" => {
+                let Some(callee) = object.child_by_field_name("function") else {
+                    return false;
+                };
+                return callee.kind() == "identifier"
+                    && callee.utf8_text(content.as_bytes()).ok() == Some("expect");
+            }
+            _ => return false,
+        }
+    }
 }
 
 fn assertion_matcher<'a>(node: Node<'a>, content: &'a str) -> Option<AssertionMatcher> {
@@ -297,5 +324,57 @@ fn expect_subject(function: Node<'_>) -> Option<Node<'_>> {
             }
             _ => return None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_assertion;
+    use crate::analysis::parse::{ParseLanguage, parse};
+    use crate::review::signals::integrity::syntax::{compact_text, for_each_node};
+
+    fn is_assertion_for(source: &str, callee: &str) -> bool {
+        let tree = parse(source, ParseLanguage::JavaScript).expect("JavaScript should parse");
+        let mut result = None;
+        for_each_node(tree.root_node(), |node, _| {
+            if node.kind() == "call_expression"
+                && node
+                    .child_by_field_name("function")
+                    .and_then(|function| compact_text(function, source))
+                    .as_deref()
+                    == Some(callee)
+            {
+                result = Some(is_assertion(node, source));
+            }
+            true
+        });
+        result.expect("call with the requested callee should exist")
+    }
+
+    #[test]
+    fn assertion_recognition_preserves_expect_assert_and_should_shapes() {
+        assert!(is_assertion_for(
+            "expect(value).toBe(1);",
+            "expect(value).toBe"
+        ));
+        assert!(!is_assertion_for(
+            "expect(true).toBe(true);",
+            "expect(true).toBe"
+        ));
+        assert!(!is_assertion_for(
+            "expect.soft(value).toBe(1);",
+            "expect.soft(value).toBe"
+        ));
+        assert!(!is_assertion_for("expectRounded(value);", "expectRounded"));
+        assert!(is_assertion_for("assert.equal(value, 1);", "assert.equal"));
+        assert!(!is_assertion_for("assert.equal(1, 1);", "assert.equal"));
+        assert!(is_assertion_for(
+            "value.should.equal(expected);",
+            "value.should.equal"
+        ));
+        assert!(is_assertion_for(
+            "value . should . equal(expected);",
+            "value.should.equal"
+        ));
     }
 }
