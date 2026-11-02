@@ -22,7 +22,8 @@ fn findings_detail_bounds_changed_files_and_summarizes_areas() {
     assert!(output.contains("Modified docs/page-0.md"));
     assert!(!output.contains("Modified docs/page-1.md"));
     assert!(output.contains("... 3 more changed file(s); rerun with --detail full"));
-    assert!(output.contains("Next:\n"));
+    assert!(output.contains("Details:\n"));
+    assert!(!output.contains("\nNext:\n"));
     assert!(output.contains("Rerun with --detail full"));
 }
 
@@ -36,8 +37,10 @@ fn full_detail_keeps_every_changed_file_and_summary_keeps_none() {
     assert!(full.contains("Modified tools/check.rs"));
     assert!(full.contains("Modified docs/page-1.md"));
     assert!(!full.contains("more changed file(s)"));
+    assert!(!full.contains("Details:\n"));
     assert!(!summary.contains("\nChanged files:\n"));
     assert!(!summary.contains("Changed areas:\n"));
+    assert!(!summary.contains("Details:\n"));
 }
 
 #[test]

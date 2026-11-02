@@ -26,6 +26,8 @@ pub(crate) struct CriticalPathCandidate {
 pub(crate) struct InitSuggestions {
     pub(crate) stacks: Vec<DetectedStack>,
     pub(crate) checks: Vec<SuggestedCheck>,
+    pub(crate) configured_check_ids: Vec<String>,
+    pub(crate) config_comparison_available: bool,
     pub(crate) critical_paths: Vec<CriticalPathCandidate>,
 }
 
@@ -47,7 +49,13 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
     }
 
     if suggestions.checks.is_empty() {
-        output.push_str("No stack-specific verification checks detected.\n");
+        if suggestions.config_comparison_available && !suggestions.configured_check_ids.is_empty() {
+            output.push_str(
+                "No additional stack-specific verification checks suggested; detected checks are already configured.\n",
+            );
+        } else {
+            output.push_str("No stack-specific verification checks detected.\n");
+        }
     } else {
         output.push_str("Suggested verification checks (not run):\n");
         for check in &suggestions.checks {
@@ -56,6 +64,18 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
                 check.id, check.command, check.source
             ));
         }
+    }
+
+    if !suggestions.configured_check_ids.is_empty() {
+        output.push_str(&format!(
+            "Already configured verification checks: {} (omitted from suggestions)\n",
+            suggestions.configured_check_ids.join(", ")
+        ));
+    }
+    if !suggestions.config_comparison_available {
+        output.push_str(
+            "Configured-check comparison unavailable; all detected suggestions remain listed.\n",
+        );
     }
 
     if suggestions.critical_paths.is_empty() {
@@ -71,7 +91,10 @@ pub(crate) fn render(suggestions: &InitSuggestions) -> String {
     output
 }
 
-pub(crate) fn detect(root: &Path) -> InitSuggestions {
+pub(crate) fn detect(
+    root: &Path,
+    configured_check_ids: Option<&BTreeSet<String>>,
+) -> InitSuggestions {
     let mut stacks = Vec::new();
     let mut checks = Vec::new();
 
@@ -157,9 +180,24 @@ pub(crate) fn detect(root: &Path) -> InitSuggestions {
         });
     }
 
+    let mut omitted_check_ids = BTreeSet::new();
+    let checks = checks
+        .into_iter()
+        .filter(|check| {
+            let already_configured =
+                configured_check_ids.is_some_and(|ids| ids.contains(&check.id));
+            if already_configured {
+                omitted_check_ids.insert(check.id.clone());
+            }
+            !already_configured
+        })
+        .collect();
+
     InitSuggestions {
         stacks,
         checks,
+        configured_check_ids: omitted_check_ids.into_iter().collect(),
+        config_comparison_available: configured_check_ids.is_some(),
         critical_paths: critical_path_candidates(root),
     }
 }

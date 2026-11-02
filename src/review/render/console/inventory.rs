@@ -43,27 +43,12 @@ pub(super) fn render_changed_files(
     }
 }
 
-pub(super) fn render_next_action(output: &mut String, report: &ReviewReport, detail: DetailLevel) {
+pub(super) fn render_detail_hint(output: &mut String, detail: DetailLevel) {
     if detail != DetailLevel::Findings {
         return;
     }
 
-    let has_visible_signals = [
-        &report.tiered_signals.definitely,
-        &report.tiered_signals.maybe,
-        &report.tiered_signals.noise,
-    ]
-    .into_iter()
-    .flatten()
-    .any(|signal| !signal.suppressed);
-
-    output.push_str("\nNext:\n");
-    if has_visible_signals || report.in_diff_count() > 0 {
-        output
-            .push_str("  Inspect the review signals and in-diff findings above before merging.\n");
-    } else {
-        output.push_str("  No visible review signals or in-diff findings need action.\n");
-    }
+    output.push_str("\nDetails:\n");
     output.push_str(
         "  Rerun with --detail full for the complete changed-file inventory, impact paths, and evidence.\n",
     );

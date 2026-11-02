@@ -11,7 +11,7 @@ fn node_proposals_use_only_declared_scripts() {
     )
     .expect("package");
 
-    let suggestions = detect(temp.path());
+    let suggestions = detect(temp.path(), Some(&BTreeSet::new()));
 
     assert_eq!(
         suggestions.stacks,
@@ -38,13 +38,42 @@ fn node_proposals_use_only_declared_scripts() {
 }
 
 #[test]
+fn configured_node_checks_are_omitted_and_named() {
+    let temp = tempdir().expect("temp dir");
+    fs::write(
+        temp.path().join("package.json"),
+        r#"{"scripts":{"test":"vitest","build":"vite build"}}"#,
+    )
+    .expect("package");
+    let configured = BTreeSet::from(["node.test".to_string()]);
+
+    let suggestions = detect(temp.path(), Some(&configured));
+
+    assert_eq!(
+        suggestions
+            .checks
+            .iter()
+            .map(|check| check.id.as_str())
+            .collect::<Vec<_>>(),
+        ["node.build"]
+    );
+    assert_eq!(suggestions.configured_check_ids, ["node.test"]);
+    assert!(suggestions.config_comparison_available);
+    assert!(
+        render(&suggestions).contains(
+            "Already configured verification checks: node.test (omitted from suggestions)"
+        )
+    );
+}
+
+#[test]
 fn critical_paths_are_existing_and_sorted() {
     let temp = tempdir().expect("temp dir");
     fs::create_dir_all(temp.path().join("src/security")).expect("security");
     fs::create_dir_all(temp.path().join("migrations")).expect("migrations");
     fs::write(temp.path().join(".env.local"), "SECRET=redacted\n").expect("env");
 
-    let suggestions = detect(temp.path());
+    let suggestions = detect(temp.path(), Some(&BTreeSet::new()));
 
     assert_eq!(
         suggestions.critical_paths,
@@ -80,7 +109,7 @@ fn stack_markers_are_deterministic_and_python_requires_pytest_evidence() {
     )
     .expect("python");
 
-    let suggestions = detect(temp.path());
+    let suggestions = detect(temp.path(), Some(&BTreeSet::new()));
 
     assert_eq!(
         suggestions.stacks,

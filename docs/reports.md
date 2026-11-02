@@ -378,6 +378,11 @@ mapping and example.
 Empty, unsupported, or partially analyzed scopes remain `NOT_ASSESSED` or
 `REVIEW` and are never promoted to `PASS`.
 
+Console output keeps this `decision.next_action` as its one primary next step.
+At findings detail, a separate `Details` hint points to `--detail full` for the
+complete inventory and evidence; it does not add another action or alter the
+structured decision.
+
 ## Review HTML reports
 
 `repopilot review --format html --output review.html` writes a self-contained

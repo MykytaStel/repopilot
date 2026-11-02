@@ -75,7 +75,7 @@ fn render_console_details(
 
     render_verification(output, report);
 
-    inventory::render_next_action(output, report, options.detail);
+    inventory::render_detail_hint(output, options.detail);
 }
 
 fn render_verification(output: &mut String, report: &ReviewReport) {

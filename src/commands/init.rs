@@ -2,8 +2,10 @@ use crate::cli::{InitOptions, McpClientArg};
 use crate::commands::init_mcp::{mcp_bootstrap, mcp_output_path};
 use crate::commands::init_suggestions::{detect, render as render_init_suggestions};
 use crate::commands::init_suggestions_export::render as render_init_suggestions_toml;
+use repopilot::config::loader::load_optional_config;
 use repopilot::config::template::default_config_toml;
 use repopilot::review::diff::resolve_git_root;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -52,7 +54,15 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
         )?;
     }
 
-    let suggestions = detect(&root);
+    let configured_check_ids = load_optional_config(&config_path).ok().map(|config| {
+        config
+            .verification
+            .checks
+            .into_iter()
+            .map(|check| check.id)
+            .collect::<BTreeSet<_>>()
+    });
+    let suggestions = detect(&root, configured_check_ids.as_ref());
     if let Some(path) = suggestions_path {
         write_owned_file(
             &path,
@@ -146,7 +156,9 @@ fn print_next_steps(
     if invocation_dir != root {
         println!("  cd {}", root.display());
     }
-    println!("  repopilot review .");
+    println!("Review current changes:");
+    println!("  {}", review_command(config, root));
+    println!("Audit the full repository:");
     println!("  repopilot scan . --config {}", config.display());
 
     if action {
@@ -156,6 +168,14 @@ fn print_next_steps(
     if let Some(client) = mcp {
         println!("  review {}", mcp_output_path(client).display());
         println!("  copy or register the MCP entry in your client explicitly");
+    }
+}
+
+fn review_command(config: &Path, root: &Path) -> String {
+    if config == root.join("repopilot.toml") {
+        "repopilot review .".to_string()
+    } else {
+        format!("repopilot review . --config {}", config.display())
     }
 }
 

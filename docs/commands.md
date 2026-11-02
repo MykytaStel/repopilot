@@ -76,6 +76,11 @@ questions:
 The mapping is `VERIFIED` → `PASS`, `REVIEW` → `REVIEW`, `BROKEN` → `BLOCK`,
 and `NOT ASSESSED` → `NOT ASSESSED`.
 
+In console output, the header's `Next action` is the primary action. The
+`Details` section only shows how to reveal the full changed-file inventory,
+impact paths, and evidence with `--detail full`; it does not repeat or replace
+the decision action.
+
 One exception covers repositories without verification setup. When no
 verification check is configured or recorded and the only open proof reasons
 are that missing setup (no sufficient proof policy, required checks
@@ -149,8 +154,13 @@ Check the repository and confirm the initial setup:
 
 ```bash
 repopilot init
+repopilot review .
 repopilot scan .
 ```
+
+The review command looks at current changes. The scan command audits the full
+repository; `init` prints both routes and carries a custom `--path` config into
+each command when needed.
 
 Adopt existing debt as a reviewed baseline:
 

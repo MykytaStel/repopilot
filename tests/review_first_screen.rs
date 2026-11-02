@@ -21,6 +21,8 @@ fn default_console_leads_with_one_verdict_and_hides_compatibility_records() {
     assert_eq!(console.matches("Decision: ").count(), 1, "{console}");
     assert!(console.contains("(Change Proof: "), "{console}");
     assert_eq!(console.matches("Next action: ").count(), 1, "{console}");
+    assert!(console.contains("Details:\n"), "{console}");
+    assert!(!console.contains("\nNext:\n"), "{console}");
     for duplicate in [
         "Decision why:",
         "Decision limitation:",
