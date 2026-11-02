@@ -108,7 +108,7 @@ pub fn decision_from_proof(
     let next_action = if empty_change && verdict == ReviewDecisionVerdict::NotAssessed {
         EMPTY_CHANGE_ACTION.to_string()
     } else {
-        next_action_for(proof).to_string()
+        next_action_for(proof)
     };
     ReviewDecision {
         verdict,

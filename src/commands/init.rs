@@ -2,8 +2,10 @@ use crate::cli::{InitOptions, McpClientArg};
 use crate::commands::init_mcp::{mcp_bootstrap, mcp_output_path};
 use crate::commands::init_suggestions::{detect, render as render_init_suggestions};
 use crate::commands::init_suggestions_export::render as render_init_suggestions_toml;
+use repopilot::config::loader::load_optional_config;
 use repopilot::config::template::default_config_toml;
 use repopilot::review::diff::resolve_git_root;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -32,35 +34,11 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
     }
     let config = default_config_toml();
     write_owned_file(&config_path, &config, options.force, "RepoPilot config")?;
+    write_requested_integrations(&root, options.force, generate_action, mcp_client)?;
 
-    if generate_action {
-        write_owned_file(
-            &root.join(ACTION_PATH),
-            &github_action_workflow(),
-            options.force,
-            "GitHub Actions workflow",
-        )?;
-    }
-
-    if let Some(client) = mcp_client {
-        let path = root.join(mcp_output_path(client));
-        write_owned_file(
-            &path,
-            &mcp_bootstrap(client),
-            options.force,
-            "MCP bootstrap",
-        )?;
-    }
-
-    let suggestions = detect(&root);
-    if let Some(path) = suggestions_path {
-        write_owned_file(
-            &path,
-            &render_init_suggestions_toml(&suggestions),
-            options.force,
-            "init suggestions",
-        )?;
-    }
+    let configured_check_ids = load_configured_check_ids(&config_path);
+    let suggestions = detect(&root, configured_check_ids.as_ref());
+    write_suggestions_output(suggestions_path.as_deref(), &suggestions, options.force)?;
 
     print_next_steps(
         &config_path,
@@ -71,6 +49,54 @@ fn run_at(options: InitOptions, invocation_dir: &Path) -> Result<(), Box<dyn std
     );
     println!();
     print!("{}", render_init_suggestions(&suggestions));
+    Ok(())
+}
+
+fn write_requested_integrations(
+    root: &Path,
+    force: bool,
+    action: bool,
+    mcp: Option<McpClientArg>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if action {
+        write_owned_file(
+            &root.join(ACTION_PATH),
+            &github_action_workflow(),
+            force,
+            "GitHub Actions workflow",
+        )?;
+    }
+    if let Some(client) = mcp {
+        let path = root.join(mcp_output_path(client));
+        write_owned_file(&path, &mcp_bootstrap(client), force, "MCP bootstrap")?;
+    }
+    Ok(())
+}
+
+fn load_configured_check_ids(config_path: &Path) -> Option<BTreeSet<String>> {
+    load_optional_config(config_path).ok().map(|config| {
+        config
+            .verification
+            .checks
+            .into_iter()
+            .map(|check| check.id)
+            .collect()
+    })
+}
+
+fn write_suggestions_output(
+    path: Option<&Path>,
+    suggestions: &crate::commands::init_suggestions::InitSuggestions,
+    force: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(path) = path {
+        write_owned_file(
+            path,
+            &render_init_suggestions_toml(suggestions),
+            force,
+            "init suggestions",
+        )?;
+    }
     Ok(())
 }
 
@@ -146,7 +172,9 @@ fn print_next_steps(
     if invocation_dir != root {
         println!("  cd {}", root.display());
     }
-    println!("  repopilot review .");
+    println!("Review current changes:");
+    println!("  {}", review_command(config, root));
+    println!("Audit the full repository:");
     println!("  repopilot scan . --config {}", config.display());
 
     if action {
@@ -156,6 +184,14 @@ fn print_next_steps(
     if let Some(client) = mcp {
         println!("  review {}", mcp_output_path(client).display());
         println!("  copy or register the MCP entry in your client explicitly");
+    }
+}
+
+fn review_command(config: &Path, root: &Path) -> String {
+    if config == root.join("repopilot.toml") {
+        "repopilot review .".to_string()
+    } else {
+        format!("repopilot review . --config {}", config.display())
     }
 }
 

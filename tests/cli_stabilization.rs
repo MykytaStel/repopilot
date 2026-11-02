@@ -194,6 +194,102 @@ fn init_uses_an_explicit_absolute_config_path_as_is() {
 }
 
 #[test]
+fn init_custom_config_path_is_used_in_suggested_review() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let config = temp.path().join("custom/repopilot.toml");
+    let output = run_ok(
+        &["init", "--path", config.to_str().expect("UTF-8 path")],
+        temp.path(),
+    );
+    let guidance = stdout(&output);
+    assert!(
+        guidance.contains(&format!(
+            "Review current changes:\n  repopilot review . --config {}\nAudit the full repository:",
+            config.display()
+        )),
+        "custom config should be carried into the current-change review and the two routes labeled\n{guidance}"
+    );
+
+    let default = tempfile::tempdir().expect("default config dir");
+    let output = run_ok(&["init"], default.path());
+    let guidance = stdout(&output);
+    assert!(
+        guidance
+            .contains("Review current changes:\n  repopilot review .\nAudit the full repository:"),
+        "default root config should not add --config\n{guidance}"
+    );
+}
+
+#[test]
+fn init_suggestions_omit_already_configured_check_ids() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::write(
+        temp.path().join("package.json"),
+        r#"{"scripts":{"test":"vitest","build":"vite build"}}"#,
+    )
+    .expect("package");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[[verification.checks]]\nid = \"node.test\"\nrole = \"test\"\nprogram = \"npm\"\nargs = [\"test\"]\n",
+    )
+    .expect("config");
+
+    let output = run_ok(
+        &[
+            "init",
+            "--path",
+            "repopilot.toml",
+            "--suggestions-output",
+            ".repopilot/init-suggestions.toml",
+        ],
+        temp.path(),
+    );
+    let guidance = stdout(&output);
+    assert!(
+        guidance.contains("Already configured verification checks: node.test"),
+        "configured ID should be explained in init output\n{guidance}"
+    );
+    let suggestions = fs::read_to_string(temp.path().join(".repopilot/init-suggestions.toml"))
+        .expect("suggestions");
+    assert!(!suggestions.contains("id = \"node.test\""), "{suggestions}");
+    assert!(suggestions.contains("id = \"node.build\""), "{suggestions}");
+}
+
+#[test]
+fn init_keeps_suggestions_when_config_is_invalid() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    fs::write(
+        temp.path().join("package.json"),
+        r#"{"scripts":{"test":"vitest"}}"#,
+    )
+    .expect("package");
+    fs::write(
+        temp.path().join("repopilot.toml"),
+        "[[verification.checks]\nid = \"node.test\"\n",
+    )
+    .expect("invalid config");
+
+    let output = run_ok(
+        &[
+            "init",
+            "--path",
+            "repopilot.toml",
+            "--suggestions-output",
+            ".repopilot/init-suggestions.toml",
+        ],
+        temp.path(),
+    );
+    let guidance = stdout(&output);
+    assert!(
+        guidance.contains("comparison unavailable"),
+        "init should disclose that configured IDs could not be checked\n{guidance}"
+    );
+    let suggestions = fs::read_to_string(temp.path().join(".repopilot/init-suggestions.toml"))
+        .expect("suggestions");
+    assert!(suggestions.contains("id = \"node.test\""), "{suggestions}");
+}
+
+#[test]
 fn scan_and_review_help_have_flag_descriptions() {
     let temp = tempfile::tempdir().expect("temp dir");
     let scan_help = stdout(&run_ok(&["scan", "--help"], temp.path()));

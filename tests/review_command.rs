@@ -511,7 +511,47 @@ fn review_rejects_head_without_base() {
         .expect("failed to run review");
 
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("--head` requires --base"));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--head` requires --base"), "{stderr}");
+    assert!(stderr.contains("--base origin/main"), "{stderr}");
+    assert!(stderr.contains("Omit `--head`"), "{stderr}");
+}
+
+#[test]
+fn review_invalid_config_suggests_recovery_without_echoing_values() {
+    let temp = tempdir().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_covered_source(temp.path(), "lib", "pub fn live() {}\n");
+    commit_all(temp.path(), "initial");
+    let secret = "private-config-value";
+    fs::write(
+        temp.path().join("invalid.toml"),
+        format!("[scan]\nmax_file_bytes = \"{secret}\"\n"),
+    )
+    .expect("write invalid config");
+
+    let output = repopilot()
+        .args([
+            "review",
+            ".",
+            "--config",
+            "invalid.toml",
+            "--format",
+            "json",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("run review");
+
+    assert_eq!(output.status.code(), Some(3));
+    assert!(output.stdout.is_empty(), "invalid config emitted a report");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("invalid config invalid.toml"), "{stderr}");
+    assert!(
+        stderr.contains("Next step: fix this config or rerun with --config PATH"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains(secret), "config value leaked: {stderr}");
 }
 
 #[test]

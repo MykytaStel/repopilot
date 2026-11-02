@@ -27,6 +27,10 @@ It does not execute those commands, access the network, or write the
 suggestions into active config; review them and add only accepted checks that
 are not already configured as bounded `[[verification.checks]]` entries.
 Existing config files remain unchanged unless `--force` is passed.
+Suggestions omit detected check IDs already present in the selected config and
+name those IDs in the console output. If that config cannot be read or parsed,
+`init` keeps running, reports that comparison is unavailable, and includes all
+detected checks so the limitation does not hide a useful proposal.
 Each proposal includes a source marker such as `Cargo.toml`,
 `package.json:scripts.test`, or `src/auth`, so the heuristic can be reviewed
 against repository evidence before it becomes policy.
@@ -37,8 +41,10 @@ To export a reviewable snippet separately from the active config:
 repopilot init --suggestions-output .repopilot/init-suggestions.toml
 ```
 
-The snippet contains explicit verification entries and keeps critical-path
-candidates as comments. RepoPilot never loads it automatically; copy reviewed
+The snippet contains remaining explicit verification entries and keeps
+critical-path candidates as comments. If all detected checks are already
+configured, it says so instead of implying that no checks were detected.
+RepoPilot never loads it automatically; copy reviewed
 entries into `repopilot.toml` deliberately. The output path cannot be the active
 config path. If `repopilot.toml` does not exist, `init` creates its default
 template; it does not copy the suggested checks into that template.
@@ -50,6 +56,11 @@ Start with a local review:
 ```bash
 repopilot review .
 ```
+
+`review` focuses on the current changes. `init` also prints a separate
+repository-wide `scan` command. When `init` used `--path`, its suggested review
+passes that same config with `--config`; the default root config needs no extra
+flag.
 
 Without configured checks, a change with nothing flagged reads
 `PASS (not verified)`: RepoPilot found nothing to review, and no check of yours

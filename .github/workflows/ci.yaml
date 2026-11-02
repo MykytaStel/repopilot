@@ -175,6 +175,9 @@ jobs:
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
 
+      - name: Verification process-tree lifecycle
+        run: cargo test --lib verification::executor::tests::verification_
+
       - name: CLI release smoke
         run: cargo test --test cli_release_smoke
 

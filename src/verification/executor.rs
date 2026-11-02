@@ -105,6 +105,13 @@ fn execute_check_inner(
     };
     let stdout = spawn_reader(child.stdout.take(), check.max_output_bytes);
     let stderr = spawn_reader(child.stderr.take(), check.max_output_bytes);
+    if let Err(error) = process_tree.resume(&child) {
+        process_tree.terminate(&mut child);
+        let _ = child.wait();
+        let _ = join_reader(stdout);
+        let _ = join_reader(stderr);
+        return unavailable_outcome(check, revision_before, started, error);
+    }
     let deadline = started + Duration::from_secs(check.timeout_seconds);
     let mut forced_status = None;
 
