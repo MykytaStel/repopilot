@@ -225,11 +225,18 @@ fn is_assertion<'a>(node: Node<'a>, content: &'a str) -> bool {
 }
 
 fn assertion_matcher<'a>(node: Node<'a>, content: &'a str) -> Option<AssertionMatcher> {
-    if node.kind() != "call_expression" || chain_root(node, content) != Some("expect") {
+    if node.kind() != "call_expression" {
         return None;
     }
-    let callee = compact_text(node.child_by_field_name("function")?, content)?;
-    let method = callee.rsplit('.').next()?;
+    let function = node.child_by_field_name("function")?;
+    let method = function
+        .child_by_field_name("property")?
+        .utf8_text(content.as_bytes())
+        .ok()?;
+    if !matches!(method, "toEqual" | "toMatchObject") || chain_root(node, content) != Some("expect")
+    {
+        return None;
+    }
     let expected = node.child_by_field_name("arguments")?.named_child(0)?;
     let matcher = match method {
         "toEqual" if expected.kind() == "object" => Some(AssertionMatcher::ExactObject),

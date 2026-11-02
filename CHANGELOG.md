@@ -31,6 +31,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 - Scan cache files use buffered JSON I/O and borrowed, ordered entry views to
   reduce measured cache latency and changed-scan peak memory without changing
   cache or report schemas.
+- JS/TS integrity checks identify `toEqual` and `toMatchObject` from the matcher
+  property before expanding the assertion expression. Unrelated matcher calls
+  skip that extra work; signal scope and output are unchanged.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser
