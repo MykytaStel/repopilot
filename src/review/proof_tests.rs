@@ -158,7 +158,7 @@ fn configured_unavailable_check_action_repairs_the_existing_check_and_keeps_scop
 
     assert_eq!(
         next_action_for(&proof),
-        "Resolve why configured checks are unavailable, then rerun this same review with its original path, revision, scope, and config options, including --verify CHECK_ID."
+        "Resolve why the configured checks are unavailable, then rerun this review with --verify rust.test, keeping its original path, revision, scope, and config."
     );
 }
 
