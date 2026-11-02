@@ -35,8 +35,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
   property before expanding the assertion expression. Unrelated matcher calls
   skip that extra work; signal scope and output are unchanged.
 - Cross-file integrity review checks for changed assertion helpers before
-  building the repository file inventory, skipping that Git scan when the
-  change contains no assertion-helper evidence.
+  extracting export symbols or building the repository file inventory,
+  skipping both when assertion evidence is unchanged.
 - MCP scan, change-review, and explain calls now show readable Markdown in the
   text block while retaining the machine-readable report in `structuredContent`.
   MCP also bounds each incoming request line to 1 MiB. AI Context labels parser

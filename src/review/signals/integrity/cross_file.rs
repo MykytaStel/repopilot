@@ -145,22 +145,17 @@ fn changed_helpers_in_file(
     let Some(file) = evidence.get(&path).copied() else {
         return Vec::new();
     };
-    let (Some(before_names), Some(after_names)) = (
-        exported_value_names(before_source),
-        exported_value_names(after_source),
-    ) else {
-        return Vec::new();
-    };
-
-    before_names
-        .intersection(&after_names)
-        .filter_map(|name| {
+    let mut candidates = file
+        .pre
+        .helpers
+        .iter()
+        .filter_map(|(name, before)| {
             if file.pre.ambiguous_helpers.contains(name)
                 || file.post.ambiguous_helpers.contains(name)
             {
                 return None;
             }
-            let (before, after) = (file.pre.helpers.get(name)?, file.post.helpers.get(name)?);
+            let after = file.post.helpers.get(name)?;
             let before = helpers::resolve(before, &file.pre.helpers);
             let after = helpers::resolve(after, &file.post.helpers);
             helper_checks_differ(&before, &after).then(|| ChangedHelper {
@@ -170,7 +165,19 @@ fn changed_helpers_in_file(
                 after,
             })
         })
-        .collect()
+        .collect::<Vec<_>>();
+    if candidates.is_empty() {
+        return candidates;
+    }
+    let (Some(before_names), Some(after_names)) = (
+        exported_value_names(before_source),
+        exported_value_names(after_source),
+    ) else {
+        return Vec::new();
+    };
+    candidates
+        .retain(|helper| before_names.contains(&helper.name) && after_names.contains(&helper.name));
+    candidates
 }
 
 fn exported_value_names(source: &ReviewSource) -> Option<BTreeSet<String>> {
