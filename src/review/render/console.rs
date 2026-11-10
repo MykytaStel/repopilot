@@ -182,6 +182,20 @@ fn render_impact_paths(output: &mut String, report: &ReviewReport) {
             output.push_str(&format!("      transitive: {}\n", dependent.display()));
             remaining -= 1;
         }
+        for route in &file_impact.routes {
+            if remaining == 0 {
+                output.push_str("    ... (truncated)\n");
+                return;
+            }
+            let route = route
+                .files
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            output.push_str(&format!("      path: {route}\n"));
+            remaining -= 1;
+        }
     }
 }
 

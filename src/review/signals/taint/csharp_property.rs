@@ -1,4 +1,4 @@
-//! Conservative straight-line CommandText state; no heap aliases or CFG joins.
+//! Conservative straight-line CommandText state with local receiver aliases.
 use super::super::{SinkKind, SourceKind, TaintSignal};
 use super::super::{sources::node_has_source, tables::TaintTables};
 use super::flow_assignments::{apply_assignment, collect_assignments};
@@ -7,6 +7,10 @@ use super::flow_state::TaintState;
 use crate::review::diff::ChangedFile;
 use std::collections::BTreeMap;
 use tree_sitter::Node;
+
+#[path = "csharp_property/branch_merge.rs"]
+mod branch_merge;
+use branch_merge::{BranchContext, merge_if_statement};
 
 type Origin = (SourceKind, usize, usize);
 
@@ -28,8 +32,29 @@ pub(super) fn detect(
     };
     let mut state = TaintState::default();
     let mut origins = BTreeMap::new();
+    let mut aliases = BTreeMap::new();
     let mut cursor = body.walk();
     for statement in body.named_children(&mut cursor) {
+        if statement.kind() == "if_statement" {
+            let mut context = BranchContext {
+                content,
+                tables,
+                file,
+                out,
+            };
+            if !merge_if_statement(
+                statement,
+                &mut context,
+                &mut state,
+                &mut origins,
+                &mut aliases,
+            ) {
+                state = TaintState::default();
+                origins.clear();
+                aliases.clear();
+            }
+            continue;
+        }
         if !matches!(
             statement.kind(),
             "local_declaration_statement" | "expression_statement"
@@ -37,10 +62,18 @@ pub(super) fn detect(
         {
             state = TaintState::default();
             origins.clear();
+            aliases.clear();
             continue;
         }
-        update(statement, content, tables, &mut state, &mut origins);
-        executions(statement, content, tables, file, &origins, out);
+        update(
+            statement,
+            content,
+            tables,
+            &mut state,
+            &mut origins,
+            &mut aliases,
+        );
+        executions(statement, content, tables, file, &origins, &aliases, out);
     }
 }
 
@@ -50,6 +83,7 @@ fn update(
     tables: &'static TaintTables,
     state: &mut TaintState,
     origins: &mut BTreeMap<String, Origin>,
+    aliases: &mut BTreeMap<String, String>,
 ) {
     let mut assignments = Vec::new();
     collect_assignments(node, tables, content, &mut assignments);
@@ -64,7 +98,17 @@ fn update(
             origin_line(assignment.rhs, content, tables, origins).unwrap_or(line)
         };
         for name in &assignment.names {
-            origins.remove(&format!("{name}.CommandText"));
+            if let Some(receiver) = simple_identifier(assignment.rhs, content) {
+                aliases.insert(
+                    name.clone(),
+                    aliases
+                        .get(receiver)
+                        .cloned()
+                        .unwrap_or_else(|| receiver.to_string()),
+                );
+            } else {
+                aliases.insert(name.clone(), format!("{name}@{line}"));
+            }
             if let Some(kind) = source {
                 origins.insert(name.clone(), (kind, source_line, line));
             } else if !assignment.augmenting {
@@ -75,10 +119,16 @@ fn update(
             && path.ends_with(".CommandText")
             && path.split('.').count() == 2
         {
+            let receiver = path.trim_end_matches(".CommandText");
+            let receiver = aliases
+                .get(receiver)
+                .map(String::as_str)
+                .unwrap_or(receiver);
+            let property = format!("{receiver}.CommandText");
             if let Some(kind) = source {
-                origins.insert(path.clone(), (kind, source_line, line));
+                origins.insert(property, (kind, source_line, line));
             } else if !assignment.augmenting {
-                origins.remove(path);
+                origins.remove(&property);
             }
         }
         apply_assignment(&assignment, content, tables, state);
@@ -91,6 +141,7 @@ fn executions(
     tables: &'static TaintTables,
     file: &ChangedFile,
     origins: &BTreeMap<String, Origin>,
+    aliases: &BTreeMap<String, String>,
     out: &mut Vec<TaintSignal>,
 ) {
     if (tables.is_flow_scope)(node) {
@@ -106,25 +157,37 @@ fn executions(
             .trim();
         if let Some((receiver, _)) = callee.rsplit_once('.')
             && !receiver.contains(['.', '(', ')', '[', ']'])
-            && let Some((source, source_line, assignment_line)) =
-                origins.get(&format!("{receiver}.CommandText"))
         {
-            let line = node.start_position().row + 1;
-            if file.contains_line(line)
-                || file.contains_line(*assignment_line)
-                || file.contains_line(*source_line)
+            let receiver = aliases
+                .get(receiver)
+                .map(String::as_str)
+                .unwrap_or(receiver);
+            if let Some((source, source_line, assignment_line)) =
+                origins.get(&format!("{receiver}.CommandText"))
             {
-                out.push(TaintSignal { source: *source, sink: SinkKind::Sql,
-                    path: file.path_string(), line,
-                    detail: format!("{} at line {} reaches {}.CommandText at line {} then {} at line {} (straight-line local receiver)",
-                        source.label(), source_line, receiver, assignment_line, callee, line) });
+                let line = node.start_position().row + 1;
+                if file.contains_line(line)
+                    || file.contains_line(*assignment_line)
+                    || file.contains_line(*source_line)
+                {
+                    out.push(TaintSignal { source: *source, sink: SinkKind::Sql,
+                        path: file.path_string(), line,
+                        detail: format!("{} at line {} reaches {}.CommandText at line {} then {} at line {} (straight-line local receiver)",
+                            source.label(), source_line, receiver, assignment_line, callee, line) });
+                }
             }
         }
     }
     let mut cursor = node.walk();
     for child in node.named_children(&mut cursor) {
-        executions(child, content, tables, file, origins, out);
+        executions(child, content, tables, file, origins, aliases, out);
     }
+}
+
+fn simple_identifier<'a>(node: Node<'_>, content: &'a str) -> Option<&'a str> {
+    (node.kind() == "identifier")
+        .then(|| node.utf8_text(content.as_bytes()).ok())
+        .flatten()
 }
 
 fn origin_line(

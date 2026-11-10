@@ -1,15 +1,26 @@
 use repopilot::report::schema::{
-    SCAN_REPORT_SCHEMA_VERSION, parse_scan_summary_json, parse_scan_summary_value,
+    REPOPILOT_VERSION, SCAN_REPORT_SCHEMA_VERSION, parse_scan_summary_json,
+    parse_scan_summary_value,
 };
 use serde_json::Value;
 
+fn current_schema_fixture() -> String {
+    let mut report: Value = serde_json::from_str(include_str!("fixtures/reports/scan-v026.json"))
+        .expect("previous report fixture should be valid JSON");
+    report["schema_version"] = SCAN_REPORT_SCHEMA_VERSION.into();
+    report["repopilot_version"] = REPOPILOT_VERSION.into();
+    report["report"]["schema_version"] = SCAN_REPORT_SCHEMA_VERSION.into();
+    report["report"]["repopilot_version"] = REPOPILOT_VERSION.into();
+    report.to_string()
+}
+
 #[test]
 fn current_schema_fixture_documents_scan_report_contract() {
-    let current_text = include_str!("fixtures/reports/scan-v026.json");
+    let current_text = current_schema_fixture();
     let current: Value =
-        serde_json::from_str(current_text).expect("current report fixture should be valid JSON");
+        serde_json::from_str(&current_text).expect("current report fixture should be valid JSON");
 
-    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.26");
+    assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.27");
     assert_eq!(current["schema_version"], SCAN_REPORT_SCHEMA_VERSION);
     assert_eq!(current["report"]["kind"], "scan");
     assert_eq!(
@@ -37,8 +48,8 @@ fn current_schema_fixture_documents_scan_report_contract() {
 
 #[test]
 fn strict_reader_accepts_current_scan_report_shape() {
-    let current_text = include_str!("fixtures/reports/scan-v026.json");
-    let current = parse_scan_summary_json(current_text)
+    let current_text = current_schema_fixture();
+    let current = parse_scan_summary_json(&current_text)
         .expect("current report should parse into ScanSummary");
 
     assert_eq!(current.metrics.files_discovered, 2);
@@ -70,6 +81,8 @@ fn strict_reader_accepts_current_scan_report_shape() {
 
 #[test]
 fn strict_reader_accepts_previous_scan_report_shapes() {
+    let previous_v026 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v026.json"))
+        .expect("0.26 report should parse during 0.27 transition");
     let previous_v025 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v025.json"))
         .expect("0.25 report should parse during 0.26 transition");
     let previous_v024 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v024.json"))
@@ -91,6 +104,7 @@ fn strict_reader_accepts_previous_scan_report_shapes() {
     let previous_v016 = parse_scan_summary_json(include_str!("fixtures/reports/scan-v016.json"))
         .expect("0.16 report should parse during 0.24 transition");
 
+    assert_eq!(previous_v026.metrics.files_discovered, 2);
     assert_eq!(previous_v025.metrics.files_discovered, 2);
     assert_eq!(previous_v024.metrics.files_discovered, 2);
     assert_eq!(previous_v023.metrics.files_discovered, 2);

@@ -149,6 +149,29 @@ pub fn run(options: ReviewOptions) -> Result<(), Box<dyn std::error::Error>> {
         review_report.apply_filter(&priority_filter);
     }
 
+    if let Some(signal_id) = options.explain_signal.as_deref() {
+        let gate = ReviewSignalGateResult::evaluate(&review_report, review_gate_policy);
+        let report_json = render_with_options(
+            &review_report,
+            OutputFormat::Json,
+            None,
+            Some(&gate),
+            ReviewRenderOptions::full(),
+        )?;
+        let explanation = crate::commands::mcp::explain_signal_from_review(
+            &report_json,
+            signal_id,
+            options.explain_signal_path.as_deref(),
+            options.explain_signal_line,
+        )
+        .map_err(|message| CliExit {
+            code: EXIT_USAGE,
+            message,
+        })?;
+        write_report(&explanation, options.output.as_deref())?;
+        return Ok(());
+    }
+
     crate::commands::review_verification::run_selected(
         &options.verify,
         &scan_result.session,

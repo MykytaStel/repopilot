@@ -119,18 +119,34 @@ fn render_pagination(output: &mut String, pagination: Option<&Value>) {
     let Some(pagination) = pagination else {
         return;
     };
-    let _ = writeln!(
-        output,
-        "**Page:** findings {}–{} of {}{}",
-        number(pagination, "offset").saturating_add(1),
-        number(pagination, "offset").saturating_add(number(pagination, "returned")),
-        number(pagination, "total"),
-        pagination
-            .get("next_offset")
-            .and_then(Value::as_u64)
-            .map(|offset| format!(" · next offset {offset}"))
-            .unwrap_or_default()
-    );
+    if pagination.get("total").is_some() {
+        let _ = writeln!(
+            output,
+            "**Page:** findings {}–{} of {}{}",
+            number(pagination, "offset").saturating_add(1),
+            number(pagination, "offset").saturating_add(number(pagination, "returned")),
+            number(pagination, "total"),
+            pagination
+                .get("next_offset")
+                .and_then(Value::as_u64)
+                .map(|offset| format!(" · next offset {offset}"))
+                .unwrap_or_default()
+        );
+    }
+    if let Some(signals) = pagination.get("signals") {
+        let _ = writeln!(
+            output,
+            "**Page:** signals {}–{} of {}{}",
+            number(signals, "offset").saturating_add(1),
+            number(signals, "offset").saturating_add(number(signals, "returned")),
+            number(signals, "total"),
+            signals
+                .get("next_offset")
+                .and_then(Value::as_u64)
+                .map(|offset| format!(" · next signal offset {offset}"))
+                .unwrap_or_default()
+        );
+    }
 }
 
 fn finding_location(finding: &Value, root: &str) -> Option<String> {

@@ -2,6 +2,9 @@
 //! `paths` and `baseUrl` aliases (cached by effective readable config content).
 
 use super::{normalize_path, probe};
+mod candidates;
+pub(super) use candidates::definitive_local_candidates;
+use candidates::probe_ts_extensions;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{OnceLock, RwLock};
@@ -29,36 +32,35 @@ pub(super) fn resolve_ts(
     resolve_ts_alias(raw, &aliases, known_files)
 }
 
-fn probe_ts_extensions(base: &Path, raw: &str, known_files: &HashSet<PathBuf>) -> Option<PathBuf> {
-    probe(&ts_candidates(base, raw), known_files)
+fn alias_candidate_bases(raw: &str, aliases: &[TsAlias]) -> Vec<PathBuf> {
+    aliases
+        .iter()
+        .filter_map(|alias| {
+            let suffix = if alias.wildcard {
+                if alias.prefix.is_empty() {
+                    raw
+                } else {
+                    raw.strip_prefix(&format!("{}/", alias.prefix))?
+                }
+            } else if raw == alias.prefix {
+                ""
+            } else {
+                return None;
+            };
+            Some(
+                alias
+                    .roots
+                    .iter()
+                    .map(|root| normalize_path(&root.join(suffix)))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .flatten()
+        .collect()
 }
 
-fn ts_candidates(base: &Path, raw: &str) -> Vec<PathBuf> {
-    const EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    for ext in EXTS {
-        candidates.push(base.with_extension(ext));
-    }
-    if Path::new(raw).extension().is_none() {
-        for ext in EXTS {
-            candidates.push(base.join(format!("index.{ext}")));
-        }
-    }
-    candidates
-}
-
-pub(super) fn definitive_relative_candidates(raw: &str, from_file: &Path) -> Option<Vec<PathBuf>> {
-    const SUPPORTED_EXTS: &[&str] = &["ts", "tsx", "js", "jsx"];
-    if !raw.starts_with('.')
-        || !Path::new(raw)
-            .extension()
-            .and_then(|value| value.to_str())
-            .is_some_and(|extension| SUPPORTED_EXTS.contains(&extension))
-    {
-        return None;
-    }
-    let base = normalize_path(&from_file.parent()?.join(raw));
-    Some(ts_candidates(&base, raw))
+pub(super) fn has_alias_candidates(raw: &str, root: &Path) -> bool {
+    !alias_candidate_bases(raw, &tsconfig_paths(root)).is_empty()
 }
 
 #[derive(Clone)]

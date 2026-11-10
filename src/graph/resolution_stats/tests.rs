@@ -25,10 +25,10 @@ fn typed_evidence_preserves_definitive_candidates_and_limited_imports() {
     assert_eq!(evidence.len(), 2);
     assert_eq!(evidence[0].raw_import, "./generated-client");
     assert_eq!(evidence[0].kind, UnresolvedImportKind::RelativePath);
-    assert_eq!(
-        evidence[0].proof,
+    assert!(matches!(
+        &evidence[0].proof,
         UnresolvedImportProof::Limited(UnresolvedImportLimitation::AmbiguousTarget)
-    );
+    ));
     assert_eq!(evidence[1].raw_import, "./missing.ts");
     assert!(matches!(
         &evidence[1].proof,
@@ -84,6 +84,41 @@ fn internal_import_classifier_separates_workspace_from_third_party() {
     assert!(!classify("@angular/core"));
     assert!(!classify("numpy"));
     assert!(!classify("django.db.models"));
+}
+
+#[test]
+fn python_absolute_imports_only_use_root_packages_not_nested_directory_names() {
+    let root = Path::new("/repo");
+    let paths = [
+        Path::new("/repo/src/output/ai_context/json/serializer.rs"),
+        Path::new("/repo/scripts/check.py"),
+        Path::new("/repo/scripts/playwright/example.py"),
+        Path::new("/repo/apps/ml/app/api.py"),
+    ];
+    let modules = repo_python_module_names(paths, root);
+    let source = Path::new("/repo/scripts/check.py");
+
+    assert!(!is_unresolved_python_import("json", source, &modules));
+    assert!(!is_unresolved_python_import(
+        "django.db.models",
+        source,
+        &modules
+    ));
+    assert!(is_unresolved_python_import(
+        "app.services.missing",
+        source,
+        &modules
+    ));
+    assert!(is_unresolved_python_import(
+        "scripts.missing",
+        source,
+        &modules
+    ));
+    assert!(!is_unresolved_python_import(
+        "playwright.sync_api",
+        source,
+        &modules
+    ));
 }
 
 #[test]

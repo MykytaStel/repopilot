@@ -18,8 +18,8 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// Bump whenever the cached scan report contract changes. Schema 0.26 adds
-// assessment_status, so older entries must not bypass the shared renderer.
+// Bump whenever the cached scan report contract changes. RepoPilot version is
+// also part of the key, so 0.27's impact-route shape cannot reuse older reports.
 const SCHEMA: &str = "mcp-scan-cache-v2";
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
 const OVERLAY_PATH: &str = ".repopilot/overlay.toml";

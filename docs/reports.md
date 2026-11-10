@@ -28,18 +28,18 @@ wording is carried by the proof receipt used by JSON and SARIF readers.
 
 ## JSON report schema
 
-JSON scan, baseline-scan, and review reports share schema `0.26`. This is
+JSON scan, baseline-scan, and review reports share schema `0.27`. This is
 independent of the RepoPilot package version. The examples below are partial
 output excerpts, not complete input fixtures for a report reader.
 
 ```json
 {
-  "schema_version": "0.26",
-  "repopilot_version": "0.26.0",
+  "schema_version": "0.27",
+  "repopilot_version": "0.27.0",
   "report": {
     "kind": "scan",
-    "schema_version": "0.26",
-    "repopilot_version": "0.26.0"
+    "schema_version": "0.27",
+    "repopilot_version": "0.27.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -124,7 +124,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.26.0` emits schema `0.26` for scan, baseline-scan, and review; 0.23 and 0.24 changes to that schema are additive.
+Binary `0.27.0` emits schema `0.27` for scan, baseline-scan, and review; 0.23–0.26 changes to that schema are additive.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -173,7 +173,9 @@ outcomes may additionally carry the additive `diagnostics` record described in
 this does not change the schema version or existing fields. Schema `0.26`
 adds `assessment_status` to scan and baseline-scan. Review also uses `0.26`
 because all three DTOs share the schema version; it does not gain that top-level
-field.
+field. Schema `0.27` adds deterministic shortest import routes to each review
+impact entry. Existing direct and transitive dependent lists keep their prior
+meaning.
 
 Migration from pre-`0.13` reports is intentionally consumer-owned:
 
@@ -184,7 +186,7 @@ Migration from pre-`0.13` reports is intentionally consumer-owned:
 | `skipped_files_count` | `large_files_skipped` |
 
 The current scan-report reader accepts `0.16`, `0.17`, `0.18`, `0.19`, `0.20`,
-`0.21`, `0.22`, `0.23`, `0.24`, `0.25`, and current `0.26` scan reports. Older
+`0.21`, `0.22`, `0.23`, `0.24`, `0.25`, `0.26`, and current `0.27` scan reports. Older
 versions (including `0.15`) and unknown schema versions are rejected.
 This is current-reader ingestion of older scan output, not evidence that older
 released readers accept new output or that review reports are scan-reader input.
@@ -219,12 +221,12 @@ Example shape:
 
 ```json
 {
-  "schema_version": "0.26",
-  "repopilot_version": "0.26.0",
+  "schema_version": "0.27",
+  "repopilot_version": "0.27.0",
   "report": {
     "kind": "baseline-scan",
-    "schema_version": "0.26",
-    "repopilot_version": "0.26.0"
+    "schema_version": "0.27",
+    "repopilot_version": "0.27.0"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -267,12 +269,12 @@ Envelope excerpt (the remaining review fields are omitted here):
 
 ```json
 {
-  "schema_version": "0.26",
-  "repopilot_version": "0.26.0",
+  "schema_version": "0.27",
+  "repopilot_version": "0.27.0",
   "report": {
     "kind": "review",
-    "schema_version": "0.26",
-    "repopilot_version": "0.26.0"
+    "schema_version": "0.27",
+    "repopilot_version": "0.27.0"
   }
 }
 ```
@@ -295,6 +297,12 @@ Integrity signals never create a verification obligation. `review_gate` is indep
 finding-only `ci_gate`. `review_timings` reports `diff_loading_us`,
 `review_signals_us`, `gating_us`, `rendering_us`, and `integrity_us` (the integrity
 analysis share of `review_signals_us`).
+
+`impact_paths.files` retains `direct_dependents` and `transitive_dependents` and
+adds `routes`. Each route names a `dependent` and a deterministic shortest
+static import path in `files`, beginning with the changed file and ending at
+that dependent. Routes stop at the configured impact depth. They show graph
+evidence for where to look; they do not establish runtime reachability.
 
 `integrity.assertions-weakened` is a maybe-tier candidate for an existing JS/TS
 test that changes object matching from exact `toEqual` to partial
@@ -436,10 +444,10 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "6",
-    "repopilot_version": "0.26.0"
+    "repopilot_version": "0.27.0"
   },
   "tool": "repopilot",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "generated_at": "2026-05-16T00:00:00Z",
   "root_path": ".",
   "git": {

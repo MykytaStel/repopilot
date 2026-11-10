@@ -75,6 +75,20 @@ pub(super) fn handle_tools_call_with_approval(
     // Analysis may update RepoPilot-owned cache files. Capture the revision at
     // response time so a handle never becomes stale because of its own call.
     let workspace_revision = WorkspaceRevision::capture(&state.root).id().to_string();
+    if let Some(record) = referenced.as_ref()
+        && record.workspace_revision != workspace_revision
+    {
+        return tool_response(
+            id,
+            name,
+            Err(format!(
+                "analysis handle became stale while preparing the response: its revision is {}, current revision is {workspace_revision}",
+                record.workspace_revision
+            )),
+            &workspace_revision,
+            state,
+        );
+    }
     let (outcome, structured_content, publishable) = match outcome {
         Ok(execution) => {
             let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
@@ -138,6 +152,16 @@ fn dispatch_tool(
 ) -> Result<ToolExecution, DispatchError> {
     match name {
         review_change::TOOL_NAME => {
+            if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
+                return Ok(ToolExecution {
+                    rendered: record.report.clone(),
+                    structured_content: None,
+                    review_revision: Some(ReviewRevision {
+                        analysis_revision: record.workspace_revision.clone(),
+                        revision_compatible: true,
+                    }),
+                });
+            }
             let mut full_arguments = arguments.clone();
             full_arguments["detail"] = json!("full");
             review_change::call_with_context(
@@ -252,9 +276,12 @@ fn referenced_analysis(
     };
     if !matches!(
         name,
-        context::TOOL_NAME | explain_finding::TOOL_NAME | explain_review_signal::TOOL_NAME
+        context::TOOL_NAME
+            | explain_finding::TOOL_NAME
+            | explain_review_signal::TOOL_NAME
+            | review_change::TOOL_NAME
     ) {
-        return Err("`analysis_handle` is only accepted by context, explain_finding, and explain_review_signal".into());
+        return Err("`analysis_handle` is not accepted by this tool".into());
     }
     let record = state
         .analyses
@@ -266,6 +293,29 @@ fn referenced_analysis(
             "analysis handle {handle} belongs to workspace revision {}; current revision is {workspace_revision}",
             record.workspace_revision
         ));
+    }
+    if name == review_change::TOOL_NAME {
+        if record.kind != AnalysisKind::Review {
+            return Err("`analysis_handle` must refer to a prior review".into());
+        }
+        let allowed = [
+            "analysis_handle",
+            "offset",
+            "limit",
+            "signal_offset",
+            "signal_limit",
+            "detail",
+        ];
+        if let Some(key) = arguments
+            .as_object()
+            .into_iter()
+            .flat_map(|values| values.keys())
+            .find(|key| !allowed.contains(&key.as_str()))
+        {
+            return Err(format!(
+                "`{key}` cannot be combined with a stored review handle; request only another page or detail projection"
+            ));
+        }
     }
     Ok(Some(record))
 }

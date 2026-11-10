@@ -92,6 +92,94 @@ fn missing_explicit_python_relative_module_emits_finding() {
 }
 
 #[test]
+fn missing_repository_local_python_absolute_module_emits_finding() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    let source = root.join("src/main.py");
+    let mut facts = facts(
+        source.clone(),
+        "Python",
+        "import app.missing\n",
+        &["app.missing"],
+    );
+    facts.files.push(FileFacts {
+        path: root.join("app/other.py"),
+        language: Some("Python".into()),
+        ..FileFacts::default()
+    });
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "app.missing", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+    assert_eq!(result.findings[0].evidence[0].line_start, 1);
+    assert!(result.findings[0].description.contains("app.missing"));
+}
+
+#[test]
+fn existing_python_namespace_package_directory_is_not_reported_missing() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("app/missing")).unwrap();
+    let source = root.join("src/main.py");
+    let mut facts = facts(
+        source.clone(),
+        "Python",
+        "import app.missing\n",
+        &["app.missing"],
+    );
+    facts.files.push(FileFacts {
+        path: root.join("app/other.py"),
+        language: Some("Python".into()),
+        ..FileFacts::default()
+    });
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "app.missing", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert!(result.findings.is_empty(), "{:#?}", result.findings);
+}
+
+#[test]
+fn missing_go_workspace_replacement_package_emits_finding() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("app")).unwrap();
+    fs::create_dir_all(root.join("shared")).unwrap();
+    fs::write(
+        root.join("go.work"),
+        "go 1.22\nuse (\n ./app\n ./shared\n)\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("app/go.mod"),
+        "module example.com/app\n\nreplace example.com/shared => ../shared\n",
+    )
+    .unwrap();
+    fs::write(root.join("shared/go.mod"), "module example.com/shared\n").unwrap();
+    let source = root.join("app/main.go");
+    let facts = facts(
+        source.clone(),
+        "Go",
+        "package main\nimport \"example.com/shared/missing\"\n",
+        &["example.com/shared/missing"],
+    );
+    let mut resolution = ImportResolutionStats::default();
+    resolution.record_classified(&source, "example.com/shared/missing", root);
+
+    let result = analyze(root, &facts, &resolution);
+
+    assert_eq!(result.findings.len(), 1, "{:#?}", result.findings);
+    assert!(
+        result.findings[0]
+            .description
+            .contains("example.com/shared/missing")
+    );
+}
+
+#[test]
 fn missing_rust_module_declaration_emits_high_confidence_finding() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
@@ -190,19 +278,21 @@ fn candidate_present_on_disk_but_absent_from_scan_is_not_reported() {
 }
 
 #[test]
-fn ambiguous_imports_are_aggregated_into_one_info_diagnostic() {
+fn ambiguous_python_package_members_are_aggregated_into_one_info_diagnostic() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
-    let source = root.join("src/app.ts");
+    fs::create_dir_all(root.join("pkg")).unwrap();
+    fs::write(root.join("pkg/__init__.py"), "value = 1\n").unwrap();
+    let source = root.join("pkg/app.py");
     let facts = facts(
         source.clone(),
-        "TypeScript",
-        "import a from \"./generated-a\";\nimport b from \"./generated-b\";\n",
-        &["./generated-a", "./generated-b"],
+        "Python",
+        "from . import first, second\n",
+        &[".", ".first", ".second"],
     );
     let mut resolution = ImportResolutionStats::default();
-    resolution.record_classified(&source, "./generated-a", root);
-    resolution.record_classified(&source, "./generated-b", root);
+    resolution.record_classified(&source, ".first", root);
+    resolution.record_classified(&source, ".second", root);
 
     let result = analyze(root, &facts, &resolution);
 

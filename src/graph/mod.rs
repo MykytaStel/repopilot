@@ -54,6 +54,10 @@ pub fn build_coupling_graph_with_resolution(
     let inventory = resolver::ResolverInventory::new(&known_files);
     let repo_dirs =
         resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
+    let repo_python_modules = resolution_stats::repo_python_module_names(
+        facts.files.iter().map(|file| file.path.as_path()),
+        root,
+    );
     let repo_jvm_packages = resolution_stats::repo_jvm_package_suffixes(
         facts.files.iter().map(|file| file.path.as_path()),
     );
@@ -69,6 +73,7 @@ pub fn build_coupling_graph_with_resolution(
             &known_file_by_normalized,
             &inventory,
             &repo_dirs,
+            &repo_python_modules,
             &repo_jvm_packages,
             &mut edges,
             &mut deferred_edges,
@@ -99,6 +104,7 @@ fn process_graph_file(
     known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
     inventory: &resolver::ResolverInventory<'_>,
     repo_dirs: &HashSet<String>,
+    repo_python_modules: &HashSet<String>,
     repo_jvm_packages: &HashSet<PathBuf>,
     edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     deferred_edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
@@ -124,6 +130,7 @@ fn process_graph_file(
             known_file_by_normalized,
             inventory,
             repo_dirs,
+            repo_python_modules,
             repo_jvm_packages,
             outgoing,
             &mut eager_targets,
@@ -159,6 +166,7 @@ fn process_import(
     known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
     inventory: &resolver::ResolverInventory<'_>,
     repo_dirs: &HashSet<String>,
+    repo_python_modules: &HashSet<String>,
     repo_jvm_packages: &HashSet<PathBuf>,
     outgoing: &mut BTreeSet<PathBuf>,
     eager_targets: &mut BTreeSet<PathBuf>,
@@ -176,12 +184,22 @@ fn process_import(
             outgoing.insert(resolved);
         }
         Some(_) => {}
-        None if resolution_stats::is_unresolved_internal_import(
+        None if (if source.extension().and_then(|extension| extension.to_str()) == Some("py")
+            && !raw.trim().starts_with('.')
+        {
+            resolution_stats::is_unresolved_python_import(raw.trim(), source, repo_python_modules)
+        } else {
+            resolution_stats::is_unresolved_internal_import(
+                raw.trim(),
+                source,
+                repo_jvm_packages,
+                repo_dirs,
+            )
+        }) || resolution_stats::is_unresolved_go_module_import(
             raw.trim(),
             source,
-            repo_jvm_packages,
-            repo_dirs,
-        ) || resolution_stats::is_unresolved_go_module_import(raw.trim(), source, root) =>
+            root,
+        ) || resolver::is_configured_ts_alias_import(raw.trim(), source, root) =>
         {
             resolution.record_classified(source, raw.trim(), root)
         }
@@ -506,6 +524,39 @@ mod tests {
     }
 
     #[test]
+    fn records_missing_configured_tsconfig_alias_with_local_alias_evidence() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        std::fs::write(
+            root.join("tsconfig.json"),
+            r#"{"compilerOptions":{"paths":{"@app/*":["src/*"]}}}"#,
+        )
+        .unwrap();
+        let source = root.join("src/app.ts");
+        let facts = ScanFacts {
+            root_path: root.to_path_buf(),
+            files: vec![FileFacts {
+                path: source.clone(),
+                language: Some("TypeScript".to_string()),
+                imports: vec!["@app/missing".to_string()],
+                ..FileFacts::default()
+            }],
+            ..ScanFacts::default()
+        };
+
+        let (_graph, resolution) = build_coupling_graph_with_resolution(&facts, root);
+        let evidence = resolution.evidence().next().expect("alias is internal");
+
+        assert_eq!(resolution.total(), 1);
+        assert_eq!(evidence.kind, UnresolvedImportKind::LocalAlias);
+        assert!(matches!(
+            &evidence.proof,
+            UnresolvedImportProof::DefinitiveLocalCandidates(candidates)
+                if candidates.contains(&root.join("src/missing.ts"))
+        ));
+    }
+
+    #[test]
     fn jvm_unresolved_imports_require_a_matching_local_package() {
         let facts = ScanFacts {
             root_path: PathBuf::from("/repo"),
@@ -533,6 +584,56 @@ mod tests {
         );
         assert!(resolution.could_target_stem("Missing"));
         assert!(!resolution.could_target_stem("Gson"));
+    }
+
+    #[test]
+    fn same_package_java_and_kotlin_types_create_local_graph_edges() {
+        let facts = ScanFacts {
+            root_path: PathBuf::from("/repo"),
+            files: vec![
+                FileFacts {
+                    path: PathBuf::from("app/src/main/java/com/acme/App.java"),
+                    language: Some("Java".to_string()),
+                    content: Some("package com.acme;\nclass App { Engine engine; }\n".to_string()),
+                    imports: vec!["com.acme.Engine".to_string()],
+                    ..FileFacts::default()
+                },
+                FileFacts {
+                    path: PathBuf::from("app/src/main/java/com/acme/Engine.java"),
+                    language: Some("Java".to_string()),
+                    content: Some("package com.acme;\nclass Engine {}\n".to_string()),
+                    ..FileFacts::default()
+                },
+                FileFacts {
+                    path: PathBuf::from("feature/src/main/kotlin/com/feature/View.kt"),
+                    language: Some("Kotlin".to_string()),
+                    content: Some(
+                        "package com.feature\nclass View(val engine: Engine)\n".to_string(),
+                    ),
+                    imports: vec!["com.feature.Engine".to_string()],
+                    ..FileFacts::default()
+                },
+                FileFacts {
+                    path: PathBuf::from("feature/src/main/kotlin/com/feature/Engine.kt"),
+                    language: Some("Kotlin".to_string()),
+                    content: Some("package com.feature\nclass Engine\n".to_string()),
+                    ..FileFacts::default()
+                },
+            ],
+            ..ScanFacts::default()
+        };
+
+        let (graph, _) = build_coupling_graph_with_resolution(&facts, Path::new("/repo"));
+
+        assert!(
+            graph.edges[&PathBuf::from("app/src/main/java/com/acme/App.java")]
+                .contains(&PathBuf::from("app/src/main/java/com/acme/Engine.java"))
+        );
+        assert!(
+            graph.edges[&PathBuf::from("feature/src/main/kotlin/com/feature/View.kt")].contains(
+                &PathBuf::from("feature/src/main/kotlin/com/feature/Engine.kt")
+            )
+        );
     }
 
     fn graph_from_edges(edges: &[(&str, &str)]) -> CouplingGraph {

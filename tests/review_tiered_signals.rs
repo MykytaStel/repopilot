@@ -100,6 +100,39 @@ fn review_groups_signals_into_tiers_in_json() {
 }
 
 #[test]
+fn review_can_explain_a_signal_from_a_prior_review() {
+    let temp = tempdir().expect("failed to create temp dir");
+    write_definitely_and_maybe(temp.path());
+    let reviewed = run_review_json(temp.path(), &["review", ".", "--format", "json"]);
+    let signal_id = reviewed["tiered_signals"]["definitely"][0]["signal_id"]
+        .as_str()
+        .expect("boundary review signal id");
+    let output = repopilot()
+        .args([
+            "review",
+            ".",
+            "--explain-signal",
+            signal_id,
+            "--explain-signal-path",
+            "src/auth/session.ts",
+        ])
+        .current_dir(temp.path())
+        .output()
+        .expect("run review explanation");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let explanation: Value = serde_json::from_slice(&output.stdout).expect("JSON explanation");
+    assert_eq!(explanation["status"], "explained");
+    assert_eq!(explanation["signal_id"], signal_id);
+    assert_eq!(explanation["signal"]["path"], "src/auth/session.ts");
+    assert!(explanation["limitations"].as_array().is_some());
+}
+
+#[test]
 fn review_gate_is_opt_in_and_blocks_definitely_sensitive_signals() {
     let temp = tempdir().expect("failed to create temp dir");
     write_definitely_and_maybe(temp.path());

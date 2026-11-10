@@ -158,6 +158,20 @@ fn render_markdown_impact_paths(output: &mut String, report: &ReviewReport) {
             output.push_str(&format!("  - transitive: `{}`\n", dependent.display()));
             remaining -= 1;
         }
+        for route in &file_impact.routes {
+            if remaining == 0 {
+                output.push_str("  - ... (truncated)\n");
+                break 'files;
+            }
+            let route = route
+                .files
+                .iter()
+                .map(|path| format!("`{}`", path.display()))
+                .collect::<Vec<_>>()
+                .join(" → ");
+            output.push_str(&format!("  - path: {route}\n"));
+            remaining -= 1;
+        }
     }
 
     output.push('\n');

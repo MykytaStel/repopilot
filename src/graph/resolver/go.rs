@@ -1,40 +1,52 @@
-//! Go import resolution, using the `go.mod` module path (cached per repo root)
-//! with a fallback to the repository directory name.
+//! Go import resolution from the main module, `go.work` members, and local
+//! `replace` directives. Remote module replacements remain outside the graph.
 
 use super::{normalize_path, probe};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{OnceLock, RwLock};
 
-static GO_MODULE_CACHE: OnceLock<RwLock<HashMap<PathBuf, Option<String>>>> = OnceLock::new();
-
-fn get_go_module_cache() -> &'static RwLock<HashMap<PathBuf, Option<String>>> {
-    GO_MODULE_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
-}
+mod workspace;
+pub(crate) use workspace::GoIndex;
+use workspace::local_modules;
 
 pub(super) fn resolve_go(
     raw: &str,
+    from_file: &Path,
     root: &Path,
     known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    let index = GoIndex::new(root);
+    resolve_go_with_index(raw, from_file, root, known_files, &index)
+}
+
+pub(super) fn resolve_go_with_index(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+    known_files: &HashSet<PathBuf>,
+    index: &GoIndex,
 ) -> Option<PathBuf> {
     if !raw.contains('/') {
         return None;
     }
 
-    if let Some(module_name) = read_go_module_name(root)
-        && let Some(rest) = strip_go_module_prefix(raw, &module_name)
-    {
-        let rel = rest.trim_start_matches('/');
-        let base = if rel.is_empty() {
-            root.to_path_buf()
-        } else {
-            root.join(rel)
-        };
-        if let Some(path) = probe_go_package(&normalize_path(&base), known_files) {
-            return Some(path);
-        }
+    let mut matches = index
+        .modules_for_source(from_file)
+        .iter()
+        .filter_map(|module| {
+            let rest = strip_go_module_prefix(raw, &module.import_path)?;
+            let base = module.directory.join(rest.trim_start_matches('/'));
+            probe_go_package(&normalize_path(&base), known_files)
+        })
+        .collect::<Vec<_>>();
+    matches.sort();
+    matches.dedup();
+    if matches.len() == 1 {
+        return matches.pop();
     }
 
+    // Preserve the historical repository-name fallback for simple fixtures
+    // without module metadata.
     let root_name = root
         .file_name()
         .and_then(|name| name.to_str())
@@ -58,28 +70,48 @@ pub(super) fn resolve_go(
 /// directive can redirect even an otherwise local-looking module path outside
 /// this repository; those imports remain limited instead of becoming a false
 /// missing-package finding.
-pub(super) fn definitive_local_candidates(raw: &str, root: &Path) -> Option<Vec<PathBuf>> {
-    let module_name = read_go_module_name(root)?;
-    let rest = strip_go_module_prefix(raw, &module_name)?;
-    if go_mod_has_replace(root) || rest == "/" || rest.contains('\\') || rest.contains('\0') {
+pub(super) fn definitive_local_candidates(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+) -> Option<Vec<PathBuf>> {
+    if raw.contains('\\') || raw.contains('\0') {
         return None;
     }
 
-    let relative = rest.trim_start_matches('/');
-    let relative_path = Path::new(relative);
-    if relative_path
-        .components()
-        .any(|component| matches!(component, std::path::Component::ParentDir))
-    {
-        return None;
-    }
-    let package_dir = normalize_path(&root.join(relative_path));
     let root = normalize_path(root);
-    if !package_dir.starts_with(&root) {
+    let mut candidates = Vec::new();
+    let mut recognized = false;
+    for module in local_modules(from_file, &root) {
+        let Some(rest) = strip_go_module_prefix(raw, &module.import_path) else {
+            continue;
+        };
+        let relative = rest.trim_start_matches('/');
+        let relative_path = Path::new(relative);
+        if rest == "/"
+            || relative_path
+                .components()
+                .any(|component| matches!(component, std::path::Component::ParentDir))
+        {
+            return None;
+        }
+        let package_dir = normalize_path(&module.directory.join(relative_path));
+        if !package_dir.starts_with(&root) {
+            return None;
+        }
+        recognized = true;
+        candidates.extend(go_files_in_package(&package_dir));
+    }
+    if !recognized {
         return None;
     }
+    candidates.sort();
+    candidates.dedup();
+    Some(candidates)
+}
 
-    let mut candidates = std::fs::read_dir(&package_dir)
+fn go_files_in_package(package_dir: &Path) -> Vec<PathBuf> {
+    let mut candidates = std::fs::read_dir(package_dir)
         .ok()
         .into_iter()
         .flat_map(|entries| entries.filter_map(Result::ok))
@@ -96,13 +128,13 @@ pub(super) fn definitive_local_candidates(raw: &str, root: &Path) -> Option<Vec<
         })
         .collect::<Vec<_>>();
     candidates.sort();
-    Some(candidates)
+    candidates
 }
 
-pub(super) fn is_local_module_import(raw: &str, root: &Path) -> bool {
-    read_go_module_name(root)
-        .and_then(|module| strip_go_module_prefix(raw, &module))
-        .is_some()
+pub(super) fn is_local_module_import(raw: &str, source: &Path, root: &Path) -> bool {
+    local_modules(source, root)
+        .iter()
+        .any(|module| strip_go_module_prefix(raw, &module.import_path).is_some())
 }
 
 fn strip_go_module_prefix<'a>(raw: &'a str, module_name: &str) -> Option<&'a str> {
@@ -127,35 +159,4 @@ fn probe_go_package(base: &Path, known_files: &HashSet<PathBuf>) -> Option<PathB
         .filter(|path| path.parent() == Some(package_dir.as_path()))
         .min()
         .cloned()
-}
-
-fn read_go_module_name(root: &Path) -> Option<String> {
-    let cache = get_go_module_cache();
-    if let Some(cached) = cache.read().unwrap().get(root) {
-        return cached.clone();
-    }
-
-    let module = std::fs::read_to_string(root.join("go.mod"))
-        .ok()
-        .and_then(|content| {
-            content.lines().find_map(|line| {
-                line.trim()
-                    .strip_prefix("module ")
-                    .map(|module| module.trim().to_string())
-            })
-        });
-    cache
-        .write()
-        .unwrap()
-        .insert(root.to_path_buf(), module.clone());
-    module
-}
-
-fn go_mod_has_replace(root: &Path) -> bool {
-    std::fs::read_to_string(root.join("go.mod")).is_ok_and(|content| {
-        content.lines().any(|line| {
-            let trimmed = line.trim();
-            trimmed.split_whitespace().next() == Some("replace")
-        })
-    })
 }

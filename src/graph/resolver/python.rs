@@ -64,3 +64,30 @@ pub(super) fn definitive_relative_candidates(raw: &str, from_file: &Path) -> Opt
     }
     Some(python_module_candidates(dir, module))
 }
+
+pub(super) fn definitive_import_candidates(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+) -> Option<Vec<PathBuf>> {
+    if raw.starts_with('.') {
+        return definitive_relative_candidates(raw, from_file);
+    }
+    if raw.is_empty() || raw.split('.').any(str::is_empty) {
+        return None;
+    }
+    let mut candidates = [root.to_path_buf(), root.join("src")]
+        .into_iter()
+        .flat_map(|base| python_module_candidates(&base, raw))
+        .collect::<Vec<_>>();
+    candidates.extend(
+        [root.to_path_buf(), root.join("src")]
+            .into_iter()
+            .map(|base| {
+                raw.split('.')
+                    .fold(base, |path, segment| path.join(segment))
+            }),
+    );
+    candidates.dedup();
+    Some(candidates)
+}

@@ -30,6 +30,19 @@ fn rust_removed_public_function_has_proven_surviving_import() {
 }
 
 #[test]
+fn rust_removed_public_function_supports_grouped_imports() {
+    let signals = rust_case(
+        "pub fn load() {}",
+        "pub fn save() {}",
+        "mod api; use api::{load as fetch}; fn run() { fetch(); }",
+        false,
+    );
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].exported_name, "load");
+    assert_eq!(signals[0].local_name, "fetch");
+}
+
+#[test]
 fn rust_arity_controls_require_a_previously_matching_direct_call() {
     for (before, after, caller) in [
         (
@@ -108,6 +121,47 @@ fn rust_decreased_public_function_arity_flags_a_surviving_old_call() {
             call_arguments: 2,
         }
     );
+}
+
+#[test]
+fn rust_removed_public_struct_field_flags_a_surviving_literal_field() {
+    let signals = rust_case(
+        "pub struct Config { pub old: usize, pub kept: bool }",
+        "pub struct Config { pub kept: bool }",
+        "mod api; fn run() { let config = api::Config { old: 1, kept: true }; }",
+        false,
+    );
+
+    assert_eq!(signals.len(), 1);
+    assert_eq!(signals[0].exported_name, "old");
+    assert_eq!(signals[0].module_specifier, "mod::api");
+    assert_eq!(signals[0].change, ContractChange::RustStructFieldRemoved);
+}
+
+#[test]
+fn rust_struct_field_contract_preserves_private_and_coordinated_cases() {
+    for (before, after, caller) in [
+        (
+            "pub struct Config { old: usize }",
+            "pub struct Config { new: usize }",
+            "mod api; fn run() { let config = api::Config { old: 1 }; }",
+        ),
+        (
+            "pub struct Config { pub old: usize }",
+            "pub struct Config { pub new: usize }",
+            "mod api; fn run() { let config = api::Config { new: 1 }; }",
+        ),
+        (
+            "pub struct Config { pub old: usize }",
+            "pub struct Other { pub old: usize }",
+            "mod api; fn run() { let config = api::Config { old: 1 }; }",
+        ),
+    ] {
+        assert!(
+            rust_case(before, after, caller, false).is_empty(),
+            "{before} -> {after}"
+        );
+    }
 }
 
 fn rust_case(
@@ -223,7 +277,6 @@ fn rust_uncertain_paths_and_opaque_syntax_cannot_prove_removal() {
         "#[cfg(feature = \"api\")] mod api; use api::load;",
         "#[path = \"api.rs\"] mod api; use api::load;",
         "mod api; use api::*;",
-        "mod api; use api::{load};",
         "mod api; fn run() { object.load(); }",
         "mod api; fn run<api>() { api::load(); }",
         "mod api; fn run() { use other as api; api::load(); }",

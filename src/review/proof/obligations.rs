@@ -173,7 +173,8 @@ fn required_verification_requirements(report: &ReviewReport) -> BTreeSet<Verific
                 (
                     SignalFamily::Behavioral,
                     "behavioral.removed-export-still-imported"
-                    | "behavioral.rust-public-function-arity-changed",
+                    | "behavioral.rust-public-function-arity-changed"
+                    | "behavioral.rust-public-struct-field-removed",
                 ) => VerificationRole::TypeCheck,
                 _ => VerificationRole::Test,
             },
@@ -189,7 +190,9 @@ fn contract_requirement(delta: &ChangeProofContractDelta) -> Option<Verification
     let role = match (delta.family, delta.change) {
         (
             ContractFamily::PublicSymbol,
-            ContractChangeKind::RemovedExport | ContractChangeKind::FunctionArityChanged,
+            ContractChangeKind::RemovedExport
+            | ContractChangeKind::FunctionArityChanged
+            | ContractChangeKind::StructFieldRemoved,
         ) => VerificationRole::TypeCheck,
         (ContractFamily::Delivery, _)
         | (ContractFamily::TestCoverage, ContractChangeKind::TestChanged)

@@ -68,7 +68,7 @@ def unavailable_resource(reason: str) -> dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
-def _resource_sampler_supported() -> bool:
+def resource_sampler_supported() -> bool:
     """Probe the optional sampler without allowing it to mask child status."""
 
     probe_path: Path | None = None
@@ -97,7 +97,7 @@ def execute_timed_command(
 
     sampler_path: Path | None = None
     wrapped_command: list[str] | None = None
-    if _resource_sampler_supported():
+    if resource_sampler_supported():
         with tempfile.NamedTemporaryFile(prefix="repopilot-rss-", suffix=".txt", delete=False) as handle:
             sampler_path = Path(handle.name)
         wrapped_command = resource_command(command, sampler_path)

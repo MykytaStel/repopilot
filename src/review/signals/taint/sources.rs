@@ -15,7 +15,7 @@ use serde::Serialize;
 use tree_sitter::Node;
 
 /// Where an untrusted value originates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SourceKind {
     /// A field of an inbound HTTP request (query, params, body, headers, …).

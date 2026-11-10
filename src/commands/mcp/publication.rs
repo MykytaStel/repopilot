@@ -1,7 +1,7 @@
 mod analysis;
 
 use super::analysis_store::AnalysisKind;
-use super::{ServerState, context, human_output, review_change, review_projection, scan};
+use super::{ServerState, context, human_output, review_change, scan};
 use serde_json::{Value, json};
 
 pub(super) struct PreparedToolResult {
@@ -147,22 +147,6 @@ fn error_result(
             },
         ),
         publication: None,
-    }
-}
-
-fn compact_review_for_client(
-    kind: AnalysisKind,
-    full_report: String,
-    arguments: &Value,
-) -> Result<String, String> {
-    if kind == AnalysisKind::Review
-        && arguments.get("offset").is_none()
-        && arguments.get("limit").is_none()
-        && arguments.get("detail").and_then(Value::as_str) != Some("full")
-    {
-        review_projection::compact_review_json(&full_report)
-    } else {
-        Ok(full_report)
     }
 }
 

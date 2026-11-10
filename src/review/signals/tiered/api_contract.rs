@@ -13,6 +13,9 @@ pub(super) fn verification_step(kind: &str) -> Option<&'static str> {
         "behavioral.rust-public-function-arity-changed" => Some(
             "Inspect the changed Rust function signature and direct caller, then update the caller or restore the prior parameter count before running the Rust type-check or focused tests.",
         ),
+        "behavioral.rust-public-struct-field-removed" => Some(
+            "Inspect the changed public struct field and surviving struct literal, then update the literal or restore the field before running the Rust type-check or focused tests.",
+        ),
         _ => None,
     }
 }
@@ -40,6 +43,9 @@ pub(super) fn from_occurrence(occurrence: &RemovedExportSignal) -> ReviewSignal 
             after,
             call_arguments,
         ),
+        ContractChange::RustStructFieldRemoved => {
+            removed_struct_field(occurrence, &exporter, &importer)
+        }
     };
     let mut signal = build_signal(
         kind,
@@ -57,6 +63,32 @@ pub(super) fn from_occurrence(occurrence: &RemovedExportSignal) -> ReviewSignal 
     signal.line_end = Some(occurrence.line_end);
     signal.evidence_lines = (occurrence.line_start..=occurrence.line_end).collect();
     signal
+}
+
+fn removed_struct_field(
+    occurrence: &RemovedExportSignal,
+    exporter: &str,
+    importer: &str,
+) -> (&'static str, &'static str, String, String) {
+    let detail = format!(
+        "Public Rust struct field '{}' in {exporter} was removed or made private while a surviving struct literal still names it at {importer}:{}.",
+        occurrence.exported_name, occurrence.line_start,
+    );
+    let identity = format!(
+        "behavioral.rust-public-struct-field-removed\0{exporter}\0{}\0{importer}\0{}\0{}-{}\0{}-{}",
+        occurrence.exported_name,
+        occurrence.module_specifier,
+        occurrence.line_start,
+        occurrence.line_end,
+        occurrence.byte_start,
+        occurrence.byte_end,
+    );
+    (
+        "behavioral.rust-public-struct-field-removed",
+        "Rust public struct field changed while a surviving literal still names it",
+        detail,
+        identity,
+    )
 }
 
 fn removed(

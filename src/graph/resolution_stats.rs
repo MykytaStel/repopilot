@@ -167,6 +167,8 @@ fn unresolved_import_kind_for_source(
 ) -> UnresolvedImportKind {
     if is_unresolved_go_module_import(raw_import, source, root) {
         UnresolvedImportKind::GoFileBacked
+    } else if crate::graph::resolver::is_configured_ts_alias_import(raw_import, source, root) {
+        UnresolvedImportKind::LocalAlias
     } else {
         unresolved_import_kind(raw_import)
     }
@@ -211,7 +213,7 @@ pub(crate) fn is_unresolved_go_module_import(import: &str, source: &Path, root: 
         .extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension == "go")
-        && crate::graph::resolver::is_local_go_module_import(import, root)
+        && crate::graph::resolver::is_local_go_module_import(import, source, root)
 }
 
 /// Whether an unresolved import should weaken absence claims (dead module,
@@ -252,6 +254,21 @@ pub(crate) fn is_unresolved_internal_import(
         return jvm_import_has_local_package(import, repo_jvm_packages);
     }
     leading_segment(import).is_some_and(|segment| repo_dirs.contains(segment))
+}
+
+/// Bare Python imports are local only when their first module belongs to a
+/// root package or module in the repository's flat or `src/` layout.
+pub(crate) fn is_unresolved_python_import(
+    import: &str,
+    source: &Path,
+    repo_python_modules: &HashSet<String>,
+) -> bool {
+    source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "py")
+        && !import.trim().starts_with('.')
+        && leading_segment(import).is_some_and(|segment| repo_python_modules.contains(segment))
 }
 
 fn jvm_import_has_local_package(import: &str, repo_jvm_packages: &HashSet<PathBuf>) -> bool {
@@ -329,4 +346,48 @@ where
         }
     }
     dirs
+}
+
+/// Python module/package names derived only from Python source paths.
+pub(crate) fn repo_python_module_names<'a, I>(paths: I, root: &Path) -> HashSet<String>
+where
+    I: IntoIterator<Item = &'a Path>,
+{
+    let root = crate::graph::resolver::normalize_path(root);
+    let mut modules = HashSet::new();
+    for path in paths {
+        if path.extension().and_then(|extension| extension.to_str()) != Some("py") {
+            continue;
+        }
+        let normalized = crate::graph::resolver::normalize_path(path);
+        let relative = normalized.strip_prefix(&root).unwrap_or(&normalized);
+        let components = relative
+            .components()
+            .filter_map(|component| component.as_os_str().to_str())
+            .collect::<Vec<_>>();
+        let Some(filename) = components.last() else {
+            continue;
+        };
+        let directories = &components[..components.len().saturating_sub(1)];
+        let mut root_index = match components.first().copied() {
+            Some("src") => 1,
+            Some("apps" | "packages") if components.len() > 2 => 2,
+            _ => 0,
+        };
+        if components.get(root_index) == Some(&"src") {
+            root_index += 1;
+        }
+
+        if let Some(module_root) = directories.get(root_index) {
+            modules.insert((*module_root).to_string());
+        } else if root_index == directories.len()
+            && let Some(module) = Path::new(filename)
+                .file_stem()
+                .and_then(|name| name.to_str())
+            && !module.is_empty()
+        {
+            modules.insert(module.to_string());
+        }
+    }
+    modules
 }

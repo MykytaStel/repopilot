@@ -10,6 +10,7 @@ pub(super) fn occurrence_to_finding(occurrence: &RemovedExportOccurrence) -> Fin
         ApiContractChange::RustFunctionArity { .. } => {
             "behavioral.rust-public-function-arity-changed"
         }
+        ApiContractChange::RustStructFieldRemoved => "behavioral.rust-public-struct-field-removed",
     };
     Finding {
         rule_id: rule_id.to_string(),
@@ -37,7 +38,25 @@ fn describe(occurrence: &RemovedExportOccurrence) -> (String, String) {
             after,
             call_arguments,
         } => describe_arity(occurrence, before, after, call_arguments),
+        ApiContractChange::RustStructFieldRemoved => describe_struct_field(occurrence),
     }
+}
+
+fn describe_struct_field(occurrence: &RemovedExportOccurrence) -> (String, String) {
+    let exporter = occurrence
+        .exporter_path
+        .to_string_lossy()
+        .replace('\\', "/");
+    (
+        format!(
+            "Public Rust struct field '{}' in {exporter} was removed or made private, but a direct local struct literal still names it.",
+            occurrence.exported_name
+        ),
+        format!(
+            "{}::{} field '{}' remains in a struct literal",
+            occurrence.module_specifier, occurrence.local_name, occurrence.exported_name
+        ),
+    )
 }
 
 fn describe_arity(
@@ -165,5 +184,31 @@ mod tests {
         assert_eq!(finding.evidence[0].path, PathBuf::from("src/lib.rs"));
         assert!(finding.description.contains("changed arity from 1 to 2"));
         assert!(finding.evidence[0].snippet.contains("call passes 1"));
+    }
+
+    #[test]
+    fn rust_struct_field_occurrence_projects_to_its_own_rule() {
+        let finding = occurrence_to_finding(&RemovedExportOccurrence {
+            exporter_path: PathBuf::from("src/api.rs"),
+            importer_path: PathBuf::from("src/lib.rs"),
+            exported_name: "timeout".to_string(),
+            local_name: "Config".to_string(),
+            symbol_kind: SymbolKind::Value,
+            module_specifier: "mod::api".to_string(),
+            line_start: 7,
+            line_end: 7,
+            byte_start: 20,
+            byte_end: 42,
+            change: ApiContractChange::RustStructFieldRemoved,
+        });
+
+        assert_eq!(
+            finding.rule_id,
+            "behavioral.rust-public-struct-field-removed"
+        );
+        assert_eq!(finding.evidence[0].path, PathBuf::from("src/lib.rs"));
+        assert_eq!(finding.evidence[0].line_start, 7);
+        assert!(finding.description.contains("field 'timeout'"));
+        assert!(finding.evidence[0].snippet.contains("mod::api::Config"));
     }
 }

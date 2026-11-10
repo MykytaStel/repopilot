@@ -146,7 +146,7 @@ fn rust_shadowed_calls_are_safe_across_cold_warm_and_previous_rust_cache() {
     std::fs::write(&path, serde_json::to_vec(&cache).unwrap()).unwrap();
     scan::assert_rule_absent(&scan::scan_json(root, &["--changed"]));
     let rebuilt: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    assert_eq!(rebuilt["schema_version"], 10);
+    assert_eq!(rebuilt["schema_version"], 11);
     review::write(
         root,
         "src/lib.rs",

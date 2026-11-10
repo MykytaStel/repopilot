@@ -51,6 +51,16 @@ fn impact_paths_split_direct_and_transitive_dependents_by_default_depth() {
     assert!(direct.iter().any(|path| path == "src/b.ts"));
     assert!(!direct.iter().any(|path| path == "src/c.ts"));
     assert!(transitive.iter().any(|path| path == "src/c.ts"));
+    let route = a_impact["routes"]
+        .as_array()
+        .expect("routes array")
+        .iter()
+        .find(|route| route["dependent"] == "src/c.ts")
+        .expect("route to transitive dependent");
+    assert_eq!(
+        route["files"],
+        serde_json::json!(["src/a.ts", "src/b.ts", "src/c.ts"])
+    );
 
     assert_eq!(json["review"]["impact_path_depth"], 3);
     assert_eq!(json["review"]["affected_files"], 2);

@@ -134,8 +134,22 @@ pub(super) fn render_impact(report: &ReviewReport) -> String {
                 })
                 .collect::<Vec<_>>()
                 .join("");
+            let routes = file
+                .routes
+                .iter()
+                .map(|route| {
+                    let path = route
+                        .files
+                        .iter()
+                        .map(|path| escape(&path.to_string_lossy()))
+                        .collect::<Vec<_>>()
+                        .join(" → ");
+                    format!("<li>path: <code>{path}</code></li>")
+                })
+                .collect::<Vec<_>>()
+                .join("");
             format!(
-                "<li><code>{}</code><ul>{direct}{transitive}</ul></li>",
+                "<li><code>{}</code><ul>{direct}{transitive}{routes}</ul></li>",
                 escape(&file.path.to_string_lossy())
             )
         })

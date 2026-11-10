@@ -25,8 +25,29 @@ pub struct ReviewOptions {
     pub since_snapshot: bool,
 
     /// Run an allowlisted verification check configured in repopilot.toml (repeatable)
-    #[arg(long, value_name = "ID", action = clap::ArgAction::Append)]
+    #[arg(
+        long,
+        value_name = "ID",
+        action = clap::ArgAction::Append,
+        conflicts_with = "explain_signal"
+    )]
     pub verify: Vec<String>,
+
+    /// Explain one signal from this review (always emits a JSON explanation)
+    #[arg(
+        long,
+        value_name = "SIGNAL_ID",
+        conflicts_with_all = ["sarif_output", "record_history", "fail_on", "fail_on_priority", "fail_on_review"]
+    )]
+    pub explain_signal: Option<String>,
+
+    /// Narrow `--explain-signal` to one emitted path when its ID repeats
+    #[arg(long, requires = "explain_signal")]
+    pub explain_signal_path: Option<String>,
+
+    /// Narrow `--explain-signal` to one emitted line when its ID repeats
+    #[arg(long, value_name = "LINE", requires = "explain_signal")]
+    pub explain_signal_line: Option<u64>,
 
     /// Review only changed files (default) or include full-repository findings
     #[arg(long, value_enum)]

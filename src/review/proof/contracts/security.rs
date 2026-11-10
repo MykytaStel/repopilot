@@ -232,6 +232,7 @@ mod tests {
                     path: PathBuf::from("src/auth/policy.ts"),
                     direct_dependents: vec![PathBuf::from("src/routes/users.ts")],
                     transitive_dependents: vec![PathBuf::from("src/domain/user.ts")],
+                    routes: Vec::new(),
                 }],
                 ..Default::default()
             },

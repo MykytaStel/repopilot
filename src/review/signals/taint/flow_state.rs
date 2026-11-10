@@ -2,7 +2,7 @@ use super::super::sources::SourceKind;
 use std::collections::{HashMap, HashSet};
 use tree_sitter::Node;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(super) struct TaintState {
     pub(super) names: HashMap<String, SourceKind>,
     paths: HashMap<String, SourceKind>,
@@ -10,6 +10,22 @@ pub(super) struct TaintState {
 }
 
 impl TaintState {
+    pub(super) fn merge_possible(states: &[Self]) -> Self {
+        let mut merged = Self::default();
+        let mut common_clean_paths: Option<HashSet<String>> = None;
+        for state in states {
+            merge_sources(&mut merged.names, &state.names);
+            merge_sources(&mut merged.paths, &state.paths);
+            if let Some(common) = &mut common_clean_paths {
+                common.retain(|path| state.clean_paths.contains(path));
+            } else {
+                common_clean_paths = Some(state.clean_paths.clone());
+            }
+        }
+        merged.clean_paths = common_clean_paths.unwrap_or_default();
+        merged
+    }
+
     pub(super) fn mark_name(&mut self, name: &str, source: SourceKind) {
         self.names.insert(name.to_string(), source);
         self.remove_path_entries(name);
@@ -64,6 +80,17 @@ impl TaintState {
             .retain(|path, _| !path_is_same_or_descendant(path, root));
         self.clean_paths
             .retain(|path| !path_is_same_or_descendant(path, root));
+    }
+}
+
+fn merge_sources<K: Eq + std::hash::Hash + Clone>(
+    into: &mut HashMap<K, SourceKind>,
+    from: &HashMap<K, SourceKind>,
+) {
+    for (key, source) in from {
+        into.entry(key.clone())
+            .and_modify(|current| *current = (*current).min(*source))
+            .or_insert(*source);
     }
 }
 

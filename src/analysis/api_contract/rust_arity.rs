@@ -176,11 +176,11 @@ fn occurrence(
     }
 }
 
-fn is_rust(path: &Path) -> bool {
+pub(super) fn is_rust(path: &Path) -> bool {
     path.extension().is_some_and(|extension| extension == "rs")
 }
 
-fn repository_relative(path: &Path, repo_root: &Path) -> PathBuf {
+pub(super) fn repository_relative(path: &Path, repo_root: &Path) -> PathBuf {
     let root = normalize_path(repo_root);
     let path = normalize_path(path);
     if path.is_absolute() {

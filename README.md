@@ -170,8 +170,8 @@ name: `mcp-name: io.github.MykytaStel/repopilot`.
   [Reports and schemas](docs/reports.md) · [Security model](docs/security.md)
 - [Language support](docs/language-support.md) ·
   [Rules reference](docs/rules-reference.md) · [Roadmap](docs/roadmap.md)
-- [Latest stable release notes](docs/releases/v0.26.0.md) ·
-  [Release evidence](docs/engineering/v0.24-release-scorecard.md) ·
+- [Latest stable release notes](docs/releases/v0.27.0.md) ·
+  [Release evidence](docs/engineering/v0.27-evidence-ledger.md) ·
   [Maintainer documentation](docs/engineering/README.md)
 
 Contributing and development setup: [CONTRIBUTING.md](CONTRIBUTING.md).

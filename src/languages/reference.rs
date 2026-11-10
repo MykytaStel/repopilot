@@ -53,6 +53,39 @@ test rather than hidden.\n"
   family: the same grammar shapes, import extractor, and signal tables.\n"
     );
 
+    let _ = writeln!(
+        out,
+        "## Bounded cross-file analysis\n\n\
+The frontend matrix shows which language facts are wired. These additional\n\
+cross-file behaviors have narrower evidence boundaries:\n\n\
+- **Rust:** review detects removed public free functions, changed public\n\
+  function arity, and removed or privatized named public struct fields when a\n\
+  surviving caller has an unambiguous file-backed module-qualified use.\n\
+  Grouped `use` imports are expanded for removed-function contracts. The field\n\
+  check covers direct struct literals; macros, `cfg`, re-exports, aliases, and\n\
+  ambiguous module paths remain outside the claim.\n\
+- **JavaScript and TypeScript:** local missing-import checks cover supported\n\
+  extensionless relative imports and uniquely resolved configured aliases.\n\
+  Package exports, dynamic imports, and ambiguous resolver candidates remain\n\
+  uncertain.\n\
+- **Python:** missing-import checks include bounded repository-rooted absolute\n\
+  module candidates and package initializers. Namespace directories count as\n\
+  safe local package candidates; environment-provided and installed modules\n\
+  cannot be confirmed from repository files alone.\n\
+- **Go:** local workspace and local `replace` module targets are considered\n\
+  without fetching dependencies. Remote replacements, build-tag variants, and\n\
+  generated packages are not treated as resolved repository sources.\n\
+- **C#:** SQL taint analysis follows simple local command receiver aliases and\n\
+  merges supported straight-line assignments across simple `if` branches.\n\
+  Unmodeled control flow, ambiguous aliases, loops, and nested scopes cause\n\
+  conservative abstention.\n\
+- **Java and Kotlin:** same-package type references add local dependency edges\n\
+  for impact analysis when a source type resolves uniquely. The edge does not\n\
+  establish runtime reachability.\n\n\
+These checks are bounded static analysis, not compiler or runtime proofs. Use\n\
+the project's own build, type-check, and tests to verify a change.\n"
+    );
+
     let _ = writeln!(out, "## Detected languages without a frontend\n");
     let _ = writeln!(
         out,

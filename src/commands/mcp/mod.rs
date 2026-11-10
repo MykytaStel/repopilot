@@ -60,6 +60,22 @@ const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &[LATEST_PROTOCOL_VERSION, "2024-11
 const DEFAULT_MAX_RESPONSE_BYTES: usize = 1_048_576;
 const TOOL_QUEUE_CAPACITY: usize = 8;
 
+pub(crate) fn explain_signal_from_review(
+    report_json: &str,
+    signal_id: &str,
+    path: Option<&str>,
+    line: Option<u64>,
+) -> Result<String, String> {
+    let mut arguments = json!({ "signal_id": signal_id });
+    if let Some(path) = path {
+        arguments["path"] = json!(path);
+    }
+    if let Some(line) = line {
+        arguments["line"] = json!(line);
+    }
+    explain_review_signal::call(&arguments, Some(report_json))
+}
+
 struct ServerState {
     root: PathBuf,
     negotiated: bool,

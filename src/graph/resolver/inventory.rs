@@ -1,5 +1,5 @@
 //! One lazy JVM index per immutable graph inventory, shared across import lookups.
-use super::{jvm::JvmIndex, resolve_import};
+use super::{go::GoIndex, jvm::JvmIndex, resolve_import};
 use std::cell::OnceCell;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 pub(crate) struct ResolverInventory<'a> {
     files: &'a HashSet<PathBuf>,
     jvm: OnceCell<JvmIndex<'a>>,
+    go: OnceCell<GoIndex>,
 }
 
 impl<'a> ResolverInventory<'a> {
@@ -14,6 +15,7 @@ impl<'a> ResolverInventory<'a> {
         Self {
             files,
             jvm: OnceCell::new(),
+            go: OnceCell::new(),
         }
     }
 
@@ -21,6 +23,15 @@ impl<'a> ResolverInventory<'a> {
         let extensions: &[&str] = match source.extension().and_then(|value| value.to_str()) {
             Some("java") => &["java"],
             Some("kt" | "kts") => &["kt", "java"],
+            Some("go") => {
+                return super::go::resolve_go_with_index(
+                    raw,
+                    source,
+                    root,
+                    self.files,
+                    self.go.get_or_init(|| GoIndex::new(root)),
+                );
+            }
             _ => return resolve_import(raw, source, root, self.files),
         };
         self.jvm

@@ -6,7 +6,34 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
-## [0.26.0] - 2026-11-03
+## [0.27.0] - 2026-11-11
+
+### Added
+
+- Bounded local-import analysis now resolves extensionless JS/TS imports,
+  repository-rooted Python packages, and Go `go.work`/local `replace` modules.
+  Java and Kotlin same-package references now contribute to impact analysis.
+- Rust review detects removed public struct fields when surviving resolved
+  struct literals prove a direct caller, and recognizes grouped imports for
+  existing public-function contracts.
+- C# SQL-flow analysis follows local `CommandText` receiver aliases and merges
+  simple conditional assignments conservatively.
+- `review --explain-signal` expands a retained review signal, with path and line
+  selectors for repeated IDs. MCP review results can page findings and signals
+  through a revision-checked analysis handle.
+- Review impact output includes deterministic shortest static-import routes to
+  affected files. JSON report schema 0.27 adds these routes while retaining
+  schema 0.26 input compatibility.
+
+### Fixed
+
+- Cache reads no longer trigger the removed-authorization signal solely because
+  a common cache helper name contains an authorization-like token.
+- Local import checks now use bounded evidence for extensionless aliases,
+  Python package initializers, and Go workspace packages without guessing when
+  multiple targets remain possible.
+
+## [0.26.0] - 2026-11-02
 
 ### Added
 
@@ -2865,7 +2892,8 @@ CI and AI-assisted remediation.
 - Added `compare` for diffing two JSON scan reports.
 - Added CI workflow, release workflow, distribution docs, release docs, and ruleset docs.
 
-[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/MykytaStel/repopilot/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/MykytaStel/repopilot/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/MykytaStel/repopilot/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/MykytaStel/repopilot/compare/v0.24.3...v0.25.0
 [0.22.0]: https://github.com/MykytaStel/repopilot/compare/v0.21.0...v0.22.0

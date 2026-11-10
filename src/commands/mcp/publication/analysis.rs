@@ -1,8 +1,9 @@
 use super::super::analysis_store::{self, AnalysisKind};
 use super::super::human_output;
+use super::super::review_projection;
 use super::{
-    AnalysisPublication, AnalysisRequest, PreparedToolResult, ToolResultMetadata,
-    compact_review_for_client, error_result, tool_result,
+    AnalysisPublication, AnalysisRequest, PreparedToolResult, ToolResultMetadata, error_result,
+    tool_result,
 };
 use serde_json::Value;
 
@@ -89,8 +90,10 @@ fn prepare_page(
     full_report: &str,
     arguments: &Value,
 ) -> Result<AnalysisPage, String> {
-    let client_report = compact_review_for_client(kind, full_report.to_string(), arguments)?;
-    let page = analysis_store::paginate_findings(&client_report, arguments)?;
+    let page = match kind {
+        AnalysisKind::Review => review_projection::paginate_review_json(full_report, arguments)?,
+        AnalysisKind::Scan => analysis_store::paginate_findings(full_report, arguments)?,
+    };
     let report = serde_json::from_str::<Value>(&page.text)
         .map_err(|error| format!("MCP report could not be prepared: {error}"))?;
     let display = human_output::render(kind, &report, page.metadata.as_ref());
