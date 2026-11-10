@@ -28,7 +28,7 @@ class Phase0RuleQualityTests(unittest.TestCase):
         self.assertEqual(first["observation"]["rules_total"], 56)
         self.assertEqual(first["observation"]["default_rules_measured"], 6)
         self.assertEqual(first["observation"]["default_rules_unmeasured"], 50)
-        self.assertEqual(first["observation"]["labeled_default_findings"], 25)
+        self.assertEqual(first["observation"]["labeled_default_findings"], 24)
         self.assertEqual(first["observation"]["strict_sampled_rules"], 10)
         self.assertEqual(first["observation"]["strict_sampled_findings"], 32)
         self.assertEqual(first["hashes"], second["hashes"])

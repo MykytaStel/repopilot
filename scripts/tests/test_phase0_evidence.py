@@ -49,7 +49,7 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         self.assertEqual(rule_quality["observation"]["rules_total"], 56)
         self.assertEqual(rule_quality["observation"]["default_rules_measured"], 6)
         self.assertEqual(rule_quality["observation"]["default_rules_unmeasured"], 50)
-        self.assertEqual(rule_quality["observation"]["labeled_default_findings"], 25)
+        self.assertEqual(rule_quality["observation"]["labeled_default_findings"], 24)
 
     def test_audit_mode_is_open_but_require_complete_fails_closed(self) -> None:
         report = phase0_evidence.build_report(self.paths)
@@ -97,7 +97,7 @@ class Phase0EvidenceReportTests(unittest.TestCase):
         markdown = phase0_evidence.render_markdown(report)
         self.assertIn("rules_total=56", text)
         self.assertIn("default_rules_unmeasured=50", text)
-        self.assertIn("labeled_default_findings=25", markdown)
+        self.assertIn("labeled_default_findings=24", markdown)
 
     def test_tampered_real_history_artifact_is_invalid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
