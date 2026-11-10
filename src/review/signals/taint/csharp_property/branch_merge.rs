@@ -26,6 +26,24 @@ pub(super) fn merge_if_statement(
     origins: &mut BTreeMap<String, Origin>,
     aliases: &mut BTreeMap<String, String>,
 ) -> bool {
+    if !condition_is_supported(node, context) {
+        return false;
+    }
+    let Some(consequence) = node.child_by_field_name("consequence") else {
+        return false;
+    };
+    let Some(branches) = branches_after_if(node, consequence, context, state, origins, aliases)
+    else {
+        return false;
+    };
+    if !branch_aliases_match(&branches) {
+        return false;
+    }
+    merge_branch_states(&branches, state, origins, aliases);
+    true
+}
+
+fn condition_is_supported(node: Node<'_>, context: &BranchContext<'_>) -> bool {
     let Some(condition) = node.child_by_field_name("condition") else {
         return false;
     };
@@ -38,42 +56,55 @@ pub(super) fn merge_if_statement(
         &mut execution,
         &mut conditional,
     );
-    if assignments > 0 || execution || conditional {
-        return false;
-    }
-    let Some(consequence) = node.child_by_field_name("consequence") else {
-        return false;
-    };
+    assignments == 0 && !execution && !conditional
+}
+
+fn branches_after_if(
+    node: Node<'_>,
+    consequence: Node<'_>,
+    context: &mut BranchContext<'_>,
+    state: &TaintState,
+    origins: &BTreeMap<String, Origin>,
+    aliases: &BTreeMap<String, String>,
+) -> Option<Vec<BranchState>> {
     let unchanged = (state.clone(), origins.clone(), aliases.clone());
     let mut branches = vec![unchanged.clone()];
     if !process_branch(consequence, context, &mut branches[0]) {
-        return false;
+        return None;
     }
     if let Some(alternative) = node.child_by_field_name("alternative") {
         let mut branch = (state.clone(), origins.clone(), aliases.clone());
         if !process_branch(alternative, context, &mut branch) {
-            return false;
+            return None;
         }
         branches.push(branch);
     } else {
         branches.push(unchanged);
     }
-    if branches
+    Some(branches)
+}
+
+fn branch_aliases_match(branches: &[BranchState]) -> bool {
+    !branches
         .iter()
         .skip(1)
         .any(|branch| branch.2 != branches[0].2)
-    {
-        return false;
-    }
+}
+
+fn merge_branch_states(
+    branches: &[BranchState],
+    state: &mut TaintState,
+    origins: &mut BTreeMap<String, Origin>,
+    aliases: &mut BTreeMap<String, String>,
+) {
     *state = TaintState::merge_possible(
         &branches
             .iter()
             .map(|branch| branch.0.clone())
             .collect::<Vec<_>>(),
     );
-    *origins = merge_origins(&branches);
+    *origins = merge_origins(branches);
     *aliases = branches[0].2.clone();
-    true
 }
 
 fn process_branch(

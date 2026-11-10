@@ -21,6 +21,12 @@ use std::path::{Path, PathBuf};
 
 pub use crate::scan::types::CouplingGraph;
 
+struct ResolvedGraphEdges {
+    edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    resolution: ImportResolutionStats,
+}
+
 // ── Data structures ───────────────────────────────────────────────────────────
 
 pub struct FileMetrics {
@@ -52,6 +58,19 @@ pub fn build_coupling_graph_with_resolution(
         .collect();
     let known_files: HashSet<PathBuf> = known_file_by_normalized.keys().cloned().collect();
     let inventory = resolver::ResolverInventory::new(&known_files);
+    let resolved = resolve_graph_edges(facts, root, &known_file_by_normalized, &inventory);
+    (
+        build_coupling_graph_from_edges(resolved.edges, resolved.deferred_edges),
+        resolved.resolution,
+    )
+}
+
+fn resolve_graph_edges(
+    facts: &ScanFacts,
+    root: &Path,
+    known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
+    inventory: &resolver::ResolverInventory<'_>,
+) -> ResolvedGraphEdges {
     let repo_dirs =
         resolution_stats::repo_directory_names(facts.files.iter().map(|file| file.path.as_path()));
     let repo_python_modules = resolution_stats::repo_python_module_names(
@@ -70,8 +89,8 @@ pub fn build_coupling_graph_with_resolution(
         process_graph_file(
             file,
             root,
-            &known_file_by_normalized,
-            &inventory,
+            known_file_by_normalized,
+            inventory,
             &repo_dirs,
             &repo_python_modules,
             &repo_jvm_packages,
@@ -81,20 +100,26 @@ pub fn build_coupling_graph_with_resolution(
         );
     }
 
-    // Build nodes from all sources (edge origins + edge targets).
+    ResolvedGraphEdges {
+        edges,
+        deferred_edges,
+        resolution,
+    }
+}
+
+fn build_coupling_graph_from_edges(
+    edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    deferred_edges: BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) -> CouplingGraph {
     let mut nodes: BTreeSet<PathBuf> = edges.keys().cloned().collect();
     for targets in edges.values() {
         nodes.extend(targets.iter().cloned());
     }
-
-    (
-        CouplingGraph {
-            edges,
-            deferred_edges,
-            nodes,
-        },
-        resolution,
-    )
+    CouplingGraph {
+        edges,
+        deferred_edges,
+        nodes,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

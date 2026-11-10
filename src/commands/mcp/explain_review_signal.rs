@@ -47,11 +47,25 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         .get("signal_id")
         .and_then(Value::as_str)
         .ok_or_else(|| "`signal_id` is required".to_string())?;
+    let report = parse_review_report(review_report)?;
+    let (occurrence_path, occurrence_line) = occurrence(arguments)?;
+    let matches = find_signals(&report, signal_id, occurrence_path, occurrence_line);
+    let signal = match matches.as_slice() {
+        [] => return Err(format!("review signal not found: {signal_id}")),
+        [signal] => *signal,
+        _ => return ambiguous_signal(signal_id, &matches),
+    };
+    render_explanation(&report, signal_id, signal)
+}
+
+fn parse_review_report(review_report: Option<&str>) -> Result<Value, String> {
     let report = review_report.ok_or_else(|| {
         "no review is available in this MCP session; run repopilot_review_change first".to_string()
     })?;
-    let report: Value = serde_json::from_str(report)
-        .map_err(|error| format!("review report is invalid: {error}"))?;
+    serde_json::from_str(report).map_err(|error| format!("review report is invalid: {error}"))
+}
+
+fn occurrence(arguments: &Value) -> Result<(Option<&str>, Option<u64>), String> {
     let occurrence_path = arguments
         .get("path")
         .map(|value| {
@@ -70,22 +84,22 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
                 .ok_or_else(|| "`line` must be a positive integer".to_string())
         })
         .transpose()?;
-    let matches = find_signals(&report, signal_id, occurrence_path, occurrence_line);
-    if matches.is_empty() {
-        return Err(format!("review signal not found: {signal_id}"));
-    }
-    if matches.len() > 1 {
-        return serde_json::to_string_pretty(&json!({
-            "status": "ambiguous",
-            "signal_id": signal_id,
-            "candidates": matches.iter().map(|signal| json!({
-                "path": signal.get("path").and_then(Value::as_str).unwrap_or_default(),
-                "line": signal.get("line").or_else(|| signal.get("line_start"))
-            })).collect::<Vec<_>>()
-        }))
-        .map_err(|error| format!("render ambiguous review signal: {error}"));
-    }
-    let signal = matches[0];
+    Ok((occurrence_path, occurrence_line))
+}
+
+fn ambiguous_signal(signal_id: &str, matches: &[&Value]) -> Result<String, String> {
+    serde_json::to_string_pretty(&json!({
+        "status": "ambiguous",
+        "signal_id": signal_id,
+        "candidates": matches.iter().map(|signal| json!({
+            "path": signal.get("path").and_then(Value::as_str).unwrap_or_default(),
+            "line": signal.get("line").or_else(|| signal.get("line_start"))
+        })).collect::<Vec<_>>()
+    }))
+    .map_err(|error| format!("render ambiguous review signal: {error}"))
+}
+
+fn render_explanation(report: &Value, signal_id: &str, signal: &Value) -> Result<String, String> {
     let path = signal
         .get("path")
         .and_then(Value::as_str)
@@ -103,7 +117,7 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         "evidence": report.get("evidence").cloned().unwrap_or(Value::Null),
         "decision": report.get("decision").cloned().unwrap_or(Value::Null),
         "why_it_matters": why_it_matters(signal),
-        "impact": impact_for_path(&report, impact_path),
+        "impact": impact_for_path(report, impact_path),
         "gate": {
             "eligible": signal.get("gate_eligible").and_then(Value::as_bool).unwrap_or(false),
             "suppressed": signal.get("suppressed").and_then(Value::as_bool).unwrap_or(false),

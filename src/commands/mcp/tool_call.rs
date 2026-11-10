@@ -36,28 +36,67 @@ pub(super) fn handle_tools_call_with_approval(
     observer: &mut dyn FnMut(ReviewVerificationEvent),
     approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 ) -> Response {
+    let call = match resolve_call(id.clone(), params, state) {
+        Ok(call) => call,
+        Err(response) => return response,
+    };
+    let outcome = match dispatch_call(&call, state, cancellation, observer, approve, &id) {
+        Ok(outcome) => outcome,
+        Err(response) => return response,
+    };
+    let workspace_revision = match current_revision(&call, state, &id) {
+        Ok(revision) => revision,
+        Err(response) => return response,
+    };
+    publish_call(id, call, outcome, workspace_revision, state, cancellation)
+}
+
+struct ResolvedToolCall {
+    name: String,
+    arguments: Value,
+    referenced: Option<AnalysisRecord>,
+}
+
+fn resolve_call(
+    id: Value,
+    params: &Value,
+    state: &mut ServerState,
+) -> Result<ResolvedToolCall, Response> {
     let name = params
         .get("name")
         .and_then(Value::as_str)
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .to_string();
     let mut arguments = params
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
     let current_revision = WorkspaceRevision::capture(&state.root).id().to_string();
-    if let Err(message) = resolve_tool_paths(&mut arguments, &state.root) {
-        return tool_response(id, name, Err(message), &current_revision, state);
-    }
-
-    let referenced = match referenced_analysis(name, &arguments, state, &current_revision) {
-        Ok(record) => record,
-        Err(message) => return tool_response(id, name, Err(message), &current_revision, state),
-    };
-    let outcome = match dispatch_tool(
+    resolve_tool_paths(&mut arguments, &state.root).map_err(|message| {
+        tool_response(id.clone(), &name, Err(message), &current_revision, state)
+    })?;
+    let referenced = referenced_analysis(&name, &arguments, state, &current_revision)
+        .map_err(|message| tool_response(id, &name, Err(message), &current_revision, state))?;
+    Ok(ResolvedToolCall {
         name,
-        &arguments,
+        arguments,
+        referenced,
+    })
+}
+
+fn dispatch_call(
+    call: &ResolvedToolCall,
+    state: &mut ServerState,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
+    id: &Value,
+) -> Result<Result<ToolExecution, String>, Response> {
+    let outcome = match dispatch_tool(
+        &call.name,
+        &call.arguments,
         state,
-        referenced.as_ref(),
+        call.referenced.as_ref(),
         cancellation,
         observer,
         approve,
@@ -65,30 +104,48 @@ pub(super) fn handle_tools_call_with_approval(
         Ok(outcome) => Ok(outcome),
         Err(DispatchError::Message(message)) => Err(message),
         Err(DispatchError::Cancelled) => {
-            return Response::error(id, -32800, "request cancelled");
+            return Err(Response::error(id.clone(), -32800, "request cancelled"));
         }
     };
     if cancellation.is_cancelled() {
-        return Response::error(id, -32800, "request cancelled");
+        return Err(Response::error(id.clone(), -32800, "request cancelled"));
     }
+    Ok(outcome)
+}
 
+fn current_revision(
+    call: &ResolvedToolCall,
+    state: &ServerState,
+    id: &Value,
+) -> Result<String, Response> {
     // Analysis may update RepoPilot-owned cache files. Capture the revision at
     // response time so a handle never becomes stale because of its own call.
     let workspace_revision = WorkspaceRevision::capture(&state.root).id().to_string();
-    if let Some(record) = referenced.as_ref()
+    if let Some(record) = call.referenced.as_ref()
         && record.workspace_revision != workspace_revision
     {
-        return tool_response(
-            id,
-            name,
+        return Err(tool_response(
+            id.clone(),
+            &call.name,
             Err(format!(
                 "analysis handle became stale while preparing the response: its revision is {}, current revision is {workspace_revision}",
                 record.workspace_revision
             )),
             &workspace_revision,
             state,
-        );
+        ));
     }
+    Ok(workspace_revision)
+}
+
+fn publish_call(
+    id: Value,
+    call: ResolvedToolCall,
+    outcome: Result<ToolExecution, String>,
+    workspace_revision: String,
+    state: &mut ServerState,
+    cancellation: &CancellationToken,
+) -> Response {
     let (outcome, structured_content, publishable) = match outcome {
         Ok(execution) => {
             let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
@@ -103,9 +160,9 @@ pub(super) fn handle_tools_call_with_approval(
         Err(message) => (Err(message), None, false),
     };
     let prepared = prepare_tool_result(
-        name,
+        &call.name,
         outcome,
-        &arguments,
+        &call.arguments,
         state,
         &workspace_revision,
         publishable,

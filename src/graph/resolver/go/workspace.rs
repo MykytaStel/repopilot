@@ -67,45 +67,10 @@ fn load_local_modules(source: &Path, root: &Path) -> Vec<LocalModule> {
     let root = normalize_path(root);
     let source_module = source_module_directory(source, &root);
     let replacements = module_replacements(&root, &source_module);
-    let replaced_paths = replacements
-        .iter()
-        .map(|(path, _)| path.as_str())
-        .collect::<HashSet<_>>();
-    let mut modules = Vec::new();
-    if let Some(module) = read_module_file(&root.join("go.mod"))
-        && !replaced_paths.contains(module.as_str())
-    {
-        modules.push(LocalModule {
-            import_path: module,
-            directory: root.clone(),
-        });
-    }
-
-    for directory in workspace_use_directories(&root) {
-        if !directory.starts_with(&root) {
-            continue;
-        }
-        if let Some(module) = read_module_file(&directory.join("go.mod"))
-            && !replaced_paths.contains(module.as_str())
-        {
-            modules.push(LocalModule {
-                import_path: module,
-                directory,
-            });
-        }
-    }
-
-    for (import_path, directory) in replacements {
-        let Some(directory) = directory else {
-            continue;
-        };
-        if directory.starts_with(&root) && read_module_file(&directory.join("go.mod")).is_some() {
-            modules.push(LocalModule {
-                import_path,
-                directory,
-            });
-        }
-    }
+    let replaced_paths = replacement_paths(&replacements);
+    let mut modules = root_module(&root, &replaced_paths);
+    modules.extend(workspace_modules(&root, &replaced_paths));
+    modules.extend(replacement_modules(&root, replacements));
     modules.sort_by(|left, right| {
         left.import_path
             .cmp(&right.import_path)
@@ -113,6 +78,53 @@ fn load_local_modules(source: &Path, root: &Path) -> Vec<LocalModule> {
     });
     modules.dedup();
     modules
+}
+
+fn replacement_paths(replacements: &[(String, Option<PathBuf>)]) -> HashSet<&str> {
+    replacements.iter().map(|(path, _)| path.as_str()).collect()
+}
+
+fn root_module(root: &Path, replaced_paths: &HashSet<&str>) -> Vec<LocalModule> {
+    read_module_file(&root.join("go.mod"))
+        .filter(|module| !replaced_paths.contains(module.as_str()))
+        .map(|import_path| {
+            vec![LocalModule {
+                import_path,
+                directory: root.to_path_buf(),
+            }]
+        })
+        .unwrap_or_default()
+}
+
+fn workspace_modules(root: &Path, replaced_paths: &HashSet<&str>) -> Vec<LocalModule> {
+    workspace_use_directories(root)
+        .into_iter()
+        .filter(|directory| directory.starts_with(root))
+        .filter_map(|directory| {
+            let import_path = read_module_file(&directory.join("go.mod"))?;
+            (!replaced_paths.contains(import_path.as_str())).then_some(LocalModule {
+                import_path,
+                directory,
+            })
+        })
+        .collect()
+}
+
+fn replacement_modules(
+    root: &Path,
+    replacements: Vec<(String, Option<PathBuf>)>,
+) -> Vec<LocalModule> {
+    replacements
+        .into_iter()
+        .filter_map(|(import_path, directory)| {
+            let directory = directory?;
+            (directory.starts_with(root) && read_module_file(&directory.join("go.mod")).is_some())
+                .then_some(LocalModule {
+                    import_path,
+                    directory,
+                })
+        })
+        .collect()
 }
 
 fn source_module_directory(source: &Path, root: &Path) -> PathBuf {

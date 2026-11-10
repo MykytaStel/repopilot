@@ -16,6 +16,15 @@ const GENERATED_BANNER: &str = "<!-- @generated from the language frontend regis
 /// detect-level languages from the knowledge pack.
 pub fn render_language_support_markdown() -> String {
     let mut out = String::new();
+    render_language_support_header(&mut out);
+    render_frontend_capabilities(&mut out);
+    render_bounded_analysis(&mut out);
+    render_unwired_languages(&mut out);
+    render_rule_philosophy(&mut out);
+    out
+}
+
+fn render_language_support_header(out: &mut String) {
     let _ = writeln!(out, "# Language and Framework Support\n");
     let _ = writeln!(out, "{GENERATED_BANNER}\n");
     let _ = writeln!(
@@ -28,7 +37,9 @@ level the bundled knowledge pack asserts; where it exceeds the wired\n\
 capabilities, the gap is tracked by the registry's support-honesty guard\n\
 test rather than hidden.\n"
     );
+}
 
+fn render_frontend_capabilities(out: &mut String) {
     let _ = writeln!(out, "## Frontend capabilities\n");
     let _ = writeln!(
         out,
@@ -36,10 +47,9 @@ test rather than hidden.\n"
     );
     let _ = writeln!(out, "|---|---|---|---|---|---|---|---|");
     for frontend in all_frontends() {
-        if frontend.id == "generic" {
-            continue;
+        if frontend.id != "generic" {
+            let _ = writeln!(out, "{}", frontend_row(frontend));
         }
-        let _ = writeln!(out, "{}", frontend_row(frontend));
     }
     let _ = writeln!(
         out,
@@ -52,7 +62,9 @@ test rather than hidden.\n"
 - JavaScript and TypeScript (with their React dialects) share one frontend\n\
   family: the same grammar shapes, import extractor, and signal tables.\n"
     );
+}
 
+fn render_bounded_analysis(out: &mut String) {
     let _ = writeln!(
         out,
         "## Bounded cross-file analysis\n\n\
@@ -85,7 +97,9 @@ cross-file behaviors have narrower evidence boundaries:\n\n\
 These checks are bounded static analysis, not compiler or runtime proofs. Use\n\
 the project's own build, type-check, and tests to verify a change.\n"
     );
+}
 
+fn render_unwired_languages(out: &mut String) {
     let _ = writeln!(out, "## Detected languages without a frontend\n");
     let _ = writeln!(
         out,
@@ -113,12 +127,13 @@ they have no language-specific extractors.\n"
             })
             .map(|profile| profile.name.as_str())
             .collect();
-        if names.is_empty() {
-            continue;
+        if !names.is_empty() {
+            let _ = writeln!(out, "- **{heading}:** {}.", names.join(", "));
         }
-        let _ = writeln!(out, "- **{heading}:** {}.", names.join(", "));
     }
+}
 
+fn render_rule_philosophy(out: &mut String) {
     let _ = writeln!(
         out,
         "\n## Rule philosophy\n\n\
@@ -136,8 +151,6 @@ The whole point of the frontend contract is that support is added by\n\
 writing tables, not by editing engines. The checklist lives in\n\
 [Add a language](engineering/add-a-language.md)."
     );
-
-    out
 }
 
 fn frontend_row(frontend: &LanguageFrontend) -> String {

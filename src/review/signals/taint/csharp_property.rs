@@ -30,51 +30,76 @@ pub(super) fn detect(
     else {
         return;
     };
+    let mut context = BranchContext {
+        content,
+        tables,
+        file,
+        out,
+    };
+    process_body(body, &mut context);
+}
+
+fn process_body(body: Node<'_>, context: &mut BranchContext<'_>) {
     let mut state = TaintState::default();
     let mut origins = BTreeMap::new();
     let mut aliases = BTreeMap::new();
     let mut cursor = body.walk();
     for statement in body.named_children(&mut cursor) {
         if statement.kind() == "if_statement" {
-            let mut context = BranchContext {
-                content,
-                tables,
-                file,
-                out,
-            };
-            if !merge_if_statement(
-                statement,
-                &mut context,
-                &mut state,
-                &mut origins,
-                &mut aliases,
-            ) {
-                state = TaintState::default();
-                origins.clear();
-                aliases.clear();
-            }
+            merge_conditional(statement, context, &mut state, &mut origins, &mut aliases);
             continue;
         }
-        if !matches!(
-            statement.kind(),
-            "local_declaration_statement" | "expression_statement"
-        ) || ambiguous_statement(statement, content, tables)
-        {
-            state = TaintState::default();
-            origins.clear();
-            aliases.clear();
+        if !linear_statement_is_supported(statement, context) {
+            clear_flow_state(&mut state, &mut origins, &mut aliases);
             continue;
         }
         update(
             statement,
-            content,
-            tables,
+            context.content,
+            context.tables,
             &mut state,
             &mut origins,
             &mut aliases,
         );
-        executions(statement, content, tables, file, &origins, &aliases, out);
+        executions(
+            statement,
+            context.content,
+            context.tables,
+            context.file,
+            &origins,
+            &aliases,
+            context.out,
+        );
     }
+}
+
+fn merge_conditional(
+    statement: Node<'_>,
+    context: &mut BranchContext<'_>,
+    state: &mut TaintState,
+    origins: &mut BTreeMap<String, Origin>,
+    aliases: &mut BTreeMap<String, String>,
+) {
+    if !merge_if_statement(statement, context, state, origins, aliases) {
+        clear_flow_state(state, origins, aliases);
+    }
+}
+
+fn linear_statement_is_supported(statement: Node<'_>, context: &BranchContext<'_>) -> bool {
+    matches!(
+        statement.kind(),
+        "local_declaration_statement" | "expression_statement"
+    ) && !ambiguous_statement(statement, context.content, context.tables)
+}
+
+fn clear_flow_state(
+    state: &mut TaintState,
+    origins: &mut BTreeMap<String, Origin>,
+    aliases: &mut BTreeMap<String, String>,
+) {
+    *state = TaintState::default();
+    origins.clear();
+    aliases.clear();
 }
 
 fn update(

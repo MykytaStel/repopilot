@@ -70,52 +70,68 @@ pub fn compute_impact_paths(
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
     let importers_by_target = composites::build_importers_by_target(graph, repo_root);
-
-    let mut all_impacted: BTreeSet<PathBuf> = BTreeSet::new();
-    let mut files = Vec::new();
-
-    for changed in &changed_paths {
-        let paths = bounded_paths(changed, &importers_by_target, &changed_paths, depth);
-        if paths.is_empty() {
-            continue;
-        }
-        let direct_dependents = paths
-            .iter()
-            .filter(|(_, route)| route.len() == 2)
-            .map(|(path, _)| path.clone())
-            .collect::<Vec<_>>();
-        let transitive_dependents = paths
-            .iter()
-            .filter(|(_, route)| route.len() > 2)
-            .map(|(path, _)| path.clone())
-            .collect::<Vec<_>>();
-        all_impacted.extend(paths.keys().cloned());
-        let routes = paths
-            .into_iter()
-            .map(|(dependent, files)| ImpactRoute { dependent, files })
-            .collect();
-        files.push(FileImpact {
-            path: changed.clone(),
-            direct_dependents,
-            transitive_dependents,
-            routes,
-        });
+    let (files, all_impacted) = affected_files(&changed_paths, &importers_by_target, depth);
+    ImpactPaths {
+        depth,
+        files,
+        affected_surface: affected_surface(all_impacted),
     }
+}
 
+fn affected_files(
+    changed_paths: &BTreeSet<PathBuf>,
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    depth: usize,
+) -> (Vec<FileImpact>, BTreeSet<PathBuf>) {
+    let mut all_impacted = BTreeSet::new();
+    let mut files = Vec::new();
+    for changed in changed_paths {
+        let paths = bounded_paths(changed, importers_by_target, changed_paths, depth);
+        if !paths.is_empty() {
+            all_impacted.extend(paths.keys().cloned());
+            files.push(file_impact(changed, paths));
+        }
+    }
+    (files, all_impacted)
+}
+
+fn file_impact(changed: &Path, paths: BTreeMap<PathBuf, Vec<PathBuf>>) -> FileImpact {
+    let direct_dependents = dependents_at_depth(&paths, 2);
+    let transitive_dependents = paths
+        .iter()
+        .filter(|(_, route)| route.len() > 2)
+        .map(|(path, _)| path.clone())
+        .collect();
+    let routes = paths
+        .into_iter()
+        .map(|(dependent, files)| ImpactRoute { dependent, files })
+        .collect();
+    FileImpact {
+        path: changed.to_path_buf(),
+        direct_dependents,
+        transitive_dependents,
+        routes,
+    }
+}
+
+fn dependents_at_depth(paths: &BTreeMap<PathBuf, Vec<PathBuf>>, depth: usize) -> Vec<PathBuf> {
+    paths
+        .iter()
+        .filter(|(_, route)| route.len() == depth)
+        .map(|(path, _)| path.clone())
+        .collect()
+}
+
+fn affected_surface(all_impacted: BTreeSet<PathBuf>) -> AffectedSurface {
     let affected_directories = all_impacted
         .iter()
         .filter_map(|path| path.parent().map(PathBuf::from))
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-
-    ImpactPaths {
-        depth,
-        files,
-        affected_surface: AffectedSurface {
-            impacted_files: all_impacted.len(),
-            affected_directories,
-        },
+    AffectedSurface {
+        impacted_files: all_impacted.len(),
+        affected_directories,
     }
 }
 
