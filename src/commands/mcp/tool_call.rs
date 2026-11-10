@@ -209,66 +209,12 @@ fn dispatch_tool(
 ) -> Result<ToolExecution, DispatchError> {
     match name {
         review_change::TOOL_NAME => {
-            if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
-                return Ok(ToolExecution {
-                    rendered: record.report.clone(),
-                    structured_content: None,
-                    review_revision: Some(ReviewRevision {
-                        analysis_revision: record.workspace_revision.clone(),
-                        revision_compatible: true,
-                    }),
-                });
-            }
-            let mut full_arguments = arguments.clone();
-            full_arguments["detail"] = json!("full");
-            review_change::call_with_context(
-                &full_arguments,
-                review_change::ReviewCallContext {
-                    cancellation,
-                    observer,
-                    approve,
-                },
-            )
-            .map(|result| ToolExecution {
-                rendered: result.rendered,
-                structured_content: None,
-                review_revision: Some(ReviewRevision {
-                    analysis_revision: result.analysis_revision,
-                    revision_compatible: result.revision_compatible,
-                }),
-            })
-            .map_err(|error| match error {
-                review_change::ReviewCallError::Cancelled => DispatchError::Cancelled,
-                review_change::ReviewCallError::Message(message) => DispatchError::Message(message),
-            })
+            dispatch_review(arguments, referenced, cancellation, observer, approve)
         }
         scan::TOOL_NAME => scan::call(arguments)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
-        context::TOOL_NAME => {
-            let stored_review = referenced
-                .filter(|record| record.kind == AnalysisKind::Review)
-                .map(|record| record.report.as_str());
-            context::call(arguments, stored_review)
-                .map(|result| {
-                    let context::ContextCallResult {
-                        markdown,
-                        change_proof,
-                        evidence,
-                        decision,
-                    } = result;
-                    let structured_content = change_proof.map(|change_proof| {
-                        json!({
-                            "markdown": markdown.clone(),
-                            "change_proof": change_proof,
-                            "evidence": evidence,
-                            "decision": decision
-                        })
-                    });
-                    ToolExecution::with_structured(markdown, structured_content)
-                })
-                .map_err(DispatchError::Message)
-        }
+        context::TOOL_NAME => dispatch_context(arguments, referenced),
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
@@ -276,16 +222,93 @@ fn dispatch_tool(
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
         explain_review_signal::TOOL_NAME => {
-            let report = referenced
-                .filter(|record| record.kind == AnalysisKind::Review)
-                .map(|record| record.report.as_str())
-                .or(state.last_review.as_deref());
-            explain_review_signal::call(arguments, report)
-                .map(ToolExecution::plain)
-                .map_err(DispatchError::Message)
+            dispatch_explain_review_signal(arguments, state, referenced)
         }
         other => Err(DispatchError::Message(format!("unknown tool: {other}"))),
     }
+}
+
+fn dispatch_review(
+    arguments: &Value,
+    referenced: Option<&AnalysisRecord>,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
+) -> Result<ToolExecution, DispatchError> {
+    if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
+        return Ok(ToolExecution {
+            rendered: record.report.clone(),
+            structured_content: None,
+            review_revision: Some(ReviewRevision {
+                analysis_revision: record.workspace_revision.clone(),
+                revision_compatible: true,
+            }),
+        });
+    }
+    let mut full_arguments = arguments.clone();
+    full_arguments["detail"] = json!("full");
+    review_change::call_with_context(
+        &full_arguments,
+        review_change::ReviewCallContext {
+            cancellation,
+            observer,
+            approve,
+        },
+    )
+    .map(|result| ToolExecution {
+        rendered: result.rendered,
+        structured_content: None,
+        review_revision: Some(ReviewRevision {
+            analysis_revision: result.analysis_revision,
+            revision_compatible: result.revision_compatible,
+        }),
+    })
+    .map_err(|error| match error {
+        review_change::ReviewCallError::Cancelled => DispatchError::Cancelled,
+        review_change::ReviewCallError::Message(message) => DispatchError::Message(message),
+    })
+}
+
+fn dispatch_context(
+    arguments: &Value,
+    referenced: Option<&AnalysisRecord>,
+) -> Result<ToolExecution, DispatchError> {
+    let stored_review = referenced
+        .filter(|record| record.kind == AnalysisKind::Review)
+        .map(|record| record.report.as_str());
+    context::call(arguments, stored_review)
+        .map(|result| {
+            let context::ContextCallResult {
+                markdown,
+                change_proof,
+                evidence,
+                decision,
+            } = result;
+            let structured_content = change_proof.map(|change_proof| {
+                json!({
+                    "markdown": markdown.clone(),
+                    "change_proof": change_proof,
+                    "evidence": evidence,
+                    "decision": decision
+                })
+            });
+            ToolExecution::with_structured(markdown, structured_content)
+        })
+        .map_err(DispatchError::Message)
+}
+
+fn dispatch_explain_review_signal(
+    arguments: &Value,
+    state: &ServerState,
+    referenced: Option<&AnalysisRecord>,
+) -> Result<ToolExecution, DispatchError> {
+    let report = referenced
+        .filter(|record| record.kind == AnalysisKind::Review)
+        .map(|record| record.report.as_str())
+        .or(state.last_review.as_deref());
+    explain_review_signal::call(arguments, report)
+        .map(ToolExecution::plain)
+        .map_err(DispatchError::Message)
 }
 
 enum DispatchError {

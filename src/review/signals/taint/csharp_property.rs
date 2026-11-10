@@ -1,7 +1,7 @@
 //! Conservative straight-line CommandText state with local receiver aliases.
 use super::super::{SinkKind, SourceKind, TaintSignal};
 use super::super::{sources::node_has_source, tables::TaintTables};
-use super::flow_assignments::{apply_assignment, collect_assignments};
+use super::flow_assignments::{Assignment, apply_assignment, collect_assignments};
 use super::flow_checks::node_mentions_tainted;
 use super::flow_state::TaintState;
 use crate::review::diff::ChangedFile;
@@ -113,50 +113,104 @@ fn update(
     let mut assignments = Vec::new();
     collect_assignments(node, tables, content, &mut assignments);
     for assignment in assignments {
-        let line = assignment.rhs.start_position().row + 1;
-        let direct = node_has_source(assignment.rhs, content, tables);
-        let source =
-            direct.or_else(|| node_mentions_tainted(assignment.rhs, content, tables, state));
-        let source_line = if direct.is_some() {
-            line
+        update_assignment(&assignment, content, tables, state, origins, aliases);
+    }
+}
+
+fn update_assignment(
+    assignment: &Assignment<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+    state: &mut TaintState,
+    origins: &mut BTreeMap<String, Origin>,
+    aliases: &mut BTreeMap<String, String>,
+) {
+    let line = assignment.rhs.start_position().row + 1;
+    let direct = node_has_source(assignment.rhs, content, tables);
+    let source = direct.or_else(|| node_mentions_tainted(assignment.rhs, content, tables, state));
+    let source_line = if direct.is_some() {
+        line
+    } else {
+        origin_line(assignment.rhs, content, tables, origins).unwrap_or(line)
+    };
+    update_aliases(assignment, content, line, aliases);
+    update_assignment_origin(assignment, source, source_line, line, aliases, origins);
+    apply_assignment(assignment, content, tables, state);
+}
+
+fn update_aliases(
+    assignment: &Assignment<'_>,
+    content: &str,
+    line: usize,
+    aliases: &mut BTreeMap<String, String>,
+) {
+    for name in &assignment.names {
+        if let Some(receiver) = simple_identifier(assignment.rhs, content) {
+            aliases.insert(
+                name.clone(),
+                aliases
+                    .get(receiver)
+                    .cloned()
+                    .unwrap_or_else(|| receiver.to_string()),
+            );
         } else {
-            origin_line(assignment.rhs, content, tables, origins).unwrap_or(line)
-        };
-        for name in &assignment.names {
-            if let Some(receiver) = simple_identifier(assignment.rhs, content) {
-                aliases.insert(
-                    name.clone(),
-                    aliases
-                        .get(receiver)
-                        .cloned()
-                        .unwrap_or_else(|| receiver.to_string()),
-                );
-            } else {
-                aliases.insert(name.clone(), format!("{name}@{line}"));
-            }
-            if let Some(kind) = source {
-                origins.insert(name.clone(), (kind, source_line, line));
-            } else if !assignment.augmenting {
-                origins.remove(name);
-            }
+            aliases.insert(name.clone(), format!("{name}@{line}"));
         }
-        if let Some(path) = &assignment.path
-            && path.ends_with(".CommandText")
-            && path.split('.').count() == 2
-        {
-            let receiver = path.trim_end_matches(".CommandText");
-            let receiver = aliases
-                .get(receiver)
-                .map(String::as_str)
-                .unwrap_or(receiver);
-            let property = format!("{receiver}.CommandText");
-            if let Some(kind) = source {
-                origins.insert(property, (kind, source_line, line));
-            } else if !assignment.augmenting {
-                origins.remove(&property);
-            }
-        }
-        apply_assignment(&assignment, content, tables, state);
+    }
+}
+
+fn update_assignment_origin(
+    assignment: &Assignment<'_>,
+    source: Option<SourceKind>,
+    source_line: usize,
+    line: usize,
+    aliases: &BTreeMap<String, String>,
+    origins: &mut BTreeMap<String, Origin>,
+) {
+    for name in &assignment.names {
+        update_origin(
+            name,
+            source,
+            source_line,
+            line,
+            assignment.augmenting,
+            origins,
+        );
+    }
+    let Some(path) = assignment
+        .path
+        .as_deref()
+        .filter(|path| path.ends_with(".CommandText") && path.split('.').count() == 2)
+    else {
+        return;
+    };
+    let receiver = path.trim_end_matches(".CommandText");
+    let receiver = aliases
+        .get(receiver)
+        .map(String::as_str)
+        .unwrap_or(receiver);
+    update_origin(
+        &format!("{receiver}.CommandText"),
+        source,
+        source_line,
+        line,
+        assignment.augmenting,
+        origins,
+    );
+}
+
+fn update_origin(
+    name: &str,
+    source: Option<SourceKind>,
+    source_line: usize,
+    line: usize,
+    augmenting: bool,
+    origins: &mut BTreeMap<String, Origin>,
+) {
+    if let Some(kind) = source {
+        origins.insert(name.to_string(), (kind, source_line, line));
+    } else if !augmenting {
+        origins.remove(name);
     }
 }
 

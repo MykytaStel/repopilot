@@ -163,9 +163,30 @@ fn process_graph_file(
         );
     }
 
+    add_deferred_imports(
+        file,
+        root,
+        &normalized_source,
+        &eager_targets,
+        known_file_by_normalized,
+        inventory,
+        deferred_edges,
+    );
+}
+
+fn add_deferred_imports(
+    file: &crate::scan::facts::FileFacts,
+    root: &Path,
+    normalized_source: &Path,
+    eager_targets: &BTreeSet<PathBuf>,
+    known_file_by_normalized: &HashMap<PathBuf, PathBuf>,
+    inventory: &resolver::ResolverInventory<'_>,
+    deferred_edges: &mut BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) {
+    let source = file.path.clone();
     for raw in &file.deferred_imports {
-        if let Some(target) = inventory.resolve(raw, &normalized_source, root)
-            && target != normalized_source
+        if let Some(target) = inventory.resolve(raw, normalized_source, root)
+            && target.as_path() != normalized_source
         {
             let resolved = known_file_by_normalized
                 .get(&target)
