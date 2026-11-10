@@ -13,6 +13,11 @@ false positive. The JSON report schema advances to 0.27 with additive impact
 routes. See the [0.27 roadmap](roadmap/v0.27.md), [release notes](releases/v0.27.0.md),
 and [evidence ledger](engineering/v0.27-evidence-ledger.md).
 
+The stable `v0.27.0` release is published on GitHub Releases, crates.io, npm,
+and Homebrew (2026-11-11). The automatic Homebrew update step used an invalid
+credential; the tap formula was updated manually and the public-channel
+verifier then passed. See the evidence ledger for details.
+
 The 0.26 release is published on GitHub Releases (2026-11-02); the exact
 publication status of its other package channels was not re-established in the
 0.27 audit. See the [0.26 release record](roadmap/v0.26.md).
@@ -127,6 +132,10 @@ local fixtures and benchmarks do not close those evidence rows.
 
 ## Released
 
+- **0.27.0 — Language analysis and review evidence:** broader bounded analysis
+  across seven language families, CLI signal replay, revision-checked MCP
+  paging, and deterministic impact routes. Published on GitHub Releases,
+  crates.io, npm, and Homebrew. [Release notes](releases/v0.27.0.md)
 - **0.25.0 — Quiet fallbacks and broken callers:** review flags a changed empty
   `catch` or pass-only `except`, callers of a removed JS/TS default export or
   Rust public function, and stale Rust call arity; C# `CommandText` SQL taint;
