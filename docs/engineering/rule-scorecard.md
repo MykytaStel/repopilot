@@ -12,7 +12,7 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 | Rule | Lifecycle | Zoo Evidence | Evidence Status | Validity (95% Wilson) | Actionability | False-Positive Rate | False-Positive Debt |
 |---|---|---|---|---:|---:|---:|---:|
 | `architecture.barrel-file-risk` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
-| `architecture.circular-dependency` | stable | 11 labeled across 4 repo(s) | descriptive | 1.00 (0.74–1.00) | 0.45 | 0.00 | 0 |
+| `architecture.circular-dependency` | stable | 10 labeled across 4 repo(s) | descriptive | 1.00 (0.72–1.00) | 0.40 | 0.00 | 0 |
 | `architecture.dead-module` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `architecture.deep-directory-nesting` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `architecture.deep-relative-imports` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
@@ -26,6 +26,7 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 | `architecture.unresolved-local-import` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `behavioral.removed-export-still-imported` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `behavioral.rust-public-function-arity-changed` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
+| `behavioral.rust-public-struct-field-removed` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `code-marker.fixme` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `code-marker.hack` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `code-marker.todo` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
@@ -69,8 +70,8 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 
 ## Evidence coverage
 
-- Default-profile evidence: 6 of 55 rules (10.9%), 25 labeled findings across 7 repo(s).
-- Default-profile rules without evidence: 49 (unmeasured, not clean).
+- Default-profile evidence: 6 of 56 rules (10.7%), 24 labeled findings across 7 repo(s).
+- Default-profile rules without evidence: 50 (unmeasured, not clean).
 - Strict-profile sampled evidence: 10 rules, 32 sampled findings across 6 repo(s).
 - Evidence status is `insufficient evidence` below 10 labeled findings; `descriptive` is a sample-size label, not a production precision claim.
 - These coverage counts describe committed labels and do not establish recall.

@@ -140,27 +140,72 @@ fn render_markdown_impact_paths(output: &mut String, report: &ReviewReport) {
     ));
 
     let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
-    'files: for file_impact in &impact.files {
-        output.push_str(&format!("- `{}`\n", file_impact.path.display()));
-        for dependent in &file_impact.direct_dependents {
-            if remaining == 0 {
-                output.push_str("  - ... (truncated)\n");
-                break 'files;
-            }
-            output.push_str(&format!("  - direct: `{}`\n", dependent.display()));
-            remaining -= 1;
-        }
-        for dependent in &file_impact.transitive_dependents {
-            if remaining == 0 {
-                output.push_str("  - ... (truncated)\n");
-                break 'files;
-            }
-            output.push_str(&format!("  - transitive: `{}`\n", dependent.display()));
-            remaining -= 1;
+    for file_impact in &impact.files {
+        if !render_markdown_impact_file(output, file_impact, &mut remaining) {
+            break;
         }
     }
 
     output.push('\n');
+}
+
+fn render_markdown_impact_file(
+    output: &mut String,
+    file_impact: &crate::review::impact::FileImpact,
+    remaining: &mut usize,
+) -> bool {
+    output.push_str(&format!("- `{}`\n", file_impact.path.display()));
+    for dependent in &file_impact.direct_dependents {
+        if !render_markdown_dependent(output, "direct", dependent, remaining) {
+            return false;
+        }
+    }
+    for dependent in &file_impact.transitive_dependents {
+        if !render_markdown_dependent(output, "transitive", dependent, remaining) {
+            return false;
+        }
+    }
+    for route in &file_impact.routes {
+        if !render_markdown_impact_route(output, route, remaining) {
+            return false;
+        }
+    }
+    true
+}
+
+fn render_markdown_dependent(
+    output: &mut String,
+    label: &str,
+    dependent: &std::path::Path,
+    remaining: &mut usize,
+) -> bool {
+    if *remaining == 0 {
+        output.push_str("  - ... (truncated)\n");
+        return false;
+    }
+    output.push_str(&format!("  - {label}: `{}`\n", dependent.display()));
+    *remaining -= 1;
+    true
+}
+
+fn render_markdown_impact_route(
+    output: &mut String,
+    route: &crate::review::impact::ImpactRoute,
+    remaining: &mut usize,
+) -> bool {
+    if *remaining == 0 {
+        output.push_str("  - ... (truncated)\n");
+        return false;
+    }
+    let route = route
+        .files
+        .iter()
+        .map(|path| format!("`{}`", path.display()))
+        .collect::<Vec<_>>()
+        .join(" → ");
+    output.push_str(&format!("  - path: {route}\n"));
+    *remaining -= 1;
+    true
 }
 
 /// Render the unified, confidence-tiered "Review Signals" section: one sub-table

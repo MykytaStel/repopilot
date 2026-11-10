@@ -425,6 +425,22 @@ class SandboxRunnerTests(unittest.TestCase):
         self.assertTrue(result.stdout_truncated)
         self.assertFalse(result.stderr_truncated)
 
+    def test_unavailable_rss_sampler_does_not_change_command_status(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("sandbox_resource.resource_sampler_supported", return_value=False),
+        ):
+            result = run_command(
+                (sys.executable, "-c", "print('ok')"),
+                Path(tmp),
+                5,
+                "run-test",
+            )
+
+        self.assertEqual(result.status, "passed")
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.resource["status"], "unavailable")
+
     def test_timed_command_records_unavailable_resource(self) -> None:
         with (
             tempfile.TemporaryDirectory() as tmp,

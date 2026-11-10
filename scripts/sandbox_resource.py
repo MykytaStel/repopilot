@@ -11,6 +11,7 @@ from typing import Any
 from differential_resource import (
     RESOURCE_SOURCE,
     resource_command,
+    resource_sampler_supported,
     resource_sample_from_file,
     unavailable_resource,
 )
@@ -89,6 +90,12 @@ def prepare_resource_probe(command: tuple[str, ...]) -> ResourceProbe:
 
     output_path: Path | None = None
     try:
+        if not resource_sampler_supported():
+            return ResourceProbe(
+                command,
+                None,
+                "portable peak RSS sampler is unavailable on this platform",
+            )
         with tempfile.NamedTemporaryFile(
             prefix="repopilot-sandbox-rss-", suffix=".txt", delete=False
         ) as handle:

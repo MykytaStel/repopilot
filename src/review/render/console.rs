@@ -165,24 +165,69 @@ fn render_impact_paths(output: &mut String, report: &ReviewReport) {
 
     let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
     for file_impact in &impact.files {
-        output.push_str(&format!("  - {}\n", file_impact.path.display()));
-        for dependent in &file_impact.direct_dependents {
-            if remaining == 0 {
-                output.push_str("    ... (truncated)\n");
-                return;
-            }
-            output.push_str(&format!("      direct: {}\n", dependent.display()));
-            remaining -= 1;
-        }
-        for dependent in &file_impact.transitive_dependents {
-            if remaining == 0 {
-                output.push_str("    ... (truncated)\n");
-                return;
-            }
-            output.push_str(&format!("      transitive: {}\n", dependent.display()));
-            remaining -= 1;
+        if !render_impact_file(output, file_impact, &mut remaining) {
+            return;
         }
     }
+}
+
+fn render_impact_file(
+    output: &mut String,
+    file_impact: &crate::review::impact::FileImpact,
+    remaining: &mut usize,
+) -> bool {
+    output.push_str(&format!("  - {}\n", file_impact.path.display()));
+    for dependent in &file_impact.direct_dependents {
+        if !render_impact_dependent(output, "direct", dependent, remaining) {
+            return false;
+        }
+    }
+    for dependent in &file_impact.transitive_dependents {
+        if !render_impact_dependent(output, "transitive", dependent, remaining) {
+            return false;
+        }
+    }
+    for route in &file_impact.routes {
+        if !render_impact_route(output, route, remaining) {
+            return false;
+        }
+    }
+    true
+}
+
+fn render_impact_dependent(
+    output: &mut String,
+    label: &str,
+    dependent: &std::path::Path,
+    remaining: &mut usize,
+) -> bool {
+    if *remaining == 0 {
+        output.push_str("    ... (truncated)\n");
+        return false;
+    }
+    output.push_str(&format!("      {label}: {}\n", dependent.display()));
+    *remaining -= 1;
+    true
+}
+
+fn render_impact_route(
+    output: &mut String,
+    route: &crate::review::impact::ImpactRoute,
+    remaining: &mut usize,
+) -> bool {
+    if *remaining == 0 {
+        output.push_str("    ... (truncated)\n");
+        return false;
+    }
+    let route = route
+        .files
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(" -> ");
+    output.push_str(&format!("      path: {route}\n"));
+    *remaining -= 1;
+    true
 }
 
 fn render_tiered_signals(output: &mut String, report: &ReviewReport) {

@@ -28,6 +28,14 @@ pub struct FileImpact {
     pub path: PathBuf,
     pub direct_dependents: Vec<PathBuf>,
     pub transitive_dependents: Vec<PathBuf>,
+    pub routes: Vec<ImpactRoute>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct ImpactRoute {
+    pub dependent: PathBuf,
+    /// One deterministic shortest import path, starting at the changed file.
+    pub files: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -62,83 +70,108 @@ pub fn compute_impact_paths(
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
     let importers_by_target = composites::build_importers_by_target(graph, repo_root);
-
-    let mut all_impacted: BTreeSet<PathBuf> = BTreeSet::new();
-    let mut files = Vec::new();
-
-    for changed in &changed_paths {
-        let hops = bounded_hops(changed, &importers_by_target, &changed_paths, depth);
-        if hops.is_empty() {
-            continue;
-        }
-        let direct_dependents = hops
-            .iter()
-            .filter(|(_, hop)| **hop == 1)
-            .map(|(path, _)| path.clone())
-            .collect::<Vec<_>>();
-        let transitive_dependents = hops
-            .iter()
-            .filter(|(_, hop)| **hop > 1)
-            .map(|(path, _)| path.clone())
-            .collect::<Vec<_>>();
-        all_impacted.extend(hops.into_keys());
-        files.push(FileImpact {
-            path: changed.clone(),
-            direct_dependents,
-            transitive_dependents,
-        });
+    let (files, all_impacted) = affected_files(&changed_paths, &importers_by_target, depth);
+    ImpactPaths {
+        depth,
+        files,
+        affected_surface: affected_surface(all_impacted),
     }
+}
 
+fn affected_files(
+    changed_paths: &BTreeSet<PathBuf>,
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    depth: usize,
+) -> (Vec<FileImpact>, BTreeSet<PathBuf>) {
+    let mut all_impacted = BTreeSet::new();
+    let mut files = Vec::new();
+    for changed in changed_paths {
+        let paths = bounded_paths(changed, importers_by_target, changed_paths, depth);
+        if !paths.is_empty() {
+            all_impacted.extend(paths.keys().cloned());
+            files.push(file_impact(changed, paths));
+        }
+    }
+    (files, all_impacted)
+}
+
+fn file_impact(changed: &Path, paths: BTreeMap<PathBuf, Vec<PathBuf>>) -> FileImpact {
+    let direct_dependents = dependents_at_depth(&paths, 2);
+    let transitive_dependents = paths
+        .iter()
+        .filter(|(_, route)| route.len() > 2)
+        .map(|(path, _)| path.clone())
+        .collect();
+    let routes = paths
+        .into_iter()
+        .map(|(dependent, files)| ImpactRoute { dependent, files })
+        .collect();
+    FileImpact {
+        path: changed.to_path_buf(),
+        direct_dependents,
+        transitive_dependents,
+        routes,
+    }
+}
+
+fn dependents_at_depth(paths: &BTreeMap<PathBuf, Vec<PathBuf>>, depth: usize) -> Vec<PathBuf> {
+    paths
+        .iter()
+        .filter(|(_, route)| route.len() == depth)
+        .map(|(path, _)| path.clone())
+        .collect()
+}
+
+fn affected_surface(all_impacted: BTreeSet<PathBuf>) -> AffectedSurface {
     let affected_directories = all_impacted
         .iter()
         .filter_map(|path| path.parent().map(PathBuf::from))
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
-
-    ImpactPaths {
-        depth,
-        files,
-        affected_surface: AffectedSurface {
-            impacted_files: all_impacted.len(),
-            affected_directories,
-        },
+    AffectedSurface {
+        impacted_files: all_impacted.len(),
+        affected_directories,
     }
 }
 
 // BFS over importers up to `depth`, excluding the seed and changed files. The
 // ordered maps keep the result deterministic.
-fn bounded_hops(
+fn bounded_paths(
     seed: &Path,
     importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
     changed_paths: &BTreeSet<PathBuf>,
     depth: usize,
-) -> BTreeMap<PathBuf, usize> {
-    let mut hops: BTreeMap<PathBuf, usize> = BTreeMap::new();
-    let mut queue: VecDeque<(PathBuf, usize)> = VecDeque::new();
-    queue.push_back((seed.to_path_buf(), 0));
+) -> BTreeMap<PathBuf, Vec<PathBuf>> {
+    let mut paths: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+    let mut queue: VecDeque<Vec<PathBuf>> = VecDeque::new();
+    queue.push_back(vec![seed.to_path_buf()]);
     let mut visited: BTreeSet<PathBuf> = BTreeSet::from([seed.to_path_buf()]);
 
-    while let Some((current, distance)) = queue.pop_front() {
-        if distance >= depth {
+    while let Some(route) = queue.pop_front() {
+        let Some(current) = route.last() else {
+            continue;
+        };
+        if route.len() > depth {
             continue;
         }
-        let Some(importers) = importers_by_target.get(&current) else {
+        let Some(importers) = importers_by_target.get(current) else {
             continue;
         };
         for importer in importers {
             if !visited.insert(importer.clone()) {
                 continue;
             }
-            let next_distance = distance + 1;
+            let mut next_route = route.clone();
+            next_route.push(importer.clone());
             if !changed_paths.contains(importer) {
-                hops.insert(importer.clone(), next_distance);
+                paths.insert(importer.clone(), next_route.clone());
             }
-            queue.push_back((importer.clone(), next_distance));
+            queue.push_back(next_route);
         }
     }
 
-    hops
+    paths
 }
 
 #[cfg(test)]
@@ -208,7 +241,53 @@ mod tests {
             file_impact.transitive_dependents,
             vec![PathBuf::from("c.rs")]
         );
+        assert_eq!(
+            file_impact.routes,
+            vec![
+                ImpactRoute {
+                    dependent: PathBuf::from("b.rs"),
+                    files: vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")],
+                },
+                ImpactRoute {
+                    dependent: PathBuf::from("c.rs"),
+                    files: vec![
+                        PathBuf::from("a.rs"),
+                        PathBuf::from("b.rs"),
+                        PathBuf::from("c.rs"),
+                    ],
+                },
+            ]
+        );
         assert_eq!(impact.affected_surface.impacted_files, 2);
+    }
+
+    #[test]
+    fn equal_length_impact_routes_choose_a_deterministic_lexical_path() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let graph = coupling_graph(&[
+            ("c.rs", "a.rs"),
+            ("b.rs", "a.rs"),
+            ("d.rs", "c.rs"),
+            ("d.rs", "b.rs"),
+        ]);
+        let summary = summary_with_graph(temp.path(), graph);
+        let changed = vec![changed_file("a.rs")];
+
+        let impact = compute_impact_paths(&summary, temp.path(), &changed, 2);
+
+        let route = impact.files[0]
+            .routes
+            .iter()
+            .find(|route| route.dependent.as_path() == Path::new("d.rs"))
+            .expect("d.rs is reachable through both b.rs and c.rs");
+        assert_eq!(
+            route.files,
+            vec![
+                PathBuf::from("a.rs"),
+                PathBuf::from("b.rs"),
+                PathBuf::from("d.rs")
+            ]
+        );
     }
 
     #[test]

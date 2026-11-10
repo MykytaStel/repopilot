@@ -5,14 +5,6 @@ strict_coverage = "selective"
 
 [[finding]]
 profile = "default"
-finding_id = "architecture.circular-dependency:excalidraw-app/App.tsx:e575ed4f8104d3d4"
-rule_id = "architecture.circular-dependency"
-path = "excalidraw-app/App.tsx"
-disposition = "actionable"
-reason = "Two-node eager cycle between the app entry and App.tsx (App.tsx <-> index.tsx); a real load-order coupling at the application root."
-
-[[finding]]
-profile = "default"
 finding_id = "architecture.circular-dependency:packages/common/src/index.ts:7b14cf4e6bb5e522"
 rule_id = "architecture.circular-dependency"
 path = "packages/common/src/index.ts"

@@ -111,42 +111,65 @@ pub(super) fn render_impact(report: &ReviewReport) -> String {
     let paths = impact
         .files
         .iter()
-        .map(|file| {
-            let direct = file
-                .direct_dependents
-                .iter()
-                .map(|path| {
-                    format!(
-                        "<li>direct: <code>{}</code></li>",
-                        escape(&path.to_string_lossy())
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("");
-            let transitive = file
-                .transitive_dependents
-                .iter()
-                .map(|path| {
-                    format!(
-                        "<li>transitive: <code>{}</code></li>",
-                        escape(&path.to_string_lossy())
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("");
+        .map(render_impact_file)
+        .collect::<Vec<_>>()
+        .join("");
+    let blast = render_blast_items(&report.blast_radius);
+    render_impact_panel(impact, &paths, &blast)
+}
+
+fn render_impact_file(file: &crate::review::impact::FileImpact) -> String {
+    let direct = render_dependents("direct", &file.direct_dependents);
+    let transitive = render_dependents("transitive", &file.transitive_dependents);
+    let routes = render_impact_routes(&file.routes);
+    format!(
+        "<li><code>{}</code><ul>{direct}{transitive}{routes}</ul></li>",
+        escape(&file.path.to_string_lossy())
+    )
+}
+
+fn render_dependents(label: &str, paths: &[std::path::PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| {
             format!(
-                "<li><code>{}</code><ul>{direct}{transitive}</ul></li>",
-                escape(&file.path.to_string_lossy())
+                "<li>{label}: <code>{}</code></li>",
+                escape(&path.to_string_lossy())
             )
         })
         .collect::<Vec<_>>()
-        .join("");
-    let blast = report
-        .blast_radius
+        .join("")
+}
+
+fn render_impact_routes(routes: &[crate::review::impact::ImpactRoute]) -> String {
+    routes
+        .iter()
+        .map(|route| {
+            let path = route
+                .files
+                .iter()
+                .map(|path| escape(&path.to_string_lossy()))
+                .collect::<Vec<_>>()
+                .join(" → ");
+            format!("<li>path: <code>{path}</code></li>")
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+fn render_blast_items(paths: &[std::path::PathBuf]) -> String {
+    paths
         .iter()
         .map(|path| format!("<li><code>{}</code></li>", escape(&path.to_string_lossy())))
         .collect::<Vec<_>>()
-        .join("");
+        .join("")
+}
+
+fn render_impact_panel(
+    impact: &crate::review::impact::ImpactPaths,
+    paths: &str,
+    blast: &str,
+) -> String {
     format!(
         r#"<section class="panel" id="impact-paths"><h2>Impact Paths</h2>
 <p>{} impacted file(s) across {} director{} (depth {}).</p>
@@ -161,17 +184,25 @@ pub(super) fn render_impact(report: &ReviewReport) -> String {
             "ies"
         },
         impact.depth,
-        if blast.is_empty() {
-            ""
-        } else {
-            "<h3>Blast radius</h3><ul>"
-        },
-        if blast.is_empty() {
-            "".to_string()
-        } else {
-            format!("{blast}</ul>")
-        },
+        blast_section_open(blast),
+        blast_section_close(blast),
     )
+}
+
+fn blast_section_open(blast: &str) -> &'static str {
+    if blast.is_empty() {
+        ""
+    } else {
+        "<h3>Blast radius</h3><ul>"
+    }
+}
+
+fn blast_section_close(blast: &str) -> String {
+    if blast.is_empty() {
+        String::new()
+    } else {
+        format!("{blast}</ul>")
+    }
 }
 
 pub(super) fn render_signals(tiered: &TieredSignals) -> String {

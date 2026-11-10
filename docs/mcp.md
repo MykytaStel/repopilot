@@ -74,12 +74,12 @@ See the [security model](security.md#explicit-verification-commands).
 
 | Tool | Purpose | Additional inputs |
 |---|---|---|
-| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, gate result, optional intent drift, and explicitly selected verification checks | `base`, `head`, `config`, `baseline`, `intent`, `intent_path`, `scope`, `profile`, `fail_on_review`, `detail`, `offset`, `limit`, `verify` |
+| `repopilot_review_change` | Changed/full review with findings, signals, blast radius, gate result, optional intent drift, and explicitly selected verification checks | `base`, `head`, `config`, `baseline`, `intent`, `intent_path`, `scope`, `profile`, `fail_on_review`, `detail`, `analysis_handle`, `offset`, `limit`, `signal_offset`, `signal_limit`, `verify` |
 | `repopilot_scan` | Repository or changed-scope JSON scan | `config`, `profile`, `scope`, `base`, `offset`, `limit` |
 | `repopilot_context` | Budgeted AI-ready Markdown context | `config`, `profile`, `focus`, `budget`, `analysis_handle` |
 | `repopilot_explain_file` | File-role evidence and ordered rule decision trace | `rule`, `signal` |
 | `repopilot_explain_finding` | Replay a file-scoped finding by stable ID and optional occurrence locator; returns a stored-only fallback when safe replay is unavailable | `finding_id`, `source`, `analysis_handle`, `evidence_path`, `line_start` |
-| `repopilot_explain_review_signal` | Explain one review signal with provenance, gate state, impact, verification, and limitations | `signal_id`, `analysis_handle` |
+| `repopilot_explain_review_signal` | Explain one review signal with provenance, gate state, impact, verification, and limitations | `signal_id`, `path`, `line`, `analysis_handle` |
 
 Every `tools/call` result includes `workspaceRevision`. Successful scan and
 review results additionally include `analysisHandle`; the server retains the
@@ -88,7 +88,10 @@ eight most recent full analysis reports in memory. Pass a handle to
 or to `repopilot_context` to require that the generated context still belongs
 to the same workspace revision. Unknown, expired, or stale handles fail
 explicitly and report the current revision. Handles are session-local and are
-not persisted to disk.
+not persisted to disk. Pass a review handle back to `repopilot_review_change`
+with page or detail options to continue the same review without rescanning; the
+workspace revision must still match, and only pagination/detail inputs are
+accepted with a stored handle.
 
 `repopilot_review_change` accepts either an inline bounded `intent` object or a
 repository-rooted `intent_path`, never both. The object uses `version = 1`, an
@@ -142,19 +145,28 @@ Pass one candidate back as `evidence_path` plus `line_start` to select the exact
 occurrence. The stable finding ID and baseline matching contract remain
 unchanged.
 
+Review signal IDs can also repeat when one rule emits multiple locations in a
+file. `repopilot_explain_review_signal` then returns `status: "ambiguous"` and
+the candidate `path`/`line` pairs. Pass one or both as inputs to explain the
+intended occurrence. The CLI has the matching `--explain-signal-path` and
+`--explain-signal-line` options.
+
 Every tool accepts a workspace-relative `path` where applicable. Review defaults
 to `scope=changed`, `profile=default`, `fail_on_review=none`, and
-`detail=compact`. Compact output caps detailed findings and each signal tier at
-20 total review signals; `detail=full` returns the complete JSON report. Scan
+`detail=compact`. Compact output returns at most 20 findings and 20 combined
+review signals, with totals and next offsets in MCP pagination metadata;
+`detail=full` returns all items unless a page is requested. Scan
 and review accept `filters.min_severity`, `filters.min_confidence`,
 `filters.min_priority`, and `filters.rules`.
 
-Scan and review accept zero-based `offset` plus `limit` (1-1000) for the
-top-level `findings` array. A paginated result includes MCP-level `pagination`
-metadata with `offset`, `limit`, `total`, `returned`, and nullable
-`next_offset`; the JSON report itself remains schema-compatible. Review stores
-the full report behind its handle even when the immediate client response uses
-`detail=compact`.
+Scan accepts zero-based `offset` plus `limit` (1-1000) for the top-level
+`findings` array. Review uses those fields for findings and `signal_offset` plus
+`signal_limit` (1-1000) for signals, flattened in `definitely`, `maybe`, then
+`noise` order while preserving their original tiers in the response. Pagination
+metadata includes totals, returned counts, and nullable next offsets; report
+fields remain schema-compatible. A later page can pass the same
+`analysis_handle` and desired offsets to avoid rescanning. Each page still
+observes the handle's workspace-revision check.
 
 Review signals keep the same structured evidence across MCP clients. The
 `behavioral.quiet-fallback-introduced` signal is a maybe-tier, medium-confidence

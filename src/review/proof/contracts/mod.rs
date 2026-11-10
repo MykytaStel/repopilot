@@ -10,6 +10,7 @@ mod security;
 
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 const RUST_ARITY_SIGNAL: &str = "behavioral.rust-public-function-arity-changed";
+const RUST_STRUCT_FIELD_SIGNAL: &str = "behavioral.rust-public-struct-field-removed";
 
 pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
     let mut deltas = report
@@ -19,13 +20,14 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
         .filter(|signal| {
             matches!(
                 signal.kind.as_str(),
-                REMOVED_EXPORT_SIGNAL | RUST_ARITY_SIGNAL
+                REMOVED_EXPORT_SIGNAL | RUST_ARITY_SIGNAL | RUST_STRUCT_FIELD_SIGNAL
             ) && !signal.suppressed
         })
         .filter_map(|signal| {
             let change = match signal.kind.as_str() {
                 REMOVED_EXPORT_SIGNAL => ContractChangeKind::RemovedExport,
                 RUST_ARITY_SIGNAL => ContractChangeKind::FunctionArityChanged,
+                RUST_STRUCT_FIELD_SIGNAL => ContractChangeKind::StructFieldRemoved,
                 _ => return None,
             };
             Some(ChangeProofContractDelta {

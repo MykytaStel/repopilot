@@ -36,28 +36,67 @@ pub(super) fn handle_tools_call_with_approval(
     observer: &mut dyn FnMut(ReviewVerificationEvent),
     approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
 ) -> Response {
+    let call = match resolve_call(id.clone(), params, state) {
+        Ok(call) => call,
+        Err(response) => return response,
+    };
+    let outcome = match dispatch_call(&call, state, cancellation, observer, approve, &id) {
+        Ok(outcome) => outcome,
+        Err(response) => return response,
+    };
+    let workspace_revision = match current_revision(&call, state, &id) {
+        Ok(revision) => revision,
+        Err(response) => return response,
+    };
+    publish_call(id, call, outcome, workspace_revision, state, cancellation)
+}
+
+struct ResolvedToolCall {
+    name: String,
+    arguments: Value,
+    referenced: Option<AnalysisRecord>,
+}
+
+fn resolve_call(
+    id: Value,
+    params: &Value,
+    state: &mut ServerState,
+) -> Result<ResolvedToolCall, Response> {
     let name = params
         .get("name")
         .and_then(Value::as_str)
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .to_string();
     let mut arguments = params
         .get("arguments")
         .cloned()
         .unwrap_or_else(|| json!({}));
     let current_revision = WorkspaceRevision::capture(&state.root).id().to_string();
-    if let Err(message) = resolve_tool_paths(&mut arguments, &state.root) {
-        return tool_response(id, name, Err(message), &current_revision, state);
-    }
-
-    let referenced = match referenced_analysis(name, &arguments, state, &current_revision) {
-        Ok(record) => record,
-        Err(message) => return tool_response(id, name, Err(message), &current_revision, state),
-    };
-    let outcome = match dispatch_tool(
+    resolve_tool_paths(&mut arguments, &state.root).map_err(|message| {
+        tool_response(id.clone(), &name, Err(message), &current_revision, state)
+    })?;
+    let referenced = referenced_analysis(&name, &arguments, state, &current_revision)
+        .map_err(|message| tool_response(id, &name, Err(message), &current_revision, state))?;
+    Ok(ResolvedToolCall {
         name,
-        &arguments,
+        arguments,
+        referenced,
+    })
+}
+
+fn dispatch_call(
+    call: &ResolvedToolCall,
+    state: &mut ServerState,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
+    id: &Value,
+) -> Result<Result<ToolExecution, String>, Response> {
+    let outcome = match dispatch_tool(
+        &call.name,
+        &call.arguments,
         state,
-        referenced.as_ref(),
+        call.referenced.as_ref(),
         cancellation,
         observer,
         approve,
@@ -65,16 +104,48 @@ pub(super) fn handle_tools_call_with_approval(
         Ok(outcome) => Ok(outcome),
         Err(DispatchError::Message(message)) => Err(message),
         Err(DispatchError::Cancelled) => {
-            return Response::error(id, -32800, "request cancelled");
+            return Err(Response::error(id.clone(), -32800, "request cancelled"));
         }
     };
     if cancellation.is_cancelled() {
-        return Response::error(id, -32800, "request cancelled");
+        return Err(Response::error(id.clone(), -32800, "request cancelled"));
     }
+    Ok(outcome)
+}
 
+fn current_revision(
+    call: &ResolvedToolCall,
+    state: &ServerState,
+    id: &Value,
+) -> Result<String, Response> {
     // Analysis may update RepoPilot-owned cache files. Capture the revision at
     // response time so a handle never becomes stale because of its own call.
     let workspace_revision = WorkspaceRevision::capture(&state.root).id().to_string();
+    if let Some(record) = call.referenced.as_ref()
+        && record.workspace_revision != workspace_revision
+    {
+        return Err(tool_response(
+            id.clone(),
+            &call.name,
+            Err(format!(
+                "analysis handle became stale while preparing the response: its revision is {}, current revision is {workspace_revision}",
+                record.workspace_revision
+            )),
+            &workspace_revision,
+            state,
+        ));
+    }
+    Ok(workspace_revision)
+}
+
+fn publish_call(
+    id: Value,
+    call: ResolvedToolCall,
+    outcome: Result<ToolExecution, String>,
+    workspace_revision: String,
+    state: &mut ServerState,
+    cancellation: &CancellationToken,
+) -> Response {
     let (outcome, structured_content, publishable) = match outcome {
         Ok(execution) => {
             let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
@@ -89,9 +160,9 @@ pub(super) fn handle_tools_call_with_approval(
         Err(message) => (Err(message), None, false),
     };
     let prepared = prepare_tool_result(
-        name,
+        &call.name,
         outcome,
-        &arguments,
+        &call.arguments,
         state,
         &workspace_revision,
         publishable,
@@ -138,56 +209,12 @@ fn dispatch_tool(
 ) -> Result<ToolExecution, DispatchError> {
     match name {
         review_change::TOOL_NAME => {
-            let mut full_arguments = arguments.clone();
-            full_arguments["detail"] = json!("full");
-            review_change::call_with_context(
-                &full_arguments,
-                review_change::ReviewCallContext {
-                    cancellation,
-                    observer,
-                    approve,
-                },
-            )
-            .map(|result| ToolExecution {
-                rendered: result.rendered,
-                structured_content: None,
-                review_revision: Some(ReviewRevision {
-                    analysis_revision: result.analysis_revision,
-                    revision_compatible: result.revision_compatible,
-                }),
-            })
-            .map_err(|error| match error {
-                review_change::ReviewCallError::Cancelled => DispatchError::Cancelled,
-                review_change::ReviewCallError::Message(message) => DispatchError::Message(message),
-            })
+            dispatch_review(arguments, referenced, cancellation, observer, approve)
         }
         scan::TOOL_NAME => scan::call(arguments)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
-        context::TOOL_NAME => {
-            let stored_review = referenced
-                .filter(|record| record.kind == AnalysisKind::Review)
-                .map(|record| record.report.as_str());
-            context::call(arguments, stored_review)
-                .map(|result| {
-                    let context::ContextCallResult {
-                        markdown,
-                        change_proof,
-                        evidence,
-                        decision,
-                    } = result;
-                    let structured_content = change_proof.map(|change_proof| {
-                        json!({
-                            "markdown": markdown.clone(),
-                            "change_proof": change_proof,
-                            "evidence": evidence,
-                            "decision": decision
-                        })
-                    });
-                    ToolExecution::with_structured(markdown, structured_content)
-                })
-                .map_err(DispatchError::Message)
-        }
+        context::TOOL_NAME => dispatch_context(arguments, referenced),
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root)
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
@@ -195,16 +222,93 @@ fn dispatch_tool(
             .map(ToolExecution::plain)
             .map_err(DispatchError::Message),
         explain_review_signal::TOOL_NAME => {
-            let report = referenced
-                .filter(|record| record.kind == AnalysisKind::Review)
-                .map(|record| record.report.as_str())
-                .or(state.last_review.as_deref());
-            explain_review_signal::call(arguments, report)
-                .map(ToolExecution::plain)
-                .map_err(DispatchError::Message)
+            dispatch_explain_review_signal(arguments, state, referenced)
         }
         other => Err(DispatchError::Message(format!("unknown tool: {other}"))),
     }
+}
+
+fn dispatch_review(
+    arguments: &Value,
+    referenced: Option<&AnalysisRecord>,
+    cancellation: &CancellationToken,
+    observer: &mut dyn FnMut(ReviewVerificationEvent),
+    approve: &mut dyn FnMut(&ValidatedCheck) -> VerificationApproval,
+) -> Result<ToolExecution, DispatchError> {
+    if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
+        return Ok(ToolExecution {
+            rendered: record.report.clone(),
+            structured_content: None,
+            review_revision: Some(ReviewRevision {
+                analysis_revision: record.workspace_revision.clone(),
+                revision_compatible: true,
+            }),
+        });
+    }
+    let mut full_arguments = arguments.clone();
+    full_arguments["detail"] = json!("full");
+    review_change::call_with_context(
+        &full_arguments,
+        review_change::ReviewCallContext {
+            cancellation,
+            observer,
+            approve,
+        },
+    )
+    .map(|result| ToolExecution {
+        rendered: result.rendered,
+        structured_content: None,
+        review_revision: Some(ReviewRevision {
+            analysis_revision: result.analysis_revision,
+            revision_compatible: result.revision_compatible,
+        }),
+    })
+    .map_err(|error| match error {
+        review_change::ReviewCallError::Cancelled => DispatchError::Cancelled,
+        review_change::ReviewCallError::Message(message) => DispatchError::Message(message),
+    })
+}
+
+fn dispatch_context(
+    arguments: &Value,
+    referenced: Option<&AnalysisRecord>,
+) -> Result<ToolExecution, DispatchError> {
+    let stored_review = referenced
+        .filter(|record| record.kind == AnalysisKind::Review)
+        .map(|record| record.report.as_str());
+    context::call(arguments, stored_review)
+        .map(|result| {
+            let context::ContextCallResult {
+                markdown,
+                change_proof,
+                evidence,
+                decision,
+            } = result;
+            let structured_content = change_proof.map(|change_proof| {
+                json!({
+                    "markdown": markdown.clone(),
+                    "change_proof": change_proof,
+                    "evidence": evidence,
+                    "decision": decision
+                })
+            });
+            ToolExecution::with_structured(markdown, structured_content)
+        })
+        .map_err(DispatchError::Message)
+}
+
+fn dispatch_explain_review_signal(
+    arguments: &Value,
+    state: &ServerState,
+    referenced: Option<&AnalysisRecord>,
+) -> Result<ToolExecution, DispatchError> {
+    let report = referenced
+        .filter(|record| record.kind == AnalysisKind::Review)
+        .map(|record| record.report.as_str())
+        .or(state.last_review.as_deref());
+    explain_review_signal::call(arguments, report)
+        .map(ToolExecution::plain)
+        .map_err(DispatchError::Message)
 }
 
 enum DispatchError {
@@ -252,9 +356,12 @@ fn referenced_analysis(
     };
     if !matches!(
         name,
-        context::TOOL_NAME | explain_finding::TOOL_NAME | explain_review_signal::TOOL_NAME
+        context::TOOL_NAME
+            | explain_finding::TOOL_NAME
+            | explain_review_signal::TOOL_NAME
+            | review_change::TOOL_NAME
     ) {
-        return Err("`analysis_handle` is only accepted by context, explain_finding, and explain_review_signal".into());
+        return Err("`analysis_handle` is not accepted by this tool".into());
     }
     let record = state
         .analyses
@@ -266,6 +373,29 @@ fn referenced_analysis(
             "analysis handle {handle} belongs to workspace revision {}; current revision is {workspace_revision}",
             record.workspace_revision
         ));
+    }
+    if name == review_change::TOOL_NAME {
+        if record.kind != AnalysisKind::Review {
+            return Err("`analysis_handle` must refer to a prior review".into());
+        }
+        let allowed = [
+            "analysis_handle",
+            "offset",
+            "limit",
+            "signal_offset",
+            "signal_limit",
+            "detail",
+        ];
+        if let Some(key) = arguments
+            .as_object()
+            .into_iter()
+            .flat_map(|values| values.keys())
+            .find(|key| !allowed.contains(&key.as_str()))
+        {
+            return Err(format!(
+                "`{key}` cannot be combined with a stored review handle; request only another page or detail projection"
+            ));
+        }
     }
     Ok(Some(record))
 }

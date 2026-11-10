@@ -392,6 +392,7 @@ function run() {
     checkPermission("admin");
     doAction();
 }
+
 "#;
     let post_code = r#"
 function run() {
@@ -415,6 +416,29 @@ function run() {
     // AST-confirmed signals carry the Ast source and are not coarse.
     assert_eq!(signals[0].source, BehavioralSignalSource::Ast);
     assert!(!signals[0].is_coarse());
+}
+
+#[test]
+fn auth_cache_reads_are_not_treated_as_removed_authorization_checks() {
+    let before = "function run() {\n  readAuthCache();\n  doAction();\n}\n";
+    let after = "function run() {\n  doAction();\n}\n";
+    let file = file_with_hunk(
+        "src/scan/cache.ts",
+        ChangeStatus::Modified,
+        Some((2, 2)),
+        Some((2, 1)),
+        vec!["  readAuthCache();"],
+        vec![],
+    );
+    let before = ReviewSource::new(before.to_string(), Some("JavaScript".to_string()));
+    let after = ReviewSource::new(after.to_string(), Some("JavaScript".to_string()));
+
+    let signals = detect_behavioral_removed(&file, Some(&before), Some(&after));
+
+    assert!(
+        signals.is_empty(),
+        "cache I/O is not an authorization check: {signals:?}"
+    );
 }
 
 #[test]

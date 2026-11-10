@@ -18,7 +18,7 @@ use serde_json::Value;
 use std::io;
 use std::path::PathBuf;
 
-pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.26";
+pub const SCAN_REPORT_SCHEMA_VERSION: &str = "0.27";
 const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.16",
     "0.17",
@@ -30,6 +30,7 @@ const ACCEPTED_SCAN_REPORT_SCHEMA_VERSIONS: &[&str] = &[
     "0.23",
     "0.24",
     "0.25",
+    "0.26",
     SCAN_REPORT_SCHEMA_VERSION,
 ];
 pub const REPOPILOT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -290,8 +291,8 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn schema_version_tracks_assessment_status_contract() {
-        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.26");
+    fn schema_version_tracks_review_impact_route_contract() {
+        assert_eq!(SCAN_REPORT_SCHEMA_VERSION, "0.27");
     }
 
     #[test]
@@ -301,6 +302,19 @@ mod tests {
             "report": {
                 "kind": "scan",
                 "schema_version": "0.23"
+            }
+        });
+
+        assert!(validate_current_scan_report(&value).is_ok());
+    }
+
+    #[test]
+    fn accepts_previous_scan_schema_after_impact_path_contract_bump() {
+        let value = json!({
+            "schema_version": "0.26",
+            "report": {
+                "kind": "scan",
+                "schema_version": "0.26"
             }
         });
 

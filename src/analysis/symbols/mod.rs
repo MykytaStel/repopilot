@@ -49,6 +49,12 @@ pub(crate) struct JavaScriptSymbolFacts {
 pub(crate) struct RustContractFacts {
     pub functions: Vec<RustFunctionArityFact>,
     pub calls: Vec<RustCallFact>,
+    #[serde(default)]
+    pub public_structs: Vec<String>,
+    #[serde(default)]
+    pub public_struct_fields: Vec<RustStructFieldFact>,
+    #[serde(default)]
+    pub struct_field_uses: Vec<RustFieldUseFact>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -66,6 +72,23 @@ pub(crate) struct RustCallFact {
     pub byte_start: usize,
     pub byte_end: usize,
     pub argument_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustStructFieldFact {
+    pub struct_name: String,
+    pub field_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustFieldUseFact {
+    pub struct_name: String,
+    pub field_name: String,
+    pub module_specifier: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub byte_start: usize,
+    pub byte_end: usize,
 }
 
 /// Dispatch once for all analysis adapters while retaining the private cache

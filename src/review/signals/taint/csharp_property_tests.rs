@@ -19,10 +19,66 @@ fn csharp_command_property_controls() {
         "cmd.CommandText = id; cmd = otherCommand; cmd.ExecuteReader();",
         "cmd.CommandText = id; cmd = new SqlCommand(); cmd.ExecuteReader();",
         "cmd.CommandText = id;",
-        "if (ok) { cmd.CommandText = id; } cmd.ExecuteReader();",
-        "cmd.CommandText = id; if (ok) { cmd.CommandText = \"SELECT 1\"; } cmd.ExecuteReader();",
         "{ cmd.CommandText = id; } cmd.ExecuteReader();",
         "cmd.CommandText = id; void Inner() { cmd.ExecuteReader(); }",
+    ] {
+        assert!(
+            run("src/Controller.cs", "C#", &code(statements)).is_empty(),
+            "{statements}"
+        );
+    }
+}
+
+#[test]
+fn csharp_command_property_tracks_simple_local_receiver_aliases() {
+    for statements in [
+        "var alias = cmd; alias.CommandText = id; cmd.ExecuteReader();",
+        "var alias = cmd; cmd.CommandText = id; alias.ExecuteReader();",
+    ] {
+        let signals = run("src/Controller.cs", "C#", &code(statements));
+        assert_eq!(signals.len(), 1, "{statements}");
+        assert_eq!(
+            signals[0].sink,
+            crate::review::signals::taint::SinkKind::Sql
+        );
+        assert!(signals[0].detail.contains("CommandText"));
+    }
+}
+
+#[test]
+fn csharp_command_property_aliases_preserve_clean_overwrite_and_reassignment() {
+    for statements in [
+        "var alias = cmd; alias.CommandText = id; cmd.CommandText = \"SELECT 1\"; alias.ExecuteReader();",
+        "var alias = cmd; alias.CommandText = id; alias = otherCommand; alias.ExecuteReader();",
+    ] {
+        assert!(
+            run("src/Controller.cs", "C#", &code(statements)).is_empty(),
+            "{statements}"
+        );
+    }
+}
+
+#[test]
+fn csharp_command_property_merges_simple_if_branches_conservatively() {
+    let tainted_branch = "if (useInput) { cmd.CommandText = id; } else { cmd.CommandText = \"SELECT 1\"; } cmd.ExecuteReader();";
+    let tainted_without_else = "if (useInput) { cmd.CommandText = id; } cmd.ExecuteReader();";
+    let taint_may_survive_conditional_overwrite = "cmd.CommandText = id; if (useInput) { cmd.CommandText = \"SELECT 1\"; } cmd.ExecuteReader();";
+    for statements in [
+        tainted_branch,
+        tainted_without_else,
+        taint_may_survive_conditional_overwrite,
+    ] {
+        let signals = run("src/Controller.cs", "C#", &code(statements));
+        assert_eq!(signals.len(), 1, "{statements}");
+        assert_eq!(
+            signals[0].sink,
+            crate::review::signals::taint::SinkKind::Sql
+        );
+    }
+
+    for statements in [
+        "if (useInput) { cmd.CommandText = \"SELECT 1\"; } else { cmd.CommandText = \"SELECT 2\"; } cmd.ExecuteReader();",
+        "cmd.CommandText = id; if (useInput) { cmd.CommandText = \"SELECT 1\"; } else { cmd.CommandText = \"SELECT 2\"; } cmd.ExecuteReader();",
     ] {
         assert!(
             run("src/Controller.cs", "C#", &code(statements)).is_empty(),

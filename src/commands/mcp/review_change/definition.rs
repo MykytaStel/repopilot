@@ -84,14 +84,17 @@ fn review_properties() -> Map<String, Value> {
             "default": "none",
             "description": "\"definitely\" fails the report's gate when a gate-eligible definitely-tier signal is present; \"none\" reports signals without gating."
         },
-        "detail": {
+            "detail": {
             "type": "string",
             "enum": ["compact", "full"],
             "default": "compact",
-            "description": "\"compact\" returns at most 20 findings and 20 signals; \"full\" returns all of them."
+                "description": "\"compact\" returns a first page of at most 20 findings and signals; \"full\" returns all items unless an explicit page is requested."
         },
-        "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
+        "analysis_handle": { "type": "string", "description": "Continue a previous review without rescanning. Only pagination and detail options may be supplied; the workspace revision must still match." },
+        "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset. Pair with `analysis_handle` to request another page from the same review." },
         "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
+        "signal_offset": { "type": "integer", "minimum": 0, "description": "Zero-based offset across definitely, maybe, and noise signals, in that order." },
+        "signal_limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum review signals to return." },
         "verify": {
             "type": "array",
             "items": { "type": "string" },

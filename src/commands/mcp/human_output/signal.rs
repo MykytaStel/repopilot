@@ -2,6 +2,9 @@ use serde_json::Value;
 use std::fmt::Write as FmtWrite;
 
 pub(super) fn render_signal(report: &Value) -> String {
+    if report.get("status").and_then(Value::as_str) == Some("ambiguous") {
+        return render_ambiguous(report);
+    }
     let mut output = String::from("# RepoPilot review signal\n\n");
     let signal = report.get("signal").unwrap_or(&Value::Null);
     let line = signal
@@ -37,6 +40,28 @@ pub(super) fn render_signal(report: &Value) -> String {
     render_gate(&mut output, report);
     render_verification(&mut output, report);
     render_limitations(&mut output, report.get("limitations"));
+    output
+}
+
+fn render_ambiguous(report: &Value) -> String {
+    let mut output = String::from("# RepoPilot review signal\n\n");
+    let _ = writeln!(
+        output,
+        "Signal `{}` appears at more than one location. Pass `path` and `line` to explain one occurrence.",
+        code(text(report.get("signal_id")).unwrap_or("unknown"))
+    );
+    if let Some(candidates) = report.get("candidates").and_then(Value::as_array) {
+        output.push_str("\n## Occurrences\n");
+        for candidate in candidates {
+            let path = text(candidate.get("path")).unwrap_or("unknown path");
+            let line = candidate
+                .get("line")
+                .and_then(Value::as_u64)
+                .map(|line| format!(":{line}"))
+                .unwrap_or_default();
+            let _ = writeln!(output, "- `{}`", code(&format!("{path}{line}")));
+        }
+    }
     output
 }
 

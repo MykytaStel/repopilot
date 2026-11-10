@@ -166,7 +166,7 @@ fn human_reports_project_readiness_and_owners() {
         "Evidence scope: changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (limited: Verification checks are not configured.)"
     ));
     assert!(console.contains(&format!(
-        "Evidence provenance: RepoPilot {}, schema 0.26",
+        "Evidence provenance: RepoPilot {}, schema 0.27",
         env!("CARGO_PKG_VERSION")
     )));
     assert!(console.contains("Proof policy: none selected (0 configured)"));
@@ -192,7 +192,7 @@ fn human_reports_project_readiness_and_owners() {
         "**Evidence scope:** changed; 1/1 file(s) analyzed; 0 excluded, 0 unsupported (limited: Verification checks are not configured.)"
     ));
     assert!(markdown.contains(&format!(
-        "**Evidence provenance:** RepoPilot {}, schema 0.26",
+        "**Evidence provenance:** RepoPilot {}, schema 0.27",
         env!("CARGO_PKG_VERSION")
     )));
     assert!(markdown.contains("**Proof policy:** none selected (0 configured)"));

@@ -26,7 +26,7 @@ pub mod verification;
 pub use blast_radius::compute_blast_radius;
 pub use ci::review_report_for_ci;
 pub use gate::{ReviewSignalGatePolicy, ReviewSignalGateResult};
-pub use impact::{AffectedSurface, FileImpact, ImpactPaths, compute_impact_paths};
+pub use impact::{AffectedSurface, FileImpact, ImpactPaths, ImpactRoute, compute_impact_paths};
 pub use ownership::{
     Owner, OwnershipAssessment, OwnershipDiagnostic, OwnershipDiscovery, OwnershipIndex,
     OwnershipSummary, PathOwnership,

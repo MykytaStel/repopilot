@@ -1,4 +1,4 @@
-use super::super::{JavaScriptSymbolFacts, RustCallFact};
+use super::super::{JavaScriptSymbolFacts, RustCallFact, RustFieldUseFact};
 use super::{Node, text};
 use std::collections::BTreeSet;
 
@@ -26,6 +26,45 @@ pub(super) fn record_call(
         byte_end: path.end_byte(),
         argument_count,
     });
+}
+
+pub(super) fn record_struct_field_uses(
+    node: Node<'_>,
+    content: &str,
+    modules: &BTreeSet<&str>,
+    facts: &mut JavaScriptSymbolFacts,
+) {
+    if node.kind() == "struct_expression"
+        && let Some(name) = node.child_by_field_name("name")
+        && let Some(body) = node.child_by_field_name("body")
+    {
+        let Some((struct_name, module_specifier)) = resolved_path(name, content, modules) else {
+            return;
+        };
+        let mut cursor = body.walk();
+        for field in body.named_children(&mut cursor) {
+            let field_name = match field.kind() {
+                "field_initializer" => field.child_by_field_name("field"),
+                "shorthand_field_initializer" => field.named_child(0),
+                _ => None,
+            };
+            let Some(field_name) = field_name else {
+                continue;
+            };
+            let Some(contracts) = facts.rust_contracts.as_mut() else {
+                return;
+            };
+            contracts.struct_field_uses.push(RustFieldUseFact {
+                struct_name: struct_name.into(),
+                field_name: text(field_name, content).into(),
+                module_specifier: module_specifier.clone(),
+                line_start: field_name.start_position().row + 1,
+                line_end: field_name.end_position().row + 1,
+                byte_start: field_name.start_byte(),
+                byte_end: field_name.end_byte(),
+            });
+        }
+    }
 }
 
 pub(super) fn resolved_path<'a>(

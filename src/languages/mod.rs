@@ -17,6 +17,7 @@ mod generic;
 mod go;
 mod java;
 mod javascript;
+mod jvm_references;
 mod kotlin;
 mod python;
 mod rust;

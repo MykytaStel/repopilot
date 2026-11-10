@@ -549,6 +549,7 @@ fn deduplicate(tiered: &mut TieredSignals) {
             signal.kind.as_str(),
             "behavioral.removed-export-still-imported"
                 | "behavioral.rust-public-function-arity-changed"
+                | "behavioral.rust-public-struct-field-removed"
         ) {
             signal.signal_id.clone()
         } else {

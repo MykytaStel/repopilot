@@ -3,7 +3,7 @@
 <!-- @generated from the rule registry — do not edit by hand. -->
 <!-- Regenerate with `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`. -->
 
-RepoPilot ships 55 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
+RepoPilot ships 56 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
 
 ## Architecture
 
@@ -56,7 +56,7 @@ This production file is not imported by any other project file and is not a know
 
 **Recommendation:** Remove the file if it is no longer used, or ensure it is exported in the package's public API.
 
-**Known false positives:** Dynamic imports, dependency injection, and build-tool aliases create importers the graph cannot see. Java and Kotlin are excluded because same-package type references need no import and are invisible to the import graph. When the repository contains unresolved internal imports (relative paths, aliases, or workspace-package imports the resolver cannot wire up — common in monorepos) the finding is reported at Low confidence, and it is suppressed when an unresolved import matches the candidate file's name.
+**Known false positives:** Dynamic imports, reflection, dependency injection, generated sources, and build-tool aliases can create references the graph cannot see. Java and Kotlin same-package type references are modeled when syntactically visible, while dead-module claims remain disabled because source-set and reflective loading semantics are not fully resolved. When the repository contains unresolved internal imports (relative paths, aliases, or workspace-package imports the resolver cannot wire up — common in monorepos) the finding is reported at Low confidence, and it is suppressed when an unresolved import matches the candidate file's name.
 
 ### `architecture.deep-directory-nesting` — Deep directory nesting detected
 
@@ -239,7 +239,7 @@ A changed TypeScript or JavaScript module removed a named or direct default expo
 
 **Recommendation:** Restore the removed export or update every surviving caller, then run the repository's declared type-check, build, or focused tests.
 
-**Known false positives:** JS/TS requires direct relative named or default imports with exact resolver proof. Rust requires an unambiguous plain child-module declaration in the caller; crate paths require src/lib.rs or src/main.rs. Rust attributes/cfg, macros, inline modules, forwarding, grouped/glob imports, arbitrary sibling paths, associated methods and generic-function call sites are outside this slice. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
+**Known false positives:** JS/TS requires direct relative named or default imports with exact resolver proof. Rust requires an unambiguous plain child-module declaration in the caller; crate paths require src/lib.rs or src/main.rs. Rust attributes/cfg, macros, inline modules, forwarding, glob imports, arbitrary sibling paths, associated methods and generic-function call sites are outside this slice. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 
@@ -259,6 +259,25 @@ A changed Rust module changed the parameter count of a top-level public free fun
 **Recommendation:** Update the proven direct caller to match the new public function arity, or restore the previous signature, then run the Rust type-check or focused tests.
 
 **Known false positives:** Rust support is limited to non-generic top-level pub fn declarations and direct module-qualified calls through an unambiguous file-backed child module declared in the caller. The caller's current argument count must match the previous function parameter count. Bare imported calls, macros, attributes/cfg, generic or variadic functions, methods, ambiguous module proof, and same-arity type changes are outside this slice.
+
+**Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
+
+### `behavioral.rust-public-struct-field-removed` — Rust public struct field changed
+
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Lifecycle:** preview
+- **Signal source:** ast
+- **Execution scope:** change-set
+- **Required facts:** git-diff, symbol-facts, imports, exports, dependency-graph, workspace-metadata
+- **Cache policy:** per-change-set
+- **Produces:** finding
+
+A changed public Rust struct removed or privatized a named public field while an unambiguous direct local struct literal still names that field.
+
+**Recommendation:** Update the proven struct literal to the new public API, or restore the field, then run the Rust type-check or focused tests.
+
+**Known false positives:** This preview covers named public fields on top-level public structs and explicit struct literals with a file-backed module-qualified type. It does not infer from field access, imports, aliases, tuple fields, nested types, macros, conditional compilation, ambiguous module paths, or coordinated caller edits.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 

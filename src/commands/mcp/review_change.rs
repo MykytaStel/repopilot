@@ -2,7 +2,6 @@
 //! audit, wrapping the same scan + review pipeline the `review` command uses.
 
 use super::verification_consent::{self, EffectiveConfigSource};
-use crate::commands::mcp::review_projection::compact_review_json;
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
 use crate::commands::review_verification::{
     ApprovalHooks, ReviewVerificationEvent, VerificationApproval, run_selected_with_approval,
@@ -238,15 +237,6 @@ pub(super) fn call_with_context(
     let rendered = render(&review_report, OutputFormat::Json, None, Some(&review_gate))
         .map_err(|error| format!("render failed: {error}"))?;
 
-    let rendered = if arguments
-        .get("detail")
-        .and_then(Value::as_str)
-        .is_some_and(|detail| detail == "full")
-    {
-        rendered
-    } else {
-        compact_review_json(&rendered)?
-    };
     Ok(ReviewCallResult {
         rendered,
         analysis_revision,

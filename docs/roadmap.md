@@ -4,17 +4,18 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.26 — release preparation
+## Current: 0.27 — language analysis and review evidence
 
-The owner-approved 0.26 technical scope is merged in PR #611: setup-to-review
-guidance, a clearer primary review action, measured cache I/O improvements, and
-configured-check process-tree cleanup on Unix and Windows. Release metadata and
-notes are being prepared on `release/v0.26.0`; the release is not published.
-It does not restore `doctor`, add detector families, or change report meaning.
-The [0.26 roadmap](roadmap/v0.26.md), [design](engineering/v0.26-design.md),
-and [evidence ledger](engineering/v0.26-evidence-ledger.md) track the work.
-Independent first-use and production-accuracy evidence remain open; technical
-work proceeds under the owner's direction without independent observations.
+RepoPilot 0.27.0 extends bounded code analysis across Rust, JS/TS, Python, Go,
+C#, Java and Kotlin; adds CLI signal explanation, paged MCP review continuation,
+and static-import impact routes; and fixes a reproduced authorization-signal
+false positive. The JSON report schema advances to 0.27 with additive impact
+routes. See the [0.27 roadmap](roadmap/v0.27.md), [release notes](releases/v0.27.0.md),
+and [evidence ledger](engineering/v0.27-evidence-ledger.md).
+
+The 0.26 release is published on GitHub Releases (2026-11-02); the exact
+publication status of its other package channels was not re-established in the
+0.27 audit. See the [0.26 release record](roadmap/v0.26.md).
 
 ## 0.25 — released
 

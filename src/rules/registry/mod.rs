@@ -96,6 +96,38 @@ mod tests {
     }
 
     #[test]
+    fn rust_struct_field_rule_declares_change_set_symbol_graph_contract() {
+        let meta = lookup_rule_metadata("behavioral.rust-public-struct-field-removed")
+            .expect("Rust struct-field rule must be registered");
+
+        assert_eq!(meta.category, FindingCategory::CodeQuality);
+        assert_eq!(meta.default_severity, Severity::High);
+        assert_eq!(
+            meta.default_confidence,
+            crate::findings::types::Confidence::High
+        );
+        assert_eq!(meta.signal_source, SignalSource::Ast);
+        assert_eq!(meta.requirements.scope, RuleScope::ChangeSet);
+        assert_eq!(
+            meta.requirements.cache_policy,
+            RuleCachePolicy::PerChangeSet
+        );
+        for fact in [
+            FactKind::GitDiff,
+            FactKind::SymbolFacts,
+            FactKind::Imports,
+            FactKind::Exports,
+            FactKind::DependencyGraph,
+            FactKind::WorkspaceMetadata,
+        ] {
+            assert!(
+                meta.requirements.fact_kinds.contains(&fact),
+                "missing {fact:?}"
+            );
+        }
+    }
+
+    #[test]
     fn known_rn_rule_returns_metadata() {
         let meta = lookup_rule_metadata("framework.react-native.inline-style");
         assert!(meta.is_some(), "inline-style rule must be in the registry");

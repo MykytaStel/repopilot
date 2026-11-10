@@ -112,7 +112,7 @@ fn review_projections_share_canonical_proof_and_evidence() {
         limit["code"] == "verification-not-configured"
             && limit["message"] == "Verification checks are not configured."
     }));
-    assert_eq!(json["schema_version"], "0.26");
+    assert_eq!(json["schema_version"], "0.27");
     assert_eq!(json["report"]["kind"], "review");
     assert!(json["merge_readiness"].is_object());
     assert!(json["findings"].is_array());

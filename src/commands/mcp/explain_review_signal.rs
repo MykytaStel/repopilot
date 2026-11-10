@@ -15,6 +15,15 @@ pub fn definition() -> Value {
                     "type": "string",
                     "description": "The `signal_id` of an entry in the review report's `tiered_signals`."
                 },
+                "path": {
+                    "type": "string",
+                    "description": "Optional occurrence path for a signal ID that appears more than once."
+                },
+                "line": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Optional occurrence line for a signal ID that appears more than once."
+                },
                 "analysis_handle": {
                     "type": "string",
                     "description": "Optional `analysisHandle` from an earlier repopilot_review_change call. Omit to use the latest review in this session."
@@ -38,13 +47,59 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         .get("signal_id")
         .and_then(Value::as_str)
         .ok_or_else(|| "`signal_id` is required".to_string())?;
+    let report = parse_review_report(review_report)?;
+    let (occurrence_path, occurrence_line) = occurrence(arguments)?;
+    let matches = find_signals(&report, signal_id, occurrence_path, occurrence_line);
+    let signal = match matches.as_slice() {
+        [] => return Err(format!("review signal not found: {signal_id}")),
+        [signal] => *signal,
+        _ => return ambiguous_signal(signal_id, &matches),
+    };
+    render_explanation(&report, signal_id, signal)
+}
+
+fn parse_review_report(review_report: Option<&str>) -> Result<Value, String> {
     let report = review_report.ok_or_else(|| {
         "no review is available in this MCP session; run repopilot_review_change first".to_string()
     })?;
-    let report: Value = serde_json::from_str(report)
-        .map_err(|error| format!("review report is invalid: {error}"))?;
-    let signal = find_signal(&report, signal_id)
-        .ok_or_else(|| format!("review signal not found: {signal_id}"))?;
+    serde_json::from_str(report).map_err(|error| format!("review report is invalid: {error}"))
+}
+
+fn occurrence(arguments: &Value) -> Result<(Option<&str>, Option<u64>), String> {
+    let occurrence_path = arguments
+        .get("path")
+        .map(|value| {
+            value
+                .as_str()
+                .filter(|path| !path.is_empty())
+                .ok_or_else(|| "`path` must be a non-empty string".to_string())
+        })
+        .transpose()?;
+    let occurrence_line = arguments
+        .get("line")
+        .map(|value| {
+            value
+                .as_u64()
+                .filter(|line| *line > 0)
+                .ok_or_else(|| "`line` must be a positive integer".to_string())
+        })
+        .transpose()?;
+    Ok((occurrence_path, occurrence_line))
+}
+
+fn ambiguous_signal(signal_id: &str, matches: &[&Value]) -> Result<String, String> {
+    serde_json::to_string_pretty(&json!({
+        "status": "ambiguous",
+        "signal_id": signal_id,
+        "candidates": matches.iter().map(|signal| json!({
+            "path": signal.get("path").and_then(Value::as_str).unwrap_or_default(),
+            "line": signal.get("line").or_else(|| signal.get("line_start"))
+        })).collect::<Vec<_>>()
+    }))
+    .map_err(|error| format!("render ambiguous review signal: {error}"))
+}
+
+fn render_explanation(report: &Value, signal_id: &str, signal: &Value) -> Result<String, String> {
     let path = signal
         .get("path")
         .and_then(Value::as_str)
@@ -62,7 +117,7 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         "evidence": report.get("evidence").cloned().unwrap_or(Value::Null),
         "decision": report.get("decision").cloned().unwrap_or(Value::Null),
         "why_it_matters": why_it_matters(signal),
-        "impact": impact_for_path(&report, impact_path),
+        "impact": impact_for_path(report, impact_path),
         "gate": {
             "eligible": signal.get("gate_eligible").and_then(Value::as_bool).unwrap_or(false),
             "suppressed": signal.get("suppressed").and_then(Value::as_bool).unwrap_or(false),
@@ -80,13 +135,33 @@ pub fn call(arguments: &Value, review_report: Option<&str>) -> Result<String, St
         .map_err(|error| format!("render review-signal explanation failed: {error}"))
 }
 
-fn find_signal<'a>(report: &'a Value, signal_id: &str) -> Option<&'a Value> {
-    let tiered = report.get("tiered_signals")?;
+fn find_signals<'a>(
+    report: &'a Value,
+    signal_id: &str,
+    path: Option<&str>,
+    line: Option<u64>,
+) -> Vec<&'a Value> {
+    let Some(tiered) = report.get("tiered_signals") else {
+        return Vec::new();
+    };
     ["definitely", "maybe", "noise"]
         .into_iter()
         .filter_map(|tier| tiered.get(tier).and_then(Value::as_array))
         .flatten()
-        .find(|signal| signal.get("signal_id").and_then(Value::as_str) == Some(signal_id))
+        .filter(|signal| signal.get("signal_id").and_then(Value::as_str) == Some(signal_id))
+        .filter(|signal| {
+            path.is_none_or(|path| signal.get("path").and_then(Value::as_str) == Some(path))
+        })
+        .filter(|signal| {
+            line.is_none_or(|line| {
+                signal
+                    .get("line")
+                    .or_else(|| signal.get("line_start"))
+                    .and_then(Value::as_u64)
+                    == Some(line)
+            })
+        })
+        .collect()
 }
 
 fn impact_for_path(report: &Value, path: &str) -> Value {
@@ -116,6 +191,11 @@ fn why_it_matters(signal: &Value) -> String {
         == Some("behavioral.rust-public-function-arity-changed")
     {
         return "a Rust public function changed its parameter count while a proven direct local call still passes the previous number of arguments. This is static Git-diff evidence; RepoPilot does not run the Rust compiler.".to_string();
+    }
+    if signal.get("kind").and_then(Value::as_str)
+        == Some("behavioral.rust-public-struct-field-removed")
+    {
+        return "a public Rust struct field was removed or made private while a proven direct local struct literal still names it. This is static Git-diff evidence; RepoPilot does not run the Rust compiler.".to_string();
     }
     let family = signal
         .get("family")
@@ -191,5 +271,40 @@ mod tests {
 
         assert!(why_it_matters(&signal).contains("still passes the previous number of arguments"));
         assert!(why_it_matters(&signal).contains("does not run the Rust compiler"));
+    }
+
+    #[test]
+    fn duplicate_signal_id_requires_an_occurrence_locator() {
+        let report = json!({
+            "tiered_signals": {
+                "definitely": [
+                    {"signal_id": "same", "kind": "security", "path": "src/app.rs", "line": 4},
+                    {"signal_id": "same", "kind": "security", "path": "src/app.rs", "line": 9}
+                ],
+                "maybe": [], "noise": []
+            }
+        })
+        .to_string();
+
+        let ambiguous =
+            call(&json!({ "signal_id": "same" }), Some(&report)).expect("ambiguity response");
+        let ambiguous: Value = serde_json::from_str(&ambiguous).expect("ambiguity JSON");
+        assert_eq!(ambiguous["status"], "ambiguous");
+        assert_eq!(
+            ambiguous["candidates"]
+                .as_array()
+                .expect("candidates")
+                .len(),
+            2
+        );
+
+        let explained = call(
+            &json!({ "signal_id": "same", "path": "src/app.rs", "line": 9 }),
+            Some(&report),
+        )
+        .expect("selected occurrence");
+        let explained: Value = serde_json::from_str(&explained).expect("explanation JSON");
+        assert_eq!(explained["status"], "explained");
+        assert_eq!(explained["signal"]["line"], 9);
     }
 }

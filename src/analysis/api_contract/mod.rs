@@ -1,5 +1,6 @@
 mod javascript;
 mod rust_arity;
+mod rust_fields;
 
 pub(crate) use javascript::is_supported_path as is_contract_path;
 
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ApiContractChange {
     RemovedExport,
+    RustStructFieldRemoved,
     RustFunctionArity {
         before: usize,
         after: usize,
@@ -55,6 +57,13 @@ pub(crate) fn detect_api_contract_breaks<P: JavaScriptContractFactProvider>(
         provider,
     );
     occurrences.extend(rust_arity::detect(
+        repo_root,
+        modified_exporters,
+        graph,
+        current_files,
+        provider,
+    ));
+    occurrences.extend(rust_fields::detect(
         repo_root,
         modified_exporters,
         graph,

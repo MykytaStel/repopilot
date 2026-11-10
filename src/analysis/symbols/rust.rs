@@ -1,11 +1,13 @@
 //! Bounded Rust facts: top-level `pub fn` and imports through a module declared
 //! in the same file. Attributes, macro expansion and inline modules are opaque.
 mod exports;
+mod imports;
 mod paths;
 
 use super::{ImportedSymbolFact, JavaScriptSymbolFacts, RustContractFacts, SymbolKind};
-use exports::record_public_function;
-use paths::{record_call, resolved_path};
+use exports::{record_public_function, record_public_struct};
+use imports::extract_uses;
+use paths::{record_call, record_struct_field_uses, resolved_path};
 use std::collections::BTreeSet;
 use tree_sitter::{Node, Tree};
 
@@ -48,6 +50,13 @@ fn collect_top_level_node<'a>(
         record_public_function(node, content, facts)?;
         return Some(());
     }
+    if node.kind() == "struct_item" && public(node, content) {
+        record_public_struct(node, content, facts)?;
+        if let Some(name) = node.child_by_field_name("name") {
+            facts.re_exports.push(text(name, content).into());
+        }
+        return Some(());
+    }
     if node.kind() == "mod_item" && node.child_by_field_name("body").is_none() {
         let name = text(node.child_by_field_name("name")?, content);
         modules.insert(name);
@@ -67,20 +76,6 @@ fn collect_top_level_node<'a>(
     Some(())
 }
 
-fn extract_uses(
-    root: Node<'_>,
-    content: &str,
-    modules: &BTreeSet<&str>,
-    facts: &mut JavaScriptSymbolFacts,
-) {
-    let mut cursor = root.walk();
-    for node in root.named_children(&mut cursor) {
-        if node.kind() == "use_declaration" {
-            extract_use(node, content, modules, facts);
-        }
-    }
-}
-
 fn sort_facts(facts: &mut JavaScriptSymbolFacts) {
     facts.exports.sort();
     facts.imports.sort();
@@ -89,6 +84,12 @@ fn sort_facts(facts: &mut JavaScriptSymbolFacts) {
         contracts.functions.sort();
         contracts.calls.sort();
         contracts.calls.dedup();
+        contracts.public_structs.sort();
+        contracts.public_structs.dedup();
+        contracts.public_struct_fields.sort();
+        contracts.public_struct_fields.dedup();
+        contracts.struct_field_uses.sort();
+        contracts.struct_field_uses.dedup();
     }
 }
 
@@ -122,32 +123,6 @@ fn contains_opaque(node: Node<'_>) -> bool {
         (node.kind() == "block" && matches!(child.kind(), "use_declaration" | "mod_item"))
             || contains_opaque(child)
     })
-}
-
-fn extract_use(
-    node: Node<'_>,
-    content: &str,
-    modules: &BTreeSet<&str>,
-    facts: &mut JavaScriptSymbolFacts,
-) {
-    let Some(argument) = node.child_by_field_name("argument") else {
-        return;
-    };
-    let (path, alias) = if argument.kind() == "use_as_clause" {
-        let Some(path) = argument.child_by_field_name("path") else {
-            return;
-        };
-        let Some(alias) = argument.child_by_field_name("alias") else {
-            return;
-        };
-        (path, Some(text(alias, content)))
-    } else {
-        (argument, None)
-    };
-    if path.kind() != "scoped_identifier" {
-        return;
-    }
-    record(path, node, alias, content, modules, facts);
 }
 
 fn record(
@@ -185,6 +160,7 @@ fn extract_calls(
     {
         return;
     }
+    record_struct_field_uses(node, content, modules, facts);
     let mut shadowing = inherited_shadowing.clone();
     if node.kind() == "block" {
         collect_type_bindings(node, content, &mut shadowing);
@@ -243,3 +219,7 @@ fn collect_type_bindings(node: Node<'_>, content: &str, bindings: &mut BTreeSet<
 pub(super) fn text<'a>(node: Node<'_>, content: &'a str) -> &'a str {
     &content[node.byte_range()]
 }
+
+#[cfg(test)]
+#[path = "rust/tests.rs"]
+mod tests;

@@ -97,7 +97,7 @@ def zoo_lines(zoo: Path) -> list[str]:
 
 
 def compatibility_lines(path: Path) -> list[str]:
-    """Released producers read by the current reader, and released readers of schema 0.26."""
+    """Released producers read by the current reader, and released readers of schema 0.27."""
     manifest = json.loads(path.read_text())
     lines = [
         "Source: `tests/fixtures/reports/releases/manifest.json`, checked by",

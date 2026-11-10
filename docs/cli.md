@@ -291,6 +291,9 @@ repopilot r [PATH] [OPTIONS]
 | `--head` | git ref | `HEAD` | Head ref; requires `--base` |
 | `--since-snapshot` | flag | — | Review committed and uncommitted work since the last `repopilot snapshot` |
 | `--verify` | check ID | — | Run one configured local verification check; repeat to select more |
+| `--explain-signal` | signal ID | — | Explain one signal from this review as JSON; use with `--explain-signal-path` and/or `--explain-signal-line` if the ID repeats |
+| `--explain-signal-path` | path | — | Narrow `--explain-signal` to an emitted review path |
+| `--explain-signal-line` | line | — | Narrow `--explain-signal` to an emitted line |
 | `--scope` | `changed\|full` | `changed` | Analyze changed files or retain full-repository findings |
 | `--profile` | `default\|strict` | scope-dependent | Finding visibility; changed defaults to default, full defaults to strict |
 | `--format` | `console\|json\|markdown` | `console` | Output format |
@@ -361,6 +364,9 @@ repopilot review . --min-severity high
 
 # Run only explicitly selected repository checks
 repopilot review . --verify unit --verify lint
+
+# Explain one signal after reviewing the current change
+repopilot review . --explain-signal SIGNAL_ID
 
 # Compare observed impact with a private, reviewed intent contract
 repopilot review . --intent .repopilot/intent.toml --format json

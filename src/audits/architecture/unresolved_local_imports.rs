@@ -36,7 +36,11 @@ pub(crate) fn analyze_unresolved_local_imports(
         }
         match &unresolved.proof {
             UnresolvedImportProof::DefinitiveLocalCandidates(candidates)
-                if !candidates.iter().any(|candidate| candidate.is_file()) =>
+                if !candidates.iter().any(|candidate| {
+                    candidate.is_file()
+                        || (unresolved.source.extension().is_some_and(|ext| ext == "py")
+                            && candidate.is_dir())
+                }) =>
             {
                 findings.push(missing_import_finding(
                     context,
@@ -163,7 +167,7 @@ fn missing_import_finding(
         rule_id: RULE_ID.to_string(),
         title: "Local import target is missing".to_string(),
         description: format!(
-            "The local import `{}` does not resolve to any supported source file candidate.",
+            "The local import `{}` does not resolve to any supported source file or package candidate.",
             unresolved.raw_import
         ),
         recommendation: "Restore the imported module, update the import path, or run the project compiler to confirm the intended generated target.".to_string(),

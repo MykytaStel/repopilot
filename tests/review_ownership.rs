@@ -80,6 +80,7 @@ fn ownership_summary_covers_changed_and_transitively_impacted_paths() {
             path: PathBuf::from("src/auth/session.rs"),
             direct_dependents: vec![PathBuf::from("src/api/routes.rs")],
             transitive_dependents: vec![PathBuf::from("web/app.ts")],
+            routes: Vec::new(),
         }],
         ..ImpactPaths::default()
     };

@@ -699,6 +699,66 @@ fn scan_paginates_and_handle_is_accepted_by_explain_and_context() {
     );
 }
 
+#[test]
+fn review_handle_returns_finding_and_signal_pages_from_stored_report() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let mut state = ServerState {
+        root: temp.path().canonicalize().expect("canonical root"),
+        initialized: true,
+        ..ServerState::default()
+    };
+    let revision = repopilot::scan::session::WorkspaceRevision::capture(&state.root)
+        .id()
+        .to_string();
+    let report = json!({
+        "findings": [{"id": "finding-1"}, {"id": "finding-2"}],
+        "tiered_signals": {
+            "definitely": [{"signal_id": "signal-1"}, {"signal_id": "signal-2"}],
+            "maybe": [{"signal_id": "signal-3"}],
+            "noise": []
+        }
+    })
+    .to_string();
+    let handle = state.analyses.publish(
+        super::analysis_store::AnalysisKind::Review,
+        report,
+        &revision,
+    );
+
+    let response = handle_tools_call(
+        json!(30),
+        &json!({
+            "name": "repopilot_review_change",
+            "arguments": {
+                "analysis_handle": handle,
+                "offset": 1,
+                "limit": 1,
+                "signal_offset": 1,
+                "signal_limit": 1
+            }
+        }),
+        &mut state,
+    );
+    let result = response.result.expect("review result");
+    assert_eq!(result["isError"], false, "review failed: {result}");
+    assert_eq!(result["analysisHandle"], handle);
+    assert_eq!(
+        result["structuredContent"]["findings"][0]["id"],
+        "finding-2"
+    );
+    assert_eq!(
+        result["structuredContent"]["tiered_signals"]["definitely"],
+        json!([{"signal_id": "signal-2"}])
+    );
+    assert_eq!(
+        result["structuredContent"]["tiered_signals"]["maybe"],
+        json!([])
+    );
+    assert_eq!(result["pagination"]["total"], 2);
+    assert_eq!(result["pagination"]["signals"]["total"], 3);
+    assert_eq!(result["pagination"]["signals"]["next_offset"], 2);
+}
+
 fn removed_export_review_report() -> String {
     json!({
         "tiered_signals": {

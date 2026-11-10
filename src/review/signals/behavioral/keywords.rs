@@ -45,6 +45,48 @@ const MUTATION_VERBS: &[&str] = &[
     "reset", "destroy", "unset", "put",
 ];
 
+/// Verb tokens that make the auth-named callee a check rather than data access.
+const CHECK_VERBS: &[&str] = &[
+    "allow",
+    "authenticate",
+    "authorize",
+    "can",
+    "check",
+    "ensure",
+    "enforce",
+    "has",
+    "is",
+    "require",
+    "validate",
+    "verify",
+];
+
+/// Persistence and data-access names are common in caches and auth stores, but
+/// do not establish that the call enforces an authorization decision.
+const DATA_ACCESS_TOKENS: &[&str] = &[
+    "cache",
+    "config",
+    "decode",
+    "deserialize",
+    "encode",
+    "fetch",
+    "file",
+    "flush",
+    "get",
+    "load",
+    "lookup",
+    "open",
+    "parse",
+    "persist",
+    "read",
+    "refresh",
+    "save",
+    "serialize",
+    "storage",
+    "store",
+    "write",
+];
+
 /// True when a removed/added line carries an error-handling keyword as a token.
 pub(super) fn line_has_error_handling(line: &str) -> bool {
     let tokens = tokenize(line);
@@ -73,21 +115,31 @@ pub(super) fn line_has_auth(line: &str) -> bool {
 /// not a mutation verb, so `applyRole(x)`/`setSession(s)` are excluded.
 pub(super) fn callee_is_auth_check(callee: &str) -> bool {
     let lower = callee.to_ascii_lowercase();
-    if AUTH_STRONG.iter().any(|needle| lower.contains(needle)) {
-        return true;
-    }
     let tokens = ordered_tokens(callee);
-    if !tokens
-        .iter()
-        .any(|token| AUTH_TOKENS.contains(&token.as_str()))
-    {
+    let names_auth = AUTH_STRONG.iter().any(|needle| lower.contains(needle))
+        || tokens
+            .iter()
+            .any(|token| AUTH_TOKENS.contains(&token.as_str()));
+    if !names_auth {
         return false;
+    }
+    if tokens
+        .iter()
+        .any(|token| CHECK_VERBS.contains(&token.as_str()))
+    {
+        return true;
     }
     // The leading token is the verb; a mutation verb means this changes the auth
     // artifact rather than checking it.
-    !tokens
+    if tokens
         .first()
         .is_some_and(|first| MUTATION_VERBS.contains(&first.as_str()))
+    {
+        return false;
+    }
+    !tokens
+        .iter()
+        .any(|token| DATA_ACCESS_TOKENS.contains(&token.as_str()))
 }
 
 /// Split text into ordered lowercase alphanumeric tokens, breaking on separators
@@ -140,12 +192,16 @@ mod tests {
         assert!(callee_is_auth_check("requireAuth"));
         assert!(callee_is_auth_check("verifyJWT"));
         assert!(callee_is_auth_check("hasRole"));
+        assert!(callee_is_auth_check("checkAuthCache"));
         // Callees that are not auth checks must not qualify.
         assert!(!callee_is_auth_check("getUserProfile")); // arg `session.userId` is not the callee
         assert!(!callee_is_auth_check("log")); // arg "authenticate" is not the callee
         assert!(!callee_is_auth_check("applyRole")); // mutation, not a check
         assert!(!callee_is_auth_check("setSession"));
         assert!(!callee_is_auth_check("grantPermission"));
+        assert!(!callee_is_auth_check("readAuthCache"));
+        assert!(!callee_is_auth_check("loadAuthConfig"));
+        assert!(!callee_is_auth_check("authCache"));
         // Lookalikes must not fire.
         assert!(!callee_is_auth_check("getAuthor"));
         assert!(!callee_is_auth_check("authority"));

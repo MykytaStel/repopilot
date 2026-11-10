@@ -9,8 +9,8 @@ use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 
-const PARSED_FACTS_SCHEMA_VERSION: u32 = 10;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-arity";
+const PARSED_FACTS_SCHEMA_VERSION: u32 = 11;
+const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-field-contract";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";

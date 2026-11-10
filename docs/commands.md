@@ -90,6 +90,18 @@ explicitly selected. The console `Details` section only shows how to reveal the
 full changed-file inventory, impact paths, and evidence with `--detail full`;
 it does not repeat or replace the decision action.
 
+To inspect one retained review signal from the CLI, rerun the review with its
+ID:
+
+```bash
+repopilot review . --explain-signal SIGNAL_ID
+```
+
+The command emits a JSON explanation with provenance, impact, gate state,
+verification guidance, and limitations. If the ID appears at several
+locations, add `--explain-signal-path PATH` and/or
+`--explain-signal-line LINE` from the review output.
+
 One exception covers repositories without verification setup. When no
 verification check is configured or recorded and the only open proof reasons
 are that missing setup (no sufficient proof policy, required checks
@@ -241,7 +253,7 @@ Use the reusable workflow:
 ```yaml
 jobs:
   repopilot:
-    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.26.0
+    uses: MykytaStel/repopilot/.github/workflows/repopilot-pr-review.yml@v0.27.0
     with:
       fail-on-review: none
       upload-sarif: false
@@ -250,7 +262,7 @@ jobs:
 Or use the Action directly:
 
 ```yaml
-- uses: MykytaStel/repopilot@v0.26.0
+- uses: MykytaStel/repopilot@v0.27.0
   with:
     command: review
     scope: changed

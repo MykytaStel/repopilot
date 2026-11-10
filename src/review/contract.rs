@@ -16,6 +16,7 @@ pub enum ContractFamily {
 pub enum ContractChangeKind {
     RemovedExport,
     FunctionArityChanged,
+    StructFieldRemoved,
     Added,
     Removed,
     Upgraded,
@@ -61,7 +62,9 @@ impl ChangeProofContractDelta {
         self.family == ContractFamily::PublicSymbol
             && matches!(
                 self.change,
-                ContractChangeKind::RemovedExport | ContractChangeKind::FunctionArityChanged
+                ContractChangeKind::RemovedExport
+                    | ContractChangeKind::FunctionArityChanged
+                    | ContractChangeKind::StructFieldRemoved
             )
     }
 }

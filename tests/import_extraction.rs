@@ -282,6 +282,17 @@ fn java_single_import() {
 }
 
 #[test]
+fn java_same_package_type_reference_is_extracted() {
+    let code = "package com.acme;\nclass App { Engine engine; }\n";
+    let imports = extract_imports(code, Some("Java"));
+
+    assert!(
+        imports.contains(&"com.acme.Engine".to_string()),
+        "{imports:?}"
+    );
+}
+
+#[test]
 fn java_static_import() {
     let code = "import static com.example.Foo.method;\n";
     let imports = extract_imports(code, Some("Java"));
@@ -316,6 +327,17 @@ fn kotlin_single_import() {
     let imports = extract_imports(code, Some("Kotlin"));
     assert!(
         imports.contains(&"com.example.Foo".to_string()),
+        "{imports:?}"
+    );
+}
+
+#[test]
+fn kotlin_same_package_type_reference_is_extracted() {
+    let code = "package com.acme\nclass View(val engine: Engine)\n";
+    let imports = extract_imports(code, Some("Kotlin"));
+
+    assert!(
+        imports.contains(&"com.acme.Engine".to_string()),
         "{imports:?}"
     );
 }
