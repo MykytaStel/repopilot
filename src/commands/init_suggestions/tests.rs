@@ -138,8 +138,18 @@ fn stack_markers_are_deterministic_and_python_requires_pytest_evidence() {
                 source: "Cargo.toml".to_string(),
             },
             SuggestedCheck {
+                id: "rust.build".to_string(),
+                command: "cargo check --all-targets".to_string(),
+                source: "Cargo.toml".to_string(),
+            },
+            SuggestedCheck {
                 id: "go.test".to_string(),
                 command: "go test ./...".to_string(),
+                source: "go.mod".to_string(),
+            },
+            SuggestedCheck {
+                id: "go.build".to_string(),
+                command: "go build ./...".to_string(),
                 source: "go.mod".to_string(),
             },
         ]

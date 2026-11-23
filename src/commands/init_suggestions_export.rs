@@ -69,11 +69,13 @@ working_directory = \".\"\n\
 fn command_spec(check: &SuggestedCheck) -> Option<(&'static str, Vec<&'static str>, &'static str)> {
     match check.id.as_str() {
         "rust.test" => Some(("cargo", vec!["test", "--all"], "test")),
+        "rust.build" => Some(("cargo", vec!["check", "--all-targets"], "build")),
         "node.test" => Some(("npm", vec!["test"], "test")),
         "node.lint" => Some(("npm", vec!["run", "lint"], "lint")),
         "node.build" => Some(("npm", vec!["run", "build"], "build")),
         "python.test" => Some(("python3", vec!["-m", "pytest", "-q"], "test")),
         "go.test" => Some(("go", vec!["test", "./..."], "test")),
+        "go.build" => Some(("go", vec!["build", "./..."], "build")),
         "maven.test" => Some(("mvn", vec!["test"], "test")),
         "gradle.test" if check.command.starts_with("./gradlew") => {
             Some(("./gradlew", vec!["test"], "test"))
@@ -131,7 +133,7 @@ mod tests {
             "[package]\nname = \"demo\"\n",
         )
         .expect("cargo");
-        let configured = BTreeSet::from(["rust.test".to_string()]);
+        let configured = BTreeSet::from(["rust.test".to_string(), "rust.build".to_string()]);
 
         let rendered = render(&detect(temp.path(), Some(&configured)));
 

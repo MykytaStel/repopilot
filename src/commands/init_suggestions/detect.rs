@@ -43,6 +43,11 @@ fn detect_rust(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<Su
         command: "cargo test --all".to_string(),
         source: "Cargo.toml".to_string(),
     });
+    checks.push(SuggestedCheck {
+        id: "rust.build".to_string(),
+        command: "cargo check --all-targets".to_string(),
+        source: "Cargo.toml".to_string(),
+    });
 }
 
 fn detect_node(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<SuggestedCheck>) {
@@ -84,6 +89,11 @@ fn detect_go(root: &Path, stacks: &mut Vec<DetectedStack>, checks: &mut Vec<Sugg
     checks.push(SuggestedCheck {
         id: "go.test".to_string(),
         command: "go test ./...".to_string(),
+        source: "go.mod".to_string(),
+    });
+    checks.push(SuggestedCheck {
+        id: "go.build".to_string(),
+        command: "go build ./...".to_string(),
         source: "go.mod".to_string(),
     });
 }
