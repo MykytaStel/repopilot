@@ -25,6 +25,11 @@ fn findings_detail_bounds_changed_files_and_summarizes_areas() {
     assert!(output.contains("Details:\n"));
     assert!(!output.contains("\nNext:\n"));
     assert!(output.contains("Rerun with --detail full"));
+    assert_eq!(
+        output.matches("In-diff findings: 0").count(),
+        1,
+        "In-diff findings: 0 must not be duplicated in console output:\n{output}"
+    );
 }
 
 #[test]

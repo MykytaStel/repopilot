@@ -97,9 +97,9 @@ fn group_next_action(role: Option<VerificationRole>, counts: ProofObligations) -
     } else if counts.stale > 0 {
         format!("Rerun the {role} checks against the current revision.")
     } else if counts.unavailable > 0 {
-        format!("Make the required {role} checks available, then run them.")
+        format!("Configure a {role} check in repopilot.toml, then run it with --verify.")
     } else if counts.unselected > 0 {
-        format!("Select and run the required {role} checks.")
+        format!("Run the configured {role} checks with --verify.")
     } else {
         format!("No action needed; all {role} obligations are satisfied.")
     }

@@ -287,7 +287,7 @@ fn render_tier_group(
             render_reach_suffix(signal.blast_radius),
         ));
         if let Some(plan) = &signal.verification_plan
-            && let Some(step) = plan.steps.first()
+            && let Some(step) = console_verification_step(plan)
         {
             output.push_str(&format!("      Verify: {step}\n"));
         }
@@ -326,6 +326,16 @@ fn render_reach_suffix(blast_radius: usize) -> String {
     }
 }
 
+fn console_verification_step(
+    plan: &crate::review::signals::tiered::ReviewSignalVerificationPlan,
+) -> Option<&str> {
+    if plan.steps.len() >= 2 {
+        Some(plan.steps[plan.steps.len() - 2].as_str())
+    } else {
+        plan.steps.first().map(String::as_str)
+    }
+}
+
 fn render_findings_group(
     output: &mut String,
     label: &str,
@@ -333,10 +343,10 @@ fn render_findings_group(
     detail: DetailLevel,
     findings_limit: FindingRenderLimit,
 ) {
-    output.push_str(&format!("\n{label}: {}\n", findings.len()));
     if findings.is_empty() {
         return;
     }
+    output.push_str(&format!("\n{label}: {}\n", findings.len()));
 
     let shown = match detail {
         DetailLevel::Summary => 0,

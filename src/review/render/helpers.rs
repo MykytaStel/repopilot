@@ -104,7 +104,11 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
     let selected = report.verification_policy.selected.len();
     if selected == 0 {
         if report.verification.is_empty() {
-            format!("none selected ({configured} configured)")
+            if configured == 0 {
+                "none selected (0 configured)".to_string()
+            } else {
+                format!("none selected ({configured} configured; pass --verify <id> to run)")
+            }
         } else {
             format!(
                 "recorded outcomes ({} check(s); no configured policy)",
