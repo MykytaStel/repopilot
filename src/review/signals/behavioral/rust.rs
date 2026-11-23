@@ -75,10 +75,7 @@ pub(super) fn match_rust(
         }
         "use_declaration" => {
             let text = node.utf8_text(content.as_bytes()).ok()?.trim();
-            let path = text
-                .trim_start_matches("pub ")
-                .trim_start_matches("use ")
-                .trim();
+            let path = strip_rust_use_prefix(text);
             let root = path
                 .split("::")
                 .next()
@@ -105,6 +102,23 @@ pub(super) fn match_rust(
     None
 }
 
+fn strip_rust_use_prefix(text: &str) -> &str {
+    let mut rest = text.trim();
+    if let Some(after_pub) = rest.strip_prefix("pub") {
+        let trimmed = after_pub.trim_start();
+        if let Some(after_paren) = trimmed.strip_prefix('(') {
+            if let Some((_, after_vis)) = after_paren.split_once(')') {
+                rest = after_vis.trim_start();
+            }
+        } else if after_pub.starts_with(char::is_whitespace) {
+            rest = trimmed;
+        }
+    }
+    rest.strip_prefix("use")
+        .filter(|after| after.starts_with(char::is_whitespace))
+        .map_or(rest, str::trim_start)
+}
+
 fn module_declared_in_scope(node: Node<'_>, content: &str, root: &str) -> bool {
     let Some(scope) = node.parent() else {
         return false;
@@ -124,4 +138,72 @@ fn module_declared_in_scope(node: Node<'_>, content: &str, root: &str) -> bool {
             .and_then(|name| name.utf8_text(content.as_bytes()).ok())
             .is_some_and(|name| name == root)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_rust_use_prefix;
+    use crate::review::diff::{ChangeStatus, ChangedFile, ChangedRange};
+    use crate::review::signals::behavioral::{
+        BehavioralKind, DependencyContext, detect_behavioral_added,
+    };
+    use crate::review::signals::content::ReviewSource;
+    use std::path::PathBuf;
+
+    #[test]
+    fn strip_rust_use_prefix_handles_restricted_visibility() {
+        assert_eq!(strip_rust_use_prefix("use foo::bar;"), "foo::bar;");
+        assert_eq!(strip_rust_use_prefix("pub use foo::bar;"), "foo::bar;");
+        assert_eq!(
+            strip_rust_use_prefix("pub(crate) use python::resolve;"),
+            "python::resolve;"
+        );
+        assert_eq!(
+            strip_rust_use_prefix("pub(super) use tables::JS_FAMILY;"),
+            "tables::JS_FAMILY;"
+        );
+        assert_eq!(
+            strip_rust_use_prefix("pub(in crate::review) use crate::graph::Node;"),
+            "crate::graph::Node;"
+        );
+    }
+
+    #[test]
+    fn restricted_pub_use_of_local_module_is_not_flagged_as_external_dependency() {
+        let code =
+            "mod python;\npub(crate) use python::resolve;\npub(super) use crate::graph::Node;\n";
+        let file = ChangedFile {
+            path: PathBuf::from("src/mod.rs"),
+            status: ChangeStatus::Added,
+            ranges: vec![ChangedRange { start: 1, end: 3 }],
+            hunks: Vec::new(),
+        };
+        let source = ReviewSource::new(code.to_string(), Some("Rust".to_string()));
+        let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
+        assert!(
+            !signals
+                .iter()
+                .any(|signal| signal.kind == BehavioralKind::DependencyImportAdded),
+            "internal pub(crate)/pub(super) use must not be flagged: {signals:?}"
+        );
+    }
+
+    #[test]
+    fn restricted_pub_use_of_external_crate_is_still_flagged() {
+        let code = "pub(crate) use reqwest::Client;\n";
+        let file = ChangedFile {
+            path: PathBuf::from("src/client.rs"),
+            status: ChangeStatus::Added,
+            ranges: vec![ChangedRange { start: 1, end: 1 }],
+            hunks: Vec::new(),
+        };
+        let source = ReviewSource::new(code.to_string(), Some("Rust".to_string()));
+        let signals = detect_behavioral_added(&file, &source, &DependencyContext::default());
+        assert!(
+            signals
+                .iter()
+                .any(|signal| signal.kind == BehavioralKind::DependencyImportAdded),
+            "external crate re-export must still be flagged: {signals:?}"
+        );
+    }
 }
