@@ -90,8 +90,28 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
                 .collect::<Vec<_>>();
             serde_json::to_string_pretty(&rules).unwrap_or_else(|_| "[]".to_string())
         }
-        "repopilot://last-scan" => state.last_scan.clone().unwrap_or_default(),
-        "repopilot://last-review" => state.last_review.clone().unwrap_or_default(),
+        "repopilot://last-scan" => match &state.last_scan {
+            Some(scan) => scan.clone(),
+            None => {
+                return Response::error(
+                    id,
+                    -32002,
+                    "resource not found: repopilot://last-scan (run repopilot_scan first)"
+                        .to_string(),
+                );
+            }
+        },
+        "repopilot://last-review" => match &state.last_review {
+            Some(review) => review.clone(),
+            None => {
+                return Response::error(
+                    id,
+                    -32002,
+                    "resource not found: repopilot://last-review (run repopilot_review_change first)"
+                        .to_string(),
+                );
+            }
+        },
         "repopilot://repository-summary" => serde_json::to_string_pretty(&json!({
             "root": state.root.to_string_lossy(),
             "git_repository": state.root.join(".git").exists(),
@@ -194,6 +214,30 @@ mod tests {
             assert!(
                 SERVER_INSTRUCTIONS.contains(name),
                 "instructions should mention {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_last_scan_or_review_resource_returns_not_found_error() {
+        use super::handle_resource_read;
+        use crate::commands::mcp::ServerState;
+        use serde_json::json;
+
+        let state = ServerState::default();
+        for (uri, expected_hint) in [
+            ("repopilot://last-scan", "repopilot_scan"),
+            ("repopilot://last-review", "repopilot_review_change"),
+        ] {
+            let response = handle_resource_read(json!(1), &json!({ "uri": uri }), &state);
+            let value = serde_json::to_value(&response).expect("serialize response");
+            assert_eq!(value["error"]["code"], -32002, "{uri}: {value}");
+            assert!(
+                value["error"]["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains(expected_hint),
+                "{uri}: {value}"
             );
         }
     }
