@@ -4,7 +4,7 @@
 
 use crate::review::signals::integrity::syntax::{
     Directive, all_arguments_literal, any_argument_string, bounded, comment_suppression,
-    compact_text, enclosing_function_name, is_literal,
+    compact_text, enclosing_function_name, is_literal, is_zero_exit_arguments,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -86,6 +86,24 @@ fn decorator_marker(node: Node<'_>, content: &str) -> Option<TestMarker> {
 
 fn call_marker(node: Node<'_>, content: &str) -> Option<TestMarker> {
     let name = compact_text(node.child_by_field_name("function")?, content)?;
+    if matches!(name.as_str(), "sys.exit" | "os._exit") {
+        let allow_empty = name == "sys.exit";
+        if is_zero_exit_arguments(
+            node.child_by_field_name("arguments"),
+            content,
+            allow_empty,
+            allow_empty,
+        ) {
+            return Some(TestMarker {
+                kind: TestMarkerKind::Skip,
+                marker: format!("{name}(0)"),
+                test_name: enclosing_function_name(node, content, &["function_definition"]),
+                reason: Some("exits test process with code 0".to_string()),
+                line: node.start_position().row + 1,
+            });
+        }
+        return None;
+    }
     if !SKIP_CALLS.contains(&name.as_str()) {
         return None;
     }

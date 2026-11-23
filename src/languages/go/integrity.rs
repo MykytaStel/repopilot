@@ -4,6 +4,7 @@
 
 use crate::review::signals::integrity::syntax::{
     Directive, any_argument_string, comment_suppression, compact_text, enclosing_function_name,
+    is_zero_exit_arguments,
 };
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
@@ -32,12 +33,28 @@ fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
         .child_by_field_name("field")?
         .utf8_text(content.as_bytes())
         .ok()?;
+    let operand = function.child_by_field_name("operand")?;
+    let receiver = compact_text(operand, content)?;
+    if receiver == "os" && method == "Exit" {
+        if is_zero_exit_arguments(node.child_by_field_name("arguments"), content, false, false) {
+            return Some(TestMarker {
+                kind: TestMarkerKind::Skip,
+                marker: "os.Exit(0)".to_string(),
+                test_name: enclosing_function_name(
+                    node,
+                    content,
+                    &["function_declaration", "method_declaration"],
+                ),
+                reason: Some("exits test process with code 0".to_string()),
+                line: node.start_position().row + 1,
+            });
+        }
+        return None;
+    }
     if !SKIP_METHODS.contains(&method) {
         return None;
     }
     // `t.Skip()` on a `testing` handle, or `s.T().Skip()` on a testify suite.
-    let operand = function.child_by_field_name("operand")?;
-    let receiver = compact_text(operand, content)?;
     let is_handle = match operand.kind() {
         "identifier" => is_testing_parameter(node, content, &receiver),
         "call_expression" => receiver.ends_with(".T()") || receiver.ends_with(".B()"),

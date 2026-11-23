@@ -41,6 +41,26 @@ fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
         return None;
     }
     let root = chain_root(node, content)?;
+    if root == "process" {
+        let callee = node.child_by_field_name("function")?;
+        if compact_text(callee, content).as_deref() == Some("process.exit")
+            && crate::review::signals::integrity::syntax::is_zero_exit_arguments(
+                node.child_by_field_name("arguments"),
+                content,
+                true,
+                false,
+            )
+        {
+            return Some(TestMarker {
+                kind: TestMarkerKind::Skip,
+                marker: "process.exit(0)".to_string(),
+                test_name: enclosing_test_name(node, content),
+                reason: Some("exits test process with code 0".to_string()),
+                line: node.start_position().row + 1,
+            });
+        }
+        return None;
+    }
     if !(TEST_BASES.contains(&root)
         || FOCUSED_BASES.contains(&root)
         || EXCLUDED_BASES.contains(&root)
