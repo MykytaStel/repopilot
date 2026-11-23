@@ -151,13 +151,18 @@ fn emit_signals(
     };
 
     if post.max_nesting > pre_nesting && post.max_nesting >= COMPLEXITY_FLOOR {
-        push(
-            AlgorithmicKind::ComplexityIncreased,
+        let detail = if pre.is_some() {
             format!(
                 "fn `{}` control-flow nesting {pre_nesting} → {}",
                 post.name, post.max_nesting
-            ),
-        );
+            )
+        } else {
+            format!(
+                "new fn `{}` has control-flow nesting {}",
+                post.name, post.max_nesting
+            )
+        };
+        push(AlgorithmicKind::ComplexityIncreased, detail);
     }
     if post.has_nested_loop && !pre_nested_loop {
         push(
@@ -169,16 +174,20 @@ fn emit_signals(
         );
     }
     if post.is_recursive && !pre_recursive {
-        push(
-            AlgorithmicKind::RecursionIntroduced,
-            format!("fn `{}` is now recursive", post.name),
-        );
+        let detail = if pre.is_some() {
+            format!("fn `{}` is now recursive", post.name)
+        } else {
+            format!("new fn `{}` is recursive", post.name)
+        };
+        push(AlgorithmicKind::RecursionIntroduced, detail);
     }
     if post.line_span > FUNCTION_GREW_THRESHOLD && post.line_span > pre_span {
-        push(
-            AlgorithmicKind::FunctionGrew,
-            format!("fn `{}` grew to {} lines", post.name, post.line_span),
-        );
+        let detail = if pre.is_some() {
+            format!("fn `{}` grew to {} lines", post.name, post.line_span)
+        } else {
+            format!("new fn `{}` is {} lines", post.name, post.line_span)
+        };
+        push(AlgorithmicKind::FunctionGrew, detail);
     }
 }
 

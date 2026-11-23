@@ -168,3 +168,25 @@ fn ignores_functions_outside_changed_range() {
     let signals = detect_algorithmic(&file, None, Some(&post));
     assert!(signals.is_empty(), "{signals:?}");
 }
+
+#[test]
+fn new_function_wording_does_not_claim_delta_from_zero() {
+    let post = source(
+        "fn walk(x: i32) -> i32 {\n    if x > 0 {\n        if x > 1 {\n            if x > 2 {\n                return walk(x - 1);\n            }\n        }\n    }\n    0\n}\n",
+    );
+    let file = changed("src/walk.rs");
+    let signals = detect_algorithmic(&file, None, Some(&post));
+    let complexity = signals
+        .iter()
+        .find(|signal| signal.kind == AlgorithmicKind::ComplexityIncreased)
+        .expect("expected complexity signal");
+    assert_eq!(
+        complexity.detail,
+        "new fn `walk` has control-flow nesting 3"
+    );
+    let recursion = signals
+        .iter()
+        .find(|signal| signal.kind == AlgorithmicKind::RecursionIntroduced)
+        .expect("expected recursion signal");
+    assert_eq!(recursion.detail, "new fn `walk` is recursive");
+}
