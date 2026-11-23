@@ -85,7 +85,7 @@ pub(super) fn match_rust(
                 && !path.starts_with("self::")
                 && !path.starts_with("super::")
                 && !matches!(root, "std" | "core" | "alloc")
-                && !dependencies.is_local_package(root)
+                && !dependencies.is_known_package(root)
                 && !module_declared_in_scope(node, content, root)
             {
                 return Some(BehavioralSignal {

@@ -11,15 +11,15 @@ pub(super) fn render_changed_files(
     report: &ReviewReport,
     detail: DetailLevel,
 ) {
+    if report.changed_files.is_empty() {
+        return;
+    }
+
     if detail == DetailLevel::Findings {
         render_area_counts(output, report);
     }
 
     output.push_str("\nChanged files:\n");
-    if report.changed_files.is_empty() {
-        output.push_str("  No changed files found\n");
-        return;
-    }
 
     let shown = match detail {
         DetailLevel::Findings => report.changed_files.len().min(DEFAULT_CHANGED_FILE_LIMIT),
@@ -43,8 +43,8 @@ pub(super) fn render_changed_files(
     }
 }
 
-pub(super) fn render_detail_hint(output: &mut String, detail: DetailLevel) {
-    if detail != DetailLevel::Findings {
+pub(super) fn render_detail_hint(output: &mut String, report: &ReviewReport, detail: DetailLevel) {
+    if detail != DetailLevel::Findings || report.changed_files.is_empty() {
         return;
     }
 

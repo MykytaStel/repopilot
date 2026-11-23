@@ -168,7 +168,7 @@ fn is_external_js_import(path: &str, dependencies: &DependencyContext) -> bool {
         "worker_threads",
         "zlib",
     ];
-    if is_local_import(path) || path.starts_with("node:") || dependencies.is_local_package(path) {
+    if is_local_import(path) || path.starts_with("node:") || dependencies.is_known_package(path) {
         return false;
     }
     let root = path.split('/').next().unwrap_or(path);

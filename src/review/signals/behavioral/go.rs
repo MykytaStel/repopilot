@@ -75,7 +75,7 @@ pub(super) fn match_go(
                 let path_text = path_node.utf8_text(content.as_bytes()).ok()?.trim();
                 if let Some(val) = extract_string_literal(path_text)
                     && val.contains('.')
-                    && !dependencies.is_local_package(val)
+                    && !dependencies.is_known_package(val)
                 {
                     return Some(BehavioralSignal {
                         kind: BehavioralKind::DependencyImportAdded,

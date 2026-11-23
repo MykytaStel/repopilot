@@ -63,6 +63,19 @@ fn machine_and_markdown_inventories_remain_complete() {
     assert!(markdown.contains("`docs/page-1.md`"));
 }
 
+#[test]
+fn empty_review_omits_redundant_changed_areas_and_detail_hint() {
+    let mut report = report_with_changed_files();
+    report.changed_files.clear();
+
+    let output = render_console(&report, DetailLevel::Findings);
+
+    assert!(output.contains("Changed files: 0"));
+    assert!(!output.contains("Changed areas:\n"));
+    assert!(!output.contains("No changed files found"));
+    assert!(!output.contains("Rerun with --detail full"));
+}
+
 fn render_console(report: &ReviewReport, detail: DetailLevel) -> String {
     render_with_options(report, OutputFormat::Console, None, None, options(detail))
         .expect("console review should render")

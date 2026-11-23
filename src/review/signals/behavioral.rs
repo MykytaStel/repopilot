@@ -15,6 +15,7 @@
 //! [`BehavioralSignalSource::CoarseFallback`].
 
 mod csharp;
+mod declared_deps;
 mod dependency;
 mod go;
 mod js;
@@ -42,12 +43,15 @@ use tree_sitter::Node;
 pub struct DependencyContext {
     local_package_names: BTreeSet<String>,
     local_import_prefixes: BTreeSet<String>,
+    declared_dependencies: BTreeSet<String>,
+    declared_import_prefixes: BTreeSet<String>,
 }
 
 impl DependencyContext {
     /// Build the set of names/prefixes that count as *local* — the repo's own
-    /// package(s) and, in a monorepo, its workspace members — so cross-package
-    /// imports are not mistaken for newly added external dependencies.
+    /// package(s) and, in a monorepo, its workspace members — plus dependencies
+    /// already declared in repository manifests, so ordinary imports are not
+    /// mistaken for newly added external dependencies.
     pub fn from_repo_root(root: &Path) -> Self {
         let mut context = Self::default();
 
@@ -59,6 +63,15 @@ impl DependencyContext {
         }
         for prefix in dependency::go_local_prefixes(root) {
             context.local_import_prefixes.insert(prefix);
+        }
+        for name in declared_deps::cargo_declared_dependencies(root) {
+            context.add_declared_name(&name);
+        }
+        for name in declared_deps::npm_declared_dependencies(root) {
+            context.add_declared_name(&name);
+        }
+        for prefix in declared_deps::go_declared_dependencies(root) {
+            context.declared_import_prefixes.insert(prefix);
         }
 
         context
@@ -77,19 +90,41 @@ impl DependencyContext {
             .insert(normalized.replace('-', "_"));
     }
 
-    pub(super) fn is_local_package(&self, name: &str) -> bool {
+    fn add_declared_name(&mut self, name: &str) {
         let normalized = name.trim().trim_start_matches('@');
-        let root = normalized
-            .split(['/', ':', '.'])
-            .next()
-            .unwrap_or(normalized);
-        self.local_package_names.contains(normalized)
-            || self.local_package_names.contains(root)
-            || self
-                .local_import_prefixes
-                .iter()
-                .any(|prefix| normalized == prefix || normalized.starts_with(&format!("{prefix}/")))
+        if normalized.is_empty() {
+            return;
+        }
+        self.declared_dependencies.insert(normalized.to_string());
+        self.declared_dependencies
+            .insert(normalized.replace('-', "_"));
     }
+
+    pub(super) fn is_local_package(&self, name: &str) -> bool {
+        matches_package_set(&self.local_package_names, &self.local_import_prefixes, name)
+    }
+
+    pub(super) fn is_known_package(&self, name: &str) -> bool {
+        self.is_local_package(name)
+            || matches_package_set(
+                &self.declared_dependencies,
+                &self.declared_import_prefixes,
+                name,
+            )
+    }
+}
+
+fn matches_package_set(names: &BTreeSet<String>, prefixes: &BTreeSet<String>, name: &str) -> bool {
+    let normalized = name.trim().trim_start_matches('@');
+    let root = normalized
+        .split(['/', ':', '.'])
+        .next()
+        .unwrap_or(normalized);
+    names.contains(normalized)
+        || names.contains(root)
+        || prefixes
+            .iter()
+            .any(|prefix| normalized == prefix || normalized.starts_with(&format!("{prefix}/")))
 }
 
 /// Detects newly added behavioral signals in a post-change source.
