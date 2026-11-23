@@ -97,6 +97,22 @@ paths = [
 ]
 
 [[verification.checks]]
+id = "rust-check"
+role = "build"
+program = "cargo"
+args = ["--offline", "--locked", "check", "--all-targets", "--all-features"]
+timeout_seconds = 600
+paths = [
+  "src/**",
+  "tests/**",
+  "Cargo.toml",
+  "Cargo.lock",
+  "build.rs",
+  "rust-toolchain.toml",
+  "repopilot.toml",
+]
+
+[[verification.checks]]
 id = "rust-tests"
 role = "test"
 program = "cargo"

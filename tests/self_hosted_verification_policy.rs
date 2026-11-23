@@ -12,7 +12,10 @@ fn repository_checks_are_explicit_offline_and_scoped() {
         .iter()
         .map(|check| check.id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(ids, ["rust-format", "rust-clippy", "rust-tests"]);
+    assert_eq!(
+        ids,
+        ["rust-format", "rust-clippy", "rust-check", "rust-tests"]
+    );
 
     let expected = [
         (
@@ -32,6 +35,18 @@ fn repository_checks_are_explicit_offline_and_scoped() {
                 "--",
                 "-D",
                 "warnings",
+            ]
+            .as_slice(),
+        ),
+        (
+            VerificationRole::Build,
+            600,
+            [
+                "--offline",
+                "--locked",
+                "check",
+                "--all-targets",
+                "--all-features",
             ]
             .as_slice(),
         ),
