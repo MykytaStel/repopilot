@@ -176,7 +176,11 @@ local fixtures and benchmarks do not close those evidence rows.
 
 ## Longer-term direction
 
-- Define a stable `1.0` command, configuration, and report contract.
+- Follow the [product design](product-design.md): focus RepoPilot as a
+  deterministic local change-review and agent-integrity gate (`review`, hooks,
+  and MCP) while reducing unmeasured linter noise.
+- Define a stable `1.0` command, configuration, and report contract when signal
+  quality and UX are proven in real use.
 - Consider curated knowledge packs after signal quality remains healthy.
 - Expand language and semantic coverage when fixture and repository evidence
   supports the claims.
