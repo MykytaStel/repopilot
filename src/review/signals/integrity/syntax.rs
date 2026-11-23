@@ -11,6 +11,37 @@ pub(crate) fn compact_text(node: Node<'_>, content: &str) -> Option<String> {
     Some(text.split_whitespace().collect())
 }
 
+/// Whether a call's argument list exits with status code 0 (literal `0`,
+/// optional `None` in Python, or empty when the runtime defaults to 0).
+pub(crate) fn is_zero_exit_arguments(
+    arguments: Option<Node<'_>>,
+    content: &str,
+    allow_empty: bool,
+    allow_none: bool,
+) -> bool {
+    let Some(arguments) = arguments else {
+        return false;
+    };
+    let mut cursor = arguments.walk();
+    let mut named = arguments
+        .named_children(&mut cursor)
+        .filter(|child| !matches!(child.kind(), "comment" | "line_comment" | "block_comment"));
+    let Some(first) = named.next() else {
+        return allow_empty;
+    };
+    if named.next().is_some() {
+        return false;
+    }
+    let Ok(text) = first.utf8_text(content.as_bytes()) else {
+        return false;
+    };
+    match text.trim() {
+        "0" => true,
+        "None" if allow_none => true,
+        _ => false,
+    }
+}
+
 /// Whether a node is a string literal in any supported grammar.
 pub(crate) fn is_string_literal(node: Node<'_>) -> bool {
     matches!(

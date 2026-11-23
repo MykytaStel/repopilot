@@ -3,7 +3,9 @@
 //! Unit tests live inline in `src/`, so the recognizers apply to every Rust
 //! file, not only those under `tests/`.
 
-use crate::review::signals::integrity::syntax::{bounded, unquote};
+use crate::review::signals::integrity::syntax::{
+    bounded, compact_text, is_zero_exit_arguments, unquote,
+};
 use crate::review::signals::tables::{IntegrityTables, TestMarker, TestMarkerKind};
 use tree_sitter::Node;
 
@@ -18,6 +20,9 @@ pub(super) static RUST_INTEGRITY: IntegrityTables = IntegrityTables {
 };
 
 fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
+    if node.kind() == "call_expression" {
+        return exit_zero_marker(node, content);
+    }
     if node.kind() != "attribute_item" {
         return None;
     }
@@ -41,6 +46,41 @@ fn test_marker<'a>(node: Node<'a>, content: &'a str) -> Option<TestMarker> {
         reason,
         line: node.start_position().row + 1,
     })
+}
+
+/// Detects `std::process::exit(0)` / `process::exit(0)` inside a `#[test]`
+/// function (never in production `fn main()`).
+fn exit_zero_marker(node: Node<'_>, content: &str) -> Option<TestMarker> {
+    let function = node.child_by_field_name("function")?;
+    let callee = compact_text(function, content)?;
+    if !matches!(callee.as_str(), "std::process::exit" | "process::exit") {
+        return None;
+    }
+    if !is_zero_exit_arguments(node.child_by_field_name("arguments"), content, false, false) {
+        return None;
+    }
+    let test_name = enclosing_test_function(node, content)?;
+    Some(TestMarker {
+        kind: TestMarkerKind::Skip,
+        marker: "process::exit(0)".to_string(),
+        test_name: Some(test_name),
+        reason: Some("exits test process with code 0".to_string()),
+        line: node.start_position().row + 1,
+    })
+}
+
+fn enclosing_test_function(node: Node<'_>, content: &str) -> Option<String> {
+    let mut current = node.parent();
+    while let Some(candidate) = current {
+        if candidate.kind() == "function_item" && has_test_attribute(candidate, content) {
+            return candidate
+                .child_by_field_name("name")
+                .and_then(|name| name.utf8_text(content.as_bytes()).ok())
+                .map(bounded);
+        }
+        current = candidate.parent();
+    }
+    None
 }
 
 /// The function an attribute applies to: the next sibling item after any

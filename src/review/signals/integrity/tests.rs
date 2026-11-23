@@ -427,3 +427,133 @@ fn a_skip_inside_a_new_test_or_helper_is_not_a_weakening() {
     );
     assert!(detect("auth/login_test.go", "Go", Some(GO_BEFORE), Some(&go_after)).is_empty());
 }
+
+#[test]
+fn python_exit_zero_in_test_is_reported_while_nonzero_is_not() {
+    let py_before = "import sys\n\ndef test_login():\n    assert login('ok')\n";
+    let py_exit_zero = "import sys\n\ndef test_login():\n    sys.exit(0)\n    assert login('ok')\n";
+    let signals = detect(
+        "tests/test_auth.py",
+        "Python",
+        Some(py_before),
+        Some(py_exit_zero),
+    );
+    assert_eq!(kinds(&signals), vec![IntegrityKind::TestSkipped]);
+    assert!(
+        signals[0].detail.contains("`sys.exit(0)`"),
+        "{}",
+        signals[0].detail
+    );
+
+    let py_exit_one = "import sys\n\ndef test_login():\n    sys.exit(1)\n    assert login('ok')\n";
+    assert!(
+        detect(
+            "tests/test_auth.py",
+            "Python",
+            Some(py_before),
+            Some(py_exit_one)
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn js_process_exit_zero_in_test_is_reported_while_nonzero_is_not() {
+    let js_before = "describe('auth', () => {\n  it('checks token', () => {\n    expect(ok).toBe(true);\n  });\n});\n";
+    let after_zero = "describe('auth', () => {\n  it('checks token', () => {\n    process.exit(0);\n    expect(ok).toBe(true);\n  });\n});\n";
+    let signals = detect(
+        "src/header.test.ts",
+        "TypeScript",
+        Some(js_before),
+        Some(after_zero),
+    );
+    assert_eq!(kinds(&signals), vec![IntegrityKind::TestSkipped]);
+    assert!(
+        signals[0].detail.contains("`process.exit(0)`"),
+        "{}",
+        signals[0].detail
+    );
+
+    let after_one = "describe('auth', () => {\n  it('checks token', () => {\n    process.exit(1);\n    expect(ok).toBe(true);\n  });\n});\n";
+    assert!(
+        detect(
+            "src/header.test.ts",
+            "TypeScript",
+            Some(js_before),
+            Some(after_one)
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn go_os_exit_zero_in_test_is_reported_while_testmain_and_nonzero_are_not() {
+    let after_zero = GO_BEFORE.replace("\tif !login", "\tos.Exit(0)\n\tif !login");
+    let signals = detect(
+        "auth/login_test.go",
+        "Go",
+        Some(GO_BEFORE),
+        Some(&after_zero),
+    );
+    assert_eq!(kinds(&signals), vec![IntegrityKind::TestSkipped]);
+    assert!(
+        signals[0].detail.contains("`os.Exit(0)`"),
+        "{}",
+        signals[0].detail
+    );
+
+    let after_one = GO_BEFORE.replace("\tif !login", "\tos.Exit(1)\n\tif !login");
+    assert!(
+        detect(
+            "auth/login_test.go",
+            "Go",
+            Some(GO_BEFORE),
+            Some(&after_one)
+        )
+        .is_empty()
+    );
+
+    let after_testmain =
+        format!("{GO_BEFORE}\nfunc TestMain(m *testing.M) {{\n\tos.Exit(m.Run())\n}}\n");
+    assert!(
+        detect(
+            "auth/login_test.go",
+            "Go",
+            Some(GO_BEFORE),
+            Some(&after_testmain)
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn rust_process_exit_zero_in_test_is_reported_while_main_and_nonzero_are_not() {
+    let after_zero = RUST_BEFORE.replace(
+        "        assert_eq!(add(1, 2), 3);",
+        "        std::process::exit(0);\n        assert_eq!(add(1, 2), 3);",
+    );
+    let signals = detect("src/math.rs", "Rust", Some(RUST_BEFORE), Some(&after_zero));
+    assert_eq!(kinds(&signals), vec![IntegrityKind::TestSkipped]);
+    assert!(
+        signals[0].detail.contains("`process::exit(0)`"),
+        "{}",
+        signals[0].detail
+    );
+
+    let after_one = RUST_BEFORE.replace(
+        "        assert_eq!(add(1, 2), 3);",
+        "        std::process::exit(1);\n        assert_eq!(add(1, 2), 3);",
+    );
+    assert!(detect("src/math.rs", "Rust", Some(RUST_BEFORE), Some(&after_one)).is_empty());
+
+    let after_prod_main = format!("fn main() {{\n    std::process::exit(0);\n}}\n{RUST_BEFORE}");
+    assert!(
+        detect(
+            "src/math.rs",
+            "Rust",
+            Some(RUST_BEFORE),
+            Some(&after_prod_main)
+        )
+        .is_empty()
+    );
+}
