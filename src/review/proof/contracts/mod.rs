@@ -11,40 +11,10 @@ mod security;
 const REMOVED_EXPORT_SIGNAL: &str = "behavioral.removed-export-still-imported";
 const RUST_ARITY_SIGNAL: &str = "behavioral.rust-public-function-arity-changed";
 const RUST_STRUCT_FIELD_SIGNAL: &str = "behavioral.rust-public-struct-field-removed";
+const RUST_ENUM_VARIANT_SIGNAL: &str = "behavioral.rust-public-enum-variant-removed";
 
 pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
-    let mut deltas = report
-        .tiered_signals
-        .definitely
-        .iter()
-        .filter(|signal| {
-            matches!(
-                signal.kind.as_str(),
-                REMOVED_EXPORT_SIGNAL | RUST_ARITY_SIGNAL | RUST_STRUCT_FIELD_SIGNAL
-            ) && !signal.suppressed
-        })
-        .filter_map(|signal| {
-            let change = match signal.kind.as_str() {
-                REMOVED_EXPORT_SIGNAL => ContractChangeKind::RemovedExport,
-                RUST_ARITY_SIGNAL => ContractChangeKind::FunctionArityChanged,
-                RUST_STRUCT_FIELD_SIGNAL => ContractChangeKind::StructFieldRemoved,
-                _ => return None,
-            };
-            Some(ChangeProofContractDelta {
-                family: ContractFamily::PublicSymbol,
-                change,
-                exporter_path: signal.target_path.clone()?,
-                consumer_path: signal.path.clone(),
-                line_start: signal.line_start,
-                line_end: signal.line_end,
-                evidence: signal
-                    .detail
-                    .clone()
-                    .unwrap_or_else(|| signal.headline.clone()),
-                confidence: Some(ContractConfidence::High),
-            })
-        })
-        .collect::<Vec<_>>();
+    let mut deltas = public_symbol_deltas(report);
     deltas.extend(dependency::dependency_deltas(&report.changed_files));
     deltas.extend(delivery::delivery_deltas(&report.changed_files));
     deltas.extend(runtime::runtime_deltas_in_repo(
@@ -61,4 +31,43 @@ pub(crate) fn from_review(report: &ReviewReport) -> Vec<ChangeProofContractDelta
             .then(left.evidence.cmp(&right.evidence))
     });
     deltas
+}
+
+fn public_symbol_deltas(report: &ReviewReport) -> Vec<ChangeProofContractDelta> {
+    report
+        .tiered_signals
+        .definitely
+        .iter()
+        .filter(|signal| {
+            matches!(
+                signal.kind.as_str(),
+                REMOVED_EXPORT_SIGNAL
+                    | RUST_ARITY_SIGNAL
+                    | RUST_STRUCT_FIELD_SIGNAL
+                    | RUST_ENUM_VARIANT_SIGNAL
+            ) && !signal.suppressed
+        })
+        .filter_map(|signal| {
+            let change = match signal.kind.as_str() {
+                REMOVED_EXPORT_SIGNAL => ContractChangeKind::RemovedExport,
+                RUST_ARITY_SIGNAL => ContractChangeKind::FunctionArityChanged,
+                RUST_STRUCT_FIELD_SIGNAL => ContractChangeKind::StructFieldRemoved,
+                RUST_ENUM_VARIANT_SIGNAL => ContractChangeKind::RemovedExport,
+                _ => return None,
+            };
+            Some(ChangeProofContractDelta {
+                family: ContractFamily::PublicSymbol,
+                change,
+                exporter_path: signal.target_path.clone()?,
+                consumer_path: signal.path.clone(),
+                line_start: signal.line_start,
+                line_end: signal.line_end,
+                evidence: signal
+                    .detail
+                    .clone()
+                    .unwrap_or_else(|| signal.headline.clone()),
+                confidence: Some(ContractConfidence::High),
+            })
+        })
+        .collect()
 }

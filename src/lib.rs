@@ -59,4 +59,6 @@ pub mod rules;
 #[doc(hidden)]
 pub mod scan;
 #[doc(hidden)]
+pub mod utc;
+#[doc(hidden)]
 pub mod verification;

@@ -55,6 +55,16 @@ pub(crate) struct RustContractFacts {
     pub public_struct_fields: Vec<RustStructFieldFact>,
     #[serde(default)]
     pub struct_field_uses: Vec<RustFieldUseFact>,
+    #[serde(default)]
+    pub public_enums: Vec<String>,
+    #[serde(default)]
+    pub public_enum_variants: Vec<RustEnumVariantFact>,
+    #[serde(default)]
+    pub enum_variant_uses: Vec<RustEnumVariantUseFact>,
+    #[serde(default)]
+    pub file_modules: Vec<String>,
+    #[serde(default)]
+    pub inherent_items: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -84,6 +94,27 @@ pub(crate) struct RustStructFieldFact {
 pub(crate) struct RustFieldUseFact {
     pub struct_name: String,
     pub field_name: String,
+    pub module_specifier: String,
+    pub line_start: usize,
+    pub line_end: usize,
+    pub byte_start: usize,
+    pub byte_end: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustEnumVariantFact {
+    pub enum_name: String,
+    pub variant_name: String,
+    #[serde(default)]
+    pub line_start: usize,
+    #[serde(default)]
+    pub line_end: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RustEnumVariantUseFact {
+    pub enum_name: String,
+    pub variant_name: String,
     pub module_specifier: String,
     pub line_start: usize,
     pub line_end: usize,

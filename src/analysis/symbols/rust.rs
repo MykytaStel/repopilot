@@ -5,9 +5,9 @@ mod imports;
 mod paths;
 
 use super::{ImportedSymbolFact, JavaScriptSymbolFacts, RustContractFacts, SymbolKind};
-use exports::{record_public_function, record_public_struct};
+use exports::{record_public_enum, record_public_function, record_public_struct};
 use imports::extract_uses;
-use paths::{record_call, record_struct_field_uses, resolved_path};
+use paths::{record_call, record_enum_variant_uses, record_struct_field_uses, resolved_path};
 use std::collections::BTreeSet;
 use tree_sitter::{Node, Tree};
 
@@ -57,11 +57,26 @@ fn collect_top_level_node<'a>(
         }
         return Some(());
     }
+    if node.kind() == "enum_item" && public(node, content) {
+        record_public_enum(node, content, facts)?;
+        if let Some(name) = node.child_by_field_name("name") {
+            facts.re_exports.push(text(name, content).into());
+        }
+        return Some(());
+    }
     if node.kind() == "mod_item" && node.child_by_field_name("body").is_none() {
         let name = text(node.child_by_field_name("name")?, content);
         modules.insert(name);
+        if let Some(contracts) = facts.rust_contracts.as_mut() {
+            contracts
+                .file_modules
+                .push(name.trim_start_matches("r#").into());
+        }
         facts.re_exports.push(name.into());
         return Some(());
+    }
+    if node.kind() == "impl_item" {
+        exports::record_inherent_items(node, content, facts);
     }
     // A forwarded name may replace a removed definition. We cannot establish
     // its origin, so withhold removal facts for this file.
@@ -90,6 +105,14 @@ fn sort_facts(facts: &mut JavaScriptSymbolFacts) {
         contracts.public_struct_fields.dedup();
         contracts.struct_field_uses.sort();
         contracts.struct_field_uses.dedup();
+        contracts.public_enums.sort();
+        contracts.public_enums.dedup();
+        contracts.public_enum_variants.sort();
+        contracts.public_enum_variants.dedup();
+        contracts.file_modules.sort();
+        contracts.inherent_items.sort();
+        contracts.enum_variant_uses.sort();
+        contracts.enum_variant_uses.dedup();
     }
 }
 
@@ -165,6 +188,7 @@ fn extract_calls(
     if node.kind() == "block" {
         collect_type_bindings(node, content, &mut shadowing);
     }
+    record_enum_variant_uses(node, content, modules, &shadowing, facts);
     if node.kind() == "call_expression"
         && let Some(function) = node.child_by_field_name("function")
         && function.kind() == "scoped_identifier"

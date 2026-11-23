@@ -89,7 +89,7 @@ pub fn build_receipt(
         .map(|finding| FindingReceipt::from_finding(finding, session.workspace_root()));
     RunReceipt::new(
         comparison,
-        chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+        crate::utc::now_seconds(),
         session.revision().id().to_string(),
         receipts,
     )

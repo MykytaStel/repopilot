@@ -62,8 +62,8 @@ fn feedback_suppression_expired(suppression: &ReviewSuppression) -> bool {
     suppression
         .expires
         .as_deref()
-        .and_then(|value| chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
-        .is_some_and(|date| date < chrono::Utc::now().date_naive())
+        .and_then(|value| crate::utc::parse_date(value).ok())
+        .is_some_and(|date| date < crate::utc::today())
 }
 
 pub(super) fn overlay_review_suppression<'a>(
@@ -78,7 +78,7 @@ pub(super) fn overlay_review_suppression<'a>(
             return false;
         }
         if let Some(expires) = entry.expires
-            && expires < chrono::Utc::now().date_naive()
+            && expires < crate::utc::today()
         {
             return false;
         }
@@ -172,7 +172,7 @@ mod tests {
     #[test]
     fn expired_entry_is_not_applied() {
         let mut entry = kind_entry("behavioral", "scripts/**");
-        entry.expires = Some(chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap());
+        entry.expires = Some(crate::utc::parse_date("2000-01-01").unwrap());
         let entries = vec![entry];
         let signal = sample_signal("behavioral", "scripts/deploy.sh");
 

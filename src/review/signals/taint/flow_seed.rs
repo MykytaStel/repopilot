@@ -4,21 +4,39 @@ use super::flow_assignments::{Assignment, collect_assignments};
 use super::flow_state::TaintState;
 use tree_sitter::Node;
 
-pub(super) fn seed_tainted(
+pub(super) fn seed_tainted_before(
+    root: Node<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+    local_helpers: &super::helper_summary::LocalHelperReturns,
+    byte_position: usize,
+) -> TaintState {
+    let mut tainted = seed_tainted_parameters(root, content, tables);
+    let mut assignments: Vec<Assignment<'_>> = Vec::new();
+    collect_assignments(root, tables, content, &mut assignments);
+    assignments.sort_by_key(|assignment| assignment.rhs.end_byte());
+    for assignment in assignments
+        .iter()
+        .take_while(|assignment| assignment.rhs.end_byte() < byte_position)
+    {
+        super::flow_assignments::apply_assignment_with_local_helpers(
+            assignment,
+            content,
+            tables,
+            &mut tainted,
+            local_helpers,
+        );
+    }
+    tainted
+}
+
+pub(super) fn seed_tainted_parameters(
     root: Node<'_>,
     content: &str,
     tables: &'static TaintTables,
 ) -> TaintState {
     let mut tainted = TaintState::default();
     collect_request_bound_parameters(root, content, tables, &mut tainted);
-
-    let mut assignments: Vec<Assignment<'_>> = Vec::new();
-    collect_assignments(root, tables, content, &mut assignments);
-    assignments.sort_by_key(|assignment| assignment.rhs.start_byte());
-
-    for assignment in &assignments {
-        super::flow_assignments::apply_assignment(assignment, content, tables, &mut tainted);
-    }
     tainted
 }
 
@@ -95,7 +113,7 @@ fn is_identifier_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || matches!(ch, '_' | '$')
 }
 
-fn parameter_binding_name(node: Node<'_>, content: &str) -> Option<String> {
+pub(super) fn parameter_binding_name(node: Node<'_>, content: &str) -> Option<String> {
     for field in ["pattern", "name"] {
         if let Some(binding) = node.child_by_field_name(field)
             && let Some(name) = first_binding_identifier(binding, content)

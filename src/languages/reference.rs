@@ -71,11 +71,33 @@ fn render_bounded_analysis(out: &mut String) {
 The frontend matrix shows which language facts are wired. These additional\n\
 cross-file behaviors have narrower evidence boundaries:\n\n\
 - **Rust:** review detects removed public free functions, changed public\n\
-  function arity, and removed or privatized named public struct fields when a\n\
-  surviving caller has an unambiguous file-backed module-qualified use.\n\
-  Grouped `use` imports are expanded for removed-function contracts. The field\n\
-  check covers direct struct literals; macros, `cfg`, re-exports, aliases, and\n\
-  ambiguous module paths remain outside the claim.\n\
+  function arity, removed or privatized named public struct fields, and removed\n\
+  public enum variants when a surviving caller has an unambiguous file-backed\n\
+  module-qualified use. Grouped `use` imports are expanded for removed-function\n\
+  contracts. Struct checks cover direct literals; enum checks cover direct\n\
+  constructors and match patterns through uniquely resolved modules or a named\n\
+  type import. Shadowed names, opaque module declarations, and uncertain\n\
+  replacement items are excluded. Findings include both declaration and caller\n\
+  locations.\n\
+- **JavaScript, TypeScript, Python, and Go:** review can follow one direct\n\
+  same-file helper call from a recognized taint source to a supported sink.\n\
+  Simple identity returns are tracked when the helper has one unambiguous\n\
+  return. Python keyword arguments bind by name, and Go grouped parameters keep\n\
+  their argument positions. Unknown transformations preserve incoming taint.\n\
+  Recursive calls, dynamic targets, unsupported control flow, and chains of\n\
+  multiple summarized helpers are outside this analysis.\n\
+  Recognized literal non-shell argv calls retain separate arguments unless shell\n\
+  mode is enabled. Explicit shell command flags, including combined or separated\n\
+  flags, remain a sink.\n\
+- **Python and Go test helpers:** when a changed local assertion helper loses\n\
+  supported checks, review can attribute the loss to an unchanged importing\n\
+  Python test or same-package Go test. Python attribution requires a uniquely\n\
+  resolved module-scope import and an unshadowed direct call. Moved or renamed\n\
+  tests are treated as changed. Signals name the called helper and its line.\n\
+- **C and C++:** direct quoted `#include` directives create static local graph\n\
+  edges when one target resolves relative to the including file or repository\n\
+  root. Conditional branches, system includes, macro operands, and compiler\n\
+  search paths are outside this analysis. The edges describe static includes.\n\
 - **JavaScript and TypeScript:** local missing-import checks cover supported\n\
   extensionless relative imports and uniquely resolved configured aliases.\n\
   Package exports, dynamic imports, and ambiguous resolver candidates remain\n\

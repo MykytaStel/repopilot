@@ -10,7 +10,7 @@ use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 
 const PARSED_FACTS_SCHEMA_VERSION: u32 = 11;
-const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-field-contract";
+const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v11-rust-module-proof-c-directives";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
@@ -541,7 +541,7 @@ mod tests {
         fs::create_dir_all(&cache_root).expect("create cache dir");
         let cache = ParsedFactsFile {
             schema_version: PARSED_FACTS_SCHEMA_VERSION,
-            analysis_version: "old-imports".to_string(),
+            analysis_version: "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-field-contract".to_string(),
             repopilot_version: "test".to_string(),
             entries: vec![ParsedFactsEntry {
                 content_hash: "hash".to_string(),

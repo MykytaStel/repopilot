@@ -96,7 +96,36 @@ fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
     } else {
         return None;
     };
-    Some(Sink { kind, args })
+    let mut sink = Sink::new(kind, args);
+    if kind == SinkKind::Exec {
+        sink.safe_exec_command = safe_exec_command(callee, args, content);
+    }
+    Some(sink)
+}
+
+fn safe_exec_command<'a>(callee: &str, args: Node<'a>, content: &str) -> Option<Node<'a>> {
+    let offset = match callee {
+        "exec.Command" => 0,
+        "exec.CommandContext" => 1,
+        _ => return None,
+    };
+    let mut cursor = args.walk();
+    let arguments = args.named_children(&mut cursor).collect::<Vec<_>>();
+    let command = *arguments.get(offset)?;
+    if !matches!(
+        command.kind(),
+        "interpreted_string_literal" | "raw_string_literal"
+    ) {
+        return None;
+    }
+    let command_text = command.utf8_text(content.as_bytes()).ok()?;
+    let shell = super::super::shell::is_shell_executable(command_text);
+    let shell_flag = super::super::shell::has_shell_command_flag(
+        arguments[offset + 1..]
+            .iter()
+            .filter_map(|node| node.utf8_text(content.as_bytes()).ok()),
+    );
+    (!shell || !shell_flag).then_some(command)
 }
 
 fn go_open_file_is_write(args: Node<'_>, content: &str) -> bool {

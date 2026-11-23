@@ -2,7 +2,6 @@ use crate::cli::{BaselineCommands, ScanProfileArg};
 use crate::commands::filters::{priority_arg_into, severity_arg_into};
 use crate::commands::product_scan::{ProductScanMode, ProductScanRequest, run_product_scan};
 use crate::commands::scan_config::ScanConfigOverrides;
-use chrono::{SecondsFormat, Utc};
 use repopilot::baseline::key::normalized_relative_path;
 use repopilot::baseline::model::Baseline;
 use repopilot::baseline::writer::{BaselineWriteError, write_baseline};
@@ -105,7 +104,7 @@ fn display_baseline_root(path: &Path) -> String {
 }
 
 fn current_timestamp() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+    repopilot::utc::now_seconds()
 }
 
 fn print_baseline_create_summary(scan_path: &Path, output_path: &Path, summary: &ScanSummary) {

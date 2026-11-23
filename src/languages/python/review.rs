@@ -48,12 +48,21 @@ fn is_string_building(node: Node<'_>, content: &str) -> bool {
 
 fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
     let (callee, args) = callee_text(node, content)?;
-    let kind = if callee.ends_with(".execute")
+    let kind = sink_kind(callee, args, content)?;
+    let mut sink = Sink::new(kind, args);
+    if kind == SinkKind::Exec {
+        sink.safe_exec_command = safe_exec_command(callee, args, content);
+    }
+    Some(sink)
+}
+
+fn sink_kind(callee: &str, args: Node<'_>, content: &str) -> Option<SinkKind> {
+    if callee.ends_with(".execute")
         || callee.ends_with(".executemany")
         || callee.ends_with(".query")
         || callee.ends_with(".raw")
     {
-        SinkKind::Sql
+        Some(SinkKind::Sql)
     } else if receiver_method(
         callee,
         "subprocess",
@@ -71,12 +80,12 @@ fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
         || callee == "eval"
         || callee == "exec"
     {
-        SinkKind::Exec
+        Some(SinkKind::Exec)
     } else if (callee == "open" && python_open_is_write(args, content))
         || callee.ends_with(".write_text")
         || callee.ends_with(".write_bytes")
     {
-        SinkKind::FsWrite
+        Some(SinkKind::FsWrite)
     } else if receiver_method(
         callee,
         "requests",
@@ -92,11 +101,82 @@ fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
     ) || callee == "urllib.request.urlopen"
         || callee == "urlopen"
     {
-        SinkKind::Network
+        Some(SinkKind::Network)
     } else {
+        None
+    }
+}
+
+fn safe_exec_command<'a>(callee: &str, args: Node<'a>, content: &str) -> Option<Node<'a>> {
+    if ![
+        "subprocess.run",
+        "subprocess.Popen",
+        "subprocess.call",
+        "subprocess.check_call",
+        "subprocess.check_output",
+    ]
+    .contains(&callee)
+    {
         return None;
-    };
-    Some(Sink { kind, args })
+    }
+    let vector = command_vector(args, content)?;
+    safe_vector_command(vector, content)
+}
+
+fn command_vector<'a>(args: Node<'a>, content: &str) -> Option<Node<'a>> {
+    let mut cursor = args.walk();
+    let arguments = args.named_children(&mut cursor).collect::<Vec<_>>();
+    let mut vector = None;
+    for argument in arguments {
+        if argument.kind() == "dictionary_splat" {
+            return None;
+        }
+        if keyword_name(argument, content) == Some("shell") && !shell_disabled(argument, content) {
+            return None;
+        }
+        if keyword_name(argument, content) == Some("args") {
+            vector = argument.child_by_field_name("value");
+        } else if vector.is_none() && argument.kind() != "keyword_argument" {
+            vector = Some(argument);
+        }
+    }
+    vector
+}
+
+fn keyword_name<'a>(argument: Node<'_>, content: &'a str) -> Option<&'a str> {
+    (argument.kind() == "keyword_argument")
+        .then(|| argument.child_by_field_name("name"))
+        .flatten()?
+        .utf8_text(content.as_bytes())
+        .ok()
+}
+
+fn shell_disabled(argument: Node<'_>, content: &str) -> bool {
+    argument
+        .child_by_field_name("value")
+        .and_then(|value| value.utf8_text(content.as_bytes()).ok())
+        == Some("False")
+}
+
+fn safe_vector_command<'a>(vector: Node<'a>, content: &str) -> Option<Node<'a>> {
+    if !matches!(vector.kind(), "list" | "tuple") {
+        return None;
+    }
+    let mut cursor = vector.walk();
+    let command = vector.named_children(&mut cursor).next()?;
+    if command.kind() != "string" {
+        return None;
+    }
+    let command_text = command.utf8_text(content.as_bytes()).ok()?;
+    let shell = super::super::shell::is_shell_executable(command_text);
+    let mut cursor = vector.walk();
+    let nested_shell_flag = super::super::shell::has_shell_command_flag(
+        vector
+            .named_children(&mut cursor)
+            .skip(1)
+            .filter_map(|node| node.utf8_text(content.as_bytes()).ok()),
+    );
+    (!shell || !nested_shell_flag).then_some(command)
 }
 
 fn python_open_is_write(args: Node<'_>, content: &str) -> bool {

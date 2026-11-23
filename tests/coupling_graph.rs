@@ -34,6 +34,53 @@ fn rust_graph_edge_from_main_to_foo() {
 }
 
 #[test]
+fn c_family_graph_records_nested_local_quoted_include_impact() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("src/headers")).unwrap();
+    fs::write(
+        root.join("src/app.cpp"),
+        "#include \"headers/api.hpp\"\nint main() { return value(); }\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/headers/api.hpp"),
+        "#include \"detail.hpp\"\nint value();\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/headers/detail.hpp"), "#pragma once\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+
+    assert!(graph.edges[&root.join("src/app.cpp")].contains(&root.join("src/headers/api.hpp")));
+    assert!(
+        graph.edges[&root.join("src/headers/api.hpp")]
+            .contains(&root.join("src/headers/detail.hpp"))
+    );
+}
+
+#[test]
+fn c_family_include_cycle_is_visible_in_the_static_graph() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("include")).unwrap();
+    fs::write(root.join("include/a.h"), "#include \"b.h\"\n").unwrap();
+    fs::write(root.join("include/b.h"), "#include \"a.h\"\n").unwrap();
+
+    let facts = collect_scan_facts(root).unwrap();
+    let graph = build_coupling_graph(&facts, root);
+    let cycles = detect_cycles(&graph);
+
+    assert!(
+        cycles.iter().any(|cycle| {
+            cycle.contains(&root.join("include/a.h")) && cycle.contains(&root.join("include/b.h"))
+        }),
+        "the static include graph should retain the local cycle: {cycles:?}"
+    );
+}
+
+#[test]
 fn rust_graph_no_spurious_edges() {
     let temp = tempdir().unwrap();
     let root = temp.path();

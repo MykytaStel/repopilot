@@ -12,6 +12,7 @@ pub(crate) mod conventions;
 pub(crate) mod import_support;
 mod reference;
 
+mod c_family;
 mod csharp;
 mod generic;
 mod go;
@@ -21,6 +22,7 @@ mod jvm_references;
 mod kotlin;
 mod python;
 mod rust;
+mod shell;
 
 #[cfg(test)]
 mod entrypoint_tests;
@@ -118,7 +120,7 @@ pub struct LanguageFrontend {
 }
 
 /// Every registered frontend, including the generic fallback (last).
-static ALL_FRONTENDS: [&LanguageFrontend; 9] = [
+static ALL_FRONTENDS: [&LanguageFrontend; 12] = [
     &rust::RUST,
     &javascript::TYPESCRIPT,
     &javascript::JAVASCRIPT,
@@ -126,6 +128,9 @@ static ALL_FRONTENDS: [&LanguageFrontend; 9] = [
     &go::GO,
     &java::JAVA,
     &csharp::CSHARP,
+    &c_family::C,
+    &c_family::CPP,
+    &c_family::HEADER,
     &kotlin::KOTLIN,
     &generic::GENERIC,
 ];
@@ -146,11 +151,11 @@ pub fn frontend_for_kind(kind: LanguageKind) -> &'static LanguageFrontend {
         LanguageKind::Go => &go::GO,
         LanguageKind::Java => &java::JAVA,
         LanguageKind::CSharp => &csharp::CSHARP,
+        LanguageKind::C => &c_family::C,
+        LanguageKind::Cpp => &c_family::CPP,
+        LanguageKind::CHeader => &c_family::HEADER,
         LanguageKind::Kotlin => &kotlin::KOTLIN,
         LanguageKind::Swift
-        | LanguageKind::C
-        | LanguageKind::Cpp
-        | LanguageKind::CHeader
         | LanguageKind::Php
         | LanguageKind::Ruby
         | LanguageKind::Dart

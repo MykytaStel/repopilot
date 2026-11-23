@@ -143,6 +143,7 @@ fn occurrence(
             line_end: field.line_end,
             byte_start: field.byte_start,
             byte_end: field.byte_end,
+            declaration_lines: None,
             change: ApiContractChange::RustStructFieldRemoved,
         })
 }

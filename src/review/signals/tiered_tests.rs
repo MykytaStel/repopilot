@@ -68,6 +68,7 @@ fn removed_export(
         line_end,
         byte_start: line_start * 100,
         byte_end: line_end * 100 + 10,
+        declaration_lines: None,
         change: ContractChange::RemovedExport,
     }
 }

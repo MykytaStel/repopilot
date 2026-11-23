@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observed publisher runtimes; unknown tags need recorded release evidence."""
+"""Recorded publisher runtimes; unknown tags need recorded release evidence."""
 import json
 import sys
 
@@ -20,6 +20,9 @@ RUNTIMES = {
     "v0.25.0": {"node": "24.21.0", "npm": "11.19.0"},
     "v0.26.0": {"node": "24.21.0", "npm": "11.19.0"},
     "v0.27.0": {"node": "24.21.0", "npm": "11.19.0"},
+    # 0.28 uses the pinned publisher runtime in publish-npm.yml.
+    "v0.28.0-rc.1": {"node": "24.21.0", "npm": "11.19.0"},
+    "v0.28.0": {"node": "24.21.0", "npm": "11.19.0"},
 }
 
 

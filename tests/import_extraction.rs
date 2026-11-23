@@ -87,6 +87,17 @@ fn rust_imports_are_deduplicated() {
     assert_eq!(imports.iter().filter(|i| *i == "crate::foo").count(), 1);
 }
 
+#[test]
+fn c_family_extracts_only_direct_quoted_includes() {
+    for label in ["C", "C++", "C/C++ Header"] {
+        let imports = extract_imports(
+            "#include \"local/api.hpp\"\n#include <vector>\n#include HEADER\n",
+            Some(label),
+        );
+        assert_eq!(imports, vec!["local/api.hpp"], "{label}");
+    }
+}
+
 // ── TypeScript / JavaScript ───────────────────────────────────────────────────
 
 #[test]

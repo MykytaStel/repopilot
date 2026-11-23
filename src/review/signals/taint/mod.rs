@@ -3,8 +3,10 @@
 //! Within each changed file's post-change source, recognize selected untrusted
 //! inputs (such as request fields or process arguments) reaching SQL, process,
 //! filesystem-write, or network sinks. Within one flow scope, it follows local
-//! assignments and selected static property/index paths. It does not follow
-//! values across functions, dynamic indexes, or general heap aliases.
+//! assignments and selected static property/index paths. It follows one direct
+//! same-file helper boundary when the target and arguments are unambiguous; it
+//! does not follow recursive or inter-file calls, dynamic indexes, or general
+//! heap aliases.
 //!
 //! For SQL, the tainted value must be part of the query string. A value passed
 //! as a separate bind argument is not reported. Test files and languages without
@@ -15,6 +17,10 @@
 //! - [`sinks`] classifies a call node as a dangerous sink and exposes its args.
 //! - [`flow`] tracks local assignments and emits sink lines that overlap the
 //!   changed ranges.
+//!
+//! Recognized argv APIs preserve separate arguments when the executable is a
+//! literal non-shell command and shell mode is not enabled. Explicit shell
+//! calls, including `sh -c` and `shell=True`, remain command sinks.
 
 pub(crate) mod ast;
 #[cfg(test)]

@@ -19,7 +19,8 @@ jobs:
     name: Full release verification
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.head_ref, 'chore/release-v')
+      startsWith(github.head_ref, 'chore/release-v') ||
+      startsWith(github.head_ref, 'release/v')
     runs-on: ubuntu-latest
     timeout-minutes: 60
 

@@ -11,17 +11,30 @@ pub(super) fn occurrence_to_finding(occurrence: &RemovedExportOccurrence) -> Fin
             "behavioral.rust-public-function-arity-changed"
         }
         ApiContractChange::RustStructFieldRemoved => "behavioral.rust-public-struct-field-removed",
+        ApiContractChange::RustEnumVariantRemoved => "behavioral.rust-public-enum-variant-removed",
     };
+    let mut evidence = vec![Evidence {
+        path: occurrence.importer_path.clone(),
+        line_start: occurrence.line_start,
+        line_end: Some(occurrence.line_end),
+        snippet,
+    }];
+    if let Some((line_start, line_end)) = occurrence.declaration_lines {
+        evidence.push(Evidence {
+            path: occurrence.exporter_path.clone(),
+            line_start,
+            line_end: Some(line_end),
+            snippet: format!(
+                "removed public enum variant '{}' was declared here",
+                occurrence.exported_name
+            ),
+        });
+    }
     Finding {
         rule_id: rule_id.to_string(),
         description,
         category: FindingCategory::CodeQuality,
-        evidence: vec![Evidence {
-            path: occurrence.importer_path.clone(),
-            line_start: occurrence.line_start,
-            line_end: Some(occurrence.line_end),
-            snippet,
-        }],
+        evidence,
         provenance: FindingProvenance {
             analysis_scope: AnalysisScope::GitDiff,
             ..Default::default()
@@ -39,7 +52,29 @@ fn describe(occurrence: &RemovedExportOccurrence) -> (String, String) {
             call_arguments,
         } => describe_arity(occurrence, before, after, call_arguments),
         ApiContractChange::RustStructFieldRemoved => describe_struct_field(occurrence),
+        ApiContractChange::RustEnumVariantRemoved => describe_enum_variant(occurrence),
     }
+}
+
+fn describe_enum_variant(occurrence: &RemovedExportOccurrence) -> (String, String) {
+    let exporter = occurrence
+        .exporter_path
+        .to_string_lossy()
+        .replace('\\', "/");
+    let declaration = occurrence
+        .declaration_lines
+        .map(|(start, end)| format!(" at lines {start}-{end}"))
+        .unwrap_or_default();
+    (
+        format!(
+            "Public Rust enum variant '{}' in {exporter}{declaration} was removed while a direct local caller still uses it.",
+            occurrence.exported_name
+        ),
+        format!(
+            "{}::{}::{} remains in a constructor or match pattern",
+            occurrence.module_specifier, occurrence.local_name, occurrence.exported_name
+        ),
+    )
 }
 
 fn describe_struct_field(occurrence: &RemovedExportOccurrence) -> (String, String) {
@@ -144,6 +179,7 @@ mod tests {
             line_end: 3,
             byte_start: 12,
             byte_end: 28,
+            declaration_lines: None,
             change: ApiContractChange::RemovedExport,
         });
 
@@ -170,6 +206,7 @@ mod tests {
             line_end: 4,
             byte_start: 60,
             byte_end: 69,
+            declaration_lines: None,
             change: ApiContractChange::RustFunctionArity {
                 before: 1,
                 after: 2,
@@ -199,6 +236,7 @@ mod tests {
             line_end: 7,
             byte_start: 20,
             byte_end: 42,
+            declaration_lines: None,
             change: ApiContractChange::RustStructFieldRemoved,
         });
 
@@ -210,5 +248,33 @@ mod tests {
         assert_eq!(finding.evidence[0].line_start, 7);
         assert!(finding.description.contains("field 'timeout'"));
         assert!(finding.evidence[0].snippet.contains("mod::api::Config"));
+    }
+
+    #[test]
+    fn rust_enum_variant_finding_keeps_declaration_and_caller_evidence() {
+        let finding = occurrence_to_finding(&RemovedExportOccurrence {
+            exporter_path: PathBuf::from("src/api.rs"),
+            importer_path: PathBuf::from("src/lib.rs"),
+            exported_name: "Waiting".to_string(),
+            local_name: "State".to_string(),
+            symbol_kind: SymbolKind::Value,
+            module_specifier: "mod::api".to_string(),
+            line_start: 5,
+            line_end: 5,
+            byte_start: 90,
+            byte_end: 108,
+            declaration_lines: Some((3, 3)),
+            change: ApiContractChange::RustEnumVariantRemoved,
+        });
+
+        assert_eq!(
+            finding.rule_id,
+            "behavioral.rust-public-enum-variant-removed"
+        );
+        assert_eq!(finding.evidence[0].path, PathBuf::from("src/lib.rs"));
+        assert_eq!(finding.evidence[0].line_start, 5);
+        assert_eq!(finding.evidence[1].path, PathBuf::from("src/api.rs"));
+        assert_eq!(finding.evidence[1].line_start, 3);
+        assert!(finding.description.contains("lines 3-3"));
     }
 }

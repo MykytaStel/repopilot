@@ -75,4 +75,26 @@ pub(super) static RULES: &[RuleMetadata] = &[
         tags: &["behavioral", "api-contract", "rust"],
         ..RuleMetadata::DEFAULT
     },
+    RuleMetadata {
+        rule_id: "behavioral.rust-public-enum-variant-removed",
+        title: "Rust public enum variant changed",
+        category: FindingCategory::CodeQuality,
+        default_severity: Severity::High,
+        max_severity: Severity::High,
+        default_confidence: Confidence::High,
+        max_confidence: Confidence::High,
+        lifecycle: RuleLifecycle::Preview,
+        signal_source: SignalSource::Ast,
+        requirements: RuleRequirements::change_set_symbol_graph(RuleLifecycle::Preview),
+        docs_url: Some("https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md"),
+        description: "A changed public Rust enum removed a named variant while an unambiguous direct local constructor or match pattern still refers to it.",
+        recommendation: Some(
+            "Update the proven local caller to use the remaining public enum API, or restore the variant, then run the Rust type-check or focused tests.",
+        ),
+        false_positive_notes: Some(
+            "This preview covers direct module-qualified variant paths through a file-backed child module declared in the caller, for top-level public enums. Attributes/cfg, macros, re-exports, imported aliases, associated enum paths, ambiguous modules, and downstream crates are outside this repository-local slice.",
+        ),
+        tags: &["behavioral", "api-contract", "rust"],
+        ..RuleMetadata::DEFAULT
+    },
 ];

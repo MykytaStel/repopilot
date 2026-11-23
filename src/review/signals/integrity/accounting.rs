@@ -25,6 +25,7 @@ const LISTED_NAMES: usize = 5;
 pub(super) struct TestFacts {
     name: String,
     line: usize,
+    start_byte: usize,
     /// The test's own body, before helpers are folded in.
     body: Body,
     assertions: usize,
@@ -43,6 +44,7 @@ impl TestFacts {
         let text = node.utf8_text(content.as_bytes()).unwrap_or_default();
         Self {
             line: node.start_position().row + 1,
+            start_byte: node.start_byte(),
             body: Body::default(),
             assertions: 0,
             exact_matchers: 0,
@@ -56,6 +58,14 @@ impl TestFacts {
 
     pub(super) fn body_mut(&mut self) -> &mut Body {
         &mut self.body
+    }
+
+    pub(super) fn calls_directly(&self, name: &str) -> bool {
+        self.body.direct_import_calls().contains_key(name)
+    }
+
+    pub(super) fn location(&self) -> (usize, usize) {
+        (self.line, self.start_byte)
     }
 
     /// Adds each directly imported helper's checks once per direct call in this
@@ -180,7 +190,7 @@ pub(super) fn cross_file_signals(
     path: &str,
     before_tests: &[TestFacts],
     after_tests: &[TestFacts],
-    helper: &str,
+    helpers_by_test_line: &BTreeMap<usize, String>,
 ) -> Vec<IntegritySignal> {
     let before = unique_by_name(before_tests);
     let after = unique_by_name(after_tests);
@@ -188,6 +198,7 @@ pub(super) fn cross_file_signals(
         .iter()
         .filter_map(|(name, pre)| {
             let post = after.get(name)?;
+            let helper = helpers_by_test_line.get(&post.line)?;
             let mut signal = if post.checks_less_than(pre) {
                 Some(IntegritySignal {
                     kind: IntegrityKind::AssertionsRemoved,

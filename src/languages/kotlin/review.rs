@@ -112,7 +112,7 @@ fn classify_sink<'a>(node: Node<'a>, content: &'a str) -> Option<Sink<'a>> {
     } else {
         return None;
     };
-    Some(Sink { kind, args })
+    Some(Sink::new(kind, args))
 }
 
 pub(super) static KOTLIN_REVIEW: ReviewTables = ReviewTables {

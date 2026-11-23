@@ -22,6 +22,9 @@ test rather than hidden.
 | Go | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | Java | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 | C# | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
+| C | — | ✓ | — | — | — | — | context-aware |
+| C++ | — | ✓ | — | — | — | — | context-aware |
+| C/C++ Header | — | ✓ | — | — | — | — | import-aware |
 | Kotlin | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | rule-aware |
 
 Notes:
@@ -40,11 +43,33 @@ The frontend matrix shows which language facts are wired. These additional
 cross-file behaviors have narrower evidence boundaries:
 
 - **Rust:** review detects removed public free functions, changed public
-function arity, and removed or privatized named public struct fields when a
-surviving caller has an unambiguous file-backed module-qualified use.
-Grouped `use` imports are expanded for removed-function contracts. The field
-check covers direct struct literals; macros, `cfg`, re-exports, aliases, and
-ambiguous module paths remain outside the claim.
+function arity, removed or privatized named public struct fields, and removed
+public enum variants when a surviving caller has an unambiguous file-backed
+module-qualified use. Grouped `use` imports are expanded for removed-function
+contracts. Struct checks cover direct literals; enum checks cover direct
+constructors and match patterns through uniquely resolved modules or a named
+type import. Shadowed names, opaque module declarations, and uncertain
+replacement items are excluded. Findings include both declaration and caller
+locations.
+- **JavaScript, TypeScript, Python, and Go:** review can follow one direct
+same-file helper call from a recognized taint source to a supported sink.
+Simple identity returns are tracked when the helper has one unambiguous
+return. Python keyword arguments bind by name, and Go grouped parameters keep
+their argument positions. Unknown transformations preserve incoming taint.
+Recursive calls, dynamic targets, unsupported control flow, and chains of
+multiple summarized helpers are outside this analysis.
+Recognized literal non-shell argv calls retain separate arguments unless shell
+mode is enabled. Explicit shell command flags, including combined or separated
+flags, remain a sink.
+- **Python and Go test helpers:** when a changed local assertion helper loses
+supported checks, review can attribute the loss to an unchanged importing
+Python test or same-package Go test. Python attribution requires a uniquely
+resolved module-scope import and an unshadowed direct call. Moved or renamed
+tests are treated as changed. Signals name the called helper and its line.
+- **C and C++:** direct quoted `#include` directives create static local graph
+edges when one target resolves relative to the including file or repository
+root. Conditional branches, system includes, macro operands, and compiler
+search paths are outside this analysis. The edges describe static includes.
 - **JavaScript and TypeScript:** local missing-import checks cover supported
 extensionless relative imports and uniquely resolved configured aliases.
 Package exports, dynamic imports, and ambiguous resolver candidates remain
@@ -73,8 +98,7 @@ Files in these languages still contribute to repository size, scan
 scope, file roles (via the shared context classifier), and generic findings;
 they have no language-specific extractors.
 
-- **Context-aware (shared classifier):** C, C++, Swift, PHP, Ruby, Dart, Scala, Shell, PowerShell, SQL, HTML, CSS, SCSS, Elixir, Erlang, Haskell, OCaml, F#, Terraform, Dockerfile, Nix.
-- **Import-aware:** C/C++ Header.
+- **Context-aware (shared classifier):** Swift, PHP, Ruby, Dart, Scala, Shell, PowerShell, SQL, HTML, CSS, SCSS, Elixir, Erlang, Haskell, OCaml, F#, Terraform, Dockerfile, Nix.
 - **Detect-only:** R, Julia, Lua, Perl, Zig, Solidity, Objective-C, YAML, TOML, JSON, Markdown.
 
 ## Rule philosophy

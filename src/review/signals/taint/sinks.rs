@@ -40,6 +40,19 @@ impl SinkKind {
 pub(crate) struct Sink<'a> {
     pub kind: SinkKind,
     pub args: Node<'a>,
+    /// For a proven argv-style API, only the executable name is a shell
+    /// boundary. The remaining values are passed as separate arguments.
+    pub safe_exec_command: Option<Node<'a>>,
+}
+
+impl<'a> Sink<'a> {
+    pub(crate) fn new(kind: SinkKind, args: Node<'a>) -> Self {
+        Self {
+            kind,
+            args,
+            safe_exec_command: None,
+        }
+    }
 }
 
 /// The callee text and argument node of a call node, if it is one.

@@ -174,7 +174,8 @@ fn required_verification_requirements(report: &ReviewReport) -> BTreeSet<Verific
                     SignalFamily::Behavioral,
                     "behavioral.removed-export-still-imported"
                     | "behavioral.rust-public-function-arity-changed"
-                    | "behavioral.rust-public-struct-field-removed",
+                    | "behavioral.rust-public-struct-field-removed"
+                    | "behavioral.rust-public-enum-variant-removed",
                 ) => VerificationRole::TypeCheck,
                 _ => VerificationRole::Test,
             },

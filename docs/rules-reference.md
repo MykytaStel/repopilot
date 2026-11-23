@@ -3,7 +3,7 @@
 <!-- @generated from the rule registry — do not edit by hand. -->
 <!-- Regenerate with `REPOPILOT_BLESS=1 cargo test --test rules_reference_doc`. -->
 
-RepoPilot ships 56 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
+RepoPilot ships 57 rules across 5 categories. Every finding traces back to one of these rules. Severity and confidence below are the registry defaults: context (audit tiers, knowledge packs) may lower them, or raise them up to a rule's declared ceiling, but never past it.
 
 ## Architecture
 
@@ -240,6 +240,25 @@ A changed TypeScript or JavaScript module removed a named or direct default expo
 **Recommendation:** Restore the removed export or update every surviving caller, then run the repository's declared type-check, build, or focused tests.
 
 **Known false positives:** JS/TS requires direct relative named or default imports with exact resolver proof. Rust requires an unambiguous plain child-module declaration in the caller; crate paths require src/lib.rs or src/main.rs. Rust attributes/cfg, macros, inline modules, forwarding, glob imports, arbitrary sibling paths, associated methods and generic-function call sites are outside this slice. Namespace imports, aliases, packages, dynamic/CommonJS forms, deep re-exports, file renames, deleted exporters, unsupported languages, and incomplete AST evidence are intentionally outside this claim.
+
+**Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
+
+### `behavioral.rust-public-enum-variant-removed` — Rust public enum variant changed
+
+- **Severity:** HIGH
+- **Confidence:** HIGH
+- **Lifecycle:** preview
+- **Signal source:** ast
+- **Execution scope:** change-set
+- **Required facts:** git-diff, symbol-facts, imports, exports, dependency-graph, workspace-metadata
+- **Cache policy:** per-change-set
+- **Produces:** finding
+
+A changed public Rust enum removed a named variant while an unambiguous direct local constructor or match pattern still refers to it.
+
+**Recommendation:** Update the proven local caller to use the remaining public enum API, or restore the variant, then run the Rust type-check or focused tests.
+
+**Known false positives:** This preview covers direct module-qualified variant paths through a file-backed child module declared in the caller, for top-level public enums. Attributes/cfg, macros, re-exports, imported aliases, associated enum paths, ambiguous modules, and downstream crates are outside this repository-local slice.
 
 **Reference:** <https://github.com/MykytaStel/repopilot/blob/main/docs/rules-reference.md>
 

@@ -22,6 +22,17 @@ The 0.26 release is published on GitHub Releases (2026-11-02); the exact
 publication status of its other package channels was not re-established in the
 0.27 audit. See the [0.26 release record](roadmap/v0.26.md).
 
+## Approved scope — next release 0.28.0
+
+The approved scope contains four substantial analysis slices: cross-file test
+integrity for Python and Go, bounded local-helper taint flows in JS/TS, Python,
+and Go, repository-local C/C++ include impact, and Rust public enum-variant
+contracts. It also sets first-use, real-client, quality, performance, and
+publication gates. The scope is approved and implementation is underway; it
+does not describe shipped behavior. See the [0.28 roadmap](roadmap/v0.28.md),
+[baseline audit](engineering/v0.28-audit-draft.md), and
+[evidence ledger](engineering/v0.28-evidence-ledger.md).
+
 ## 0.25 — released
 
 The `v0.25.0` release is published on GitHub Releases, crates.io, npm, and
