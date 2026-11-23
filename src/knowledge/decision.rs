@@ -463,7 +463,7 @@ fn apply_overlay_entries_with_marking(
             continue;
         }
         if let Some(expires) = entry.expires
-            && expires < chrono::Utc::now().date_naive()
+            && expires < crate::utc::today()
         {
             continue;
         }

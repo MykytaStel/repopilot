@@ -38,16 +38,11 @@ impl FindingFilter {
             return false;
         }
 
-        if !self.rule_ids.is_empty()
-            && !self
+        self.rule_ids.is_empty()
+            || self
                 .rule_ids
                 .iter()
                 .any(|rule_id| rule_id == &finding.rule_id)
-        {
-            return false;
-        }
-
-        true
     }
 
     pub fn apply_to_summary(&self, summary: &mut ScanSummary) {

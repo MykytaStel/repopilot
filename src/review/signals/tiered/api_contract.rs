@@ -16,6 +16,9 @@ pub(super) fn verification_step(kind: &str) -> Option<&'static str> {
         "behavioral.rust-public-struct-field-removed" => Some(
             "Inspect the changed public struct field and surviving struct literal, then update the literal or restore the field before running the Rust type-check or focused tests.",
         ),
+        "behavioral.rust-public-enum-variant-removed" => Some(
+            "Inspect the changed public enum variant and surviving constructor or match arm, then update the caller or restore the variant before running the Rust type-check or focused tests.",
+        ),
         _ => None,
     }
 }
@@ -45,6 +48,9 @@ pub(super) fn from_occurrence(occurrence: &RemovedExportSignal) -> ReviewSignal 
         ),
         ContractChange::RustStructFieldRemoved => {
             removed_struct_field(occurrence, &exporter, &importer)
+        }
+        ContractChange::RustEnumVariantRemoved => {
+            removed_enum_variant(occurrence, &exporter, &importer)
         }
     };
     let mut signal = build_signal(
@@ -86,6 +92,36 @@ fn removed_struct_field(
     (
         "behavioral.rust-public-struct-field-removed",
         "Rust public struct field changed while a surviving literal still names it",
+        detail,
+        identity,
+    )
+}
+
+fn removed_enum_variant(
+    occurrence: &RemovedExportSignal,
+    exporter: &str,
+    importer: &str,
+) -> (&'static str, &'static str, String, String) {
+    let declaration = occurrence
+        .declaration_lines
+        .map(|(start, end)| format!("; declaration was at {exporter}:{start}-{end}"))
+        .unwrap_or_default();
+    let detail = format!(
+        "Public Rust enum variant '{}' in {exporter} was removed while a surviving constructor or match arm still uses it at {importer}:{}{declaration}.",
+        occurrence.exported_name, occurrence.line_start,
+    );
+    let identity = format!(
+        "behavioral.rust-public-enum-variant-removed\0{exporter}\0{}\0{importer}\0{}\0{}-{}\0{}-{}",
+        occurrence.exported_name,
+        occurrence.module_specifier,
+        occurrence.line_start,
+        occurrence.line_end,
+        occurrence.byte_start,
+        occurrence.byte_end,
+    );
+    (
+        "behavioral.rust-public-enum-variant-removed",
+        "Rust public enum variant changed while a surviving caller still uses it",
         detail,
         identity,
     )

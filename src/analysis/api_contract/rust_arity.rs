@@ -168,6 +168,7 @@ fn occurrence(
         line_end: call.line_end,
         byte_start: call.byte_start,
         byte_end: call.byte_end,
+        declaration_lines: None,
         change: ApiContractChange::RustFunctionArity {
             before,
             after,

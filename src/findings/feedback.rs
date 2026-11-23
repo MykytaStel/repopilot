@@ -171,7 +171,7 @@ pub fn validate_feedback_content(content: &str, feedback_path: PathBuf) -> Local
         let expires = clean_optional_value(raw.expires);
 
         if let Some(expires) = expires.as_deref()
-            && chrono::NaiveDate::parse_from_str(expires, "%Y-%m-%d").is_err()
+            && crate::utc::parse_date(expires).is_err()
         {
             invalid_suppressions_count += 1;
             diagnostics.push(

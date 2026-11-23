@@ -6,7 +6,6 @@ use crate::receipt::model::{
 };
 use crate::report::schema::ReportEnvelope;
 use crate::scan::types::ScanSummary;
-use chrono::Utc;
 
 pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
     AuditReceipt {
@@ -14,7 +13,7 @@ pub fn build_audit_receipt(summary: &ScanSummary) -> AuditReceipt {
         report: ReportEnvelope::receipt(AUDIT_RECEIPT_SCHEMA_VERSION),
         tool: "repopilot".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-        generated_at: Utc::now().to_rfc3339(),
+        generated_at: crate::utc::now_receipt(),
         root_path: summary.root_path.display().to_string(),
         git: collect_git_receipt(&summary.root_path),
         scope: build_scope(summary),

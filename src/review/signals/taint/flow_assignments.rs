@@ -1,6 +1,6 @@
-use super::super::sources::node_has_source;
 use super::super::tables::TaintTables;
-use super::flow_state::{TaintState, access_path, value_path};
+use super::flow_state::{TaintState, access_path};
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 pub(super) struct DestructuredBinding {
@@ -197,51 +197,35 @@ fn collect_lhs_names(lhs: Node<'_>, content: &str, out: &mut Vec<String>) {
     }
 }
 
+#[path = "flow_assignments/apply_helpers.rs"]
+mod apply_helpers;
+
 pub(super) fn apply_assignment(
     assignment: &Assignment<'_>,
     content: &str,
     tables: &'static TaintTables,
     tainted: &mut TaintState,
 ) {
-    let source = node_has_source(assignment.rhs, content, tables).or_else(|| {
-        super::flow_checks::node_mentions_tainted(assignment.rhs, content, tables, tainted)
-    });
+    apply_assignment_with_local_helpers(assignment, content, tables, tainted, &BTreeMap::new());
+}
 
-    for name in &assignment.names {
-        match source {
-            Some(kind) => tainted.mark_name(name, kind),
-            None if !assignment.augmenting => tainted.clear_name(name),
-            None => {}
-        }
-    }
-
-    let rhs_path = value_path(assignment.rhs, content);
-    for binding in &assignment.bindings {
-        let binding_source = match rhs_path.as_deref() {
-            Some(base) => {
-                let path = format!("{base}.{}", binding.path);
-                if tainted.is_path_explicitly_clean(&path) {
-                    None
-                } else {
-                    tainted.source_for_path(&path).or(source)
-                }
-            }
-            None => source,
-        };
-        match binding_source {
-            Some(kind) => tainted.mark_name(&binding.name, kind),
-            None if !assignment.augmenting => tainted.clear_name(&binding.name),
-            None => {}
-        }
-    }
-
-    if let Some(path) = &assignment.path {
-        match source {
-            Some(kind) => tainted.mark_path(path, kind),
-            None if !assignment.augmenting => tainted.clear_path(path),
-            None => {}
-        }
-    }
+pub(super) fn apply_assignment_with_local_helpers(
+    assignment: &Assignment<'_>,
+    content: &str,
+    tables: &'static TaintTables,
+    tainted: &mut TaintState,
+    local_helpers: &super::helper_summary::LocalHelperReturns,
+) {
+    let source = super::flow_checks::expression_source(
+        assignment.rhs,
+        content,
+        tables,
+        tainted,
+        local_helpers,
+    );
+    apply_helpers::apply_name_assignments(assignment, source, tainted);
+    apply_helpers::apply_binding_assignments(assignment, content, source, tainted);
+    apply_helpers::apply_path_assignment(assignment, source, tainted);
 }
 
 fn is_identifier(segment: &str) -> bool {

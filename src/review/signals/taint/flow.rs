@@ -11,10 +11,13 @@ mod flow_state;
 
 #[path = "csharp_property.rs"]
 mod csharp_property;
+#[path = "helper_summary.rs"]
+mod helper_summary;
 
 use super::TaintSignal;
 use super::tables::TaintTables;
 use crate::review::diff::ChangedFile;
+use std::collections::BTreeMap;
 use tree_sitter::Node;
 
 pub(super) fn detect(
@@ -24,7 +27,8 @@ pub(super) fn detect(
     file: &ChangedFile,
     out: &mut Vec<TaintSignal>,
 ) {
-    detect_scope(root, content, tables, file, out);
+    let summarized = helper_summary::detect(root, content, tables, file, out);
+    detect_scope(root, content, tables, file, &summarized, out);
 }
 
 fn detect_scope(
@@ -32,12 +36,13 @@ fn detect_scope(
     content: &str,
     tables: &'static TaintTables,
     file: &ChangedFile,
+    summarized: &BTreeMap<usize, helper_summary::LocalHelperReturns>,
     out: &mut Vec<TaintSignal>,
 ) {
     csharp_property::detect(root, content, tables, file, out);
-    let tainted = flow_seed::seed_tainted(root, content, tables);
-    flow_checks::check_sinks(root, content, tables, file, &tainted, out);
-    detect_nested_scopes(root, content, tables, file, out);
+    let helper_returns = summarized.get(&root.id()).cloned().unwrap_or_default();
+    flow_checks::check_sinks_in_order(root, content, tables, file, &helper_returns, out);
+    detect_nested_scopes(root, content, tables, file, summarized, out);
 }
 
 fn detect_nested_scopes(
@@ -45,14 +50,15 @@ fn detect_nested_scopes(
     content: &str,
     tables: &'static TaintTables,
     file: &ChangedFile,
+    summarized: &BTreeMap<usize, helper_summary::LocalHelperReturns>,
     out: &mut Vec<TaintSignal>,
 ) {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if (tables.is_flow_scope)(child) {
-            detect_scope(child, content, tables, file, out);
+            detect_scope(child, content, tables, file, summarized, out);
         } else {
-            detect_nested_scopes(child, content, tables, file, out);
+            detect_nested_scopes(child, content, tables, file, summarized, out);
         }
     }
 }

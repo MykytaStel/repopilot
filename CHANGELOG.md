@@ -6,6 +6,31 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- Review follows changed Python assertion helpers through unique module imports
+  and Go helpers through same-package calls in unchanged tests. It reports the
+  affected test and the called helper's declaration line.
+- Taint review follows one direct same-file helper call in JavaScript,
+  TypeScript, Python, and Go, including simple identity returns and caller-side
+  aliases when the target and value flow are unambiguous. Python keyword
+  arguments bind by name. A changed call can
+  surface its unchanged helper sink with both locations in the evidence.
+  Recognized literal argv calls preserve separate arguments; explicit shell
+  execution, including combined flags such as `bash -lc`, remains a sink.
+  Unknown calls retain taint on their arguments.
+- Local quoted C/C++ includes contribute bounded static dependency and impact
+  edges. Includes inside conditional-compilation branches, system includes,
+  macros, and compiler search paths remain unresolved.
+- Rust API review detects removed public enum variants used by surviving
+  module-qualified or uniquely imported constructors and match patterns in the
+  repository, with declaration and caller locations in the review evidence.
+
+### Changed
+
+- Use the maintained Jiff library for UTC timestamps and expiry dates. Existing
+  JSON timestamps and date configuration keep their formats.
+
 ## [0.27.0] - 2026-11-11
 
 ### Added

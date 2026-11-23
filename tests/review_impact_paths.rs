@@ -139,6 +139,63 @@ fn impact_paths_are_empty_for_a_leaf_change_and_deterministic_across_runs() {
     assert_eq!(first["review"]["affected_files"], 0);
 }
 
+#[test]
+fn changed_c_family_header_impact_keeps_the_include_route() {
+    let temp = TempDir::new().expect("failed to create temp dir");
+    init_repo(temp.path());
+    write_file(
+        &temp,
+        "src/app.cpp",
+        "#include \"headers/api.hpp\"\nint main() { return value(); }\n",
+    );
+    write_file(
+        &temp,
+        "src/headers/api.hpp",
+        "#include \"detail.hpp\"\nint value();\n",
+    );
+    write_file(
+        &temp,
+        "src/headers/detail.hpp",
+        "#pragma once\n#define VALUE 1\n",
+    );
+    commit_all(temp.path(), "initial");
+
+    write_file(
+        &temp,
+        "src/headers/detail.hpp",
+        "#pragma once\n#define VALUE 2\n",
+    );
+
+    let json = run_review_json(temp.path(), &RepoPilotConfig::default());
+    let changed = json["impact_paths"]["files"]
+        .as_array()
+        .expect("impact files")
+        .iter()
+        .find(|file| file["path"] == "src/headers/detail.hpp")
+        .expect("changed detail header impact");
+    assert!(
+        changed["direct_dependents"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("src/headers/api.hpp"))
+    );
+    assert!(
+        changed["transitive_dependents"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("src/app.cpp"))
+    );
+    assert!(changed["routes"].as_array().unwrap().iter().any(|route| {
+        route["dependent"] == "src/app.cpp"
+            && route["files"]
+                == serde_json::json!([
+                    "src/headers/detail.hpp",
+                    "src/headers/api.hpp",
+                    "src/app.cpp"
+                ])
+    }));
+}
+
 fn run_review_json(root: &Path, config: &RepoPilotConfig) -> Value {
     let summary = scan_path_with_config(root, &ScanConfig::default()).expect("failed to scan");
     let report = build_review_report(summary, root, None, None, None, config)

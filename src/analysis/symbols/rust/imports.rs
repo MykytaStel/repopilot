@@ -103,21 +103,16 @@ fn record_grouped(
     modules: &BTreeSet<&str>,
     facts: &mut JavaScriptSymbolFacts,
 ) {
-    let segments = path.split("::").collect::<Vec<_>>();
-    let (module, imported_name, crate_path) = match segments.as_slice() {
-        [module, name] | ["self", module, name] => (*module, *name, false),
-        ["crate", module, name] => (*module, *name, true),
-        _ => return,
+    let Some((imported_name, module)) = super::paths::resolved_text_path(path, modules) else {
+        return;
     };
-    if modules.contains(module) {
-        record_fact(
-            imported_name,
-            alias.unwrap_or(imported_name),
-            format!("{}::{module}", if crate_path { "crate" } else { "mod" }),
-            span,
-            facts,
-        );
-    }
+    record_fact(
+        imported_name,
+        alias.unwrap_or(imported_name),
+        module,
+        span,
+        facts,
+    );
 }
 
 fn record_scoped(

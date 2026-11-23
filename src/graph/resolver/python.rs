@@ -31,6 +31,43 @@ pub(super) fn resolve_python(
     None
 }
 
+/// A named-symbol proof needs exactly one module file without prefix fallback.
+pub(crate) fn resolve_unique_python_module(
+    raw: &str,
+    from_file: &Path,
+    root: &Path,
+    known_files: &HashSet<PathBuf>,
+) -> Option<PathBuf> {
+    use super::normalize_path;
+
+    let dots = raw.bytes().take_while(|byte| *byte == b'.').count();
+    let module = &raw[dots..];
+    if (dots == 0 || !module.is_empty())
+        && module.split('.').any(|segment| {
+            segment.is_empty()
+                || !segment
+                    .chars()
+                    .all(|character| character == '_' || character.is_alphanumeric())
+        })
+    {
+        return None;
+    }
+    let bases = if dots == 0 {
+        vec![root.to_path_buf(), root.join("src")]
+    } else {
+        vec![from_file.ancestors().nth(dots)?.to_path_buf()]
+    };
+    let candidates = bases
+        .iter()
+        .flat_map(|base| python_module_candidates(base, module).into_iter().take(2))
+        .map(|path| normalize_path(&path))
+        .filter(|path| path.starts_with(root) && known_files.contains(path))
+        .collect::<std::collections::BTreeSet<_>>();
+    (candidates.len() == 1)
+        .then(|| candidates.into_iter().next())
+        .flatten()
+}
+
 fn python_module_candidates(base_dir: &Path, module: &str) -> Vec<PathBuf> {
     if module.is_empty() {
         return vec![base_dir.join("__init__.py")];

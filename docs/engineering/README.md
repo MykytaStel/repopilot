@@ -50,6 +50,13 @@ release operations. Product workflows are in the
 - [v0.26 evidence ledger](v0.26-evidence-ledger.md)
 - [v0.26 performance baseline and results](v0.26-performance-baseline.md)
 
+## Approved scope — next release v0.28.0
+
+- [v0.28 baseline audit](v0.28-audit-draft.md)
+- [v0.28 implementation design](v0.28-design.md)
+- [v0.28 product scope](../roadmap/v0.28.md)
+- [v0.28 evidence ledger](v0.28-evidence-ledger.md)
+
 ## Previous scope — v0.25 released
 
 - [v0.25 technical and first-use scope](../roadmap/v0.25.md)

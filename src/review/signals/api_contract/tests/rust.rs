@@ -30,58 +30,6 @@ fn rust_removed_public_function_has_proven_surviving_import() {
 }
 
 #[test]
-fn rust_removed_public_function_supports_grouped_imports() {
-    let signals = rust_case(
-        "pub fn load() {}",
-        "pub fn save() {}",
-        "mod api; use api::{load as fetch}; fn run() { fetch(); }",
-        false,
-    );
-    assert_eq!(signals.len(), 1);
-    assert_eq!(signals[0].exported_name, "load");
-    assert_eq!(signals[0].local_name, "fetch");
-}
-
-#[test]
-fn rust_arity_controls_require_a_previously_matching_direct_call() {
-    for (before, after, caller) in [
-        (
-            "pub fn load(user: usize) {}",
-            "pub fn load(user: usize, mode: bool) {}",
-            "mod api; fn run() { api::load(1, true); }",
-        ),
-        (
-            "pub fn load(user: usize) {}",
-            "pub fn load(user: String) {}",
-            "mod api; fn run() { api::load(1); }",
-        ),
-        (
-            "pub fn load<T>(user: T) {}",
-            "pub fn load<T>(user: T, mode: bool) {}",
-            "mod api; fn run() { api::load::<usize>(1); }",
-        ),
-        (
-            "pub fn load(user: usize) {}",
-            "pub fn load(user: usize, mode: bool) {}",
-            "mod api; use api::load as fetch; fn run() { fetch(1); }",
-        ),
-        (
-            "pub fn load(user: usize) {}",
-            "pub fn save(user: usize, mode: bool) {}",
-            "mod api; fn run() { api::load(1); }",
-        ),
-    ] {
-        let signals = rust_case(before, after, caller, false);
-        assert!(
-            signals
-                .iter()
-                .all(|signal| !matches!(signal.change, ContractChange::RustFunctionArity { .. })),
-            "{before} -> {after}: {caller}"
-        );
-    }
-}
-
-#[test]
 fn rust_changed_public_function_arity_flags_a_surviving_call_with_old_arity() {
     let signals = rust_case(
         "pub fn load(user: usize) {}\n",
@@ -124,21 +72,6 @@ fn rust_decreased_public_function_arity_flags_a_surviving_old_call() {
 }
 
 #[test]
-fn rust_removed_public_struct_field_flags_a_surviving_literal_field() {
-    let signals = rust_case(
-        "pub struct Config { pub old: usize, pub kept: bool }",
-        "pub struct Config { pub kept: bool }",
-        "mod api; fn run() { let config = api::Config { old: 1, kept: true }; }",
-        false,
-    );
-
-    assert_eq!(signals.len(), 1);
-    assert_eq!(signals[0].exported_name, "old");
-    assert_eq!(signals[0].module_specifier, "mod::api");
-    assert_eq!(signals[0].change, ContractChange::RustStructFieldRemoved);
-}
-
-#[test]
 fn rust_struct_field_contract_preserves_private_and_coordinated_cases() {
     for (before, after, caller) in [
         (
@@ -164,7 +97,7 @@ fn rust_struct_field_contract_preserves_private_and_coordinated_cases() {
     }
 }
 
-fn rust_case(
+pub(super) fn rust_case(
     before: &str,
     after: &str,
     caller: &str,

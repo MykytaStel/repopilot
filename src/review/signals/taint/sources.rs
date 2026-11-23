@@ -63,7 +63,6 @@ fn node_has_patterns(
     if super::sanitizers::is_sanitizer_call(node, content, tables) {
         return false;
     }
-
     if tables.source_access_kinds.contains(&node.kind()) {
         let text = node.utf8_text(content.as_bytes()).unwrap_or("");
         if patterns.iter().any(|pattern| contains_token(text, pattern)) {

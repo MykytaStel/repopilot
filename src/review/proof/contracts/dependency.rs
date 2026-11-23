@@ -152,15 +152,11 @@ pub(super) fn dependency_deltas(changed_files: &[ChangedFile]) -> Vec<ChangeProo
 
 fn is_meaningful_change(line: &str) -> bool {
     let trimmed = line.trim();
-    if trimmed.is_empty()
+    !(trimmed.is_empty()
         || trimmed.starts_with('#')
         || trimmed.starts_with("//")
         || (trimmed.starts_with('[') && trimmed.ends_with(']'))
-        || matches!(trimmed, "{" | "}" | "[" | "]" | ",")
-    {
-        return false;
-    }
-    true
+        || matches!(trimmed, "{" | "}" | "[" | "]" | ","))
 }
 
 #[cfg(test)]

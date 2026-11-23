@@ -84,6 +84,7 @@ fn confirmed_occurrence(
         line_end: import.line_end,
         byte_start: import.byte_start,
         byte_end: import.byte_end,
+        declaration_lines: None,
         change: ApiContractChange::RemovedExport,
     })
 }

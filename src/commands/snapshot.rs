@@ -1,5 +1,4 @@
 use crate::cli::SnapshotOptions;
-use chrono::{SecondsFormat, Utc};
 use repopilot::review::diff::resolve_git_root;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -133,7 +132,7 @@ pub fn run(options: SnapshotOptions) -> Result<(), Box<dyn Error>> {
         head: head.clone(),
         dirty,
         baseline,
-        created_at: Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true),
+        created_at: repopilot::utc::now_seconds(),
     };
 
     let path = snapshot_path(&repo_root);

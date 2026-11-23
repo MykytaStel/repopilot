@@ -55,6 +55,13 @@ class PublicationRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("24.19.0", result.stderr)
 
+    def test_v028_tags_accept_the_pinned_publisher_runtime(self):
+        for tag in ("v0.28.0-rc.1", "v0.28.0"):
+            with self.subTest(tag=tag):
+                result, called = self.run_verifier("v24.21.0", tag=tag)
+                self.assertTrue(called)
+                self.assertEqual(result.returncode, 73)
+
     def test_unknown_tag_does_not_assume_current_publisher_runtime(self):
         result, called = self.run_verifier("v24.21.0", tag="v9.9.9")
         self.assertFalse(called)

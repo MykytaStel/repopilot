@@ -23,7 +23,7 @@ pub struct OverlayEntry {
     pub path_glob: Option<globset::GlobMatcher>,
     pub severity: Option<Severity>,
     pub reason: Option<String>,
-    pub expires: Option<chrono::NaiveDate>,
+    pub expires: Option<jiff::civil::Date>,
 }
 
 #[derive(Debug, Default)]
@@ -175,7 +175,7 @@ fn build_entry(
 
     let expires = match clean(raw.expires) {
         None => None,
-        Some(value) => match chrono::NaiveDate::parse_from_str(&value, "%Y-%m-%d") {
+        Some(value) => match crate::utc::parse_date(&value) {
             Ok(date) => Some(date),
             Err(_) => {
                 return Err(ScanDiagnostic::warning(

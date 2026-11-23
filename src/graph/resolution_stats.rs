@@ -8,10 +8,10 @@
 //! Genuine third-party packages (`react`, `numpy`) are real external
 //! dependencies and are not recorded; only imports that *should* have resolved
 //! to a scanned file are — relative imports, recognized local path aliases,
-//! Rust file-backed module references, Go module paths declared by the
-//! repository's `go.mod`, and bare imports whose leading segment names a
-//! directory that exists in the repository (a monorepo/workspace package the
-//! resolver did not wire up).
+//! Rust file-backed module references, quoted C-family includes, Go module
+//! paths declared by the repository's `go.mod`, and bare imports whose leading
+//! segment names a directory that exists in the repository (a monorepo/workspace
+//! package the resolver did not wire up).
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
@@ -26,6 +26,8 @@ pub enum UnresolvedImportKind {
     RustFileBacked,
     /// A Go module-path import mapped to a package directory inside `go.mod`.
     GoFileBacked,
+    /// A quoted C-family include with repository-relative search candidates.
+    CFileBacked,
     /// A bare import that resembles a workspace package.
     WorkspacePackage,
 }
@@ -165,7 +167,18 @@ fn unresolved_import_kind_for_source(
     raw_import: &str,
     root: &Path,
 ) -> UnresolvedImportKind {
-    if is_unresolved_go_module_import(raw_import, source, root) {
+    if source
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension,
+                "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx"
+            )
+        })
+    {
+        UnresolvedImportKind::CFileBacked
+    } else if is_unresolved_go_module_import(raw_import, source, root) {
         UnresolvedImportKind::GoFileBacked
     } else if crate::graph::resolver::is_configured_ts_alias_import(raw_import, source, root) {
         UnresolvedImportKind::LocalAlias

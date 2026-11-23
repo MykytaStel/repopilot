@@ -168,6 +168,27 @@ fn go_module_file_backed_evidence_has_its_own_kind() {
 }
 
 #[test]
+fn c_family_quoted_include_evidence_uses_bounded_local_candidates() {
+    let root = Path::new("/repo");
+    let mut stats = ImportResolutionStats::default();
+    stats.record_classified(Path::new("/repo/src/app.c"), "missing.h", root);
+
+    let evidence = stats
+        .evidence()
+        .next()
+        .expect("unresolved include evidence");
+    assert_eq!(evidence.kind, UnresolvedImportKind::CFileBacked);
+    assert!(matches!(
+        &evidence.proof,
+        UnresolvedImportProof::DefinitiveLocalCandidates(candidates)
+            if candidates == &vec![
+                PathBuf::from("/repo/missing.h"),
+                PathBuf::from("/repo/src/missing.h"),
+            ]
+    ));
+}
+
+#[test]
 fn go_module_import_classifier_does_not_claim_external_modules() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();

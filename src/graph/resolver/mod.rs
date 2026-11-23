@@ -5,11 +5,13 @@
 //! semantics for one language family; the shared `probe` / [`normalize_path`]
 //! helpers live here because every resolver depends on them.
 
+mod c_family;
 mod go;
 mod inventory;
 mod jvm;
 pub(crate) use inventory::ResolverInventory;
 mod python;
+pub(crate) use python::resolve_unique_python_module;
 mod rust;
 mod ts;
 
@@ -20,16 +22,17 @@ use std::path::{Component, Path, PathBuf};
 /// imports but has no way to turn one into a repository path, so its files hold
 /// no outgoing edges at all.
 const FILE_RESOLVED_EXTENSIONS: &[&str] = &[
-    "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "java", "kt", "kts",
+    "rs", "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "go", "java", "kt", "kts", "c", "cc",
+    "cpp", "cxx", "h", "hh", "hpp", "hxx",
 ];
 
 /// Whether this file's imports can become graph edges.
 ///
 /// A claim built on the *absence* of edges — nothing imports this file, nothing
 /// reaches this code — is only meaningful when edges could have existed. C#,
-/// Swift, PHP, Dart, Scala, and the C family reference types through namespaces
-/// or headers that [`resolve_import`] never maps to a file, so every one of
-/// their files has zero fan-in in a healthy repository. Callers that reason from
+/// Swift, PHP, Dart, and Scala reference types through namespaces that
+/// [`resolve_import`] never maps to a file. C-family quoted includes are partial
+/// because compiler search paths and macros are not modeled. Callers that reason from
 /// absence must consult this first; callers that reason from a present edge do
 /// not need to, because a resolved edge is proof on its own.
 pub fn resolves_file_imports(path: &Path) -> bool {
@@ -43,13 +46,19 @@ pub fn resolves_file_imports(path: &Path) -> bool {
 ///
 /// Java and Kotlin same-package type references are modeled when syntactically
 /// visible, but source sets, generated types and reflective loading can still
-/// make absence claims unsafe.
+/// make absence claims unsafe. C-family include graphs also omit system,
+/// macro-generated, and compiler-search-path relationships.
 pub fn supports_file_absence_claims(path: &Path) -> bool {
     resolves_file_imports(path)
         && !path
             .extension()
             .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| matches!(extension, "java" | "kt" | "kts"))
+            .is_some_and(|extension| {
+                matches!(
+                    extension,
+                    "java" | "kt" | "kts" | "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx"
+                )
+            })
 }
 
 /// Resolves a raw import string extracted from `from_file` to a concrete path
@@ -71,6 +80,9 @@ pub fn resolve_import(
         "go" => go::resolve_go(raw_import, from_file, root, known_files),
         "java" => jvm::resolve_jvm(raw_import, known_files, &["java"]),
         "kt" | "kts" => jvm::resolve_jvm(raw_import, known_files, &["kt", "java"]),
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx" => {
+            c_family::resolve_c_include(raw_import, from_file, root, known_files)
+        }
         _ => None,
     }
 }
@@ -97,6 +109,9 @@ pub(crate) fn definitive_local_candidates(
         "py" => python::definitive_import_candidates(raw_import, &source, &root)?,
         "rs" => rust::definitive_local_candidates(raw_import, &source, &root)?,
         "go" => go::definitive_local_candidates(raw_import, &source, &root)?,
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx" => {
+            c_family::definitive_local_candidates(raw_import, &source, &root)?
+        }
         _ => return None,
     };
     let candidates = candidates
@@ -623,7 +638,7 @@ mod file_resolution_support_tests {
     fn namespace_and_header_languages_have_no_file_resolution() {
         // These are the languages whose zero fan-in means "unmodeled", not
         // "unreferenced" — the distinction absence-based rules depend on.
-        for extension in ["cs", "swift", "php", "dart", "scala", "cpp", "h", "rb"] {
+        for extension in ["cs", "swift", "php", "dart", "scala", "rb"] {
             let source = PathBuf::from(format!("/repo/src/app.{extension}"));
             assert!(!resolves_file_imports(&source), "{extension}");
             assert_eq!(
@@ -636,6 +651,27 @@ mod file_resolution_support_tests {
                 None,
                 "{extension}"
             );
+        }
+    }
+
+    #[test]
+    fn c_family_resolves_unique_local_quoted_include() {
+        let root = Path::new("/repo");
+        let source = Path::new("/repo/src/app.cpp");
+        let target = PathBuf::from("/repo/src/headers/api.hpp");
+        let files = HashSet::from([target.clone()]);
+        assert_eq!(
+            resolve_import("headers/api.hpp", source, root, &files),
+            Some(target)
+        );
+    }
+
+    #[test]
+    fn c_family_is_partial_and_does_not_support_absence_claims() {
+        for extension in ["c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx"] {
+            let source = PathBuf::from(format!("/repo/app.{extension}"));
+            assert!(resolves_file_imports(&source), "{extension}");
+            assert!(!supports_file_absence_claims(&source), "{extension}");
         }
     }
 

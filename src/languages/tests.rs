@@ -145,13 +145,16 @@ fn kinds_route_to_their_frontends_and_the_rest_to_generic() {
 
     for kind in [
         LanguageKind::Swift,
-        LanguageKind::Cpp,
         LanguageKind::Terraform,
         LanguageKind::Markdown,
         LanguageKind::Unknown,
     ] {
         assert_eq!(frontend_for_kind(kind).id, "generic");
     }
+
+    assert_eq!(frontend_for_kind(LanguageKind::C).id, "c");
+    assert_eq!(frontend_for_kind(LanguageKind::Cpp).id, "cpp");
+    assert_eq!(frontend_for_kind(LanguageKind::CHeader).id, "c-header");
 }
 
 /// Pins which frontends own an import extractor and which deferred-edge

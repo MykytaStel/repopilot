@@ -12,13 +12,7 @@ pub(super) fn resolve_rust(
 ) -> Option<PathBuf> {
     if let Some(name) = raw.strip_prefix("mod::") {
         let dir = rust_current_module_dir(from_file, root);
-        return probe(
-            &[
-                dir.join(format!("{name}.rs")),
-                dir.join(name).join("mod.rs"),
-            ],
-            known_files,
-        );
+        return resolve_rust_module_path(&dir, name, known_files);
     }
 
     // `#[path = "..."] mod x;` and `include!("...")` both resolve relative to
@@ -67,14 +61,15 @@ pub(super) fn definitive_local_candidates(
     root: &Path,
 ) -> Option<Vec<PathBuf>> {
     let candidates = if let Some(name) = raw.strip_prefix("mod::") {
-        if !is_module_name(name) {
+        if !is_module_path(name) {
             return None;
         }
         let dir = rust_current_module_dir(from_file, root);
-        vec![
-            dir.join(format!("{name}.rs")),
-            dir.join(name).join("mod.rs"),
-        ]
+        let module_path = name.split("::").collect::<Vec<_>>();
+        let module_dir = module_path
+            .iter()
+            .fold(dir, |path, segment| path.join(segment));
+        vec![module_dir.with_extension("rs"), module_dir.join("mod.rs")]
     } else {
         let rel = raw.strip_prefix("relfile::")?;
         let path = Path::new(rel);
@@ -103,6 +98,10 @@ fn is_module_name(name: &str) -> bool {
         && name != "super"
         && name != "crate"
         && is_rust_identifier(identifier)
+}
+
+fn is_module_path(path: &str) -> bool {
+    !path.is_empty() && path.split("::").all(is_module_name)
 }
 
 fn is_rust_identifier(identifier: &str) -> bool {

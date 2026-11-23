@@ -15,6 +15,10 @@ mod defaults;
 mod re_exports;
 mod robustness;
 mod rust;
+#[path = "tests/rust_breaking.rs"]
+mod rust_breaking;
+#[path = "tests/rust_nested.rs"]
+mod rust_nested;
 
 #[test]
 fn extracts_named_value_type_and_binding_alias_facts() {

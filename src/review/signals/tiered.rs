@@ -550,6 +550,7 @@ fn deduplicate(tiered: &mut TieredSignals) {
             "behavioral.removed-export-still-imported"
                 | "behavioral.rust-public-function-arity-changed"
                 | "behavioral.rust-public-struct-field-removed"
+                | "behavioral.rust-public-enum-variant-removed"
         ) {
             signal.signal_id.clone()
         } else {

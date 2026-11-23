@@ -73,7 +73,7 @@ fn changed_scan_writes_cache_and_reuses_matching_findings() {
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["analysis_version"],
-        "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-field-contract"
+        "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v11-rust-module-proof-c-directives"
     );
     assert_eq!(
         read_json(&cache_dir.join("parsed_facts_v2.json"))["entries"][0]["content_hash"]
@@ -150,7 +150,7 @@ fn typed_symbol_facts_are_persisted_and_reused_by_changed_scan() {
     assert_eq!(cache["schema_version"], 11);
     assert_eq!(
         cache["analysis_version"],
-        "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v9-rust-api-field-contract"
+        "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v11-rust-module-proof-c-directives"
     );
     let named_import = cache["entries"]
         .as_array()
@@ -586,7 +586,7 @@ fn changed_scan_rejects_v4_cache_missing_inline_type_only_deferred_imports() {
         force_cache_schema(cache_dir.join(name).as_path(), 4);
     }
     clear_file_roles_deferred_imports(&cache_dir.join("file_roles.json"));
-    force_context_graph_resolver(&cache_dir.join("repo_context.json"), "context-graph-v2");
+    force_context_graph_resolver(&cache_dir.join("repo_context.json"), "context-state-v1");
     clear_context_graph_deferred_imports(&cache_dir.join("repo_context.json"));
 
     let upgraded_changed = scan_changed_json(temp.path(), &["--changed", "--profile", "strict"]);

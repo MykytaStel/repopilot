@@ -25,6 +25,7 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 | `architecture.too-many-modules` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `architecture.unresolved-local-import` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `behavioral.removed-export-still-imported` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
+| `behavioral.rust-public-enum-variant-removed` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `behavioral.rust-public-function-arity-changed` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `behavioral.rust-public-struct-field-removed` | preview | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
 | `code-marker.fixme` | experimental | no zoo evidence | unmeasured | n/a | n/a | n/a | 0 |
@@ -70,8 +71,8 @@ Every default-visible zoo finding is labeled, so these rows are exhaustive for t
 
 ## Evidence coverage
 
-- Default-profile evidence: 6 of 56 rules (10.7%), 24 labeled findings across 7 repo(s).
-- Default-profile rules without evidence: 50 (unmeasured, not clean).
+- Default-profile evidence: 6 of 57 rules (10.5%), 24 labeled findings across 7 repo(s).
+- Default-profile rules without evidence: 51 (unmeasured, not clean).
 - Strict-profile sampled evidence: 10 rules, 32 sampled findings across 6 repo(s).
 - Evidence status is `insufficient evidence` below 10 labeled findings; `descriptive` is a sample-size label, not a production precision claim.
 - These coverage counts describe committed labels and do not establish recall.
