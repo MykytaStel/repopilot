@@ -1,4 +1,4 @@
-use super::super::analysis_store::{self, AnalysisKind};
+use super::super::analysis_store::{self, AnalysisKind, AnalysisStore};
 use super::super::human_output;
 use super::super::review_projection;
 use super::{
@@ -31,6 +31,15 @@ pub(super) fn prepare_analysis_result(request: AnalysisRequest<'_>) -> PreparedT
             return error_result(name, message, workspace_revision, state.max_response_bytes);
         }
     };
+    if publishable && !AnalysisStore::can_store(&full_report) {
+        return error_result(
+            name,
+            "full analysis exceeds the session retention budget; narrow the scan scope or filters"
+                .to_string(),
+            workspace_revision,
+            state.max_response_bytes,
+        );
+    }
     let page = match prepare_page(kind, &full_report, arguments) {
         Ok(page) => page,
         Err(message) => {
