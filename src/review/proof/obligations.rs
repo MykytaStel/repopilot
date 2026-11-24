@@ -71,17 +71,12 @@ fn draft_required_obligation(
         );
     }
     consumed.extend(selected_for_role.iter().map(|id| (*id).to_string()));
-    let outcomes = report
-        .verification
-        .iter()
-        .filter(|outcome| selected_for_role.contains(&outcome.check_id.as_str()))
-        .map(outcome_state)
-        .collect::<Vec<_>>();
-    let status = if outcomes.is_empty() {
-        ProofObligationStatus::Unavailable
-    } else {
-        aggregate_states(&outcomes)
-    };
+    let status = required_check_status(
+        &report.verification,
+        &selected_for_role,
+        requirement.role,
+        report.analysis_revision.as_deref(),
+    );
     required_draft(
         requirement,
         selected_for_role.into_iter().map(str::to_string).collect(),
@@ -116,7 +111,7 @@ fn add_unmatched_outcome_drafts(
                 role: Some(outcome.role),
                 path: None,
                 check_ids: vec![outcome.check_id.clone()],
-                status: outcome_state(outcome),
+                status: outcome_state(outcome, report.analysis_revision.as_deref()),
             }),
     );
 }
@@ -217,9 +212,37 @@ fn contract_requirement(delta: &ChangeProofContractDelta) -> Option<Verification
     })
 }
 
-fn outcome_state(outcome: &crate::verification::VerificationOutcome) -> ProofObligationStatus {
+fn required_check_status(
+    outcomes: &[crate::verification::VerificationOutcome],
+    selected: &[&str],
+    role: VerificationRole,
+    analysis_revision: Option<&str>,
+) -> ProofObligationStatus {
+    let states = selected
+        .iter()
+        .map(|id| {
+            let mut matching = outcomes.iter().filter(|outcome| outcome.check_id == *id);
+            let Some(outcome) = matching.next() else {
+                return ProofObligationStatus::Unavailable;
+            };
+            if matching.next().is_some() || outcome.role != role {
+                return ProofObligationStatus::Unavailable;
+            }
+            outcome_state(outcome, analysis_revision)
+        })
+        .collect::<Vec<_>>();
+    aggregate_states(&states)
+}
+
+fn outcome_state(
+    outcome: &crate::verification::VerificationOutcome,
+    analysis_revision: Option<&str>,
+) -> ProofObligationStatus {
+    let revision_matches = outcome.revision_compatible
+        && outcome.revision_before == outcome.revision_after
+        && analysis_revision.is_none_or(|revision| outcome.revision_before == revision);
     match outcome.status {
-        VerificationStatus::Passed if outcome.revision_compatible => {
+        VerificationStatus::Passed if revision_matches => {
             ProofObligationStatus::Satisfied
         }
         VerificationStatus::Passed => ProofObligationStatus::Stale,
@@ -227,7 +250,7 @@ fn outcome_state(outcome: &crate::verification::VerificationOutcome) -> ProofObl
         VerificationStatus::TimedOut
         | VerificationStatus::Unavailable
         | VerificationStatus::Cancelled => ProofObligationStatus::Unavailable,
-        VerificationStatus::Skipped if outcome.revision_compatible => {
+        VerificationStatus::Skipped if revision_matches => {
             ProofObligationStatus::Unavailable
         }
         VerificationStatus::Skipped => ProofObligationStatus::Stale,
