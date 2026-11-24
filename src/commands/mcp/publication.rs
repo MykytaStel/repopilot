@@ -41,11 +41,23 @@ impl PreparedToolResult {
         let Some(publication) = self.publication else {
             return self.result;
         };
-        state.analyses.publish(
-            publication.kind,
-            publication.full_report,
-            &publication.workspace_revision,
-        );
+        if state
+            .analyses
+            .try_publish(
+                publication.kind,
+                publication.full_report,
+                &publication.workspace_revision,
+            )
+            .is_none()
+        {
+            return error_result(
+                publication.kind.label(),
+                "full analysis exceeds the session retention budget".to_string(),
+                &publication.workspace_revision,
+                state.max_response_bytes,
+            )
+            .result;
+        }
         match publication.kind {
             AnalysisKind::Scan => {
                 state.last_scan = Some(publication.client_report);
