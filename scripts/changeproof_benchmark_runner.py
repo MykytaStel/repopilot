@@ -19,7 +19,7 @@ from changeproof_benchmark_contract import (
     validate_manifest,
 )
 from changeproof_benchmark_signals import normalize_signal_kinds, signal_oracle
-from changeproof_benchmark_proof import evaluate_case, normalize_change_proof, normalized_proof_sha256
+from changeproof_benchmark_proof import BenchmarkProofError, evaluate_case, normalize_change_proof, normalized_proof_sha256
 from differential_resource import execute_timed_command
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
 
@@ -67,7 +67,10 @@ def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_
         repo = materialize_fixture(case, fixture_root, Path(temporary))
         runs = []
         for phase in PHASES:
-            run = dict(run_review(scanner, repo, case.profile, phase, timeout_seconds, case))
+            try:
+                run = dict(run_review(scanner, repo, case.profile, phase, timeout_seconds, case))
+            except (BenchmarkProofError, BenchmarkManifestError) as error:
+                raise BenchmarkManifestError(f"case {case.case_id}, phase {phase}: {error}") from error
             run["phase"] = phase
             runs.append(run)
     if any(run["status"] != "collected" for run in runs):
