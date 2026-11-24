@@ -2,6 +2,7 @@ use super::{
     ServerState, context, explain_file, explain_finding, explain_review_signal, review_change, scan,
 };
 use crate::commands::mcp::jsonrpc::Response;
+use repopilot::scan::session::WorkspaceRevision;
 use serde_json::{Value, json};
 
 /// Returned as `instructions` from `initialize`; clients place it ahead of the
@@ -69,8 +70,16 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
         .and_then(Value::as_str)
         .unwrap_or_default();
     let text = match uri {
-        "repopilot://analyses" => serde_json::to_string_pretty(&state.analyses.summaries())
-            .unwrap_or_else(|_| "[]".to_string()),
+        "repopilot://analyses" => {
+            let revision = WorkspaceRevision::capture(&state.root);
+            let mut summaries = state.analyses.summaries();
+            for summary in &mut summaries {
+                summary["stale"] = json!(
+                    summary["workspace_revision"].as_str() != Some(revision.id())
+                );
+            }
+            serde_json::to_string_pretty(&summaries).unwrap_or_else(|_| "[]".to_string())
+        }
         "repopilot://rules" => {
             let rules = repopilot::rules::all_rule_metadata()
                 .map(|rule| {
@@ -118,6 +127,8 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
             "config_present": state.root.join("repopilot.toml").is_file(),
             "baseline_present": state.root.join(".repopilot/baseline.json").is_file(),
             "feedback_present": state.root.join(".repopilot/feedback.yml").is_file(),
+            "retained_analysis_bytes": state.analyses.retained_bytes(),
+            "analysis_retention_limit_bytes": super::analysis_store::MAX_STORED_REPORT_BYTES,
             "last_scan_available": state.last_scan.is_some(),
             "last_review_available": state.last_review.is_some()
         }))
