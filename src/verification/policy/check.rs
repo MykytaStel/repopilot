@@ -10,6 +10,7 @@ pub struct ValidatedCheck {
     pub(crate) resolved_program: Option<PathBuf>,
     pub(crate) executable_sha256: Option<String>,
     pub(crate) args: Vec<String>,
+    pub(crate) workspace_root: PathBuf,
     pub(crate) working_directory: PathBuf,
     pub(crate) working_directory_label: String,
     pub(crate) timeout_seconds: u64,
@@ -130,6 +131,7 @@ impl ValidatedCheck {
             && self.resolved_program == other.resolved_program
             && self.executable_sha256 == other.executable_sha256
             && self.args == other.args
+            && self.workspace_root == other.workspace_root
             && self.working_directory == other.working_directory
             && self.working_directory_label == other.working_directory_label
             && self.timeout_seconds == other.timeout_seconds
