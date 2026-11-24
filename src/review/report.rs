@@ -164,8 +164,7 @@ fn classify_findings(
         .map(|graph| composites::build_importers_by_target(graph, &repo_root));
     let empty_importers = Default::default();
     let importers_index = importers.as_ref().unwrap_or(&empty_importers);
-    let blast_radius =
-        compute_blast_radius_with_importers(&repo_root, &changed_files, importers_index);
+    let blast_radius = compute_blast_radius_with_importers(&repo_root, &changed_files, importers_index);
     let impact_paths = compute_impact_paths_with_importers(
         &repo_root,
         &changed_files,
@@ -176,11 +175,7 @@ fn classify_findings(
     let ownership =
         OwnershipSummary::for_impact(&changed_files, &impact_paths, &ownership_discovery.index);
     if let Some(importers) = &importers {
-        composites::enrich_blast_radius_with_importers(
-            &mut boundary_signals,
-            importers,
-            &repo_root,
-        );
+        composites::enrich_blast_radius_with_importers(&mut boundary_signals, importers, &repo_root);
     }
     let boundary_missing_test =
         composites::missing_test_for_code_boundary(&boundary_signals, &changed_files);
