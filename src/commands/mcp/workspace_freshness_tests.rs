@@ -404,3 +404,38 @@ fn scan_handle_pagination_does_not_replace_latest_scan() {
     assert_eq!(stale["isError"], true);
     assert_eq!(state.last_scan, latest);
 }
+
+#[test]
+fn resource_catalog_marks_historical_reports_stale_after_edit() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    fs::write(root.join("lib.rs"), "pub fn before() {}\n").unwrap();
+    let mut state = state(root);
+    let scan = tool_result(handle_tools_call(
+        json!(90),
+        &json!({"name": scan::TOOL_NAME, "arguments": {"path": "."}}),
+        &mut state,
+    ));
+    assert_eq!(scan["isError"], false, "{scan}");
+    let read_resource = |state: &ServerState, uri: &str| {
+        super::catalog::handle_resource_read(json!(91), &json!({"uri": uri}), state)
+            .result
+            .unwrap()
+    };
+    let fresh = read_resource(&state, "repopilot://last-scan");
+    assert_eq!(fresh["_meta"]["stale"], false);
+
+    fs::write(root.join("lib.rs"), "pub fn after() {}\n").unwrap();
+    let stale = read_resource(&state, "repopilot://last-scan");
+    assert_eq!(stale["_meta"]["stale"], true);
+    assert_eq!(
+        stale["_meta"]["sourceWorkspaceRevision"],
+        scan["workspaceRevision"]
+    );
+    assert_eq!(fresh["contents"], stale["contents"]);
+    let listed = read_resource(&state, "repopilot://analyses");
+    let summaries: Value =
+        serde_json::from_str(listed["contents"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(summaries[0]["stale"], true);
+    assert!(summaries[0]["report_bytes"].as_u64().unwrap() > 0);
+}
