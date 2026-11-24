@@ -1,8 +1,10 @@
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 const MAX_STORED_ANALYSES: usize = 8;
+pub(super) const MAX_STORED_REPORT_BYTES: usize = 32 * 1024 * 1024;
 const DEFAULT_PAGE_LIMIT: usize = 100;
 const MAX_PAGE_LIMIT: usize = 1_000;
 
@@ -24,7 +26,7 @@ impl AnalysisKind {
 #[derive(Debug, Clone)]
 pub struct AnalysisRecord {
     pub kind: AnalysisKind,
-    pub report: String,
+    pub report: Arc<String>,
     pub workspace_revision: String,
 }
 
@@ -32,6 +34,7 @@ pub struct AnalysisRecord {
 pub struct AnalysisStore {
     records: HashMap<String, AnalysisRecord>,
     order: VecDeque<String>,
+    retained_bytes: usize,
 }
 
 impl AnalysisStore {
@@ -51,23 +54,46 @@ impl AnalysisStore {
         workspace_revision: &str,
     ) -> String {
         let handle = self.prospective_handle(kind, &report, workspace_revision);
-        if !self.records.contains_key(&handle) {
-            self.order.push_back(handle.clone());
+        // The publication layer checks this same limit before advertising a handle.
+        // Keep the store independently bounded even if a caller bypasses that check.
+        if !Self::can_store(&report) {
+            return handle;
         }
+        if self.records.contains_key(&handle) {
+            self.order.retain(|existing| existing != &handle);
+            self.order.push_back(handle.clone());
+            return handle;
+        }
+        let report_bytes = report.len();
+        while self.order.len() >= MAX_STORED_ANALYSES
+            || self.retained_bytes + report_bytes > MAX_STORED_REPORT_BYTES
+        {
+            let Some(expired) = self.order.pop_front() else {
+                break;
+            };
+            if let Some(record) = self.records.remove(&expired) {
+                self.retained_bytes -= record.report.len();
+            }
+        }
+        self.retained_bytes += report_bytes;
+        self.order.push_back(handle.clone());
         self.records.insert(
             handle.clone(),
             AnalysisRecord {
                 kind,
-                report,
+                report: Arc::new(report),
                 workspace_revision: workspace_revision.to_string(),
             },
         );
-        while self.order.len() > MAX_STORED_ANALYSES {
-            if let Some(expired) = self.order.pop_front() {
-                self.records.remove(&expired);
-            }
-        }
         handle
+    }
+
+    pub fn can_store(report: &str) -> bool {
+        report.len() <= MAX_STORED_REPORT_BYTES
+    }
+
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
     }
 
     pub fn get(&self, handle: &str) -> Option<&AnalysisRecord> {
@@ -80,7 +106,7 @@ impl AnalysisStore {
             .rev()
             .filter_map(|handle| {
                 let record = self.records.get(handle)?;
-                let report = serde_json::from_str::<Value>(&record.report).ok();
+                let report = serde_json::from_str::<Value>(record.report.as_str()).ok();
                 let findings = report
                     .as_ref()
                     .and_then(|value| value.get("findings"))
@@ -95,6 +121,7 @@ impl AnalysisStore {
                     "analysis_handle": handle,
                     "kind": record.kind.label(),
                     "workspace_revision": record.workspace_revision,
+                    "report_bytes": record.report.len(),
                     "findings": findings,
                     "review_signals": review_signals
                 });
