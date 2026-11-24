@@ -231,9 +231,12 @@ fn dispatch_tool(
         review_change::TOOL_NAME => {
             dispatch_review(arguments, referenced, cancellation, observer, approve)
         }
-        scan::TOOL_NAME => scan::call(arguments)
-            .map(ToolExecution::plain)
-            .map_err(DispatchError::Message),
+        scan::TOOL_NAME => match referenced {
+            Some(record) => Ok(ToolExecution::plain(record.report.clone())),
+            None => scan::call(arguments)
+                .map(ToolExecution::plain)
+                .map_err(DispatchError::Message),
+        },
         context::TOOL_NAME => dispatch_context(arguments, referenced),
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root)
             .map(ToolExecution::plain)
@@ -371,15 +374,19 @@ fn referenced_analysis(
     state: &ServerState,
     workspace_revision: &str,
 ) -> Result<Option<AnalysisRecord>, String> {
-    let Some(handle) = arguments.get("analysis_handle").and_then(Value::as_str) else {
+    let Some(handle) = arguments.get("analysis_handle") else {
         return Ok(None);
     };
+    let handle = handle
+        .as_str()
+        .ok_or_else(|| "`analysis_handle` must be a string".to_string())?;
     if !matches!(
         name,
         context::TOOL_NAME
             | explain_finding::TOOL_NAME
             | explain_review_signal::TOOL_NAME
             | review_change::TOOL_NAME
+            | scan::TOOL_NAME
     ) {
         return Err("`analysis_handle` is not accepted by this tool".into());
     }
@@ -393,6 +400,21 @@ fn referenced_analysis(
             "analysis handle {handle} belongs to workspace revision {}; current revision is {workspace_revision}",
             record.workspace_revision
         ));
+    }
+    if name == scan::TOOL_NAME {
+        if record.kind != AnalysisKind::Scan {
+            return Err("`analysis_handle` must refer to a prior scan".into());
+        }
+        if let Some(key) = arguments
+            .as_object()
+            .into_iter()
+            .flat_map(|values| values.keys())
+            .find(|key| !["analysis_handle", "offset", "limit"].contains(&key.as_str()))
+        {
+            return Err(format!(
+                "`{key}` cannot be combined with a stored scan handle; request only another page"
+            ));
+        }
     }
     if name == review_change::TOOL_NAME {
         if record.kind != AnalysisKind::Review {
