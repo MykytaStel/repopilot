@@ -44,6 +44,7 @@ fn dirty_since_current_named_and_default_facts_keep_exact_cache_parity() {
         assert_eq!(expected_findings.len(), expected);
         let warm = scan_json(root, &["--since", &base]);
         assert_eq!(expected_findings, contract_findings(&warm));
+        assert_eq!(warm["context_graph_cache"]["status"], "hit");
         let retained_entry = caller_cache_entry(root);
         remove_caller_symbol_facts(root);
         let rebuilt = scan_json(root, &["--since", &base]);
