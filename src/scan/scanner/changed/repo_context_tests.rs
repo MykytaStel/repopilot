@@ -528,3 +528,38 @@ fn changed_source_rebuilds_missing_parsed_facts() {
         second.artifacts.coupling_graph
     );
 }
+
+#[test]
+fn implicit_cargo_binary_changes_repository_context_identity() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(
+        root,
+        "Cargo.toml",
+        "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n",
+    );
+    write(root, "src/lib.rs", "pub fn run() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "cargo package"]);
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let scope = root.join("other");
+    working_scan(&scope);
+    let warm = working_scan(&scope);
+    assert_eq!(
+        warm.artifacts.context_graph_cache.as_ref().unwrap().status,
+        "hit"
+    );
+
+    write(root, "src/main.rs", "fn main() {}\n");
+    let updated = working_scan(&scope);
+    assert_eq!(
+        updated
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .unwrap()
+            .status,
+        "miss"
+    );
+    assert_cold_parity(root, &scope, &updated);
+}
