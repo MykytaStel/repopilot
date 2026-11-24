@@ -348,3 +348,59 @@ fn setup_verification_review_repo(root: &Path, shell_command: &str) {
     git(root, &["commit", "-qm", "initial"]);
     fs::write(root.join("lib.rs"), "pub fn live() -> i32 { 2 }\n").expect("change");
 }
+
+#[test]
+fn scan_handle_pagination_does_not_replace_latest_scan() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/a.rs"), "pub fn a() { panic!(\"a\"); }\n").unwrap();
+    fs::write(root.join("src/b.rs"), "pub fn b() { panic!(\"b\"); }\n").unwrap();
+    let mut state = state(root);
+    let first = tool_result(handle_tools_call(
+        json!(80),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": {"path": ".", "profile": "strict", "limit": 1}
+        }),
+        &mut state,
+    ));
+    assert_eq!(first["isError"], false, "{first}");
+    let handle = first["analysisHandle"].as_str().unwrap();
+    let latest = state.last_scan.clone();
+    let page = tool_result(handle_tools_call(
+        json!(81),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": {"analysis_handle": handle, "offset": 1, "limit": 1}
+        }),
+        &mut state,
+    ));
+    assert_eq!(page["isError"], false, "{page}");
+    assert_eq!(page["analysisHandle"], handle);
+    assert_eq!(page["pagination"]["offset"], 1);
+    assert_eq!(page["pagination"]["total"], first["pagination"]["total"]);
+    assert_eq!(state.last_scan, latest);
+    assert_eq!(state.analyses.summaries().len(), 1);
+
+    let invalid = tool_result(handle_tools_call(
+        json!(82),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": {"analysis_handle": handle, "profile": "default"}
+        }),
+        &mut state,
+    ));
+    assert_eq!(invalid["isError"], true);
+    fs::write(root.join("src/a.rs"), "pub fn a() {}\n").unwrap();
+    let stale = tool_result(handle_tools_call(
+        json!(83),
+        &json!({
+            "name": scan::TOOL_NAME,
+            "arguments": {"analysis_handle": handle, "offset": 1, "limit": 1}
+        }),
+        &mut state,
+    ));
+    assert_eq!(stale["isError"], true);
+    assert_eq!(state.last_scan, latest);
+}
