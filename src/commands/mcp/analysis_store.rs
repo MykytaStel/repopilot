@@ -53,12 +53,9 @@ impl AnalysisStore {
         report: String,
         workspace_revision: &str,
     ) -> String {
+        // The publication layer checks this limit before advertising a handle.
+        assert!(Self::can_store(&report), "report exceeds retention budget");
         let handle = self.prospective_handle(kind, &report, workspace_revision);
-        // The publication layer checks this same limit before advertising a handle.
-        // Keep the store independently bounded even if a caller bypasses that check.
-        if !Self::can_store(&report) {
-            return handle;
-        }
         if self.records.contains_key(&handle) {
             self.order.retain(|existing| existing != &handle);
             self.order.push_back(handle.clone());
@@ -283,6 +280,35 @@ mod tests {
         assert_eq!(value["findings"], json!([2]));
         assert_eq!(page.metadata.as_ref().expect("metadata")["total"], 3);
         assert_eq!(page.metadata.as_ref().expect("metadata")["next_offset"], 2);
+    }
+
+    #[test]
+    fn byte_budget_evicts_oldest_and_refreshes_duplicate_publications() {
+        let mut store = AnalysisStore::default();
+        let report = "a".repeat(MAX_STORED_REPORT_BYTES / 3);
+        let first = store.publish(AnalysisKind::Scan, report.clone(), "r1");
+        let second = store.publish(AnalysisKind::Scan, report.clone(), "r2");
+        let third = store.publish(AnalysisKind::Scan, report.clone(), "r3");
+        assert_eq!(store.retained_bytes(), report.len() * 3);
+
+        let repeated = store.publish(AnalysisKind::Scan, report.clone(), "r1");
+        assert_eq!(first, repeated);
+        assert_eq!(store.retained_bytes(), report.len() * 3);
+        let fourth = store.publish(AnalysisKind::Scan, report, "r4");
+        assert!(store.get(&first).is_some());
+        assert!(store.get(&second).is_none());
+        assert!(store.get(&third).is_some());
+        assert!(store.get(&fourth).is_some());
+        assert!(store.retained_bytes() <= MAX_STORED_REPORT_BYTES);
+    }
+
+    #[test]
+    fn cloned_record_shares_report_allocation() {
+        let mut store = AnalysisStore::default();
+        let handle = store.publish(AnalysisKind::Scan, "report".to_string(), "r1");
+        let record = store.get(&handle).unwrap();
+        let cloned = record.clone();
+        assert!(Arc::ptr_eq(&record.report, &cloned.report));
     }
 
     #[test]
