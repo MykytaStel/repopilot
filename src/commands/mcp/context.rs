@@ -137,26 +137,20 @@ pub fn call(
         scan_result.repo_facts_summary.as_ref(),
         &options,
     );
-    let change_proof = stored_review_report
+    let stored = stored_review_report
         .map(|report| {
             serde_json::from_str::<Value>(report)
                 .map_err(|error| format!("stored review report is invalid: {error}"))
         })
-        .transpose()?
+        .transpose()?;
+    let change_proof = stored
+        .as_ref()
         .and_then(|report| report.get("change_proof").cloned());
-    let evidence = stored_review_report
-        .map(|report| {
-            serde_json::from_str::<Value>(report)
-                .map_err(|error| format!("stored review report is invalid: {error}"))
-        })
-        .transpose()?
+    let evidence = stored
+        .as_ref()
         .and_then(|report| report.get("evidence").cloned());
-    let decision = stored_review_report
-        .map(|report| {
-            serde_json::from_str::<Value>(report)
-                .map_err(|error| format!("stored review report is invalid: {error}"))
-        })
-        .transpose()?
+    let decision = stored
+        .as_ref()
         .and_then(|report| report.get("decision").cloned());
 
     Ok(ContextCallResult {
