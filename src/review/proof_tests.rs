@@ -561,3 +561,26 @@ fn stale_obligation_cannot_claim_verified() {
             .any(|reason| reason.code == ChangeProofReasonCode::RequiredVerificationStale)
     );
 }
+
+#[test]
+fn inconsistent_file_counts_cannot_verify() {
+    for requested in [1, 3] {
+        let proof = derive_change_proof(ChangeProofInput {
+            coverage: ProofCoverage {
+                requested_files: requested,
+                ..coverage(2)
+            },
+            obligations: obligations(),
+            sufficient_policy: true,
+            broken_contracts: 0,
+            reasons: Vec::new(),
+        });
+        assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+        assert!(
+            proof
+                .reasons
+                .iter()
+                .any(|reason| reason.code == ChangeProofReasonCode::ScopeCoverageIncomplete)
+        );
+    }
+}
