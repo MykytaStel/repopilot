@@ -13,9 +13,16 @@ pub(super) fn stable_hash_hex(bytes: &[u8]) -> String {
 
 pub(super) fn resolver_input_fingerprint(root: &Path) -> String {
     let content = crate::graph::resolver::effective_tsconfig_content(root);
+    let mut packages = crate::scan::workspace::package_roots(root)
+        .into_iter()
+        .map(|package| (package.root, package.declares_executable))
+        .collect::<Vec<_>>();
+    packages.sort();
+    // Package classification can change even when no manifest is dirty:
+    // for example, adding Cargo's implicit src/main.rs or src/bin directory.
     stable_hash_hex(
-        serde_json::to_string(&content)
-            .expect("config content serializes")
+        serde_json::to_string(&(content, packages))
+            .expect("context inputs serialize")
             .as_bytes(),
     )
 }
