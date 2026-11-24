@@ -167,7 +167,11 @@ fn execute_or_reuse(
         if cancellation.is_cancelled() {
             return cancelled_outcome(check, revision, Instant::now());
         }
-        if VerificationCacheKey::build(check, revision).as_ref() == key.as_ref() {
+        if hit.check_id == check.id()
+            && hit.role == check.role
+            && hit.working_directory == check.working_directory_label
+            && VerificationCacheKey::build(check, revision).as_ref() == key.as_ref()
+        {
             return hit;
         }
         // Executable or inherited environment changed while reading the cache.
