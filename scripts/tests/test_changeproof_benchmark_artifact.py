@@ -238,6 +238,25 @@ class ChangeProofBenchmarkArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(BenchmarkManifestError, "distinct scanner"):
             compare_validated(left, left)
 
+    def test_signal_observation_is_bound_to_fixture_expectations(self) -> None:
+        expected = self.fixture_root / "sample/safe/expected.json"
+        expected.write_text('{"description": "safe"}', encoding="utf-8")
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        entry = data["cases"][0]
+        entry["signal_oracle"] = {"sha256": hashlib.sha256(expected.read_bytes()).hexdigest(), "expected": []}
+        for run in entry["runs"]:
+            run["signal_kinds"] = ["definitely/taint.sql"]
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        result = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        self.assertEqual(result["summary"]["signals"]["safe_cases_with_signals"], 1)
+        entry["runs"][1]["signal_kinds"] = []
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        result = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        self.assertEqual(result["summary"]["signals"]["nondeterministic_cases"], 1)
+        expected.write_text('{"description": "changed label"}', encoding="utf-8")
+        with self.assertRaisesRegex(BenchmarkManifestError, "signal oracle"):
+            validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+
 
 if __name__ == "__main__":
     unittest.main()
