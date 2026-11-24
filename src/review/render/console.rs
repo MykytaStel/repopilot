@@ -55,7 +55,7 @@ fn render_console_details(
         render_blast_radius(output, report);
         render_impact_paths(output, report);
     }
-    render_tiered_signals(output, report);
+    render_tiered_signals(output, report, options.detail);
     render_findings_group(
         output,
         "In-diff findings",
@@ -230,7 +230,7 @@ fn render_impact_route(
     true
 }
 
-fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
+fn render_tiered_signals(output: &mut String, report: &ReviewReport, detail: DetailLevel) {
     let tiered = &report.tiered_signals;
     if tiered.is_empty() {
         return;
@@ -241,7 +241,11 @@ fn render_tiered_signals(output: &mut String, report: &ReviewReport) {
         "  Where to look first in this diff \u{2014} flags, not verdicts. Open the report before merging.\n",
     );
 
-    let mut remaining = REVIEW_SIGNAL_DETAIL_LIMIT;
+    let mut remaining = if detail == DetailLevel::Full {
+        usize::MAX
+    } else {
+        REVIEW_SIGNAL_DETAIL_LIMIT
+    };
     render_tier_group(
         output,
         "Definitely sensitive",
@@ -295,7 +299,7 @@ fn render_tier_group(
     *remaining = remaining.saturating_sub(shown);
     if active.len() > shown {
         output.push_str(&format!(
-            "    ... {} additional signal(s) omitted; use JSON for the full list\n",
+            "    ... {} additional signal(s) omitted; use --detail full or JSON for the full list\n",
             active.len() - shown
         ));
     }

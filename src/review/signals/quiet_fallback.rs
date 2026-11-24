@@ -1,6 +1,8 @@
 //! Review-only candidates for changed empty catch handlers followed by a return.
 
+mod go;
 mod python;
+mod rust;
 
 use crate::audits::context::classify::helpers::is_test_file;
 use crate::review::diff::ChangedFile;
@@ -24,6 +26,12 @@ pub(crate) fn detect_quiet_fallback(
     if is_python_file(&file.path, post.language_label()) {
         return python::detect(file, post);
     }
+    if is_go_file(&file.path, post.language_label()) {
+        return go::detect(file, post);
+    }
+    if is_rust_file(&file.path, post.language_label()) {
+        return rust::detect(file, post);
+    }
     if !is_js_ts_file(&file.path, post.language_label()) {
         return Vec::new();
     }
@@ -41,6 +49,20 @@ fn is_python_file(path: &Path, label: Option<&str>) -> bool {
         .and_then(|value| value.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("py"))
         && label.is_some_and(|value| value.eq_ignore_ascii_case("python"))
+}
+
+fn is_go_file(path: &Path, label: Option<&str>) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("go"))
+        && label.is_some_and(|value| value.eq_ignore_ascii_case("go"))
+}
+
+fn is_rust_file(path: &Path, label: Option<&str>) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("rs"))
+        && label.is_some_and(|value| value.eq_ignore_ascii_case("rust"))
 }
 
 fn is_js_ts_file(path: &Path, label: Option<&str>) -> bool {

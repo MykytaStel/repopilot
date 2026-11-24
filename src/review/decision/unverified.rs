@@ -60,24 +60,58 @@ impl ReviewDecision {
     }
 }
 
-/// The reasons a summary lists under the decision. Without configured
-/// verification the setup reasons say the same thing for every change, so the
-/// evidence comes first and the setup folds into one line.
+/// The reasons a summary lists under the decision. Substantive code, signal,
+/// contract, and finding reasons come first so setup/selection boilerplate
+/// never pushes real issues past the 5-reason header cap.
 pub fn headline_reasons<'a>(report: &ReviewReport, proof: &'a ChangeProof) -> Vec<&'a str> {
     let fold_setup = !verification_configured(report);
-    let mut lines = proof
-        .reasons
-        .iter()
-        .filter(|reason| !(fold_setup && is_setup_reason(reason.code)))
-        .map(|reason| reason.message.as_str())
-        .collect::<Vec<_>>();
+    let has_specific_verification_gap = proof.reasons.iter().any(|reason| {
+        matches!(
+            reason.code,
+            ChangeProofReasonCode::RequiredVerificationUnavailable
+                | ChangeProofReasonCode::RequiredVerificationUnselected
+        )
+    });
+
+    let keep = |code: ChangeProofReasonCode| -> bool {
+        if fold_setup && is_setup_reason(code) {
+            return false;
+        }
+        if has_specific_verification_gap && code == ChangeProofReasonCode::InsufficientPolicy {
+            return false;
+        }
+        true
+    };
+
+    let mut substantive = Vec::new();
+    let mut verification_setup = Vec::new();
+    for reason in &proof.reasons {
+        if !keep(reason.code) {
+            continue;
+        }
+        if is_verification_selection_reason(reason.code) {
+            verification_setup.push(reason.message.as_str());
+        } else {
+            substantive.push(reason.message.as_str());
+        }
+    }
+    substantive.extend(verification_setup);
     if fold_setup
         && proof
             .reasons
             .iter()
             .any(|reason| is_setup_reason(reason.code))
     {
-        lines.push(NOT_VERIFIED_REASON);
+        substantive.push(NOT_VERIFIED_REASON);
     }
-    lines
+    substantive
+}
+
+fn is_verification_selection_reason(code: ChangeProofReasonCode) -> bool {
+    matches!(
+        code,
+        ChangeProofReasonCode::InsufficientPolicy
+            | ChangeProofReasonCode::RequiredVerificationUnavailable
+            | ChangeProofReasonCode::RequiredVerificationUnselected
+    )
 }

@@ -22,13 +22,15 @@ pub(super) fn mcp_bootstrap(client: McpClientArg) -> String {
     match client {
         McpClientArg::Claude => r#"{
   "registration_command": "claude mcp add repopilot -- repopilot mcp --root .",
-  "note": "Run the registration command from the repository root."
+  "plugin_install": "/plugin marketplace add MykytaStel/repopilot && /plugin install repopilot@repopilot",
+  "note": "Run the registration command from the repository root, or install the Claude Code plugin to also enable SessionStart/Stop guard hooks and the review-session skill."
 }
 "#
         .to_string(),
         McpClientArg::Codex => r#"{
   "registration_command": "codex mcp add repopilot -- repopilot mcp --root .",
-  "note": "Run the registration command from the repository root. The RepoPilot Codex plugin also registers this server."
+  "plugin_install": "codex plugin marketplace add MykytaStel/repopilot && codex plugin add repopilot@repopilot",
+  "note": "Run the registration command from the repository root, or install the RepoPilot Codex plugin to also register SessionStart/Stop guard hooks and the review-session skill."
 }
 "#
         .to_string(),

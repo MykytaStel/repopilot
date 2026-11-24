@@ -60,7 +60,10 @@ flagged=$(printf '%s\n' "$report" | awk '
   }
   /^      \}/ {
     weakened = kind ~ /^integrity\./ || kind == "behavioral.auth-check-removed" ||
-      kind == "behavioral.test-deleted-or-emptied" || kind == "taint.sql" || kind == "taint.exec"
+      kind == "behavioral.test-deleted-or-emptied" ||
+      kind == "behavioral.removed-export-still-imported" ||
+      kind ~ /^behavioral\.rust-public-/ ||
+      kind == "taint.sql" || kind == "taint.exec" || kind == "taint.path"
     if (weakened && suppressed == "false") print kind "\t" path "\t" line "\t" headline "\t" detail
   }
 ')

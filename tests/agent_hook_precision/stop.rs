@@ -145,3 +145,35 @@ fn a_configured_review_gate_does_not_disable_the_stop_hook() {
     assert_eq!(code, Some(2), "{feedback}");
     assert!(feedback.contains("focused test committed"), "{feedback}");
 }
+
+#[test]
+fn a_removed_export_still_imported_by_a_local_caller_stops_the_agent() {
+    let temp = repo(&[
+        (
+            "src/math.ts",
+            "export function sum(a: number, b: number) { return a + b; }\nexport function keep() { return 1; }\n",
+        ),
+        (
+            "src/app.ts",
+            "import { sum } from \"./math\";\nexport const total = sum(1, 2);\n",
+        ),
+    ]);
+    let root = temp.path();
+    start(root);
+    write(
+        root,
+        "src/math.ts",
+        "export function keep() { return 1; }\n",
+    );
+
+    let (code, feedback) = stop(root);
+    assert_eq!(
+        code,
+        Some(2),
+        "broken local export contract must stop the agent: {feedback}"
+    );
+    assert!(
+        feedback.contains("removed export is still imported"),
+        "{feedback}"
+    );
+}
