@@ -138,7 +138,7 @@ impl ScanCache {
         let cache_root = cache_dir(root);
         fs::create_dir_all(&cache_root)?;
 
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FILE_HASHES_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -146,7 +146,7 @@ impl ScanCache {
                 entries: self.file_hashes.values().collect(),
             },
         )?;
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FILE_ROLES_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -154,7 +154,7 @@ impl ScanCache {
                 entries: self.file_roles.values().collect(),
             },
         )?;
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FINDINGS_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -315,14 +315,21 @@ where
     serde_json::from_reader(BufReader::new(file)).ok()
 }
 
-fn write_cache<T>(path: &Path, value: &T) -> io::Result<()>
+pub(crate) fn write_cache_atomic<T>(path: &Path, value: &T) -> io::Result<()>
 where
     T: Serialize,
 {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
-    serde_json::to_writer(&mut writer, value).map_err(io::Error::other)?;
-    writer.flush()
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::other("cache path has no parent"))?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    {
+        let mut writer = BufWriter::new(temporary.as_file_mut());
+        serde_json::to_writer(&mut writer, value).map_err(io::Error::other)?;
+        writer.flush()?;
+    }
+    temporary.persist(path).map_err(|error| error.error)?;
+    Ok(())
 }
 
 fn entries_by_path<T>(entries: Vec<T>) -> BTreeMap<String, T>
