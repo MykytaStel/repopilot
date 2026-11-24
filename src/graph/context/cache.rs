@@ -26,6 +26,11 @@ pub fn load_repo_context_graph(
     config_fingerprint: &str,
 ) -> Option<RepoContextGraphLoad> {
     let load = load_repository_context_state(root, config_fingerprint)?;
+    // This compatibility API does not apply a patch. Never expose a graph
+    // built against different dirty inputs as a current cache hit.
+    if load.previous_dirty_inputs != load.current_dirty_inputs {
+        return None;
+    }
     Some(RepoContextGraphLoad {
         graph: load.state.to_compat(),
         cache_info: load.cache_info,
