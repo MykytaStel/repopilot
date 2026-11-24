@@ -468,3 +468,35 @@ fn call_explain_finding(
         state.last_review.as_deref(),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drifted_scan_cannot_publish_a_new_revision_handle() {
+        let mut state = ServerState {
+            last_scan: Some("previous scan".to_string()),
+            ..ServerState::default()
+        };
+        let call = ResolvedToolCall {
+            name: scan::TOOL_NAME.to_string(),
+            arguments: json!({}),
+            referenced: None,
+            starting_revision: "before".to_string(),
+        };
+        let response = publish_call(
+            json!(1),
+            call,
+            Ok(ToolExecution::plain(json!({"findings": []}).to_string())),
+            "after".to_string(),
+            &mut state,
+            &CancellationToken::new(),
+        );
+        let result = response.result.unwrap();
+        assert_eq!(result["isError"], true);
+        assert!(result.get("analysisHandle").is_none());
+        assert!(state.analyses.summaries().is_empty());
+        assert_eq!(state.last_scan.as_deref(), Some("previous scan"));
+    }
+}
