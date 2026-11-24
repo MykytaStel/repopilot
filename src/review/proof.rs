@@ -468,7 +468,11 @@ fn add_scope_coverage_reason(reasons: &mut Vec<ChangeProofReason>, coverage: &Pr
             ChangeProofReason::new(
                 ChangeProofReasonCode::ScopeCoverageIncomplete,
                 count,
-                "Requested files were excluded, unsupported, or not consistently accounted for, so the proof does not cover the full scope.",
+                if accounted == coverage.requested_files {
+                    "Some requested files were excluded or unsupported, so the proof does not cover the full scope."
+                } else {
+                    "Requested file coverage counts are inconsistent, so the proof does not cover the full scope."
+                },
             ),
         );
     }
