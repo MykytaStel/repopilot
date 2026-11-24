@@ -77,7 +77,11 @@ fn readiness(verdict: ReadinessVerdict, reasons: Vec<ReadinessReason>) -> MergeR
 }
 
 fn outcome(status: VerificationStatus, revision_compatible: bool) -> VerificationOutcome {
-    let revision_after = if revision_compatible { "before" } else { "after" };
+    let revision_after = if revision_compatible {
+        "before"
+    } else {
+        "after"
+    };
     VerificationOutcome {
         check_id: "unit".to_string(),
         role: VerificationRole::Test,
