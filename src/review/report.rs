@@ -1,6 +1,6 @@
-use super::blast_radius::compute_blast_radius;
+use super::blast_radius::compute_blast_radius_with_importers;
 use super::content_signals::ContentToggles;
-use super::impact::compute_impact_paths;
+use super::impact::compute_impact_paths_with_importers;
 use super::signal_pass::detect_review_signals;
 use crate::baseline::Baseline;
 use crate::baseline::{
@@ -157,17 +157,31 @@ fn classify_findings(
     impact_path_depth: usize,
 ) -> ReviewReport {
     let mut summary = baseline_report.summary;
-    let blast_radius = compute_blast_radius(&summary, &repo_root, &changed_files);
-    let impact_paths =
-        compute_impact_paths(&summary, &repo_root, &changed_files, impact_path_depth);
+    let importers = summary
+        .artifacts
+        .coupling_graph
+        .as_ref()
+        .map(|graph| composites::build_importers_by_target(graph, &repo_root));
+    let empty_importers = Default::default();
+    let importers_index = importers.as_ref().unwrap_or(&empty_importers);
+    let blast_radius =
+        compute_blast_radius_with_importers(&repo_root, &changed_files, importers_index);
+    let impact_paths = compute_impact_paths_with_importers(
+        &repo_root,
+        &changed_files,
+        impact_path_depth,
+        importers_index,
+    );
     let ownership_discovery = OwnershipIndex::discover(&repo_root);
     let ownership =
         OwnershipSummary::for_impact(&changed_files, &impact_paths, &ownership_discovery.index);
-    composites::enrich_blast_radius(
-        &mut boundary_signals,
-        summary.artifacts.coupling_graph.as_ref(),
-        &repo_root,
-    );
+    if let Some(importers) = &importers {
+        composites::enrich_blast_radius_with_importers(
+            &mut boundary_signals,
+            importers,
+            &repo_root,
+        );
+    }
     let boundary_missing_test =
         composites::missing_test_for_code_boundary(&boundary_signals, &changed_files);
 
@@ -180,11 +194,9 @@ fn classify_findings(
         &content_signals.integrity,
         &changed_files,
     );
-    tiered::enrich_blast_radius(
-        &mut tiered_signals,
-        summary.artifacts.coupling_graph.as_ref(),
-        &repo_root,
-    );
+    if let Some(importers) = &importers {
+        tiered::enrich_blast_radius_with_importers(&mut tiered_signals, importers, &repo_root);
+    }
     apply_review_feedback(&mut tiered_signals, &mut summary, &repo_root);
 
     let mut findings: Vec<ReviewFindingStatus> = summary
