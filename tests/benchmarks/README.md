@@ -22,6 +22,29 @@ python3 scripts/changeproof_benchmark.py report \
   --artifact /tmp/changeproof-benchmark.json --output /tmp/changeproof-benchmark.md
 ```
 
+### Matched version comparison (v0.29 development)
+
+Collect both artifacts with this version of the runner, the same manifest and
+fixtures, and distinct scanner binaries. Use matched release builds on the same
+host and keep the workload and machine load constant.
+
+```bash
+python3 scripts/changeproof_benchmark.py compare \
+  --baseline-artifact /tmp/changeproof-base.json \
+  --candidate-artifact /tmp/changeproof-candidate.json \
+  --output /tmp/changeproof-comparison.json
+```
+
+The collector fingerprints the executable with SHA-256 before and after the
+run. Old v1 artifacts remain readable, but comparison requires fingerprints.
+The comparison validates both artifacts against the current manifest and
+fixture/oracle hashes, identifies canonical proof changes, measured
+pass-to-fail/unavailable regressions and fail-to-pass improvements, and shows
+per-case cold/warm timing and RSS. Missing RSS remains unavailable. Timing
+deltas are descriptive, not a performance gate; proof projection parity is
+not full report parity. The corpus is controlled and does not support
+production precision or recall claims.
+
 `--scanner` is required: collection never builds a binary and therefore never
 downloads dependencies. Collection runs one cold and two warm reviews of every
 fixture. It retains only
