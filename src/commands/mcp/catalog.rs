@@ -74,9 +74,8 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
             let revision = WorkspaceRevision::capture(&state.root);
             let mut summaries = state.analyses.summaries();
             for summary in &mut summaries {
-                summary["stale"] = json!(
-                    summary["workspace_revision"].as_str() != Some(revision.id())
-                );
+                let stale = summary["workspace_revision"].as_str() != Some(revision.id());
+                summary["stale"] = json!(stale);
             }
             serde_json::to_string_pretty(&summaries).unwrap_or_else(|_| "[]".to_string())
         }
@@ -135,10 +134,23 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
         .unwrap_or_else(|_| "{}".to_string()),
         _ => return Response::error(id, -32002, format!("resource not found: {uri}")),
     };
-    Response::success(
-        id,
-        json!({ "contents": [{ "uri": uri, "mimeType": "application/json", "text": text }] }),
-    )
+    let mut result = json!({
+        "contents": [{"uri": uri, "mimeType": "application/json", "text": text}]
+    });
+    let source_revision = match uri {
+        "repopilot://last-scan" => state.last_scan_revision.as_deref(),
+        "repopilot://last-review" => state.last_review_revision.as_deref(),
+        _ => None,
+    };
+    if let Some(source) = source_revision {
+        let current = WorkspaceRevision::capture(&state.root);
+        result["_meta"] = json!({
+            "sourceWorkspaceRevision": source,
+            "workspaceRevision": current.id(),
+            "stale": source != current.id()
+        });
+    }
+    Response::success(id, result)
 }
 
 pub(super) fn prompts_list_result() -> Value {
