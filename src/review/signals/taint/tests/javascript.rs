@@ -182,3 +182,24 @@ db.query("SELECT * FROM t WHERE id = " + id);
     assert_eq!(signals.len(), 1);
     assert_eq!(signals[0].sink, SinkKind::Sql);
 }
+
+#[test]
+fn js_array_destructuring_holes_preserve_clean_and_tainted_slots() {
+    for (clean_index, expected) in [(0, 1), (1, 0)] {
+        let code = format!(
+            "const items = req.body.items;\nitems[{clean_index}] = 'fixed';\nconst [, value] = items;\ndb.query(value);\n"
+        );
+        let signals = run("src/handler.ts", "TypeScript", &code);
+        assert_eq!(signals.len(), expected, "{code}: {signals:?}");
+    }
+}
+
+#[test]
+fn js_array_destructuring_comments_do_not_shift_indices() {
+    let signals = run(
+        "src/handler.ts",
+        "TypeScript",
+        "const items = req.body.items;\nitems[0] = 'fixed';\nconst [/* note */ value] = items;\ndb.query(value);\n",
+    );
+    assert!(signals.is_empty(), "{signals:?}");
+}
