@@ -130,9 +130,18 @@ impl RepoContextGraph {
             .map(|file| file.path.clone())
             .collect::<HashSet<_>>();
 
-        self.nodes.retain(|node| !removed.contains(&node.path));
+        let known_paths = self
+            .nodes
+            .iter()
+            .map(|node| node.path.clone())
+            .collect::<HashSet<_>>();
+        let patch_sources = patch_files
+            .iter()
+            .map(|file| relative_graph_path(repo_root, &file.path))
+            .collect::<HashSet<_>>();
+        let new_graph_node = patch_sources.iter().any(|path| !known_paths.contains(path));
         self.nodes
-            .retain(|node| !patch_files.iter().any(|file| file.path == node.path));
+            .retain(|node| !removed.contains(&node.path) && !patch_sources.contains(&node.path));
         self.nodes.extend(patch_files.iter().map(|file| {
             RepoContextNode::from_file(
                 file,
@@ -150,7 +159,7 @@ impl RepoContextGraph {
                 ChangeStatus::Added | ChangeStatus::Deleted | ChangeStatus::Renamed
             )
         });
-        if known_file_set_changed {
+        if known_file_set_changed || new_graph_node {
             let files = self
                 .nodes
                 .iter()
@@ -161,11 +170,6 @@ impl RepoContextGraph {
             self.deferred_edges = deferred_edges;
             return;
         }
-
-        let patch_sources = patch_files
-            .iter()
-            .map(|file| relative_graph_path(repo_root, &file.path))
-            .collect::<HashSet<_>>();
 
         remove_edge_sources_and_targets(&mut self.edges, &removed, &patch_sources);
         remove_edge_sources_and_targets(&mut self.deferred_edges, &removed, &patch_sources);
