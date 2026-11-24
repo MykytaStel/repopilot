@@ -86,7 +86,15 @@ def _validate_header(artifact: dict[str, object], corpus: str, manifest_path: Pa
     if artifact.get("manifest_sha256") != hashlib.sha256(manifest_path.read_bytes()).hexdigest():
         raise BenchmarkManifestError("benchmark artifact manifest_sha256 does not match manifest")
     scanner = _object(artifact.get("scanner"), "benchmark artifact scanner")
-    _exact_fields(scanner, SCANNER_FIELDS, "benchmark artifact scanner")
+    # Historical v1 artifacts predate executable fingerprints. They remain
+    # readable, but matched comparisons require the new identity field.
+    if set(scanner) not in (SCANNER_FIELDS, SCANNER_FIELDS | {"binary_sha256"}):
+        raise BenchmarkManifestError("benchmark artifact scanner fields are invalid")
+    if "binary_sha256" in scanner and (
+        not isinstance(scanner["binary_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", scanner["binary_sha256"])
+    ):
+        raise BenchmarkManifestError("benchmark artifact scanner binary_sha256 is invalid")
     if scanner["mode"] not in {"explicit", "workspace"}:
         raise BenchmarkManifestError("benchmark artifact scanner mode is invalid")
     if not isinstance(scanner["version"], str) or not SEMVER.fullmatch(scanner["version"]):
