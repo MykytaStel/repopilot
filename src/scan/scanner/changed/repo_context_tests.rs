@@ -410,11 +410,7 @@ fn scoped_review_cannot_reuse_stale_outside_scope_imports() {
     );
 
     // The Git status code and path remain identical, but the bytes change.
-    write(
-        root,
-        "src/a.ts",
-        "import { value } from './consumer';\n",
-    );
+    write(root, "src/a.ts", "import { value } from './consumer';\n");
     let edited_again = working_scan(&scope);
     assert!(!has_edge(&edited_again, "src/a.ts", "src/b.ts"));
     assert!(has_edge(&edited_again, "src/a.ts", "src/consumer.ts"));
