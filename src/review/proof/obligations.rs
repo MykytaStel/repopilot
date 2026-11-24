@@ -320,7 +320,7 @@ mod tests {
                 std::slice::from_ref(&first),
                 &selected,
                 role,
-                Some("current")
+                Some("current"),
             ),
             ProofObligationStatus::Unavailable
         );
@@ -329,7 +329,7 @@ mod tests {
                 &[first.clone(), second.clone()],
                 &selected,
                 role,
-                Some("current")
+                Some("current"),
             ),
             ProofObligationStatus::Satisfied
         );
@@ -338,7 +338,7 @@ mod tests {
                 &[first.clone(), first, second],
                 &selected,
                 role,
-                Some("current")
+                Some("current"),
             ),
             ProofObligationStatus::Unavailable
         );
@@ -357,7 +357,7 @@ mod tests {
                 &[outcome],
                 &["unit"],
                 VerificationRole::Test,
-                Some("current")
+                Some("current"),
             ),
             ProofObligationStatus::Unavailable
         );
