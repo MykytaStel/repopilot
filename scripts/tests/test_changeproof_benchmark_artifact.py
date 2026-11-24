@@ -199,6 +199,16 @@ class ChangeProofBenchmarkArtifactTests(unittest.TestCase):
         with self.assertRaisesRegex(BenchmarkManifestError, "evaluation does not match"):
             validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
 
+    def test_validation_checks_optional_binary_fingerprint(self) -> None:
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        data["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        data["scanner"]["binary_sha256"] = "not-a-hash"
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(BenchmarkManifestError, "binary_sha256"):
+            validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+
 
 if __name__ == "__main__":
     unittest.main()
