@@ -18,6 +18,7 @@ from changeproof_benchmark_contract import (
     rationale_sha256,
     validate_manifest,
 )
+from changeproof_benchmark_signals import normalize_signal_kinds, signal_oracle
 from changeproof_benchmark_proof import evaluate_case, normalize_change_proof, normalized_proof_sha256
 from differential_resource import execute_timed_command
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
@@ -77,6 +78,7 @@ def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_
         "fixture": case.fixture,
         "variant": case.variant,
         "fixture_source_sha256": source_hash,
+        **({"signal_oracle": signal_oracle(case, fixture_root)} if all("signal_kinds" in run for run in runs) else {}),
         "oracle": read_oracle(case, fixture_root),
         "runs": runs,
         "proof_semantic_hashes": hashes,
@@ -138,6 +140,7 @@ def run_review(
         "proof": normalized_proof,
         "proof_semantic_sha256": normalized_proof_sha256(normalized_proof),
         "evaluation": evaluate_case(case, report),
+        "signal_kinds": normalize_signal_kinds(report),
     }
 
 
