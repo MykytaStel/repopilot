@@ -39,6 +39,7 @@ pub fn definition() -> Value {
                     "description": "\"full\" scans every file under `path`; \"changed\" scans only changed files (against HEAD, or against `base` when given) and skips repository-level rules."
                 },
                 "base": { "type": "string", "description": "Base Git ref for \"changed\" scope, e.g. \"origin/main\": scans files changed between base and HEAD. Without it, \"changed\" means changed against HEAD, including untracked files." },
+                "analysis_handle": { "type": "string", "description": "Optional handle from a prior scan in this session. Use only with offset and limit to read another page without rescanning." },
                 "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
                 "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
                 "filters": {
