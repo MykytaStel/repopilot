@@ -1,5 +1,6 @@
 use super::{
     cancelled_outcome, execute_check, execute_check_with_pinned_identity, skipped_outcome,
+    stale_outcome,
 };
 use crate::scan::session::WorkspaceRevision;
 use crate::verification::cache::{VerificationCache, VerificationCacheKey};
@@ -80,7 +81,7 @@ fn run_checks_observed_cached_inner(
             revision_changed,
             enforce_identity,
         );
-        revision_changed = !outcome.revision_compatible;
+        revision_changed |= !outcome.revision_compatible;
         observer(VerificationExecutionEvent::Completed {
             check_id: check.id().to_string(),
             index,
@@ -138,6 +139,10 @@ fn execute_or_reuse(
     if cancellation.is_cancelled() {
         return cancelled_outcome(check, revision, Instant::now());
     }
+    let current = WorkspaceRevision::capture(&check.workspace_root);
+    if &current != revision {
+        return stale_outcome(check, revision, &current);
+    }
     let key = cache
         .filter(|_| check.cache_enabled())
         .and_then(|_| VerificationCacheKey::build(check, revision));
@@ -155,11 +160,18 @@ fn execute_or_reuse(
                 true,
             );
         }
-        return if cancellation.is_cancelled() {
-            cancelled_outcome(check, revision, Instant::now())
-        } else {
-            hit
-        };
+        let current = WorkspaceRevision::capture(&check.workspace_root);
+        if &current != revision {
+            return stale_outcome(check, revision, &current);
+        }
+        if cancellation.is_cancelled() {
+            return cancelled_outcome(check, revision, Instant::now());
+        }
+        if VerificationCacheKey::build(check, revision).as_ref() == key.as_ref() {
+            return hit;
+        }
+        // Executable or inherited environment changed while reading the cache.
+        // Execute again rather than trusting the earlier key.
     }
     let outcome = if enforce_identity {
         execute_check_with_pinned_identity(check, revision, cancellation)
@@ -168,6 +180,8 @@ fn execute_or_reuse(
     };
     if !cancellation.is_cancelled()
         && let (Some(cache), Some(key)) = (cache, key.as_ref())
+        && outcome.revision_compatible
+        && VerificationCacheKey::build(check, revision).as_ref() == Some(key)
     {
         cache.store(key, &outcome);
     }
