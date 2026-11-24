@@ -315,6 +315,20 @@ mod tests {
     }
 
     #[test]
+    fn oversized_report_does_not_evict_previous_analysis() {
+        let mut store = AnalysisStore::default();
+        let first = store.publish(AnalysisKind::Scan, "report".to_string(), "r1");
+        let oversized = "x".repeat(MAX_STORED_REPORT_BYTES + 1);
+        assert!(
+            store
+                .try_publish(AnalysisKind::Review, oversized, "r2")
+                .is_none()
+        );
+        assert!(store.get(&first).is_some());
+        assert_eq!(store.retained_bytes(), 6);
+    }
+
+    #[test]
     fn cloned_record_shares_report_allocation() {
         let mut store = AnalysisStore::default();
         let handle = store.publish(AnalysisKind::Scan, "report".to_string(), "r1");
