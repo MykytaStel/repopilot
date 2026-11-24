@@ -11,6 +11,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from changeproof_benchmark_proof import BenchmarkProofError
 from changeproof_benchmark_runner import collect_benchmark  # noqa: E402
 
 
@@ -126,6 +127,13 @@ class ChangeProofBenchmarkRunnerTests(unittest.TestCase):
             "changeproof_benchmark_runner.run_review", side_effect=replaced
         ):
             with self.assertRaisesRegex(ValueError, "binary changed during collection"):
+                collect_benchmark(self.root, self.manifest, self.fixture_root, "repopilot", timeout_seconds=30)
+
+    def test_collection_error_names_case_and_phase(self) -> None:
+        with patch("changeproof_benchmark_runner.prepare_scanner", return_value=self.scanner), patch(
+            "changeproof_benchmark_runner.run_review", side_effect=BenchmarkProofError("coverage fields are invalid")
+        ):
+            with self.assertRaisesRegex(ValueError, "case sample, phase cold: coverage fields are invalid"):
                 collect_benchmark(self.root, self.manifest, self.fixture_root, "repopilot", timeout_seconds=30)
 
 
