@@ -67,9 +67,9 @@ pub(super) fn detect_unchanged_sink(
         .into_iter()
         .filter(|signal| {
             signal.line == new.sink_line
-                && !previous.iter().any(|old| {
-                    old.line == signal.line && old.sink == signal.sink
-                })
+                && !previous
+                    .iter()
+                    .any(|old| old.line == signal.line && old.sink == signal.sink)
         })
         .map(|mut signal| {
             signal.detail = format!(
@@ -122,14 +122,11 @@ fn adjacent_site<'a>(node: Node<'_>, content: &'a str, row: usize) -> Option<Sit
         .find_map(|child| adjacent_site(child, content, row))
 }
 
-fn declaration_site<'a>(
-    node: Node<'_>,
-    content: &'a str,
-    row: usize,
-) -> Option<Site<'a>> {
+fn declaration_site<'a>(node: Node<'_>, content: &'a str, row: usize) -> Option<Site<'a>> {
     if node.start_position().row != row
         || node.end_position().row != row
         || !matches!(node.parent()?.kind(), "program" | "statement_block")
+        || content.lines().nth(row)?.trim() != node.utf8_text(content.as_bytes()).ok()?.trim()
     {
         return None;
     }
@@ -173,4 +170,64 @@ fn declaration_site<'a>(
         sink_line: call.start_position().row + 1,
         sink_text: call.utf8_text(content.as_bytes()).ok()?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::review::signals::taint::SinkKind;
+    use std::path::PathBuf;
+
+    fn delta(before: &str, after: &str, line: usize) -> Vec<TaintSignal> {
+        let file = ChangedFile {
+            path: PathBuf::from("src/handler.ts"),
+            status: ChangeStatus::Modified,
+            ranges: vec![ChangedRange {
+                start: line,
+                end: line,
+            }],
+            hunks: Vec::new(),
+        };
+        let pre = ReviewSource::new(before.to_string(), Some("TypeScript".to_string()));
+        let post = ReviewSource::new(after.to_string(), Some("TypeScript".to_string()));
+        super::super::detect_taint_delta(&file, Some(&pre), Some(&post))
+    }
+
+    #[test]
+    fn new_source_reaches_an_unchanged_sink() {
+        let before = "function handler() {\n  const query = 'fixed';\n  db.query(query);\n}\n";
+        let after = before.replace("'fixed'", "req.query.id");
+        let signals = delta(before, &after, 2);
+        assert_eq!(signals.len(), 1, "{signals:?}");
+        assert_eq!(signals[0].sink, SinkKind::Sql);
+        assert_eq!(signals[0].line, 3);
+        assert!(signals[0].detail.contains("declaration change at line 2"));
+    }
+
+    #[test]
+    fn preexisting_flow_is_not_a_new_delta() {
+        let before = "const query = req.query.id;\ndb.query(query);\n";
+        let after = before.replace("req.query.id", "req.query.name");
+        assert!(delta(before, &after, 1).is_empty());
+    }
+
+    #[test]
+    fn safe_coercion_and_parameter_binding_remain_quiet() {
+        let before = "const query = 'fixed';\ndb.query(query);\n";
+        let after = before.replace("'fixed'", "Number(req.query.id)");
+        assert!(delta(before, &after, 1).is_empty());
+        let before = "const id = 'fixed';\ndb.query('SELECT $1', [id]);\n";
+        let after = before.replace("'fixed'", "req.query.id");
+        assert!(delta(before, &after, 1).is_empty());
+    }
+
+    #[test]
+    fn unrelated_or_nonadjacent_sink_is_outside_the_pilot() {
+        let before = "const id = 'fixed';\nconst query = id;\ndb.query(query);\n";
+        let after = before.replace("'fixed'", "req.query.id");
+        assert!(delta(before, &after, 1).is_empty());
+        let before = "const id = 'fixed';\ndb.query(other);\n";
+        let after = before.replace("'fixed'", "req.query.id");
+        assert!(delta(before, &after, 1).is_empty());
+    }
 }
