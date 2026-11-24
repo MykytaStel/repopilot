@@ -65,12 +65,21 @@ pub fn compute_impact_paths(
         return empty;
     };
 
+    let importers = composites::build_importers_by_target(graph, repo_root);
+    compute_impact_paths_with_importers(repo_root, changed_files, depth, &importers)
+}
+
+pub(super) fn compute_impact_paths_with_importers(
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+    depth: usize,
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) -> ImpactPaths {
     let changed_paths: BTreeSet<PathBuf> = changed_files
         .iter()
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
-    let importers_by_target = composites::build_importers_by_target(graph, repo_root);
-    let (files, all_impacted) = affected_files(&changed_paths, &importers_by_target, depth);
+    let (files, all_impacted) = affected_files(&changed_paths, importers_by_target, depth);
     ImpactPaths {
         depth,
         files,
