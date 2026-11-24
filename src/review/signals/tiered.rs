@@ -35,7 +35,7 @@ use crate::scan::types::CouplingGraph;
 use behavioral::{behavioral_confidence, behavioral_headline, behavioral_kind, behavioral_tier};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// A big diff is only called out as "noise" once it crosses both of these and
 /// nothing else was flagged.
@@ -316,7 +316,14 @@ pub fn enrich_blast_radius(
         return;
     };
     let importers = composites::build_importers_by_target(graph, repo_root);
+    enrich_blast_radius_with_importers(tiered, &importers, repo_root);
+}
 
+pub(in crate::review) fn enrich_blast_radius_with_importers(
+    tiered: &mut TieredSignals,
+    importers: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    repo_root: &Path,
+) {
     for group in [&mut tiered.definitely, &mut tiered.maybe, &mut tiered.noise] {
         for signal in group.iter_mut() {
             let impact_path = signal.target_path.as_deref().unwrap_or(&signal.path);
