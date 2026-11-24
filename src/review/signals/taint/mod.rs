@@ -25,6 +25,7 @@
 pub(crate) mod ast;
 #[cfg(test)]
 mod csharp_property_tests;
+mod delta;
 mod flow;
 mod sanitizers;
 pub(crate) mod sinks;
@@ -86,6 +87,25 @@ pub fn detect_taint(file: &ChangedFile, post_source: Option<&ReviewSource>) -> V
         }
     }
     unique
+}
+
+/// Diff-aware review entry point. The original detector remains available for
+/// callers that only have the post-change source.
+pub(crate) fn detect_taint_delta(
+    file: &ChangedFile,
+    pre_source: Option<&ReviewSource>,
+    post_source: Option<&ReviewSource>,
+) -> Vec<TaintSignal> {
+    let mut signals = detect_taint(file, post_source);
+    for signal in delta::detect_unchanged_sink(file, pre_source, post_source) {
+        if !signals
+            .iter()
+            .any(|existing| existing.line == signal.line && existing.sink == signal.sink)
+        {
+            signals.push(signal);
+        }
+    }
+    signals
 }
 
 fn is_ident_char(c: char) -> bool {
