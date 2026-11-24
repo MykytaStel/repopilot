@@ -545,21 +545,12 @@ fn implicit_cargo_binary_changes_repository_context_identity() {
     let scope = root.join("other");
     working_scan(&scope);
     let warm = working_scan(&scope);
-    assert_eq!(
-        warm.artifacts.context_graph_cache.as_ref().unwrap().status,
-        "hit"
-    );
+    let warm_cache = warm.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(warm_cache.status, "hit");
 
     write(root, "src/main.rs", "fn main() {}\n");
     let updated = working_scan(&scope);
-    assert_eq!(
-        updated
-            .artifacts
-            .context_graph_cache
-            .as_ref()
-            .unwrap()
-            .status,
-        "miss"
-    );
+    let updated_cache = updated.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(updated_cache.status, "miss");
     assert_cold_parity(root, &scope, &updated);
 }
