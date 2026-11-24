@@ -329,6 +329,17 @@ fn working_scan(path: &Path) -> crate::scan::types::ScanSummary {
         .expect("working tree changed scan")
 }
 
+fn has_edge(summary: &crate::scan::types::ScanSummary, from: &str, to: &str) -> bool {
+    summary
+        .artifacts
+        .coupling_graph
+        .as_ref()
+        .expect("context graph")
+        .edges
+        .get(Path::new(from))
+        .is_some_and(|targets| targets.contains(Path::new(to)))
+}
+
 fn assert_cold_parity(root: &Path, scope: &Path, warm: &crate::scan::types::ScanSummary) {
     fs::remove_file(crate::graph::context::context_graph_cache_path(root))
         .expect("remove context cache");
@@ -344,16 +355,10 @@ fn reverted_dirty_import_cannot_survive_in_cached_context() {
     write(root, "src/a.ts", "import { value } from './b';\n");
     write(root, "other/control.ts", "export const control = 2;\n");
     let dirty = working_scan(root);
-    assert!(
-        dirty.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
-            .contains(Path::new("src/b.ts"))
-    );
+    assert!(has_edge(&dirty, "src/a.ts", "src/b.ts"));
     git(root, &["checkout", "--", "src/a.ts"]);
     let restored = working_scan(root);
-    assert!(
-        !restored.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
-            .contains(Path::new("src/b.ts"))
-    );
+    assert!(!has_edge(&restored, "src/a.ts", "src/b.ts"));
     assert_cold_parity(root, root, &restored);
 }
 
@@ -365,17 +370,11 @@ fn untracked_target_rewires_unchanged_importer_and_removal_clears_it() {
     working_scan(root);
     write(root, "src/missing.ts", "export const value = 3;\n");
     let added = working_scan(root);
-    assert!(
-        added.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/consumer.ts")]
-            .contains(Path::new("src/missing.ts"))
-    );
+    assert!(has_edge(&added, "src/consumer.ts", "src/missing.ts"));
     assert_cold_parity(root, root, &added);
     fs::remove_file(root.join("src/missing.ts")).unwrap();
     let removed = working_scan(root);
-    assert!(
-        !removed.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/consumer.ts")]
-            .contains(Path::new("src/missing.ts"))
-    );
+    assert!(!has_edge(&removed, "src/consumer.ts", "src/missing.ts"));
     assert_cold_parity(root, root, &removed);
 }
 
@@ -388,10 +387,7 @@ fn scoped_review_cannot_reuse_stale_outside_scope_imports() {
     working_scan(&scope);
     write(root, "src/a.ts", "import { value } from './b';\n");
     let updated = working_scan(&scope);
-    assert!(
-        updated.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
-            .contains(Path::new("src/b.ts"))
-    );
+    assert!(has_edge(&updated, "src/a.ts", "src/b.ts"));
     assert_cold_parity(root, &scope, &updated);
 }
 
@@ -412,4 +408,32 @@ fn same_git_dirty_scope_still_reuses_context() {
     );
     assert_eq!(first.artifacts.coupling_graph, second.artifacts.coupling_graph);
     assert_eq!(first.artifacts.findings, second.artifacts.findings);
+}
+
+#[test]
+fn staged_rename_cannot_leave_old_target_in_cached_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let before = working_scan(root);
+    assert!(has_edge(&before, "src/a.ts", "src/b.ts"));
+    git(root, &["mv", "src/b.ts", "src/renamed.ts"]);
+    let renamed = working_scan(root);
+    assert!(!has_edge(&renamed, "src/a.ts", "src/b.ts"));
+    let graph = renamed.artifacts.coupling_graph.as_ref().unwrap();
+    assert!(!graph.nodes.contains(Path::new("src/b.ts")));
+    assert!(graph.nodes.contains(Path::new("src/renamed.ts")));
+    assert_cold_parity(root, root, &renamed);
+}
+
+#[test]
+fn dirty_manifest_requires_a_graph_wide_rebuild() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "package.json", r#"{"name":"fixture","version":"1.0.0"}"#);
+    working_scan(root);
+    let second = working_scan(root);
+    let cache = second.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(cache.status, "miss");
+    assert!(cache.reason.contains("dirty-scope-not-patchable"));
 }
