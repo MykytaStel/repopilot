@@ -242,17 +242,13 @@ fn outcome_state(
         && outcome.revision_before == outcome.revision_after
         && analysis_revision.is_none_or(|revision| outcome.revision_before == revision);
     match outcome.status {
-        VerificationStatus::Passed if revision_matches => {
-            ProofObligationStatus::Satisfied
-        }
+        VerificationStatus::Passed if revision_matches => ProofObligationStatus::Satisfied,
         VerificationStatus::Passed => ProofObligationStatus::Stale,
         VerificationStatus::Failed => ProofObligationStatus::Failed,
         VerificationStatus::TimedOut
         | VerificationStatus::Unavailable
         | VerificationStatus::Cancelled => ProofObligationStatus::Unavailable,
-        VerificationStatus::Skipped if revision_matches => {
-            ProofObligationStatus::Unavailable
-        }
+        VerificationStatus::Skipped if revision_matches => ProofObligationStatus::Unavailable,
         VerificationStatus::Skipped => ProofObligationStatus::Stale,
     }
 }
