@@ -205,12 +205,10 @@ fn annotate_historical_source(
     // Unlike an explicit handle, they can describe evidence from an old revision.
     let source = match call.name.as_str() {
         explain_review_signal::TOOL_NAME => state.last_review_revision.as_deref(),
-        explain_finding::TOOL_NAME => {
-            match call.arguments.get("source").and_then(Value::as_str) {
-                Some("last-review") => state.last_review_revision.as_deref(),
-                _ => state.last_scan_revision.as_deref(),
-            }
-        }
+        explain_finding::TOOL_NAME => match call.arguments.get("source").and_then(Value::as_str) {
+            Some("last-review") => state.last_review_revision.as_deref(),
+            _ => state.last_scan_revision.as_deref(),
+        },
         _ => return,
     };
     let source = call
@@ -228,7 +226,10 @@ fn annotate_historical_source(
         return;
     };
     object.insert("source_workspace_revision".to_string(), json!(source));
-    object.insert("source_stale".to_string(), json!(source != current_revision));
+    object.insert(
+        "source_stale".to_string(),
+        json!(source != current_revision),
+    );
     if let Ok(rendered) = serde_json::to_string_pretty(&report) {
         execution.rendered = rendered;
         execution.structured_content = Some(report);
