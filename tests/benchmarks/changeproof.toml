@@ -35,7 +35,7 @@ contracts_state = "known-empty"
 contracts = []
 capabilities_state = "unknown"
 coverage_state = "known"
-coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 1, unsupported_files = 0 }
+coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 0, unsupported_files = 0, policy_skipped_files = 1 }
 obligations_state = "unknown"
 oracle = "mutation-rationale-v1"
 oracle_state = "known"
@@ -53,7 +53,7 @@ reason_codes_state = "unknown"
 contracts_state = "unknown"
 capabilities_state = "unknown"
 coverage_state = "known"
-coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 1, unsupported_files = 0 }
+coverage = { scope = "changed", requested_files = 2, analyzed_files = 1, excluded_files = 0, unsupported_files = 0, policy_skipped_files = 1 }
 obligations_state = "unknown"
 oracle = "mutation-rationale-v1"
 oracle_state = "known"
