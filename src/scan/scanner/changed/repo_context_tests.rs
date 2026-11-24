@@ -393,6 +393,32 @@ fn scoped_review_cannot_reuse_stale_outside_scope_imports() {
     let updated = working_scan(&scope);
     assert!(has_edge(&updated, "src/a.ts", "src/b.ts"));
     assert_cold_parity(root, &scope, &updated);
+
+    let reused = working_scan(&scope);
+    assert_eq!(
+        reused
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .unwrap()
+            .status,
+        "hit"
+    );
+    assert_eq!(
+        updated.artifacts.coupling_graph,
+        reused.artifacts.coupling_graph
+    );
+
+    // The Git status code and path remain identical, but the bytes change.
+    write(
+        root,
+        "src/a.ts",
+        "import { value } from './consumer';\n",
+    );
+    let edited_again = working_scan(&scope);
+    assert!(!has_edge(&edited_again, "src/a.ts", "src/b.ts"));
+    assert!(has_edge(&edited_again, "src/a.ts", "src/consumer.ts"));
+    assert_cold_parity(root, &scope, &edited_again);
 }
 
 #[test]
