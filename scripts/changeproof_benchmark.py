@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from changeproof_benchmark_artifact import render_report, validate_artifact, validate_artifact_file
+from changeproof_benchmark_compare import compare_validated
 from changeproof_benchmark_contract import BenchmarkManifestError, PROTOCOL, validate_manifest
 from changeproof_benchmark_proof import BenchmarkProofError
 from changeproof_benchmark_runner import collect_benchmark
@@ -16,16 +17,23 @@ from changeproof_benchmark_runner import collect_benchmark
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("check", "collect", "validate-result", "report"), default="check")
+    parser.add_argument("command", nargs="?", choices=("check", "collect", "validate-result", "report", "compare"), default="check")
     parser.add_argument("--manifest", type=Path, default=Path("tests/benchmarks/changeproof.toml"))
     parser.add_argument("--fixture-root", type=Path, default=Path("tests/fixtures/review-zoo"))
     parser.add_argument("--artifact", type=Path)
+    parser.add_argument("--baseline-artifact", type=Path)
+    parser.add_argument("--candidate-artifact", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--scanner")
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args(argv)
+    if args.command == "compare" and (
+        args.baseline_artifact is None or args.candidate_artifact is None or args.output is None
+    ):
+        print("--baseline-artifact, --candidate-artifact and --output are required for compare", file=sys.stderr)
+        return 2
     if args.command == "collect" and args.output is None:
         print("--output is required for collect", file=sys.stderr)
         return 2
@@ -51,6 +59,14 @@ def main(argv: list[str] | None = None) -> int:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print(f"ChangeProof benchmark artifact: {args.output} ({len(artifact['cases'])} cases)")
+            return 0
+        if args.command == "compare":
+            baseline = validate_artifact_file(args.baseline_artifact, args.manifest, args.fixture_root)
+            candidate = validate_artifact_file(args.candidate_artifact, args.manifest, args.fixture_root)
+            comparison = compare_validated(baseline, candidate)
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(comparison, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            print(f"ChangeProof comparison: {args.output} ({len(comparison['regressions'])} regressions)")
             return 0
         validated = validate_artifact_file(args.artifact, args.manifest, args.fixture_root)
         if args.command == "validate-result":
