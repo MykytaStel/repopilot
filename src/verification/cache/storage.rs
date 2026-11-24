@@ -5,12 +5,10 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use std::time::SystemTime;
 
 pub(super) const MAX_VALID_ENTRIES: usize = 64;
 const CACHE_DIRECTORY: &str = ".repopilot/cache/verification/v1";
-static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone)]
 pub(crate) struct VerificationCache {
@@ -62,18 +60,8 @@ impl VerificationCache {
             key: key.as_str().to_string(),
             outcome: stored_outcome,
         };
-        let Ok(bytes) = serde_json::to_vec(&entry) else {
-            return;
-        };
-        let temporary = temporary_file(&directory, key);
-        if fs::write(&temporary, bytes).is_err() {
-            let _ = fs::remove_file(&temporary);
-            return;
-        }
-        if fs::rename(&temporary, cache_file(&self.root, key)).is_ok() {
+        if crate::scan::cache::write_cache_atomic(&cache_file(&self.root, key), &entry).is_ok() {
             prune(&directory);
-        } else {
-            let _ = fs::remove_file(&temporary);
         }
     }
 }
@@ -93,6 +81,7 @@ fn valid_entry(
 
 fn reusable_outcome(outcome: &VerificationOutcome) -> bool {
     outcome.status == VerificationStatus::Passed
+        && outcome.exit_code == Some(0)
         && outcome.revision_compatible
         && outcome.revision_before == outcome.revision_after
 }
@@ -103,16 +92,6 @@ fn cache_directory(root: &Path) -> PathBuf {
 
 fn cache_file(root: &Path, key: &VerificationCacheKey) -> PathBuf {
     cache_directory(root).join(format!("{}.json", key.as_str()))
-}
-
-fn temporary_file(directory: &Path, key: &VerificationCacheKey) -> PathBuf {
-    let counter = TEMP_COUNTER.fetch_add(1, AtomicOrdering::Relaxed);
-    directory.join(format!(
-        "{}.{}.{}.json.tmp",
-        key.as_str(),
-        std::process::id(),
-        counter
-    ))
 }
 
 fn prune(directory: &Path) {
