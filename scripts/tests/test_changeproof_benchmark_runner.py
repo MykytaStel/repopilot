@@ -73,7 +73,10 @@ class ChangeProofBenchmarkRunnerTests(unittest.TestCase):
         self.fixture_root = self.root / "review-zoo"
         write_fixture(self.fixture_root)
         self.manifest = write_manifest(self.root)
+        self.binary = self.root / "scanner"
+        self.binary.write_bytes(b"scanner-build-a")
         self.scanner = SimpleNamespace(
+            binary=self.binary,
             mode="explicit",
             command=("repopilot",),
             version="0.22.0",
@@ -95,6 +98,7 @@ class ChangeProofBenchmarkRunnerTests(unittest.TestCase):
 
         self.assertEqual([item["phase"] for item in artifact["cases"][0]["runs"]], ["cold", "warm", "warm"])
         self.assertEqual(mocked.call_count, 3)
+        self.assertEqual(artifact["scanner"]["binary_sha256"], __import__("hashlib").sha256(self.binary.read_bytes()).hexdigest())
         self.assertTrue(artifact["cases"][0]["deterministic"])
         self.assertEqual(artifact["manifest_sha256"], __import__("hashlib").sha256(self.manifest.read_bytes()).hexdigest())
 
@@ -112,6 +116,17 @@ class ChangeProofBenchmarkRunnerTests(unittest.TestCase):
             with self.assertRaisesRegex(Exception, "--scanner is required"):
                 collect_benchmark(self.root, self.manifest, self.fixture_root, "", timeout_seconds=30)
         prepare.assert_not_called()
+
+    def test_collect_rejects_executable_replaced_during_run(self) -> None:
+        def replaced(*args):
+            self.binary.write_bytes(b"scanner-build-b")
+            return run("a" * 64)
+
+        with patch("changeproof_benchmark_runner.prepare_scanner", return_value=self.scanner), patch(
+            "changeproof_benchmark_runner.run_review", side_effect=replaced
+        ):
+            with self.assertRaisesRegex(ValueError, "binary changed during collection"):
+                collect_benchmark(self.root, self.manifest, self.fixture_root, "repopilot", timeout_seconds=30)
 
 
 if __name__ == "__main__":
