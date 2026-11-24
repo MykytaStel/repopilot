@@ -47,19 +47,20 @@ impl AnalysisStore {
         analysis_handle(kind, report, workspace_revision)
     }
 
-    pub fn publish(
+    pub fn try_publish(
         &mut self,
         kind: AnalysisKind,
         report: String,
         workspace_revision: &str,
-    ) -> String {
-        // The publication layer checks this limit before advertising a handle.
-        assert!(Self::can_store(&report), "report exceeds retention budget");
+    ) -> Option<String> {
+        if !Self::can_store(&report) {
+            return None;
+        }
         let handle = self.prospective_handle(kind, &report, workspace_revision);
         if self.records.contains_key(&handle) {
             self.order.retain(|existing| existing != &handle);
             self.order.push_back(handle.clone());
-            return handle;
+            return Some(handle);
         }
         let report_bytes = report.len();
         while self.order.len() >= MAX_STORED_ANALYSES
@@ -82,7 +83,18 @@ impl AnalysisStore {
                 workspace_revision: workspace_revision.to_string(),
             },
         );
-        handle
+        Some(handle)
+    }
+
+    #[cfg(test)]
+    pub fn publish(
+        &mut self,
+        kind: AnalysisKind,
+        report: String,
+        workspace_revision: &str,
+    ) -> String {
+        self.try_publish(kind, report, workspace_revision)
+            .expect("test report fits retention budget")
     }
 
     pub fn can_store(report: &str) -> bool {
