@@ -1,5 +1,5 @@
-use sha2::{Digest, Sha256};
 use crate::path_security::RootConfinement;
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
