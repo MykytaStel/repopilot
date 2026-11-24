@@ -232,7 +232,7 @@ fn dispatch_tool(
             dispatch_review(arguments, referenced, cancellation, observer, approve)
         }
         scan::TOOL_NAME => match referenced {
-            Some(record) => Ok(ToolExecution::plain(record.report.clone())),
+            Some(record) => Ok(ToolExecution::plain(record.report.as_ref().clone())),
             None => scan::call(arguments)
                 .map(ToolExecution::plain)
                 .map_err(DispatchError::Message),
@@ -260,7 +260,7 @@ fn dispatch_review(
 ) -> Result<ToolExecution, DispatchError> {
     if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
         return Ok(ToolExecution {
-            rendered: record.report.clone(),
+            rendered: record.report.as_ref().clone(),
             structured_content: None,
             review_revision: Some(ReviewRevision {
                 analysis_revision: record.workspace_revision.clone(),
@@ -400,6 +400,9 @@ fn referenced_analysis(
             "analysis handle {handle} belongs to workspace revision {}; current revision is {workspace_revision}",
             record.workspace_revision
         ));
+    }
+    if name == explain_review_signal::TOOL_NAME && record.kind != AnalysisKind::Review {
+        return Err("`analysis_handle` must refer to a prior review".into());
     }
     if name == scan::TOOL_NAME {
         if record.kind != AnalysisKind::Scan {
