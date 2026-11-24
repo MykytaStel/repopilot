@@ -1,6 +1,6 @@
 {
   "name": "repopilot",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "description": "Snapshot each session and review what the agent changed before it finishes: skipped, removed, or weakened tests, broken local callers, new suppressions, relaxed CI gates, and risky SQL/shell/path flows. Requires the repopilot CLI.",
   "mcpServers": {
     "repopilot": {

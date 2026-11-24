@@ -31,6 +31,6 @@ needed.
 
 - [Product design](product-design.md)
 - [Roadmap](roadmap.md)
-- [Latest stable release notes](releases/v0.27.0.md)
+- [Latest stable release notes](releases/v0.28.0.md)
 - [Previous 0.23 release notes](releases/v0.23.0.md)
 - [Maintainer and engineering documentation](engineering/README.md)

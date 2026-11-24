@@ -76,6 +76,26 @@ fn empty_review_omits_redundant_changed_areas_and_detail_hint() {
     assert!(!output.contains("Rerun with --detail full"));
 }
 
+#[test]
+fn default_console_shows_inline_blast_radius_preview_when_dependents_exist() {
+    let mut report = report_with_changed_files();
+    report.blast_radius = vec![
+        PathBuf::from("src/app.rs"),
+        PathBuf::from("src/cli.rs"),
+        PathBuf::from("src/main.rs"),
+        PathBuf::from("src/server.rs"),
+    ];
+
+    let output = render_console(&report, DetailLevel::Findings);
+
+    assert!(
+        output.contains(
+            "Blast radius: 4 dependent file(s) (src/app.rs, src/cli.rs, src/main.rs, +1 more; --detail full for routes)"
+        ),
+        "{output}"
+    );
+}
+
 fn render_console(report: &ReviewReport, detail: DetailLevel) -> String {
     render_with_options(report, OutputFormat::Console, None, None, options(detail))
         .expect("console review should render")

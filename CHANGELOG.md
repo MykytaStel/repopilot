@@ -6,30 +6,65 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-24
+
 ### Added
 
 - Review follows changed Python assertion helpers through unique module imports
   and Go helpers through same-package calls in unchanged tests. It reports the
   affected test and the called helper's declaration line.
+- Test-integrity review detects early zero-exit calls (`sys.exit(0)`,
+  `os._exit(0)`, `process.exit(0)`, `os.Exit(0)`, and `std::process::exit(0)`)
+  inside Python, JavaScript/TypeScript, Go, and Rust test functions that bypass
+  later assertions.
 - Taint review follows one direct same-file helper call in JavaScript,
   TypeScript, Python, and Go, including simple identity returns and caller-side
   aliases when the target and value flow are unambiguous. Python keyword
-  arguments bind by name. A changed call can
-  surface its unchanged helper sink with both locations in the evidence.
-  Recognized literal argv calls preserve separate arguments; explicit shell
-  execution, including combined flags such as `bash -lc`, remains a sink.
-  Unknown calls retain taint on their arguments.
+  arguments bind by name. A changed call can surface its unchanged helper sink
+  with both locations in the evidence. Recognized literal argv calls preserve
+  separate arguments; explicit shell execution, including combined flags such as
+  `bash -lc`, remains a sink. Unknown calls retain taint on their arguments.
 - Local quoted C/C++ includes contribute bounded static dependency and impact
   edges. Includes inside conditional-compilation branches, system includes,
   macros, and compiler search paths remain unresolved.
 - Rust API review detects removed public enum variants used by surviving
   module-qualified or uniquely imported constructors and match patterns in the
   repository, with declaration and caller locations in the review evidence.
+- Quiet-fallback review now detects Go empty `if err != nil {}` branches and
+  Rust ignored `Err(_) => {}` arms or `let _ = ...` calls on fallible operations
+  alongside JavaScript/TypeScript and Python.
+- `repopilot init` suggests `rust.build` (`cargo check --all-targets`) and
+  `go.build` (`go build ./...`) verification checks when `Cargo.toml` or
+  `go.mod` is present.
+- Default console `repopilot review` output shows an inline blast-radius preview
+  of dependent files on the first screen and prints a direct
+  `repopilot review --explain-signal <id>` hint for the top review signal.
 
 ### Changed
 
+- Claude Code, Codex, and Cursor stop-hooks now block on new taint paths
+  (`taint.path`) and broken local API contracts
+  (`behavioral.removed-export-still-imported`, `behavioral.rust-public-*`) in
+  addition to weakened test checks and quiet fallbacks.
+- `repopilot review --detail full` now renders all retained review signals
+  without a 20-signal truncation cap, and orders substantive finding/signal
+  reasons ahead of verification-selection reminders.
+- Proof-policy and verification obligation next actions now print concrete
+  `--verify <id>` commands or `repopilot.toml` configuration guidance.
 - Use the maintained Jiff library for UTC timestamps and expiry dates. Existing
   JSON timestamps and date configuration keep their formats.
+
+### Fixed
+
+- Dependencies already declared in `Cargo.toml`, `package.json`, or `go.mod` and
+  Rust scoped `pub(crate)` / `pub(super)` / `pub(in ...)` re-exports no longer
+  emit false `dependency import added` behavioral signals across edited files.
+- MCP `resources/read` requests for `repopilot://last-scan` and
+  `repopilot://last-review` now return JSON-RPC error `-32002` with clear
+  guidance before a scan or review has run instead of an empty string payload.
+- Console review output no longer duplicates `In-diff findings: 0` or prints
+  noisy `Changed areas: None` lines on an empty working tree, and new functions
+  in algorithmic signals are labeled accurately instead of `was 0`.
 
 ## [0.27.0] - 2026-11-11
 

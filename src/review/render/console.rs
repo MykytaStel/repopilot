@@ -264,6 +264,17 @@ fn render_tiered_signals(output: &mut String, report: &ReviewReport, detail: Det
             "  Taint signals trace input \u{2192} sink reachability \u{2014} a path exists, not a confirmed vulnerability. Verify before acting.\n",
         );
     }
+    if let Some(top_signal) = tiered
+        .definitely
+        .iter()
+        .chain(&tiered.maybe)
+        .find(|signal| !signal.suppressed && !signal.signal_id.is_empty())
+    {
+        output.push_str(&format!(
+            "  Explain top signal: repopilot review --explain-signal {}\n",
+            top_signal.signal_id
+        ));
+    }
 }
 
 fn render_tier_group(

@@ -4,34 +4,26 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
-## Current: 0.27 — language analysis and review evidence
+## Current: 0.28 — cross-file test integrity, local-helper taint, and four-language agent guards
 
-RepoPilot 0.27.0 extends bounded code analysis across Rust, JS/TS, Python, Go,
-C#, Java and Kotlin; adds CLI signal explanation, paged MCP review continuation,
-and static-import impact routes; and fixes a reproduced authorization-signal
-false positive. The JSON report schema advances to 0.27 with additive impact
-routes. See the [0.27 roadmap](roadmap/v0.27.md), [release notes](releases/v0.27.0.md),
-and [evidence ledger](engineering/v0.27-evidence-ledger.md).
+RepoPilot 0.28.0 adds Python and Go cross-file test-integrity analysis, early
+`exit(0)` test short-circuit detection, one-boundary local-helper taint flows in
+JS/TS, Python, and Go, repository-local C/C++ include impact edges, Rust public
+enum-variant removal contracts, and Go/Rust quiet-fallback detection. It also
+hardens Claude Code, Codex, and Cursor stop-hooks and refines the default
+console review UX. See the [0.28 roadmap](roadmap/v0.28.md),
+[release notes](releases/v0.28.0.md), and
+[evidence ledger](engineering/v0.28-evidence-ledger.md).
 
 The stable `v0.27.0` release is published on GitHub Releases, crates.io, npm,
 and Homebrew (2026-11-11). The automatic Homebrew update step used an invalid
 credential; the tap formula was updated manually and the public-channel
-verifier then passed. See the evidence ledger for details.
+verifier then passed. See the [0.27 release notes](releases/v0.27.0.md) and
+[0.27 evidence ledger](engineering/v0.27-evidence-ledger.md).
 
 The 0.26 release is published on GitHub Releases (2026-11-02); the exact
 publication status of its other package channels was not re-established in the
 0.27 audit. See the [0.26 release record](roadmap/v0.26.md).
-
-## Approved scope — next release 0.28.0
-
-The approved scope contains four substantial analysis slices: cross-file test
-integrity for Python and Go, bounded local-helper taint flows in JS/TS, Python,
-and Go, repository-local C/C++ include impact, and Rust public enum-variant
-contracts. It also sets first-use, real-client, quality, performance, and
-publication gates. The scope is approved and implementation is underway; it
-does not describe shipped behavior. See the [0.28 roadmap](roadmap/v0.28.md),
-[baseline audit](engineering/v0.28-audit-draft.md), and
-[evidence ledger](engineering/v0.28-evidence-ledger.md).
 
 ## 0.25 — released
 
@@ -143,6 +135,11 @@ local fixtures and benchmarks do not close those evidence rows.
 
 ## Released
 
+- **0.28.0 — Cross-file test integrity, local-helper taint, and four-language agent guards:**
+  Python and Go cross-file test-integrity analysis, early `exit(0)` test
+  short-circuit detection, one-boundary local-helper taint in JS/TS, Python, and
+  Go, repository-local C/C++ include impact, Rust public enum-variant contracts,
+  and Go/Rust quiet-fallback detection. [Release notes](releases/v0.28.0.md)
 - **0.27.0 — Language analysis and review evidence:** broader bounded analysis
   across seven language families, CLI signal replay, revision-checked MCP
   paging, and deterministic impact routes. Published on GitHub Releases,
