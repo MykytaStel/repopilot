@@ -11,6 +11,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from changeproof_benchmark_compare import compare_validated  # noqa: E402
 from changeproof_benchmark_artifact import (  # noqa: E402
     render_report,
     validate_artifact_file,
@@ -208,6 +209,34 @@ class ChangeProofBenchmarkArtifactTests(unittest.TestCase):
         self.artifact.write_text(json.dumps(data), encoding="utf-8")
         with self.assertRaisesRegex(BenchmarkManifestError, "binary_sha256"):
             validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+
+    def test_matched_comparison_reports_regression_and_phase_delta(self) -> None:
+        baseline = json.loads(self.artifact.read_text(encoding="utf-8"))
+        baseline["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(baseline), encoding="utf-8")
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        candidate = json.loads(write_artifact(self.root, self.manifest, observed_verdict="VERIFIED").read_text(encoding="utf-8"))
+        candidate["scanner"]["binary_sha256"] = "b" * 64
+        for run in candidate["cases"][0]["runs"]:
+            run["wall_ms"] = 2.0
+        self.artifact.write_text(json.dumps(candidate), encoding="utf-8")
+        right = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        result = compare_validated(left, right)
+        self.assertEqual(result["semantic_changed"], 1)
+        self.assertEqual(result["candidate_false_certainty"], 1)
+        self.assertEqual(result["regressions"], [{"id": "sample", "dimension": "decision", "baseline": "pass", "candidate": "fail"}])
+        self.assertEqual(result["cases"][0]["resources"]["warm"]["wall_ms_delta_pct"], 100.0)
+
+    def test_comparison_requires_fingerprints_and_distinct_binaries(self) -> None:
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        with self.assertRaisesRegex(BenchmarkManifestError, "binary_sha256"):
+            compare_validated(left, left)
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        data["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        with self.assertRaisesRegex(BenchmarkManifestError, "distinct scanner"):
+            compare_validated(left, left)
 
 
 if __name__ == "__main__":
