@@ -149,8 +149,8 @@ impl<'a> ChangedScanEngine<'a> {
 
         let lookup_start = Instant::now();
         let executable = path_in_executable_package(&absolute_path, roots);
-        let fingerprint =
-            stable_hash_hex(format!("{fingerprint}:executable={executable}").as_bytes());
+        let context_key = format!("{fingerprint}:executable={executable}");
+        let fingerprint = stable_hash_hex(context_key.as_bytes());
         let decision = cache_decision(
             cache.file_roles.get(&cache_path),
             cache.findings.get(&cache_path),
