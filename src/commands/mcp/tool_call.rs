@@ -518,6 +518,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn implicit_explanation_identifies_stale_source_revision() {
+        let state = ServerState {
+            last_review_revision: Some("old".to_string()),
+            ..ServerState::default()
+        };
+        let call = ResolvedToolCall {
+            name: explain_review_signal::TOOL_NAME.to_string(),
+            arguments: json!({}),
+            referenced: None,
+            starting_revision: "new".to_string(),
+        };
+        let mut execution = ToolExecution::plain(json!({"signal_id": "example"}).to_string());
+        annotate_historical_source(&call, &state, "new", &mut execution);
+        let report = execution.structured_content.unwrap();
+        assert_eq!(report["source_workspace_revision"], "old");
+        assert_eq!(report["source_stale"], true);
+    }
+
+    #[test]
     fn drifted_scan_cannot_publish_a_new_revision_handle() {
         let mut state = ServerState {
             last_scan: Some("previous scan".to_string()),
