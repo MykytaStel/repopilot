@@ -47,8 +47,14 @@ impl PreparedToolResult {
             &publication.workspace_revision,
         );
         match publication.kind {
-            AnalysisKind::Scan => state.last_scan = Some(publication.client_report),
-            AnalysisKind::Review => state.last_review = Some(publication.client_report),
+            AnalysisKind::Scan => {
+                state.last_scan = Some(publication.client_report);
+                state.last_scan_revision = Some(publication.workspace_revision);
+            }
+            AnalysisKind::Review => {
+                state.last_review = Some(publication.client_report);
+                state.last_review_revision = Some(publication.workspace_revision);
+            }
         }
         self.result
     }
