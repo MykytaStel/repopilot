@@ -53,9 +53,9 @@ and oracle hash; raw review output and command logs are discarded. Validation
 uses an exact schema, recomputes all hashes and dimensions, and rejects a
 nondeterministic case from every measured denominator. Claims remain
 unavailable in v1 because RepoPilot has no canonical observed-claims projection;
-an expected empty claim set is not fabricated as a pass. The first eight cases
+an expected empty claim set is not fabricated as a pass. The original eight cases
 cover authorization, behavioural network-call, and SQL-taint safe/unsafe
-changes. Delivery `LIMITED`, verification stale/unavailable, and no-op cases
+changes. The expanded v0.29 controlled manifest includes 30 cases (15 safe/unsafe pairs), reusing all existing review-zoo pairs. New collections also bind the fixture `expected.json` SHA-256 and store only sorted unique signal kind/tier identities, not paths, snippets or occurrence counts. Reports measure expected-positive kind/tier detection and safe-case alerts separately. An unsafe expectation is positive-only, so extra unsafe alerts are not automatically false positives. Missing legacy observations and nondeterministic signal runs are excluded from measured denominators. This does not establish production precision/recall or exact location matching; the Rust review-zoo tests still verify location constraints. Comparisons expose both signal summaries. Delivery `LIMITED`, verification stale/unavailable, and no-op cases
 need a confined policy-aware adapter and remain explicit gaps, not green
 coverage claims. The pinned real-history corpus below remains a separate,
 pending independent-adjudication protocol.
