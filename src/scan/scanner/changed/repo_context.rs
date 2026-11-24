@@ -39,12 +39,14 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
-            if has_unpatched_modified_file(
-                repo_root,
-                &discovery.changed_files,
-                graph_patch_files,
-                self.config.include_low_signal,
-            ) {
+            if !dirty_scope_is_patchable(&load, &discovery.changed_files)
+                || has_unpatched_modified_file(
+                    repo_root,
+                    &discovery.changed_files,
+                    graph_patch_files,
+                    self.config.include_low_signal,
+                )
+            {
                 return self.cold_repo_context(
                     discovery,
                     facts,
@@ -154,6 +156,29 @@ impl<'a> ChangedScanEngine<'a> {
         apply_graph_overlay(findings, &repo_stage.coupling_graph);
         apply_cluster_overlay(findings);
         start.elapsed().as_micros() as u64
+    }
+}
+
+/// A graph cached on a dirty worktree can contain files that are no longer
+/// in the current review (reverted, deleted untracked, or outside a pathspec).
+/// Only reuse it if every previously and currently dirty path is covered by
+/// the current patch. Non-Git resolved scopes retain their existing contract.
+fn dirty_scope_is_patchable(
+    load: &RepositoryContextStateLoad,
+    changed_files: &[crate::review::diff::ChangedFile],
+) -> bool {
+    match (&load.previous_dirty_paths, &load.current_dirty_paths) {
+        (Some(previous), Some(current)) => {
+            let scope = changed_files
+                .iter()
+                .map(|file| file.path.as_path())
+                .collect::<BTreeSet<_>>();
+            previous
+                .union(current)
+                .all(|path| scope.contains(path.as_path()))
+        }
+        (None, None) => true,
+        _ => false,
     }
 }
 
