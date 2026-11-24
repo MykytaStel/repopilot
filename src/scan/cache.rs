@@ -459,6 +459,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn atomic_cache_writers_leave_complete_json_and_no_staging_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("cache.json");
+        write_cache_atomic(&path, &vec![0; 1024]).unwrap();
+        std::thread::scope(|scope| {
+            for value in 1..=4 {
+                let path = &path;
+                scope.spawn(move || {
+                    for _ in 0..8 {
+                        write_cache_atomic(path, &vec![value; 1024]).unwrap();
+                        let observed: Vec<i32> = read_cache(path).unwrap();
+                        assert_eq!(observed.len(), 1024);
+                        assert!(observed.iter().all(|item| *item == observed[0]));
+                    }
+                });
+            }
+        });
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
+
+    #[test]
     fn file_role_cache_round_trips_role_evidence() {
         let cache = FileRolesCache {
             schema_version: CACHE_SCHEMA_VERSION,
