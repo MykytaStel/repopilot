@@ -50,6 +50,8 @@ def compare_validated(baseline: dict, candidate: dict) -> dict:
         "manifest_sha256": left["manifest_sha256"],
         "baseline_scanner": left["scanner"],
         "candidate_scanner": right["scanner"],
+        "baseline_signal_coverage": baseline["summary"].get("signals"),
+        "candidate_signal_coverage": candidate["summary"].get("signals"),
         "baseline_false_certainty": baseline["summary"]["false_certainty_cases"],
         "candidate_false_certainty": candidate["summary"]["false_certainty_cases"],
         "case_count": len(rows),
