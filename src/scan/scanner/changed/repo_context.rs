@@ -39,7 +39,8 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
-            if !dirty_scope_is_patchable(&load, &discovery.changed_files)
+            let patchable = dirty_scope_is_patchable(&load, &discovery.changed_files);
+            if !patchable
                 || has_unpatched_modified_file(
                     repo_root,
                     &discovery.changed_files,
@@ -47,14 +48,19 @@ impl<'a> ChangedScanEngine<'a> {
                     self.config.include_low_signal,
                 )
             {
-                return self.cold_repo_context(
+                let mut stage = self.cold_repo_context(
                     discovery,
                     facts,
                     graph_patch_files,
                     parsed_cache,
                     start,
                     fingerprint,
-                );
+                )?;
+                if !patchable {
+                    stage.cache_info.reason =
+                        format!("dirty-scope-not-patchable; {}", stage.cache_info.reason);
+                }
+                return Ok(stage);
             }
             return Ok(self.cached_repo_context(
                 discovery,
@@ -175,11 +181,36 @@ fn dirty_scope_is_patchable(
                 .collect::<BTreeSet<_>>();
             previous
                 .union(current)
-                .all(|path| scope.contains(path.as_path()))
+                .all(|path| scope.contains(path.as_path()) && !graph_wide_input(path))
         }
         (None, None) => true,
         _ => false,
     }
+}
+
+// These files can change the repository inventory, framework classification,
+// or the resolution of imports in files that the current diff does not touch.
+// Rebuild conservatively until their dependency fingerprints are modeled.
+fn graph_wide_input(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(
+            ".gitignore"
+                | ".ignore"
+                | ".repopilotignore"
+                | "package.json"
+                | "pnpm-workspace.yaml"
+                | "Cargo.toml"
+                | "go.mod"
+                | "go.work"
+                | "pyproject.toml"
+                | "build.gradle"
+                | "build.gradle.kts"
+                | "settings.gradle"
+                | "settings.gradle.kts"
+                | "pom.xml"
+        )
+    )
 }
 
 fn detect_repo_frameworks(repo_context: &mut ScanFacts, repo_root: &Path) {
