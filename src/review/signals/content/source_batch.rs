@@ -11,7 +11,7 @@ pub(in crate::review) fn pre_change_sources(
     changed_files: &[ChangedFile],
     toggles: &ContentToggles,
 ) -> Vec<Option<ReviewSource>> {
-    if !toggles.behavioral && !toggles.algorithmic {
+    if !toggles.behavioral && !toggles.algorithmic && !toggles.taint {
         return changed_files.iter().map(|_| None).collect();
     }
     batched_pre_change_sources(repo_root, target, changed_files)
