@@ -167,21 +167,23 @@ impl<'a> ChangedScanEngine<'a> {
 
 /// A graph cached on a dirty worktree can contain files that are no longer
 /// in the current review (reverted, deleted untracked, or outside a pathspec).
-/// Only reuse it if every previously and currently dirty path is covered by
-/// the current patch. Non-Git resolved scopes retain their existing contract.
+/// An out-of-scope dirty path may be reused only when its fingerprint is
+/// unchanged. Reverted and disappeared paths require a rebuild unless patched.
+/// Non-Git resolved scopes retain their existing contract.
 fn dirty_scope_is_patchable(
     load: &RepositoryContextStateLoad,
     changed_files: &[crate::review::diff::ChangedFile],
 ) -> bool {
-    match (&load.previous_dirty_paths, &load.current_dirty_paths) {
+    match (&load.previous_dirty_inputs, &load.current_dirty_inputs) {
         (Some(previous), Some(current)) => {
             let scope = changed_files
                 .iter()
                 .map(|file| file.path.as_path())
                 .collect::<BTreeSet<_>>();
-            previous
-                .union(current)
-                .all(|path| scope.contains(path.as_path()) && !graph_wide_input(path))
+            previous.keys().chain(current.keys()).all(|path| {
+                !graph_wide_input(path)
+                    && (scope.contains(path.as_path()) || previous.get(path) == current.get(path))
+            })
         }
         (None, None) => true,
         _ => false,
