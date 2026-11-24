@@ -88,6 +88,10 @@ fn execute_check_inner(
             true,
         );
     }
+    let current = WorkspaceRevision::capture(&check.workspace_root);
+    if &current != revision_before {
+        return stale_outcome(check, revision_before, &current);
+    }
     let mut command = command_for(check);
     let mut child = match command.spawn() {
         Ok(child) => child,
@@ -138,7 +142,7 @@ fn execute_check_inner(
 
     let stdout = join_reader(stdout);
     let stderr = join_reader(stderr);
-    let revision_after = WorkspaceRevision::capture(&check.working_directory);
+    let revision_after = WorkspaceRevision::capture(&check.workspace_root);
     let status = forced_status.unwrap_or_else(|| {
         if exit.is_some_and(|status| status.success()) {
             VerificationStatus::Passed
@@ -286,6 +290,21 @@ fn cancelled_outcome(
         reused: false,
         diagnostics: diagnostics_for_check(check, VerificationStatus::Cancelled, "", "", false),
     }
+}
+
+pub(super) fn stale_outcome(
+    check: &ValidatedCheck,
+    expected: &WorkspaceRevision,
+    observed: &WorkspaceRevision,
+) -> VerificationOutcome {
+    let mut outcome = skipped_outcome(
+        check,
+        expected,
+        "workspace revision changed before this check could run",
+        false,
+    );
+    outcome.revision_after = observed.id().to_string();
+    outcome
 }
 
 pub fn skipped_outcome(
