@@ -40,7 +40,8 @@ class ChangeProofBenchmarkCliTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertIn("changeproof-benchmark-v1", output.getvalue())
-        self.assertIn("8 cases", output.getvalue())
+        # Pin the committed corpus size so accidental fixture removal is visible.
+        self.assertIn("changeproof-v1-controlled; 30 cases)", output.getvalue())
 
     def test_collect_validates_before_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary, patch(
