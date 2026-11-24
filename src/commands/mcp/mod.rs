@@ -84,6 +84,8 @@ struct ServerState {
     initialized: bool,
     last_scan: Option<String>,
     last_review: Option<String>,
+    last_scan_revision: Option<String>,
+    last_review_revision: Option<String>,
     analyses: AnalysisStore,
     max_response_bytes: usize,
 }
@@ -98,6 +100,8 @@ impl Default for ServerState {
             initialized: false,
             last_scan: None,
             last_review: None,
+            last_scan_revision: None,
+            last_review_revision: None,
             analyses: AnalysisStore::default(),
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
         }
