@@ -16,6 +16,7 @@ from changeproof_benchmark_contract import (
     rationale_sha256,
     validate_manifest,
 )
+from changeproof_benchmark_signals import signal_oracle, summarize_signals, validate_signal_kinds
 from changeproof_benchmark_proof import BenchmarkProofError, evaluate_normalized_proof, normalized_proof_sha256, validate_normalized_proof
 
 
@@ -75,6 +76,8 @@ def render_report(validated: dict[str, object]) -> str:
         lines.append(f"| {name.title()} | {status} | {count['passed']} | {count['failed']} | {count['unavailable']} |")
     resource = _object(summary["resources"], "summary resources")
     lines.extend(["", f"Deterministic cases: {summary['deterministic_cases']}/{summary['case_count']}", f"False-certainty cases: {summary['false_certainty_cases']}", f"Wall time (ms): min {resource['wall_ms_min']}, max {resource['wall_ms_max']}", f"Peak RSS (KiB): {resource['peak_rss_kb_max'] if resource['peak_rss_kb_max'] is not None else 'unavailable'}", "", "No composite score is emitted. Unavailable dimensions have no valid denominator."])
+    signals = _object(summary["signals"], "signal summary")
+    lines.extend(["", "## Controlled signal-kind/tier coverage", "", f"Measured cases: {signals['measured_cases']}; unavailable: {signals['unavailable_cases']}; nondeterministic: {signals['nondeterministic_cases']}", f"Expected positive kinds detected: {signals['positive_detected']}/{signals['positive_expected']}", f"Safe cases with alerts: {signals['safe_cases_with_signals']}/{signals['safe_cases']}", "", "Unsafe expectations are positive-only; extra alerts on unsafe cases are not labeled false positives. This is not production precision or recall."])
     return "\n".join(lines) + "\n"
 
 
@@ -115,7 +118,7 @@ def _validate_header(artifact: dict[str, object], corpus: str, manifest_path: Pa
 
 def _validate_case(raw: object, expected: dict[str, BenchmarkCase], fixture_root: Path, seen: set[str]) -> dict[str, object]:
     value = _object(raw, "benchmark artifact case")
-    _exact_fields(value, CASE_FIELDS, "benchmark artifact case")
+    _exact_fields(value, CASE_FIELDS | ({"signal_oracle"} if "signal_oracle" in value else set()), "benchmark artifact case")
     case_id = value.get("id")
     if not isinstance(case_id, str) or case_id not in expected or case_id in seen:
         raise BenchmarkManifestError(f"benchmark artifact has unknown or duplicate case {case_id!r}")
@@ -130,18 +133,28 @@ def _validate_case(raw: object, expected: dict[str, BenchmarkCase], fixture_root
     if not isinstance(runs, list) or len(runs) != len(PHASES):
         raise BenchmarkManifestError(f"case {case_id}: requires exactly {len(PHASES)} runs")
     results = [_validate_run(run, phase, case) for phase, run in zip(PHASES, runs)]
+    oracle = None
+    signal_fields = ["signal_kinds" in run for run in results]
+    if "signal_oracle" in value:
+        oracle = signal_oracle(case, fixture_root)
+        if not _same_json_value(value["signal_oracle"], oracle) or not all(signal_fields):
+            raise BenchmarkManifestError(f"case {case_id}: signal oracle or observations do not match")
+    elif any(signal_fields):
+        raise BenchmarkManifestError(f"case {case_id}: signal observations require an oracle")
     hashes = sorted({item["proof_semantic_sha256"] for item in results})
     if value["proof_semantic_hashes"] != hashes:
         raise BenchmarkManifestError(f"case {case_id}: proof_semantic_hashes do not match runs")
     deterministic = len(hashes) == 1
     if value["deterministic"] is not deterministic:
         raise BenchmarkManifestError(f"case {case_id}: deterministic does not match runs")
-    return {"case": case, "deterministic": deterministic, "runs": results}
+    return {"case": case, "deterministic": deterministic, "runs": results, "signal_oracle": oracle}
 
 
 def _validate_run(raw: object, phase: str, case: BenchmarkCase) -> dict[str, object]:
     value = _object(raw, f"case {case.case_id} run")
-    _exact_fields(value, RUN_FIELDS, f"case {case.case_id} run")
+    _exact_fields(value, RUN_FIELDS | ({"signal_kinds"} if "signal_kinds" in value else set()), f"case {case.case_id} run")
+    if "signal_kinds" in value:
+        validate_signal_kinds(value["signal_kinds"])
     if value["phase"] != phase or value["status"] != "collected":
         raise BenchmarkManifestError(f"case {case.case_id}: run phase/status is invalid")
     if type(value["returncode"]) is not int or value["returncode"] not in (0, 1) or not _non_negative_number(value["wall_ms"]):
@@ -205,7 +218,7 @@ def _summary(cases: list[dict[str, object]]) -> dict[str, object]:
         observed_verdicts = [_object(run["evaluation"]["decision"], "case decision").get("observed") for run in runs]
         if "VERIFIED" in observed_verdicts and (case.expected_verdict != "VERIFIED" or any(getattr(case, f"{name}_state") in {"unsupported", "unavailable"} for name in ("claims", "reason_codes", "contracts", "capabilities", "coverage", "obligations"))):
             false_certainty += 1
-    return {"case_count": len(cases), "deterministic_cases": sum(entry["deterministic"] is True for entry in cases), "false_certainty_cases": false_certainty, "dimensions": dimensions, "resources": {"wall_ms_min": min(wall_ms), "wall_ms_max": max(wall_ms), "peak_rss_kb_max": max(rss) if rss else None}}
+    return {"case_count": len(cases), "deterministic_cases": sum(entry["deterministic"] is True for entry in cases), "false_certainty_cases": false_certainty, "dimensions": dimensions, "signals": summarize_signals(cases), "resources": {"wall_ms_min": min(wall_ms), "wall_ms_max": max(wall_ms), "peak_rss_kb_max": max(rss) if rss else None}}
 
 
 def _object(value: Any, context: str) -> dict[str, object]:
