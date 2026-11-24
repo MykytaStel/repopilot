@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 
 // Bump whenever the cached scan report contract changes. RepoPilot version is
 // also part of the key, so 0.27's impact-route shape cannot reuse older reports.
-const SCHEMA: &str = "mcp-scan-cache-v2";
+const SCHEMA: &str = "mcp-scan-cache-v3";
 const FEEDBACK_PATH: &str = ".repopilot/feedback.yml";
 const OVERLAY_PATH: &str = ".repopilot/overlay.toml";
 const REPOPILOT_IGNORE_FILENAME: &str = ".repopilotignore";
@@ -49,7 +49,13 @@ fn cache_key_with_metadata(
     hasher.update(b"\nversion:");
     hasher.update(version.as_bytes());
     hasher.update(b"\nargs:");
-    hasher.update(canonical_json(arguments).as_bytes());
+    // The cache stores the full report, not the requested presentation page.
+    let mut analysis_arguments = arguments.clone();
+    if let Some(object) = analysis_arguments.as_object_mut() {
+        object.remove("offset");
+        object.remove("limit");
+    }
+    hasher.update(canonical_json(&analysis_arguments).as_bytes());
     hasher.update(b"\nchanged-base:");
     hasher.update(changed_base.as_bytes());
     hasher.update(b"\nconfig:");
