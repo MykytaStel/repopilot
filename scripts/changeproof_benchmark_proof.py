@@ -75,7 +75,7 @@ def evaluate_normalized_proof(case: BenchmarkCase, proof: object) -> dict[str, o
         "reasons": _compare_state(case.reason_codes_state, case.reason_codes, [item["code"] for item in proof["reasons"]]),
         "contracts": _compare_state(case.contracts_state, case.contracts, [f"{item['family']}/{item['change']}" for item in proof["contracts"]]),
         "capabilities": _compare_state(case.capabilities_state, case.capabilities, [f"{item['id']}/{item['status']}" for item in proof["capabilities"]]),
-        "coverage": _compare_state(case.coverage_state, case.coverage, proof["coverage"]),
+        "coverage": _compare_state(case.coverage_state, _coverage(case.coverage) if case.coverage_state == "known" else case.coverage, proof["coverage"]),
         "obligations": _compare_state(case.obligations_state, case.obligations, proof["obligations"]),
         "claims": {"status": "unavailable", "reason": "v1 has no observed claims projection"},
     }
@@ -112,9 +112,16 @@ def _capability(raw: object) -> dict[str, object]:
 
 
 def _coverage(value: dict[str, object]) -> dict[str, object]:
-    if set(value) != COVERAGE_FIELDS:
+    # Rust ProofCoverage serializes policy_skipped_files only when nonzero.
+    # Preserve the old canonical hash when the field is absent or zero, but
+    # retain a positive count: a deliberate skip is not an exclusion.
+    if set(value) not in (COVERAGE_FIELDS, COVERAGE_FIELDS | {"policy_skipped_files"}):
         raise BenchmarkProofError("coverage fields are invalid")
-    return {"scope": _enum(value.get("scope"), SCOPES, "coverage.scope"), **_counts({key: value[key] for key in COVERAGE_FIELDS - {"scope"}}, COVERAGE_FIELDS - {"scope"}, "coverage")}
+    coverage = {"scope": _enum(value.get("scope"), SCOPES, "coverage.scope"), **_counts({key: value[key] for key in COVERAGE_FIELDS - {"scope"}}, COVERAGE_FIELDS - {"scope"}, "coverage")}
+    skipped = _count(value.get("policy_skipped_files", 0), "coverage.policy_skipped_files")
+    if skipped:
+        coverage["policy_skipped_files"] = skipped
+    return coverage
 
 
 def _counts(value: dict[str, object], fields: set[str], context: str) -> dict[str, int]:
