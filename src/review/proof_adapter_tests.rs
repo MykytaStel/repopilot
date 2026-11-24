@@ -77,6 +77,7 @@ fn readiness(verdict: ReadinessVerdict, reasons: Vec<ReadinessReason>) -> MergeR
 }
 
 fn outcome(status: VerificationStatus, revision_compatible: bool) -> VerificationOutcome {
+    let revision_after = if revision_compatible { "before" } else { "after" };
     VerificationOutcome {
         check_id: "unit".to_string(),
         role: VerificationRole::Test,
@@ -89,7 +90,7 @@ fn outcome(status: VerificationStatus, revision_compatible: bool) -> Verificatio
         stdout_truncated: false,
         stderr_truncated: false,
         revision_before: "before".to_string(),
-        revision_after: "after".to_string(),
+        revision_after: revision_after.to_string(),
         revision_compatible,
         limitations: Vec::new(),
         reused: false,
@@ -206,6 +207,22 @@ fn incompatible_pass_is_reported_as_stale_proof() {
             .iter()
             .any(|reason| reason.code == ChangeProofReasonCode::RequiredVerificationUnavailable)
     );
+}
+
+#[test]
+fn contradictory_pass_revision_flag_cannot_verify() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.analysis_revision = Some("before".to_string());
+    let mut passed = outcome(VerificationStatus::Passed, true);
+    passed.revision_after = "after".to_string();
+    report.verification = vec![passed];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.stale, 1);
+    assert_eq!(proof.obligations.satisfied, 0);
 }
 
 #[test]
