@@ -258,6 +258,7 @@ fn render_counts(output: &mut String, report: &ReviewReport, full: bool) {
         "Out-of-diff findings: {}",
         report.out_of_diff_count()
     );
+    render_blast_radius_summary(output, report);
     if full {
         let _ = writeln!(
             output,
@@ -268,6 +269,32 @@ fn render_counts(output: &mut String, report: &ReviewReport, full: bool) {
             output,
             "Existing in-diff findings: {}",
             report.existing_in_diff_count()
+        );
+    }
+}
+
+fn render_blast_radius_summary(output: &mut String, report: &ReviewReport) {
+    let count = report.blast_radius.len();
+    if count == 0 {
+        return;
+    }
+    let preview = report
+        .blast_radius
+        .iter()
+        .take(3)
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    if count <= 3 {
+        let _ = writeln!(
+            output,
+            "Blast radius: {count} dependent file(s) ({preview})"
+        );
+    } else {
+        let _ = writeln!(
+            output,
+            "Blast radius: {count} dependent file(s) ({preview}, +{} more; --detail full for routes)",
+            count - 3
         );
     }
 }

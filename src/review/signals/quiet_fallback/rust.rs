@@ -59,27 +59,38 @@ fn quiet_match_fallbacks(
     body.named_children(&mut cursor)
         .filter(|child| child.kind() == "match_arm")
         .filter_map(|arm| {
-            let pattern = arm.child_by_field_name("pattern")?;
-            let pattern_text = pattern.utf8_text(content.as_bytes()).ok()?.trim();
-            if !is_err_pattern(pattern_text) {
-                return None;
-            }
-            let value = arm.child_by_field_name("value")?;
-            if !is_empty_arm_value(value) {
-                return None;
-            }
-            let line = changed_line(file, arm)?;
-            Some(BehavioralSignal {
-                kind: BehavioralKind::QuietFallbackIntroduced,
-                path: file.path_string(),
-                line,
-                detail: format!(
-                    "Call `{operation}` at line {call_line} can fail inside the changed empty `Err` match arm; execution may continue to return line {return_line}. Verify the fallback preserves required behavior."
-                ),
-                source: BehavioralSignalSource::Ast,
-            })
+            arm_quiet_fallback(arm, file, content, &operation, call_line, return_line)
         })
         .collect()
+}
+
+fn arm_quiet_fallback(
+    arm: Node<'_>,
+    file: &ChangedFile,
+    content: &str,
+    operation: &str,
+    call_line: usize,
+    return_line: usize,
+) -> Option<BehavioralSignal> {
+    let pattern = arm.child_by_field_name("pattern")?;
+    let pattern_text = pattern.utf8_text(content.as_bytes()).ok()?.trim();
+    if !is_err_pattern(pattern_text) {
+        return None;
+    }
+    let value = arm.child_by_field_name("value")?;
+    if !is_empty_arm_value(value) {
+        return None;
+    }
+    let line = changed_line(file, arm)?;
+    Some(BehavioralSignal {
+        kind: BehavioralKind::QuietFallbackIntroduced,
+        path: file.path_string(),
+        line,
+        detail: format!(
+            "Call `{operation}` at line {call_line} can fail inside the changed empty `Err` match arm; execution may continue to return line {return_line}. Verify the fallback preserves required behavior."
+        ),
+        source: BehavioralSignalSource::Ast,
+    })
 }
 
 fn is_err_pattern(text: &str) -> bool {
