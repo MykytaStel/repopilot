@@ -294,3 +294,122 @@ fn write(root: &Path, relative: &str, content: &str) {
     fs::create_dir_all(path.parent().expect("parent directory")).expect("create parent");
     fs::write(path, content).expect("write source file");
 }
+
+fn git(root: &Path, args: &[&str]) {
+    let output = std::process::Command::new("git")
+        .current_dir(root)
+        .args(args)
+        .output()
+        .expect("run git");
+    assert!(
+        output.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn git_fixture() -> tempfile::TempDir {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.name", "RepoPilot Tests"]);
+    git(root, &["config", "user.email", "tests@example.invalid"]);
+    write(root, ".gitignore", ".repopilot/\n");
+    write(root, "src/a.ts", "export const value = 1;\n");
+    write(root, "src/b.ts", "export const value = 2;\n");
+    write(root, "src/consumer.ts", "import { value } from './missing';\n");
+    write(root, "other/control.ts", "export const control = 1;\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "base"]);
+    temp
+}
+
+fn working_scan(path: &Path) -> crate::scan::types::ScanSummary {
+    super::super::scan_changed_with_config(path, &ScanConfig::default(), None)
+        .expect("working tree changed scan")
+}
+
+fn assert_cold_parity(root: &Path, scope: &Path, warm: &crate::scan::types::ScanSummary) {
+    fs::remove_file(crate::graph::context::context_graph_cache_path(root))
+        .expect("remove context cache");
+    let cold = working_scan(scope);
+    assert_eq!(warm.artifacts.coupling_graph, cold.artifacts.coupling_graph);
+    assert_eq!(warm.artifacts.findings, cold.artifacts.findings);
+}
+
+#[test]
+fn reverted_dirty_import_cannot_survive_in_cached_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let dirty = working_scan(root);
+    assert!(
+        dirty.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
+            .contains(Path::new("src/b.ts"))
+    );
+    git(root, &["checkout", "--", "src/a.ts"]);
+    let restored = working_scan(root);
+    assert!(
+        !restored.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
+            .contains(Path::new("src/b.ts"))
+    );
+    assert_cold_parity(root, root, &restored);
+}
+
+#[test]
+fn untracked_target_rewires_unchanged_importer_and_removal_clears_it() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "other/control.ts", "export const control = 2;\n");
+    working_scan(root);
+    write(root, "src/missing.ts", "export const value = 3;\n");
+    let added = working_scan(root);
+    assert!(
+        added.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/consumer.ts")]
+            .contains(Path::new("src/missing.ts"))
+    );
+    assert_cold_parity(root, root, &added);
+    fs::remove_file(root.join("src/missing.ts")).unwrap();
+    let removed = working_scan(root);
+    assert!(
+        !removed.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/consumer.ts")]
+            .contains(Path::new("src/missing.ts"))
+    );
+    assert_cold_parity(root, root, &removed);
+}
+
+#[test]
+fn scoped_review_cannot_reuse_stale_outside_scope_imports() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let scope = root.join("other");
+    working_scan(&scope);
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let updated = working_scan(&scope);
+    assert!(
+        updated.artifacts.coupling_graph.as_ref().unwrap().edges[Path::new("src/a.ts")]
+            .contains(Path::new("src/b.ts"))
+    );
+    assert_cold_parity(root, &scope, &updated);
+}
+
+#[test]
+fn same_git_dirty_scope_still_reuses_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let first = working_scan(root);
+    let second = working_scan(root);
+    assert_eq!(
+        second
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit")
+    );
+    assert_eq!(first.artifacts.coupling_graph, second.artifacts.coupling_graph);
+    assert_eq!(first.artifacts.findings, second.artifacts.findings);
+}
