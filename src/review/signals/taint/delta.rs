@@ -161,7 +161,8 @@ fn declaration_site<'a>(node: Node<'_>, content: &'a str, row: usize) -> Option<
     // Limit the pilot to a direct identifier argument; no alias, callback,
     // conditional, or helper expansion is needed to identify this local use.
     if argument.kind() != "identifier"
-        || argument.utf8_text(content.as_bytes()).ok()? != name.utf8_text(content.as_bytes()).ok()?
+        || argument.utf8_text(content.as_bytes()).ok()?
+            != name.utf8_text(content.as_bytes()).ok()?
     {
         return None;
     }
