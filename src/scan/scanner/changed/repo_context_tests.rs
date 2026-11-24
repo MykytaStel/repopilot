@@ -317,7 +317,11 @@ fn git_fixture() -> tempfile::TempDir {
     write(root, ".gitignore", ".repopilot/\n");
     write(root, "src/a.ts", "export const value = 1;\n");
     write(root, "src/b.ts", "export const value = 2;\n");
-    write(root, "src/consumer.ts", "import { value } from './missing';\n");
+    write(
+        root,
+        "src/consumer.ts",
+        "import { value } from './missing';\n",
+    );
     write(root, "other/control.ts", "export const control = 1;\n");
     git(root, &["add", "."]);
     git(root, &["commit", "-qm", "base"]);
@@ -406,7 +410,10 @@ fn same_git_dirty_scope_still_reuses_context() {
             .map(|cache| cache.status.as_str()),
         Some("hit")
     );
-    assert_eq!(first.artifacts.coupling_graph, second.artifacts.coupling_graph);
+    assert_eq!(
+        first.artifacts.coupling_graph,
+        second.artifacts.coupling_graph
+    );
     assert_eq!(first.artifacts.findings, second.artifacts.findings);
 }
 
@@ -430,7 +437,11 @@ fn staged_rename_cannot_leave_old_target_in_cached_context() {
 fn dirty_manifest_requires_a_graph_wide_rebuild() {
     let temp = git_fixture();
     let root = temp.path();
-    write(root, "package.json", r#"{"name":"fixture","version":"1.0.0"}"#);
+    write(
+        root,
+        "package.json",
+        r#"{"name":"fixture","version":"1.0.0"}"#,
+    );
     working_scan(root);
     let second = working_scan(root);
     let cache = second.artifacts.context_graph_cache.as_ref().unwrap();
