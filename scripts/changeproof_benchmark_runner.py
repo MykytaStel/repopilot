@@ -44,13 +44,16 @@ def collect_benchmark(
         scanner_info = prepare_scanner(repo_root, scanner, allow_version_mismatch=False)
     except (ScannerPreparationError, ScannerProvenanceError) as error:
         raise BenchmarkManifestError(f"scanner preparation failed: {error}") from error
+    binary_sha256 = _sha256_file(scanner_info.binary)
     observations = [collect_case(case, fixture_root, scanner_info, timeout_seconds) for case in cases]
+    if _sha256_file(scanner_info.binary) != binary_sha256:
+        raise BenchmarkManifestError("scanner binary changed during collection")
     return {
         "schema_version": 1,
         "protocol": "changeproof-benchmark-v1",
         "corpus": corpus,
         "manifest_sha256": _sha256_file(manifest_path),
-        "scanner": _scanner_provenance(scanner_info),
+        "scanner": {**_scanner_provenance(scanner_info), "binary_sha256": binary_sha256},
         "cases": observations,
     }
 
