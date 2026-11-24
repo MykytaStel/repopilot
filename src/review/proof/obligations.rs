@@ -282,3 +282,84 @@ fn aggregate_states(states: &[ProofObligationStatus]) -> ProofObligationStatus {
         ProofObligationStatus::Unselected
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::verification::VerificationOutcome;
+
+    fn passed(id: &str) -> VerificationOutcome {
+        VerificationOutcome {
+            check_id: id.to_string(),
+            role: VerificationRole::Test,
+            status: VerificationStatus::Passed,
+            duration_ms: 0,
+            exit_code: Some(0),
+            working_directory: ".".to_string(),
+            stdout_excerpt: String::new(),
+            stderr_excerpt: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            revision_before: "current".to_string(),
+            revision_after: "current".to_string(),
+            revision_compatible: true,
+            limitations: Vec::new(),
+            reused: false,
+            diagnostics: None,
+        }
+    }
+
+    #[test]
+    fn every_selected_required_check_must_return_one_matching_outcome() {
+        let first = passed("unit");
+        let second = passed("integration");
+        let selected = ["unit", "integration"];
+        let role = VerificationRole::Test;
+        assert_eq!(
+            required_check_status(
+                std::slice::from_ref(&first),
+                &selected,
+                role,
+                Some("current")
+            ),
+            ProofObligationStatus::Unavailable
+        );
+        assert_eq!(
+            required_check_status(
+                &[first.clone(), second.clone()],
+                &selected,
+                role,
+                Some("current")
+            ),
+            ProofObligationStatus::Satisfied
+        );
+        assert_eq!(
+            required_check_status(
+                &[first.clone(), first, second],
+                &selected,
+                role,
+                Some("current")
+            ),
+            ProofObligationStatus::Unavailable
+        );
+    }
+
+    #[test]
+    fn wrong_role_or_revision_cannot_satisfy_requirement() {
+        let mut outcome = passed("unit");
+        assert_eq!(
+            outcome_state(&outcome, Some("other")),
+            ProofObligationStatus::Stale
+        );
+        outcome.role = VerificationRole::Lint;
+        assert_eq!(
+            required_check_status(
+                &[outcome],
+                &["unit"],
+                VerificationRole::Test,
+                Some("current")
+            ),
+            ProofObligationStatus::Unavailable
+        );
+    }
+}
