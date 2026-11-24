@@ -73,6 +73,7 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     let cache_key = super::scan_cache::cache_key(&path, arguments);
     if let Some(key) = &cache_key
         && let Some(cached) = super::scan_cache::load(&path, key)
+        && super::scan_cache::cache_key(&path, arguments).as_ref() == Some(key)
     {
         return Ok(cached);
     }
@@ -123,7 +124,12 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     let output = render_scan_summary(&scan_result.summary, OutputFormat::Json)
         .map_err(|error| format!("render failed: {error}"))?;
 
+    // Never persist a result under the identity observed before an edit,
+    // config change, or moving base ref. The caller also checks the revision.
     if let Some(key) = &cache_key {
+        if super::scan_cache::cache_key(&path, arguments).as_ref() != Some(key) {
+            return Err("scan inputs changed during analysis; rerun the scan".to_string());
+        }
         super::scan_cache::store(&path, key, &output);
     }
     Ok(output)
