@@ -55,6 +55,7 @@ struct ResolvedToolCall {
     name: String,
     arguments: Value,
     referenced: Option<AnalysisRecord>,
+    starting_revision: String,
 }
 
 fn resolve_call(
@@ -81,6 +82,7 @@ fn resolve_call(
         name,
         arguments,
         referenced,
+        starting_revision: current_revision,
     })
 }
 
@@ -146,11 +148,22 @@ fn publish_call(
     state: &mut ServerState,
     cancellation: &CancellationToken,
 ) -> Response {
+    let unchanged = call.starting_revision == workspace_revision;
     let (outcome, structured_content, publishable) = match outcome {
         Ok(execution) => {
-            let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
-                revision.revision_compatible && revision.analysis_revision == workspace_revision
-            });
+            if !unchanged && execution.review_revision.is_none() {
+                return tool_response(
+                    id,
+                    &call.name,
+                    Err("workspace changed during analysis; rerun the tool".to_string()),
+                    &workspace_revision,
+                    state,
+                );
+            }
+            let publishable = unchanged
+                && execution.review_revision.as_ref().is_none_or(|revision| {
+                    revision.revision_compatible && revision.analysis_revision == workspace_revision
+                });
             (
                 Ok(execution.rendered),
                 execution.structured_content,
@@ -171,7 +184,14 @@ fn publish_call(
     if cancellation.is_cancelled() {
         return Response::error(id, -32800, "request cancelled");
     }
-    Response::success(id, prepared.publish(state))
+    // Reading another page of a stored report is not a new analysis and must
+    // not replace the latest scan/review or change its publication order.
+    let result = if call.referenced.is_some() {
+        prepared.result
+    } else {
+        prepared.publish(state)
+    };
+    Response::success(id, result)
 }
 
 fn tool_response(
