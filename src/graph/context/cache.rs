@@ -117,8 +117,7 @@ pub(crate) fn write_repository_context_state(
         relationship_fingerprint,
         state: state.clone(),
     };
-    let rendered = serde_json::to_vec(&cached).map_err(io::Error::other)?;
-    fs::write(&cache_path, rendered)?;
+    crate::scan::cache::write_cache_atomic(&cache_path, &cached)?;
 
     Ok(ContextGraphCacheInfo {
         status: "write".to_string(),
