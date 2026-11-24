@@ -420,5 +420,4 @@ mod tests {
         );
         assert!(bounded_paths(Path::new("seed"), &index, &changed, 0).is_empty());
     }
-
 }
