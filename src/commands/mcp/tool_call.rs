@@ -150,7 +150,7 @@ fn publish_call(
 ) -> Response {
     let unchanged = call.starting_revision == workspace_revision;
     let (outcome, structured_content, publishable) = match outcome {
-        Ok(execution) => {
+        Ok(mut execution) => {
             if !unchanged && execution.review_revision.is_none() {
                 return tool_response(
                     id,
@@ -160,6 +160,7 @@ fn publish_call(
                     state,
                 );
             }
+            annotate_historical_source(&call, state, &workspace_revision, &mut execution);
             let publishable = unchanged
                 && execution.review_revision.as_ref().is_none_or(|revision| {
                     revision.revision_compatible && revision.analysis_revision == workspace_revision
@@ -192,6 +193,46 @@ fn publish_call(
         prepared.publish(state)
     };
     Response::success(id, result)
+}
+
+fn annotate_historical_source(
+    call: &ResolvedToolCall,
+    state: &ServerState,
+    current_revision: &str,
+    execution: &mut ToolExecution,
+) {
+    // Implicit last-report explanations deliberately support historical replay.
+    // Unlike an explicit handle, they can describe evidence from an old revision.
+    let source = match call.name.as_str() {
+        explain_review_signal::TOOL_NAME => state.last_review_revision.as_deref(),
+        explain_finding::TOOL_NAME => {
+            match call.arguments.get("source").and_then(Value::as_str) {
+                Some("last-review") => state.last_review_revision.as_deref(),
+                _ => state.last_scan_revision.as_deref(),
+            }
+        }
+        _ => return,
+    };
+    let source = call
+        .referenced
+        .as_ref()
+        .map(|record| record.workspace_revision.as_str())
+        .or(source);
+    let Some(source) = source else {
+        return;
+    };
+    let Ok(mut report) = serde_json::from_str::<Value>(&execution.rendered) else {
+        return;
+    };
+    let Some(object) = report.as_object_mut() else {
+        return;
+    };
+    object.insert("source_workspace_revision".to_string(), json!(source));
+    object.insert("source_stale".to_string(), json!(source != current_revision));
+    if let Ok(rendered) = serde_json::to_string_pretty(&report) {
+        execution.rendered = rendered;
+        execution.structured_content = Some(report);
+    }
 }
 
 fn tool_response(
