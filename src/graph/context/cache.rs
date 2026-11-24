@@ -1,7 +1,7 @@
 use super::*;
 #[path = "cache_identity.rs"]
 mod identity;
-use identity::{dirty_paths, resolver_input_fingerprint, stable_hash_hex};
+use identity::{dirty_inputs, resolver_input_fingerprint, stable_hash_hex};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -15,7 +15,7 @@ struct CachedRepositoryContextState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     repository_fingerprint: Option<RepositoryFingerprint>,
     #[serde(default)]
-    dirty_paths: Option<BTreeSet<PathBuf>>,
+    dirty_inputs: Option<BTreeMap<PathBuf, String>>,
     input_fingerprint: String,
     relationship_fingerprint: String,
     state: RepositoryContextState,
@@ -44,15 +44,15 @@ pub(crate) fn load_repository_context_state(
 
     // This cache stores graph/context metadata only. Changed scans must still
     // analyze changed file contents and patch this graph before scoring.
-    let current_dirty_paths = dirty_paths(root);
+    let current_dirty_inputs = dirty_inputs(root);
     if cached.repository_fingerprint.is_some()
-        && (cached.dirty_paths.is_none() || current_dirty_paths.is_none())
+        && (cached.dirty_inputs.is_none() || current_dirty_inputs.is_none())
     {
         return None;
     }
     Some(RepositoryContextStateLoad {
-        previous_dirty_paths: cached.dirty_paths,
-        current_dirty_paths,
+        previous_dirty_inputs: cached.dirty_inputs,
+        current_dirty_inputs,
         state: cached.state,
         cache_info: ContextGraphCacheInfo {
             status: "hit".to_string(),
@@ -85,7 +85,7 @@ pub(crate) fn write_repository_context_state(
     }
     let (input_fingerprint, relationship_fingerprint) = state_fingerprints(state);
     let repository_fingerprint = repository_fingerprint(root);
-    let dirty_paths = dirty_paths(root);
+    let dirty_inputs = dirty_inputs(root);
 
     if let Some(cached) = read_cached_repository_context_state(&cache_path)
         && valid_cached_state_metadata_for_repository(
@@ -94,7 +94,7 @@ pub(crate) fn write_repository_context_state(
             &repository_fingerprint,
         )
         && cached.resolver_input_fingerprint == Some(resolver_input_fingerprint(root))
-        && cached.dirty_paths == dirty_paths
+        && cached.dirty_inputs == dirty_inputs
         && cached.input_fingerprint == input_fingerprint
         && cached.relationship_fingerprint == relationship_fingerprint
     {
@@ -112,7 +112,7 @@ pub(crate) fn write_repository_context_state(
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
         resolver_input_fingerprint: Some(resolver_input_fingerprint(root)),
         repository_fingerprint,
-        dirty_paths,
+        dirty_inputs,
         input_fingerprint,
         relationship_fingerprint,
         state: state.clone(),
