@@ -470,3 +470,61 @@ fn dirty_manifest_requires_a_graph_wide_rebuild() {
     assert_eq!(cache.status, "miss");
     assert!(cache.reason.contains("dirty-scope-not-patchable"));
 }
+
+#[test]
+fn unchanged_source_rechecks_executable_package_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    let source = "src/commands/run.ts";
+    write(root, "package.json", r#"{"name":"fixture"}"#);
+    write(root, source, "export function run() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "package"]);
+    write(root, source, "export function run() { process.exit(1); }\n");
+
+    working_scan(root);
+    let initial = crate::scan::cache::ScanCache::load(root);
+    assert!(!initial.file_roles[source].in_executable_package);
+
+    write(
+        root,
+        "package.json",
+        r#"{"name":"fixture","bin":"src/commands/run.ts"}"#,
+    );
+    let updated = working_scan(root);
+    let cached = crate::scan::cache::ScanCache::load(root);
+    assert!(cached.file_roles[source].in_executable_package);
+    assert_ne!(
+        initial.findings[source].config_fingerprint,
+        cached.findings[source].config_fingerprint
+    );
+
+    crate::scan::cache::clear_cache(root).unwrap();
+    let cold = working_scan(root);
+    assert_eq!(updated.artifacts.findings, cold.artifacts.findings);
+    assert_eq!(
+        updated.artifacts.coupling_graph,
+        cold.artifacts.coupling_graph
+    );
+}
+
+#[test]
+fn changed_source_rebuilds_missing_parsed_facts() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let first = working_scan(root);
+    let path = root.join(".repopilot/cache/parsed_facts_v2.json");
+    fs::remove_file(&path).unwrap();
+    let second = working_scan(root);
+    let hash = crate::scan::cache::file_hash_entry(root, &root.join("src/a.ts"))
+        .unwrap()
+        .hash;
+    let parsed = crate::scan::parsed_cache::ParsedFactsCache::load(root);
+    assert!(parsed.get(&hash, Some("TypeScript")).is_some());
+    assert_eq!(first.artifacts.findings, second.artifacts.findings);
+    assert_eq!(
+        first.artifacts.coupling_graph,
+        second.artifacts.coupling_graph
+    );
+}
