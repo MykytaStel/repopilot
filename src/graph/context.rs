@@ -112,8 +112,8 @@ pub struct RepoContextGraphLoad {
 pub(crate) struct RepositoryContextStateLoad {
     pub(crate) state: RepositoryContextState,
     pub(crate) cache_info: ContextGraphCacheInfo,
-    pub(crate) previous_dirty_paths: Option<BTreeSet<PathBuf>>,
-    pub(crate) current_dirty_paths: Option<BTreeSet<PathBuf>>,
+    pub(crate) previous_dirty_inputs: Option<BTreeMap<PathBuf, String>>,
+    pub(crate) current_dirty_inputs: Option<BTreeMap<PathBuf, String>>,
 }
 
 mod analysis;
