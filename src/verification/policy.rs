@@ -174,6 +174,7 @@ fn validate_check(
         resolved_program,
         executable_sha256,
         args: config.args.clone(),
+        workspace_root: root.to_path_buf(),
         working_directory,
         working_directory_label: normalized_label(&config.working_directory),
         timeout_seconds: config.timeout_seconds,
