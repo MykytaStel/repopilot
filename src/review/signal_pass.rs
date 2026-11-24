@@ -166,9 +166,11 @@ fn detect_file_signals(
             ));
     }
     if toggles.taint {
-        content_signals
-            .taint
-            .extend(taint::detect_taint(file, sources.post.as_ref()));
+        content_signals.taint.extend(taint::detect_taint_delta(
+            file,
+            sources.pre.as_ref(),
+            sources.post.as_ref(),
+        ));
     }
 }
 
