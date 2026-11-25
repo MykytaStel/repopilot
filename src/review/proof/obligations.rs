@@ -118,18 +118,21 @@ fn add_unmatched_outcome_drafts(
             .configured
             .iter()
             .find(|check| check.id == id);
+        let policy = &report.verification_policy;
+        let selected = policy.selected.iter().any(|check| check == id);
+        let policy_mismatch = !policy.configured.is_empty() && (configured.is_none() || !selected);
         let status = if outcomes.len() != 1
             || configured.is_some_and(|check| check.role != outcome.role)
-            || (!report.verification_policy.configured.is_empty()
-                && (configured.is_none()
-                    || !report.verification_policy.selected.iter().any(|check| check == id)))
+            || policy_mismatch
         {
             ProofObligationStatus::Unavailable
         } else {
             outcome_state(outcome, report.analysis_revision.as_deref())
         };
         drafts.push(ProofObligationDraft {
-            role: Some(configured.map_or(outcome.role, |check| check.role)),
+            role: configured
+                .map(|check| check.role)
+                .or_else(|| outcomes.iter().map(|outcome| outcome.role).min()),
             path: None,
             check_ids: vec![id.to_string()],
             status,
