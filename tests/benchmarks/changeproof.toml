@@ -147,6 +147,7 @@ reason_codes = [
   "definitely-sensitive",
   "insufficient-policy",
   "required-verification-unavailable",
+  "unsupported-contract-coverage",
 ]
 contracts_state = "known"
 contracts = ["security-boundary/boundary-changed", "test-coverage/test-missing"]
