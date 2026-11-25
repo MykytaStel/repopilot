@@ -80,10 +80,10 @@ fn add_file_accounting_limit(limits: &mut Vec<EvidenceCoverageLimit>, scope: &Pr
         .saturating_add(scope.unsupported_files)
         .saturating_add(scope.policy_skipped_files);
     if accounted_files != scope.requested_files {
-        let count = scope.requested_files.saturating_sub(accounted_files);
+        let count = scope.requested_files.abs_diff(accounted_files);
         limits.push(limit(
             "unaccounted-files",
-            count.max(1),
+            count,
             "File accounting does not cover the full requested scope.".to_string(),
         ));
     }
