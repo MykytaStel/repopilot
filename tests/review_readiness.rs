@@ -378,6 +378,20 @@ fn human_summary_reports_revision_incompatible_verification() {
 }
 
 #[test]
+fn human_summary_rejects_a_contradictory_revision_flag() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.analysis_revision = Some("different".to_string());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+    let summary =
+        "0 passed, 0 failed, 0 unavailable, 0 unselected, 1 stale (revision-incompatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
 fn failed_verification_blocks_canonical_readiness() {
     let mut report = report_with_ownership(OwnershipSummary::default());
     report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
