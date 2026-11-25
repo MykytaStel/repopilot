@@ -13,12 +13,12 @@ from changeproof_benchmark_compare import compare_validated
 from changeproof_benchmark_gate import evaluate_gate
 from changeproof_benchmark_contract import BenchmarkManifestError, PROTOCOL, validate_manifest
 from changeproof_benchmark_proof import BenchmarkProofError
-from changeproof_benchmark_runner import collect_benchmark
+from changeproof_benchmark_runner import collect_benchmark, collect_paired
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", choices=("check", "collect", "validate-result", "report", "compare", "gate"), default="check")
+    parser.add_argument("command", nargs="?", choices=("check", "collect", "collect-paired", "validate-result", "report", "compare", "gate"), default="check")
     parser.add_argument("--manifest", type=Path, default=Path("tests/benchmarks/changeproof.toml"))
     parser.add_argument("--fixture-root", type=Path, default=Path("tests/fixtures/review-zoo"))
     parser.add_argument("--artifact", type=Path)
@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--scanner")
+    parser.add_argument("--baseline-root", type=Path)
+    parser.add_argument("--baseline-scanner")
+    parser.add_argument("--candidate-scanner")
+    parser.add_argument("--candidate-first", action="store_true")
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--format", choices=("text", "json"), default="text")
     args = parser.parse_args(argv)
@@ -51,6 +55,24 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "check":
             corpus, cases = validate_manifest(args.manifest, args.fixture_root)
             print(f"ChangeProof benchmark: {PROTOCOL} ({corpus}; {len(cases)} cases)")
+            return 0
+        if args.command == "collect-paired":
+            if not all((args.baseline_root, args.baseline_scanner, args.candidate_scanner, args.output)):
+                print("collect-paired requires --baseline-root, --baseline-scanner, --candidate-scanner and --output (directory)", file=sys.stderr)
+                return 2
+            baseline, candidate, timings = collect_paired(
+                args.baseline_root.resolve(), args.repo_root.resolve(),
+                args.manifest, args.fixture_root, args.baseline_scanner,
+                args.candidate_scanner, args.timeout, args.candidate_first,
+            )
+            for artifact in (baseline, candidate):
+                validate_artifact(artifact, args.manifest, args.fixture_root)
+            args.output.mkdir(parents=True, exist_ok=True)
+            for name, data in (("baseline", baseline), ("candidate", candidate), ("timings", timings)):
+                (args.output / f"{name}.json").write_text(
+                    json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+                )
+            print(f"Paired benchmark artifacts: {args.output} ({len(baseline['cases'])} cases)")
             return 0
         if args.command == "collect":
             artifact = collect_benchmark(
