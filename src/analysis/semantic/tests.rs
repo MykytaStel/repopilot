@@ -27,7 +27,10 @@ fn named_alias_and_default_imports_link_observed_exports() {
             "src/api.ts",
             "export function run() {} \nexport default function load() {}",
         ),
-        ("src/app.ts", "import load, { run as execute } from './api.ts';"),
+        (
+            "src/app.ts",
+            "import load, { run as execute } from './api.ts';",
+        ),
     ]);
 
     for (local, exported) in [("load", "default"), ("execute", "run")] {
