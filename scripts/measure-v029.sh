@@ -12,10 +12,10 @@ fi
 baseline=$(git rev-parse --verify "${1:-5b5f0dc676163babb8765ce01270e5bc8cc6bd39}^{commit}")
 candidate=$(git rev-parse --verify HEAD)
 
-# Counterbalance the collection order on a second run to expose host drift.
+# Alternate per case; this option selects only the first case's order.
 case "${REPOPILOT_BENCHMARK_ORDER:-baseline-first}" in
-    baseline-first) collection_order=(baseline candidate) ;;
-    candidate-first) collection_order=(candidate baseline) ;;
+    baseline-first) collection_order=(baseline candidate); paired_flags=() ;;
+    candidate-first) collection_order=(candidate baseline); paired_flags=(--candidate-first) ;;
     *) echo "Invalid REPOPILOT_BENCHMARK_ORDER" >&2; exit 2 ;;
 esac
 if [[ "$baseline" == "$candidate" ]]; then
@@ -34,13 +34,21 @@ cleanup() {
 }
 trap cleanup EXIT
 echo "Evidence directory: $output"
+# Optional Cargo-managed reuse; always invoke cargo build, never trust an old binary.
+target_root="$work"
+if [[ -n "${REPOPILOT_BENCHMARK_TARGET_DIR:-}" ]]; then
+    mkdir -p "$REPOPILOT_BENCHMARK_TARGET_DIR"
+    target_root=$(cd "$REPOPILOT_BENCHMARK_TARGET_DIR" && pwd -P)
+fi
 git worktree add --detach "$work/baseline" "$baseline"
 git worktree add --detach "$work/candidate" "$candidate"
 
 {
     printf 'baseline_commit=%s\ncandidate_commit=%s\n' "$baseline" "$candidate"
     printf 'build=cargo build --release --locked --bin repopilot\n'
-    printf 'collection_order=%s,%s\n' "${collection_order[@]}"
+    printf 'collection_schedule=alternating-case-v1\n'
+    printf 'first_case_order=%s,%s\n' "${collection_order[@]}"
+    printf 'target_root=%s\n' "$target_root"
     uname -smr
     rustc -Vv
     cargo -V
@@ -51,18 +59,30 @@ git worktree add --detach "$work/candidate" "$candidate"
 for side in baseline candidate; do
     (
         cd "$work/$side"
-        cargo build --release --locked --bin repopilot --target-dir "$work/target-$side"
+        cargo build --release --locked --bin repopilot --target-dir "$target_root/target-$side"
     ) 2>&1 | tee "$output/$side-build.log"
 done
 
-# Both collections use exactly the same manifest, fixture tree, collector and
-# timeout, even if the baseline predates the expanded corpus.
+# Allow a quiet interval after both builds. No concurrency in measured runs.
+cooldown=${REPOPILOT_BENCHMARK_COOLDOWN:-30}
+if [[ ! "$cooldown" =~ ^[0-9]+$ ]]; then
+    echo "REPOPILOT_BENCHMARK_COOLDOWN must be a nonnegative integer" >&2
+    exit 2
+fi
+printf 'cooldown_seconds=%s\n' "$cooldown" >> "$output/environment.txt"
+sleep "$cooldown"
+
 cd "$work/candidate"
-for side in "${collection_order[@]}"; do
-    python3 scripts/changeproof_benchmark.py collect \
-        --repo-root "$work/$side" \
-        --scanner "$work/target-$side/release/repopilot" \
-        --output "$output/$side.json"
+# Bash 3.2 (macOS) with nounset needs an explicit nonempty-array guard.
+python3 scripts/changeproof_benchmark.py collect-paired \
+    --baseline-root "$work/baseline" \
+    --repo-root "$work/candidate" \
+    --baseline-scanner "$target_root/target-baseline/release/repopilot" \
+    --candidate-scanner "$target_root/target-candidate/release/repopilot" \
+    --output "$output" \
+    ${paired_flags[@]+"${paired_flags[@]}"}
+
+for side in baseline candidate; do
     python3 scripts/changeproof_benchmark.py report \
         --artifact "$output/$side.json" --output "$output/$side.md"
 done
