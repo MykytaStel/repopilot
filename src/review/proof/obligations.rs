@@ -6,7 +6,7 @@ use super::{ChangeProofContractDelta, ContractChangeKind, ContractFamily, ProofO
 use crate::review::model::ReviewReport;
 use crate::review::signals::tiered::SignalFamily;
 use crate::verification::{VerificationRole, VerificationStatus};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) fn derive_verification_obligations(
     report: &ReviewReport,
@@ -102,18 +102,39 @@ fn add_unmatched_outcome_drafts(
     consumed: &BTreeSet<String>,
     drafts: &mut Vec<ProofObligationDraft>,
 ) {
-    drafts.extend(
-        report
-            .verification
+    let mut by_id = BTreeMap::new();
+    for outcome in &report.verification {
+        if !consumed.contains(&outcome.check_id) {
+            by_id
+                .entry(outcome.check_id.as_str())
+                .or_insert_with(Vec::new)
+                .push(outcome);
+        }
+    }
+    for (id, outcomes) in by_id {
+        let outcome = outcomes[0];
+        let configured = report
+            .verification_policy
+            .configured
             .iter()
-            .filter(|outcome| !consumed.contains(&outcome.check_id))
-            .map(|outcome| ProofObligationDraft {
-                role: Some(outcome.role),
-                path: None,
-                check_ids: vec![outcome.check_id.clone()],
-                status: outcome_state(outcome, report.analysis_revision.as_deref()),
-            }),
-    );
+            .find(|check| check.id == id);
+        let status = if outcomes.len() != 1
+            || configured.is_some_and(|check| check.role != outcome.role)
+            || (!report.verification_policy.configured.is_empty()
+                && (configured.is_none()
+                    || !report.verification_policy.selected.iter().any(|check| check == id)))
+        {
+            ProofObligationStatus::Unavailable
+        } else {
+            outcome_state(outcome, report.analysis_revision.as_deref())
+        };
+        drafts.push(ProofObligationDraft {
+            role: Some(configured.map_or(outcome.role, |check| check.role)),
+            path: None,
+            check_ids: vec![id.to_string()],
+            status,
+        });
+    }
 }
 
 fn add_orphan_selected_drafts(
@@ -238,11 +259,12 @@ fn outcome_state(
     outcome: &crate::verification::VerificationOutcome,
     analysis_revision: Option<&str>,
 ) -> ProofObligationStatus {
-    let revision_matches = outcome.revision_compatible
-        && outcome.revision_before == outcome.revision_after
-        && analysis_revision.is_none_or(|revision| outcome.revision_before == revision);
+    let revision_matches = outcome.matches_revision(analysis_revision);
     match outcome.status {
-        VerificationStatus::Passed if revision_matches => ProofObligationStatus::Satisfied,
+        VerificationStatus::Passed if outcome.is_valid_pass(analysis_revision) => {
+            ProofObligationStatus::Satisfied
+        }
+        VerificationStatus::Passed if revision_matches => ProofObligationStatus::Unavailable,
         VerificationStatus::Passed => ProofObligationStatus::Stale,
         VerificationStatus::Failed => ProofObligationStatus::Failed,
         VerificationStatus::TimedOut
