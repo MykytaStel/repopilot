@@ -1,6 +1,6 @@
 use super::key::{CACHE_SCHEMA_VERSION, VerificationCacheKey};
 use crate::scan::session::WorkspaceRevision;
-use crate::verification::{VerificationOutcome, VerificationStatus};
+use crate::verification::VerificationOutcome;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fs;
@@ -80,10 +80,7 @@ fn valid_entry(
 }
 
 fn reusable_outcome(outcome: &VerificationOutcome) -> bool {
-    outcome.status == VerificationStatus::Passed
-        && outcome.exit_code == Some(0)
-        && outcome.revision_compatible
-        && outcome.revision_before == outcome.revision_after
+    outcome.is_valid_pass(None)
 }
 
 fn cache_directory(root: &Path) -> PathBuf {
