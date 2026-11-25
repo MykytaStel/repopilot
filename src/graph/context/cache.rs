@@ -354,8 +354,7 @@ mod identity_tests {
                 .is_none()
         );
         assert!(
-            parse_repository_objects(&format!("{}\n{}", "a".repeat(40), "b".repeat(64)))
-                .is_none()
+            parse_repository_objects(&format!("{}\n{}", "a".repeat(40), "b".repeat(64))).is_none()
         );
     }
 }
