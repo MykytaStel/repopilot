@@ -230,6 +230,66 @@ fn contradictory_pass_revision_flag_cannot_verify() {
 }
 
 #[test]
+fn contradictory_exit_status_cannot_verify() {
+    for exit_code in [None, Some(1)] {
+        let mut report = report(ScanMode::Changed, 1, 1);
+        let mut passed = outcome(VerificationStatus::Passed, true);
+        passed.exit_code = exit_code;
+        report.verification = vec![passed];
+        let readiness = crate::review::derive_readiness(&report, None, None, None);
+        let proof = derive_change_proof_from_review(&report, &readiness);
+
+        assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+        assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+        assert_eq!(proof.obligations.satisfied, 0);
+        assert_eq!(proof.obligations.unavailable, 1);
+    }
+}
+
+#[test]
+fn duplicate_unmatched_outcomes_cannot_verify() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    let passed = outcome(VerificationStatus::Passed, true);
+    report.verification = vec![passed.clone(), passed];
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unavailable, 1);
+}
+
+#[test]
+fn unselected_outcome_cannot_satisfy_configured_policy() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.verification_policy.configured = vec![VerificationPolicyCheck {
+        id: "unit".to_string(),
+        role: VerificationRole::Test,
+        paths: Vec::new(),
+    }];
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.satisfied, 0);
+    assert_eq!(proof.obligations.unavailable, 1);
+}
+
+#[test]
+fn readiness_rejects_pass_from_another_analysis_revision() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.analysis_revision = Some("different".to_string());
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+    let readiness = crate::review::derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+
+    assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.stale, 1);
+}
+
+#[test]
 fn unsupported_delivery_delta_is_limited_and_blocks_verified() {
     let mut report = report(ScanMode::Changed, 1, 1);
     report.changed_files = vec![delivery_changed_file()];
