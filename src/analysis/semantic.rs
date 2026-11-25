@@ -6,8 +6,9 @@
 //! or blocking decision may be inferred from this index alone.
 
 use super::parse::ParsedFile;
-use super::symbols::{ImportedSymbolFact, SymbolKind, extract_symbol_facts};
+use super::symbols::{ImportedSymbolFact, JavaScriptSymbolFacts, SymbolKind, extract_symbol_facts};
 use crate::graph::resolver::{definitive_local_candidates, normalize_path};
+use crate::scan::facts::ScanFacts;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
@@ -39,8 +40,8 @@ pub enum Namespace {
     Type,
 }
 
-impl From<SymbolKind> for Namespace {
-    fn from(kind: SymbolKind) -> Self {
+impl Namespace {
+    fn from_kind(kind: SymbolKind) -> Self {
         match kind {
             SymbolKind::Value => Self::Value,
             SymbolKind::Type => Self::Type,
@@ -55,6 +56,7 @@ pub enum ModuleCoverage {
     UnsupportedLanguage,
     SourceBudgetExceeded,
     ParseUnavailable,
+    FactsUnavailable,
     SyntaxErrors,
 }
 
@@ -152,6 +154,62 @@ impl SymbolIndex {
             modules.insert(path, surface);
         }
 
+        Ok(Self::from_surfaces(root, modules, imports))
+    }
+
+    /// Reuses source/parsed-cache artifacts already collected by the scanner.
+    /// Missing or legacy-only facts stay unavailable; no source is reread.
+    /// The caller's scan scope is the entire observed inventory for this index.
+    pub fn from_scan_facts(facts: &ScanFacts) -> Result<Self, IndexError> {
+        let root = &facts.root_path;
+        if !root.is_absolute() || normalize_path(root) != *root {
+            return Err(IndexError::InvalidRoot);
+        }
+        let mut modules = BTreeMap::new();
+        let mut imports = BTreeMap::new();
+        for file in &facts.files {
+            let relative = if file.path.is_absolute() {
+                file.path
+                    .strip_prefix(root)
+                    .map_err(|_| IndexError::InvalidPath(file.path.clone()))?
+            } else {
+                file.path.as_path()
+            };
+            let path = checked_path(relative)?;
+            if modules.contains_key(&path) {
+                return Err(IndexError::DuplicatePath(path));
+            }
+            let unavailable = |coverage| (ModuleSurface::unavailable(coverage), Vec::new());
+            let (surface, references) = if language(&path).is_none() {
+                unavailable(ModuleCoverage::UnsupportedLanguage)
+            } else if let Some(artifact) = facts.artifact(&file.path) {
+                if !artifact.has_complete_parsed_facts() {
+                    unavailable(ModuleCoverage::FactsUnavailable)
+                } else if !artifact.syntax.parsed {
+                    unavailable(ModuleCoverage::ParseUnavailable)
+                } else if artifact.syntax.has_errors {
+                    unavailable(ModuleCoverage::SyntaxErrors)
+                } else if artifact.language.as_deref() != language(&path) {
+                    unavailable(ModuleCoverage::FactsUnavailable)
+                } else if let Some(symbols) = &artifact.javascript_symbols {
+                    surface_from_facts(&path, symbols.clone())
+                } else {
+                    unavailable(ModuleCoverage::FactsUnavailable)
+                }
+            } else {
+                unavailable(ModuleCoverage::FactsUnavailable)
+            };
+            imports.insert(path.clone(), references);
+            modules.insert(path, surface);
+        }
+        Ok(Self::from_surfaces(root, modules, imports))
+    }
+
+    fn from_surfaces(
+        root: &Path,
+        modules: BTreeMap<PathBuf, ModuleSurface>,
+        imports: BTreeMap<PathBuf, Vec<ImportedSymbolFact>>,
+    ) -> Self {
         let mut references = Vec::new();
         for (module, imports) in imports {
             for import in imports {
@@ -161,7 +219,7 @@ impl SymbolIndex {
                     module_specifier: import.module_specifier,
                     imported_name: import.imported_name,
                     local_name: import.local_name,
-                    namespace: import.kind.into(),
+                    namespace: Namespace::from_kind(import.kind),
                     line_start: import.line_start,
                     line_end: import.line_end,
                     byte_start: import.byte_start,
@@ -170,11 +228,11 @@ impl SymbolIndex {
                 });
             }
         }
-        Ok(Self {
+        Self {
             schema_version: 1,
             modules,
             references,
-        })
+        }
     }
 }
 
@@ -218,6 +276,13 @@ fn index_module(path: &Path, content: &str) -> (ModuleSurface, Vec<ImportedSymbo
     let Some(facts) = extract_symbol_facts(content, Some(label), tree) else {
         return unavailable(ModuleCoverage::ParseUnavailable);
     };
+    surface_from_facts(path, facts)
+}
+
+fn surface_from_facts(
+    path: &Path,
+    facts: JavaScriptSymbolFacts,
+) -> (ModuleSurface, Vec<ImportedSymbolFact>) {
     let mut surface = ModuleSurface::unavailable(ModuleCoverage::IndexedSurface);
     surface.forwarded_names = facts.re_exports.into_iter().collect();
     surface.wildcard_forwarding = facts.wildcard_re_export;
@@ -225,7 +290,7 @@ fn index_module(path: &Path, content: &str) -> (ModuleSurface, Vec<ImportedSymbo
         let symbol = ExportSymbol {
             module: path.to_path_buf(),
             name: export.name,
-            namespace: export.kind.into(),
+            namespace: Namespace::from_kind(export.kind),
             line_start: export.line_start,
             line_end: export.line_end,
         };
@@ -265,7 +330,7 @@ fn resolve_observed(
     let Some(target) = candidates.next() else {
         return unresolved(UnresolvedReason::ModuleNotObserved);
     };
-    if candidates.len() != 0 {
+    if candidates.len() > 0 {
         return Resolution::AmbiguousModules {
             candidates: std::iter::once(target).chain(candidates).collect(),
         };
@@ -284,7 +349,7 @@ fn resolve_observed(
     // model; a value-only class may also supply a type.
     if exports
         .iter()
-        .any(|export| export.namespace != Namespace::from(import.kind))
+        .any(|export| export.namespace != Namespace::from_kind(import.kind))
     {
         return unresolved(UnresolvedReason::NamespaceUncertain);
     }
