@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
             args.output.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             print(f"ChangeProof benchmark artifact: {args.output} ({len(artifact['cases'])} cases)")
             return 0
-        if args.command == "compare":
+        if args.command in {"compare", "gate"}:
             baseline = validate_artifact_file(args.baseline_artifact, args.manifest, args.fixture_root)
             candidate = validate_artifact_file(args.candidate_artifact, args.manifest, args.fixture_root)
             comparison = (evaluate_gate(baseline, candidate) if args.command == "gate"
