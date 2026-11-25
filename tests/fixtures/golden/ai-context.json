@@ -11,7 +11,7 @@
   "focus": "all",
   "budget": {
     "requested_tokens": 4096,
-    "approx_tokens": 2664,
+    "approx_tokens": 0,
     "truncated": false
   },
   "summary": {

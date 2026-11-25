@@ -78,9 +78,23 @@ fn render_json_variant(focus: Option<AiFocusCategory>) -> String {
 
 #[test]
 fn ai_context_json_brief_stays_stable() {
-    // The JSON form is deterministic (no version/cache/wall-clock fields), so the
-    // golden is the raw output; `normalize` is a no-op here.
-    assert_golden("ai-context.json", render_json_variant(None));
+    // The real package version contributes to the serialized byte estimate.
+    // Check that estimate before normalizing it for the version-neutral golden.
+    let actual = render_json_variant(None);
+    let parsed: serde_json::Value = serde_json::from_str(&actual).unwrap();
+    assert_eq!(
+        parsed["artifact"]["repopilot_version"],
+        env!("CARGO_PKG_VERSION")
+    );
+    let estimate = parsed["budget"]["approx_tokens"]
+        .as_u64()
+        .expect("numeric token estimate");
+    let field = format!("\"approx_tokens\": {estimate},");
+    assert_eq!(actual.matches(&field).count(), 1);
+    let normalized = actual.replace(&field, "\"approx_tokens\": 0,");
+    // The renderer estimates tokens from pretty JSON with a zero estimate.
+    assert_eq!(estimate, (normalized.len() / 4) as u64);
+    assert_golden("ai-context.json", normalized);
 }
 
 fn assert_golden(name: &str, actual: String) {
