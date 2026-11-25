@@ -92,6 +92,9 @@ impl<'a> ChangedScanEngine<'a> {
         mut load: RepositoryContextStateLoad,
     ) -> ChangedRepoContextStage {
         let repo_root = &discovery.repo_root;
+        // If the patch produces exactly the state already on disk, there is
+        // nothing to publish. Keep the original cache identity intact.
+        let previous_state = load.state.clone();
         load.state.apply_changed_facts_with_spans(
             repo_root,
             &discovery.changed_files,
@@ -100,10 +103,16 @@ impl<'a> ChangedScanEngine<'a> {
             &facts.parsed_content_hashes,
             &facts.guarded_optional_imports_by_file,
         );
-        let diagnostics = write_repository_context_state(repo_root, fingerprint, &load.state)
-            .err()
-            .map(|error| vec![cache_diagnostic(&error)])
-            .unwrap_or_default();
+        let diagnostics = if previous_state == load.state
+            && load.previous_dirty_inputs == load.current_dirty_inputs
+        {
+            Vec::new()
+        } else {
+            write_repository_context_state(repo_root, fingerprint, &load.state)
+                .err()
+                .map(|error| vec![cache_diagnostic(&error)])
+                .unwrap_or_default()
+        };
         cached_stage(load, repo_root, facts, diagnostics, start)
     }
 
