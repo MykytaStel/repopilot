@@ -250,7 +250,7 @@ fn human_reports_show_when_verification_was_reused() {
     let executed_markdown = repopilot::review::render::render_markdown(&report, None);
     assert!(executed_console.contains("unit: PASSED (10 ms)"));
     assert!(!executed_console.contains("cached"));
-    assert!(executed_markdown.contains("| `unit` | `Passed` | executed | 10 ms | 1 |"));
+    assert!(executed_markdown.contains("| `unit` | `Passed` | executed | 10 ms | 0 |"));
 
     let mut outcome = report.verification.remove(0);
     outcome.reused = true;
@@ -262,7 +262,7 @@ fn human_reports_show_when_verification_was_reused() {
     assert!(console.contains("unit: PASSED (cached; original run 10 ms)"));
     assert!(!console.contains("unit: PASSED (10 ms, cached)"));
     assert!(markdown.contains("| Check | Status | Source | Duration evidence | Exit |"));
-    assert!(markdown.contains("| `unit` | `Passed` | cached | original run 10 ms | 1 |"));
+    assert!(markdown.contains("| `unit` | `Passed` | cached | original run 10 ms | 0 |"));
 }
 
 #[test]
@@ -378,6 +378,20 @@ fn human_summary_reports_revision_incompatible_verification() {
 }
 
 #[test]
+fn human_summary_rejects_a_contradictory_revision_flag() {
+    let mut report = report_with_ownership(OwnershipSummary::default());
+    report.analysis_revision = Some("different".to_string());
+    report.verification = vec![verification_outcome(VerificationStatus::Passed, true)];
+
+    let console = repopilot::review::render::render_console(&report, None);
+    let markdown = repopilot::review::render::render_markdown(&report, None);
+    let summary =
+        "0 passed, 0 failed, 0 unavailable, 0 unselected, 1 stale (revision-incompatible)";
+    assert!(console.contains(&format!("Verification proof: {summary}")));
+    assert!(markdown.contains(&format!("- **Verification proof:** {summary}")));
+}
+
+#[test]
 fn failed_verification_blocks_canonical_readiness() {
     let mut report = report_with_ownership(OwnershipSummary::default());
     report.verification = vec![verification_outcome(VerificationStatus::Failed, true)];
@@ -411,19 +425,29 @@ fn verification_outcome(
     status: VerificationStatus,
     revision_compatible: bool,
 ) -> VerificationOutcome {
+    let revision_after = if revision_compatible {
+        "before"
+    } else {
+        "after"
+    };
+    let exit_code = match status {
+        VerificationStatus::Passed => Some(0),
+        VerificationStatus::Failed => Some(1),
+        _ => None,
+    };
     VerificationOutcome {
         check_id: "unit".to_string(),
         role: VerificationRole::Test,
         status,
         duration_ms: 10,
-        exit_code: Some(1),
+        exit_code,
         working_directory: ".".to_string(),
         stdout_excerpt: String::new(),
         stderr_excerpt: String::new(),
         stdout_truncated: false,
         stderr_truncated: false,
         revision_before: "before".to_string(),
-        revision_after: "after".to_string(),
+        revision_after: revision_after.to_string(),
         revision_compatible,
         limitations: Vec::new(),
         reused: false,

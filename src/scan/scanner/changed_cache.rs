@@ -19,11 +19,13 @@ pub(super) fn cache_decision(
     findings_entry: Option<&FindingsEntry>,
     hash: &str,
     fingerprint: &str,
+    executable: bool,
 ) -> CacheDecision {
     match (role_entry, findings_entry) {
         (Some(role_entry), Some(findings_entry))
             if role_entry.hash == hash
                 && findings_entry.hash == hash
+                && role_entry.in_executable_package == executable
                 && findings_entry.config_fingerprint == fingerprint =>
         {
             CacheDecision::Hit {
@@ -45,6 +47,11 @@ pub(super) fn cache_decision(
         {
             CacheDecision::Miss {
                 reason: "content-changed",
+            }
+        }
+        (Some(role_entry), Some(_)) if role_entry.in_executable_package != executable => {
+            CacheDecision::Miss {
+                reason: "workspace-context-changed",
             }
         }
         (Some(_), Some(findings_entry)) if findings_entry.config_fingerprint != fingerprint => {

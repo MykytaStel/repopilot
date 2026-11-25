@@ -19,6 +19,7 @@ use repopilot::review::{
     ReviewSignalGatePolicy, ReviewSignalGateResult, build_review_report_from_session,
     load_review_input,
 };
+use repopilot::scan::session::WorkspaceRevision;
 use repopilot::verification::{CancellationToken, ValidatedCheck};
 use serde_json::Value;
 use std::fmt;
@@ -100,6 +101,7 @@ pub(super) fn call_with_context(
         ));
     }
 
+    let starting_revision = WorkspaceRevision::capture(&path);
     let diff_started = Instant::now();
     let input =
         load_review_input(&path, base, head).map_err(|error| format!("review failed: {error}"))?;
@@ -158,6 +160,12 @@ pub(super) fn call_with_context(
     })
     .map_err(|error| format!("scan failed: {error}"))?;
 
+    if scan_result.session.revision() != &starting_revision {
+        return Err(ReviewCallError::Message(
+            "workspace changed while loading review inputs; rerun the review".to_string(),
+        ));
+    }
+
     let baseline_file = baseline_path
         .map(|baseline_path| {
             read_baseline(&baseline_path)
@@ -194,6 +202,11 @@ pub(super) fn call_with_context(
     }
     if context.cancellation.is_cancelled() {
         return Err(ReviewCallError::Cancelled);
+    }
+    if WorkspaceRevision::capture(scan_result.session.workspace_root()) != starting_revision {
+        return Err(ReviewCallError::Message(
+            "workspace changed during review analysis; rerun the review".to_string(),
+        ));
     }
     let mut reload_check = |check_id: &str| {
         verification_consent::reload_check(

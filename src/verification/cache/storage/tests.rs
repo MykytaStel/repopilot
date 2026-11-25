@@ -182,3 +182,17 @@ fn storage_failures_are_misses_and_do_not_change_workspace_revision() {
     blocked_cache.store(&key(2), &outcome(&blocked_revision));
     assert!(blocked_cache.load(&key(2), &blocked_revision).is_none());
 }
+
+#[test]
+fn passed_outcome_with_nonzero_or_missing_exit_code_is_not_cached() {
+    let temp = tempdir().expect("temp dir");
+    let revision = WorkspaceRevision::capture(temp.path());
+    let cache = VerificationCache::new(temp.path());
+    for (index, exit_code) in [Some(1), None].into_iter().enumerate() {
+        let mut invalid = outcome(&revision);
+        invalid.exit_code = exit_code;
+        cache.store(&key(index), &invalid);
+        assert!(cache.load(&key(index), &revision).is_none());
+        assert!(!cache_file(temp.path(), &key(index)).exists());
+    }
+}

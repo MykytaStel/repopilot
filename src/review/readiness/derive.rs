@@ -141,10 +141,22 @@ pub fn derive_readiness(
         report
             .verification
             .iter()
-            .filter(|outcome| !outcome.revision_compatible)
+            .filter(|outcome| !outcome.matches_revision(report.analysis_revision.as_deref()))
             .count(),
         ReadinessReasonCode::VerificationRevisionChanged,
         "Workspace revision changed during verification.",
+    );
+    push_count(
+        &mut reasons,
+        report
+            .verification
+            .iter()
+            .filter(|outcome| {
+                outcome.status == VerificationStatus::Passed && outcome.exit_code != Some(0)
+            })
+            .count(),
+        ReadinessReasonCode::VerificationUnavailable,
+        "Selected verification check(s) reported success without a zero exit code.",
     );
     reasons.sort_by_key(|reason| reason.code);
 

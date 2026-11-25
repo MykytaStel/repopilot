@@ -11,11 +11,12 @@ use crate::findings::types::Finding;
 use crate::review::diff::{ChangeStatus, ChangedFile};
 use crate::scan::cache::{
     FileRoleEntry, FileRoleEvidenceEntry, FindingsEntry, ScanCache, config_fingerprint,
-    file_hash_entry,
+    file_hash_entry, stable_hash_hex,
 };
 use crate::scan::facts::{FileFacts, ScanFacts};
 use crate::scan::parsed_cache::{ParsedFactsCache, ParsedFactsEntry, content_hash};
 use crate::scan::types::{ChangedFileCacheTelemetry, ScanCacheTelemetry};
+use crate::scan::workspace::{PackageRoot, package_roots, path_in_executable_package};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -41,6 +42,7 @@ impl<'a> ChangedScanEngine<'a> {
         };
 
         let fingerprint = config_fingerprint(self.config);
+        let roots = package_roots(&discovery.repo_root);
         let mut facts = ScanFacts {
             root_path: self.path.to_path_buf(),
             files_discovered: discovery.changed_files.len(),
@@ -57,6 +59,7 @@ impl<'a> ChangedScanEngine<'a> {
                 changed_file,
                 &discovery.repo_root,
                 &fingerprint,
+                &roots,
                 &file_audits,
                 &mut facts,
                 &mut languages,
@@ -95,6 +98,7 @@ impl<'a> ChangedScanEngine<'a> {
         changed_file: &ChangedFile,
         repo_root: &Path,
         fingerprint: &str,
+        roots: &[PackageRoot],
         file_audits: &[FileAuditRegistration],
         facts: &mut ScanFacts,
         languages: &mut HashMap<String, usize>,
@@ -144,11 +148,15 @@ impl<'a> ChangedScanEngine<'a> {
             .insert(cache_path.clone(), hash_entry.clone());
 
         let lookup_start = Instant::now();
+        let executable = path_in_executable_package(&absolute_path, roots);
+        let context_key = format!("{fingerprint}:executable={executable}");
+        let fingerprint = stable_hash_hex(context_key.as_bytes());
         let decision = cache_decision(
             cache.file_roles.get(&cache_path),
             cache.findings.get(&cache_path),
             &hash_entry.hash,
-            fingerprint,
+            &fingerprint,
+            executable,
         );
         cache_telemetry.timings.lookup_us = cache_telemetry
             .timings
@@ -159,7 +167,10 @@ impl<'a> ChangedScanEngine<'a> {
             CacheDecision::Hit {
                 role_entry,
                 findings: cached_findings,
-            } => {
+            } if parsed_cache
+                .get(&role_entry.hash, role_entry.language.as_deref())
+                .is_some() =>
+            {
                 self.reuse_cached_file(
                     changed_file,
                     &change_reason,
@@ -174,13 +185,13 @@ impl<'a> ChangedScanEngine<'a> {
                 );
                 return Ok(());
             }
+            CacheDecision::Hit { .. } => "missing-parsed-facts-cache",
             CacheDecision::Miss { reason } => reason,
         };
 
         let miss_start = Instant::now();
-        let roots = crate::scan::workspace::package_roots(repo_root);
         let mut per_file =
-            process_file_with_content(&absolute_path, file_audits, self.config, &roots)?;
+            process_file_with_content(&absolute_path, file_audits, self.config, roots)?;
         normalize_per_file_paths(
             &mut per_file.file_facts.path,
             &mut per_file.findings,
@@ -244,7 +255,7 @@ impl<'a> ChangedScanEngine<'a> {
                     FindingsEntry {
                         path: hash_entry.path,
                         hash: hash_entry.hash,
-                        config_fingerprint: fingerprint.to_string(),
+                        config_fingerprint: fingerprint,
                         findings: per_file.findings.clone(),
                     },
                 );

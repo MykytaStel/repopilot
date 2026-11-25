@@ -2,7 +2,7 @@ use crate::review::diff::ChangedFile;
 use crate::review::paths::normalized_review_path;
 use crate::review::signals::composites;
 use crate::scan::types::ScanSummary;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 pub fn compute_blast_radius(
@@ -15,12 +15,19 @@ pub fn compute_blast_radius(
         None => return Vec::new(),
     };
 
+    let importers = composites::build_importers_by_target(graph, repo_root);
+    compute_blast_radius_with_importers(repo_root, changed_files, &importers)
+}
+
+pub(super) fn compute_blast_radius_with_importers(
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) -> Vec<PathBuf> {
     let changed_paths: BTreeSet<PathBuf> = changed_files
         .iter()
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
-
-    let importers_by_target = composites::build_importers_by_target(graph, repo_root);
 
     let mut impacted = BTreeSet::new();
 

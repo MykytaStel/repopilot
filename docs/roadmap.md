@@ -4,6 +4,16 @@ RepoPilot is a local review tool for understanding Git changes before merge.
 The roadmap records current product outcomes, released milestones, and the
 quality gates that guide each release.
 
+## Next: 0.29 — Evidence & Reliability
+
+The 0.29 release candidate focuses on revision and cache correctness,
+verification evidence, MCP analysis lifecycle and matched regression
+measurement. See the [0.29 roadmap](roadmap/v0.29.md),
+[RC notes](releases/v0.29.0-rc.1.md) and
+[evidence ledger](engineering/v0.29-evidence-ledger.md).
+The [0.30 semantic roadmap](roadmap/v0.30.md) remains experimental; its
+module-surface pilot does not change default review behavior.
+
 ## Current: 0.28 — cross-file test integrity, local-helper taint, and four-language agent guards
 
 RepoPilot 0.28.0 adds Python and Go cross-file test-integrity analysis, early

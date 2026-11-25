@@ -77,6 +77,11 @@ fn readiness(verdict: ReadinessVerdict, reasons: Vec<ReadinessReason>) -> MergeR
 }
 
 fn outcome(status: VerificationStatus, revision_compatible: bool) -> VerificationOutcome {
+    let revision_after = if revision_compatible {
+        "before"
+    } else {
+        "after"
+    };
     VerificationOutcome {
         check_id: "unit".to_string(),
         role: VerificationRole::Test,
@@ -89,7 +94,7 @@ fn outcome(status: VerificationStatus, revision_compatible: bool) -> Verificatio
         stdout_truncated: false,
         stderr_truncated: false,
         revision_before: "before".to_string(),
-        revision_after: "after".to_string(),
+        revision_after: revision_after.to_string(),
         revision_compatible,
         limitations: Vec::new(),
         reused: false,
@@ -206,6 +211,82 @@ fn incompatible_pass_is_reported_as_stale_proof() {
             .iter()
             .any(|reason| reason.code == ChangeProofReasonCode::RequiredVerificationUnavailable)
     );
+}
+
+#[test]
+fn contradictory_pass_revision_flag_cannot_verify() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.analysis_revision = Some("before".to_string());
+    let mut passed = outcome(VerificationStatus::Passed, true);
+    passed.revision_after = "after".to_string();
+    report.verification = vec![passed];
+
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.stale, 1);
+    assert_eq!(proof.obligations.satisfied, 0);
+}
+
+#[test]
+fn contradictory_exit_status_cannot_verify() {
+    for exit_code in [None, Some(1)] {
+        let mut report = report(ScanMode::Changed, 1, 1);
+        let mut passed = outcome(VerificationStatus::Passed, true);
+        passed.exit_code = exit_code;
+        report.verification = vec![passed];
+        let readiness = crate::review::derive_readiness(&report, None, None, None);
+        let proof = derive_change_proof_from_review(&report, &readiness);
+
+        assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+        assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+        assert_eq!(proof.obligations.satisfied, 0);
+        assert_eq!(proof.obligations.unavailable, 1);
+    }
+}
+
+#[test]
+fn duplicate_unmatched_outcomes_cannot_verify() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    let passed = outcome(VerificationStatus::Passed, true);
+    report.verification = vec![passed.clone(), passed];
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.applicable, 1);
+    assert_eq!(proof.obligations.unavailable, 1);
+}
+
+#[test]
+fn unselected_outcome_cannot_satisfy_configured_policy() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.verification_policy.configured = vec![VerificationPolicyCheck {
+        id: "unit".to_string(),
+        role: VerificationRole::Test,
+        paths: Vec::new(),
+    }];
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+    let proof =
+        derive_change_proof_from_review(&report, &readiness(ReadinessVerdict::Ready, vec![]));
+
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.satisfied, 0);
+    assert_eq!(proof.obligations.unavailable, 1);
+}
+
+#[test]
+fn readiness_rejects_pass_from_another_analysis_revision() {
+    let mut report = report(ScanMode::Changed, 1, 1);
+    report.analysis_revision = Some("different".to_string());
+    report.verification = vec![outcome(VerificationStatus::Passed, true)];
+    let readiness = crate::review::derive_readiness(&report, None, None, None);
+    let proof = derive_change_proof_from_review(&report, &readiness);
+
+    assert_eq!(readiness.verdict, ReadinessVerdict::Blocked);
+    assert_eq!(proof.verdict, ChangeProofVerdict::Review);
+    assert_eq!(proof.obligations.stale, 1);
 }
 
 #[test]

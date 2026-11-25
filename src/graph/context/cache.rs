@@ -1,7 +1,7 @@
 use super::*;
 #[path = "cache_identity.rs"]
 mod identity;
-use identity::{resolver_input_fingerprint, stable_hash_hex};
+use identity::{dirty_inputs, resolver_input_fingerprint, stable_hash_hex};
 use std::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -14,6 +14,8 @@ struct CachedRepositoryContextState {
     resolver_input_fingerprint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     repository_fingerprint: Option<RepositoryFingerprint>,
+    #[serde(default)]
+    dirty_inputs: Option<BTreeMap<PathBuf, String>>,
     input_fingerprint: String,
     relationship_fingerprint: String,
     state: RepositoryContextState,
@@ -24,6 +26,11 @@ pub fn load_repo_context_graph(
     config_fingerprint: &str,
 ) -> Option<RepoContextGraphLoad> {
     let load = load_repository_context_state(root, config_fingerprint)?;
+    // This compatibility API does not apply a patch. Never expose a graph
+    // built against different dirty inputs as a current cache hit.
+    if load.previous_dirty_inputs != load.current_dirty_inputs {
+        return None;
+    }
     Some(RepoContextGraphLoad {
         graph: load.state.to_compat(),
         cache_info: load.cache_info,
@@ -42,7 +49,15 @@ pub(crate) fn load_repository_context_state(
 
     // This cache stores graph/context metadata only. Changed scans must still
     // analyze changed file contents and patch this graph before scoring.
+    let current_dirty_inputs = dirty_inputs(root);
+    if cached.repository_fingerprint.is_some()
+        && (cached.dirty_inputs.is_none() || current_dirty_inputs.is_none())
+    {
+        return None;
+    }
     Some(RepositoryContextStateLoad {
+        previous_dirty_inputs: cached.dirty_inputs,
+        current_dirty_inputs,
         state: cached.state,
         cache_info: ContextGraphCacheInfo {
             status: "hit".to_string(),
@@ -75,6 +90,8 @@ pub(crate) fn write_repository_context_state(
     }
     let (input_fingerprint, relationship_fingerprint) = state_fingerprints(state);
     let repository_fingerprint = repository_fingerprint(root);
+    let dirty_inputs = dirty_inputs(root);
+    let resolver_fingerprint = resolver_input_fingerprint(root);
 
     if let Some(cached) = read_cached_repository_context_state(&cache_path)
         && valid_cached_state_metadata_for_repository(
@@ -82,7 +99,8 @@ pub(crate) fn write_repository_context_state(
             config_fingerprint,
             &repository_fingerprint,
         )
-        && cached.resolver_input_fingerprint == Some(resolver_input_fingerprint(root))
+        && cached.resolver_input_fingerprint.as_ref() == Some(&resolver_fingerprint)
+        && cached.dirty_inputs == dirty_inputs
         && cached.input_fingerprint == input_fingerprint
         && cached.relationship_fingerprint == relationship_fingerprint
     {
@@ -98,14 +116,14 @@ pub(crate) fn write_repository_context_state(
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
         config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
-        resolver_input_fingerprint: Some(resolver_input_fingerprint(root)),
+        resolver_input_fingerprint: Some(resolver_fingerprint),
         repository_fingerprint,
+        dirty_inputs,
         input_fingerprint,
         relationship_fingerprint,
         state: state.clone(),
     };
-    let rendered = serde_json::to_vec(&cached).map_err(io::Error::other)?;
-    fs::write(&cache_path, rendered)?;
+    crate::scan::cache::write_cache_atomic(&cache_path, &cached)?;
 
     Ok(ContextGraphCacheInfo {
         status: "write".to_string(),
@@ -205,8 +223,9 @@ fn read_cached_repository_context_state(path: &Path) -> Option<CachedRepositoryC
 }
 
 fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
-    let head_oid = git_output(root, &["rev-parse", "HEAD"])?;
-    let head_tree_oid = git_output(root, &["rev-parse", "HEAD^{tree}"])?;
+    // Both objects belong to the same HEAD observation and one Git process.
+    let objects = git_output(root, &["rev-parse", "HEAD", "HEAD^{tree}"])?;
+    let (head_oid, head_tree_oid) = parse_repository_objects(&objects)?;
     let branch = git_output(root, &["branch", "--show-current"]).filter(|value| !value.is_empty());
 
     Some(RepositoryFingerprint {
@@ -214,6 +233,21 @@ fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
         head_tree_oid,
         branch,
     })
+}
+
+fn parse_repository_objects(output: &str) -> Option<(String, String)> {
+    let mut lines = output.lines();
+    let head = lines.next()?;
+    let tree = lines.next()?;
+    if lines.next().is_some()
+        || !matches!(head.len(), 40 | 64)
+        || tree.len() != head.len()
+        || !head.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !tree.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    Some((head.to_string(), tree.to_string()))
 }
 
 fn git_output(root: &Path, args: &[&str]) -> Option<String> {
@@ -238,6 +272,8 @@ fn stable_node_inputs(graph: &RepoContextGraph) -> Vec<serde_json::Value> {
             serde_json::json!({
                 "path": stable_path(&node.path),
                 "language": &node.language,
+                "content_hash": &node.content_hash,
+                "guarded_optional_imports": sorted_strings(&node.guarded_optional_imports),
                 "roles": sorted_strings(&node.roles),
                 "frameworks": sorted_strings(&node.frameworks),
                 "runtimes": sorted_strings(&node.runtimes),
@@ -295,4 +331,30 @@ fn sorted_strings(values: &[String]) -> Vec<String> {
     let mut values = values.to_vec();
     values.sort();
     values
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::parse_repository_objects;
+
+    #[test]
+    fn combined_git_object_output_requires_two_valid_matching_width_ids() {
+        for width in [40, 64] {
+            let head = "a".repeat(width);
+            let tree = "b".repeat(width);
+            assert_eq!(
+                parse_repository_objects(&format!("{head}\n{tree}")),
+                Some((head, tree))
+            );
+        }
+        assert!(parse_repository_objects("HEAD\nHEAD^{tree}").is_none());
+        assert!(parse_repository_objects(&"a".repeat(40)).is_none());
+        assert!(
+            parse_repository_objects(&format!("{}\n{}\nextra", "a".repeat(40), "b".repeat(40)))
+                .is_none()
+        );
+        assert!(
+            parse_repository_objects(&format!("{}\n{}", "a".repeat(40), "b".repeat(64))).is_none()
+        );
+    }
 }

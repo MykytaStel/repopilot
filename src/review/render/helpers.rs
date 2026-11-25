@@ -45,7 +45,7 @@ pub(super) fn verification_proof_summary(
     let revision = if report
         .verification
         .iter()
-        .all(|outcome| outcome.revision_compatible)
+        .all(|outcome| outcome.matches_revision(report.analysis_revision.as_deref()))
     {
         "revision-compatible"
     } else {
@@ -109,11 +109,13 @@ pub(super) fn change_proof_policy_summary(report: &ReviewReport) -> String {
             } else {
                 format!("none selected ({configured} configured; pass --verify <id> to run)")
             }
-        } else {
+        } else if configured == 0 {
             format!(
                 "recorded outcomes ({} check(s); no configured policy)",
                 report.verification.len()
             )
+        } else {
+            format!("none selected ({configured} configured; recorded outcomes are not selected)")
         }
     } else {
         format!("{selected} selected ({configured} configured)")

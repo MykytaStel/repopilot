@@ -18,7 +18,8 @@ from changeproof_benchmark_contract import (
     rationale_sha256,
     validate_manifest,
 )
-from changeproof_benchmark_proof import evaluate_case, normalize_change_proof, normalized_proof_sha256
+from changeproof_benchmark_signals import normalize_signal_kinds, signal_oracle
+from changeproof_benchmark_proof import BenchmarkProofError, evaluate_case, normalize_change_proof, normalized_proof_sha256
 from differential_resource import execute_timed_command
 from zoo_scanner import ScannerPreparationError, ScannerProvenanceError, prepare_scanner
 
@@ -44,18 +45,87 @@ def collect_benchmark(
         scanner_info = prepare_scanner(repo_root, scanner, allow_version_mismatch=False)
     except (ScannerPreparationError, ScannerProvenanceError) as error:
         raise BenchmarkManifestError(f"scanner preparation failed: {error}") from error
+    binary_sha256 = _sha256_file(scanner_info.binary)
     observations = [collect_case(case, fixture_root, scanner_info, timeout_seconds) for case in cases]
+    if _sha256_file(scanner_info.binary) != binary_sha256:
+        raise BenchmarkManifestError("scanner binary changed during collection")
     return {
         "schema_version": 1,
         "protocol": "changeproof-benchmark-v1",
         "corpus": corpus,
         "manifest_sha256": _sha256_file(manifest_path),
-        "scanner": _scanner_provenance(scanner_info),
+        "scanner": {**_scanner_provenance(scanner_info), "binary_sha256": binary_sha256},
         "cases": observations,
     }
 
 
-def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_seconds: int) -> dict[str, object]:
+
+def collect_paired(
+    baseline_root: Path,
+    candidate_root: Path,
+    manifest_path: Path,
+    fixture_root: Path,
+    baseline_scanner: str,
+    candidate_scanner: str,
+    timeout_seconds: int,
+    candidate_first: bool = False,
+) -> tuple[dict, dict, dict]:
+    """Alternate scanner order by case, with independent disposable repositories."""
+    if timeout_seconds <= 0:
+        raise BenchmarkManifestError("timeout_seconds must be positive")
+    corpus, cases = validate_manifest(manifest_path, fixture_root)
+    manifest_hash = _sha256_file(manifest_path)
+    scanners = {}
+    hashes = {}
+    observations = {"baseline": [], "candidate": []}
+    diagnostics = {"schema_version": 1, "schedule": "alternating-case-v1", "cases": []}
+    for side, root, binary in (
+        ("baseline", baseline_root, baseline_scanner),
+        ("candidate", candidate_root, candidate_scanner),
+    ):
+        if not isinstance(binary, str) or not binary.strip():
+            raise BenchmarkManifestError("paired collection requires two explicit scanners")
+        try:
+            scanners[side] = prepare_scanner(root, binary, allow_version_mismatch=False)
+        except (ScannerPreparationError, ScannerProvenanceError) as error:
+            raise BenchmarkManifestError(f"{side} scanner preparation failed: {error}") from error
+        hashes[side] = _sha256_file(scanners[side].binary)
+    if hashes["baseline"] == hashes["candidate"]:
+        raise BenchmarkManifestError("paired collection requires distinct scanner binaries")
+
+    for index, case in enumerate(cases):
+        order = ("baseline", "candidate")
+        if (index % 2 == 1) != candidate_first:
+            order = order[::-1]
+        row = {"id": case.case_id, "order": list(order)}
+        for side in order:
+            timings = []
+            observations[side].append(
+                collect_case(case, fixture_root, scanners[side], timeout_seconds, timings)
+            )
+            row[side] = timings
+        diagnostics["cases"].append(row)
+
+    artifacts = {}
+    for side in ("baseline", "candidate"):
+        if _sha256_file(scanners[side].binary) != hashes[side]:
+            raise BenchmarkManifestError(f"{side} scanner binary changed during collection")
+        artifacts[side] = {
+            "schema_version": 1,
+            "protocol": "changeproof-benchmark-v1",
+            "corpus": corpus,
+            "manifest_sha256": manifest_hash,
+            "scanner": {**_scanner_provenance(scanners[side]), "binary_sha256": hashes[side]},
+            "cases": observations[side],
+        }
+    if _sha256_file(manifest_path) != manifest_hash:
+        raise BenchmarkManifestError("manifest changed during paired collection")
+    diagnostics["binary_sha256"] = hashes
+    diagnostics["manifest_sha256"] = manifest_hash
+    return artifacts["baseline"], artifacts["candidate"], diagnostics
+
+
+def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_seconds: int, timings: list | None = None) -> dict[str, object]:
     """Create one disposable Git diff and observe it once cold and twice warm."""
 
     source_hash = fixture_source_sha256(case, fixture_root)
@@ -63,7 +133,11 @@ def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_
         repo = materialize_fixture(case, fixture_root, Path(temporary))
         runs = []
         for phase in PHASES:
-            run = dict(run_review(scanner, repo, case.profile, phase, timeout_seconds, case))
+            try:
+                args = (scanner, repo, case.profile, phase, timeout_seconds, case)
+                run = dict(run_review(*args) if timings is None else run_review(*args, timings=timings))
+            except (BenchmarkProofError, BenchmarkManifestError) as error:
+                raise BenchmarkManifestError(f"case {case.case_id}, phase {phase}: {error}") from error
             run["phase"] = phase
             runs.append(run)
     if any(run["status"] != "collected" for run in runs):
@@ -74,6 +148,7 @@ def collect_case(case: BenchmarkCase, fixture_root: Path, scanner: Any, timeout_
         "fixture": case.fixture,
         "variant": case.variant,
         "fixture_source_sha256": source_hash,
+        **({"signal_oracle": signal_oracle(case, fixture_root)} if all("signal_kinds" in run for run in runs) else {}),
         "oracle": read_oracle(case, fixture_root),
         "runs": runs,
         "proof_semantic_hashes": hashes,
@@ -109,6 +184,7 @@ def run_review(
     phase: str,
     timeout_seconds: int,
     case: BenchmarkCase,
+    timings: list | None = None,
 ) -> dict[str, object]:
     """Run exactly the fixed review command and retain structured bounded fields."""
 
@@ -124,6 +200,16 @@ def run_review(
         raise BenchmarkManifestError(f"case {case.case_id}: review did not emit JSON") from error
     if not isinstance(report, dict):
         raise BenchmarkManifestError(f"case {case.case_id}: review JSON root must be an object")
+    if timings is not None:
+        cache = report.get("context_graph_cache")
+        timings.append({
+            "phase": phase,
+            "wall_ms": timed["wall_ms"],
+            "scan_timings": report.get("scan_timings"),
+            "review_timings": report.get("review_timings"),
+            "context_cache_status": cache.get("status") if isinstance(cache, dict) else None,
+            "context_cache_reason": cache.get("reason") if isinstance(cache, dict) else None,
+        })
     proof = report.get("change_proof")
     normalized_proof = normalize_change_proof(proof)
     return {
@@ -135,6 +221,7 @@ def run_review(
         "proof": normalized_proof,
         "proof_semantic_sha256": normalized_proof_sha256(normalized_proof),
         "evaluation": evaluate_case(case, report),
+        "signal_kinds": normalize_signal_kinds(report),
     }
 
 

@@ -6,7 +6,7 @@ use super::{ChangeProofContractDelta, ContractChangeKind, ContractFamily, ProofO
 use crate::review::model::ReviewReport;
 use crate::review::signals::tiered::SignalFamily;
 use crate::verification::{VerificationRole, VerificationStatus};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) fn derive_verification_obligations(
     report: &ReviewReport,
@@ -71,17 +71,12 @@ fn draft_required_obligation(
         );
     }
     consumed.extend(selected_for_role.iter().map(|id| (*id).to_string()));
-    let outcomes = report
-        .verification
-        .iter()
-        .filter(|outcome| selected_for_role.contains(&outcome.check_id.as_str()))
-        .map(outcome_state)
-        .collect::<Vec<_>>();
-    let status = if outcomes.is_empty() {
-        ProofObligationStatus::Unavailable
-    } else {
-        aggregate_states(&outcomes)
-    };
+    let status = required_check_status(
+        &report.verification,
+        &selected_for_role,
+        requirement.role,
+        report.analysis_revision.as_deref(),
+    );
     required_draft(
         requirement,
         selected_for_role.into_iter().map(str::to_string).collect(),
@@ -107,18 +102,42 @@ fn add_unmatched_outcome_drafts(
     consumed: &BTreeSet<String>,
     drafts: &mut Vec<ProofObligationDraft>,
 ) {
-    drafts.extend(
-        report
-            .verification
+    let mut by_id = BTreeMap::new();
+    for outcome in &report.verification {
+        if !consumed.contains(&outcome.check_id) {
+            by_id
+                .entry(outcome.check_id.as_str())
+                .or_insert_with(Vec::new)
+                .push(outcome);
+        }
+    }
+    for (id, outcomes) in by_id {
+        let outcome = outcomes[0];
+        let configured = report
+            .verification_policy
+            .configured
             .iter()
-            .filter(|outcome| !consumed.contains(&outcome.check_id))
-            .map(|outcome| ProofObligationDraft {
-                role: Some(outcome.role),
-                path: None,
-                check_ids: vec![outcome.check_id.clone()],
-                status: outcome_state(outcome),
-            }),
-    );
+            .find(|check| check.id == id);
+        let policy = &report.verification_policy;
+        let selected = policy.selected.iter().any(|check| check == id);
+        let policy_mismatch = !policy.configured.is_empty() && (configured.is_none() || !selected);
+        let status = if outcomes.len() != 1
+            || configured.is_some_and(|check| check.role != outcome.role)
+            || policy_mismatch
+        {
+            ProofObligationStatus::Unavailable
+        } else {
+            outcome_state(outcome, report.analysis_revision.as_deref())
+        };
+        drafts.push(ProofObligationDraft {
+            role: configured
+                .map(|check| check.role)
+                .or_else(|| outcomes.iter().map(|outcome| outcome.role).min()),
+            path: None,
+            check_ids: vec![id.to_string()],
+            status,
+        });
+    }
 }
 
 fn add_orphan_selected_drafts(
@@ -217,19 +236,44 @@ fn contract_requirement(delta: &ChangeProofContractDelta) -> Option<Verification
     })
 }
 
-fn outcome_state(outcome: &crate::verification::VerificationOutcome) -> ProofObligationStatus {
+fn required_check_status(
+    outcomes: &[crate::verification::VerificationOutcome],
+    selected: &[&str],
+    role: VerificationRole,
+    analysis_revision: Option<&str>,
+) -> ProofObligationStatus {
+    let states = selected
+        .iter()
+        .map(|id| {
+            let mut matching = outcomes.iter().filter(|outcome| outcome.check_id == *id);
+            let Some(outcome) = matching.next() else {
+                return ProofObligationStatus::Unavailable;
+            };
+            if matching.next().is_some() || outcome.role != role {
+                return ProofObligationStatus::Unavailable;
+            }
+            outcome_state(outcome, analysis_revision)
+        })
+        .collect::<Vec<_>>();
+    aggregate_states(&states)
+}
+
+fn outcome_state(
+    outcome: &crate::verification::VerificationOutcome,
+    analysis_revision: Option<&str>,
+) -> ProofObligationStatus {
+    let revision_matches = outcome.matches_revision(analysis_revision);
     match outcome.status {
-        VerificationStatus::Passed if outcome.revision_compatible => {
+        VerificationStatus::Passed if outcome.is_valid_pass(analysis_revision) => {
             ProofObligationStatus::Satisfied
         }
+        VerificationStatus::Passed if revision_matches => ProofObligationStatus::Unavailable,
         VerificationStatus::Passed => ProofObligationStatus::Stale,
         VerificationStatus::Failed => ProofObligationStatus::Failed,
         VerificationStatus::TimedOut
         | VerificationStatus::Unavailable
         | VerificationStatus::Cancelled => ProofObligationStatus::Unavailable,
-        VerificationStatus::Skipped if outcome.revision_compatible => {
-            ProofObligationStatus::Unavailable
-        }
+        VerificationStatus::Skipped if revision_matches => ProofObligationStatus::Unavailable,
         VerificationStatus::Skipped => ProofObligationStatus::Stale,
     }
 }
@@ -257,5 +301,86 @@ fn aggregate_states(states: &[ProofObligationStatus]) -> ProofObligationStatus {
         ProofObligationStatus::Satisfied
     } else {
         ProofObligationStatus::Unselected
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::verification::VerificationOutcome;
+
+    fn passed(id: &str) -> VerificationOutcome {
+        VerificationOutcome {
+            check_id: id.to_string(),
+            role: VerificationRole::Test,
+            status: VerificationStatus::Passed,
+            duration_ms: 0,
+            exit_code: Some(0),
+            working_directory: ".".to_string(),
+            stdout_excerpt: String::new(),
+            stderr_excerpt: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            revision_before: "current".to_string(),
+            revision_after: "current".to_string(),
+            revision_compatible: true,
+            limitations: Vec::new(),
+            reused: false,
+            diagnostics: None,
+        }
+    }
+
+    #[test]
+    fn every_selected_required_check_must_return_one_matching_outcome() {
+        let first = passed("unit");
+        let second = passed("integration");
+        let selected = ["unit", "integration"];
+        let role = VerificationRole::Test;
+        assert_eq!(
+            required_check_status(
+                std::slice::from_ref(&first),
+                &selected,
+                role,
+                Some("current"),
+            ),
+            ProofObligationStatus::Unavailable
+        );
+        assert_eq!(
+            required_check_status(
+                &[first.clone(), second.clone()],
+                &selected,
+                role,
+                Some("current"),
+            ),
+            ProofObligationStatus::Satisfied
+        );
+        assert_eq!(
+            required_check_status(
+                &[first.clone(), first, second],
+                &selected,
+                role,
+                Some("current"),
+            ),
+            ProofObligationStatus::Unavailable
+        );
+    }
+
+    #[test]
+    fn wrong_role_or_revision_cannot_satisfy_requirement() {
+        let mut outcome = passed("unit");
+        assert_eq!(
+            outcome_state(&outcome, Some("other")),
+            ProofObligationStatus::Stale
+        );
+        outcome.role = VerificationRole::Lint;
+        assert_eq!(
+            required_check_status(
+                &[outcome],
+                &["unit"],
+                VerificationRole::Test,
+                Some("current"),
+            ),
+            ProofObligationStatus::Unavailable
+        );
     }
 }

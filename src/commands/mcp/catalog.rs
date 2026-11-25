@@ -2,6 +2,7 @@ use super::{
     ServerState, context, explain_file, explain_finding, explain_review_signal, review_change, scan,
 };
 use crate::commands::mcp::jsonrpc::Response;
+use repopilot::scan::session::WorkspaceRevision;
 use serde_json::{Value, json};
 
 /// Returned as `instructions` from `initialize`; clients place it ahead of the
@@ -69,8 +70,15 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
         .and_then(Value::as_str)
         .unwrap_or_default();
     let text = match uri {
-        "repopilot://analyses" => serde_json::to_string_pretty(&state.analyses.summaries())
-            .unwrap_or_else(|_| "[]".to_string()),
+        "repopilot://analyses" => {
+            let revision = WorkspaceRevision::capture(&state.root);
+            let mut summaries = state.analyses.summaries();
+            for summary in &mut summaries {
+                let stale = summary["workspace_revision"].as_str() != Some(revision.id());
+                summary["stale"] = json!(stale);
+            }
+            serde_json::to_string_pretty(&summaries).unwrap_or_else(|_| "[]".to_string())
+        }
         "repopilot://rules" => {
             let rules = repopilot::rules::all_rule_metadata()
                 .map(|rule| {
@@ -118,16 +126,31 @@ pub(super) fn handle_resource_read(id: Value, params: &Value, state: &ServerStat
             "config_present": state.root.join("repopilot.toml").is_file(),
             "baseline_present": state.root.join(".repopilot/baseline.json").is_file(),
             "feedback_present": state.root.join(".repopilot/feedback.yml").is_file(),
+            "retained_analysis_bytes": state.analyses.retained_bytes(),
+            "analysis_retention_limit_bytes": super::analysis_store::MAX_STORED_REPORT_BYTES,
             "last_scan_available": state.last_scan.is_some(),
             "last_review_available": state.last_review.is_some()
         }))
         .unwrap_or_else(|_| "{}".to_string()),
         _ => return Response::error(id, -32002, format!("resource not found: {uri}")),
     };
-    Response::success(
-        id,
-        json!({ "contents": [{ "uri": uri, "mimeType": "application/json", "text": text }] }),
-    )
+    let mut result = json!({
+        "contents": [{"uri": uri, "mimeType": "application/json", "text": text}]
+    });
+    let source_revision = match uri {
+        "repopilot://last-scan" => state.last_scan_revision.as_deref(),
+        "repopilot://last-review" => state.last_review_revision.as_deref(),
+        _ => None,
+    };
+    if let Some(source) = source_revision {
+        let current = WorkspaceRevision::capture(&state.root);
+        result["_meta"] = json!({
+            "sourceWorkspaceRevision": source,
+            "workspaceRevision": current.id(),
+            "stale": source != current.id()
+        });
+    }
+    Response::success(id, result)
 }
 
 pub(super) fn prompts_list_result() -> Value {

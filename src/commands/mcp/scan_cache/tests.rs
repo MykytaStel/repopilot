@@ -74,3 +74,44 @@ fn cached_scan_probe(marker: &str) -> String {
 fn cache_dir_for(root: &Path) -> PathBuf {
     storage::cache_dir(root).expect("safe git-owned cache dir")
 }
+
+#[test]
+fn pagination_does_not_change_full_report_cache_key() {
+    let (_temp, root) = init_repo();
+    let initial = args(&root);
+    let mut page = initial.clone();
+    page["offset"] = json!(10);
+    page["limit"] = json!(20);
+    let first = cache_key(&root, &initial).unwrap();
+    assert_eq!(cache_key(&root, &page).as_deref(), Some(first.as_str()));
+    page["profile"] = json!("strict");
+    assert_ne!(cache_key(&root, &page).as_deref(), Some(first.as_str()));
+}
+
+#[test]
+fn same_worktree_bytes_with_different_staged_blobs_invalidate_cache() {
+    let (_temp, root) = init_repo();
+    let file = root.join("src/lib.rs");
+    fs::write(&file, "pub fn staged_one() {}\n").unwrap();
+    git(&root, &["add", "src/lib.rs"]);
+    fs::write(&file, "pub fn worktree() {}\n").unwrap();
+    let first = cache_key(&root, &args(&root)).unwrap();
+    fs::write(&file, "pub fn staged_two() {}\n").unwrap();
+    git(&root, &["add", "src/lib.rs"]);
+    fs::write(&file, "pub fn worktree() {}\n").unwrap();
+    let second = cache_key(&root, &args(&root)).unwrap();
+    assert_ne!(first, second);
+}
+
+#[cfg(unix)]
+#[test]
+fn dirty_symlink_disables_disk_cache() {
+    use std::os::unix::fs::symlink;
+
+    let (_temp, root) = init_repo();
+    let outside = tempfile::tempdir().unwrap();
+    let target = outside.path().join("external.rs");
+    fs::write(&target, "pub fn external() {}\n").unwrap();
+    symlink(&target, root.join("src/link.rs")).unwrap();
+    assert!(cache_key(&root, &args(&root)).is_none());
+}

@@ -188,8 +188,46 @@ def expectation_path(repo_name: str) -> Path:
     return EXPECTATION_DIR / f"{repo_name}.toml"
 
 
+def release_input_errors(repos: list[dict[str, Any]]) -> list[str]:
+    errors = []
+    for repo in repos:
+        path = repo_path(repo)
+        if not path.is_dir() or head_sha(path) != repo["sha"]:
+            errors.append(f"{repo['name']}: missing clone or incorrect pin")
+            continue
+        try:
+            dirty = run(
+                ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"],
+                cwd=path,
+            ).stdout
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            errors.append(f"{repo['name']}: cannot inspect checkout")
+            continue
+        # Generated untracked cache files are not source inputs. Tracked
+        # cache modifications and all other local edits still fail the gate.
+        if any(entry and not entry.startswith("?? .repopilot/cache/")
+               for entry in dirty.split("\0")):
+            errors.append(f"{repo['name']}: checkout has local changes")
+        if not (SNAPSHOT_DIR / f"{repo['name']}.json").is_file():
+            errors.append(f"{repo['name']}: missing committed snapshot")
+        if not expectation_path(repo["name"]).is_file():
+            errors.append(f"{repo['name']}: missing expectation file")
+    return errors
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
     repos = select(load_manifest(), args.only)
+    release_gate = getattr(args, "release_gate", False)
+    if release_gate:
+        if args.only or args.bless or args.allow_version_mismatch:
+            print("--release-gate requires the full zoo, matching version and read-only snapshots", file=sys.stderr)
+            return 2
+        errors = release_input_errors(repos)
+        if errors:
+            print("ZOO RELEASE INPUTS FAILED", file=sys.stderr)
+            for error in errors:
+                print(error, file=sys.stderr)
+            return 1
     try:
         scanner = prepare_scanner(
             REPO_ROOT,
@@ -223,7 +261,10 @@ def cmd_scan(args: argparse.Namespace) -> int:
         snap = snapshot_for(repo, default_report, strict_report)
         out = SNAPSHOT_DIR / f"{repo['name']}.json"
         rendered = json.dumps(snap, indent=2, sort_keys=True) + "\n"
-        if args.bless or not out.exists():
+        if release_gate and not out.exists():
+            print(f"    MISSING snapshot {out.relative_to(REPO_ROOT)}")
+            drift = True
+        elif args.bless or not out.exists():
             out.write_text(rendered, encoding="utf-8")
             print(f"    wrote {out.relative_to(REPO_ROOT)} (default-visible: {snap['default']['visible_total']})")
         else:
@@ -238,6 +279,12 @@ def cmd_scan(args: argparse.Namespace) -> int:
     print_expectation_diagnostics(exp_diags)
     expectation_failed = any(ze.is_failure(d.kind) for d in exp_diags)
     snapshot_failed = drift and not args.bless
+    if release_gate:
+        errors = release_input_errors(repos)
+        for error in errors:
+            print(error, file=sys.stderr)
+        if errors:
+            return 1
     return 1 if snapshot_failed or expectation_failed else 0
 
 
@@ -519,6 +566,7 @@ def main() -> int:
     p_scan = sub.add_parser("scan", help="scan repos and write/check snapshots")
     p_scan.add_argument("--only", help="comma-separated repo names")
     p_scan.add_argument("--bless", action="store_true", help="(re)write committed snapshots")
+    p_scan.add_argument("--release-gate", action="store_true", help="require all clean pinned clones and existing snapshots/expectations")
     p_scan.add_argument(
         "--repopilot",
         help="explicit path to an external repopilot binary (default: build current workspace)",

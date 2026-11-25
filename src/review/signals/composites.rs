@@ -57,6 +57,14 @@ pub fn enrich_blast_radius(
         return;
     };
     let importers = build_importers_by_target(graph, repo_root);
+    enrich_blast_radius_with_importers(signals, &importers, repo_root);
+}
+
+pub(in crate::review) fn enrich_blast_radius_with_importers(
+    signals: &mut [BoundarySignal],
+    importers: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+    repo_root: &Path,
+) {
     for signal in signals.iter_mut() {
         let normalized = normalized_review_path(Path::new(&signal.path), repo_root);
         signal.blast_radius = importers.get(&normalized).map_or(0, BTreeSet::len);

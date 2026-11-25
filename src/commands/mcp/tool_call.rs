@@ -55,6 +55,7 @@ struct ResolvedToolCall {
     name: String,
     arguments: Value,
     referenced: Option<AnalysisRecord>,
+    starting_revision: String,
 }
 
 fn resolve_call(
@@ -81,6 +82,7 @@ fn resolve_call(
         name,
         arguments,
         referenced,
+        starting_revision: current_revision,
     })
 }
 
@@ -146,11 +148,23 @@ fn publish_call(
     state: &mut ServerState,
     cancellation: &CancellationToken,
 ) -> Response {
+    let unchanged = call.starting_revision == workspace_revision;
     let (outcome, structured_content, publishable) = match outcome {
-        Ok(execution) => {
-            let publishable = execution.review_revision.as_ref().is_none_or(|revision| {
-                revision.revision_compatible && revision.analysis_revision == workspace_revision
-            });
+        Ok(mut execution) => {
+            if !unchanged && execution.review_revision.is_none() {
+                return tool_response(
+                    id,
+                    &call.name,
+                    Err("workspace changed during analysis; rerun the tool".to_string()),
+                    &workspace_revision,
+                    state,
+                );
+            }
+            annotate_historical_source(&call, state, &workspace_revision, &mut execution);
+            let publishable = unchanged
+                && execution.review_revision.as_ref().is_none_or(|revision| {
+                    revision.revision_compatible && revision.analysis_revision == workspace_revision
+                });
             (
                 Ok(execution.rendered),
                 execution.structured_content,
@@ -171,7 +185,55 @@ fn publish_call(
     if cancellation.is_cancelled() {
         return Response::error(id, -32800, "request cancelled");
     }
-    Response::success(id, prepared.publish(state))
+    // Reading another page of a stored report is not a new analysis and must
+    // not replace the latest scan/review or change its publication order.
+    let result = if call.referenced.is_some() {
+        prepared.result
+    } else {
+        prepared.publish(state)
+    };
+    Response::success(id, result)
+}
+
+fn annotate_historical_source(
+    call: &ResolvedToolCall,
+    state: &ServerState,
+    current_revision: &str,
+    execution: &mut ToolExecution,
+) {
+    // Implicit last-report explanations deliberately support historical replay.
+    // Unlike an explicit handle, they can describe evidence from an old revision.
+    let source = match call.name.as_str() {
+        explain_review_signal::TOOL_NAME => state.last_review_revision.as_deref(),
+        explain_finding::TOOL_NAME => match call.arguments.get("source").and_then(Value::as_str) {
+            Some("last-review") => state.last_review_revision.as_deref(),
+            _ => state.last_scan_revision.as_deref(),
+        },
+        _ => return,
+    };
+    let source = call
+        .referenced
+        .as_ref()
+        .map(|record| record.workspace_revision.as_str())
+        .or(source);
+    let Some(source) = source else {
+        return;
+    };
+    let Ok(mut report) = serde_json::from_str::<Value>(&execution.rendered) else {
+        return;
+    };
+    let Some(object) = report.as_object_mut() else {
+        return;
+    };
+    object.insert("source_workspace_revision".to_string(), json!(source));
+    object.insert(
+        "source_stale".to_string(),
+        json!(source != current_revision),
+    );
+    if let Ok(rendered) = serde_json::to_string_pretty(&report) {
+        execution.rendered = rendered;
+        execution.structured_content = Some(report);
+    }
 }
 
 fn tool_response(
@@ -211,9 +273,12 @@ fn dispatch_tool(
         review_change::TOOL_NAME => {
             dispatch_review(arguments, referenced, cancellation, observer, approve)
         }
-        scan::TOOL_NAME => scan::call(arguments)
-            .map(ToolExecution::plain)
-            .map_err(DispatchError::Message),
+        scan::TOOL_NAME => match referenced {
+            Some(record) => Ok(ToolExecution::plain(record.report.as_ref().clone())),
+            None => scan::call(arguments)
+                .map(ToolExecution::plain)
+                .map_err(DispatchError::Message),
+        },
         context::TOOL_NAME => dispatch_context(arguments, referenced),
         explain_file::TOOL_NAME => explain_file::call(arguments, &state.root)
             .map(ToolExecution::plain)
@@ -237,7 +302,7 @@ fn dispatch_review(
 ) -> Result<ToolExecution, DispatchError> {
     if let Some(record) = referenced.filter(|record| record.kind == AnalysisKind::Review) {
         return Ok(ToolExecution {
-            rendered: record.report.clone(),
+            rendered: record.report.as_ref().clone(),
             structured_content: None,
             review_revision: Some(ReviewRevision {
                 analysis_revision: record.workspace_revision.clone(),
@@ -351,15 +416,19 @@ fn referenced_analysis(
     state: &ServerState,
     workspace_revision: &str,
 ) -> Result<Option<AnalysisRecord>, String> {
-    let Some(handle) = arguments.get("analysis_handle").and_then(Value::as_str) else {
+    let Some(handle) = arguments.get("analysis_handle") else {
         return Ok(None);
     };
+    let handle = handle
+        .as_str()
+        .ok_or_else(|| "`analysis_handle` must be a string".to_string())?;
     if !matches!(
         name,
         context::TOOL_NAME
             | explain_finding::TOOL_NAME
             | explain_review_signal::TOOL_NAME
             | review_change::TOOL_NAME
+            | scan::TOOL_NAME
     ) {
         return Err("`analysis_handle` is not accepted by this tool".into());
     }
@@ -373,6 +442,24 @@ fn referenced_analysis(
             "analysis handle {handle} belongs to workspace revision {}; current revision is {workspace_revision}",
             record.workspace_revision
         ));
+    }
+    if name == explain_review_signal::TOOL_NAME && record.kind != AnalysisKind::Review {
+        return Err("`analysis_handle` must refer to a prior review".into());
+    }
+    if name == scan::TOOL_NAME {
+        if record.kind != AnalysisKind::Scan {
+            return Err("`analysis_handle` must refer to a prior scan".into());
+        }
+        if let Some(key) = arguments
+            .as_object()
+            .into_iter()
+            .flat_map(|values| values.keys())
+            .find(|key| !["analysis_handle", "offset", "limit"].contains(&key.as_str()))
+        {
+            return Err(format!(
+                "`{key}` cannot be combined with a stored scan handle; request only another page"
+            ));
+        }
     }
     if name == review_change::TOOL_NAME {
         if record.kind != AnalysisKind::Review {
@@ -425,4 +512,55 @@ fn call_explain_finding(
         state.last_scan.as_deref(),
         state.last_review.as_deref(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn implicit_explanation_identifies_stale_source_revision() {
+        let state = ServerState {
+            last_review_revision: Some("old".to_string()),
+            ..ServerState::default()
+        };
+        let call = ResolvedToolCall {
+            name: explain_review_signal::TOOL_NAME.to_string(),
+            arguments: json!({}),
+            referenced: None,
+            starting_revision: "new".to_string(),
+        };
+        let mut execution = ToolExecution::plain(json!({"signal_id": "example"}).to_string());
+        annotate_historical_source(&call, &state, "new", &mut execution);
+        let report = execution.structured_content.unwrap();
+        assert_eq!(report["source_workspace_revision"], "old");
+        assert_eq!(report["source_stale"], true);
+    }
+
+    #[test]
+    fn drifted_scan_cannot_publish_a_new_revision_handle() {
+        let mut state = ServerState {
+            last_scan: Some("previous scan".to_string()),
+            ..ServerState::default()
+        };
+        let call = ResolvedToolCall {
+            name: scan::TOOL_NAME.to_string(),
+            arguments: json!({}),
+            referenced: None,
+            starting_revision: "before".to_string(),
+        };
+        let response = publish_call(
+            json!(1),
+            call,
+            Ok(ToolExecution::plain(json!({"findings": []}).to_string())),
+            "after".to_string(),
+            &mut state,
+            &CancellationToken::new(),
+        );
+        let result = response.result.unwrap();
+        assert_eq!(result["isError"], true);
+        assert!(result.get("analysisHandle").is_none());
+        assert!(state.analyses.summaries().is_empty());
+        assert_eq!(state.last_scan.as_deref(), Some("previous scan"));
+    }
 }

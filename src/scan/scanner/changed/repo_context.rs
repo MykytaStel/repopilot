@@ -39,20 +39,28 @@ impl<'a> ChangedScanEngine<'a> {
         let fingerprint = config_fingerprint(self.config);
 
         if let Some(load) = load_repository_context_state(repo_root, &fingerprint) {
-            if has_unpatched_modified_file(
-                repo_root,
-                &discovery.changed_files,
-                graph_patch_files,
-                self.config.include_low_signal,
-            ) {
-                return self.cold_repo_context(
+            let patchable = dirty_scope_is_patchable(&load, &discovery.changed_files);
+            if !patchable
+                || has_unpatched_modified_file(
+                    repo_root,
+                    &discovery.changed_files,
+                    graph_patch_files,
+                    self.config.include_low_signal,
+                )
+            {
+                let mut stage = self.cold_repo_context(
                     discovery,
                     facts,
                     graph_patch_files,
                     parsed_cache,
                     start,
                     fingerprint,
-                );
+                )?;
+                if !patchable {
+                    stage.cache_info.reason =
+                        format!("dirty-scope-not-patchable; {}", stage.cache_info.reason);
+                }
+                return Ok(stage);
             }
             return Ok(self.cached_repo_context(
                 discovery,
@@ -84,6 +92,9 @@ impl<'a> ChangedScanEngine<'a> {
         mut load: RepositoryContextStateLoad,
     ) -> ChangedRepoContextStage {
         let repo_root = &discovery.repo_root;
+        // If the patch produces exactly the state already on disk, there is
+        // nothing to publish. Keep the original cache identity intact.
+        let previous_state = load.state.clone();
         load.state.apply_changed_facts_with_spans(
             repo_root,
             &discovery.changed_files,
@@ -92,10 +103,16 @@ impl<'a> ChangedScanEngine<'a> {
             &facts.parsed_content_hashes,
             &facts.guarded_optional_imports_by_file,
         );
-        let diagnostics = write_repository_context_state(repo_root, fingerprint, &load.state)
-            .err()
-            .map(|error| vec![cache_diagnostic(&error)])
-            .unwrap_or_default();
+        let diagnostics = if previous_state == load.state
+            && load.previous_dirty_inputs == load.current_dirty_inputs
+        {
+            Vec::new()
+        } else {
+            write_repository_context_state(repo_root, fingerprint, &load.state)
+                .err()
+                .map(|error| vec![cache_diagnostic(&error)])
+                .unwrap_or_default()
+        };
         cached_stage(load, repo_root, facts, diagnostics, start)
     }
 
@@ -155,6 +172,56 @@ impl<'a> ChangedScanEngine<'a> {
         apply_cluster_overlay(findings);
         start.elapsed().as_micros() as u64
     }
+}
+
+/// A graph cached on a dirty worktree can contain files that are no longer
+/// in the current review (reverted, deleted untracked, or outside a pathspec).
+/// An out-of-scope dirty path may be reused only when its fingerprint is
+/// unchanged. Reverted and disappeared paths require a rebuild unless patched.
+/// Non-Git resolved scopes retain their existing contract.
+fn dirty_scope_is_patchable(
+    load: &RepositoryContextStateLoad,
+    changed_files: &[crate::review::diff::ChangedFile],
+) -> bool {
+    match (&load.previous_dirty_inputs, &load.current_dirty_inputs) {
+        (Some(previous), Some(current)) => {
+            let scope = changed_files
+                .iter()
+                .map(|file| file.path.as_path())
+                .collect::<BTreeSet<_>>();
+            previous.keys().chain(current.keys()).all(|path| {
+                !graph_wide_input(path)
+                    && (scope.contains(path.as_path()) || previous.get(path) == current.get(path))
+            })
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+// These files can change the repository inventory, framework classification,
+// or the resolution of imports in files that the current diff does not touch.
+// Rebuild conservatively until their dependency fingerprints are modeled.
+fn graph_wide_input(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some(
+            ".gitignore"
+                | ".ignore"
+                | ".repopilotignore"
+                | "package.json"
+                | "pnpm-workspace.yaml"
+                | "Cargo.toml"
+                | "go.mod"
+                | "go.work"
+                | "pyproject.toml"
+                | "build.gradle"
+                | "build.gradle.kts"
+                | "settings.gradle"
+                | "settings.gradle.kts"
+                | "pom.xml"
+        )
+    )
 }
 
 fn detect_repo_frameworks(repo_context: &mut ScanFacts, repo_root: &Path) {

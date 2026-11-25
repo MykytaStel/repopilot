@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
@@ -14,6 +15,7 @@ from changeproof_benchmark_proof import (  # noqa: E402
     evaluate_case,
     evaluate_normalized_proof,
     normalized_proof_sha256,
+    normalize_change_proof,
     proof_semantic_sha256,
 )
 
@@ -133,6 +135,33 @@ class ChangeProofBenchmarkProofTests(unittest.TestCase):
         raw["coverage"]["scope"] = "SECRET SOURCE\n/private/path"
         with self.assertRaisesRegex(BenchmarkProofError, "coverage.scope is invalid"):
             proof_semantic_sha256(raw)
+
+    def test_policy_skipped_coverage_is_preserved_and_scored(self) -> None:
+        raw = proof()
+        raw["coverage"].update(requested_files=2, policy_skipped_files=1)
+        expected = replace(case(), coverage=dict(raw["coverage"]))
+        normalized = normalize_change_proof(raw)
+        self.assertEqual(normalized["coverage"]["policy_skipped_files"], 1)
+        self.assertEqual(evaluate_case(expected, {"change_proof": raw})["coverage"]["status"], "pass")
+        self.assertNotEqual(proof_semantic_sha256(raw), proof_semantic_sha256(proof()))
+        self.assertEqual(normalized_proof_sha256(normalized), proof_semantic_sha256(raw))
+
+    def test_zero_policy_skips_preserve_legacy_hash_and_evaluation(self) -> None:
+        raw = proof()
+        raw["coverage"]["policy_skipped_files"] = 0
+        self.assertEqual(proof_semantic_sha256(raw), proof_semantic_sha256(proof()))
+        self.assertEqual(evaluate_case(case(), {"change_proof": raw})["coverage"]["status"], "pass")
+
+    def test_policy_skip_count_is_strict_and_unknown_fields_still_fail(self) -> None:
+        for invalid in (-1, True, "1", None):
+            raw = proof()
+            raw["coverage"]["policy_skipped_files"] = invalid
+            with self.assertRaisesRegex(BenchmarkProofError, "policy_skipped_files"):
+                normalize_change_proof(raw)
+        raw = proof()
+        raw["coverage"]["unexpected"] = 1
+        with self.assertRaisesRegex(BenchmarkProofError, "coverage fields"):
+            normalize_change_proof(raw)
 
 
 if __name__ == "__main__":

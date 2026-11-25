@@ -126,12 +126,16 @@ fn collect_array_bindings(
     out: &mut Vec<DestructuredBinding>,
 ) {
     let mut cursor = node.walk();
-    for (index, child) in node.named_children(&mut cursor).enumerate() {
-        if child.kind() == "rest_pattern" {
-            continue;
+    // Array holes are unnamed commas, and comments can be named children.
+    // Count separators rather than named nodes to preserve actual JS indices.
+    let mut index = 0_usize;
+    for child in node.children(&mut cursor) {
+        if child.kind() == "," {
+            index += 1;
+        } else if child.is_named() && !matches!(child.kind(), "rest_pattern" | "comment") {
+            let path = join_binding_path(prefix, &index.to_string());
+            collect_binding_value(child, content, &path, out);
         }
-        let path = join_binding_path(prefix, &index.to_string());
-        collect_binding_value(child, content, &path, out);
     }
 }
 

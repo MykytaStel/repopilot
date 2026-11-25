@@ -138,7 +138,7 @@ impl ScanCache {
         let cache_root = cache_dir(root);
         fs::create_dir_all(&cache_root)?;
 
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FILE_HASHES_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -146,7 +146,7 @@ impl ScanCache {
                 entries: self.file_hashes.values().collect(),
             },
         )?;
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FILE_ROLES_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -154,7 +154,7 @@ impl ScanCache {
                 entries: self.file_roles.values().collect(),
             },
         )?;
-        write_cache(
+        write_cache_atomic(
             &cache_root.join(FINDINGS_NAME),
             &CacheEnvelopeRef {
                 schema_version: CACHE_SCHEMA_VERSION,
@@ -315,14 +315,21 @@ where
     serde_json::from_reader(BufReader::new(file)).ok()
 }
 
-fn write_cache<T>(path: &Path, value: &T) -> io::Result<()>
+pub(crate) fn write_cache_atomic<T>(path: &Path, value: &T) -> io::Result<()>
 where
     T: Serialize,
 {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
-    serde_json::to_writer(&mut writer, value).map_err(io::Error::other)?;
-    writer.flush()
+    let parent = path
+        .parent()
+        .ok_or_else(|| io::Error::other("cache path has no parent"))?;
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    {
+        let mut writer = BufWriter::new(temporary.as_file_mut());
+        serde_json::to_writer(&mut writer, value).map_err(io::Error::other)?;
+        writer.flush()?;
+    }
+    temporary.persist(path).map_err(|error| error.error)?;
+    Ok(())
 }
 
 fn entries_by_path<T>(entries: Vec<T>) -> BTreeMap<String, T>
@@ -450,6 +457,27 @@ fn directory_size_bytes(path: &Path) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn atomic_cache_writers_leave_complete_json_and_no_staging_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("cache.json");
+        write_cache_atomic(&path, &vec![0; 1024]).unwrap();
+        std::thread::scope(|scope| {
+            for value in 1..=4 {
+                let path = &path;
+                scope.spawn(move || {
+                    for _ in 0..8 {
+                        write_cache_atomic(path, &vec![value; 1024]).unwrap();
+                        let observed: Vec<i32> = read_cache(path).unwrap();
+                        assert_eq!(observed.len(), 1024);
+                        assert!(observed.iter().all(|item| *item == observed[0]));
+                    }
+                });
+            }
+        });
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
 
     #[test]
     fn file_role_cache_round_trips_role_evidence() {

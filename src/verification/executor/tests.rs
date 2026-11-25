@@ -744,3 +744,64 @@ args = ["-c", "printf spawned > second.txt"]
     assert!(!outcomes[1].revision_compatible);
     assert!(!temp.path().join("second.txt").exists());
 }
+
+#[cfg(unix)]
+#[test]
+fn stale_revision_cannot_reuse_or_execute_cached_verification() {
+    let root = tempdir().expect("root");
+    let evidence = tempdir().expect("external evidence");
+    let marker = evidence.path().join("runs.txt");
+    executable(root.path(), "printf x >> \"$1\"");
+    let check = check(
+        root.path(),
+        &format!(
+            "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"./tool.sh\"\nargs = [{}]\ncache = {{ enabled = true }}\n",
+            toml_string(marker.to_string_lossy().as_ref())
+        ),
+        "unit",
+    );
+    let revision = WorkspaceRevision::capture(root.path());
+    let first = run_checks_observed_cached(
+        std::slice::from_ref(&check),
+        &[],
+        &revision,
+        &CancellationToken::new(),
+        Some(root.path()),
+        &mut |_| {},
+    );
+    assert_eq!(first[0].status, VerificationStatus::Passed);
+    std::fs::write(root.path().join("changed.txt"), "new revision").unwrap();
+    let current = WorkspaceRevision::capture(root.path());
+    let stale = run_checks_observed_cached(
+        std::slice::from_ref(&check),
+        &[],
+        &revision,
+        &CancellationToken::new(),
+        Some(root.path()),
+        &mut |_| {},
+    );
+    assert_eq!(stale[0].status, VerificationStatus::Skipped);
+    assert!(!stale[0].reused);
+    assert!(!stale[0].revision_compatible);
+    assert_eq!(stale[0].revision_after, current.id());
+    let direct = execute_check(&check, &revision, &CancellationToken::new());
+    assert_eq!(direct.status, VerificationStatus::Skipped);
+    assert_eq!(marker_runs(&marker), 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn non_git_subdirectory_check_uses_workspace_root_revision() {
+    let root = tempdir().expect("root");
+    std::fs::create_dir(root.path().join("subdir")).unwrap();
+    executable(root.path(), "printf ok");
+    let check = check(
+        root.path(),
+        "[[verification.checks]]\nid = \"unit\"\nrole = \"test\"\nprogram = \"./tool.sh\"\nworking_directory = \"subdir\"\n",
+        "unit",
+    );
+    let revision = WorkspaceRevision::capture(root.path());
+    let outcome = execute_check(&check, &revision, &CancellationToken::new());
+    assert_eq!(outcome.status, VerificationStatus::Passed);
+    assert!(outcome.revision_compatible);
+}

@@ -294,3 +294,263 @@ fn write(root: &Path, relative: &str, content: &str) {
     fs::create_dir_all(path.parent().expect("parent directory")).expect("create parent");
     fs::write(path, content).expect("write source file");
 }
+
+fn git(root: &Path, args: &[&str]) {
+    let output = std::process::Command::new("git")
+        .current_dir(root)
+        .args(args)
+        .output()
+        .expect("run git");
+    assert!(
+        output.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn git_fixture() -> tempfile::TempDir {
+    let temp = tempfile::tempdir().expect("temporary repository");
+    let root = temp.path();
+    git(root, &["init", "-q"]);
+    git(root, &["config", "user.name", "RepoPilot Tests"]);
+    git(root, &["config", "user.email", "tests@example.invalid"]);
+    write(root, ".gitignore", ".repopilot/\n");
+    write(root, "src/a.ts", "export const value = 1;\n");
+    write(root, "src/b.ts", "export const value = 2;\n");
+    write(
+        root,
+        "src/consumer.ts",
+        "import { value } from './missing';\n",
+    );
+    write(root, "other/control.ts", "export const control = 1;\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "base"]);
+    temp
+}
+
+fn working_scan(path: &Path) -> crate::scan::types::ScanSummary {
+    super::super::scan_changed_with_config(path, &ScanConfig::default(), None)
+        .expect("working tree changed scan")
+}
+
+fn has_edge(summary: &crate::scan::types::ScanSummary, from: &str, to: &str) -> bool {
+    summary
+        .artifacts
+        .coupling_graph
+        .as_ref()
+        .expect("context graph")
+        .edges
+        .get(Path::new(from))
+        .is_some_and(|targets| targets.contains(Path::new(to)))
+}
+
+fn assert_cold_parity(root: &Path, scope: &Path, warm: &crate::scan::types::ScanSummary) {
+    fs::remove_file(crate::graph::context::context_graph_cache_path(root))
+        .expect("remove context cache");
+    let cold = working_scan(scope);
+    assert_eq!(warm.artifacts.coupling_graph, cold.artifacts.coupling_graph);
+    assert_eq!(warm.artifacts.findings, cold.artifacts.findings);
+}
+
+#[test]
+fn reverted_dirty_import_cannot_survive_in_cached_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let dirty = working_scan(root);
+    assert!(has_edge(&dirty, "src/a.ts", "src/b.ts"));
+    git(root, &["checkout", "--", "src/a.ts"]);
+    let restored = working_scan(root);
+    assert!(!has_edge(&restored, "src/a.ts", "src/b.ts"));
+    assert_cold_parity(root, root, &restored);
+}
+
+#[test]
+fn untracked_target_rewires_unchanged_importer_and_removal_clears_it() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "other/control.ts", "export const control = 2;\n");
+    working_scan(root);
+    write(root, "src/missing.ts", "export const value = 3;\n");
+    let added = working_scan(root);
+    assert!(has_edge(&added, "src/consumer.ts", "src/missing.ts"));
+    assert_cold_parity(root, root, &added);
+    fs::remove_file(root.join("src/missing.ts")).unwrap();
+    let removed = working_scan(root);
+    assert!(!has_edge(&removed, "src/consumer.ts", "src/missing.ts"));
+    assert_cold_parity(root, root, &removed);
+}
+
+#[test]
+fn scoped_review_cannot_reuse_stale_outside_scope_imports() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let scope = root.join("other");
+    working_scan(&scope);
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let updated = working_scan(&scope);
+    assert!(has_edge(&updated, "src/a.ts", "src/b.ts"));
+    assert_cold_parity(root, &scope, &updated);
+
+    let reused = working_scan(&scope);
+    assert_eq!(
+        reused
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .unwrap()
+            .status,
+        "hit"
+    );
+    assert_eq!(
+        updated.artifacts.coupling_graph,
+        reused.artifacts.coupling_graph
+    );
+
+    // The Git status code and path remain identical, but the bytes change.
+    write(root, "src/a.ts", "import { value } from './consumer';\n");
+    let edited_again = working_scan(&scope);
+    assert!(!has_edge(&edited_again, "src/a.ts", "src/b.ts"));
+    assert!(has_edge(&edited_again, "src/a.ts", "src/consumer.ts"));
+    assert_cold_parity(root, &scope, &edited_again);
+}
+
+#[test]
+fn same_git_dirty_scope_still_reuses_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let first = working_scan(root);
+    let second = working_scan(root);
+    assert_eq!(
+        second
+            .artifacts
+            .context_graph_cache
+            .as_ref()
+            .map(|cache| cache.status.as_str()),
+        Some("hit")
+    );
+    assert_eq!(
+        first.artifacts.coupling_graph,
+        second.artifacts.coupling_graph
+    );
+    assert_eq!(first.artifacts.findings, second.artifacts.findings);
+}
+
+#[test]
+fn staged_rename_cannot_leave_old_target_in_cached_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let before = working_scan(root);
+    assert!(has_edge(&before, "src/a.ts", "src/b.ts"));
+    git(root, &["mv", "src/b.ts", "src/renamed.ts"]);
+    let renamed = working_scan(root);
+    assert!(!has_edge(&renamed, "src/a.ts", "src/b.ts"));
+    let graph = renamed.artifacts.coupling_graph.as_ref().unwrap();
+    assert!(!graph.nodes.contains(Path::new("src/b.ts")));
+    assert!(graph.nodes.contains(Path::new("src/renamed.ts")));
+    assert_cold_parity(root, root, &renamed);
+}
+
+#[test]
+fn dirty_manifest_requires_a_graph_wide_rebuild() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(
+        root,
+        "package.json",
+        r#"{"name":"fixture","version":"1.0.0"}"#,
+    );
+    working_scan(root);
+    let second = working_scan(root);
+    let cache = second.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(cache.status, "miss");
+    assert!(cache.reason.contains("dirty-scope-not-patchable"));
+}
+
+#[test]
+fn unchanged_source_rechecks_executable_package_context() {
+    let temp = git_fixture();
+    let root = temp.path();
+    let source = "src/commands/run.ts";
+    write(root, "package.json", r#"{"name":"fixture"}"#);
+    write(root, source, "export function run() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "package"]);
+    write(root, source, "export function run() { process.exit(1); }\n");
+
+    working_scan(root);
+    let initial = crate::scan::cache::ScanCache::load(root);
+    assert!(!initial.file_roles[source].in_executable_package);
+
+    write(
+        root,
+        "package.json",
+        r#"{"name":"fixture","bin":"src/commands/run.ts"}"#,
+    );
+    let updated = working_scan(root);
+    let cached = crate::scan::cache::ScanCache::load(root);
+    assert!(cached.file_roles[source].in_executable_package);
+    assert_ne!(
+        initial.findings[source].config_fingerprint,
+        cached.findings[source].config_fingerprint
+    );
+
+    crate::scan::cache::clear_cache(root).unwrap();
+    let cold = working_scan(root);
+    assert_eq!(updated.artifacts.findings, cold.artifacts.findings);
+    assert_eq!(
+        updated.artifacts.coupling_graph,
+        cold.artifacts.coupling_graph
+    );
+}
+
+#[test]
+fn changed_source_rebuilds_missing_parsed_facts() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(root, "src/a.ts", "import { value } from './b';\n");
+    let first = working_scan(root);
+    let path = root.join(".repopilot/cache/parsed_facts_v2.json");
+    fs::remove_file(&path).unwrap();
+    let second = working_scan(root);
+    let hash = crate::scan::cache::file_hash_entry(root, &root.join("src/a.ts"))
+        .unwrap()
+        .hash;
+    let parsed = crate::scan::parsed_cache::ParsedFactsCache::load(root);
+    assert!(parsed.get(&hash, Some("TypeScript")).is_some());
+    assert_eq!(first.artifacts.findings, second.artifacts.findings);
+    assert_eq!(
+        first.artifacts.coupling_graph,
+        second.artifacts.coupling_graph
+    );
+}
+
+#[test]
+fn implicit_cargo_binary_changes_repository_context_identity() {
+    let temp = git_fixture();
+    let root = temp.path();
+    write(
+        root,
+        "Cargo.toml",
+        "[package]\nname = \"fixture\"\nversion = \"0.1.0\"\n",
+    );
+    write(root, "src/lib.rs", "pub fn run() {}\n");
+    git(root, &["add", "."]);
+    git(root, &["commit", "-qm", "cargo package"]);
+    write(root, "other/control.ts", "export const control = 2;\n");
+    let scope = root.join("other");
+    working_scan(&scope);
+    let warm = working_scan(&scope);
+    let warm_cache = warm.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(warm_cache.status, "hit");
+
+    write(root, "src/main.rs", "fn main() {}\n");
+    let updated = working_scan(&scope);
+    let updated_cache = updated.artifacts.context_graph_cache.as_ref().unwrap();
+    assert_eq!(updated_cache.status, "miss");
+    assert_cold_parity(root, &scope, &updated);
+}

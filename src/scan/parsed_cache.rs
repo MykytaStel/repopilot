@@ -1,18 +1,19 @@
 use crate::analysis::symbols::JavaScriptSymbolFacts;
 use crate::analysis::{ParsedArtifact, SyntaxSummary};
-use crate::scan::cache::{cache_dir, stable_hash_hex};
+use crate::scan::cache::{cache_dir, stable_hash_hex, write_cache_atomic};
 use crate::scan::facts::FileFacts;
 use crate::scan::types::ParsedCacheTelemetry;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufReader};
 use std::path::Path;
 
 const PARSED_FACTS_SCHEMA_VERSION: u32 = 11;
 const PARSED_FACTS_ANALYSIS_VERSION: &str = "tree-sitter-imports-exports-default-rust-lexical-symbols-spans-guarded-syntax-v11-rust-module-proof-c-directives";
 const PARSED_FACTS_NAME: &str = "parsed_facts_v2.json";
 const PARSED_FACTS_BACKUP_NAME: &str = "parsed_facts_v2.backup.json";
+#[cfg(test)]
 const PARSED_FACTS_TEMP_NAME: &str = "parsed_facts_v2.tmp.json";
 const MAX_PARSED_FACTS_ENTRIES: usize = 16_384;
 
@@ -78,7 +79,7 @@ impl ParsedFactsCache {
         let cache = read_cache::<ParsedFactsFile>(&primary).or_else(|| {
             let recovered = read_cache::<ParsedFactsFile>(&backup)?;
             let _ = fs::create_dir_all(&cache_root);
-            let _ = fs::copy(&backup, &primary);
+            let _ = write_cache_atomic(&primary, &recovered);
             Some(recovered)
         });
 
@@ -190,33 +191,9 @@ impl ParsedFactsCache {
         self.telemetry.entries_written = self.entries.len();
         let primary = cache_root.join(PARSED_FACTS_NAME);
         let backup = cache_root.join(PARSED_FACTS_BACKUP_NAME);
-        let temporary = cache_root.join(PARSED_FACTS_TEMP_NAME);
-
-        let _ = fs::remove_file(&temporary);
-        let write_result = (|| {
-            let file_handle = File::create(&temporary)?;
-            let mut writer = BufWriter::new(file_handle);
-            serde_json::to_writer(&mut writer, &file).map_err(io::Error::other)?;
-            writer.flush()
-        })();
-        if let Err(error) = write_result {
-            let _ = fs::remove_file(&temporary);
-            return Err(error);
-        }
-
-        if primary.exists() {
-            let _ = fs::remove_file(&backup);
-            fs::rename(&primary, &backup)?;
-        }
-
-        if let Err(error) = fs::rename(&temporary, &primary) {
-            if backup.exists() && !primary.exists() {
-                let _ = fs::rename(&backup, &primary);
-            }
-            let _ = fs::remove_file(&temporary);
-            return Err(error);
-        }
-
+        // The previous primary remains readable until the new JSON is complete.
+        // A unique same-directory temporary file avoids races between writers.
+        write_cache_atomic(&primary, &file)?;
         let _ = fs::remove_file(&backup);
         Ok(())
     }

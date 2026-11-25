@@ -11,6 +11,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from changeproof_benchmark_compare import compare_validated  # noqa: E402
 from changeproof_benchmark_artifact import (  # noqa: E402
     render_report,
     validate_artifact_file,
@@ -197,6 +198,63 @@ class ChangeProofBenchmarkArtifactTests(unittest.TestCase):
         data["cases"][0]["runs"][0]["evaluation"]["decision"]["observed"] = True
         self.artifact.write_text(json.dumps(data), encoding="utf-8")
         with self.assertRaisesRegex(BenchmarkManifestError, "evaluation does not match"):
+            validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+
+    def test_validation_checks_optional_binary_fingerprint(self) -> None:
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        data["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        data["scanner"]["binary_sha256"] = "not-a-hash"
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(BenchmarkManifestError, "binary_sha256"):
+            validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+
+    def test_matched_comparison_reports_regression_and_phase_delta(self) -> None:
+        baseline = json.loads(self.artifact.read_text(encoding="utf-8"))
+        baseline["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(baseline), encoding="utf-8")
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        candidate = json.loads(write_artifact(self.root, self.manifest, observed_verdict="VERIFIED").read_text(encoding="utf-8"))
+        candidate["scanner"]["binary_sha256"] = "b" * 64
+        for run in candidate["cases"][0]["runs"]:
+            run["wall_ms"] = 2.0
+        self.artifact.write_text(json.dumps(candidate), encoding="utf-8")
+        right = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        result = compare_validated(left, right)
+        self.assertEqual(result["semantic_changed"], 1)
+        self.assertEqual(result["candidate_false_certainty"], 1)
+        self.assertEqual(result["regressions"], [{"id": "sample", "dimension": "decision", "baseline": "pass", "candidate": "fail"}])
+        self.assertEqual(result["cases"][0]["resources"]["warm"]["wall_ms_delta_pct"], 100.0)
+
+    def test_comparison_requires_fingerprints_and_distinct_binaries(self) -> None:
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        with self.assertRaisesRegex(BenchmarkManifestError, "binary_sha256"):
+            compare_validated(left, left)
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        data["scanner"]["binary_sha256"] = "a" * 64
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        left = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        with self.assertRaisesRegex(BenchmarkManifestError, "distinct scanner"):
+            compare_validated(left, left)
+
+    def test_signal_observation_is_bound_to_fixture_expectations(self) -> None:
+        expected = self.fixture_root / "sample/safe/expected.json"
+        expected.write_text('{"description": "safe"}', encoding="utf-8")
+        data = json.loads(self.artifact.read_text(encoding="utf-8"))
+        entry = data["cases"][0]
+        entry["signal_oracle"] = {"sha256": hashlib.sha256(expected.read_bytes()).hexdigest(), "expected": []}
+        for run in entry["runs"]:
+            run["signal_kinds"] = ["definitely/taint.sql"]
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        result = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        self.assertEqual(result["summary"]["signals"]["safe_cases_with_signals"], 1)
+        entry["runs"][1]["signal_kinds"] = []
+        self.artifact.write_text(json.dumps(data), encoding="utf-8")
+        result = validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
+        self.assertEqual(result["summary"]["signals"]["nondeterministic_cases"], 1)
+        expected.write_text('{"description": "changed label"}', encoding="utf-8")
+        with self.assertRaisesRegex(BenchmarkManifestError, "signal oracle"):
             validate_artifact_file(self.artifact, self.manifest, self.fixture_root)
 
 

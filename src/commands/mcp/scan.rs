@@ -39,6 +39,7 @@ pub fn definition() -> Value {
                     "description": "\"full\" scans every file under `path`; \"changed\" scans only changed files (against HEAD, or against `base` when given) and skips repository-level rules."
                 },
                 "base": { "type": "string", "description": "Base Git ref for \"changed\" scope, e.g. \"origin/main\": scans files changed between base and HEAD. Without it, \"changed\" means changed against HEAD, including untracked files." },
+                "analysis_handle": { "type": "string", "description": "Optional handle from a prior scan in this session. Use only with offset and limit to read another page without rescanning." },
                 "offset": { "type": "integer", "minimum": 0, "description": "Zero-based finding offset." },
                 "limit": { "type": "integer", "minimum": 1, "maximum": 1000, "description": "Maximum findings to return." },
                 "filters": {
@@ -73,6 +74,7 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     let cache_key = super::scan_cache::cache_key(&path, arguments);
     if let Some(key) = &cache_key
         && let Some(cached) = super::scan_cache::load(&path, key)
+        && super::scan_cache::cache_key(&path, arguments).as_ref() == Some(key)
     {
         return Ok(cached);
     }
@@ -123,7 +125,12 @@ pub fn call(arguments: &Value) -> Result<String, String> {
     let output = render_scan_summary(&scan_result.summary, OutputFormat::Json)
         .map_err(|error| format!("render failed: {error}"))?;
 
+    // Never persist a result under the identity observed before an edit,
+    // config change, or moving base ref. The caller also checks the revision.
     if let Some(key) = &cache_key {
+        if super::scan_cache::cache_key(&path, arguments).as_ref() != Some(key) {
+            return Err("scan inputs changed during analysis; rerun the scan".to_string());
+        }
         super::scan_cache::store(&path, key, &output);
     }
     Ok(output)

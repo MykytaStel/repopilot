@@ -1,5 +1,6 @@
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -7,7 +8,7 @@ pub(super) fn working_tree_fingerprint(repo_root: &Path) -> Option<String> {
     let head = git(repo_root, &["rev-parse", "HEAD"])?;
     let status_args = ["status", "--porcelain=v1", "-z", "-uall"];
     let status = git_bytes(repo_root, &status_args)?;
-    let mut entries = status_entries(&status);
+    let mut entries = status_entries(&status)?;
     entries.sort_by(|left, right| {
         (&left.path, &left.status, &left.old_path).cmp(&(
             &right.path,
@@ -19,6 +20,8 @@ pub(super) fn working_tree_fingerprint(repo_root: &Path) -> Option<String> {
     let mut hasher = Sha256::new();
     hasher.update(b"head:");
     hasher.update(head.as_bytes());
+    hash_index(&mut hasher, repo_root)?;
+    let confinement = repopilot::path_security::RootConfinement::new(repo_root).ok()?;
     hasher.update(b"\nstatus:\n");
     for entry in entries {
         if is_cache_path(&entry.path) {
@@ -33,14 +36,56 @@ pub(super) fn working_tree_fingerprint(repo_root: &Path) -> Option<String> {
             hasher.update(old_path.as_bytes());
         }
         hasher.update(b"\n");
-        if let Ok(bytes) = fs::read(repo_root.join(&entry.path)) {
-            hasher.update(b"file:");
-            hasher.update(entry.path.as_bytes());
-            hasher.update(b"\n");
-            hasher.update(&bytes);
+        let path = repo_root.join(&entry.path);
+        match fs::symlink_metadata(&path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                hasher.update(b"missing");
+            }
+            Ok(metadata) if metadata.is_file() => {
+                let relative = Path::new(&entry.path);
+                let resolved = confinement.resolve_existing(relative, "dirty input").ok()?;
+                hasher.update(b"file:");
+                hasher.update(entry.path.as_bytes());
+                hasher.update(b"\n");
+                hash_content(&mut hasher, &resolved)?;
+            }
+            // Unknown input identities must disable disk cache reuse.
+            _ => return None,
         }
     }
     Some(super::hex(&hasher.finalize()))
+}
+
+fn hash_index(hasher: &mut Sha256, root: &Path) -> Option<()> {
+    let index = git_bytes(root, &["ls-files", "--stage", "-z"])?;
+    hasher.update(b"\nindex:");
+    for entry in index
+        .split(|byte| *byte == 0)
+        .filter(|entry| !entry.is_empty())
+    {
+        let separator = entry.iter().position(|byte| *byte == b'\t')?;
+        let path = std::str::from_utf8(&entry[separator + 1..]).ok()?;
+        if !is_cache_path(path) {
+            hasher.update((entry.len() as u64).to_le_bytes());
+            hasher.update(entry);
+        }
+    }
+    Some(())
+}
+
+fn hash_content(hasher: &mut Sha256, path: &Path) -> Option<()> {
+    let mut file = fs::File::open(path).ok()?;
+    let mut content = Sha256::new();
+    let mut buffer = [0_u8; 16 * 1024];
+    loop {
+        let count = file.read(&mut buffer).ok()?;
+        if count == 0 {
+            break;
+        }
+        content.update(&buffer[..count]);
+    }
+    hasher.update(content.finalize());
+    Some(())
 }
 
 pub(super) fn git(path: &Path, args: &[&str]) -> Option<String> {
@@ -125,22 +170,20 @@ struct StatusEntry {
     old_path: Option<String>,
 }
 
-fn status_entries(status: &[u8]) -> Vec<StatusEntry> {
+fn status_entries(status: &[u8]) -> Option<Vec<StatusEntry>> {
     let mut parts = status
         .split(|byte| *byte == 0)
         .filter(|part| !part.is_empty());
     let mut entries = Vec::new();
 
     while let Some(raw) = parts.next() {
-        if raw.len() < 4 {
-            continue;
+        if raw.len() < 4 || raw[2] != b' ' {
+            return None;
         }
-        let status = String::from_utf8_lossy(&raw[..2]).to_string();
-        let path = String::from_utf8_lossy(&raw[3..]).replace('\\', "/");
+        let status = std::str::from_utf8(&raw[..2]).ok()?.to_string();
+        let path = std::str::from_utf8(&raw[3..]).ok()?.to_string();
         let old_path = if raw[0] == b'R' || raw[0] == b'C' || raw[1] == b'R' || raw[1] == b'C' {
-            parts
-                .next()
-                .map(|path| String::from_utf8_lossy(path).replace('\\', "/"))
+            Some(std::str::from_utf8(parts.next()?).ok()?.to_string())
         } else {
             None
         };
@@ -151,7 +194,7 @@ fn status_entries(status: &[u8]) -> Vec<StatusEntry> {
         });
     }
 
-    entries
+    Some(entries)
 }
 
 fn is_cache_path(rel: &str) -> bool {

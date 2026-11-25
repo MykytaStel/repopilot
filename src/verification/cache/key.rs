@@ -10,7 +10,7 @@ use std::ffi::OsStr;
 #[cfg(test)]
 use std::path::Path;
 
-pub(super) const CACHE_SCHEMA_VERSION: u32 = 1;
+pub(super) const CACHE_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct VerificationCacheKey(pub(super) String);
@@ -42,6 +42,7 @@ struct KeyInput<'a> {
     arch: &'a str,
     workspace_revision: &'a str,
     check: CheckInput<'a>,
+    executable_path: Vec<u8>,
     executable_sha256: String,
     inherited_environment_sha256: String,
 }
@@ -53,6 +54,7 @@ struct CheckInput<'a> {
     program: String,
     args: &'a [String],
     working_directory: &'a str,
+    resolved_working_directory: Vec<u8>,
     timeout_seconds: u64,
     max_output_bytes: usize,
     path_patterns: &'a [String],
@@ -77,10 +79,12 @@ fn build_with_context(
             program: program_label(&check.program),
             args: &check.args,
             working_directory: &check.working_directory_label,
+            resolved_working_directory: os_value_bytes(check.working_directory.as_os_str()),
             timeout_seconds: check.timeout_seconds,
             max_output_bytes: check.max_output_bytes,
             path_patterns: &check.path_patterns,
         },
+        executable_path: os_value_bytes(executable.as_os_str()),
         executable_sha256,
         inherited_environment_sha256: hash_environment(&context.inherited_environment),
     };

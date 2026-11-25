@@ -6,6 +6,68 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- A matched ChangeProof benchmark gate compares baseline and candidate binary
+  hashes, fixture and oracle identities, proof determinism, controlled signal
+  expectations, false certainty, wall time and sampled peak RSS. The paired
+  runner alternates collection order by case and records internal stage
+  timings separately from semantic hashes.
+- Expand the controlled ChangeProof corpus to 30 safe/unsafe cases and add
+  signal-kind/tier expectations. Strict repository-zoo release mode requires
+  all pinned checkouts, existing expectations and snapshots, and refuses
+  blessing, subsets and version mismatch overrides.
+- MCP retained analysis handles expose source/current revision and staleness
+  metadata. Page-only scan requests reuse immutable retained results without
+  replacing the latest analysis.
+- Add an opt-in experimental JS/TS module-surface SymbolIndex for embedding
+  and future semantic analysis. It reuses existing parsed facts and
+  distinguishes unique observed exports, ambiguous candidates and unresolved
+  cases. It is not wired into default CLI/MCP review or blocking decisions.
+
+### Changed
+
+- Review impact, blast radius and enrichment share a reverse import index;
+  shortest-path traversal retains predecessors rather than copying each path.
+- Incremental repository context observes dirty input content, resolver
+  metadata and graph-wide inputs before reusing cached state. Unchanged
+  patches avoid redundant publication; HEAD/tree lookup shares a Git call.
+- Scan, parsed-facts, context and verification cache publication use unique
+  same-directory atomic writes. Revision identity includes staged index
+  entries and streams file content rather than omitting large file bytes.
+- MCP retains at most eight full analysis handles and 32 MiB of full-report
+  JSON payload, evicting old entries. This is not a process memory ceiling.
+- Verification cache identity includes the resolved executable and working
+  directory, and checks workspace revision before execution or reuse.
+
+### Fixed
+
+- Changed scans refresh graph state for reverted edits, new or removed
+  untracked targets, edits outside the review scope, staged renames and
+  resolver-sensitive manifest changes.
+- Executable-package role changes and missing parsed symbol facts invalidate
+  stale changed-file cache reuse.
+- Stale MCP results cannot be published as fresh after workspace drift;
+  historical resources retain provenance and stale status.
+- Required verification obligations cannot be satisfied by missing, duplicate,
+  wrong-role, unselected or contradictory successful outcomes. A valid pass
+  requires zero exit status and matching revision evidence. Inconsistent
+  requested/accounted file coverage prevents a verified proof.
+- JS/TS taint analysis preserves array destructuring positions across holes and
+  comments, and can surface a newly tainted unchanged adjacent direct-call
+  sink after a supported declaration edit.
+- Verification in a nested non-Git working directory uses the workspace root
+  revision rather than the check's working directory.
+
+### Validation
+
+- The pre-RC candidate passed the 30-case paired ChangeProof release screening
+  and all 11 pinned real-repository zoo scans. The controlled corpus observed
+  15/15 expected positive kinds, zero alerts in 15 safe controls, and identical
+  canonical proof projections across the measured versions. Independent
+  held-out accuracy, first-use MCP validation and final artifact checks remain
+  open; see the v0.29 evidence ledger.
+
 ## [0.28.0] - 2026-11-24
 
 ### Added

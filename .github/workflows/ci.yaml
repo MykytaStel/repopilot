@@ -51,6 +51,22 @@ jobs:
       - name: Build release binary for performance gate
         run: cargo build --release
 
+      - name: ChangeProof benchmark end-to-end
+        run: |
+          python3 scripts/changeproof_benchmark.py collect --scanner target/release/repopilot --output /tmp/changeproof-ci.json
+          python3 scripts/changeproof_benchmark.py validate-result --artifact /tmp/changeproof-ci.json
+          python3 scripts/changeproof_benchmark.py report --artifact /tmp/changeproof-ci.json --output /tmp/changeproof-ci.md
+
+      - name: Upload ChangeProof benchmark observations
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repopilot-changeproof-benchmark
+          path: |
+            /tmp/changeproof-ci.json
+            /tmp/changeproof-ci.md
+          if-no-files-found: ignore
+
       - name: Changed review performance gate
         run: npm run review:performance
 

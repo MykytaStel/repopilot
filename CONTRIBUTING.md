@@ -51,6 +51,19 @@ npm run release:contract
 
 Fix formatting automatically with `cargo fmt` (no flags).
 
+To opt into a local formatting check before each commit:
+
+```bash
+bash scripts/install-dev-hook.sh
+```
+
+The installer refuses to replace an existing hook or change a custom
+`core.hooksPath`. The hook checks the working tree without rewriting files or
+staging changes. It is not an index-only check: review partially staged Rust
+changes separately. Git worktrees may share the installed hook. CI remains
+the authoritative check for the committed tree, including API-created commits.
+
+
 ## Pull Requests
 
 Please keep PRs focused and small.

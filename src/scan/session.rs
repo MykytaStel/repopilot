@@ -4,12 +4,12 @@ use crate::scan::config::ScanConfig;
 use ignore::WalkBuilder;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const REVISION_SCHEMA: &str = "analysis-session-v1";
+const REVISION_SCHEMA: &str = "analysis-session-v2";
 const CACHE_DIR: &str = ".repopilot/cache";
-const MAX_REVISION_FILE_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Immutable inputs shared by one RepoPilot analysis pass.
 ///
@@ -106,6 +106,8 @@ fn capture_workspace_revision(workspace_root: &Path) -> WorkspaceRevision {
     if let Some(head) = git_text(workspace_root, &["rev-parse", "--verify", "HEAD"]) {
         hasher.update(b"\nsource:git\nhead:");
         hasher.update(head.as_bytes());
+        // Hash logical index entries, not the index file's volatile stat cache.
+        hash_git_index(&mut hasher, workspace_root);
 
         match git_bytes(workspace_root, &["status", "--porcelain=v1", "-z", "-uall"]) {
             Some(status) => {
@@ -201,13 +203,48 @@ fn hash_workspace_path(hasher: &mut Sha256, workspace_root: &Path, relative: &st
     hasher.update(relative.as_bytes());
     hasher.update(b"\nsize:");
     hasher.update(metadata.len().to_string().as_bytes());
-    if metadata.len() > MAX_REVISION_FILE_BYTES {
-        hasher.update(b"\ncontent:omitted-too-large");
-        return;
+    // Stream all bytes: same-size edits above 8 MiB must change the revision.
+    hasher.update(b"\ncontent:");
+    match hash_file_contents(&path) {
+        Ok(digest) => hasher.update(digest),
+        Err(_) => hasher.update(b"unavailable"),
     }
-    if let Ok(bytes) = fs::read(&path) {
-        hasher.update(b"\n");
-        hasher.update(bytes);
+}
+
+fn hash_file_contents(path: &Path) -> std::io::Result<[u8; 32]> {
+    let mut file = fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 16 * 1024];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    let mut digest = [0_u8; 32];
+    digest.copy_from_slice(&hasher.finalize());
+    Ok(digest)
+}
+
+fn hash_git_index(hasher: &mut Sha256, root: &Path) {
+    let Some(index) = git_bytes(root, &["ls-files", "--stage", "-z"]) else {
+        hasher.update(b"\nindex:unavailable");
+        return;
+    };
+    hasher.update(b"\nindex:");
+    for entry in index
+        .split(|byte| *byte == 0)
+        .filter(|entry| !entry.is_empty())
+    {
+        let Some(separator) = entry.iter().position(|byte| *byte == b'\t') else {
+            hasher.update(b"invalid-entry");
+            continue;
+        };
+        if !is_cache_path(&String::from_utf8_lossy(&entry[separator + 1..])) {
+            hasher.update((entry.len() as u64).to_le_bytes());
+            hasher.update(entry);
+        }
     }
 }
 
@@ -349,6 +386,34 @@ mod tests {
         let second = default_session(temp.path());
 
         assert_ne!(first.revision(), second.revision());
+    }
+
+    #[test]
+    fn revision_tracks_staged_blob_even_when_worktree_and_status_match() {
+        let temp = initialized_git_repo();
+        let root = temp.path();
+        let file = root.join("src.txt");
+        fs::write(&file, "staged one\n").unwrap();
+        git(root, &["add", "src.txt"]);
+        fs::write(&file, "worktree\n").unwrap();
+        let first = WorkspaceRevision::capture(root);
+        fs::write(&file, "staged two\n").unwrap();
+        git(root, &["add", "src.txt"]);
+        fs::write(&file, "worktree\n").unwrap();
+        let second = WorkspaceRevision::capture(root);
+        assert_ne!(first, second);
+    }
+
+    #[test]
+    fn revision_tracks_same_size_edits_above_previous_size_limit() {
+        let temp = initialized_git_repo();
+        let file = temp.path().join("large.txt");
+        let mut bytes = vec![b'a'; 8 * 1024 * 1024 + 1];
+        fs::write(&file, &bytes).unwrap();
+        let first = WorkspaceRevision::capture(temp.path());
+        bytes[0] = b'b';
+        fs::write(&file, &bytes).unwrap();
+        assert_ne!(first, WorkspaceRevision::capture(temp.path()));
     }
 
     #[cfg(unix)]

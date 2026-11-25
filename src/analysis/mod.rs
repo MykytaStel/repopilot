@@ -5,6 +5,8 @@ mod model;
 #[doc(hidden)]
 pub mod parse;
 pub mod path_classifier;
+#[doc(hidden)]
+pub mod semantic;
 pub(crate) mod symbols;
 
 pub(crate) use artifact::{FileContextFacts, ParsedArtifact, RoleEvidenceFact, SyntaxSummary};

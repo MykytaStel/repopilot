@@ -65,12 +65,21 @@ pub fn compute_impact_paths(
         return empty;
     };
 
+    let importers = composites::build_importers_by_target(graph, repo_root);
+    compute_impact_paths_with_importers(repo_root, changed_files, depth, &importers)
+}
+
+pub(super) fn compute_impact_paths_with_importers(
+    repo_root: &Path,
+    changed_files: &[ChangedFile],
+    depth: usize,
+    importers_by_target: &BTreeMap<PathBuf, BTreeSet<PathBuf>>,
+) -> ImpactPaths {
     let changed_paths: BTreeSet<PathBuf> = changed_files
         .iter()
         .map(|file| normalized_review_path(&file.path, repo_root))
         .collect();
-    let importers_by_target = composites::build_importers_by_target(graph, repo_root);
-    let (files, all_impacted) = affected_files(&changed_paths, &importers_by_target, depth);
+    let (files, all_impacted) = affected_files(&changed_paths, importers_by_target, depth);
     ImpactPaths {
         depth,
         files,
@@ -143,34 +152,42 @@ fn bounded_paths(
     changed_paths: &BTreeSet<PathBuf>,
     depth: usize,
 ) -> BTreeMap<PathBuf, Vec<PathBuf>> {
-    let mut paths: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
-    let mut queue: VecDeque<Vec<PathBuf>> = VecDeque::new();
-    queue.push_back(vec![seed.to_path_buf()]);
-    let mut visited: BTreeSet<PathBuf> = BTreeSet::from([seed.to_path_buf()]);
-
-    while let Some(route) = queue.pop_front() {
-        let Some(current) = route.last() else {
-            continue;
-        };
-        if route.len() > depth {
+    // Keep only one predecessor per visited node while traversing. Ordered
+    // importer sets and FIFO discovery preserve the previous shortest-route
+    // tie-break. Changed nodes are traversed but excluded from the output.
+    let mut predecessors: BTreeMap<&Path, &Path> = BTreeMap::new();
+    let mut queue: VecDeque<(&Path, usize)> = VecDeque::from([(seed, 0)]);
+    while let Some((current, distance)) = queue.pop_front() {
+        if distance >= depth {
             continue;
         }
         let Some(importers) = importers_by_target.get(current) else {
             continue;
         };
         for importer in importers {
-            if !visited.insert(importer.clone()) {
+            let importer = importer.as_path();
+            if importer == seed || predecessors.contains_key(importer) {
                 continue;
             }
-            let mut next_route = route.clone();
-            next_route.push(importer.clone());
-            if !changed_paths.contains(importer) {
-                paths.insert(importer.clone(), next_route.clone());
-            }
-            queue.push_back(next_route);
+            predecessors.insert(importer, current);
+            queue.push_back((importer, distance + 1));
         }
     }
 
+    let mut paths = BTreeMap::new();
+    for &dependent in predecessors.keys() {
+        if changed_paths.contains(dependent) {
+            continue;
+        }
+        let mut route = vec![dependent.to_path_buf()];
+        let mut current = dependent;
+        while let Some(&parent) = predecessors.get(current) {
+            route.push(parent.to_path_buf());
+            current = parent;
+        }
+        route.reverse();
+        paths.insert(dependent.to_path_buf(), route);
+    }
     paths
 }
 
@@ -371,5 +388,36 @@ mod tests {
             impact.affected_surface.affected_directories,
             vec![PathBuf::from("src/x"), PathBuf::from("src/y")]
         );
+    }
+    #[test]
+    fn predecessor_bfs_preserves_shortest_route_ties_and_changed_transit() {
+        let index: BTreeMap<PathBuf, BTreeSet<PathBuf>> = [
+            ("seed", vec!["b", "a"]),
+            ("a", vec!["c", "seed"]),
+            ("b", vec!["c"]),
+            ("c", vec!["d"]),
+        ]
+        .into_iter()
+        .map(|(key, values)| {
+            (
+                PathBuf::from(key),
+                values.into_iter().map(PathBuf::from).collect(),
+            )
+        })
+        .collect();
+        let changed = BTreeSet::from([PathBuf::from("seed"), PathBuf::from("a")]);
+        let paths = bounded_paths(Path::new("seed"), &index, &changed, 2);
+        assert!(!paths.contains_key(Path::new("seed")));
+        assert!(!paths.contains_key(Path::new("a")));
+        assert!(!paths.contains_key(Path::new("d")));
+        assert_eq!(
+            paths[Path::new("c")],
+            ["seed", "a", "c"].map(PathBuf::from).to_vec()
+        );
+        assert_eq!(
+            paths[Path::new("b")],
+            ["seed", "b"].map(PathBuf::from).to_vec()
+        );
+        assert!(bounded_paths(Path::new("seed"), &index, &changed, 0).is_empty());
     }
 }
