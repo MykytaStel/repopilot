@@ -27,10 +27,7 @@ fn named_alias_and_default_imports_link_observed_exports() {
             "src/api.ts",
             "export function run() {} \nexport default function load() {}",
         ),
-        (
-            "src/app.ts",
-            "import load, { run as execute } from './api.ts';",
-        ),
+        ("src/app.ts", "import load, { run as execute } from './api.ts';"),
     ]);
 
     for (local, exported) in [("load", "default"), ("execute", "run")] {
@@ -53,10 +50,7 @@ fn type_imports_do_not_turn_value_facts_into_type_proof() {
             "api.ts",
             "export interface Config {} \nexport class Client {}",
         ),
-        (
-            "app.ts",
-            "import type { Config, Client } from './api.ts';",
-        ),
+        ("app.ts", "import type { Config, Client } from './api.ts';"),
     ]);
     assert!(matches!(
         reference(&index, "Config").resolution,
@@ -187,4 +181,74 @@ fn duplicate_or_escaping_module_paths_are_rejected() {
         ),
         Err(IndexError::DuplicatePath(_))
     ));
+}
+
+#[test]
+fn repeated_type_export_occurrences_are_ambiguous() {
+    let index = build(&[
+        (
+            "api.ts",
+            "export interface Config { a: string; }\nexport interface Config { b: string; }",
+        ),
+        ("app.ts", "import type { Config } from './api.ts';"),
+    ]);
+    let Resolution::AmbiguousExports { candidates } = &reference(&index, "Config").resolution
+    else {
+        panic!("expected ambiguous observed exports");
+    };
+    assert_eq!(candidates.len(), 2);
+}
+
+#[test]
+fn scan_artifacts_and_source_collection_have_exact_parity() {
+    use crate::analysis::{FileContextFacts, ParsedArtifact};
+    use crate::scan::facts::FileFacts;
+
+    let root = tempfile::tempdir().unwrap();
+    let sources = [
+        ("api.ts", "export function run() {}"),
+        ("app.ts", "import { run } from './api.ts';"),
+    ];
+    let mut facts = ScanFacts {
+        root_path: root.path().to_path_buf(),
+        ..Default::default()
+    };
+    for (path, content) in sources {
+        let path = root.path().join(path);
+        let parsed = ParsedFile::new(content, Some("TypeScript"));
+        let symbols = extract_symbol_facts(content, Some("TypeScript"), parsed.tree().unwrap());
+        let artifact = ParsedArtifact::from_parsed_cache_v2(
+            path.clone(),
+            Some("TypeScript".to_string()),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            FileContextFacts::default(),
+            parsed.syntax_summary(),
+        )
+        .with_javascript_symbols(symbols);
+        facts.files.push(FileFacts {
+            path,
+            language: Some("TypeScript".to_string()),
+            ..Default::default()
+        });
+        facts.insert_artifact(artifact);
+    }
+    let from_cache = SymbolIndex::from_scan_facts(&facts).unwrap();
+    assert_eq!(from_cache, build(&sources));
+
+    // Missing facts must not trigger an implicit source read or a missing
+    // export assertion, even when another file imports this module.
+    facts.artifacts.remove(&root.path().join("api.ts"));
+    let incomplete = SymbolIndex::from_scan_facts(&facts).unwrap();
+    assert_eq!(
+        incomplete.modules[Path::new("api.ts")].coverage,
+        ModuleCoverage::FactsUnavailable
+    );
+    assert_eq!(
+        reference(&incomplete, "run").resolution,
+        Resolution::Unresolved {
+            reason: UnresolvedReason::ModuleFactsUnavailable,
+        }
+    );
 }
