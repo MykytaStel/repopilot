@@ -25,8 +25,8 @@ def compare_validated(baseline: dict, candidate: dict) -> dict:
     rows = []
     for case_id in sorted(old):
         a, b = old[case_id], new[case_id]
-        for field in ("fixture", "variant", "fixture_source_sha256", "oracle"):
-            if a[field] != b[field]:
+        for field in ("fixture", "variant", "fixture_source_sha256", "oracle", "signal_oracle"):
+            if a.get(field) != b.get(field):
                 raise BenchmarkManifestError(f"case {case_id}: mismatched {field}")
         comparable = a["deterministic"] and b["deterministic"]
         transitions = {}
@@ -42,6 +42,7 @@ def compare_validated(baseline: dict, candidate: dict) -> dict:
             "baseline_deterministic": a["deterministic"],
             "candidate_deterministic": b["deterministic"],
             "dimensions": transitions,
+            "signal_observations_equal": _signals_equal(a, b),
             "resources": {phase: _compare_phase(a["runs"], b["runs"], phase) for phase in ("cold", "warm")},
         })
     return {
@@ -93,3 +94,14 @@ def _compare_phase(left: list, right: list, phase: str) -> dict:
         "candidate_peak_rss_kb": rss(b),
         "samples_per_binary": len(a),
     }
+
+
+def _signals_equal(left: dict, right: dict) -> bool | None:
+    def stable_signals(case: dict) -> list[str] | None:
+        observations = [run.get("signal_kinds") for run in case["runs"]]
+        if observations[0] is None or any(value != observations[0] for value in observations):
+            return None
+        return observations[0]
+
+    before, after = stable_signals(left), stable_signals(right)
+    return before == after if before is not None and after is not None else None
