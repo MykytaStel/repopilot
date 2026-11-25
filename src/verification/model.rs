@@ -84,6 +84,23 @@ pub struct VerificationOutcome {
     pub diagnostics: Option<VerificationDiagnostics>,
 }
 
+impl VerificationOutcome {
+    /// Compatibility requires matching observations, not only the recorded flag.
+    pub fn matches_revision(&self, expected: Option<&str>) -> bool {
+        self.revision_compatible
+            && !self.revision_before.is_empty()
+            && self.revision_before == self.revision_after
+            && expected.is_none_or(|revision| self.revision_before == revision)
+    }
+
+    /// A successful process exit is required before evidence can count as passed.
+    pub fn is_valid_pass(&self, expected: Option<&str>) -> bool {
+        self.status == VerificationStatus::Passed
+            && self.exit_code == Some(0)
+            && self.matches_revision(expected)
+    }
+}
+
 fn is_false(value: &bool) -> bool {
     !*value
 }
