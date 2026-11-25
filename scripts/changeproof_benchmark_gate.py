@@ -31,6 +31,13 @@ def evaluate_gate(baseline: dict, candidate: dict) -> dict:
                 and signals["nondeterministic_cases"] == 0,
                 f"{label}-signal-evidence-incomplete", signals["measured_cases"])
 
+    require(new["positive_expected"] > 0 and new["safe_cases"] > 0,
+            "signal-denominator-missing", new)
+    require(new["positive_expected"] > 0
+            and new["positive_detected"] * 100 >= new["positive_expected"] * 85,
+            "controlled-positive-recall-below-85pct",
+            {"detected": new["positive_detected"], "expected": new["positive_expected"]})
+
     def pairs(signals: dict, field: str) -> set[tuple[str, str]]:
         return {(item["id"], signal) for item in signals[field] for signal in item["signals"]}
 
