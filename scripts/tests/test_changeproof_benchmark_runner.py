@@ -12,7 +12,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from changeproof_benchmark_proof import BenchmarkProofError
-from changeproof_benchmark_runner import collect_benchmark  # noqa: E402
+from changeproof_benchmark_runner import collect_benchmark, collect_paired  # noqa: E402
 
 
 def write_fixture(root: Path) -> None:
@@ -102,6 +102,40 @@ class ChangeProofBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(artifact["scanner"]["binary_sha256"], __import__("hashlib").sha256(self.binary.read_bytes()).hexdigest())
         self.assertTrue(artifact["cases"][0]["deterministic"])
         self.assertEqual(artifact["manifest_sha256"], __import__("hashlib").sha256(self.manifest.read_bytes()).hexdigest())
+
+    def test_paired_collection_alternates_case_order_and_preserves_artifact_shape(self) -> None:
+        second_case = self.manifest.read_text().split("[[case]]", 1)[1]
+        with self.manifest.open("a") as handle:
+            handle.write("\n[[case]]" + second_case.replace('id = "sample"', 'id = "second"'))
+        candidate_binary = self.root / "candidate"
+        candidate_binary.write_bytes(b"scanner-build-b")
+        candidate = SimpleNamespace(**vars(self.scanner))
+        candidate.binary = candidate_binary
+        candidate.command = ("candidate",)
+        order = []
+        repositories = {}
+
+        def review(scanner, repo, profile, phase, timeout, case, *, timings):
+            order.append((case.case_id, scanner.command[0], phase))
+            repositories.setdefault((case.case_id, scanner.command[0]), set()).add(repo)
+            timings.append({"phase": phase, "wall_ms": 1.5})
+            return run("a" * 64)
+
+        with patch("changeproof_benchmark_runner.prepare_scanner", side_effect=[self.scanner, candidate]), patch(
+            "changeproof_benchmark_runner.run_review", side_effect=review
+        ):
+            baseline, other, diagnostics = collect_paired(
+                self.root, self.root, self.manifest, self.fixture_root, "baseline", "candidate", 30
+            )
+
+        self.assertEqual([item[1] for item in order[::3]], ["repopilot", "candidate", "candidate", "repopilot"])
+        self.assertEqual([row["order"] for row in diagnostics["cases"]],
+                         [["baseline", "candidate"], ["candidate", "baseline"]])
+        self.assertEqual(len(set.union(*repositories.values())), 4)
+        self.assertTrue(all(len(paths) == 1 for paths in repositories.values()))
+        self.assertEqual([case["id"] for case in baseline["cases"]], [case["id"] for case in other["cases"]])
+        self.assertNotIn("scan_timings", baseline["cases"][0]["runs"][0])
+        self.assertEqual(len(diagnostics["cases"][0]["baseline"]), 3)
 
     def test_collect_reports_hash_disagreement_as_nondeterministic(self) -> None:
         with patch("changeproof_benchmark_runner.prepare_scanner", return_value=self.scanner), patch(
