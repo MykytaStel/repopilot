@@ -91,6 +91,7 @@ pub(crate) fn write_repository_context_state(
     let (input_fingerprint, relationship_fingerprint) = state_fingerprints(state);
     let repository_fingerprint = repository_fingerprint(root);
     let dirty_inputs = dirty_inputs(root);
+    let resolver_fingerprint = resolver_input_fingerprint(root);
 
     if let Some(cached) = read_cached_repository_context_state(&cache_path)
         && valid_cached_state_metadata_for_repository(
@@ -98,7 +99,7 @@ pub(crate) fn write_repository_context_state(
             config_fingerprint,
             &repository_fingerprint,
         )
-        && cached.resolver_input_fingerprint == Some(resolver_input_fingerprint(root))
+        && cached.resolver_input_fingerprint.as_ref() == Some(&resolver_fingerprint)
         && cached.dirty_inputs == dirty_inputs
         && cached.input_fingerprint == input_fingerprint
         && cached.relationship_fingerprint == relationship_fingerprint
@@ -115,7 +116,7 @@ pub(crate) fn write_repository_context_state(
         repopilot_version: env!("CARGO_PKG_VERSION").to_string(),
         config_fingerprint: config_fingerprint.to_string(),
         resolver_version: CONTEXT_GRAPH_RESOLVER_VERSION.to_string(),
-        resolver_input_fingerprint: Some(resolver_input_fingerprint(root)),
+        resolver_input_fingerprint: Some(resolver_fingerprint),
         repository_fingerprint,
         dirty_inputs,
         input_fingerprint,
@@ -222,8 +223,9 @@ fn read_cached_repository_context_state(path: &Path) -> Option<CachedRepositoryC
 }
 
 fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
-    let head_oid = git_output(root, &["rev-parse", "HEAD"])?;
-    let head_tree_oid = git_output(root, &["rev-parse", "HEAD^{tree}"])?;
+    // Both objects belong to the same HEAD observation and one Git process.
+    let objects = git_output(root, &["rev-parse", "HEAD", "HEAD^{tree}"])?;
+    let (head_oid, head_tree_oid) = parse_repository_objects(&objects)?;
     let branch = git_output(root, &["branch", "--show-current"]).filter(|value| !value.is_empty());
 
     Some(RepositoryFingerprint {
@@ -231,6 +233,21 @@ fn repository_fingerprint(root: &Path) -> Option<RepositoryFingerprint> {
         head_tree_oid,
         branch,
     })
+}
+
+fn parse_repository_objects(output: &str) -> Option<(String, String)> {
+    let mut lines = output.lines();
+    let head = lines.next()?;
+    let tree = lines.next()?;
+    if lines.next().is_some()
+        || !matches!(head.len(), 40 | 64)
+        || tree.len() != head.len()
+        || !head.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !tree.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    Some((head.to_string(), tree.to_string()))
 }
 
 fn git_output(root: &Path, args: &[&str]) -> Option<String> {
@@ -314,4 +331,31 @@ fn sorted_strings(values: &[String]) -> Vec<String> {
     let mut values = values.to_vec();
     values.sort();
     values
+}
+
+#[cfg(test)]
+mod identity_tests {
+    use super::parse_repository_objects;
+
+    #[test]
+    fn combined_git_object_output_requires_two_valid_matching_width_ids() {
+        for width in [40, 64] {
+            let head = "a".repeat(width);
+            let tree = "b".repeat(width);
+            assert_eq!(
+                parse_repository_objects(&format!("{head}\n{tree}")),
+                Some((head, tree))
+            );
+        }
+        assert!(parse_repository_objects("HEAD\nHEAD^{tree}").is_none());
+        assert!(parse_repository_objects(&"a".repeat(40)).is_none());
+        assert!(
+            parse_repository_objects(&format!("{}\n{}\nextra", "a".repeat(40), "b".repeat(40)))
+                .is_none()
+        );
+        assert!(
+            parse_repository_objects(&format!("{}\n{}", "a".repeat(40), "b".repeat(64)))
+                .is_none()
+        );
+    }
 }
