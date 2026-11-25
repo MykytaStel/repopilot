@@ -196,11 +196,17 @@ def release_input_errors(repos: list[dict[str, Any]]) -> list[str]:
             errors.append(f"{repo['name']}: missing clone or incorrect pin")
             continue
         try:
-            dirty = run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=path).stdout
+            dirty = run(
+                ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"],
+                cwd=path,
+            ).stdout
         except (subprocess.CalledProcessError, FileNotFoundError):
             errors.append(f"{repo['name']}: cannot inspect checkout")
             continue
-        if dirty.strip():
+        # Generated untracked cache files are not source inputs. Tracked
+        # cache modifications and all other local edits still fail the gate.
+        if any(entry and not entry.startswith("?? .repopilot/cache/")
+               for entry in dirty.split("\0")):
             errors.append(f"{repo['name']}: checkout has local changes")
         if not (SNAPSHOT_DIR / f"{repo['name']}.json").is_file():
             errors.append(f"{repo['name']}: missing committed snapshot")
