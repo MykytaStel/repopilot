@@ -35,11 +35,11 @@ output excerpts, not complete input fixtures for a report reader.
 ```json
 {
   "schema_version": "0.27",
-  "repopilot_version": "0.28.0",
+  "repopilot_version": "0.29.0-rc.1",
   "report": {
     "kind": "scan",
     "schema_version": "0.27",
-    "repopilot_version": "0.28.0"
+    "repopilot_version": "0.29.0-rc.1"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -124,7 +124,7 @@ requested report/receipt and then exits with RepoPilot runtime code `3`.
 may fix bugs without changing the report schema, while future minor releases can
 evolve the schema in a documented way.
 
-Binary `0.28.0` emits schema `0.27` for scan, baseline-scan, and review; 0.23–0.27 changes to that schema are additive.
+Binary `0.29.0-rc.1` emits schema `0.27` for scan, baseline-scan, and review; 0.23–0.27 changes to that schema are additive.
 Schema numbers are monotonic contract revisions, not predictions of the next
 RepoPilot package version.
 
@@ -222,11 +222,11 @@ Example shape:
 ```json
 {
   "schema_version": "0.27",
-  "repopilot_version": "0.28.0",
+  "repopilot_version": "0.29.0-rc.1",
   "report": {
     "kind": "baseline-scan",
     "schema_version": "0.27",
-    "repopilot_version": "0.28.0"
+    "repopilot_version": "0.29.0-rc.1"
   },
   "root_path": ".",
   "files_analyzed": 42,
@@ -270,11 +270,11 @@ Envelope excerpt (the remaining review fields are omitted here):
 ```json
 {
   "schema_version": "0.27",
-  "repopilot_version": "0.28.0",
+  "repopilot_version": "0.29.0-rc.1",
   "report": {
     "kind": "review",
     "schema_version": "0.27",
-    "repopilot_version": "0.28.0"
+    "repopilot_version": "0.29.0-rc.1"
   }
 }
 ```
@@ -444,7 +444,7 @@ Receipt JSON is intentionally smaller than a scan report and has its own schema:
   "report": {
     "kind": "receipt",
     "schema_version": "6",
-    "repopilot_version": "0.28.0"
+    "repopilot_version": "0.29.0-rc.1"
   },
   "tool": "repopilot",
   "version": "0.27.0",

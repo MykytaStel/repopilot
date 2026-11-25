@@ -5,7 +5,7 @@
 [![CI](https://github.com/MykytaStel/repopilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/MykytaStel/repopilot/actions)
 [![License](https://img.shields.io/crates/l/repopilot.svg)](#license)
 
-**Local, deterministic review for Git changes.**
+**Local-first, deterministic change intelligence and verification.**
 
 RepoPilot helps developers and teams inspect a change before merge. It reports
 structural evidence about security boundaries, behavior, local imports and
@@ -16,6 +16,35 @@ The analysis runs on the machine or CI runner that invokes it. It does not send
 source to a hosted service or call an embedded language model. Findings point to
 code and explain what to check; reviewers still decide whether a change is safe
 for their application.
+
+## 0.29 release candidate — Evidence & Reliability
+
+The upcoming 0.29 release focuses on trustworthy review evidence rather than
+a larger rule count: safer incremental caches, revision-bound verification,
+bounded MCP analysis retention, and reproducible regression measurements.
+
+- Reuse graph and parsed facts while checking current Git and resolver inputs.
+- Reject stale, duplicate, or contradictory verification evidence instead of
+  treating it as a successful proof.
+- Page retained MCP analysis by handle, with revision and staleness metadata.
+- Compare matched cold/warm ChangeProof runs and inspect per-stage timings.
+
+The pre-RC candidate passed a 30-case controlled benchmark (15 expected
+signal kinds detected, zero alerts in 15 safe controls), including the
+runtime/RSS budget, and the pinned 11-repository regression zoo. These are
+development and regression results, not independent production precision or
+recall estimates. See the [evidence ledger](docs/engineering/v0.29-evidence-ledger.md)
+and [0.29 RC notes](docs/releases/v0.29.0-rc.1.md).
+
+The RC is prepared for testing; the stable installation commands below remain
+unchanged. Once the prerelease is published, opt in explicitly:
+
+```bash
+cargo install repopilot --version 0.29.0-rc.1 --force
+# or
+npm install -g repopilot@0.29.0-rc.1
+repopilot --version
+```
 
 ## Example: a change that weakens its own tests
 
@@ -107,8 +136,10 @@ Gate a branch review on high-confidence signals:
 repopilot review . --base origin/main --fail-on-review definitely
 ```
 
-A review is `VERIFIED` only when checks configured for the repository are
-explicitly selected with `--verify` and pass on the reviewed revision. Generate
+A review can be `VERIFIED` only when the applicable proof requirements are
+satisfied, including required checks explicitly selected with `--verify` and
+successful on the reviewed revision. A passing check alone is not proof of
+application safety. Generate
 suggestions for a first setup with
 `repopilot init --suggestions-output repopilot-suggestions.toml`; the file is
 separate from active configuration. See [configuration](docs/configuration.md).
@@ -133,8 +164,10 @@ after the snapshot. It shows what changed, not who changed it.
 See [common workflows](docs/commands.md#review-work-since-a-marker).
 
 In Claude Code, the RepoPilot plugin runs that loop for every session and
-stops Claude from finishing while a test it skipped, focused, removed, or
-weakened is unexplained:
+can interrupt completion when it detects a newly weakened test or another
+supported guardrail signal. Hook feedback is advisory to the broader agent
+workflow; it is not an execution sandbox or an unconditional enforcement
+mechanism:
 
 ```text
 /plugin marketplace add MykytaStel/repopilot
@@ -171,7 +204,8 @@ name: `mcp-name: io.github.MykytaStel/repopilot`.
 - [Language support](docs/language-support.md) ·
   [Rules reference](docs/rules-reference.md) · [Roadmap](docs/roadmap.md)
 - [Latest stable release notes](docs/releases/v0.28.0.md) ·
-  [Release evidence](docs/engineering/v0.28-evidence-ledger.md) ·
+  [0.29 RC notes](docs/releases/v0.29.0-rc.1.md) ·
+  [Release evidence](docs/engineering/v0.29-evidence-ledger.md) ·
   [Maintainer documentation](docs/engineering/README.md)
 
 Contributing and development setup: [CONTRIBUTING.md](CONTRIBUTING.md).
