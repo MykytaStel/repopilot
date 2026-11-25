@@ -11,6 +11,13 @@ if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
 fi
 baseline=$(git rev-parse --verify "${1:-5b5f0dc676163babb8765ce01270e5bc8cc6bd39}^{commit}")
 candidate=$(git rev-parse --verify HEAD)
+
+# Counterbalance the collection order on a second run to expose host drift.
+case "${REPOPILOT_BENCHMARK_ORDER:-baseline-first}" in
+    baseline-first) collection_order=(baseline candidate) ;;
+    candidate-first) collection_order=(candidate baseline) ;;
+    *) echo "Invalid REPOPILOT_BENCHMARK_ORDER" >&2; exit 2 ;;
+esac
 if [[ "$baseline" == "$candidate" ]]; then
     echo "Baseline and candidate must be different commits." >&2
     exit 2
@@ -33,7 +40,7 @@ git worktree add --detach "$work/candidate" "$candidate"
 {
     printf 'baseline_commit=%s\ncandidate_commit=%s\n' "$baseline" "$candidate"
     printf 'build=cargo build --release --locked --bin repopilot\n'
-    printf 'collection_order=baseline,candidate\n'
+    printf 'collection_order=%s,%s\n' "${collection_order[@]}"
     uname -smr
     rustc -Vv
     cargo -V
@@ -51,7 +58,7 @@ done
 # Both collections use exactly the same manifest, fixture tree, collector and
 # timeout, even if the baseline predates the expanded corpus.
 cd "$work/candidate"
-for side in baseline candidate; do
+for side in "${collection_order[@]}"; do
     python3 scripts/changeproof_benchmark.py collect \
         --repo-root "$work/$side" \
         --scanner "$work/target-$side/release/repopilot" \
